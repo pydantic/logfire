@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import ast
 import sys
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from importlib.abc import Loader, MetaPathFinder
 from importlib.machinery import ModuleSpec
 from importlib.util import spec_from_loader
 from types import ModuleType
-from typing import TYPE_CHECKING, Any, Callable, Iterator, Sequence, cast
+from typing import TYPE_CHECKING, Any, Callable, cast
 
 from ..utils import log_internal_error
 from .rewrite_ast import compile_source
@@ -123,6 +124,13 @@ class LogfireLoader(Loader):
     # It returns None to indicate that the usual module creation process should be used.
     def create_module(self, spec: ModuleSpec):
         return None
+
+    def get_code(self, _name: str):
+        # `python -m` uses the `runpy` module which calls this method instead of going through the normal protocol.
+        # So return some code which can be executed with the module namespace.
+        # Here `__loader__` will be this object, i.e. `self`.
+        source = '__loader__.execute(globals())'
+        return compile(source, '<string>', 'exec', dont_inherit=True)
 
     def __getattr__(self, item: str):
         """Forward some methods to the plain spec's loader (likely a `SourceFileLoader`) if they exist."""

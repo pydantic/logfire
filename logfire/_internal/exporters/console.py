@@ -8,14 +8,16 @@ from __future__ import annotations
 import json
 import os
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from textwrap import indent as indent_text
-from typing import Any, List, Literal, Mapping, TextIO, Tuple, cast
+from typing import Any, Literal, TextIO, cast
 
+from opentelemetry.sdk._logs import LogData, LogRecord
+from opentelemetry.sdk._logs.export import LogExporter, LogExportResult
 from opentelemetry.sdk.trace import Event, ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
-from opentelemetry.util import types as otel_types
 from rich.columns import Columns
 from rich.console import Console, Group
 from rich.syntax import Syntax
@@ -35,6 +37,7 @@ from ..constants import (
     LevelName,
 )
 from ..json_formatter import json_args_value_formatter
+from ..utils import truncate_string
 
 ConsoleColorsValues = Literal['auto', 'always', 'never']
 _INFO_LEVEL = LEVEL_NUMBERS['info']
@@ -43,7 +46,60 @@ _ERROR_LEVEL = LEVEL_NUMBERS['error']
 
 # A list of (text, style) pairs that can be passed to rich's `Text.assemble`.
 # When logging without colors, just the text is used in a plain `print`.
-TextParts = List[Tuple[str, str]]
+TextParts = list[tuple[str, str]]
+
+
+@dataclass
+class Record:
+    attributes: Mapping[str, object]
+    timestamp: int
+    message: str
+    events: Sequence[Event]
+    span_id: int | None
+    parent_span_id: int | None
+    kind: str
+    level: int
+
+    @classmethod
+    def from_span(cls, span: ReadableSpan) -> Record:
+        attributes = span.attributes or {}
+        return cls(
+            attributes=attributes,
+            timestamp=span.start_time or 0,
+            message=attributes.get(ATTRIBUTES_MESSAGE_KEY) or span.name,  # type: ignore
+            events=span.events,
+            span_id=span.context and span.context.span_id,
+            parent_span_id=span.parent and span.parent.span_id,
+            kind=attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span'),  # type: ignore
+            level=attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY, _INFO_LEVEL),  # type: ignore
+        )
+
+    @classmethod
+    def from_log(cls, log: LogRecord) -> Record:
+        attributes = log.attributes or {}
+        message: str = attributes.get(ATTRIBUTES_MESSAGE_KEY)  # type: ignore
+        if not message:
+            # TODO: this message could be better, for now we just want to have *something*
+            # TODO: this message should be constructed in a wrapper processor so that it's also used in the UI
+            parts: list[str] = []
+            if event_name := attributes.get('event.name'):
+                parts.append(str(event_name))
+            if body := log.body:
+                parts.append(truncate_string(str(body), max_length=100))
+            else:
+                other_attributes = {k: v for k, v in attributes.items() if k != 'event.name'}
+                parts.append(truncate_string(str(other_attributes), max_length=100))
+            message = ': '.join(parts)
+        return cls(
+            attributes=attributes,
+            timestamp=log.timestamp or log.observed_timestamp or 0,
+            message=message,
+            events=[],
+            span_id=None,
+            parent_span_id=log.span_id,
+            kind='log',
+            level=log.severity_number.value if log.severity_number else _INFO_LEVEL,
+        )
 
 
 class SimpleConsoleSpanExporter(SpanExporter):
@@ -58,6 +114,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
         output: TextIO | None = None,
         colors: ConsoleColorsValues = 'auto',
         include_timestamp: bool = True,
+        include_tags: bool = True,
         verbose: bool = False,
         min_log_level: LevelName = 'info',
     ) -> None:
@@ -79,6 +136,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
             self._console = None
 
         self._include_timestamp = include_timestamp
+        self._include_tags = include_tags
         # timestamp len('12:34:56.789') 12 + space (1)
         self._timestamp_indent = 13 if include_timestamp else 0
         self._verbose = verbose
@@ -87,30 +145,26 @@ class SimpleConsoleSpanExporter(SpanExporter):
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         """Export the spans to the console."""
         for span in spans:
-            if span.attributes:  # pragma: no branch
-                log_level: int = span.attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY, _INFO_LEVEL)  # type: ignore
-                if log_level < self._min_log_level_num:
-                    continue
-            self._log_span(span)
+            self.export_record(Record.from_span(span))
 
         return SpanExportResult.SUCCESS
 
-    def _log_span(self, span: ReadableSpan) -> None:
+    def export_record(self, span: Record) -> None:
         """Print a summary of the span, this method can be overridden to customize how spans are displayed.
 
         In this simple case we just print the span if its type is not "span" - e.g. the message at the end of a span.
         """
-        if span.attributes:  # pragma: no branch
-            span_type = span.attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span')
-            # only print for "pending_span" (received at the start of a span) and "log" (spans with no duration)
-            if span_type == 'span' or span.attributes.get(DISABLE_CONSOLE_KEY):
-                return
-
         self._print_span(span)
 
-    def _print_span(self, span: ReadableSpan, indent: int = 0):
+    def _print_span(self, span: Record, indent: int = 0):
         """Build up a summary of the span, including formatting for rich, then print it."""
         _msg, parts = self._span_text_parts(span, indent)
+
+        # only print for "pending_span" (received at the start of a span) and "log" (spans with no duration)
+        if span.kind == 'span' or span.attributes.get(DISABLE_CONSOLE_KEY):
+            return
+        if span.level < self._min_log_level_num:
+            return
 
         indent_str = (self._timestamp_indent + indent * 2) * ' '
         details_parts = self._details_parts(span, indent_str)
@@ -129,19 +183,19 @@ class SimpleConsoleSpanExporter(SpanExporter):
         exc_event = next((event for event in span.events or [] if event.name == 'exception'), None)
         self._print_exc_info(exc_event, indent_str)
 
-    def _span_text_parts(self, span: ReadableSpan, indent: int) -> tuple[str, TextParts]:
+    def _span_text_parts(self, span: Record, indent: int) -> tuple[str, TextParts]:
         """Return the formatted message or span name and parts containing basic span information.
 
         The following information is included:
         * timestamp
         * message (maybe indented)
-        * tags
+        * tags (if `self._include_tags` is True)
 
         The log level may be indicated by the color of the message.
         """
         parts: TextParts = []
         if self._include_timestamp:
-            ts = datetime.fromtimestamp((span.start_time or 0) / ONE_SECOND_IN_NANOSECONDS, tz=timezone.utc)
+            ts = datetime.fromtimestamp(span.timestamp / ONE_SECOND_IN_NANOSECONDS, tz=timezone.utc)
             # ugly though it is, `[:-3]` is the simplest way to convert microseconds -> milliseconds
             ts_str = f'{ts:%H:%M:%S.%f}'[:-3]
             parts += [(ts_str, 'green'), (' ', '')]
@@ -149,14 +203,8 @@ class SimpleConsoleSpanExporter(SpanExporter):
         if indent:
             parts += [(indent * '  ', '')]
 
-        if span.attributes:  # pragma: no branch
-            formatted_message: str | None = span.attributes.get(ATTRIBUTES_MESSAGE_KEY)  # type: ignore
-            msg = formatted_message or span.name
-            level: int = span.attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY) or 0  # type: ignore
-        else:  # pragma: no cover
-            msg = span.name
-            level = 0
-
+        msg = span.message
+        level = span.level
         if level >= _ERROR_LEVEL:
             # add the message in red if it's an error or worse
             parts += [(msg, 'red')]
@@ -166,13 +214,14 @@ class SimpleConsoleSpanExporter(SpanExporter):
         else:
             parts += [(msg, '')]
 
-        if tags := span.attributes and span.attributes.get(ATTRIBUTES_TAGS_KEY):
-            tags_str = ','.join(cast('list[str]', tags))
-            parts += [(' ', ''), (f'[{tags_str}]', 'cyan')]
+        if self._include_tags:
+            if tags := span.attributes.get(ATTRIBUTES_TAGS_KEY):
+                tags_str = ','.join(cast('list[str]', tags))
+                parts += [(' ', ''), (f'[{tags_str}]', 'cyan')]
 
         return msg, parts
 
-    def _details_parts(self, span: ReadableSpan, indent_str: str) -> TextParts:
+    def _details_parts(self, span: Record, indent_str: str) -> TextParts:
         """Return parts containing details for the span if `self._verbose` is True.
 
         The following details are returned:
@@ -182,27 +231,27 @@ class SimpleConsoleSpanExporter(SpanExporter):
         if not self._verbose or not span.attributes:
             return []
 
-        file_location: str = span.attributes.get('code.filepath')  # type: ignore
+        file_location_raw = span.attributes.get('code.filepath')
+        file_location = None if file_location_raw in (None, 'null') else str(file_location_raw)
         if file_location:
             lineno = span.attributes.get('code.lineno')
-            if lineno:  # pragma: no branch
+            if lineno not in (None, 'null'):
                 file_location += f':{lineno}'
 
         log_level_num: int = span.attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY)  # type: ignore
-        log_level = NUMBER_TO_LEVEL.get(log_level_num, '')
+        log_level = NUMBER_TO_LEVEL.get(log_level_num)
 
         if file_location or log_level:
-            return [
-                (indent_str, ''),
-                ('│', 'blue'),
-                (' ', ''),
-                (file_location, 'cyan'),
-                (f' {log_level}', ''),
-            ]
+            parts: TextParts = [(indent_str, ''), ('│', 'blue')]
+            if file_location:
+                parts.append((f' {file_location}', 'cyan'))
+            if log_level:
+                parts.append((f' {log_level}', ''))
+            return parts
         else:
             return []
 
-    def _print_arguments(self, span: ReadableSpan, indent_str: str):
+    def _print_arguments(self, span: Record, indent_str: str):
         """Pretty-print formatted logfire arguments for the span if `self._verbose` is True."""
         if not self._verbose or not span.attributes:
             return
@@ -211,8 +260,11 @@ class SimpleConsoleSpanExporter(SpanExporter):
         json_schema = cast('dict[str, Any]', json.loads(span.attributes.get(ATTRIBUTES_JSON_SCHEMA_KEY, '{}')))  # type: ignore
         for key, schema in json_schema.get('properties', {}).items():
             value = span.attributes.get(key)
-            if schema:
-                value = json.loads(cast(str, value))
+            if schema and isinstance(value, str):
+                try:
+                    value = json.loads(value)
+                except json.JSONDecodeError:
+                    schema = None
             value = json_args_value_formatter(value, schema=schema)
             arguments[key] = value
 
@@ -297,37 +349,33 @@ class IndentedConsoleSpanExporter(SimpleConsoleSpanExporter):
         output: TextIO | None = None,
         colors: ConsoleColorsValues = 'auto',
         include_timestamp: bool = True,
+        include_tags: bool = True,
         verbose: bool = False,
         min_log_level: LevelName = 'info',
     ) -> None:
-        super().__init__(output, colors, include_timestamp, verbose, min_log_level)
+        super().__init__(output, colors, include_timestamp, include_tags, verbose, min_log_level)
         # lookup from span ID to indent level
         self._indent_level: dict[int, int] = {}
 
-    def _log_span(self, span: ReadableSpan) -> None:
+    def export_record(self, span: Record) -> None:
         """Get the span indent based on `self._indent_level`, then print the span with that indent."""
-        attributes = span.attributes or {}
-        span_type = attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span')
-        if span_type == 'span':
+        if span.kind == 'span':
             # this is the end of a span, remove it from `self._indent_level` and don't print
-            if span.context:  # pragma: no branch
-                self._indent_level.pop(span.context.span_id, None)
+            if span.span_id is not None:  # pragma: no branch
+                self._indent_level.pop(span.span_id, None)
             return
 
-        if attributes.get(DISABLE_CONSOLE_KEY):  # pragma: no cover
-            return
-
-        if span_type == 'pending_span':
-            parent_id = _pending_span_parent(attributes)
+        block_span_id = span.parent_span_id
+        if span.kind == 'pending_span':
+            parent_id = _pending_span_parent(span.attributes)
             indent = self._indent_level.get(parent_id, 0) if parent_id else 0
 
             # block_span_id will be the parent_id for all subsequent spans and logs in this block
-            if block_span_id := span.parent.span_id if span.parent else None:  # pragma: no branch
+            if block_span_id is not None:  # pragma: no branch
                 self._indent_level[block_span_id] = indent + 1
         else:
             # this is a log, we just get the indent level from the parent span
-            parent_id = span.parent.span_id if span.parent else None
-            indent = self._indent_level.get(parent_id, 0) if parent_id else 0
+            indent = self._indent_level.get(block_span_id, 0) if block_span_id else 0
 
         self._print_span(span, indent)
 
@@ -345,54 +393,47 @@ class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
         output: TextIO | None = None,
         colors: ConsoleColorsValues = 'auto',
         include_timestamp: bool = True,
+        include_tags: bool = True,
         verbose: bool = False,
         min_log_level: LevelName = 'info',
     ) -> None:
-        super().__init__(output, colors, include_timestamp, verbose, min_log_level)
+        super().__init__(output, colors, include_timestamp, include_tags, verbose, min_log_level)
 
         # lookup from span_id to `(indent, span message, parent id)`
         self._span_history: dict[int, tuple[int, str, int]] = {}
         # current open span ids
         self._span_stack: list[int] = []
 
-    def _log_span(self, span: ReadableSpan) -> None:
+    def export_record(self, span: Record) -> None:
         """Print any parent spans which aren't in the current stack of displayed spans, then print this span."""
-        attributes = span.attributes or {}
-        span_type = attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span')
-        if span_type == 'span':
+        if span.kind == 'span':
             # this is the end of a span, remove it from `self._span_history` and `self._span_stack`, don't print
-            if span.context:  # pragma: no branch
-                self._span_history.pop(span.context.span_id, None)
-                if self._span_stack and self._span_stack[-1] == span.context.span_id:
+            if span.span_id is not None:  # pragma: no branch
+                self._span_history.pop(span.span_id, None)
+                if self._span_stack and self._span_stack[-1] == span.span_id:
                     self._span_stack.pop()
-            return
-
-        if attributes.get(DISABLE_CONSOLE_KEY):  # pragma: no cover
             return
 
         self._print_span(span)
 
-    def _span_text_parts(self, span: ReadableSpan, indent: int) -> tuple[str, TextParts]:
+    def _span_text_parts(self, span: Record, indent: int) -> tuple[str, TextParts]:
         """Parts for any parent spans which aren't in the current stack of displayed spans, then parts for this span."""
-        attributes = span.attributes or {}
-        span_type = attributes.get(ATTRIBUTES_SPAN_TYPE_KEY, 'span')
-
         parts: TextParts = []
-        if span_type == 'pending_span':
-            parent_id = _pending_span_parent(attributes)
+        block_span_id = span.parent_span_id
+        if span.kind == 'pending_span':
+            parent_id = _pending_span_parent(span.attributes)
             parts += self._parent_stack_text_parts(parent_id)
 
             indent = len(self._span_stack)
             msg, span_parts = super()._span_text_parts(span, indent)
             parts += span_parts
 
-            if block_span_id := span.parent and span.parent.span_id:  # pragma: no branch
+            if block_span_id is not None:  # pragma: no branch
                 self._span_history[block_span_id] = (indent, msg, parent_id or 0)
                 self._span_stack.append(block_span_id)
         else:
             # this is a log
-            parent_id = span.parent.span_id if span.parent else None
-            parts += self._parent_stack_text_parts(parent_id)
+            parts += self._parent_stack_text_parts(block_span_id)
             msg, span_parts = super()._span_text_parts(span, indent=len(self._span_stack))
             parts += span_parts
         return msg, parts
@@ -437,7 +478,7 @@ class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
         return parts
 
 
-def _pending_span_parent(attributes: Mapping[str, otel_types.AttributeValue]) -> int | None:
+def _pending_span_parent(attributes: Mapping[str, object]) -> int | None:
     """Pending span marks the start of a span.
 
     Since they're nested within another span we haven't seen yet,
@@ -448,3 +489,17 @@ def _pending_span_parent(attributes: Mapping[str, otel_types.AttributeValue]) ->
     """
     if parent_id_str := attributes.get(ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY):
         return int(parent_id_str, 16)  # type: ignore
+
+
+@dataclass
+class ConsoleLogExporter(LogExporter):
+    span_exporter: SimpleConsoleSpanExporter
+
+    def export(self, batch: Sequence[LogData]) -> LogExportResult:  # type: ignore
+        for log_data in batch:
+            self.span_exporter.export_record(Record.from_log(log_data.log_record))
+
+        return LogExportResult.SUCCESS
+
+    def shutdown(self):
+        self.span_exporter.shutdown()

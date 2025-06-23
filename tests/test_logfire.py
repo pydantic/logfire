@@ -13,13 +13,13 @@ from unittest.mock import patch
 
 import pytest
 from dirty_equals import IsInt, IsJson, IsStr
-from inline_snapshot import snapshot
+from inline_snapshot import Is, snapshot
 from opentelemetry.metrics import get_meter
 from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
-from opentelemetry.trace import StatusCode, get_tracer
+from opentelemetry.trace import INVALID_SPAN, StatusCode, get_current_span, get_tracer
 from pydantic import BaseModel, __version__ as pydantic_version
 from pydantic_core import ValidationError
 
@@ -32,19 +32,18 @@ from logfire._internal.constants import (
     ATTRIBUTES_SPAN_TYPE_KEY,
     ATTRIBUTES_TAGS_KEY,
     LEVEL_NUMBERS,
-    NULL_ARGS_KEY,
     LevelName,
 )
 from logfire._internal.formatter import FormattingFailedWarning, InspectArgumentsFailedWarning
 from logfire._internal.main import NoopSpan
 from logfire._internal.tracer import record_exception
-from logfire._internal.utils import is_instrumentation_suppressed
+from logfire._internal.utils import SeededRandomIdGenerator, is_instrumentation_suppressed
 from logfire.integrations.logging import LogfireLoggingHandler
 from logfire.testing import TestExporter
 from tests.test_metrics import get_collected_metrics
 
 
-@pytest.mark.parametrize('method', ['trace', 'info', 'debug', 'warn', 'error', 'fatal'])
+@pytest.mark.parametrize('method', ['trace', 'info', 'debug', 'warn', 'warning', 'error', 'fatal'])
 def test_log_methods_without_kwargs(method: str):
     with pytest.warns(FormattingFailedWarning) as warnings:
         getattr(logfire, method)('{foo}', bar=2)
@@ -279,7 +278,7 @@ def test_span_with_kwargs(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': 'test span (pending)',
+                'name': 'test span',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
@@ -341,7 +340,7 @@ def test_span_with_parent(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': 'test parent span (pending)',
+                'name': 'test parent span',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
@@ -359,7 +358,7 @@ def test_span_with_parent(exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': 'test child span (pending)',
+                'name': 'test child span',
                 'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 2000000000,
@@ -431,7 +430,7 @@ def test_span_with_tags(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': 'test span (pending)',
+                'name': 'test span',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
@@ -495,7 +494,7 @@ def test_span_without_span_name(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': 'test {name=} {number} (pending)',
+                'name': 'test {name=} {number}',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
@@ -537,44 +536,34 @@ def test_span_without_span_name(exporter: TestExporter) -> None:
     )
 
 
-@pytest.mark.parametrize('level', ('fatal', 'debug', 'error', 'info', 'notice', 'warn', 'trace'))
+@pytest.mark.parametrize('level', ('fatal', 'debug', 'error', 'info', 'notice', 'warn', 'warning', 'trace'))
 def test_log(exporter: TestExporter, level: LevelName):
     getattr(logfire, level)('test {name} {number} {none}', name='foo', number=2, none=None)
 
-    s = exporter.exported_spans[0]
-
-    assert s.attributes is not None
-    assert s.attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY] == 'test {name} {number} {none}'
-    assert s.attributes[ATTRIBUTES_MESSAGE_KEY] == 'test foo 2 None'
-    assert s.attributes[ATTRIBUTES_SPAN_TYPE_KEY] == 'log'
-    assert s.attributes['name'] == 'foo'
-    assert s.attributes['number'] == 2
-    assert s.attributes[NULL_ARGS_KEY] == ('none',)
-    assert ATTRIBUTES_TAGS_KEY not in s.attributes
-
-    # insert_assert(exporter.exported_spans_as_dict(_include_pending_spans=True))
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == [
-        {
-            'name': 'test {name} {number} {none}',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 1000000000,
-            'attributes': {
-                'logfire.span_type': 'log',
-                'logfire.level_num': LEVEL_NUMBERS[level],
-                'logfire.msg_template': 'test {name} {number} {none}',
-                'logfire.msg': 'test foo 2 None',
-                'code.filepath': 'test_logfire.py',
-                'code.lineno': 123,
-                'code.function': 'test_log',
-                'name': 'foo',
-                'number': 2,
-                'logfire.null_args': ('none',),
-                'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"none":{}}}',
-            },
-        }
-    ]
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+        [
+            {
+                'name': 'test {name} {number} {none}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': Is(LEVEL_NUMBERS[level]),
+                    'logfire.msg_template': 'test {name} {number} {none}',
+                    'logfire.msg': 'test foo 2 None',
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_log',
+                    'name': 'foo',
+                    'number': 2,
+                    'none': 'null',
+                    'logfire.json_schema': '{"type":"object","properties":{"name":{},"number":{},"none":{"type":"null"}}}',
+                },
+            }
+        ]
+    )
 
 
 def test_log_equals(exporter: TestExporter) -> None:
@@ -671,7 +660,7 @@ def test_log_with_multiple_tags(exporter: TestExporter):
 def test_instrument(exporter: TestExporter):
     tagged = logfire.with_tags('test_instrument')
 
-    @tagged.instrument('hello-world {a=}')
+    @tagged.instrument('hello-world {a=}', record_return=True)
     def hello_world(a: int) -> str:
         return f'hello {a}'
 
@@ -680,7 +669,7 @@ def test_instrument(exporter: TestExporter):
     assert exporter.exported_spans_as_dict(_include_pending_spans=True, _strip_function_qualname=False) == snapshot(
         [
             {
-                'name': 'hello-world {a=} (pending)',
+                'name': 'hello-world {a=}',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
@@ -711,8 +700,9 @@ def test_instrument(exporter: TestExporter):
                     'a': 123,
                     'logfire.tags': ('test_instrument',),
                     'logfire.msg_template': 'hello-world {a=}',
-                    'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{},"return":{}}}',
                     'logfire.span_type': 'span',
+                    'return': 'hello 123',
                     'logfire.msg': 'hello-world a=123',
                 },
             },
@@ -1052,7 +1042,7 @@ async def test_instrument_asynccontextmanager_prevent_warning(exporter: TestExpo
 
 @pytest.mark.anyio
 async def test_instrument_async(exporter: TestExporter):
-    @logfire.instrument()
+    @logfire.instrument
     async def foo():
         return 456
 
@@ -1074,6 +1064,38 @@ async def test_instrument_async(exporter: TestExporter):
                     'code.filepath': 'test_logfire.py',
                     'logfire.msg': 'Calling tests.test_logfire.test_instrument_async.<locals>.foo',
                     'logfire.span_type': 'span',
+                },
+            }
+        ]
+    )
+
+
+@pytest.mark.anyio
+async def test_instrument_async_record_return(exporter: TestExporter):
+    @logfire.instrument(record_return=True)
+    async def foo():
+        return 456
+
+    assert foo.__name__ == 'foo'
+    assert await foo() == 456
+
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_async_record_return.<locals>.foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_async_record_return.<locals>.foo',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_async_record_return.<locals>.foo',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_async_record_return.<locals>.foo',
+                    'logfire.span_type': 'span',
+                    'return': 456,
+                    'logfire.json_schema': '{"type":"object","properties":{"return":{}}}',
                 },
             }
         ]
@@ -1359,7 +1381,7 @@ def test_logfire_with_its_own_config(exporter: TestExporter, config_kwargs: dict
     assert exporter1.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': 'root (pending)',
+                'name': 'root',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 5000000000,
@@ -1375,7 +1397,7 @@ def test_logfire_with_its_own_config(exporter: TestExporter, config_kwargs: dict
                 },
             },
             {
-                'name': 'child (pending)',
+                'name': 'child',
                 'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 6000000000,
@@ -1478,7 +1500,7 @@ def test_span_in_executor(
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': 'main (pending)',
+                'name': 'main',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
@@ -1494,7 +1516,7 @@ def test_span_in_executor(
                 },
             },
             {
-                'name': 'child (pending)',
+                'name': 'child',
                 'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 2000000000,
@@ -1551,7 +1573,7 @@ def test_span_in_executor_args(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': 'child {within} (pending)',
+                'name': 'child {within}',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
@@ -1612,8 +1634,9 @@ def test_complex_attribute_added_after_span_started(exporter: TestExporter) -> N
                     'logfire.msg': 'hi',
                     'logfire.span_type': 'span',
                     'c': '{"d":2}',
-                    'logfire.null_args': ('e', 'f'),
-                    'logfire.json_schema': '{"type":"object","properties":{"a":{"type":"object"},"c":{"type":"object"},"e":{},"f":{}}}',
+                    'e': 'null',
+                    'f': 'null',
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{"type":"object"},"c":{"type":"object"},"e":{"type":"null"},"f":{"type":"null"}}}',
                 },
             }
         ]
@@ -1635,7 +1658,7 @@ def test_format_attribute_added_after_pending_span_sent(exporter: TestExporter) 
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': '{present} {missing} (pending)',
+                'name': '{present} {missing}',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
@@ -1737,7 +1760,7 @@ def test_kwarg_with_dot_in_name(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': '{http.status} - {code.lineno} (pending)',
+                'name': '{http.status} - {code.lineno}',
                 'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
                 'start_time': 2000000000,
@@ -1775,7 +1798,7 @@ def test_kwarg_with_dot_in_name(exporter: TestExporter) -> None:
     )
 
 
-@pytest.mark.parametrize('method', ('trace', 'debug', 'info', 'notice', 'warn', 'error', 'fatal', 'span'))
+@pytest.mark.parametrize('method', ('trace', 'debug', 'info', 'notice', 'warn', 'warning', 'error', 'fatal', 'span'))
 def test_forbid_methods_with_leading_underscore_on_attributes(method: str) -> None:
     with pytest.raises(ValueError, match='Attribute keys cannot start with an underscore.'):
         getattr(logfire, method)('test {_foo=}', _foo='bar')
@@ -1819,7 +1842,7 @@ def test_large_int(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': 'test {value=} (pending)',
+                'name': 'test {value=}',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
@@ -1864,7 +1887,7 @@ def test_large_int(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': 'test {value=} (pending)',
+                'name': 'test {value=}',
                 'context': {'trace_id': 2, 'span_id': 4, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
                 'start_time': 3000000000,
@@ -1908,7 +1931,7 @@ def test_large_int(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': 'test {value=} (pending)',
+                'name': 'test {value=}',
                 'context': {'trace_id': 3, 'span_id': 6, 'is_remote': False},
                 'parent': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
                 'start_time': 5000000000,
@@ -2150,7 +2173,7 @@ def test_span_level(exporter: TestExporter):
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': 'foo (pending)',
+                'name': 'foo',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
@@ -2196,7 +2219,7 @@ def test_span_set_level_before_start(exporter: TestExporter):
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': 'foo (pending)',
+                'name': 'foo',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
@@ -2273,7 +2296,7 @@ def test_span_links(exporter: TestExporter):
     assert exporter.exported_spans_as_dict(_include_pending_spans=True)[-2:] == snapshot(
         [
             {
-                'name': 'foo (pending)',
+                'name': 'foo',
                 'context': {'trace_id': 3, 'span_id': 6, 'is_remote': False},
                 'parent': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
                 'start_time': 5000000000,
@@ -2374,7 +2397,6 @@ def test_span_add_link_before_start(exporter: TestExporter):
 GLOBAL_VAR = 1
 
 
-@pytest.mark.skipif(sys.version_info < (3, 9), reason='f-string magic is disabled in Python 3.8')
 def test_inspect_arguments(exporter: TestExporter):
     local_var = 2
     x = 1.2345
@@ -2755,9 +2777,6 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
     assert exporter.exported_spans_as_dict() == expected_spans
 
 
-@pytest.mark.skipif(
-    sys.version_info[:2] == (3, 8), reason='Warning is only raised in Python 3.9+ because f-string magic is enabled'
-)
 def test_find_arg_failure(exporter: TestExporter):
     info = partial(logfire.info, 'info')
     log = partial(logfire.log, 'error', 'log')
@@ -2904,7 +2923,6 @@ Couldn't identify the `msg_template` argument in the call.\
     )
 
 
-@pytest.mark.skipif(sys.version_info[:2] == (3, 8), reason='fstring magic is only for 3.9+')
 def test_wrong_fstring_source_segment(exporter: TestExporter):
     name = 'me'
     # This is a case where `ast.get_source_segment` returns an incorrect string for `{name}`
@@ -3099,7 +3117,7 @@ def test_suppress_scopes(exporter: TestExporter, metrics_reader: InMemoryMetricR
                 },
             },
             {
-                'name': 'root (pending)',
+                'name': 'root',
                 'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
                 'start_time': 3000000000,
@@ -3175,7 +3193,7 @@ def test_suppress_scopes(exporter: TestExporter, metrics_reader: InMemoryMetricR
     )
 
 
-def test_logfire_span_records_exceptions_once():
+def test_logfire_span_records_exceptions_once(exporter: TestExporter):
     n_calls_to_record_exception = 0
 
     def patched_record_exception(*args: Any, **kwargs: Any) -> Any:
@@ -3184,14 +3202,97 @@ def test_logfire_span_records_exceptions_once():
 
         return record_exception(*args, **kwargs)
 
-    with patch('logfire._internal.tracer.record_exception', patched_record_exception), patch(
-        'logfire._internal.main.record_exception', patched_record_exception
+    with (
+        patch('logfire._internal.tracer.record_exception', patched_record_exception),
+        patch('logfire._internal.main.record_exception', patched_record_exception),
     ):
         with pytest.raises(RuntimeError):
             with logfire.span('foo'):
                 raise RuntimeError('error')
 
     assert n_calls_to_record_exception == 1
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_logfire_span_records_exceptions_once',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'foo',
+                    'logfire.msg': 'foo',
+                    'logfire.span_type': 'span',
+                    'logfire.level_num': 17,
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 2000000000,
+                        'attributes': {
+                            'exception.type': 'RuntimeError',
+                            'exception.message': 'error',
+                            'exception.stacktrace': 'RuntimeError: error',
+                            'exception.escaped': 'True',
+                        },
+                    }
+                ],
+            }
+        ]
+    )
+
+
+def test_logfire_span_records_exceptions_manually_once(exporter: TestExporter):
+    n_calls_to_record_exception = 0
+
+    def patched_record_exception(*args: Any, **kwargs: Any) -> Any:
+        nonlocal n_calls_to_record_exception
+        n_calls_to_record_exception += 1
+
+        return record_exception(*args, **kwargs)
+
+    with (
+        patch('logfire._internal.tracer.record_exception', patched_record_exception),
+        patch('logfire._internal.main.record_exception', patched_record_exception),
+    ):
+        with logfire.span('foo') as span:
+            span.record_exception(RuntimeError('error'))
+
+    assert n_calls_to_record_exception == 1
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_logfire_span_records_exceptions_manually_once',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'foo',
+                    'logfire.msg': 'foo',
+                    'logfire.span_type': 'span',
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': IsInt(),
+                        'attributes': {
+                            'exception.type': 'RuntimeError',
+                            'exception.message': 'error',
+                            'exception.stacktrace': 'RuntimeError: error',
+                            'exception.escaped': 'False',
+                        },
+                    }
+                ],
+            }
+        ]
+    )
 
 
 def test_exit_ended_span(exporter: TestExporter):
@@ -3211,5 +3312,111 @@ def test_exit_ended_span(exporter: TestExporter):
                 'parent': None,
                 'start_time': 1000000000,
             }
+        ]
+    )
+
+
+_ns_currnet_ts = 0
+
+
+def incrementing_ms_ts_generator() -> int:
+    global _ns_currnet_ts
+    _ns_currnet_ts += 420_000  # some randon number that results in non-whole ms
+    return _ns_currnet_ts // 1_000_000
+
+
+@pytest.mark.parametrize(
+    'id_generator',
+    [SeededRandomIdGenerator(_ms_timestamp_generator=incrementing_ms_ts_generator)],
+)
+def test_default_id_generator(exporter: TestExporter) -> None:
+    """Test that SeededRandomIdGenerator generates trace and span ids without errors."""
+    for i in range(1024):
+        logfire.info('log', i=i)
+
+    exported = exporter.exported_spans_as_dict()
+
+    # sanity check: there are 1024 trace ids
+    assert len({export['context']['trace_id'] for export in exported}) == 1024
+    # sanity check: there are multiple milliseconds (first 6 bytes)
+    assert len({export['context']['trace_id'] >> 80 for export in exported}) == snapshot(431)
+
+    # Check that trace ids are sortable and unique
+    # We use ULIDs to generate trace ids, so they should be sortable.
+    sorted_by_trace_id = [
+        export['attributes']['i']
+        # sort by trace_id and start_time so that if two trace ids were generated in the same ms and thus may sort randomly
+        # we disambiguate with the start time
+        for export in sorted(exported, key=lambda span: (span['context']['trace_id'] >> 80, span['start_time']))
+    ]
+    sorted_by_start_timestamp = [
+        export['attributes']['i'] for export in sorted(exported, key=lambda span: span['start_time'])
+    ]
+    assert sorted_by_trace_id == sorted_by_start_timestamp
+
+
+def test_start_end_attach_detach(exporter: TestExporter, caplog: pytest.LogCaptureFixture):
+    span = logfire.span('test')
+    assert not span.is_recording()
+    assert not exporter.exported_spans
+    assert get_current_span() is INVALID_SPAN
+
+    span._start()  # type: ignore
+    span._start()  # type: ignore
+    assert span.is_recording()
+    assert len(exporter.exported_spans) == 1
+    assert get_current_span() is INVALID_SPAN
+
+    span._attach()  # type: ignore
+    span._attach()  # type: ignore
+    assert get_current_span() is span._span  # type: ignore
+
+    span._detach()  # type: ignore
+    span._detach()  # type: ignore
+    assert span.is_recording()
+    assert len(exporter.exported_spans) == 1
+    assert get_current_span() is INVALID_SPAN
+
+    span._end()  # type: ignore
+    span._end()  # type: ignore
+    assert not span.is_recording()
+    assert len(exporter.exported_spans) == 2
+    assert get_current_span() is INVALID_SPAN
+
+    assert not caplog.messages
+
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+        [
+            {
+                'name': 'test',
+                'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_start_end_attach_detach',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'test',
+                    'logfire.msg': 'test',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                },
+            },
+            {
+                'name': 'test',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_start_end_attach_detach',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'test',
+                    'logfire.msg': 'test',
+                    'logfire.span_type': 'span',
+                },
+            },
         ]
     )

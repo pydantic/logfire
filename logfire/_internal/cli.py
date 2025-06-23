@@ -5,16 +5,16 @@ from __future__ import annotations
 import argparse
 import functools
 import importlib
-import importlib.metadata
 import importlib.util
 import logging
 import platform
 import sys
 import warnings
 import webbrowser
+from collections.abc import Sequence
 from operator import itemgetter
 from pathlib import Path
-from typing import Any, Sequence, cast
+from typing import Any, cast
 from urllib.parse import urlparse
 
 import requests
@@ -25,24 +25,18 @@ from logfire.propagate import ContextCarrier, get_context
 
 from ..version import VERSION
 from .auth import DEFAULT_FILE, HOME_LOGFIRE, DefaultFile, is_logged_in, poll_for_token, request_device_code
-from .config import LogfireCredentials
+from .config import REGIONS, LogfireCredentials, get_base_url_from_token
 from .config_params import ParamManager
-from .constants import LOGFIRE_BASE_URL
 from .tracer import SDKTracerProvider
 from .utils import read_toml_file
 
 BASE_OTEL_INTEGRATION_URL = 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/'
 BASE_DOCS_URL = 'https://logfire.pydantic.dev/docs'
 INTEGRATIONS_DOCS_URL = f'{BASE_DOCS_URL}/integrations/'
-
-HOME_LOGFIRE.mkdir(exist_ok=True)
-
 LOGFIRE_LOG_FILE = HOME_LOGFIRE / 'log.txt'
-file_handler = logging.FileHandler(LOGFIRE_LOG_FILE)
-file_handler.setLevel(logging.DEBUG)
-logging.basicConfig(handlers=[file_handler], level=logging.DEBUG)
 
 logger = logging.getLogger(__name__)
+__all__ = 'main', 'logfire_info'
 
 
 def version_callback() -> None:
@@ -61,6 +55,7 @@ def parse_whoami(args: argparse.Namespace) -> None:
     token = param_manager.load_param('token')
 
     if token:
+        base_url = base_url or get_base_url_from_token(token)
         credentials = LogfireCredentials.from_token(token, args._session, base_url)
         if credentials:
             credentials.print_token_summary()
@@ -203,15 +198,26 @@ def parse_auth(args: argparse.Namespace) -> None:
 
     This will authenticate your machine with Logfire and store the credentials.
     """
-    logfire_url = cast(str, args.logfire_url)
-
+    logfire_url = args.logfire_url
     if DEFAULT_FILE.is_file():
         data = cast(DefaultFile, read_toml_file(DEFAULT_FILE))
-        if is_logged_in(data, logfire_url):  # pragma: no branch
-            sys.stderr.write(f'You are already logged in. (Your credentials are stored in {DEFAULT_FILE})\n')
-            return
     else:
         data: DefaultFile = {'tokens': {}}
+
+    if logfire_url:
+        logged_in = is_logged_in(data, logfire_url)
+    else:
+        logged_in = any(is_logged_in(data, url) for url in data['tokens'])
+
+    if logged_in:
+        sys.stderr.writelines(
+            (
+                f'You are already logged in. (Your credentials are stored in {DEFAULT_FILE})\n',
+                'If you would like to log in using a different account, use the --region argument:\n',
+                'logfire --region <region> auth\n',
+            )
+        )
+        return
 
     sys.stderr.writelines(
         (
@@ -221,6 +227,20 @@ def parse_auth(args: argparse.Namespace) -> None:
             '\n',
         )
     )
+    if not logfire_url:
+        selected_region = -1
+        while not (1 <= selected_region <= len(REGIONS)):
+            sys.stderr.write('Logfire is available in multiple data regions. Please select one:\n')
+            for i, (region_id, region_data) in enumerate(REGIONS.items(), start=1):
+                sys.stderr.write(f'{i}. {region_id.upper()} (GCP region: {region_data["gcp_region"]})\n')
+
+            try:
+                selected_region = int(
+                    input(f'Selected region [{"/".join(str(i) for i in range(1, len(REGIONS) + 1))}]: ')
+                )
+            except ValueError:
+                selected_region = -1
+        logfire_url = list(REGIONS.values())[selected_region - 1]['base_url']
 
     device_code, frontend_auth_url = request_device_code(args._session, logfire_url)
     frontend_host = urlparse(frontend_auth_url).netloc
@@ -251,8 +271,7 @@ def parse_auth(args: argparse.Namespace) -> None:
 
 def parse_list_projects(args: argparse.Namespace) -> None:
     """List user projects."""
-    logfire_url = args.logfire_url
-    projects = LogfireCredentials.get_user_projects(session=args._session, logfire_api_url=logfire_url)
+    projects = LogfireCredentials.get_user_projects(session=args._session, logfire_api_url=args.logfire_url)
     if projects:
         sys.stderr.write(
             _pretty_table(
@@ -282,6 +301,8 @@ def parse_create_new_project(args: argparse.Namespace) -> None:
     """Create a new project."""
     data_dir = Path(args.data_dir)
     logfire_url = args.logfire_url
+    if logfire_url is None:  # pragma: no cover
+        _, logfire_url = LogfireCredentials._get_user_token_data()  # type: ignore
     project_name = args.project_name
     organization = args.org
     default_organization = args.default_org
@@ -300,6 +321,8 @@ def parse_use_project(args: argparse.Namespace) -> None:
     """Use an existing project."""
     data_dir = Path(args.data_dir)
     logfire_url = args.logfire_url
+    if logfire_url is None:  # pragma: no cover
+        _, logfire_url = LogfireCredentials._get_user_token_data()  # type: ignore
     project_name = args.project_name
     organization = args.org
 
@@ -318,7 +341,7 @@ def parse_use_project(args: argparse.Namespace) -> None:
         )
 
 
-def parse_info(_args: argparse.Namespace) -> None:
+def logfire_info() -> str:
     """Show versions of logfire, OS and related packages."""
     import importlib.metadata as importlib_metadata
 
@@ -363,7 +386,12 @@ def parse_info(_args: argparse.Namespace) -> None:
         '[related_packages]',
         *(f'{name}="{version}"' for _, name, version in sorted(related_packages)),
     )
-    sys.stderr.writelines('\n'.join(toml_lines) + '\n')
+    return '\n'.join(toml_lines) + '\n'
+
+
+def parse_info(_args: argparse.Namespace) -> None:
+    """Show versions of logfire, OS and related packages."""
+    sys.stderr.writelines(logfire_info())
 
 
 def _pretty_table(header: list[str], rows: list[list[str]]):
@@ -373,6 +401,13 @@ def _pretty_table(header: list[str], rows: list[list[str]]):
     header_line = '---|-'.join('-' * width for width in widths)
     lines.insert(1, header_line)
     return '\n'.join(lines) + '\n'
+
+
+def _get_logfire_url(logfire_url: str | None, region: str | None) -> str | None:
+    if logfire_url is not None:
+        return logfire_url
+    if region is not None:
+        return REGIONS[region]['base_url']
 
 
 class SplitArgs(argparse.Action):
@@ -398,7 +433,9 @@ def _main(args: list[str] | None = None) -> None:
 
     parser.add_argument('--version', action='store_true', help='show the version and exit')
     global_opts = parser.add_argument_group(title='global options')
-    global_opts.add_argument('--logfire-url', default=LOGFIRE_BASE_URL, help=argparse.SUPPRESS)
+    url_or_region_grp = global_opts.add_mutually_exclusive_group()
+    url_or_region_grp.add_argument('--logfire-url', help=argparse.SUPPRESS)
+    url_or_region_grp.add_argument('--region', choices=REGIONS, help='the region to use')
     parser.set_defaults(func=lambda _: parser.print_help())  # type: ignore
     subparsers = parser.add_subparsers(title='commands', metavar='')
 
@@ -445,6 +482,7 @@ def _main(args: list[str] | None = None) -> None:
     cmd_info.set_defaults(func=parse_info)
 
     namespace = parser.parse_args(args)
+    namespace.logfire_url = _get_logfire_url(namespace.logfire_url, namespace.region)
 
     trace.set_tracer_provider(tracer_provider=SDKTracerProvider())
     tracer = trace.get_tracer(__name__)
@@ -468,8 +506,16 @@ def _main(args: list[str] | None = None) -> None:
 
 def main(args: list[str] | None = None) -> None:
     """Run the CLI."""
+    HOME_LOGFIRE.mkdir(exist_ok=True)
+
+    file_handler = logging.FileHandler(LOGFIRE_LOG_FILE)
+    file_handler.setLevel(logging.DEBUG)
+    logging.basicConfig(handlers=[file_handler], level=logging.DEBUG)
+
     try:
         _main(args)
     except KeyboardInterrupt:
         sys.stderr.write('User cancelled.\n')
         sys.exit(1)
+    finally:
+        file_handler.close()

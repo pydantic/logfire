@@ -4,21 +4,22 @@ import json
 import re
 import sys
 from collections import deque
-from collections.abc import Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from enum import Enum
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
 from pathlib import Path
-from typing import Any, Iterator, List, Mapping
+from typing import Any
+from unittest.mock import MagicMock, Mock
 from uuid import UUID
 
 import numpy
 import pandas
 import pytest
 from attrs import define
-from dirty_equals import IsJson
+from dirty_equals import IsJson, IsStr
 from inline_snapshot import snapshot
 from pydantic import AnyUrl, BaseModel, ConfigDict, FilePath, NameEmail, SecretBytes, SecretStr
 from pydantic.dataclasses import dataclass as pydantic_dataclass
@@ -96,12 +97,8 @@ def generator() -> Iterator[int]:
 gen = generator()
 
 
-if sys.version_info >= (3, 9):  # pragma: no branch
-    _MySequence = Sequence[int]
-    _ListSubclass = list[int]
-else:  # pragma: no cover
-    _MySequence = Sequence
-    _ListSubclass = list
+_MySequence = Sequence[int]
+_ListSubclass = list[int]
 
 
 class MySequence(_MySequence):
@@ -316,28 +313,28 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             Decimal('1.7'),
             '1.7',
             '"1.7"',
-            {'type': 'string', 'format': 'decimal'},
+            {'type': 'string', 'format': 'decimal', 'x-python-datatype': 'Decimal'},
             id='decimal',
         ),
         pytest.param(
             date(2023, 1, 1),
             '2023-01-01',
             '"2023-01-01"',
-            {'type': 'string', 'format': 'date'},
+            {'type': 'string', 'format': 'date', 'x-python-datatype': 'date'},
             id='date',
         ),
         pytest.param(
             datetime(2023, 1, 1, 10, 10),
             '2023-01-01 10:10:00',
             '"2023-01-01T10:10:00"',
-            {'type': 'string', 'format': 'date-time'},
+            {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
             id='datetime',
         ),
         pytest.param(
             time(12, 10),
             '12:10:00',
             '"12:10:00"',
-            {'type': 'string', 'format': 'time'},
+            {'type': 'string', 'format': 'time', 'x-python-datatype': 'time'},
             id='time',
         ),
         pytest.param(
@@ -823,7 +820,7 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
         pytest.param(
             [{str: bytes, int: float}],
             "[{<class 'str'>: <class 'bytes'>, <class 'int'>: <class 'float'>}]",
-            '[{"<class \'str\'>":"<class \'bytes\'>","<class \'int\'>":"<class ' "'float'>\"}]",
+            '[{"<class \'str\'>":"<class \'bytes\'>","<class \'int\'>":"<class \'float\'>"}]',
             {
                 'items': {
                     'properties': {
@@ -879,7 +876,7 @@ class SAModel(SABase):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(30))
-    models2: Mapped[List[SAModel2]] = relationship(back_populates='model', lazy='dynamic')  # noqa
+    models2: Mapped[list[SAModel2]] = relationship(back_populates='model', lazy='dynamic')
 
 
 class SAModel2(SABase):
@@ -972,7 +969,7 @@ def test_log_non_scalar_complex_args(exporter: TestExporter) -> None:
                 '...'
                 'og_non_scalar_complex_args.<locals>.MyPydanticDataclass(p=20)}'
             ),
-            'logfire.json_schema': '{"type":"object","properties":{"a":{},"complex_list":{"type":"array","prefixItems":[{},{},{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel","properties":{"y":{"type":"string","format":"date-time"}}},{"type":"object","title":"MyDataclass","x-python-datatype":"dataclass"},{"type":"object","title":"MyPydanticDataclass","x-python-datatype":"dataclass"}]},"complex_dict":{"type":"object","properties":{"model":{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel","properties":{"y":{"type":"string","format":"date-time"}}},"dataclass":{"type":"object","title":"MyDataclass","x-python-datatype":"dataclass"},"pydantic_dataclass":{"type":"object","title":"MyPydanticDataclass","x-python-datatype":"dataclass"}}}}}',
+            'logfire.json_schema': '{"type":"object","properties":{"a":{},"complex_list":{"type":"array","prefixItems":[{},{},{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel","properties":{"y":{"type":"string","format":"date-time","x-python-datatype":"datetime"}}},{"type":"object","title":"MyDataclass","x-python-datatype":"dataclass"},{"type":"object","title":"MyPydanticDataclass","x-python-datatype":"dataclass"}]},"complex_dict":{"type":"object","properties":{"model":{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel","properties":{"y":{"type":"string","format":"date-time","x-python-datatype":"datetime"}}},"dataclass":{"type":"object","title":"MyDataclass","x-python-datatype":"dataclass"},"pydantic_dataclass":{"type":"object","title":"MyPydanticDataclass","x-python-datatype":"dataclass"}}}}}',
             'code.filepath': 'test_json_args.py',
             'code.lineno': 123,
             'code.function': 'test_log_non_scalar_complex_args',
@@ -1231,6 +1228,192 @@ def test_repeated_objects(exporter: TestExporter) -> None:
                     'code.lineno': 123,
                     'm': '{"x":[{"x":1},{"x":1}]}',
                     'logfire.json_schema': '{"type":"object","properties":{"m":{"type":"object","title":"Model","x-python-datatype":"dataclass","properties":{"x":{"type":"array","items":{"type":"object","title":"Model","x-python-datatype":"dataclass"}}}}}}',
+                },
+            }
+        ]
+    )
+
+
+def test_numpy_array_truncation(exporter: TestExporter):
+    logfire.info('hi', m=numpy.arange(13 * 3 * 11).reshape(13, 3, 11))
+
+    truncated = [
+        [
+            [0, 1, 2, 3, 4, 6, 7, 8, 9, 10],
+            [11, 12, 13, 14, 15, 17, 18, 19, 20, 21],
+            [22, 23, 24, 25, 26, 28, 29, 30, 31, 32],
+        ],
+        [
+            [33, 34, 35, 36, 37, 39, 40, 41, 42, 43],
+            [44, 45, 46, 47, 48, 50, 51, 52, 53, 54],
+            [55, 56, 57, 58, 59, 61, 62, 63, 64, 65],
+        ],
+        [
+            [66, 67, 68, 69, 70, 72, 73, 74, 75, 76],
+            [77, 78, 79, 80, 81, 83, 84, 85, 86, 87],
+            [88, 89, 90, 91, 92, 94, 95, 96, 97, 98],
+        ],
+        [
+            [99, 100, 101, 102, 103, 105, 106, 107, 108, 109],
+            [110, 111, 112, 113, 114, 116, 117, 118, 119, 120],
+            [121, 122, 123, 124, 125, 127, 128, 129, 130, 131],
+        ],
+        [
+            [132, 133, 134, 135, 136, 138, 139, 140, 141, 142],
+            [143, 144, 145, 146, 147, 149, 150, 151, 152, 153],
+            [154, 155, 156, 157, 158, 160, 161, 162, 163, 164],
+        ],
+        [
+            [264, 265, 266, 267, 268, 270, 271, 272, 273, 274],
+            [275, 276, 277, 278, 279, 281, 282, 283, 284, 285],
+            [286, 287, 288, 289, 290, 292, 293, 294, 295, 296],
+        ],
+        [
+            [297, 298, 299, 300, 301, 303, 304, 305, 306, 307],
+            [308, 309, 310, 311, 312, 314, 315, 316, 317, 318],
+            [319, 320, 321, 322, 323, 325, 326, 327, 328, 329],
+        ],
+        [
+            [330, 331, 332, 333, 334, 336, 337, 338, 339, 340],
+            [341, 342, 343, 344, 345, 347, 348, 349, 350, 351],
+            [352, 353, 354, 355, 356, 358, 359, 360, 361, 362],
+        ],
+        [
+            [363, 364, 365, 366, 367, 369, 370, 371, 372, 373],
+            [374, 375, 376, 377, 378, 380, 381, 382, 383, 384],
+            [385, 386, 387, 388, 389, 391, 392, 393, 394, 395],
+        ],
+        [
+            [396, 397, 398, 399, 400, 402, 403, 404, 405, 406],
+            [407, 408, 409, 410, 411, 413, 414, 415, 416, 417],
+            [418, 419, 420, 421, 422, 424, 425, 426, 427, 428],
+        ],
+    ]
+    assert numpy.array(truncated).shape == (10, 3, 10)
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'hi',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hi',
+                    'logfire.msg': 'hi',
+                    'code.filepath': 'test_json_args.py',
+                    'code.function': 'test_numpy_array_truncation',
+                    'code.lineno': 123,
+                    'm': IsJson(truncated),
+                    'logfire.json_schema': '{"type":"object","properties":{"m":{"type":"array","x-python-datatype":"ndarray","x-shape":[13,3,11],"x-dtype":"int64"}}}',
+                },
+            }
+        ]
+    )
+
+
+def test_bad_getattr(exporter: TestExporter, caplog: pytest.LogCaptureFixture):
+    class A:
+        def __getattr__(self, item: str):
+            raise RuntimeError
+
+        def __repr__(self):
+            return 'A()'
+
+    logfire.info('hello', a=A())
+
+    assert not caplog.messages
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'hello',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hello',
+                    'logfire.msg': 'hello',
+                    'code.filepath': 'test_json_args.py',
+                    'code.function': 'test_bad_getattr',
+                    'code.lineno': 123,
+                    'a': '"A()"',
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{"type":"object","x-python-datatype":"unknown"}}}',
+                },
+            }
+        ]
+    )
+
+
+def test_to_dict(exporter: TestExporter):
+    class Foo:
+        def to_dict(self):
+            return {'x': 1}
+
+    logfire.info('hi', foo=Foo())
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'hi',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hi',
+                    'logfire.msg': 'hi',
+                    'code.filepath': 'test_json_args.py',
+                    'code.function': 'test_to_dict',
+                    'code.lineno': 123,
+                    'foo': '{"x":1}',
+                    'logfire.json_schema': '{"type":"object","properties":{"foo":{"type":"object","x-python-datatype":"unknown"}}}',
+                },
+            }
+        ]
+    )
+
+
+def test_mock(exporter: TestExporter):
+    class Mixin:
+        def __repr__(self):
+            return f'{self.__class__.__name__}()'
+
+    class Foo(Mixin, Mock):
+        pass
+
+    class Bar(Mixin, MagicMock):
+        pass
+
+    logfire.info('hi', foo=Foo(), bar=Bar(), mock=Mock(), magic_mock=MagicMock())
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'hi',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hi',
+                    'logfire.msg': 'hi',
+                    'code.filepath': 'test_json_args.py',
+                    'code.function': 'test_mock',
+                    'code.lineno': 123,
+                    'foo': '"Foo()"',
+                    'bar': '"Bar()"',
+                    'mock': IsStr(regex=r'^"<Mock id=\'\d+\'>"'),
+                    'magic_mock': IsStr(regex=r'^"<MagicMock id=\'\d+\'>"'),
+                    'logfire.json_schema': '{"type":"object","properties":{"foo":{"type":"object","x-python-datatype":"unknown"},"bar":{"type":"object","x-python-datatype":"unknown"},"mock":{"type":"object","x-python-datatype":"unknown"},"magic_mock":{"type":"object","x-python-datatype":"unknown"}}}',
                 },
             }
         ]

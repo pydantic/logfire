@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import importlib
-import sys
 from unittest import mock
 
 import mysql.connector
@@ -14,8 +13,6 @@ from testcontainers.mysql import MySqlContainer
 import logfire
 import logfire._internal.integrations.mysql
 from logfire.testing import TestExporter
-
-pytestmark = pytest.mark.skipif(sys.version_info < (3, 9), reason='MySQL testcontainers has problems in 3.8')
 
 
 @pytest.fixture(scope='module')
@@ -115,8 +112,8 @@ def test_instrument_mysql_connection(exporter: TestExporter, mysql_container: My
         )
 
         conn = MySQLInstrumentor().uninstrument_connection(conn)  # type: ignore
-        with conn.cursor() as cursor:  # type: ignore
-            cursor.execute('INSERT INTO test (id, name) VALUES (2, "test-2")')  # type: ignore
+        with conn.cursor() as cursor:
+            cursor.execute('INSERT INTO test (id, name) VALUES (2, "test-2")')
 
         assert len(exporter.exported_spans_as_dict()) == 1
 

@@ -1,15 +1,17 @@
 from __future__ import annotations
 
+import copy
 import json
 import re
 from abc import ABC, abstractmethod
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping, Sequence, TypedDict, cast
+from typing import Any, Callable, TypedDict, cast
 
 import typing_extensions
 from opentelemetry.attributes import BoundedAttributes
+from opentelemetry.sdk._logs import LogRecord
 from opentelemetry.sdk.trace import Event
-from opentelemetry.semconv.trace import SpanAttributes
 from opentelemetry.trace import Link
 
 from .constants import (
@@ -24,7 +26,6 @@ from .constants import (
     ATTRIBUTES_SCRUBBED_KEY,
     ATTRIBUTES_SPAN_TYPE_KEY,
     ATTRIBUTES_TAGS_KEY,
-    NULL_ARGS_KEY,
     RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS,
 )
 from .stack_info import STACK_INFO_KEYS
@@ -41,12 +42,19 @@ DEFAULT_PATTERNS = [
     'api[._ -]?key',
     'session',
     'cookie',
-    'csrf',
-    'xsrf',
-    'jwt',
-    'ssn',
     'social[._ -]?security',
     'credit[._ -]?card',
+    *[
+        # Require these to be surrounded by word boundaries or underscores,
+        # to reduce the chance of accidentally matching them in a big blob of random chars, e.g. base64.
+        rf'(?:\b|_){acronym}(?:\b|_)'
+        for acronym in [
+            'csrf',
+            'xsrf',
+            'jwt',
+            'ssn',
+        ]
+    ],
 ]
 
 JsonPath: typing_extensions.TypeAlias = 'tuple[str | int, ...]'
@@ -112,28 +120,34 @@ class BaseScrubber(ABC):
         ATTRIBUTES_SAMPLE_RATE_KEY,
         ATTRIBUTES_LOGGING_NAME,
         ATTRIBUTES_SCRUBBED_KEY,
-        NULL_ARGS_KEY,
         RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS,
         *STACK_INFO_KEYS,
-        SpanAttributes.EXCEPTION_STACKTRACE,  # See scrub_event_attributes
-        SpanAttributes.EXCEPTION_TYPE,
-        SpanAttributes.SCHEMA_URL,
-        SpanAttributes.HTTP_METHOD,
-        SpanAttributes.HTTP_STATUS_CODE,
-        SpanAttributes.HTTP_SCHEME,
-        SpanAttributes.HTTP_URL,
-        SpanAttributes.HTTP_TARGET,
-        SpanAttributes.HTTP_ROUTE,
-        SpanAttributes.DB_STATEMENT,
+        'exception.stacktrace',
+        'exception.type',
+        'exception.message',
+        'http.method',
+        'http.status_code',
+        'http.scheme',
+        'http.url',
+        'http.target',
+        'http.route',
+        'db.statement',
         'db.plan',
         # Newer semantic conventions
-        SpanAttributes.URL_FULL,
-        SpanAttributes.URL_PATH,
-        SpanAttributes.URL_QUERY,
+        'url.full',
+        'url.path',
+        'url.query',
+        'event.name',
+        'agent_session_id',
+        'do_not_scrub',
+        'binary_content',
     }
 
     @abstractmethod
     def scrub_span(self, span: ReadableSpanDict): ...  # pragma: no cover
+
+    @abstractmethod
+    def scrub_log(self, log: LogRecord) -> LogRecord: ...  # pragma: no cover
 
     @abstractmethod
     def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]: ...  # pragma: no cover
@@ -142,6 +156,9 @@ class BaseScrubber(ABC):
 class NoopScrubber(BaseScrubber):
     def scrub_span(self, span: ReadableSpanDict):
         pass
+
+    def scrub_log(self, log: LogRecord) -> LogRecord:
+        return log
 
     def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]:  # pragma: no cover
         return value, []
@@ -158,6 +175,10 @@ class Scrubber(BaseScrubber):
         patterns = [*DEFAULT_PATTERNS, *(patterns or [])]
         self._pattern = re.compile('|'.join(patterns), re.IGNORECASE | re.DOTALL)
         self._callback = callback
+
+    def scrub_log(self, log: LogRecord) -> LogRecord:
+        span_scrubber = SpanScrubber(self)
+        return span_scrubber.scrub_log(log)
 
     def scrub_span(self, span: ReadableSpanDict):
         scope = span['instrumentation_scope']
@@ -195,6 +216,7 @@ class SpanScrubber:
         self._pattern = parent._pattern  # type: ignore
         self._callback = parent._callback  # type: ignore
         self.scrubbed: list[ScrubbedNote] = []
+        self.did_scrub = False
 
     def scrub_span(self, span: ReadableSpanDict):
         # We need to use BoundedAttributes because:
@@ -202,8 +224,11 @@ class SpanScrubber:
         #      https://github.com/open-telemetry/opentelemetry-python/issues/3761
         # 2. The callback might return a value that isn't of the type required by OTEL,
         #      in which case BoundAttributes will discard it to prevent an error.
-        # TODO silently throwing away the result is bad, and BoundedAttributes might be bad for performance.
-        span['attributes'] = BoundedAttributes(attributes=self.scrub(('attributes',), span['attributes']))
+        # TODO silently throwing away the result is bad, and BoundedAttributes is bad for performance.
+        new_attributes = self.scrub(('attributes',), span['attributes'])
+        if self.did_scrub:
+            span['attributes'] = BoundedAttributes(attributes=new_attributes)
+
         span['events'] = [
             Event(
                 # We don't scrub the event name because in theory it should be a low-cardinality general description,
@@ -222,36 +247,27 @@ class SpanScrubber:
             for i, link in enumerate(span['links'])
         ]
 
+    def scrub_log(self, log: LogRecord) -> LogRecord:
+        new_attributes: dict[str, Any] | None = self.scrub(('attributes',), log.attributes)
+        new_body = self.scrub(('log_body',), log.body)
+
+        if not self.did_scrub:
+            return log
+
+        if self.scrubbed:
+            new_attributes = new_attributes or {}
+            new_attributes[ATTRIBUTES_SCRUBBED_KEY] = json.dumps(self.scrubbed)
+
+        result = copy.copy(log)
+        result.attributes = BoundedAttributes(attributes=new_attributes)
+        result.body = new_body
+        return result
+
     def scrub_event_attributes(self, event: Event, index: int):
         attributes = event.attributes or {}
         path = ('otel_events', index, 'attributes')
         new_attributes = self.scrub(path, attributes)
-
-        # The traceback is likely to be full of false positives since it contains a lot of code and filenames.
-        # We want to keep all of it except maybe the exception message at the end,
-        # which may actually contain sensitive data.
-        # If `old_message != new_message` then that means it was redacted,
-        # so it needs to be replaced in the stacktrace.
-        # Note that EXCEPTION_STACKTRACE is in SAFE_KEYS, but EXCEPTION_MESSAGE is not.
-        # TODO this algorithm is not perfect. In particular it doesn't handle chained exceptions.
-        #   The best solution would probably be to intercept `Span.record_exception` and format the stacktrace manually.
-        if (stacktrace := attributes.get(SpanAttributes.EXCEPTION_STACKTRACE)) and (
-            (old_message := attributes.get(SpanAttributes.EXCEPTION_MESSAGE))
-            != (new_message := new_attributes.get(SpanAttributes.EXCEPTION_MESSAGE))
-            and isinstance(stacktrace, str)
-            and isinstance(old_message, str)
-            and isinstance(new_message, str)
-        ):
-            stacktrace = stacktrace.rstrip()
-            old_message = old_message.rstrip()
-            if stacktrace.endswith(old_message):
-                new_attributes[SpanAttributes.EXCEPTION_STACKTRACE] = stacktrace[: -len(old_message)] + new_message
-            else:
-                # The stacktrace doesn't look like we expect, so scrub the whole thing.
-                new_attributes[SpanAttributes.EXCEPTION_STACKTRACE] = self.scrub(
-                    path + (SpanAttributes.EXCEPTION_STACKTRACE,), stacktrace
-                )
-
+        # We used to scrub exception messages here, git blame this line if you want to restore that logic.
         return new_attributes
 
     def scrub(self, path: JsonPath, value: Any) -> Any:
@@ -291,7 +307,9 @@ class SpanScrubber:
 
     def _redact(self, match: ScrubMatch) -> Any:
         if self._callback and (result := self._callback(match)) is not None:
+            self.did_scrub = self.did_scrub or result is not match.value
             return result
+        self.did_scrub = True
         matched_substring = match.pattern_match.group(0)
         self.scrubbed.append(ScrubbedNote(path=match.path, matched_substring=matched_substring))
         return f'[Scrubbed due to {matched_substring!r}]'

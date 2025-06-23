@@ -1,8 +1,10 @@
 import ast
 import asyncio
+import runpy
 import sys
+from contextlib import AbstractContextManager
 from importlib.machinery import SourceFileLoader
-from typing import Any, Callable, ContextManager
+from typing import Any, Callable
 
 import pytest
 from inline_snapshot import snapshot
@@ -51,12 +53,15 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
     with pytest.raises(IndexError):  # foo.bar intentionally raises an error to test that it's recorded below
         asyncio.run(foo.bar())
 
+    # Simulate `python -m tests.auto_trace_samples`
+    runpy.run_module('tests.auto_trace_samples')
+
     assert exporter.exported_spans[0].instrumentation_scope.name == 'logfire.auto_tracing'  # type: ignore
 
     assert exporter.exported_spans_as_dict(_include_pending_spans=True, _strip_function_qualname=False) == snapshot(
         [
             {
-                'name': 'Calling tests.auto_trace_samples.foo.bar (pending)',
+                'name': 'Calling tests.auto_trace_samples.foo.bar',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
@@ -73,7 +78,7 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': 'Calling tests.auto_trace_samples.foo.async_gen.<locals>.inner (pending)',
+                'name': 'Calling tests.auto_trace_samples.foo.async_gen.<locals>.inner',
                 'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 2000000000,
@@ -133,6 +138,37 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
                         },
                     }
                 ],
+            },
+            {
+                'name': 'Calling tests.auto_trace_samples.__main__.main',
+                'context': {'trace_id': 2, 'span_id': 6, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 5, 'is_remote': False},
+                'start_time': 6000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'code.filepath': '__main__.py',
+                    'code.lineno': 123,
+                    'code.function': 'main',
+                    'logfire.msg_template': 'Calling tests.auto_trace_samples.__main__.main',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.msg': 'Calling tests.auto_trace_samples.__main__.main',
+                    'logfire.pending_parent_id': '0000000000000000',
+                },
+            },
+            {
+                'name': 'Calling tests.auto_trace_samples.__main__.main',
+                'context': {'trace_id': 2, 'span_id': 5, 'is_remote': False},
+                'parent': None,
+                'start_time': 6000000000,
+                'end_time': 7000000000,
+                'attributes': {
+                    'code.filepath': '__main__.py',
+                    'code.lineno': 123,
+                    'code.function': 'main',
+                    'logfire.msg_template': 'Calling tests.auto_trace_samples.__main__.main',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'Calling tests.auto_trace_samples.__main__.main',
+                },
             },
         ]
     )
@@ -209,7 +245,7 @@ def only_ellipsis_function():
 
 
 def test_rewrite_ast():
-    context_factories: list[Callable[[], ContextManager[Any]]] = []
+    context_factories: list[Callable[[], AbstractContextManager[Any]]] = []
     tree = rewrite_ast(
         ast.parse(nested_sample),
         'foo.py',
@@ -265,15 +301,7 @@ def only_ellipsis_function():
     ...
 '''
 
-    if sys.version_info >= (3, 9):  # pragma: no branch
-        assert ast.unparse(tree).strip() == result.strip()
-
-    # Python 3.8 doesn't have ast.unparse, and testing that the AST is equivalent is a bit tricky.
-    assert (
-        compile(nested_sample, '<filename>', 'exec').co_code == compile(result, '<filename>', 'exec').co_code
-        or ast.dump(tree, annotate_fields=False) == ast.dump(ast.parse(result), annotate_fields=False)
-        or ast.dump(tree) == ast.dump(ast.parse(result))
-    )
+    assert ast.unparse(tree).strip() == result.strip()
 
     assert [f.args for f in context_factories] == snapshot(  # type: ignore
         [
@@ -394,7 +422,7 @@ class NotTracedClass:
 
 
 def get_calling_strings(sample: str):
-    context_factories: list[Callable[[], ContextManager[Any]]] = []
+    context_factories: list[Callable[[], AbstractContextManager[Any]]] = []
     rewrite_ast(
         ast.parse(sample),
         'foo.py',

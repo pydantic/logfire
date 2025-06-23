@@ -13,7 +13,6 @@ from opentelemetry.propagate import extract
 
 import logfire
 import logfire._internal.integrations.aws_lambda
-import logfire._internal.integrations.pymongo
 from logfire._internal.integrations.aws_lambda import LambdaEvent
 from logfire.propagate import get_context
 from logfire.testing import TestExporter
@@ -21,6 +20,9 @@ from logfire.testing import TestExporter
 
 def lambda_handler(event: Any, context: MockLambdaContext):
     pass
+
+
+HANDLER_NAME = f'{__name__}.{lambda_handler.__name__}'
 
 
 # The below mock is based on the following code:
@@ -39,7 +41,7 @@ def test_instrument_aws_lambda(exporter: TestExporter) -> None:
     with logfire.span('span'):
         current_context = get_context()
 
-    with mock.patch.dict('os.environ', {_HANDLER: 'tests.otel_integrations.test_aws_lambda.lambda_handler'}):
+    with mock.patch.dict('os.environ', {_HANDLER: HANDLER_NAME, 'AWS_LAMBDA_FUNCTION_NAME': HANDLER_NAME}):
         logfire.instrument_aws_lambda(lambda_handler, event_context_extractor=event_context_extractor)
 
         context = MockLambdaContext(
@@ -66,14 +68,14 @@ def test_instrument_aws_lambda(exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': 'tests.otel_integrations.test_aws_lambda.lambda_handler',
+                'name': HANDLER_NAME,
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': True},
                 'start_time': 3000000000,
                 'end_time': 4000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'tests.otel_integrations.test_aws_lambda.lambda_handler',
+                    'logfire.msg': HANDLER_NAME,
                     'cloud.resource_id': 'arn:aws:lambda:us-east-1:123456:function:myfunction:myalias',
                     'faas.invocation_id': 'mock_aws_request_id',
                     'cloud.account.id': '123456',

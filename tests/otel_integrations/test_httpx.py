@@ -7,9 +7,10 @@ from unittest import mock
 
 import httpx
 import pytest
-from dirty_equals import IsStr
+from dirty_equals import IsAnyStr, IsStr
 from httpx import Request
 from inline_snapshot import snapshot
+from opentelemetry.instrumentation._semconv import _OpenTelemetrySemanticConventionStability  # type: ignore
 from opentelemetry.instrumentation.httpx import RequestInfo, ResponseInfo
 from opentelemetry.trace.span import Span
 
@@ -32,7 +33,7 @@ def create_transport() -> httpx.MockTransport:
 
 @contextmanager
 def check_traceparent_header():
-    with logfire.span('test span') as span:
+    with logfire.set_baggage(baggage_key='baggage_value'), logfire.span('test span') as span:
         assert span.context
         trace_id = span.context.trace_id
 
@@ -40,18 +41,26 @@ def check_traceparent_header():
             # Validation of context propagation: ensure that the traceparent header contains the trace ID
             traceparent_header = response.headers['traceparent']
             assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
+            assert response.headers['baggage'] == 'baggage_key=baggage_value'
 
         yield checker
+
+
+def without_metrics(spans: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Remove metrics from spans for comparison."""
+    for span in spans:
+        span['attributes'].pop('logfire.metrics', None)
+    return spans
 
 
 def test_httpx_client_instrumentation(exporter: TestExporter):
     with check_traceparent_header() as checker:
         with httpx.Client(transport=create_transport()) as client:
             logfire.instrument_httpx(client)
-            response = client.get('https://example.org/')
+            response = client.get('https://example.org:8080/foo')
             checker(response)
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
         [
             {
                 'name': 'GET',
@@ -62,18 +71,21 @@ def test_httpx_client_instrumentation(exporter: TestExporter):
                 'attributes': {
                     'http.method': 'GET',
                     'http.request.method': 'GET',
-                    'http.url': 'https://example.org/',
-                    'url.full': 'https://example.org/',
+                    'http.url': 'https://example.org:8080/foo',
+                    'url.full': 'https://example.org:8080/foo',
                     'http.host': 'example.org',
                     'server.address': 'example.org',
                     'network.peer.address': 'example.org',
+                    'net.peer.port': 8080,
+                    'server.port': 8080,
+                    'network.peer.port': 8080,
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'GET /',
+                    'logfire.msg': 'GET example.org/foo',
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'http.flavor': '1.1',
                     'network.protocol.version': '1.1',
-                    'http.target': '/',
+                    'http.target': '/foo',
                 },
             },
             {
@@ -95,14 +107,47 @@ def test_httpx_client_instrumentation(exporter: TestExporter):
     )
 
 
+def test_httpx_client_instrumentation_old_semconv(exporter: TestExporter):
+    with mock.patch.dict('os.environ', {'OTEL_SEMCONV_STABILITY_OPT_IN': ''}):
+        with httpx.Client(transport=create_transport()) as client:
+            # Pick up the new value of OTEL_SEMCONV_STABILITY_OPT_IN
+            _OpenTelemetrySemanticConventionStability._initialized = False  # type: ignore
+
+            logfire.instrument_httpx(client)
+            client.get('https://example.org:8080/foo')
+
+            # Now let other tests get the original value set in conftest.py
+            _OpenTelemetrySemanticConventionStability._initialized = False  # type: ignore
+
+    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
+        [
+            {
+                'name': 'GET',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'http.method': 'GET',
+                    'http.url': 'https://example.org:8080/foo',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET example.org/foo',
+                    'http.status_code': 200,
+                    'http.target': '/foo',
+                },
+            }
+        ]
+    )
+
+
 async def test_async_httpx_client_instrumentation(exporter: TestExporter):
     with check_traceparent_header() as checker:
         async with httpx.AsyncClient(transport=create_transport()) as client:
             logfire.instrument_httpx(client)
-            response = await client.get('https://example.org/')
+            response = await client.get('https://example.org:8080/foo')
             checker(response)
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
         [
             {
                 'name': 'GET',
@@ -113,18 +158,21 @@ async def test_async_httpx_client_instrumentation(exporter: TestExporter):
                 'attributes': {
                     'http.method': 'GET',
                     'http.request.method': 'GET',
-                    'http.url': 'https://example.org/',
-                    'url.full': 'https://example.org/',
+                    'http.url': 'https://example.org:8080/foo',
+                    'url.full': 'https://example.org:8080/foo',
                     'http.host': 'example.org',
                     'server.address': 'example.org',
                     'network.peer.address': 'example.org',
+                    'net.peer.port': 8080,
+                    'server.port': 8080,
+                    'network.peer.port': 8080,
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'GET /',
+                    'logfire.msg': 'GET example.org/foo',
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'http.flavor': '1.1',
                     'network.protocol.version': '1.1',
-                    'http.target': '/',
+                    'http.target': '/foo',
                 },
             },
             {
@@ -199,7 +247,7 @@ def test_httpx_client_instrumentation_with_capture_headers(
     with check_traceparent_header() as checker:
         with httpx.Client(transport=create_transport()) as client:
             logfire.instrument_httpx(client, **instrument_kwargs)
-            response = client.get('https://example.org/')
+            response = client.get('https://example.org:8080/foo')
             checker(response)
 
     span = exporter.exported_spans_as_dict()[0]
@@ -233,7 +281,7 @@ async def test_async_httpx_client_instrumentation_with_capture_headers(
     with check_traceparent_header() as checker:
         async with httpx.AsyncClient(transport=create_transport()) as client:
             logfire.instrument_httpx(client, **instrument_kwargs)
-            response = await client.get('https://example.org/')
+            response = await client.get('https://example.org:8080/foo')
             checker(response)
 
     span = exporter.exported_spans_as_dict()[0]
@@ -264,7 +312,7 @@ def test_httpx_client_instrumentation_with_capture_json_body(
         with httpx.Client(transport=create_transport()) as client:
             logfire.instrument_httpx(client, capture_request_body=True)
             headers = {'Content-Type': content_type} if content_type else {}
-            response = client.post('https://example.org/', headers=headers, content=body)
+            response = client.post('https://example.org:8080/foo', headers=headers, content=body)
             checker(response)
 
     span = exporter.exported_spans_as_dict()[0]
@@ -278,7 +326,9 @@ async def test_async_httpx_client_instrumentation_with_capture_json_body(
     with check_traceparent_header() as checker:
         async with httpx.AsyncClient(transport=create_transport()) as client:
             logfire.instrument_httpx(client, capture_request_body=True)
-            response = await client.post('https://example.org/', headers={'Content-Type': content_type}, content=body)
+            response = await client.post(
+                'https://example.org:8080/foo', headers={'Content-Type': content_type}, content=body
+            )
             checker(response)
 
     span = exporter.exported_spans_as_dict()[0]
@@ -302,7 +352,7 @@ def test_httpx_client_capture_stream_body(exporter: TestExporter):
         with httpx.Client(transport=create_transport()) as client:
             logfire.instrument_httpx(client, capture_request_body=True)
             response = client.post(
-                'https://example.org/', headers={'Content-Type': 'application/json'}, content=stream()
+                'https://example.org:8080/foo', headers={'Content-Type': 'application/json'}, content=stream()
             )
             checker(response)
 
@@ -315,7 +365,7 @@ def test_httpx_client_capture_full_request(exporter: TestExporter):
     with check_traceparent_header() as checker:
         with httpx.Client(transport=create_transport()) as client:
             logfire.instrument_httpx(client, capture_request_headers=True, capture_request_body=True)
-            response = client.post('https://example.org/', json={'hello': 'world'})
+            response = client.post('https://example.org:8080/foo', json={'hello': 'world'})
             checker(response)
 
     span = exporter.exported_spans_as_dict()[0]
@@ -326,7 +376,7 @@ async def test_async_httpx_client_capture_full_request(exporter: TestExporter):
     with check_traceparent_header() as checker:
         async with httpx.AsyncClient(transport=create_transport()) as client:
             logfire.instrument_httpx(client, capture_request_headers=True, capture_request_body=True)
-            response = await client.post('https://example.org/', json={'hello': 'world'})
+            response = await client.post('https://example.org:8080/foo', json={'hello': 'world'})
             checker(response)
 
     span = exporter.exported_spans_as_dict()[0]
@@ -339,12 +389,12 @@ def test_httpx_client_capture_full(exporter: TestExporter):
             logfire.instrument_httpx(
                 client, capture_headers=True, capture_request_body=True, capture_response_body=True
             )
-            response = client.post('https://example.org/', json={'hello': 'world'})
+            response = client.post('https://example.org:8080/foo', json={'hello': 'world'})
             checker(response)
             assert response.json() == {'good': 'response'}
             assert response.read() == b'{"good": "response"}'
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
         [
             {
                 'name': 'POST',
@@ -355,16 +405,21 @@ def test_httpx_client_capture_full(exporter: TestExporter):
                 'attributes': {
                     'http.method': 'POST',
                     'http.request.method': 'POST',
-                    'http.url': 'https://example.org/',
-                    'url.full': 'https://example.org/',
+                    'http.url': 'https://example.org:8080/foo',
+                    'url.full': 'https://example.org:8080/foo',
                     'http.host': 'example.org',
                     'server.address': 'example.org',
                     'network.peer.address': 'example.org',
+                    'net.peer.port': 8080,
+                    'server.port': 8080,
+                    'network.peer.port': 8080,
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'POST /',
-                    'http.request.header.host': ('example.org',),
+                    'logfire.msg': 'POST example.org/foo',
+                    'http.request.header.host': ('example.org:8080',),
                     'http.request.header.accept': ('*/*',),
-                    'http.request.header.accept-encoding': ('gzip, deflate',),
+                    'http.request.header.accept-encoding': (
+                        IsAnyStr(regex='^gzip, deflate(?:, br|, zstd|, br, zstd)?$'),
+                    ),
                     'http.request.header.connection': ('keep-alive',),
                     'http.request.header.user-agent': (IsStr(),),
                     'http.request.header.content-length': (IsStr(),),
@@ -375,15 +430,18 @@ def test_httpx_client_capture_full(exporter: TestExporter):
                     'http.response.status_code': 200,
                     'http.flavor': '1.1',
                     'network.protocol.version': '1.1',
-                    'http.response.header.host': ('example.org',),
+                    'http.response.header.host': ('example.org:8080',),
                     'http.response.header.accept': ('*/*',),
-                    'http.response.header.accept-encoding': ('gzip, deflate',),
+                    'http.response.header.accept-encoding': (
+                        IsAnyStr(regex='^gzip, deflate(?:, br|, zstd|, br, zstd)?$'),
+                    ),
                     'http.response.header.connection': ('keep-alive',),
                     'http.response.header.user-agent': (IsStr(),),
                     'http.response.header.content-length': (IsStr(),),
                     'http.response.header.content-type': ('application/json',),
                     'http.response.header.traceparent': ('00-00000000000000000000000000000001-0000000000000003-01',),
-                    'http.target': '/',
+                    'http.response.header.baggage': ('baggage_key=baggage_value',),
+                    'http.target': '/foo',
                 },
             },
             {
@@ -400,7 +458,7 @@ def test_httpx_client_capture_full(exporter: TestExporter):
                     'logfire.msg': 'Reading response body',
                     'logfire.span_type': 'span',
                     'http.response.body.text': '{"good": "response"}',
-                    'logfire.json_schema': '{"type":"object","properties":{"http.response.body.text":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"http.response.body.text":{"type":"object"}}}',
                 },
             },
             {
@@ -428,12 +486,12 @@ async def test_async_httpx_client_capture_full(exporter: TestExporter):
             logfire.instrument_httpx(
                 client, capture_headers=True, capture_request_body=True, capture_response_body=True
             )
-            response = await client.post('https://example.org/', json={'hello': 'world'})
+            response = await client.post('https://example.org:8080/foo', json={'hello': 'world'})
             checker(response)
             assert response.json() == {'good': 'response'}
             assert await response.aread() == b'{"good": "response"}'
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
         [
             {
                 'name': 'POST',
@@ -444,16 +502,21 @@ async def test_async_httpx_client_capture_full(exporter: TestExporter):
                 'attributes': {
                     'http.method': 'POST',
                     'http.request.method': 'POST',
-                    'http.url': 'https://example.org/',
-                    'url.full': 'https://example.org/',
+                    'http.url': 'https://example.org:8080/foo',
+                    'url.full': 'https://example.org:8080/foo',
                     'http.host': 'example.org',
                     'server.address': 'example.org',
                     'network.peer.address': 'example.org',
+                    'net.peer.port': 8080,
+                    'server.port': 8080,
+                    'network.peer.port': 8080,
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'POST /',
-                    'http.request.header.host': ('example.org',),
+                    'logfire.msg': 'POST example.org/foo',
+                    'http.request.header.host': ('example.org:8080',),
                     'http.request.header.accept': ('*/*',),
-                    'http.request.header.accept-encoding': ('gzip, deflate',),
+                    'http.request.header.accept-encoding': (
+                        IsAnyStr(regex='^gzip, deflate(?:, br|, zstd|, br, zstd)?$'),
+                    ),
                     'http.request.header.connection': ('keep-alive',),
                     'http.request.header.user-agent': (IsStr(),),
                     'http.request.header.content-length': (IsStr(),),
@@ -464,15 +527,18 @@ async def test_async_httpx_client_capture_full(exporter: TestExporter):
                     'http.response.status_code': 200,
                     'http.flavor': '1.1',
                     'network.protocol.version': '1.1',
-                    'http.response.header.host': ('example.org',),
+                    'http.response.header.host': ('example.org:8080',),
                     'http.response.header.accept': ('*/*',),
-                    'http.response.header.accept-encoding': ('gzip, deflate',),
+                    'http.response.header.accept-encoding': (
+                        IsAnyStr(regex='^gzip, deflate(?:, br|, zstd|, br, zstd)?$'),
+                    ),
                     'http.response.header.connection': ('keep-alive',),
                     'http.response.header.user-agent': (IsStr(),),
                     'http.response.header.content-length': (IsStr(),),
                     'http.response.header.content-type': ('application/json',),
                     'http.response.header.traceparent': ('00-00000000000000000000000000000001-0000000000000003-01',),
-                    'http.target': '/',
+                    'http.response.header.baggage': ('baggage_key=baggage_value',),
+                    'http.target': '/foo',
                 },
             },
             {
@@ -489,7 +555,7 @@ async def test_async_httpx_client_capture_full(exporter: TestExporter):
                     'logfire.msg': 'Reading response body',
                     'logfire.span_type': 'span',
                     'http.response.body.text': '{"good": "response"}',
-                    'logfire.json_schema': '{"type":"object","properties":{"http.response.body.text":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"http.response.body.text":{"type":"object"}}}',
                 },
             },
             {
@@ -518,11 +584,10 @@ def test_httpx_client_not_capture_response_body_on_wrong_encoding(exporter: Test
     with check_traceparent_header() as checker:
         with httpx.Client(transport=httpx.MockTransport(handler=handler)) as client:
             logfire.instrument_httpx(client, capture_response_body=True)
-            response = client.post('https://example.org/')
+            response = client.post('https://example.org:8080/foo')
             checker(response)
 
-    spans = exporter.exported_spans_as_dict()
-    assert spans == snapshot(
+    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
         [
             {
                 'name': 'POST',
@@ -533,18 +598,21 @@ def test_httpx_client_not_capture_response_body_on_wrong_encoding(exporter: Test
                 'attributes': {
                     'http.method': 'POST',
                     'http.request.method': 'POST',
-                    'http.url': 'https://example.org/',
-                    'url.full': 'https://example.org/',
+                    'http.url': 'https://example.org:8080/foo',
+                    'url.full': 'https://example.org:8080/foo',
                     'http.host': 'example.org',
                     'server.address': 'example.org',
                     'network.peer.address': 'example.org',
+                    'net.peer.port': 8080,
+                    'server.port': 8080,
+                    'network.peer.port': 8080,
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'POST /',
+                    'logfire.msg': 'POST example.org/foo',
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'http.flavor': '1.1',
                     'network.protocol.version': '1.1',
-                    'http.target': '/',
+                    'http.target': '/foo',
                 },
             },
             {
@@ -587,9 +655,9 @@ def test_httpx_client_capture_request_form_data(exporter: TestExporter):
 
     with httpx.Client(transport=create_transport()) as client:
         logfire.instrument_httpx(client, capture_request_body=True)
-        client.post('https://example.org/', data={'form': 'values'})
+        client.post('https://example.org:8080/foo', data={'form': 'values'})
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
         [
             {
                 'name': 'POST',
@@ -600,20 +668,23 @@ def test_httpx_client_capture_request_form_data(exporter: TestExporter):
                 'attributes': {
                     'http.method': 'POST',
                     'http.request.method': 'POST',
-                    'http.url': 'https://example.org/',
-                    'url.full': 'https://example.org/',
+                    'http.url': 'https://example.org:8080/foo',
+                    'url.full': 'https://example.org:8080/foo',
                     'http.host': 'example.org',
                     'server.address': 'example.org',
                     'network.peer.address': 'example.org',
+                    'net.peer.port': 8080,
+                    'server.port': 8080,
+                    'network.peer.port': 8080,
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'POST /',
+                    'logfire.msg': 'POST example.org/foo',
                     'http.request.body.form': '{"form":"values"}',
                     'logfire.json_schema': '{"type":"object","properties":{"http.request.body.form":{"type":"object"}}}',
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'http.flavor': '1.1',
                     'network.protocol.version': '1.1',
-                    'http.target': '/',
+                    'http.target': '/foo',
                 },
             }
         ]
@@ -623,9 +694,9 @@ def test_httpx_client_capture_request_form_data(exporter: TestExporter):
 def test_httpx_client_capture_request_text_body(exporter: TestExporter):
     with httpx.Client(transport=create_transport()) as client:
         logfire.instrument_httpx(client, capture_request_body=True)
-        client.post('https://example.org/', headers={'Content-Type': 'text/plain'}, content='hello')
+        client.post('https://example.org:8080/foo', headers={'Content-Type': 'text/plain'}, content='hello')
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
         [
             {
                 'name': 'POST',
@@ -636,20 +707,23 @@ def test_httpx_client_capture_request_text_body(exporter: TestExporter):
                 'attributes': {
                     'http.method': 'POST',
                     'http.request.method': 'POST',
-                    'http.url': 'https://example.org/',
-                    'url.full': 'https://example.org/',
+                    'http.url': 'https://example.org:8080/foo',
+                    'url.full': 'https://example.org:8080/foo',
                     'http.host': 'example.org',
                     'server.address': 'example.org',
                     'network.peer.address': 'example.org',
+                    'net.peer.port': 8080,
+                    'server.port': 8080,
+                    'network.peer.port': 8080,
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'POST /',
+                    'logfire.msg': 'POST example.org/foo',
                     'logfire.json_schema': '{"type":"object","properties":{"http.request.body.text":{"type":"object"}}}',
                     'http.request.body.text': 'hello',
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'http.flavor': '1.1',
                     'network.protocol.version': '1.1',
-                    'http.target': '/',
+                    'http.target': '/foo',
                 },
             }
         ]
@@ -671,6 +745,146 @@ def test_is_json_type():
     assert not is_json_type('')
     assert not is_json_type('application/json-x')
     assert not is_json_type('application//json')
+
+
+async def test_httpx_client_capture_all(exporter: TestExporter):
+    with check_traceparent_header() as checker:
+        async with httpx.AsyncClient(transport=create_transport()) as client:
+            logfire.instrument_httpx(client, capture_all=True)
+            response = await client.post('https://example.org:8080/foo', json={'hello': 'world'})
+            checker(response)
+            assert response.json() == {'good': 'response'}
+            assert await response.aread() == b'{"good": "response"}'
+
+    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
+        [
+            {
+                'name': 'POST',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'http.method': 'POST',
+                    'http.request.method': 'POST',
+                    'http.url': 'https://example.org:8080/foo',
+                    'url.full': 'https://example.org:8080/foo',
+                    'http.host': 'example.org',
+                    'server.address': 'example.org',
+                    'network.peer.address': 'example.org',
+                    'net.peer.port': 8080,
+                    'server.port': 8080,
+                    'network.peer.port': 8080,
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'POST example.org/foo',
+                    'http.request.header.host': ('example.org:8080',),
+                    'http.request.header.accept': ('*/*',),
+                    'http.request.header.accept-encoding': (
+                        IsAnyStr(regex='^gzip, deflate(?:, br|, zstd|, br, zstd)?$'),
+                    ),
+                    'http.request.header.connection': ('keep-alive',),
+                    'http.request.header.user-agent': ('python-httpx/0.28.1',),
+                    'http.request.header.content-length': ('17',),
+                    'http.request.header.content-type': ('application/json',),
+                    'logfire.json_schema': '{"type":"object","properties":{"http.request.body.text":{"type":"object"}}}',
+                    'http.request.body.text': '{"hello":"world"}',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                    'http.flavor': '1.1',
+                    'network.protocol.version': '1.1',
+                    'http.response.header.host': ('example.org:8080',),
+                    'http.response.header.accept': ('*/*',),
+                    'http.response.header.accept-encoding': (
+                        IsAnyStr(regex='^gzip, deflate(?:, br|, zstd|, br, zstd)?$'),
+                    ),
+                    'http.response.header.connection': ('keep-alive',),
+                    'http.response.header.user-agent': ('python-httpx/0.28.1',),
+                    'http.response.header.content-length': ('17',),
+                    'http.response.header.content-type': ('application/json',),
+                    'http.response.header.traceparent': ('00-00000000000000000000000000000001-0000000000000003-01',),
+                    'http.response.header.baggage': ('baggage_key=baggage_value',),
+                    'http.target': '/foo',
+                },
+            },
+            {
+                'name': 'Reading response body',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'start_time': 4000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'code.filepath': 'test_httpx.py',
+                    'code.function': 'test_httpx_client_capture_all',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'Reading response body',
+                    'logfire.msg': 'Reading response body',
+                    'logfire.span_type': 'span',
+                    'http.response.body.text': '{"good": "response"}',
+                    'logfire.json_schema': '{"type":"object","properties":{"http.response.body.text":{"type":"object"}}}',
+                },
+            },
+            {
+                'name': 'test span',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'code.filepath': 'test_httpx.py',
+                    'code.function': 'check_traceparent_header',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'test span',
+                    'logfire.msg': 'test span',
+                    'logfire.span_type': 'span',
+                },
+            },
+        ]
+    )
+
+
+async def test_httpx_client_no_capture_empty_body(exporter: TestExporter):
+    async with httpx.AsyncClient(transport=create_transport()) as client:
+        logfire.instrument_httpx(client, capture_request_body=True)
+        await client.get('https://example.org:8080/foo')
+
+    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
+        [
+            {
+                'name': 'GET',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'http.method': 'GET',
+                    'http.request.method': 'GET',
+                    'http.url': 'https://example.org:8080/foo',
+                    'url.full': 'https://example.org:8080/foo',
+                    'http.host': 'example.org',
+                    'server.address': 'example.org',
+                    'network.peer.address': 'example.org',
+                    'net.peer.port': 8080,
+                    'server.port': 8080,
+                    'network.peer.port': 8080,
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET example.org/foo',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                    'http.flavor': '1.1',
+                    'network.protocol.version': '1.1',
+                    'http.target': '/foo',
+                },
+            }
+        ]
+    )
+
+
+def test_httpx_capture_all_and_other_flags_should_warn(exporter: TestExporter):
+    with httpx.Client(transport=create_transport()) as client:
+        with pytest.warns(
+            UserWarning, match='You should use either `capture_all` or the specific capture parameters, not both.'
+        ):
+            logfire.instrument_httpx(client, capture_all=True, capture_request_body=True)
 
 
 def test_missing_opentelemetry_dependency() -> None:

@@ -2,6 +2,8 @@ import anthropic
 import httpx
 import openai
 import opentelemetry.trace as trace_api
+import pydantic_ai
+import pydantic_ai.models
 import requests
 from . import async_ as async_
 from ..integrations.flask import CommenterOptions as FlaskCommenterOptions, RequestHook as FlaskRequestHook, ResponseHook as FlaskResponseHook
@@ -14,7 +16,7 @@ from ..version import VERSION as VERSION
 from .auto_trace import AutoTraceModule as AutoTraceModule, install_auto_tracing as install_auto_tracing
 from .config import GLOBAL_CONFIG as GLOBAL_CONFIG, LogfireConfig as LogfireConfig
 from .config_params import PydanticPluginRecordValues as PydanticPluginRecordValues
-from .constants import ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY, ATTRIBUTES_LOG_LEVEL_NUM_KEY as ATTRIBUTES_LOG_LEVEL_NUM_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_TAGS_KEY as ATTRIBUTES_TAGS_KEY, DISABLE_CONSOLE_KEY as DISABLE_CONSOLE_KEY, LEVEL_NUMBERS as LEVEL_NUMBERS, LevelName as LevelName, NULL_ARGS_KEY as NULL_ARGS_KEY, OTLP_MAX_INT_SIZE as OTLP_MAX_INT_SIZE, log_level_attributes as log_level_attributes
+from .constants import ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY, ATTRIBUTES_LOG_LEVEL_NUM_KEY as ATTRIBUTES_LOG_LEVEL_NUM_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_TAGS_KEY as ATTRIBUTES_TAGS_KEY, DISABLE_CONSOLE_KEY as DISABLE_CONSOLE_KEY, LEVEL_NUMBERS as LEVEL_NUMBERS, LevelName as LevelName, OTLP_MAX_INT_SIZE as OTLP_MAX_INT_SIZE, log_level_attributes as log_level_attributes
 from .formatter import logfire_format as logfire_format, logfire_format_with_magic as logfire_format_with_magic
 from .instrument import instrument as instrument
 from .integrations.asgi import ASGIApp as ASGIApp, ASGIInstrumentKwargs as ASGIInstrumentKwargs
@@ -29,6 +31,8 @@ from .metrics import ProxyMeterProvider as ProxyMeterProvider
 from .stack_info import get_user_stack_info as get_user_stack_info
 from .tracer import ProxyTracerProvider as ProxyTracerProvider, record_exception as record_exception, set_exception_status as set_exception_status
 from .utils import SysExcInfo as SysExcInfo, get_version as get_version, handle_internal_errors as handle_internal_errors, log_internal_error as log_internal_error, uniquify_sequence as uniquify_sequence
+from collections.abc import Iterable, Sequence
+from contextlib import AbstractContextManager
 from django.http import HttpRequest as HttpRequest, HttpResponse as HttpResponse
 from fastapi import FastAPI
 from flask.app import Flask
@@ -45,7 +49,7 @@ from starlette.applications import Starlette
 from starlette.requests import Request as Request
 from starlette.websockets import WebSocket as WebSocket
 from types import ModuleType
-from typing import Any, Callable, ContextManager, Iterable, Literal, Sequence, TypeVar, overload
+from typing import Any, Callable, Literal, TypeVar, overload
 from typing_extensions import LiteralString, ParamSpec, Unpack
 from wsgiref.types import WSGIApplication
 
@@ -136,7 +140,7 @@ class Logfire:
 
                 Set to `True` to use the currently handled exception.
         """
-    def warn(self, msg_template: str, /, *, _tags: Sequence[str] | None = None, _exc_info: ExcInfo = False, **attributes: Any) -> None:
+    def warning(self, msg_template: str, /, *, _tags: Sequence[str] | None = None, _exc_info: ExcInfo = False, **attributes: Any) -> None:
         """Log a warning message.
 
         ```py
@@ -144,8 +148,10 @@ class Logfire:
 
         logfire.configure()
 
-        logfire.warn('This is a warning log')
+        logfire.warning('This is a warning log')
         ```
+
+        `logfire.warn` is an alias of `logfire.warning`.
 
         Args:
             msg_template: The message to log.
@@ -156,6 +162,7 @@ class Logfire:
 
                 Set to `True` to use the currently handled exception.
         """
+    warn = warning
     def error(self, msg_template: str, /, *, _tags: Sequence[str] | None = None, _exc_info: ExcInfo = False, **attributes: Any) -> None:
         """Log an error message.
 
@@ -230,7 +237,7 @@ class Logfire:
                 Attributes starting with an underscore are not allowed.
         """
     @overload
-    def instrument(self, msg_template: LiteralString | None = None, *, span_name: str | None = None, extract_args: bool | Iterable[str] = True, allow_generator: bool = False) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    def instrument(self, msg_template: LiteralString | None = None, *, span_name: str | None = None, extract_args: bool | Iterable[str] = True, record_return: bool = False, allow_generator: bool = False) -> Callable[[Callable[P, R]], Callable[P, R]]:
         """Decorator for instrumenting a function as a span.
 
         ```py
@@ -249,6 +256,8 @@ class Logfire:
             span_name: The span name. If not provided, the `msg_template` will be used.
             extract_args: By default, all function call arguments are logged as span attributes.
                 Set to `False` to disable this, or pass an iterable of argument names to include.
+            record_return: Set to `True` to record the return value of the function as an attribute.
+                Ignored for generators.
             allow_generator: Set to `True` to prevent a warning when instrumenting a generator function.
                 Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
         """
@@ -347,7 +356,7 @@ class Logfire:
         Returns:
             Whether the flush of spans was successful.
         """
-    def log_slow_async_callbacks(self, slow_duration: float = 0.1) -> ContextManager[None]:
+    def log_slow_async_callbacks(self, slow_duration: float = 0.1) -> AbstractContextManager[None]:
         """Log a warning whenever a function running in the asyncio event loop blocks for too long.
 
         This works by patching the `asyncio.events.Handle._run` method.
@@ -394,6 +403,13 @@ class Logfire:
                 modules in `sys.modules` (i.e. modules that have already been imported) match the modules to trace.
                 Set to `'warn'` to issue a warning instead, or `'ignore'` to skip the check.
         """
+    def instrument_mcp(self, *, propagate_otel_context: bool = True) -> None:
+        """Instrument [MCP](https://modelcontextprotocol.io/) requests such as tool calls.
+
+        Args:
+            propagate_otel_context: Whether to enable propagation of the OpenTelemetry context.
+                Set to False to prevent setting extra fields like `traceparent` on the metadata of requests.
+        """
     def instrument_pydantic(self, record: PydanticPluginRecordValues = 'all', include: Iterable[str] = (), exclude: Iterable[str] = ()) -> None:
         """Instrument Pydantic model validations.
 
@@ -412,7 +428,11 @@ class Logfire:
             exclude:
                 Exclude specific modules from instrumentation.
         """
-    def instrument_fastapi(self, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, excluded_urls: str | Iterable[str] | None = None, record_send_receive: bool = False, **opentelemetry_kwargs: Any) -> ContextManager[None]:
+    @overload
+    def instrument_pydantic_ai(self, obj: pydantic_ai.Agent | None = None, /, *, event_mode: Literal['attributes', 'logs'] = 'attributes', include_binary_content: bool | None = None, **kwargs: Any) -> None: ...
+    @overload
+    def instrument_pydantic_ai(self, obj: pydantic_ai.models.Model, /, *, event_mode: Literal['attributes', 'logs'] = 'attributes', include_binary_content: bool | None = None, **kwargs: Any) -> pydantic_ai.models.Model: ...
+    def instrument_fastapi(self, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, excluded_urls: str | Iterable[str] | None = None, record_send_receive: bool = False, **opentelemetry_kwargs: Any) -> AbstractContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.
 
         Uses the [OpenTelemetry FastAPI Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html)
@@ -454,8 +474,11 @@ class Logfire:
                 without waiting for the context manager to be opened,
                 i.e. it's not necessary to use this as a context manager.
         """
-    def instrument_openai(self, openai_client: openai.OpenAI | openai.AsyncOpenAI | type[openai.OpenAI] | type[openai.AsyncOpenAI] | None = None, *, suppress_other_instrumentation: bool = True) -> ContextManager[None]:
-        """Instrument an OpenAI client so that spans are automatically created for each request.
+    def instrument_openai(self, openai_client: openai.OpenAI | openai.AsyncOpenAI | type[openai.OpenAI] | type[openai.AsyncOpenAI] | None = None, *, suppress_other_instrumentation: bool = True) -> AbstractContextManager[None]:
+        '''Instrument an OpenAI client so that spans are automatically created for each request.
+
+        This instruments the [standard OpenAI SDK](https://pypi.org/project/openai/) package, for instrumentation
+        of the OpenAI "agents" framework, see [`instrument_openai_agents()`][logfire.Logfire.instrument_openai_agents].
 
         The following methods are instrumented for both the sync and the async clients:
 
@@ -477,13 +500,13 @@ class Logfire:
         logfire.instrument_openai(client)
 
         response = client.chat.completions.create(
-            model='gpt-4',
+            model=\'gpt-4\',
             messages=[
-                {'role': 'system', 'content': 'You are a helpful assistant.'},
-                {'role': 'user', 'content': 'What is four plus five?'},
+                {\'role\': \'system\', \'content\': \'You are a helpful assistant.\'},
+                {\'role\': \'user\', \'content\': \'What is four plus five?\'},
             ],
         )
-        print('answer:', response.choices[0].message.content)
+        print(\'answer:\', response.choices[0].message.content)
         ```
 
         Args:
@@ -502,8 +525,14 @@ class Logfire:
         Returns:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
+        '''
+    def instrument_openai_agents(self) -> None:
+        """Instrument the [`agents`](https://github.com/openai/openai-agents-python) framework from OpenAI.
+
+        For instrumentation of the standard OpenAI SDK package,
+        see [`instrument_openai()`][logfire.Logfire.instrument_openai].
         """
-    def instrument_anthropic(self, anthropic_client: anthropic.Anthropic | anthropic.AsyncAnthropic | anthropic.AnthropicBedrock | anthropic.AsyncAnthropicBedrock | type[anthropic.Anthropic] | type[anthropic.AsyncAnthropic] | type[anthropic.AnthropicBedrock] | type[anthropic.AsyncAnthropicBedrock] | None = None, *, suppress_other_instrumentation: bool = True) -> ContextManager[None]:
+    def instrument_anthropic(self, anthropic_client: anthropic.Anthropic | anthropic.AsyncAnthropic | anthropic.AnthropicBedrock | anthropic.AsyncAnthropicBedrock | type[anthropic.Anthropic] | type[anthropic.AsyncAnthropic] | type[anthropic.AnthropicBedrock] | type[anthropic.AsyncAnthropicBedrock] | None = None, *, suppress_other_instrumentation: bool = True) -> AbstractContextManager[None]:
         """Instrument an Anthropic client so that spans are automatically created for each request.
 
         The following methods are instrumented for both the sync and async clients:
@@ -553,11 +582,11 @@ class Logfire:
     def instrument_asyncpg(self, **kwargs: Any) -> None:
         """Instrument the `asyncpg` module so that spans are automatically created for each query."""
     @overload
-    def instrument_httpx(self, client: httpx.Client, *, capture_headers: bool = False, capture_request_body: bool = False, capture_response_body: bool = False, request_hook: HttpxRequestHook | None = None, response_hook: HttpxResponseHook | None = None, **kwargs: Any) -> None: ...
+    def instrument_httpx(self, client: httpx.Client, *, capture_all: bool = False, capture_headers: bool = False, capture_request_body: bool = False, capture_response_body: bool = False, request_hook: HttpxRequestHook | None = None, response_hook: HttpxResponseHook | None = None, **kwargs: Any) -> None: ...
     @overload
-    def instrument_httpx(self, client: httpx.AsyncClient, *, capture_headers: bool = False, capture_request_body: bool = False, capture_response_body: bool = False, request_hook: HttpxRequestHook | HttpxAsyncRequestHook | None = None, response_hook: HttpxResponseHook | HttpxAsyncResponseHook | None = None, **kwargs: Any) -> None: ...
+    def instrument_httpx(self, client: httpx.AsyncClient, *, capture_all: bool = False, capture_headers: bool = False, capture_request_body: bool = False, capture_response_body: bool = False, request_hook: HttpxRequestHook | HttpxAsyncRequestHook | None = None, response_hook: HttpxResponseHook | HttpxAsyncResponseHook | None = None, **kwargs: Any) -> None: ...
     @overload
-    def instrument_httpx(self, client: None = None, *, capture_headers: bool = False, capture_request_body: bool = False, capture_response_body: bool = False, request_hook: HttpxRequestHook | None = None, response_hook: HttpxResponseHook | None = None, async_request_hook: HttpxAsyncRequestHook | None = None, async_response_hook: HttpxAsyncResponseHook | None = None, **kwargs: Any) -> None: ...
+    def instrument_httpx(self, client: None = None, *, capture_all: bool = False, capture_headers: bool = False, capture_request_body: bool = False, capture_response_body: bool = False, request_hook: HttpxRequestHook | None = None, response_hook: HttpxResponseHook | None = None, async_request_hook: HttpxAsyncRequestHook | None = None, async_response_hook: HttpxAsyncResponseHook | None = None, **kwargs: Any) -> None: ...
     def instrument_celery(self, **kwargs: Any) -> None:
         """Instrument `celery` so that spans are automatically created for each task.
 
@@ -612,7 +641,7 @@ class Logfire:
     def instrument_psycopg(self, conn_or_module: PsycopgConnection | Psycopg2Connection, **kwargs: Any) -> None: ...
     @overload
     def instrument_psycopg(self, conn_or_module: None | Literal['psycopg', 'psycopg2'] | ModuleType = None, enable_commenter: bool = False, commenter_options: PsycopgCommenterOptions | None = None, **kwargs: Any) -> None: ...
-    def instrument_flask(self, app: Flask, *, capture_headers: bool = False, enable_commenter: bool = True, commenter_options: FlaskCommenterOptions | None = None, exclude_urls: str | None = None, request_hook: FlaskRequestHook | None = None, response_hook: FlaskResponseHook | None = None, **kwargs: Any) -> None:
+    def instrument_flask(self, app: Flask, *, capture_headers: bool = False, enable_commenter: bool = True, commenter_options: FlaskCommenterOptions | None = None, excluded_urls: str | None = None, request_hook: FlaskRequestHook | None = None, response_hook: FlaskResponseHook | None = None, **kwargs: Any) -> None:
         """Instrument `app` so that spans are automatically created for each request.
 
         Uses the
@@ -625,7 +654,7 @@ class Logfire:
             enable_commenter: Adds comments to SQL queries performed by Flask, so that database logs have additional context.
             commenter_options: Configure the tags to be added to the SQL comments.
                 See more about it on the [SQLCommenter Configurations](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html#sqlcommenter-configurations).
-            exclude_urls: A string containing a comma-delimited list of regexes used to exclude URLs from tracking.
+            excluded_urls: A string containing a comma-delimited list of regexes used to exclude URLs from tracking.
             request_hook: A function called right after a span is created for a request.
             response_hook: A function called right before a span is finished for the response.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry Flask instrumentation.
@@ -697,6 +726,13 @@ class Logfire:
         Uses the
         [OpenTelemetry aiohttp client Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aiohttp_client/aiohttp_client.html)
         library, specifically `AioHttpClientInstrumentor().instrument()`, to which it passes `**kwargs`.
+        """
+    def instrument_aiohttp_server(self, **kwargs: Any) -> None:
+        """Instrument the `aiohttp` module so that spans are automatically created for each server request.
+
+        Uses the
+        [OpenTelemetry aiohttp server Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aiohttp_server/aiohttp_server.html)
+        library, specifically `AioHttpServerInstrumentor().instrument()`, to which it passes `**kwargs`.
         """
     def instrument_sqlalchemy(self, engine: AsyncEngine | Engine | None = None, enable_commenter: bool = False, commenter_options: SQLAlchemyCommenterOptions | None = None, **kwargs: Any) -> None:
         """Instrument the `sqlalchemy` module so that spans are automatically created for each query.
@@ -904,6 +940,8 @@ class Logfire:
     def metric_counter_callback(self, name: str, *, callbacks: Sequence[CallbackT], unit: str = '', description: str = '') -> None:
         """Create a counter metric that uses a callback to collect observations.
 
+        The callback is called every 60 seconds in a background thread.
+
         The counter metric is a cumulative metric that represents a single numerical value that only ever goes up.
 
         ```py
@@ -942,6 +980,8 @@ class Logfire:
     def metric_gauge_callback(self, name: str, callbacks: Sequence[CallbackT], *, unit: str = '', description: str = '') -> None:
         """Create a gauge metric that uses a callback to collect observations.
 
+        The callback is called every 60 seconds in a background thread.
+
         The gauge metric is a metric that represents a single numerical value that can arbitrarily go up and down.
 
         ```py
@@ -977,6 +1017,8 @@ class Logfire:
         """
     def metric_up_down_counter_callback(self, name: str, callbacks: Sequence[CallbackT], *, unit: str = '', description: str = '') -> None:
         """Create an up-down counter metric that uses a callback to collect observations.
+
+        The callback is called every 60 seconds in a background thread.
 
         The up-down counter is a cumulative metric that represents a single numerical value that can be adjusted up or
         down.
@@ -1034,24 +1076,28 @@ class FastLogfireSpan:
     """A simple version of `LogfireSpan` optimized for auto-tracing."""
     def __init__(self, span: trace_api.Span) -> None: ...
     def __enter__(self) -> FastLogfireSpan: ...
+    @handle_internal_errors
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None: ...
 
 class LogfireSpan(ReadableSpan):
     def __init__(self, span_name: str, otlp_attributes: dict[str, otel_types.AttributeValue], tracer: Tracer, json_schema_properties: JsonSchemaProperties, links: Sequence[tuple[SpanContext, otel_types.Attributes]]) -> None: ...
     def __getattr__(self, name: str) -> Any: ...
     def __enter__(self) -> LogfireSpan: ...
+    @handle_internal_errors
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None: ...
     @property
     def message_template(self) -> str | None: ...
     @property
     def tags(self) -> tuple[str, ...]: ...
     @tags.setter
+    @handle_internal_errors
     def tags(self, new_tags: Sequence[str]) -> None:
         """Set or add tags to the span."""
     @property
     def message(self) -> str: ...
     @message.setter
     def message(self, message: str): ...
+    @handle_internal_errors
     def set_attribute(self, key: str, value: Any) -> None:
         """Sets an attribute on the span.
 
@@ -1068,6 +1114,7 @@ class LogfireSpan(ReadableSpan):
         Delegates to the OpenTelemetry SDK `Span.record_exception` method.
         """
     def is_recording(self) -> bool: ...
+    @handle_internal_errors
     def set_level(self, level: LevelName | int):
         """Set the log level of this span."""
 
@@ -1107,12 +1154,8 @@ def prepare_otlp_attributes(attributes: dict[str, Any]) -> dict[str, otel_types.
 
     This will convert any non-OpenTelemetry compatible types to JSON.
     """
-def set_user_attribute(otlp_attributes: dict[str, otel_types.AttributeValue], key: str, value: Any) -> tuple[str, otel_types.AttributeValue]:
-    """Convert a user attribute to an OpenTelemetry compatible type and add it to the given dictionary.
-
-    Returns the final key and value that was added to the dictionary.
-    The key will be the original key unless the value was `None`, in which case it will be `NULL_ARGS_KEY`.
-    """
+def prepare_otlp_attribute(value: Any) -> otel_types.AttributeValue:
+    """Convert a user attribute to an OpenTelemetry compatible type."""
 def set_user_attributes_on_raw_span(span: Span, attributes: dict[str, Any]) -> None: ...
 P = ParamSpec('P')
 R = TypeVar('R')

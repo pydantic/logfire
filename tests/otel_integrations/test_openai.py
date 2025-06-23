@@ -1,14 +1,14 @@
 from __future__ import annotations as _annotations
 
 import json
+from collections.abc import AsyncIterator, Iterator
 from io import BytesIO
-from typing import AsyncIterator, Iterator
+from typing import Any
 
 import httpx
 import openai
 import pytest
-from dirty_equals import IsJson
-from dirty_equals._strings import IsStr
+from dirty_equals import IsNumeric
 from httpx._transports.mock import MockTransport
 from inline_snapshot import snapshot
 from openai.types import (
@@ -33,6 +33,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
     """Used to mock httpx requests
 
     We do this instead of using pytest-httpx since 1) it's nearly as simple 2) pytest-httpx doesn't support Python 3.8.
+    (We no longer support 3.8 either, but it's not worth changing this now)
     """
     assert request.method == 'POST'
     if request.url == 'https://api.openai.com/v1/chat/completions':
@@ -384,7 +385,7 @@ def test_sync_chat_completions(instrumented_client: openai.Client, exporter: Tes
         ],
     )
     assert response.choices[0].message.content == 'Nine'
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'Chat Completion with {request_data[model]!r}',
@@ -396,7 +397,7 @@ def test_sync_chat_completions(instrumented_client: openai.Client, exporter: Tes
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_sync_chat_completions',
                     'code.lineno': 123,
-                    'request_data': IsJson(
+                    'request_data': (
                         {
                             'messages': [
                                 {'role': 'system', 'content': 'You are a helpful assistant.'},
@@ -410,12 +411,18 @@ def test_sync_chat_completions(instrumented_client: openai.Client, exporter: Tes
                     'logfire.msg': "Chat Completion with 'gpt-4'",
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
-                    'response_data': IsJson(
+                    'gen_ai.system': 'openai',
+                    'gen_ai.request.model': 'gpt-4',
+                    'gen_ai.response.model': 'gpt-4',
+                    'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.usage.output_tokens': 1,
+                    'response_data': (
                         {
                             'message': {
                                 'content': 'Nine',
                                 'refusal': None,
                                 'audio': None,
+                                'annotations': None,
                                 'role': 'assistant',
                                 'function_call': None,
                                 'tool_calls': None,
@@ -429,12 +436,17 @@ def test_sync_chat_completions(instrumented_client: openai.Client, exporter: Tes
                             },
                         }
                     ),
-                    'logfire.json_schema': IsJson(
+                    'logfire.json_schema': (
                         {
                             'type': 'object',
                             'properties': {
                                 'request_data': {'type': 'object'},
                                 'async': {},
+                                'gen_ai.system': {},
+                                'gen_ai.request.model': {},
+                                'gen_ai.response.model': {},
+                                'gen_ai.usage.input_tokens': {},
+                                'gen_ai.usage.output_tokens': {},
                                 'response_data': {
                                     'type': 'object',
                                     'properties': {
@@ -468,7 +480,7 @@ async def test_async_chat_completions(instrumented_async_client: openai.AsyncCli
         ],
     )
     assert response.choices[0].message.content == 'Nine'
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'Chat Completion with {request_data[model]!r}',
@@ -480,7 +492,7 @@ async def test_async_chat_completions(instrumented_async_client: openai.AsyncCli
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_async_chat_completions',
                     'code.lineno': 123,
-                    'request_data': IsJson(
+                    'request_data': (
                         {
                             'messages': [
                                 {'role': 'system', 'content': 'You are a helpful assistant.'},
@@ -494,12 +506,18 @@ async def test_async_chat_completions(instrumented_async_client: openai.AsyncCli
                     'logfire.msg': "Chat Completion with 'gpt-4'",
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
-                    'response_data': IsJson(
+                    'gen_ai.system': 'openai',
+                    'gen_ai.request.model': 'gpt-4',
+                    'gen_ai.response.model': 'gpt-4',
+                    'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.usage.output_tokens': 1,
+                    'response_data': (
                         {
                             'message': {
                                 'content': 'Nine',
                                 'refusal': None,
                                 'audio': None,
+                                'annotations': None,
                                 'role': 'assistant',
                                 'function_call': None,
                                 'tool_calls': None,
@@ -513,12 +531,17 @@ async def test_async_chat_completions(instrumented_async_client: openai.AsyncCli
                             },
                         }
                     ),
-                    'logfire.json_schema': IsJson(
+                    'logfire.json_schema': (
                         {
                             'type': 'object',
                             'properties': {
                                 'request_data': {'type': 'object'},
                                 'async': {},
+                                'gen_ai.system': {},
+                                'gen_ai.request.model': {},
+                                'gen_ai.response.model': {},
+                                'gen_ai.usage.input_tokens': {},
+                                'gen_ai.usage.output_tokens': {},
                                 'response_data': {
                                     'type': 'object',
                                     'properties': {
@@ -551,7 +574,7 @@ def test_sync_chat_empty_response_chunk(instrumented_client: openai.Client, expo
     )
     combined = [chunk for chunk in response]
     assert combined == [[]]
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'Chat Completion with {request_data[model]!r}',
@@ -563,11 +586,19 @@ def test_sync_chat_empty_response_chunk(instrumented_client: openai.Client, expo
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_sync_chat_empty_response_chunk',
                     'code.lineno': 123,
-                    'request_data': '{"messages":[{"role":"system","content":"empty response chunk"}],"model":"gpt-4","stream":true}',
+                    'request_data': {
+                        'messages': [{'role': 'system', 'content': 'empty response chunk'}],
+                        'model': 'gpt-4',
+                        'stream': True,
+                    },
+                    'gen_ai.request.model': 'gpt-4',
                     'async': False,
                     'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
                     'logfire.msg': "Chat Completion with 'gpt-4'",
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'request_data': {'type': 'object'}, 'gen_ai.request.model': {}, 'async': {}},
+                    },
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
                 },
@@ -580,18 +611,32 @@ def test_sync_chat_empty_response_chunk(instrumented_client: openai.Client, expo
                 'end_time': 5000000000,
                 'attributes': {
                     'logfire.level_num': 9,
-                    'request_data': '{"messages":[{"role":"system","content":"empty response chunk"}],"model":"gpt-4","stream":true}',
+                    'request_data': {
+                        'messages': [{'role': 'system', 'content': 'empty response chunk'}],
+                        'model': 'gpt-4',
+                        'stream': True,
+                    },
                     'async': False,
                     'logfire.msg_template': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_sync_chat_empty_response_chunk',
                     'code.lineno': 123,
                     'logfire.msg': "streaming response from 'gpt-4' took 1.00s",
+                    'gen_ai.request.model': 'gpt-4',
                     'logfire.span_type': 'log',
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
-                    'response_data': '{"combined_chunk_content":"","chunk_count":0}',
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
+                    'response_data': {'combined_chunk_content': '', 'chunk_count': 0},
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.request.model': {},
+                            'async': {},
+                            'duration': {},
+                            'response_data': {'type': 'object'},
+                        },
+                    },
                 },
             },
         ]
@@ -607,7 +652,7 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
     combined = [chunk for chunk in response]
     assert len(combined) == 1
     assert combined[0].choices == []
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'Chat Completion with {request_data[model]!r}',
@@ -619,11 +664,19 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_sync_chat_empty_response_choices',
                     'code.lineno': 123,
-                    'request_data': '{"messages":[{"role":"system","content":"empty choices in response chunk"}],"model":"gpt-4","stream":true}',
+                    'request_data': {
+                        'messages': [{'role': 'system', 'content': 'empty choices in response chunk'}],
+                        'model': 'gpt-4',
+                        'stream': True,
+                    },
+                    'gen_ai.request.model': 'gpt-4',
                     'async': False,
                     'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
                     'logfire.msg': "Chat Completion with 'gpt-4'",
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'request_data': {'type': 'object'}, 'gen_ai.request.model': {}, 'async': {}},
+                    },
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
                 },
@@ -636,18 +689,32 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                 'end_time': 5000000000,
                 'attributes': {
                     'logfire.level_num': 9,
-                    'request_data': '{"messages":[{"role":"system","content":"empty choices in response chunk"}],"model":"gpt-4","stream":true}',
+                    'request_data': {
+                        'messages': [{'role': 'system', 'content': 'empty choices in response chunk'}],
+                        'model': 'gpt-4',
+                        'stream': True,
+                    },
                     'async': False,
                     'logfire.msg_template': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_sync_chat_empty_response_choices',
                     'code.lineno': 123,
                     'logfire.msg': "streaming response from 'gpt-4' took 1.00s",
+                    'gen_ai.request.model': 'gpt-4',
                     'logfire.span_type': 'log',
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
-                    'response_data': '{"message":null,"usage":null}',
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
+                    'response_data': {'message': None, 'usage': None},
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.request.model': {},
+                            'async': {},
+                            'duration': {},
+                            'response_data': {'type': 'object'},
+                        },
+                    },
                 },
             },
         ]
@@ -691,7 +758,7 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
         and chunk.choices[0].delta.tool_calls[0].function.arguments
     )
     assert combined_arguments == '{"location":"Boston"}'
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'Chat Completion with {request_data[model]!r}',
@@ -703,11 +770,41 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_sync_chat_tool_call_stream',
                     'code.lineno': 123,
-                    'request_data': '{"messages":[{"role":"system","content":"streamed tool call"}],"model":"gpt-4","stream":true,"stream_options":{"include_usage":true},"tool_choice":{"type":"function","function":{"name":"get_current_weather"}},"tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}]}',
+                    'request_data': {
+                        'messages': [{'role': 'system', 'content': 'streamed tool call'}],
+                        'model': 'gpt-4',
+                        'stream': True,
+                        'stream_options': {'include_usage': True},
+                        'tool_choice': {'type': 'function', 'function': {'name': 'get_current_weather'}},
+                        'tools': [
+                            {
+                                'type': 'function',
+                                'function': {
+                                    'name': 'get_current_weather',
+                                    'description': 'Get the current weather in a given location',
+                                    'parameters': {
+                                        'type': 'object',
+                                        'properties': {
+                                            'location': {
+                                                'type': 'string',
+                                                'description': 'The city and state, e.g. San Francisco, CA',
+                                            },
+                                            'unit': {'type': 'string', 'enum': ['celsius', 'fahrenheit']},
+                                        },
+                                        'required': ['location'],
+                                    },
+                                },
+                            }
+                        ],
+                    },
+                    'gen_ai.request.model': 'gpt-4',
                     'async': False,
                     'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
                     'logfire.msg': "Chat Completion with 'gpt-4'",
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'request_data': {'type': 'object'}, 'gen_ai.request.model': {}, 'async': {}},
+                    },
                     'logfire.tags': ('LLM',),
                     'logfire.span_type': 'span',
                 },
@@ -726,11 +823,107 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                     'code.filepath': 'test_openai.py',
                     'code.function': '<genexpr>',
                     'code.lineno': 123,
-                    'request_data': '{"messages":[{"role":"system","content":"streamed tool call"}],"model":"gpt-4","stream":true,"stream_options":{"include_usage":true},"tool_choice":{"type":"function","function":{"name":"get_current_weather"}},"tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}]}',
+                    'request_data': {
+                        'messages': [{'role': 'system', 'content': 'streamed tool call'}],
+                        'model': 'gpt-4',
+                        'stream': True,
+                        'stream_options': {'include_usage': True},
+                        'tool_choice': {'type': 'function', 'function': {'name': 'get_current_weather'}},
+                        'tools': [
+                            {
+                                'type': 'function',
+                                'function': {
+                                    'name': 'get_current_weather',
+                                    'description': 'Get the current weather in a given location',
+                                    'parameters': {
+                                        'type': 'object',
+                                        'properties': {
+                                            'location': {
+                                                'type': 'string',
+                                                'description': 'The city and state, e.g. San Francisco, CA',
+                                            },
+                                            'unit': {'type': 'string', 'enum': ['celsius', 'fahrenheit']},
+                                        },
+                                        'required': ['location'],
+                                    },
+                                },
+                            }
+                        ],
+                    },
+                    'gen_ai.request.model': 'gpt-4',
                     'async': False,
                     'duration': 1.0,
-                    'response_data': '{"message":{"content":null,"refusal":null,"role":"assistant","audio":null,"function_call":null,"tool_calls":[{"id":"1","function":{"arguments":"{\\"location\\":\\"Boston\\"}","name":"get_current_weather","parsed_arguments":null},"type":"function","index":0}],"parsed":null},"usage":{"completion_tokens":1,"prompt_tokens":2,"total_tokens":3,"completion_tokens_details":null,"prompt_tokens_details":null}}',
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object","properties":{"message":{"type":"object","title":"ParsedChatCompletionMessage[object]","x-python-datatype":"PydanticModel","properties":{"tool_calls":{"type":"array","items":{"type":"object","title":"ParsedFunctionToolCall","x-python-datatype":"PydanticModel","properties":{"function":{"type":"object","title":"ParsedFunction","x-python-datatype":"PydanticModel"}}}}}},"usage":{"type":"object","title":"CompletionUsage","x-python-datatype":"PydanticModel"}}}}}',
+                    'response_data': {
+                        'message': {
+                            'content': None,
+                            'refusal': None,
+                            'role': 'assistant',
+                            'annotations': None,
+                            'audio': None,
+                            'function_call': None,
+                            'tool_calls': [
+                                {
+                                    'id': '1',
+                                    'function': {
+                                        'arguments': '{"location":"Boston"}',
+                                        'name': 'get_current_weather',
+                                        'parsed_arguments': None,
+                                    },
+                                    'type': 'function',
+                                    'index': 0,
+                                }
+                            ],
+                            'parsed': None,
+                        },
+                        'usage': {
+                            'completion_tokens': 1,
+                            'prompt_tokens': 2,
+                            'total_tokens': 3,
+                            'completion_tokens_details': None,
+                            'prompt_tokens_details': None,
+                        },
+                    },
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.request.model': {},
+                            'async': {},
+                            'duration': {},
+                            'response_data': {
+                                'type': 'object',
+                                'properties': {
+                                    'message': {
+                                        'type': 'object',
+                                        'title': 'ParsedChatCompletionMessage[object]',
+                                        'x-python-datatype': 'PydanticModel',
+                                        'properties': {
+                                            'tool_calls': {
+                                                'type': 'array',
+                                                'items': {
+                                                    'type': 'object',
+                                                    'title': 'ParsedFunctionToolCall',
+                                                    'x-python-datatype': 'PydanticModel',
+                                                    'properties': {
+                                                        'function': {
+                                                            'type': 'object',
+                                                            'title': 'ParsedFunction',
+                                                            'x-python-datatype': 'PydanticModel',
+                                                        }
+                                                    },
+                                                },
+                                            }
+                                        },
+                                    },
+                                    'usage': {
+                                        'type': 'object',
+                                        'title': 'CompletionUsage',
+                                        'x-python-datatype': 'PydanticModel',
+                                    },
+                                },
+                            },
+                        },
+                    },
                     'logfire.tags': ('LLM',),
                 },
             },
@@ -779,7 +972,7 @@ async def test_async_chat_tool_call_stream(
         ]
     )
     assert combined_arguments == '{"location":"Boston"}'
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'Chat Completion with {request_data[model]!r}',
@@ -791,11 +984,41 @@ async def test_async_chat_tool_call_stream(
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_async_chat_tool_call_stream',
                     'code.lineno': 123,
-                    'request_data': '{"messages":[{"role":"system","content":"streamed tool call"}],"model":"gpt-4","stream":true,"stream_options":{"include_usage":true},"tool_choice":{"type":"function","function":{"name":"get_current_weather"}},"tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}]}',
+                    'request_data': {
+                        'messages': [{'role': 'system', 'content': 'streamed tool call'}],
+                        'model': 'gpt-4',
+                        'stream': True,
+                        'stream_options': {'include_usage': True},
+                        'tool_choice': {'type': 'function', 'function': {'name': 'get_current_weather'}},
+                        'tools': [
+                            {
+                                'type': 'function',
+                                'function': {
+                                    'name': 'get_current_weather',
+                                    'description': 'Get the current weather in a given location',
+                                    'parameters': {
+                                        'type': 'object',
+                                        'properties': {
+                                            'location': {
+                                                'type': 'string',
+                                                'description': 'The city and state, e.g. San Francisco, CA',
+                                            },
+                                            'unit': {'type': 'string', 'enum': ['celsius', 'fahrenheit']},
+                                        },
+                                        'required': ['location'],
+                                    },
+                                },
+                            }
+                        ],
+                    },
+                    'gen_ai.request.model': 'gpt-4',
                     'async': True,
                     'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
                     'logfire.msg': "Chat Completion with 'gpt-4'",
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'request_data': {'type': 'object'}, 'gen_ai.request.model': {}, 'async': {}},
+                    },
                     'logfire.tags': ('LLM',),
                     'logfire.span_type': 'span',
                 },
@@ -814,11 +1037,107 @@ async def test_async_chat_tool_call_stream(
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_async_chat_tool_call_stream',
                     'code.lineno': 123,
-                    'request_data': '{"messages":[{"role":"system","content":"streamed tool call"}],"model":"gpt-4","stream":true,"stream_options":{"include_usage":true},"tool_choice":{"type":"function","function":{"name":"get_current_weather"}},"tools":[{"type":"function","function":{"name":"get_current_weather","description":"Get the current weather in a given location","parameters":{"type":"object","properties":{"location":{"type":"string","description":"The city and state, e.g. San Francisco, CA"},"unit":{"type":"string","enum":["celsius","fahrenheit"]}},"required":["location"]}}}]}',
+                    'request_data': {
+                        'messages': [{'role': 'system', 'content': 'streamed tool call'}],
+                        'model': 'gpt-4',
+                        'stream': True,
+                        'stream_options': {'include_usage': True},
+                        'tool_choice': {'type': 'function', 'function': {'name': 'get_current_weather'}},
+                        'tools': [
+                            {
+                                'type': 'function',
+                                'function': {
+                                    'name': 'get_current_weather',
+                                    'description': 'Get the current weather in a given location',
+                                    'parameters': {
+                                        'type': 'object',
+                                        'properties': {
+                                            'location': {
+                                                'type': 'string',
+                                                'description': 'The city and state, e.g. San Francisco, CA',
+                                            },
+                                            'unit': {'type': 'string', 'enum': ['celsius', 'fahrenheit']},
+                                        },
+                                        'required': ['location'],
+                                    },
+                                },
+                            }
+                        ],
+                    },
+                    'gen_ai.request.model': 'gpt-4',
                     'async': True,
                     'duration': 1.0,
-                    'response_data': '{"message":{"content":null,"refusal":null,"role":"assistant","audio":null,"function_call":null,"tool_calls":[{"id":"1","function":{"arguments":"{\\"location\\":\\"Boston\\"}","name":"get_current_weather","parsed_arguments":null},"type":"function","index":0}],"parsed":null},"usage":{"completion_tokens":1,"prompt_tokens":2,"total_tokens":3,"completion_tokens_details":null,"prompt_tokens_details":null}}',
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object","properties":{"message":{"type":"object","title":"ParsedChatCompletionMessage[object]","x-python-datatype":"PydanticModel","properties":{"tool_calls":{"type":"array","items":{"type":"object","title":"ParsedFunctionToolCall","x-python-datatype":"PydanticModel","properties":{"function":{"type":"object","title":"ParsedFunction","x-python-datatype":"PydanticModel"}}}}}},"usage":{"type":"object","title":"CompletionUsage","x-python-datatype":"PydanticModel"}}}}}',
+                    'response_data': {
+                        'message': {
+                            'content': None,
+                            'refusal': None,
+                            'role': 'assistant',
+                            'annotations': None,
+                            'audio': None,
+                            'function_call': None,
+                            'tool_calls': [
+                                {
+                                    'id': '1',
+                                    'function': {
+                                        'arguments': '{"location":"Boston"}',
+                                        'name': 'get_current_weather',
+                                        'parsed_arguments': None,
+                                    },
+                                    'type': 'function',
+                                    'index': 0,
+                                }
+                            ],
+                            'parsed': None,
+                        },
+                        'usage': {
+                            'completion_tokens': 1,
+                            'prompt_tokens': 2,
+                            'total_tokens': 3,
+                            'completion_tokens_details': None,
+                            'prompt_tokens_details': None,
+                        },
+                    },
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.request.model': {},
+                            'async': {},
+                            'duration': {},
+                            'response_data': {
+                                'type': 'object',
+                                'properties': {
+                                    'message': {
+                                        'type': 'object',
+                                        'title': 'ParsedChatCompletionMessage[object]',
+                                        'x-python-datatype': 'PydanticModel',
+                                        'properties': {
+                                            'tool_calls': {
+                                                'type': 'array',
+                                                'items': {
+                                                    'type': 'object',
+                                                    'title': 'ParsedFunctionToolCall',
+                                                    'x-python-datatype': 'PydanticModel',
+                                                    'properties': {
+                                                        'function': {
+                                                            'type': 'object',
+                                                            'title': 'ParsedFunction',
+                                                            'x-python-datatype': 'PydanticModel',
+                                                        }
+                                                    },
+                                                },
+                                            }
+                                        },
+                                    },
+                                    'usage': {
+                                        'type': 'object',
+                                        'title': 'CompletionUsage',
+                                        'x-python-datatype': 'PydanticModel',
+                                    },
+                                },
+                            },
+                        },
+                    },
                     'logfire.tags': ('LLM',),
                 },
             },
@@ -837,7 +1156,7 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
     )
     combined = ''.join(chunk.choices[0].delta.content for chunk in response if chunk.choices[0].delta.content)
     assert combined == 'The answer is secret'
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'Chat Completion with {request_data[model]!r}',
@@ -849,11 +1168,22 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_sync_chat_completions_stream',
                     'code.lineno': 123,
-                    'request_data': '{"messages":[{"role":"system","content":"You are a helpful assistant."},{"role":"user","content":"What is four plus five?"}],"model":"gpt-4","stream":true}',
+                    'request_data': {
+                        'messages': [
+                            {'role': 'system', 'content': 'You are a helpful assistant.'},
+                            {'role': 'user', 'content': 'What is four plus five?'},
+                        ],
+                        'model': 'gpt-4',
+                        'stream': True,
+                    },
+                    'gen_ai.request.model': 'gpt-4',
                     'async': False,
                     'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
                     'logfire.msg': "Chat Completion with 'gpt-4'",
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'request_data': {'type': 'object'}, 'gen_ai.request.model': {}, 'async': {}},
+                    },
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
                 },
@@ -866,18 +1196,56 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                 'end_time': 5000000000,
                 'attributes': {
                     'logfire.level_num': 9,
-                    'request_data': '{"messages":[{"role":"system","content":"You are a helpful assistant."},{"role":"user","content":"What is four plus five?"}],"model":"gpt-4","stream":true}',
+                    'request_data': {
+                        'messages': [
+                            {'role': 'system', 'content': 'You are a helpful assistant.'},
+                            {'role': 'user', 'content': 'What is four plus five?'},
+                        ],
+                        'model': 'gpt-4',
+                        'stream': True,
+                    },
                     'async': False,
                     'logfire.msg_template': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
                     'code.filepath': 'test_openai.py',
                     'code.function': '<genexpr>',
                     'code.lineno': 123,
                     'logfire.msg': "streaming response from 'gpt-4' took 1.00s",
+                    'gen_ai.request.model': 'gpt-4',
                     'logfire.span_type': 'log',
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
-                    'response_data': '{"message":{"content":"The answer is secret","refusal":null,"role":"assistant","audio":null,"function_call":null,"tool_calls":null,"parsed":null},"usage":null}',
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object","properties":{"message":{"type":"object","title":"ParsedChatCompletionMessage[object]","x-python-datatype":"PydanticModel"}}}}}',
+                    'response_data': {
+                        'message': {
+                            'content': 'The answer is secret',
+                            'refusal': None,
+                            'role': 'assistant',
+                            'annotations': None,
+                            'audio': None,
+                            'function_call': None,
+                            'tool_calls': None,
+                            'parsed': None,
+                        },
+                        'usage': None,
+                    },
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.request.model': {},
+                            'async': {},
+                            'duration': {},
+                            'response_data': {
+                                'type': 'object',
+                                'properties': {
+                                    'message': {
+                                        'type': 'object',
+                                        'title': 'ParsedChatCompletionMessage[object]',
+                                        'x-python-datatype': 'PydanticModel',
+                                    }
+                                },
+                            },
+                        },
+                    },
                 },
             },
         ]
@@ -898,7 +1266,7 @@ async def test_async_chat_completions_stream(
     chunk_content = [chunk.choices[0].delta.content async for chunk in response if chunk.choices[0].delta.content]
     combined = ''.join(chunk_content)
     assert combined == 'The answer is secret'
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'Chat Completion with {request_data[model]!r}',
@@ -910,11 +1278,22 @@ async def test_async_chat_completions_stream(
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_async_chat_completions_stream',
                     'code.lineno': 123,
-                    'request_data': '{"messages":[{"role":"system","content":"You are a helpful assistant."},{"role":"user","content":"What is four plus five?"}],"model":"gpt-4","stream":true}',
+                    'request_data': {
+                        'messages': [
+                            {'role': 'system', 'content': 'You are a helpful assistant.'},
+                            {'role': 'user', 'content': 'What is four plus five?'},
+                        ],
+                        'model': 'gpt-4',
+                        'stream': True,
+                    },
+                    'gen_ai.request.model': 'gpt-4',
                     'async': True,
                     'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
                     'logfire.msg': "Chat Completion with 'gpt-4'",
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'request_data': {'type': 'object'}, 'gen_ai.request.model': {}, 'async': {}},
+                    },
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
                 },
@@ -927,18 +1306,56 @@ async def test_async_chat_completions_stream(
                 'end_time': 5000000000,
                 'attributes': {
                     'logfire.level_num': 9,
-                    'request_data': '{"messages":[{"role":"system","content":"You are a helpful assistant."},{"role":"user","content":"What is four plus five?"}],"model":"gpt-4","stream":true}',
+                    'request_data': {
+                        'messages': [
+                            {'role': 'system', 'content': 'You are a helpful assistant.'},
+                            {'role': 'user', 'content': 'What is four plus five?'},
+                        ],
+                        'model': 'gpt-4',
+                        'stream': True,
+                    },
                     'async': True,
                     'logfire.msg_template': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_async_chat_completions_stream',
                     'code.lineno': 123,
                     'logfire.msg': "streaming response from 'gpt-4' took 1.00s",
+                    'gen_ai.request.model': 'gpt-4',
                     'logfire.span_type': 'log',
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
-                    'response_data': '{"message":{"content":"The answer is secret","refusal":null,"role":"assistant","audio":null,"function_call":null,"tool_calls":null,"parsed":null},"usage":null}',
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object","properties":{"message":{"type":"object","title":"ParsedChatCompletionMessage[object]","x-python-datatype":"PydanticModel"}}}}}',
+                    'response_data': {
+                        'message': {
+                            'content': 'The answer is secret',
+                            'refusal': None,
+                            'role': 'assistant',
+                            'annotations': None,
+                            'audio': None,
+                            'function_call': None,
+                            'tool_calls': None,
+                            'parsed': None,
+                        },
+                        'usage': None,
+                    },
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.request.model': {},
+                            'async': {},
+                            'duration': {},
+                            'response_data': {
+                                'type': 'object',
+                                'properties': {
+                                    'message': {
+                                        'type': 'object',
+                                        'title': 'ParsedChatCompletionMessage[object]',
+                                        'x-python-datatype': 'PydanticModel',
+                                    }
+                                },
+                            },
+                        },
+                    },
                 },
             },
         ]
@@ -951,7 +1368,7 @@ def test_completions(instrumented_client: openai.Client, exporter: TestExporter)
         prompt='What is four plus five?',
     )
     assert response.choices[0].text == 'Nine'
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'Completion with {request_data[model]!r}',
@@ -963,14 +1380,27 @@ def test_completions(instrumented_client: openai.Client, exporter: TestExporter)
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_completions',
                     'code.lineno': 123,
-                    'request_data': '{"model":"gpt-3.5-turbo-instruct","prompt":"What is four plus five?"}',
+                    'request_data': {'model': 'gpt-3.5-turbo-instruct', 'prompt': 'What is four plus five?'},
                     'async': False,
                     'logfire.msg_template': 'Completion with {request_data[model]!r}',
                     'logfire.msg': "Completion with 'gpt-3.5-turbo-instruct'",
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
-                    'response_data': '{"finish_reason":"stop","text":"Nine","usage":null}',
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"response_data":{"type":"object"}}}',
+                    'gen_ai.system': 'openai',
+                    'gen_ai.request.model': 'gpt-3.5-turbo-instruct',
+                    'gen_ai.response.model': 'gpt-3.5-turbo-instruct',
+                    'response_data': {'finish_reason': 'stop', 'text': 'Nine', 'usage': None},
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'async': {},
+                            'gen_ai.system': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.response.model': {},
+                            'response_data': {'type': 'object'},
+                        },
+                    },
                 },
             }
         ]
@@ -985,7 +1415,7 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
     )
     combined = ''.join(chunk.choices[0].text for chunk in response if chunk.choices[0].text)
     assert combined == 'The answer is Nine'
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'Completion with {request_data[model]!r}',
@@ -997,11 +1427,19 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_completions_stream',
                     'code.lineno': 123,
-                    'request_data': '{"model":"gpt-3.5-turbo-instruct","prompt":"What is four plus five?","stream":true}',
+                    'request_data': {
+                        'model': 'gpt-3.5-turbo-instruct',
+                        'prompt': 'What is four plus five?',
+                        'stream': True,
+                    },
+                    'gen_ai.request.model': 'gpt-3.5-turbo-instruct',
                     'async': False,
                     'logfire.msg_template': 'Completion with {request_data[model]!r}',
                     'logfire.msg': "Completion with 'gpt-3.5-turbo-instruct'",
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'request_data': {'type': 'object'}, 'gen_ai.request.model': {}, 'async': {}},
+                    },
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
                 },
@@ -1014,18 +1452,32 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                 'end_time': 5000000000,
                 'attributes': {
                     'logfire.level_num': 9,
-                    'request_data': '{"model":"gpt-3.5-turbo-instruct","prompt":"What is four plus five?","stream":true}',
+                    'request_data': {
+                        'model': 'gpt-3.5-turbo-instruct',
+                        'prompt': 'What is four plus five?',
+                        'stream': True,
+                    },
                     'async': False,
                     'logfire.msg_template': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
                     'code.filepath': 'test_openai.py',
                     'code.function': '<genexpr>',
                     'code.lineno': 123,
                     'logfire.msg': "streaming response from 'gpt-3.5-turbo-instruct' took 1.00s",
+                    'gen_ai.request.model': 'gpt-3.5-turbo-instruct',
                     'logfire.span_type': 'log',
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
-                    'response_data': '{"combined_chunk_content":"The answer is Nine","chunk_count":2}',
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"duration":{},"response_data":{"type":"object"}}}',
+                    'response_data': {'combined_chunk_content': 'The answer is Nine', 'chunk_count': 2},
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.request.model': {},
+                            'async': {},
+                            'duration': {},
+                            'response_data': {'type': 'object'},
+                        },
+                    },
                 },
             },
         ]
@@ -1038,7 +1490,7 @@ def test_embeddings(instrumented_client: openai.Client, exporter: TestExporter) 
         model='text-embedding-3-small',
     )
     assert response.data[0].embedding == [1.0, 2.0, 3.0]
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'Embedding Creation with {request_data[model]!r}',
@@ -1050,14 +1502,38 @@ def test_embeddings(instrumented_client: openai.Client, exporter: TestExporter) 
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_embeddings',
                     'code.lineno': 123,
-                    'request_data': '{"input":"This is a sentence to embed.","model":"text-embedding-3-small","encoding_format":"base64"}',
+                    'request_data': {
+                        'input': 'This is a sentence to embed.',
+                        'model': 'text-embedding-3-small',
+                        'encoding_format': 'base64',
+                    },
                     'async': False,
                     'logfire.msg_template': 'Embedding Creation with {request_data[model]!r}',
                     'logfire.msg': "Embedding Creation with 'text-embedding-3-small'",
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
-                    'response_data': '{"usage":{"prompt_tokens":1,"total_tokens":2}}',
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"response_data":{"type":"object","properties":{"usage":{"type":"object","title":"Usage","x-python-datatype":"PydanticModel"}}}}}',
+                    'gen_ai.system': 'openai',
+                    'gen_ai.request.model': 'text-embedding-3-small',
+                    'gen_ai.response.model': 'text-embedding-3-small',
+                    'gen_ai.usage.input_tokens': 1,
+                    'response_data': {'usage': {'prompt_tokens': 1, 'total_tokens': 2}},
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'async': {},
+                            'gen_ai.system': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'response_data': {
+                                'type': 'object',
+                                'properties': {
+                                    'usage': {'type': 'object', 'title': 'Usage', 'x-python-datatype': 'PydanticModel'}
+                                },
+                            },
+                        },
+                    },
                 },
             }
         ]
@@ -1069,9 +1545,10 @@ def test_images(instrumented_client: openai.Client, exporter: TestExporter) -> N
         model='dall-e-3',
         prompt='A picture of a cat.',
     )
+    assert response.data
     assert response.data[0].revised_prompt == 'revised prompt'
     assert response.data[0].url == 'https://example.com/image.jpg'
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'Image Generation with {request_data[model]!r}',
@@ -1083,14 +1560,45 @@ def test_images(instrumented_client: openai.Client, exporter: TestExporter) -> N
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_images',
                     'code.lineno': 123,
-                    'request_data': '{"prompt":"A picture of a cat.","model":"dall-e-3"}',
+                    'request_data': {'prompt': 'A picture of a cat.', 'model': 'dall-e-3'},
+                    'gen_ai.request.model': 'dall-e-3',
                     'async': False,
                     'logfire.msg_template': 'Image Generation with {request_data[model]!r}',
                     'logfire.msg': "Image Generation with 'dall-e-3'",
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
-                    'response_data': '{"images":[{"b64_json":null,"revised_prompt":"revised prompt","url":"https://example.com/image.jpg"}]}',
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"response_data":{"type":"object","properties":{"images":{"type":"array","items":{"type":"object","title":"Image","x-python-datatype":"PydanticModel"}}}}}}',
+                    'gen_ai.system': 'openai',
+                    'response_data': {
+                        'images': [
+                            {
+                                'b64_json': None,
+                                'revised_prompt': 'revised prompt',
+                                'url': 'https://example.com/image.jpg',
+                            }
+                        ]
+                    },
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.request.model': {},
+                            'async': {},
+                            'gen_ai.system': {},
+                            'response_data': {
+                                'type': 'object',
+                                'properties': {
+                                    'images': {
+                                        'type': 'array',
+                                        'items': {
+                                            'type': 'object',
+                                            'title': 'Image',
+                                            'x-python-datatype': 'PydanticModel',
+                                        },
+                                    }
+                                },
+                            },
+                        },
+                    },
                 },
             }
         ]
@@ -1107,7 +1615,7 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
             response = openai_client.completions.create(model='gpt-3.5-turbo-instruct', prompt='xxx')
 
     assert response.choices[0].text == 'Nine'
-    assert exporter.exported_spans_as_dict(include_instrumentation_scope=True) == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True, include_instrumentation_scope=True) == snapshot(
         [
             {
                 'name': 'POST',
@@ -1125,11 +1633,43 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                     'server.address': 'api.openai.com',
                     'network.peer.address': 'api.openai.com',
                     'logfire.span_type': 'span',
-                    'logfire.msg': 'POST /v1/completions',
+                    'logfire.msg': 'POST api.openai.com/v1/completions',
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'http.flavor': '1.1',
                     'network.protocol.version': '1.1',
+                    'logfire.metrics': {
+                        'http.client.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.flavor': '1.1',
+                                        'http.host': 'api.openai.com',
+                                        'http.method': 'POST',
+                                        'http.scheme': 'https',
+                                        'http.status_code': 200,
+                                        'net.peer.name': 'api.openai.com',
+                                    },
+                                    'total': IsNumeric(),
+                                }
+                            ],
+                            'total': IsNumeric(),
+                        },
+                        'http.client.request.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.request.method': 'POST',
+                                        'http.response.status_code': 200,
+                                        'network.protocol.version': '1.1',
+                                        'server.address': 'api.openai.com',
+                                    },
+                                    'total': IsNumeric(),
+                                }
+                            ],
+                            'total': IsNumeric(),
+                        },
+                    },
                     'http.target': '/v1/completions',
                 },
             },
@@ -1144,14 +1684,59 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_dont_suppress_httpx',
                     'code.lineno': 123,
-                    'request_data': '{"model":"gpt-3.5-turbo-instruct","prompt":"xxx"}',
+                    'request_data': {'model': 'gpt-3.5-turbo-instruct', 'prompt': 'xxx'},
                     'async': False,
                     'logfire.msg_template': 'Completion with {request_data[model]!r}',
                     'logfire.msg': "Completion with 'gpt-3.5-turbo-instruct'",
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
-                    'response_data': '{"finish_reason":"stop","text":"Nine","usage":null}',
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"response_data":{"type":"object"}}}',
+                    'gen_ai.system': 'openai',
+                    'gen_ai.request.model': 'gpt-3.5-turbo-instruct',
+                    'gen_ai.response.model': 'gpt-3.5-turbo-instruct',
+                    'response_data': {'finish_reason': 'stop', 'text': 'Nine', 'usage': None},
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'async': {},
+                            'gen_ai.system': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.response.model': {},
+                            'response_data': {'type': 'object'},
+                        },
+                    },
+                    'logfire.metrics': {
+                        'http.client.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.flavor': '1.1',
+                                        'http.host': 'api.openai.com',
+                                        'http.method': 'POST',
+                                        'http.scheme': 'https',
+                                        'http.status_code': 200,
+                                        'net.peer.name': 'api.openai.com',
+                                    },
+                                    'total': IsNumeric,
+                                }
+                            ],
+                            'total': IsNumeric,
+                        },
+                        'http.client.request.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.request.method': 'POST',
+                                        'http.response.status_code': 200,
+                                        'network.protocol.version': '1.1',
+                                        'server.address': 'api.openai.com',
+                                    },
+                                    'total': IsNumeric(),
+                                }
+                            ],
+                            'total': IsNumeric(),
+                        },
+                    },
                 },
             },
         ]
@@ -1168,7 +1753,7 @@ def test_suppress_httpx(exporter: TestExporter) -> None:
             response = openai_client.completions.create(model='gpt-3.5-turbo-instruct', prompt='xxx')
 
     assert response.choices[0].text == 'Nine'
-    assert exporter.exported_spans_as_dict(include_instrumentation_scope=True) == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True, include_instrumentation_scope=True) == snapshot(
         [
             {
                 'name': 'Completion with {request_data[model]!r}',
@@ -1181,14 +1766,27 @@ def test_suppress_httpx(exporter: TestExporter) -> None:
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_suppress_httpx',
                     'code.lineno': 123,
-                    'request_data': '{"model":"gpt-3.5-turbo-instruct","prompt":"xxx"}',
+                    'request_data': {'model': 'gpt-3.5-turbo-instruct', 'prompt': 'xxx'},
                     'async': False,
                     'logfire.msg_template': 'Completion with {request_data[model]!r}',
                     'logfire.msg': "Completion with 'gpt-3.5-turbo-instruct'",
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
-                    'response_data': '{"finish_reason":"stop","text":"Nine","usage":null}',
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"response_data":{"type":"object"}}}',
+                    'gen_ai.system': 'openai',
+                    'gen_ai.request.model': 'gpt-3.5-turbo-instruct',
+                    'gen_ai.response.model': 'gpt-3.5-turbo-instruct',
+                    'response_data': {'finish_reason': 'stop', 'text': 'Nine', 'usage': None},
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'async': {},
+                            'gen_ai.system': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.response.model': {},
+                            'response_data': {'type': 'object'},
+                        },
+                    },
                 },
             },
         ]
@@ -1199,20 +1797,30 @@ def test_openai_suppressed(instrumented_client: openai.Client, exporter: TestExp
     with suppress_instrumentation():
         response = instrumented_client.completions.create(model='gpt-3.5-turbo-instruct', prompt='xxx')
     assert response.choices[0].text == 'Nine'
-    assert exporter.exported_spans_as_dict() == []
+    assert (
+        exporter.exported_spans_as_dict(
+            parse_json_attributes=True,
+        )
+        == []
+    )
 
 
 async def test_async_openai_suppressed(instrumented_async_client: openai.AsyncClient, exporter: TestExporter) -> None:
     with suppress_instrumentation():
         response = await instrumented_async_client.completions.create(model='gpt-3.5-turbo-instruct', prompt='xxx')
     assert response.choices[0].text == 'Nine'
-    assert exporter.exported_spans_as_dict() == []
+    assert (
+        exporter.exported_spans_as_dict(
+            parse_json_attributes=True,
+        )
+        == []
+    )
 
 
 def test_create_files(instrumented_client: openai.Client, exporter: TestExporter) -> None:
     response = instrumented_client.files.create(file=BytesIO(b'file contents'), purpose='fine-tune')
     assert response.filename == 'test.txt'
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'OpenAI API call to {url!r}',
@@ -1223,7 +1831,7 @@ def test_create_files(instrumented_client: openai.Client, exporter: TestExporter
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
-                    'request_data': '{"purpose":"fine-tune"}',
+                    'request_data': {'purpose': 'fine-tune'},
                     'url': '/files',
                     'async': False,
                     'logfire.msg_template': 'OpenAI API call to {url!r}',
@@ -1231,7 +1839,11 @@ def test_create_files(instrumented_client: openai.Client, exporter: TestExporter
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_create_files',
                     'code.lineno': 123,
-                    'logfire.json_schema': IsStr(),
+                    'gen_ai.system': 'openai',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'request_data': {'type': 'object'}, 'url': {}, 'async': {}, 'gen_ai.system': {}},
+                    },
                 },
             }
         ]
@@ -1241,7 +1853,7 @@ def test_create_files(instrumented_client: openai.Client, exporter: TestExporter
 async def test_create_files_async(instrumented_async_client: openai.AsyncClient, exporter: TestExporter) -> None:
     response = await instrumented_async_client.files.create(file=BytesIO(b'file contents'), purpose='fine-tune')
     assert response.filename == 'test.txt'
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'OpenAI API call to {url!r}',
@@ -1252,7 +1864,7 @@ async def test_create_files_async(instrumented_async_client: openai.AsyncClient,
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
-                    'request_data': '{"purpose":"fine-tune"}',
+                    'request_data': {'purpose': 'fine-tune'},
                     'url': '/files',
                     'async': True,
                     'logfire.msg_template': 'OpenAI API call to {url!r}',
@@ -1260,7 +1872,11 @@ async def test_create_files_async(instrumented_async_client: openai.AsyncClient,
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_create_files_async',
                     'code.lineno': 123,
-                    'logfire.json_schema': IsStr(),
+                    'gen_ai.system': 'openai',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'request_data': {'type': 'object'}, 'url': {}, 'async': {}, 'gen_ai.system': {}},
+                    },
                 },
             }
         ]
@@ -1275,7 +1891,7 @@ def test_create_assistant(instrumented_client: openai.Client, exporter: TestExpo
         model='gpt-4o',
     )
     assert assistant.name == 'Math Tutor'
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'OpenAI API call to {url!r}',
@@ -1286,7 +1902,7 @@ def test_create_assistant(instrumented_client: openai.Client, exporter: TestExpo
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
-                    'request_data': IsJson(
+                    'request_data': (
                         {
                             'model': 'gpt-4o',
                             'instructions': 'You are a personal math tutor. Write and run code to answer math questions.',
@@ -1301,7 +1917,20 @@ def test_create_assistant(instrumented_client: openai.Client, exporter: TestExpo
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_create_assistant',
                     'code.lineno': 123,
-                    'logfire.json_schema': IsStr(),
+                    'gen_ai.system': 'openai',
+                    'gen_ai.request.model': 'gpt-4o',
+                    'gen_ai.response.model': 'gpt-4-turbo',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'url': {},
+                            'async': {},
+                            'gen_ai.system': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.response.model': {},
+                        },
+                    },
                 },
             }
         ]
@@ -1309,9 +1938,10 @@ def test_create_assistant(instrumented_client: openai.Client, exporter: TestExpo
 
 
 def test_create_thread(instrumented_client: openai.Client, exporter: TestExporter) -> None:
-    thread = instrumented_client.beta.threads.create()
+    with pytest.warns(DeprecationWarning):
+        thread = instrumented_client.beta.threads.create()  # type: ignore
     assert thread.id == 'thread_abc123'
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'OpenAI API call to {url!r}',
@@ -1322,7 +1952,7 @@ def test_create_thread(instrumented_client: openai.Client, exporter: TestExporte
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
-                    'request_data': '{}',
+                    'request_data': {},
                     'url': '/threads',
                     'async': False,
                     'logfire.msg_template': 'OpenAI API call to {url!r}',
@@ -1330,8 +1960,177 @@ def test_create_thread(instrumented_client: openai.Client, exporter: TestExporte
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_create_thread',
                     'code.lineno': 123,
-                    'logfire.json_schema': IsStr(),
+                    'gen_ai.system': 'openai',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'request_data': {'type': 'object'}, 'url': {}, 'async': {}, 'gen_ai.system': {}},
+                    },
                 },
             }
         ]
     )
+
+
+@pytest.mark.vcr()
+def test_responses_api(exporter: TestExporter) -> None:
+    client = openai.Client()
+    logfire.instrument_openai(client)
+    tools: Any = [
+        {
+            'type': 'function',
+            'name': 'get_weather',
+            'description': 'Get current temperature for a given location.',
+            'parameters': {
+                'type': 'object',
+                'properties': {'location': {'type': 'string', 'description': 'City and country e.g. Bogotá, Colombia'}},
+                'required': ['location'],
+                'additionalProperties': False,
+            },
+        }
+    ]
+
+    input_messages: Any = [{'role': 'user', 'content': 'What is the weather like in Paris today?'}]
+    response = client.responses.create(
+        model='gpt-4.1', input=input_messages[0]['content'], tools=tools, instructions='Be nice'
+    )
+    tool_call: Any = response.output[0]
+    input_messages.append(tool_call)
+    input_messages.append({'type': 'function_call_output', 'call_id': tool_call.call_id, 'output': 'Rainy'})
+    response2: Any = client.responses.create(model='gpt-4.1', input=input_messages)
+    assert response2.output[0].content[0].text == snapshot(
+        'The weather in Paris today is rainy. If you’re planning to go out, '
+        'don’t forget your umbrella! Let me know if you need more details or the forecast for the next few days.'
+    )
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Responses API with {gen_ai.request.model!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_responses_api',
+                    'code.lineno': 123,
+                    'async': False,
+                    'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
+                    'logfire.msg': "Responses API with 'gpt-4.1'",
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.system': 'openai',
+                    'gen_ai.request.model': 'gpt-4.1',
+                    'gen_ai.response.model': 'gpt-4.1-2025-04-14',
+                    'gen_ai.usage.input_tokens': 65,
+                    'gen_ai.usage.output_tokens': 17,
+                    'events': [
+                        {'event.name': 'gen_ai.system.message', 'content': 'Be nice', 'role': 'system'},
+                        {
+                            'event.name': 'gen_ai.user.message',
+                            'content': 'What is the weather like in Paris today?',
+                            'role': 'user',
+                        },
+                        {
+                            'event.name': 'gen_ai.assistant.message',
+                            'role': 'assistant',
+                            'tool_calls': [
+                                {
+                                    'id': 'call_92k1J8QkHaqVZFGoZU1aLvR7',
+                                    'type': 'function',
+                                    'function': {'name': 'get_weather', 'arguments': '{"location":"Paris, France"}'},
+                                }
+                            ],
+                        },
+                    ],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'gen_ai.request.model': {},
+                            'events': {'type': 'array'},
+                            'async': {},
+                            'gen_ai.system': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                        },
+                    },
+                },
+            },
+            {
+                'name': 'Responses API with {gen_ai.request.model!r}',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_responses_api',
+                    'code.lineno': 123,
+                    'async': False,
+                    'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
+                    'logfire.msg': "Responses API with 'gpt-4.1'",
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.system': 'openai',
+                    'gen_ai.request.model': 'gpt-4.1',
+                    'gen_ai.response.model': 'gpt-4.1-2025-04-14',
+                    'gen_ai.usage.input_tokens': 43,
+                    'gen_ai.usage.output_tokens': 40,
+                    'events': [
+                        {
+                            'event.name': 'gen_ai.user.message',
+                            'content': 'What is the weather like in Paris today?',
+                            'role': 'user',
+                        },
+                        {
+                            'event.name': 'gen_ai.assistant.message',
+                            'role': 'assistant',
+                            'tool_calls': [
+                                {
+                                    'id': 'call_92k1J8QkHaqVZFGoZU1aLvR7',
+                                    'type': 'function',
+                                    'function': {'name': 'get_weather', 'arguments': '{"location":"Paris, France"}'},
+                                }
+                            ],
+                        },
+                        {
+                            'event.name': 'gen_ai.tool.message',
+                            'role': 'tool',
+                            'id': 'call_92k1J8QkHaqVZFGoZU1aLvR7',
+                            'content': 'Rainy',
+                            'name': 'get_weather',
+                        },
+                        {
+                            'event.name': 'gen_ai.assistant.message',
+                            'content': 'The weather in Paris today is rainy. If you’re planning to go out, don’t forget your umbrella! Let me know if you need more details or the forecast for the next few days.',
+                            'role': 'assistant',
+                        },
+                    ],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'gen_ai.request.model': {},
+                            'events': {'type': 'array'},
+                            'async': {},
+                            'gen_ai.system': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                        },
+                    },
+                },
+            },
+        ]
+    )
+
+
+@pytest.mark.vcr()
+def test_responses_api_nonrecording(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
+    client = openai.Client()
+    logfire.instrument_openai(client)
+    logfire.configure(**config_kwargs, sampling=logfire.SamplingOptions(head=0))
+    with logfire.span('span'):
+        response = client.responses.create(model='gpt-4.1', input='hi')
+    assert response.output_text == snapshot('Hello! How can I help you today? 😊')
+
+    assert exporter.exported_spans_as_dict() == []

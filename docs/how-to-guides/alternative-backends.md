@@ -5,7 +5,9 @@
 The easiest way is to set the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable to a URL that points to your backend.
 This will be used as a base, and the SDK will append `/v1/traces` and `/v1/metrics` to the URL to send traces and metrics, respectively.
 
-Alternatively, you can use the `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` and `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` environment variables to specify the URLs for traces and metrics separately. These URLs should include the full path, including `/v1/traces` and `/v1/metrics`.
+Alternatively, you can use the `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`, `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` and `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT`
+environment variables to specify the URLs for traces, metrics and logs separately.
+These URLs should include the full path, including `/v1/traces` and `/v1/metrics`.
 
 !!! note
     The data will be encoded using **Protobuf** (not JSON) and sent over **HTTP** (not gRPC).

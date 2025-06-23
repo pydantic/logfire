@@ -7,7 +7,7 @@ import json
 from collections.abc import Mapping, Sequence
 from decimal import Decimal
 from enum import Enum
-from functools import lru_cache
+from functools import cache, lru_cache
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
 from itertools import chain
 from pathlib import PosixPath
@@ -135,8 +135,10 @@ def _numpy_array_encoder(o: Any, seen: set[int]) -> JsonValue:
         o = o.A  # type: ignore[reportUnknownMemberType]
 
     for dimension in range(dimensions):
+        if shape[dimension] <= NUMPY_DIMENSION_MAX_SIZE:
+            continue
         # In case of multiple dimensions, we limit the dimension size by the NUMPY_DIMENSION_MAX_SIZE.
-        half = min(shape[dimension], NUMPY_DIMENSION_MAX_SIZE) // 2
+        half = NUMPY_DIMENSION_MAX_SIZE // 2
         # Slicing and concatenating arrays along the specified axis
         slices = [slice(None)] * dimensions
         slices[dimension] = slice(0, half)
@@ -184,7 +186,7 @@ def _get_sqlalchemy_data(o: Any, seen: set[int]) -> JsonValue | None:
 EncoderFunction = Callable[[Any, 'set[int]'], JsonValue]
 
 
-@lru_cache(maxsize=None)
+@cache
 def encoder_by_type() -> dict[type[Any], EncoderFunction]:
     lookup: dict[type[Any], EncoderFunction] = {
         set: _set_encoder,
@@ -211,10 +213,12 @@ def encoder_by_type() -> dict[type[Any], EncoderFunction]:
     }
     with contextlib.suppress(ModuleNotFoundError):
         import pydantic
+        import pydantic_core
 
         lookup.update(
             {
                 pydantic.AnyUrl: _to_str,
+                pydantic_core.Url: _to_str,
                 pydantic.NameEmail: _to_str,
                 pydantic.SecretBytes: _to_str,
                 pydantic.SecretStr: _to_str,
@@ -273,6 +277,16 @@ def to_json_value(o: Any, seen: set[int]) -> JsonValue:
 
         if isinstance(o, Sequence):
             return [to_json_value(item, seen) for item in o]  # type: ignore
+
+        try:
+            # Some VertexAI classes have this method. They have no common base class.
+            # Seems like a sensible thing to try in general.
+            to_dict = type(o).to_dict(o)  # type: ignore
+        except Exception:  # currently redundant, but future-proof
+            pass
+        else:
+            return to_json_value(to_dict, seen)
+
     except Exception:  # pragma: no cover
         pass
 
@@ -290,17 +304,17 @@ def logfire_json_dumps(obj: Any) -> str:
 
 
 def is_sqlalchemy(obj: Any) -> bool:
-    if not hasattr(obj, '__mapper__'):
-        # A SQLModel without `table=True` will pass `isinstance(obj.__class__, DeclarativeMeta)` (I don't know how)
-        # but will fail when retrieving data, specifically when calling `sqlalchemy.inspect`
-        # or when getting the `__mapper__` attribute.
-        return False
-
     try:
+        if not hasattr(obj, '__mapper__'):
+            # A SQLModel without `table=True` will pass `isinstance(obj.__class__, DeclarativeMeta)` (I don't know how)
+            # but will fail when retrieving data, specifically when calling `sqlalchemy.inspect`
+            # or when getting the `__mapper__` attribute.
+            return False
+
         from sqlalchemy.orm import DeclarativeBase, DeclarativeMeta
 
         return isinstance(obj, DeclarativeBase) or isinstance(obj.__class__, DeclarativeMeta)
-    except ImportError:  # pragma: no cover
+    except Exception:
         return False
 
 

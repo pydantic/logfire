@@ -8,7 +8,7 @@ from mkdocs.config import Config
 from mkdocs.structure.files import Files
 from mkdocs.structure.pages import Page
 
-from logfire._internal import config_params, metrics
+from logfire._internal import config_params
 
 LOGFIRE_DIR = Path(__file__).parent.parent.parent
 
@@ -20,7 +20,6 @@ def on_page_markdown(markdown: str, page: Page, config: Config, files: Files) ->
     markdown = build_environment_variables_table(markdown, page)
     markdown = logfire_print_help(markdown, page)
     markdown = install_logfire(markdown, page)
-    markdown = check_documented_system_metrics(markdown, page)
     markdown = integrations_metadata(markdown, page)
     markdown = footer_web_frameworks(markdown, page)
     return markdown
@@ -33,34 +32,6 @@ def on_files(files: Files, config: Config) -> None:
                 f'File {file.src_path} contains an underscore. '
                 'For SEO reasons, the file should not contain underscores.'
             )
-
-
-def check_documented_system_metrics(markdown: str, page: Page) -> str:
-    """Check that all system metrics are documented.
-
-    The system metrics are the ones defined in `logfire._metrics.DEFAULT_CONFIG`.
-
-    The documentation is in `metrics.md`. The metrics are documented in bullet points, like this:
-    * `system.cpu.time`: The CPU time spent in different modes.
-    * `system.cpu.utilization`: The CPU utilization in different modes.
-
-    This function checks that all the metrics in `DEFAULT_CONFIG` are documented.
-    """
-    if page.file.src_uri != 'guides/onboarding-checklist/06_add-metrics.md':
-        return markdown
-
-    metrics_documented: set[str] = set()
-    for line in markdown.splitlines():
-        match = re.search(r'\* `(.*)`: ', line)
-        if match:
-            metrics_documented.add(match.group(1))
-
-    # Check that all the metrics are documented.
-    for metric in metrics.DEFAULT_CONFIG:
-        if metric not in metrics_documented:
-            raise RuntimeError(f'Metric {metric} is not documented on the metrics page.')
-
-    return markdown
 
 
 def logfire_print_help(markdown: str, page: Page) -> str:
@@ -121,7 +92,6 @@ def install_logfire(markdown: str, page: Page) -> str:
         # Split them and strip quotes for each one separately.
         extras = [arg.strip('\'"') for arg in arguments[1].strip('[]').split(',')] if len(arguments) > 1 else []
         package = 'logfire' if not extras else f"'logfire[{','.join(extras)}]'"
-        extras_arg = ' '.join(f'-E {extra}' for extra in extras)
         instructions = [
             '=== "pip"',
             '    ```bash',
@@ -130,10 +100,6 @@ def install_logfire(markdown: str, page: Page) -> str:
             '=== "uv"',
             '    ```bash',
             f'    uv add {package}',
-            '    ```',
-            '=== "rye"',
-            '    ```bash',
-            f'    rye add logfire {extras_arg}',
             '    ```',
             '=== "poetry"',
             '    ```bash',
@@ -190,6 +156,7 @@ otel_docs = {
     'starlette': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/starlette/starlette.html',
     'asgi': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html',
     'wsgi': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/wsgi/wsgi.html',
+    'aiohttp': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aiohttp_server/aiohttp_server.html',
 }
 
 

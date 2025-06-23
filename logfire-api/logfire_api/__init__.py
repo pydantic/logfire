@@ -48,6 +48,9 @@ except ImportError:
             def is_recording(self) -> bool:  # pragma: no cover
                 return False
 
+            @property
+            def context(self): ...  # pragma: no cover
+
         class Logfire:
             def __getattr__(self, attr):
                 return MagicMock()  # pragma: no cover
@@ -67,7 +70,9 @@ except ImportError:
 
             def info(self, *args, **kwargs) -> None: ...
 
-            def warn(self, *args, **kwargs) -> None: ...
+            def warning(self, *args, **kwargs) -> None: ...
+
+            warn = warning
 
             def error(self, *args, **kwargs) -> None: ...
 
@@ -107,6 +112,8 @@ except ImportError:
 
             def instrument_pydantic(self, *args, **kwargs) -> None: ...
 
+            def instrument_pydantic_ai(self, *args, **kwargs) -> None: ...
+
             def instrument_pymongo(self, *args, **kwargs) -> None: ...
 
             def instrument_sqlalchemy(self, *args, **kwargs) -> None: ...
@@ -137,9 +144,15 @@ except ImportError:
             def instrument_openai(self, *args, **kwargs) -> ContextManager[None]:
                 return nullcontext()
 
+            def instrument_openai_agents(self, *args, **kwargs) -> None: ...
+
             def instrument_aiohttp_client(self, *args, **kwargs) -> None: ...
 
+            def instrument_aiohttp_server(self, *args, **kwargs) -> None: ...
+
             def instrument_system_metrics(self, *args, **kwargs) -> None: ...
+
+            def instrument_mcp(self, *args, **kwargs) -> None: ...
 
             def shutdown(self, *args, **kwargs) -> None: ...
 
@@ -151,6 +164,7 @@ except ImportError:
         notice = DEFAULT_LOGFIRE_INSTANCE.notice
         info = DEFAULT_LOGFIRE_INSTANCE.info
         warn = DEFAULT_LOGFIRE_INSTANCE.warn
+        warning = DEFAULT_LOGFIRE_INSTANCE.warning
         error = DEFAULT_LOGFIRE_INSTANCE.error
         exception = DEFAULT_LOGFIRE_INSTANCE.exception
         fatal = DEFAULT_LOGFIRE_INSTANCE.fatal
@@ -163,8 +177,10 @@ except ImportError:
         instrument_asgi = DEFAULT_LOGFIRE_INSTANCE.instrument_asgi
         instrument_wsgi = DEFAULT_LOGFIRE_INSTANCE.instrument_wsgi
         instrument_pydantic = DEFAULT_LOGFIRE_INSTANCE.instrument_pydantic
+        instrument_pydantic_ai = DEFAULT_LOGFIRE_INSTANCE.instrument_pydantic_ai
         instrument_fastapi = DEFAULT_LOGFIRE_INSTANCE.instrument_fastapi
         instrument_openai = DEFAULT_LOGFIRE_INSTANCE.instrument_openai
+        instrument_openai_agents = DEFAULT_LOGFIRE_INSTANCE.instrument_openai_agents
         instrument_anthropic = DEFAULT_LOGFIRE_INSTANCE.instrument_anthropic
         instrument_asyncpg = DEFAULT_LOGFIRE_INSTANCE.instrument_asyncpg
         instrument_celery = DEFAULT_LOGFIRE_INSTANCE.instrument_celery
@@ -175,6 +191,7 @@ except ImportError:
         instrument_flask = DEFAULT_LOGFIRE_INSTANCE.instrument_flask
         instrument_starlette = DEFAULT_LOGFIRE_INSTANCE.instrument_starlette
         instrument_aiohttp_client = DEFAULT_LOGFIRE_INSTANCE.instrument_aiohttp_client
+        instrument_aiohttp_server = DEFAULT_LOGFIRE_INSTANCE.instrument_aiohttp_server
         instrument_sqlalchemy = DEFAULT_LOGFIRE_INSTANCE.instrument_sqlalchemy
         instrument_sqlite3 = DEFAULT_LOGFIRE_INSTANCE.instrument_sqlite3
         instrument_aws_lambda = DEFAULT_LOGFIRE_INSTANCE.instrument_aws_lambda
@@ -182,6 +199,7 @@ except ImportError:
         instrument_pymongo = DEFAULT_LOGFIRE_INSTANCE.instrument_pymongo
         instrument_mysql = DEFAULT_LOGFIRE_INSTANCE.instrument_mysql
         instrument_system_metrics = DEFAULT_LOGFIRE_INSTANCE.instrument_system_metrics
+        instrument_mcp = DEFAULT_LOGFIRE_INSTANCE.instrument_mcp
         shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
         suppress_scopes = DEFAULT_LOGFIRE_INSTANCE.suppress_scopes
 
@@ -189,6 +207,8 @@ except ImportError:
 
         def no_auto_trace(x):
             return x
+
+        def add_non_user_code_prefix(*args, **kwargs) -> None: ...
 
         @contextmanager
         def suppress_instrumentation():
@@ -226,3 +246,12 @@ except ImportError:
 
         class LogfireLoggingHandler:
             def __init__(self, *args, **kwargs) -> None: ...
+
+        def logfire_info() -> str:
+            """Show versions of logfire, OS and related packages."""
+            return 'logfire_info() is not implement by logfire-api'
+
+        def get_baggage(*args, **kwargs) -> dict[str, str]:...
+
+        def set_baggage(*args, **kwargs) -> ContextManager[None]:
+            return nullcontext()

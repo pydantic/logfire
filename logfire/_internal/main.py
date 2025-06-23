@@ -5,19 +5,19 @@ import inspect
 import json
 import sys
 import warnings
+from collections.abc import Iterable, Sequence
+from contextlib import AbstractContextManager
+from contextvars import Token
+from enum import Enum
 from functools import cached_property
 from time import time
 from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
-    ContextManager,
-    Iterable,
     Literal,
-    Sequence,
     TypeVar,
     Union,
-    cast,
     overload,
 )
 
@@ -45,7 +45,6 @@ from .constants import (
     ATTRIBUTES_TAGS_KEY,
     DISABLE_CONSOLE_KEY,
     LEVEL_NUMBERS,
-    NULL_ARGS_KEY,
     OTLP_MAX_INT_SIZE,
     LevelName,
     log_level_attributes,
@@ -61,7 +60,7 @@ from .json_schema import (
 )
 from .metrics import ProxyMeterProvider
 from .stack_info import get_user_stack_info
-from .tracer import ProxyTracerProvider, record_exception, set_exception_status
+from .tracer import ProxyTracerProvider, _LogfireWrappedSpan, record_exception, set_exception_status  # type: ignore
 from .utils import get_version, handle_internal_errors, log_internal_error, uniquify_sequence
 
 if TYPE_CHECKING:
@@ -71,6 +70,7 @@ if TYPE_CHECKING:
     import anthropic
     import httpx
     import openai
+    import pydantic_ai.models
     import requests
     from django.http import HttpRequest, HttpResponse
     from fastapi import FastAPI
@@ -388,7 +388,7 @@ class Logfire:
             raise ValueError('Attribute keys cannot start with an underscore.')
         self.log('notice', msg_template, attributes, tags=_tags, exc_info=_exc_info)
 
-    def warn(
+    def warning(
         self,
         msg_template: str,
         /,
@@ -404,8 +404,10 @@ class Logfire:
 
         logfire.configure()
 
-        logfire.warn('This is a warning log')
+        logfire.warning('This is a warning log')
         ```
+
+        `logfire.warn` is an alias of `logfire.warning`.
 
         Args:
             msg_template: The message to log.
@@ -419,6 +421,8 @@ class Logfire:
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
         self.log('warn', msg_template, attributes, tags=_tags, exc_info=_exc_info)
+
+    warn = warning
 
     def error(
         self,
@@ -557,6 +561,7 @@ class Logfire:
         *,
         span_name: str | None = None,
         extract_args: bool | Iterable[str] = True,
+        record_return: bool = False,
         allow_generator: bool = False,
     ) -> Callable[[Callable[P, R]], Callable[P, R]]:
         """Decorator for instrumenting a function as a span.
@@ -577,6 +582,8 @@ class Logfire:
             span_name: The span name. If not provided, the `msg_template` will be used.
             extract_args: By default, all function call arguments are logged as span attributes.
                 Set to `False` to disable this, or pass an iterable of argument names to include.
+            record_return: Set to `True` to record the return value of the function as an attribute.
+                Ignored for generators.
             allow_generator: Set to `True` to prevent a warning when instrumenting a generator function.
                 Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
         """
@@ -603,6 +610,7 @@ class Logfire:
         *,
         span_name: str | None = None,
         extract_args: bool | Iterable[str] = True,
+        record_return: bool = False,
         allow_generator: bool = False,
     ) -> Callable[[Callable[P, R]], Callable[P, R]] | Callable[P, R]:
         """Decorator for instrumenting a function as a span.
@@ -623,12 +631,16 @@ class Logfire:
             span_name: The span name. If not provided, the `msg_template` will be used.
             extract_args: By default, all function call arguments are logged as span attributes.
                 Set to `False` to disable this, or pass an iterable of argument names to include.
+            record_return: Set to `True` to record the return value of the function as an attribute.
+                Ignored for generators.
             allow_generator: Set to `True` to prevent a warning when instrumenting a generator function.
                 Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
         """
         if callable(msg_template):
             return self.instrument()(msg_template)
-        return instrument(self, tuple(self._tags), msg_template, span_name, extract_args, allow_generator)
+        return instrument(
+            self, tuple(self._tags), msg_template, span_name, extract_args, record_return, allow_generator
+        )
 
     def log(
         self,
@@ -660,7 +672,7 @@ class Logfire:
                 Set to `True` to use the currently handled exception.
             console_log: Whether to log to the console, defaults to `True`.
         """
-        with handle_internal_errors():
+        with handle_internal_errors:
             stack_info = get_user_stack_info()
 
             attributes = attributes or {}
@@ -827,7 +839,7 @@ class Logfire:
         """
         return self._config.force_flush(timeout_millis)
 
-    def log_slow_async_callbacks(self, slow_duration: float = 0.1) -> ContextManager[None]:
+    def log_slow_async_callbacks(self, slow_duration: float = 0.1) -> AbstractContextManager[None]:
         """Log a warning whenever a function running in the asyncio event loop blocks for too long.
 
         This works by patching the `asyncio.events.Handle._run` method.
@@ -887,6 +899,18 @@ class Logfire:
     def _warn_if_not_initialized_for_instrumentation(self):
         self.config.warn_if_not_initialized('Instrumentation will have no effect')
 
+    def instrument_mcp(self, *, propagate_otel_context: bool = True) -> None:
+        """Instrument [MCP](https://modelcontextprotocol.io/) requests such as tool calls.
+
+        Args:
+            propagate_otel_context: Whether to enable propagation of the OpenTelemetry context.
+                Set to False to prevent setting extra fields like `traceparent` on the metadata of requests.
+        """
+        from .integrations.mcp import instrument_mcp
+
+        self._warn_if_not_initialized_for_instrumentation()
+        instrument_mcp(self, propagate_otel_context)
+
     def instrument_pydantic(
         self,
         record: PydanticPluginRecordValues = 'all',
@@ -936,6 +960,66 @@ class Logfire:
             )
         )
 
+    @overload
+    def instrument_pydantic_ai(
+        self,
+        obj: pydantic_ai.Agent | None = None,
+        /,
+        *,
+        event_mode: Literal['attributes', 'logs'] = 'attributes',
+        include_binary_content: bool | None = None,
+        **kwargs: Any,
+    ) -> None: ...
+
+    @overload
+    def instrument_pydantic_ai(
+        self,
+        obj: pydantic_ai.models.Model,
+        /,
+        *,
+        event_mode: Literal['attributes', 'logs'] = 'attributes',
+        include_binary_content: bool | None = None,
+        **kwargs: Any,
+    ) -> pydantic_ai.models.Model: ...
+
+    def instrument_pydantic_ai(
+        self,
+        obj: pydantic_ai.Agent | pydantic_ai.models.Model | None = None,
+        /,
+        *,
+        event_mode: Literal['attributes', 'logs'] | None = None,
+        include_binary_content: bool | None = None,
+        **kwargs: Any,
+    ) -> pydantic_ai.models.Model | None:
+        """Instrument PydanticAI.
+
+        Args:
+            obj: What to instrument.
+                By default, all agents are instrumented.
+                You can also pass a specific model or agent.
+                If you pass a model, a new instrumented model will be returned.
+            event_mode: See the [PydanticAI docs](https://ai.pydantic.dev/logfire/#data-format).
+                The default is whatever the default is in your version of PydanticAI.
+            include_binary_content: Whether to include base64 encoded binary content (e.g. images) in the events.
+                On by default. Requires PydanticAI 0.2.5 or newer.
+            kwargs: Additional keyword arguments to pass to
+                [`InstrumentationSettings`](https://ai.pydantic.dev/api/models/instrumented/#pydantic_ai.models.instrumented.InstrumentationSettings)
+                for future compatibility.
+        """
+        from .integrations.pydantic_ai import instrument_pydantic_ai
+
+        self._warn_if_not_initialized_for_instrumentation()
+
+        if include_binary_content is not None:
+            kwargs['include_binary_content'] = include_binary_content
+
+        return instrument_pydantic_ai(
+            self,
+            obj=obj,
+            event_mode=event_mode,
+            **kwargs,
+        )
+
     def instrument_fastapi(
         self,
         app: FastAPI,
@@ -952,7 +1036,7 @@ class Logfire:
         excluded_urls: str | Iterable[str] | None = None,
         record_send_receive: bool = False,
         **opentelemetry_kwargs: Any,
-    ) -> ContextManager[None]:
+    ) -> AbstractContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.
 
         Uses the [OpenTelemetry FastAPI Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html)
@@ -1016,8 +1100,11 @@ class Logfire:
         | None = None,
         *,
         suppress_other_instrumentation: bool = True,
-    ) -> ContextManager[None]:
+    ) -> AbstractContextManager[None]:
         """Instrument an OpenAI client so that spans are automatically created for each request.
+
+        This instruments the [standard OpenAI SDK](https://pypi.org/project/openai/) package, for instrumentation
+        of the OpenAI "agents" framework, see [`instrument_openai_agents()`][logfire.Logfire.instrument_openai_agents].
 
         The following methods are instrumented for both the sync and the async clients:
 
@@ -1081,6 +1168,18 @@ class Logfire:
             is_async_client,
         )
 
+    def instrument_openai_agents(self) -> None:
+        """Instrument the [`agents`](https://github.com/openai/openai-agents-python) framework from OpenAI.
+
+        For instrumentation of the standard OpenAI SDK package,
+        see [`instrument_openai()`][logfire.Logfire.instrument_openai].
+        """
+        self._warn_if_not_initialized_for_instrumentation()
+
+        from .integrations.openai_agents import LogfireTraceProviderWrapper
+
+        LogfireTraceProviderWrapper.install(self)
+
     def instrument_anthropic(
         self,
         anthropic_client: (
@@ -1096,7 +1195,7 @@ class Logfire:
         ) = None,
         *,
         suppress_other_instrumentation: bool = True,
-    ) -> ContextManager[None]:
+    ) -> AbstractContextManager[None]:
         """Instrument an Anthropic client so that spans are automatically created for each request.
 
         The following methods are instrumented for both the sync and async clients:
@@ -1183,6 +1282,7 @@ class Logfire:
         self,
         client: httpx.Client,
         *,
+        capture_all: bool = False,
         capture_headers: bool = False,
         capture_request_body: bool = False,
         capture_response_body: bool = False,
@@ -1196,6 +1296,7 @@ class Logfire:
         self,
         client: httpx.AsyncClient,
         *,
+        capture_all: bool = False,
         capture_headers: bool = False,
         capture_request_body: bool = False,
         capture_response_body: bool = False,
@@ -1209,6 +1310,7 @@ class Logfire:
         self,
         client: None = None,
         *,
+        capture_all: bool = False,
         capture_headers: bool = False,
         capture_request_body: bool = False,
         capture_response_body: bool = False,
@@ -1223,6 +1325,7 @@ class Logfire:
         self,
         client: httpx.Client | httpx.AsyncClient | None = None,
         *,
+        capture_all: bool = False,
         capture_headers: bool = False,
         capture_request_body: bool = False,
         capture_response_body: bool = False,
@@ -1243,6 +1346,7 @@ class Logfire:
         Args:
             client: The `httpx.Client` or `httpx.AsyncClient` instance to instrument.
                 If `None`, the default, all clients will be instrumented.
+            capture_all: Set to `True` to capture all HTTP headers, request and response bodies.
             capture_headers: Set to `True` to capture all HTTP headers.
 
                 If you don't want to capture all headers, you can customize the headers captured. See the
@@ -1261,6 +1365,7 @@ class Logfire:
         return instrument_httpx(
             self,
             client,
+            capture_all=capture_all,
             capture_headers=capture_headers,
             capture_request_body=capture_request_body,
             capture_response_body=capture_response_body,
@@ -1429,7 +1534,7 @@ class Logfire:
         capture_headers: bool = False,
         enable_commenter: bool = True,
         commenter_options: FlaskCommenterOptions | None = None,
-        exclude_urls: str | None = None,
+        excluded_urls: str | None = None,
         request_hook: FlaskRequestHook | None = None,
         response_hook: FlaskResponseHook | None = None,
         **kwargs: Any,
@@ -1446,7 +1551,7 @@ class Logfire:
             enable_commenter: Adds comments to SQL queries performed by Flask, so that database logs have additional context.
             commenter_options: Configure the tags to be added to the SQL comments.
                 See more about it on the [SQLCommenter Configurations](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html#sqlcommenter-configurations).
-            exclude_urls: A string containing a comma-delimited list of regexes used to exclude URLs from tracking.
+            excluded_urls: A string containing a comma-delimited list of regexes used to exclude URLs from tracking.
             request_hook: A function called right after a span is created for a request.
             response_hook: A function called right before a span is finished for the response.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry Flask instrumentation.
@@ -1459,7 +1564,7 @@ class Logfire:
             capture_headers=capture_headers,
             enable_commenter=enable_commenter,
             commenter_options=commenter_options,
-            exclude_urls=exclude_urls,
+            excluded_urls=excluded_urls,
             request_hook=request_hook,
             response_hook=response_hook,
             **{
@@ -1604,6 +1709,18 @@ class Logfire:
 
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_aiohttp_client(self, **kwargs)
+
+    def instrument_aiohttp_server(self, **kwargs: Any) -> None:
+        """Instrument the `aiohttp` module so that spans are automatically created for each server request.
+
+        Uses the
+        [OpenTelemetry aiohttp server Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aiohttp_server/aiohttp_server.html)
+        library, specifically `AioHttpServerInstrumentor().instrument()`, to which it passes `**kwargs`.
+        """
+        from .integrations.aiohttp_server import instrument_aiohttp_server
+
+        self._warn_if_not_initialized_for_instrumentation()
+        return instrument_aiohttp_server(**kwargs)
 
     def instrument_sqlalchemy(
         self,
@@ -1930,6 +2047,8 @@ class Logfire:
     ) -> None:
         """Create a counter metric that uses a callback to collect observations.
 
+        The callback is called every 60 seconds in a background thread.
+
         The counter metric is a cumulative metric that represents a single numerical value that only ever goes up.
 
         ```py
@@ -1972,6 +2091,8 @@ class Logfire:
     ) -> None:
         """Create a gauge metric that uses a callback to collect observations.
 
+        The callback is called every 60 seconds in a background thread.
+
         The gauge metric is a metric that represents a single numerical value that can arbitrarily go up and down.
 
         ```py
@@ -2011,6 +2132,8 @@ class Logfire:
         self, name: str, callbacks: Sequence[CallbackT], *, unit: str = '', description: str = ''
     ) -> None:
         """Create an up-down counter metric that uses a callback to collect observations.
+
+        The callback is called every 60 seconds in a background thread.
 
         The up-down counter is a cumulative metric that represents a single numerical value that can be adjusted up or
         down.
@@ -2099,7 +2222,7 @@ class FastLogfireSpan:
     def __enter__(self) -> FastLogfireSpan:
         return self
 
-    @handle_internal_errors()
+    @handle_internal_errors
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
         context_api.detach(self._token)
         self._span.__exit__(exc_type, exc_value, traceback)
@@ -2122,7 +2245,7 @@ class LogfireSpan(ReadableSpan):
         self._links = list(trace_api.Link(context=context, attributes=attributes) for context, attributes in links)
 
         self._added_attributes = False
-        self._token: None | object = None
+        self._token: None | Token[Context] = None
         self._span: None | trace_api.Span = None
 
     if not TYPE_CHECKING:  # pragma: no branch
@@ -2130,35 +2253,48 @@ class LogfireSpan(ReadableSpan):
         def __getattr__(self, name: str) -> Any:
             return getattr(self._span, name)
 
-    def __enter__(self) -> LogfireSpan:
-        with handle_internal_errors():
-            if self._span is None:  # pragma: no branch
-                self._span = self._tracer.start_span(
-                    name=self._span_name,
-                    attributes=self._otlp_attributes,
-                    links=self._links,
-                )
-            self._span.__enter__()
-            if self._token is None:  # pragma: no branch
-                self._token = context_api.attach(trace_api.set_span_in_context(self._span))
+    @handle_internal_errors
+    def _start(self):
+        if self._span is not None:
+            return
+        self._span = self._tracer.start_span(
+            name=self._span_name,
+            attributes=self._otlp_attributes,
+            links=self._links,
+        )
 
-        return self
-
-    @handle_internal_errors()
-    def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
-        if self._token is None:  # pragma: no cover
+    @handle_internal_errors
+    def _attach(self):
+        if self._token is not None:
             return
         assert self._span is not None
+        self._token = context_api.attach(trace_api.set_span_in_context(self._span))
 
+    def __enter__(self) -> LogfireSpan:
+        self._start()
+        self._attach()
+        return self
+
+    @handle_internal_errors
+    def _end(self):
+        if not self._span or not self._span.is_recording():
+            return
+        if self._added_attributes:
+            self._span.set_attribute(ATTRIBUTES_JSON_SCHEMA_KEY, attributes_json_schema(self._json_schema_properties))
+        self._span.end()
+
+    def _detach(self):
+        if self._token is None:
+            return
         context_api.detach(self._token)
         self._token = None
-        if self._span.is_recording():
-            with handle_internal_errors():
-                if self._added_attributes:
-                    self._span.set_attribute(
-                        ATTRIBUTES_JSON_SCHEMA_KEY, attributes_json_schema(self._json_schema_properties)
-                    )
-            self._span.__exit__(exc_type, exc_value, traceback)
+
+    @handle_internal_errors
+    def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
+        self._detach()
+        if self._span and self._span.is_recording() and isinstance(exc_value, BaseException):
+            self._span.record_exception(exc_value, escaped=True)
+        self._end()
 
     @property
     def message_template(self) -> str | None:  # pragma: no cover
@@ -2169,7 +2305,7 @@ class LogfireSpan(ReadableSpan):
         return self._get_attribute(ATTRIBUTES_TAGS_KEY, ())
 
     @tags.setter
-    @handle_internal_errors()
+    @handle_internal_errors
     def tags(self, new_tags: Sequence[str]) -> None:
         """Set or add tags to the span."""
         if isinstance(new_tags, str):
@@ -2184,7 +2320,7 @@ class LogfireSpan(ReadableSpan):
     def message(self, message: str):
         self._set_attribute(ATTRIBUTES_MESSAGE_KEY, message)
 
-    @handle_internal_errors()
+    @handle_internal_errors
     def set_attribute(self, key: str, value: Any) -> None:
         """Sets an attribute on the span.
 
@@ -2194,7 +2330,7 @@ class LogfireSpan(ReadableSpan):
         """
         self._added_attributes = True
         self._json_schema_properties[key] = create_json_schema(value, set())
-        key, otel_value = set_user_attribute(self._otlp_attributes, key, value)
+        otel_value = self._otlp_attributes[key] = prepare_otlp_attribute(value)
         if self._span is not None:  # pragma: no branch
             self._span.set_attribute(key, otel_value)
 
@@ -2228,8 +2364,11 @@ class LogfireSpan(ReadableSpan):
         if not self._span.is_recording():
             return
 
+        span = self._span
+        while isinstance(span, _LogfireWrappedSpan):
+            span = span.span
         record_exception(
-            self._span,
+            span,
             exception,
             attributes=attributes,
             timestamp=timestamp,
@@ -2239,7 +2378,7 @@ class LogfireSpan(ReadableSpan):
     def is_recording(self) -> bool:
         return self._span is not None and self._span.is_recording()
 
-    @handle_internal_errors()
+    @handle_internal_errors
     def set_level(self, level: LevelName | int):
         """Set the log level of this span."""
         attributes = log_level_attributes(level)
@@ -2323,26 +2462,13 @@ def prepare_otlp_attributes(attributes: dict[str, Any]) -> dict[str, otel_types.
 
     This will convert any non-OpenTelemetry compatible types to JSON.
     """
-    otlp_attributes: dict[str, otel_types.AttributeValue] = {}
-
-    for key, value in attributes.items():
-        set_user_attribute(otlp_attributes, key, value)
-
-    return otlp_attributes
+    return {key: prepare_otlp_attribute(value) for key, value in attributes.items()}
 
 
-def set_user_attribute(
-    otlp_attributes: dict[str, otel_types.AttributeValue], key: str, value: Any
-) -> tuple[str, otel_types.AttributeValue]:
-    """Convert a user attribute to an OpenTelemetry compatible type and add it to the given dictionary.
-
-    Returns the final key and value that was added to the dictionary.
-    The key will be the original key unless the value was `None`, in which case it will be `NULL_ARGS_KEY`.
-    """
-    otel_value: otel_types.AttributeValue
-    if value is None:
-        otel_value = cast('list[str]', otlp_attributes.get(NULL_ARGS_KEY, [])) + [key]
-        key = NULL_ARGS_KEY
+def prepare_otlp_attribute(value: Any) -> otel_types.AttributeValue:
+    """Convert a user attribute to an OpenTelemetry compatible type."""
+    if isinstance(value, Enum):
+        return logfire_json_dumps(value)
     elif isinstance(value, int):
         if value > OTLP_MAX_INT_SIZE:
             warnings.warn(
@@ -2350,15 +2476,13 @@ def set_user_attribute(
                 ' if you need support for sending larger integers, please open a feature request',
                 UserWarning,
             )
-            otel_value = str(value)
+            return str(value)
         else:
-            otel_value = value
+            return value
     elif isinstance(value, (str, bool, float)):
-        otel_value = value
+        return value
     else:
-        otel_value = logfire_json_dumps(value)
-    otlp_attributes[key] = otel_value
-    return key, otel_value
+        return logfire_json_dumps(value)
 
 
 def set_user_attributes_on_raw_span(span: Span, attributes: dict[str, Any]) -> None:

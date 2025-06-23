@@ -1,17 +1,25 @@
 # pyright: reportPrivateUsage=false
 from __future__ import annotations
 
+import decimal
+import enum
 import io
 import sys
+from datetime import datetime
+from typing import Any
+from unittest import mock
 
 import pytest
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
 from opentelemetry import trace
+from opentelemetry._events import Event, get_event_logger
+from opentelemetry._logs import LogRecord, SeverityNumber, get_logger
 from opentelemetry.sdk.trace import ReadableSpan
 
 import logfire
 from logfire import ConsoleOptions
+from logfire._internal.constants import ATTRIBUTES_MESSAGE_KEY
 from logfire._internal.exporters.console import (
     IndentedConsoleSpanExporter,
     ShowParentsConsoleSpanExporter,
@@ -106,7 +114,7 @@ def test_simple_console_exporter_no_colors_verbose(simple_spans: list[ReadableSp
         [
             '00:00:01.000 rootSpan',
             '00:00:02.000 childSpan 1',
-            '             │ testing.py:42 ',
+            '             │ testing.py:42',
         ]
     )
 
@@ -419,7 +427,7 @@ def test_verbose_attributes(exporter: TestExporter) -> None:
     assert out.getvalue().splitlines() == snapshot(
         [
             '\x1b[32m00:00:01.000\x1b[0m Hello world!',
-            '             \x1b[34m│\x1b[0m \x1b[36mtest_console_exporter.py:123\x1b[0m info',
+            '             \x1b[34m│\x1b[0m\x1b[36m test_console_exporter.py:123\x1b[0m info',
             "             \x1b[34m│ \x1b[0m\x1b[34mname=\x1b[0m\x1b[93;49m'\x1b[0m\x1b[93;49mworld\x1b[0m\x1b[93;49m'\x1b[0m",
             '             \x1b[34m│ \x1b[0m\x1b[34md=\x1b[0m\x1b[97;49m{\x1b[0m          ',
             "             \x1b[34m│ \x1b[0m  \x1b[97;49m    \x1b[0m\x1b[93;49m'\x1b[0m\x1b[93;49ma\x1b[0m\x1b[93;49m'\x1b[0m\x1b[97;49m:\x1b[0m\x1b[97;49m \x1b[0m\x1b[37;49m1\x1b[0m\x1b[97;49m,\x1b[0m",
@@ -776,7 +784,7 @@ def test_exception(exporter: TestExporter) -> None:
     SimpleConsoleSpanExporter(output=out, colors='always').export(exporter.exported_spans)
     assert out.getvalue().splitlines() == [
         '\x1b[32m00:00:01.000\x1b[0m \x1b[31merror!!! test\x1b[0m',
-        '\x1b[34m             │ \x1b[0m\x1b[1;31mZeroDivisionError: ' '\x1b[0mdivision by zero',
+        '\x1b[34m             │ \x1b[0m\x1b[1;31mZeroDivisionError: \x1b[0mdivision by zero',
         '\x1b[97;49m             \x1b[0m\x1b[35;49m│\x1b[0m\x1b[97;49m '
         '\x1b[0m\x1b[97;49mTraceback\x1b[0m\x1b[97;49m '
         '\x1b[0m\x1b[97;49m(\x1b[0m\x1b[97;49mmost\x1b[0m\x1b[97;49m '
@@ -796,3 +804,180 @@ def test_exception(exporter: TestExporter) -> None:
         '\x1b[0m\x1b[97;49mby\x1b[0m\x1b[97;49m \x1b[0m\x1b[97;49mzero\x1b[0m',
         '',
     ]
+
+
+def test_console_exporter_invalid_text(capsys: pytest.CaptureFixture[str]) -> None:
+    logfire.configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(colors='always', include_timestamps=False, verbose=True),
+    )
+
+    logfire.info('hi', **{'code.filepath': 3, 'code.lineno': None})  # type: ignore
+    logfire.info('hi', **{'code.filepath': None, 'code.lineno': 'foo'})  # type: ignore
+    assert capsys.readouterr().out.splitlines() == snapshot(
+        [
+            'hi',
+            '\x1b[34m│\x1b[0m\x1b[36m 3\x1b[0m info',
+            'hi',
+            '\x1b[34m│\x1b[0m info',
+        ]
+    )
+
+
+def test_console_exporter_invalid_text_no_color(capsys: pytest.CaptureFixture[str]) -> None:
+    logfire.configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(colors='never', include_timestamps=False, verbose=True),
+    )
+
+    logfire.info('hi', **{'code.filepath': 3, 'code.lineno': None})  # type: ignore
+    logfire.info('hi', **{'code.filepath': None, 'code.lineno': 'foo'})  # type: ignore
+    assert capsys.readouterr().out.splitlines() == snapshot(
+        [
+            'hi',
+            '│ 3 info',
+            'hi',
+            '│ info',
+        ]
+    )
+
+
+def test_console_exporter_hidden_debug_span(capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]) -> None:
+    config_kwargs.update(console=None)
+    logfire.configure(**config_kwargs)
+
+    with logfire.span('1'):
+        # TODO this span doesn't show, but it still adds to the indentation level
+        with logfire.span('2', _level='debug'):
+            logfire.info('3')
+        logfire.info('4')
+
+    assert capsys.readouterr().out.splitlines() == snapshot(
+        [
+            '00:00:01.000 1',
+            '00:00:03.000     3',
+            '00:00:05.000   4',
+        ]
+    )
+
+
+def test_console_exporter_include_tags(capsys: pytest.CaptureFixture[str]) -> None:
+    logfire.configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(colors='never', include_timestamps=False, include_tags=False),
+    )
+    logfire.info('hi', _tags=['my_tag'])
+
+    logfire.configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(colors='never', include_timestamps=False, include_tags=True),
+    )
+    logfire.info('hi', _tags=['my_tag'])
+    assert capsys.readouterr().out.splitlines() == snapshot(
+        [
+            'hi',
+            'hi [my_tag]',
+        ]
+    )
+
+
+def test_console_otel_logs(capsys: pytest.CaptureFixture[str]):
+    logfire.configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(colors='never', include_timestamps=False, include_tags=False),
+    )
+
+    with logfire.span('span'):
+        get_event_logger('events').emit(
+            Event(
+                name='my_event',
+                severity_number=SeverityNumber.ERROR,
+                body='body',
+                attributes={'key': 'value'},
+            )
+        )
+        get_event_logger('events').emit(
+            Event(
+                name='my_event',
+                attributes={ATTRIBUTES_MESSAGE_KEY: 'msg'},
+            )
+        )
+        get_logger('logs').emit(
+            LogRecord(
+                severity_number=SeverityNumber.INFO,
+                attributes={'key': 'value'},
+            )
+        )
+
+    assert capsys.readouterr().out.splitlines() == snapshot(
+        [
+            'span',
+            '  my_event: body',
+            '  msg',
+            # Non-event logs don't get the parent span context by default, so no indentation for this line.
+            "{'key': 'value'}",
+        ]
+    )
+
+
+def test_truncated_json(capsys: pytest.CaptureFixture[str]) -> None:
+    with mock.patch.dict('os.environ', {'OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT': '70'}):
+        logfire.configure(
+            send_to_logfire=False,
+            console=ConsoleOptions(verbose=True, colors='never', include_timestamps=False),
+        )
+
+        logfire.info('hi', x=[1] * 100)
+
+        assert capsys.readouterr().out.splitlines() == snapshot(
+            [
+                'hi',
+                IsStr(),
+                "│ x='[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1'",
+            ]
+        )
+
+
+def test_other_json_schema_types(capsys: pytest.CaptureFixture[str]) -> None:
+    logfire.configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(verbose=True, colors='never', include_timestamps=False),
+    )
+
+    class MyEnum(enum.Enum):
+        """Enum with string values."""
+
+        ABC = 'abc'
+
+    class MyStrEnum(str, enum.Enum):
+        """String-based Enum."""
+
+        STR = 'str_val'
+
+    class MyIntEnum(int, enum.Enum):
+        """Integer-based Enum."""
+
+        INT = 1
+
+    logfire.info(
+        'hi',
+        d=datetime(2020, 12, 31, 12, 34, 56),
+        x=None,
+        v=decimal.Decimal('1.0'),
+        e=MyEnum.ABC,
+        se=MyStrEnum.STR,
+        ie=MyIntEnum.INT,
+    )
+
+    assert capsys.readouterr().out.splitlines() == snapshot(
+        [
+            'hi',
+            IsStr(),
+            '│ d=datetime.datetime(2020, 12, 31, 12, 34, 56)',
+            '│ x=None',
+            "│ v=Decimal('1.0')",
+            "│ e=MyEnum('abc')",
+            "│ se=MyStrEnum('str_val')",
+            '│ ie=MyIntEnum(1)',
+        ]
+    )

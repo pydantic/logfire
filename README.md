@@ -1,10 +1,13 @@
 # Pydantic Logfire — Uncomplicated Observability
 
-[![CI](https://github.com/pydantic/logfire/actions/workflows/main.yml/badge.svg?event=push)](https://github.com/pydantic/logfire/actions?query=event%3Apush+branch%3Amain+workflow%3ACI)
-[![codecov](https://codecov.io/gh/pydantic/logfire/graph/badge.svg?token=735CNGCGFD)](https://codecov.io/gh/pydantic/logfire)
-[![pypi](https://img.shields.io/pypi/v/logfire.svg)](https://pypi.python.org/pypi/logfire)
-[![license](https://img.shields.io/github/license/pydantic/logfire.svg)](https://github.com/pydantic/logfire/blob/main/LICENSE)
-[![versions](https://img.shields.io/pypi/pyversions/logfire.svg)](https://github.com/pydantic/logfire)
+<p align="center">
+  <a href="https://github.com/pydantic/logfire/actions?query=event%3Apush+branch%3Amain+workflow%3ACI"><img src="https://github.com/pydantic/logfire/actions/workflows/main.yml/badge.svg?event=push" alt="CI" /></a>
+  <a href="https://codecov.io/gh/pydantic/logfire"><img src="https://codecov.io/gh/pydantic/logfire/graph/badge.svg?token=735CNGCGFD" alt="codecov" /></a>
+  <a href="https://pypi.python.org/pypi/logfire"><img src="https://img.shields.io/pypi/v/logfire.svg" alt="pypi" /></a>
+  <a href="https://github.com/pydantic/logfire/blob/main/LICENSE"><img src="https://img.shields.io/github/license/pydantic/logfire.svg" alt="license" /></a>
+  <a href="https://github.com/pydantic/logfire"><img src="https://img.shields.io/pypi/pyversions/logfire.svg" alt="versions" /></a>
+  <a href="https://logfire.pydantic.dev/docs/join-slack/"><img src="https://img.shields.io/badge/Slack-Join%20Slack-4A154B?logo=slack" alt="Join Slack" /></a>
+</p>
 
 From the team behind Pydantic, **Logfire** is an observability platform built on the same belief as our
 open source library — that the most powerful tools can be easy to use.
@@ -14,7 +17,7 @@ What sets Logfire apart:
 - **Simple and Powerful:** Logfire's dashboard is simple relative to the power it provides, ensuring your entire engineering team will actually use it.
 - **Python-centric Insights:** From rich display of Python objects, to event-loop telemetry, to profiling Python code and database queries, Logfire gives you unparalleled visibility into your Python application's behavior.
 - **SQL:** Query your data using standard SQL — all the control and (for many) nothing new to learn. Using SQL also means you can query your data with existing BI tools and database querying libraries.
-- **OpenTelemetry:** Logfire is an opinionated wrapper around OpenTelemetry, allowing you to leverage existing tooling, infrastructure, and instrumentation for many common Python packages, and enabling support for virtually any language.
+- **OpenTelemetry:** Logfire is an opinionated wrapper around OpenTelemetry, allowing you to leverage existing tooling, infrastructure, and instrumentation for many common Python packages, and enabling support for virtually any language. We offer full support for all OpenTelemetry signals (traces, metrics and logs).
 - **Pydantic Integration:** Understand the data flowing through your Pydantic models and get built-in analytics on validations.
 
 See the [documentation](https://logfire.pydantic.dev/docs/) for more information.
@@ -49,6 +52,7 @@ Here's a simple manual tracing (aka logging) example:
 import logfire
 from datetime import date
 
+logfire.configure()
 logfire.info('Hello, {name}!', name='world')
 
 with logfire.span('Asking the user their {question}', question='age'):

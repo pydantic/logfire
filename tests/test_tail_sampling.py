@@ -70,7 +70,7 @@ def test_level_threshold(config_kwargs: dict[str, Any], exporter: TestExporter):
                 },
             },
             {
-                'name': 'span (pending)',
+                'name': 'span',
                 'context': {'trace_id': 5, 'span_id': 10, 'is_remote': False},
                 'parent': {'trace_id': 5, 'span_id': 7, 'is_remote': False},
                 'start_time': 9000000000,
@@ -86,7 +86,7 @@ def test_level_threshold(config_kwargs: dict[str, Any], exporter: TestExporter):
                 },
             },
             {
-                'name': 'span2 (pending)',
+                'name': 'span2',
                 'context': {'trace_id': 5, 'span_id': 11, 'is_remote': False},
                 'parent': {'trace_id': 5, 'span_id': 8, 'is_remote': False},
                 'start_time': 10000000000,
@@ -148,7 +148,7 @@ def test_level_threshold(config_kwargs: dict[str, Any], exporter: TestExporter):
                 },
             },
             {
-                'name': 'span3 (pending)',
+                'name': 'span3',
                 'context': {'trace_id': 6, 'span_id': 13, 'is_remote': False},
                 'parent': {'trace_id': 6, 'span_id': 12, 'is_remote': False},
                 'start_time': 14000000000,
@@ -281,7 +281,7 @@ def test_duration_threshold(
                 },
             },
             {
-                'name': 'span6 (pending)',
+                'name': 'span6',
                 'context': {'trace_id': 5, 'span_id': 11, 'is_remote': False},
                 'parent': {'trace_id': 5, 'span_id': 9, 'is_remote': False},
                 'start_time': 14000000000,
@@ -345,7 +345,7 @@ def test_background_rate(config_kwargs: dict[str, Any], exporter: TestExporter):
     # None of them meet the tail sampling criteria.
     for _ in range(1000):
         logfire.info('info')
-    assert len(exporter.exported_spans) == 100 + 321
+    assert len(exporter.exported_spans) - 100 == snapshot(299)
 
 
 class TestSampler(Sampler):
@@ -406,7 +406,7 @@ def test_raw_head_sampler_with_tail_sampling(config_kwargs: dict[str, Any], expo
     # None of them meet the tail sampling criteria.
     for _ in range(1000):
         logfire.info('info')
-    assert len(exporter.exported_spans) == 100 + 315
+    assert len(exporter.exported_spans) - 100 == snapshot(293)
 
 
 def test_custom_head_and_tail(config_kwargs: dict[str, Any], exporter: TestExporter):
@@ -432,20 +432,20 @@ def test_custom_head_and_tail(config_kwargs: dict[str, Any], exporter: TestExpor
 
     for _ in range(1000):
         logfire.warn('warn')
-    assert span_counts == snapshot({'start': 720, 'end': 617})
-    assert len(exporter.exported_spans) == snapshot(103)
+    assert span_counts == snapshot({'start': 719, 'end': 611})
+    assert len(exporter.exported_spans) == snapshot(108)
     assert span_counts['end'] + len(exporter.exported_spans) == span_counts['start']
 
     exporter.clear()
     for _ in range(1000):
         with logfire.span('span'):
             pass
-    assert len(exporter.exported_spans_as_dict()) == snapshot(505)
+    assert len(exporter.exported_spans_as_dict()) == snapshot(511)
 
     exporter.clear()
     for _ in range(1000):
         logfire.error('error')
-    assert len(exporter.exported_spans) == snapshot(282)
+    assert len(exporter.exported_spans) == snapshot(298)
 
 
 def test_span_levels():
@@ -487,7 +487,7 @@ def test_span_levels():
 
 def test_invalid_rates():
     with inline_snapshot.extra.raises(
-        snapshot('ValueError: Invalid sampling rates, ' 'must be 0.0 <= background_rate <= head <= 1.0')
+        snapshot('ValueError: Invalid sampling rates, must be 0.0 <= background_rate <= head <= 1.0')
     ):
         logfire.SamplingOptions.level_or_duration(background_rate=-1)
     with pytest.raises(ValueError):
@@ -502,7 +502,7 @@ def test_trace_sample_rate(config_kwargs: dict[str, Any]):
     assert logfire.DEFAULT_LOGFIRE_INSTANCE.config.sampling.head == 0.123
     assert len(warnings) == 1
     assert str(warnings[0].message) == snapshot(
-        'The `trace_sample_rate` argument is deprecated. ' 'Use `sampling=logfire.SamplingOptions(head=...)` instead.'
+        'The `trace_sample_rate` argument is deprecated. Use `sampling=logfire.SamplingOptions(head=...)` instead.'
     )
 
 

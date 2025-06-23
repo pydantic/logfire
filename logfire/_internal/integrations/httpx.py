@@ -3,10 +3,11 @@ from __future__ import annotations
 import contextlib
 import functools
 import inspect
+from collections.abc import Awaitable, Mapping
 from email.headerregistry import ContentTypeHeader
 from email.policy import EmailPolicy
 from functools import cached_property, lru_cache
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Literal, Mapping, cast
+from typing import TYPE_CHECKING, Any, Callable, Literal, cast
 
 import httpx
 from opentelemetry.trace import NonRecordingSpan, Span, use_span
@@ -44,6 +45,7 @@ if TYPE_CHECKING:
 def instrument_httpx(
     logfire_instance: Logfire,
     client: httpx.Client | httpx.AsyncClient | None,
+    capture_all: bool,
     capture_headers: bool,
     capture_request_body: bool,
     capture_response_body: bool,
@@ -57,6 +59,11 @@ def instrument_httpx(
 
     See the `Logfire.instrument_httpx` method for details.
     """
+    if capture_all and (capture_headers or capture_request_body or capture_response_body):
+        warn_at_user_stacklevel(
+            'You should use either `capture_all` or the specific capture parameters, not both.', UserWarning
+        )
+
     capture_request_headers = kwargs.get('capture_request_headers')
     capture_response_headers = kwargs.get('capture_response_headers')
 
@@ -69,10 +76,19 @@ def instrument_httpx(
             'The `capture_response_headers` parameter is deprecated. Use `capture_headers` instead.', DeprecationWarning
         )
 
-    should_capture_request_headers = capture_request_headers or capture_headers
-    should_capture_response_headers = capture_response_headers or capture_headers
-    should_capture_request_body = capture_request_body
-    should_capture_response_body = capture_response_body
+    should_capture_request_headers = capture_request_headers or capture_headers or capture_all
+    should_capture_response_headers = capture_response_headers or capture_headers or capture_all
+    should_capture_request_body = capture_request_body or capture_all
+    should_capture_response_body = capture_response_body or capture_all
+
+    del (  # Make sure these aren't used accidentally
+        capture_all,
+        capture_headers,
+        capture_request_body,
+        capture_response_body,
+        capture_request_headers,
+        capture_response_headers,
+    )
 
     final_kwargs: dict[str, Any] = {
         'tracer_provider': logfire_instance.config.get_tracer_provider(),
@@ -88,7 +104,7 @@ def instrument_httpx(
         request_hook = cast('RequestHook | None', request_hook)
         response_hook = cast('ResponseHook | None', response_hook)
         final_kwargs['request_hook'] = make_request_hook(
-            request_hook, should_capture_request_headers, capture_request_body
+            request_hook, should_capture_request_headers, should_capture_request_body
         )
         final_kwargs['response_hook'] = make_response_hook(
             response_hook,
@@ -133,7 +149,17 @@ def instrument_httpx(
             )
 
         tracer_provider = final_kwargs['tracer_provider']
-        instrumentor.instrument_client(client, tracer_provider, request_hook, response_hook)  # type: ignore[reportArgumentType]
+        meter_provider = final_kwargs['meter_provider']
+        client_kwargs = dict(
+            tracer_provider=tracer_provider,
+            request_hook=request_hook,
+            response_hook=response_hook,
+        )
+        try:
+            instrumentor.instrument_client(client, meter_provider=meter_provider, **client_kwargs)
+        except TypeError:  # pragma: no cover
+            # This is a fallback for older versions of opentelemetry-instrumentation-httpx
+            instrumentor.instrument_client(client, **client_kwargs)
 
 
 class LogfireHttpxInfoMixin:
@@ -161,11 +187,13 @@ class LogfireHttpxRequestInfo(RequestInfo, LogfireHttpxInfoMixin):
 
     def capture_body_if_text(self, attr_name: str = 'http.request.body.text'):
         if not self.body_is_streaming:
-            try:
-                text = self.content.decode(self.content_type_charset)
-            except (UnicodeDecodeError, LookupError):
-                return
-            self.capture_text_as_json(attr_name=attr_name, text=text)
+            content = self.content
+            if content:
+                try:
+                    text = self.content.decode(self.content_type_charset)
+                except (UnicodeDecodeError, LookupError):
+                    return
+                self.capture_text_as_json(attr_name=attr_name, text=text)
 
     def capture_body_if_form(self, attr_name: str = 'http.request.body.form') -> bool:
         if not self.content_type_header_string == 'application/x-www-form-urlencoded':
@@ -228,8 +256,6 @@ class LogfireHttpxResponseInfo(ResponseInfo, LogfireHttpxInfoMixin):
             except (UnicodeDecodeError, LookupError):
                 return
             self.capture_text_as_json(span, attr_name=attr_name, text=text)
-
-            span.set_attribute(attr_name, text)
 
         self.on_response_read(hook)
 
@@ -307,7 +333,7 @@ def make_request_hook(hook: RequestHook | None, capture_headers: bool, capture_b
         return None
 
     def new_hook(span: Span, request: RequestInfo) -> None:
-        with handle_internal_errors():
+        with handle_internal_errors:
             request = capture_request(span, request, capture_headers, capture_body)
             run_hook(hook, span, request)
 
@@ -323,7 +349,7 @@ def make_async_request_hook(
         return None
 
     async def new_hook(span: Span, request: RequestInfo) -> None:
-        with handle_internal_errors():
+        with handle_internal_errors:
             request = capture_request(span, request, should_capture_headers, should_capture_body)
             await run_async_hook(hook, span, request)
 
@@ -340,7 +366,7 @@ def make_response_hook(
         return None
 
     def new_hook(span: Span, request: RequestInfo, response: ResponseInfo) -> None:
-        with handle_internal_errors():
+        with handle_internal_errors:
             request, response = capture_response(
                 span,
                 request,
@@ -365,7 +391,7 @@ def make_async_response_hook(
         return None
 
     async def new_hook(span: Span, request: RequestInfo, response: ResponseInfo) -> None:
-        with handle_internal_errors():
+        with handle_internal_errors:
             request, response = capture_response(
                 span,
                 request,

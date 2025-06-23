@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING, Any
 import anthropic
 from anthropic.types import Message, TextBlock, TextDelta
 
+from logfire._internal.utils import handle_internal_errors
+
 from .types import EndpointConfig, StreamState
 
 if TYPE_CHECKING:
@@ -62,23 +64,23 @@ class AnthropicMessageStreamState(StreamState):
         return {'combined_chunk_content': ''.join(self._content), 'chunk_count': len(self._content)}
 
 
+@handle_internal_errors
 def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
     """Updates the span based on the type of response."""
     if isinstance(response, Message):  # pragma: no branch
-        block = response.content[0]
         message: dict[str, Any] = {'role': 'assistant'}
-        if block.type == 'text':
-            message['content'] = block.text
-        else:
-            message['tool_calls'] = [
-                {
-                    'function': {
-                        'arguments': block.model_dump_json(include={'input'}),
-                        'name': block.name,  # type: ignore
+        for block in response.content:
+            if block.type == 'text':
+                message['content'] = block.text
+            elif block.type == 'tool_use':  # pragma: no branch
+                message.setdefault('tool_calls', []).append(
+                    {
+                        'function': {
+                            'arguments': block.model_dump_json(include={'input'}),
+                            'name': block.name,
+                        }
                     }
-                }
-                for block in response.content
-            ]
+                )
         span.set_attribute('response_data', {'message': message, 'usage': response.usage})
     return response
 
@@ -92,7 +94,7 @@ def is_async_client(
     """Returns whether or not the `client` class is async."""
     if issubclass(client, (anthropic.Anthropic, anthropic.AnthropicBedrock)):
         return False
-    assert issubclass(
-        client, (anthropic.AsyncAnthropic, anthropic.AsyncAnthropicBedrock)
-    ), f'Expected Anthropic, AsyncAnthropic, AnthropicBedrock or AsyncAnthropicBedrock type, got: {client}'
+    assert issubclass(client, (anthropic.AsyncAnthropic, anthropic.AsyncAnthropicBedrock)), (
+        f'Expected Anthropic, AsyncAnthropic, AnthropicBedrock or AsyncAnthropicBedrock type, got: {client}'
+    )
     return True

@@ -16,7 +16,7 @@ from logfire.testing import SeededRandomIdGenerator, TestExporter
 @dataclass
 class SpanNode:
     name: str | None = None
-    children: list[SpanNode] = field(default_factory=list)
+    children: list[SpanNode] = field(default_factory=list)  # type: ignore[reportUnknownVariableType]
 
 
 # TODO(Marcelo): Remove pragma when this file is covered by tests.
@@ -70,7 +70,7 @@ def test_sample_rate_config(exporter: TestExporter, config_kwargs: dict[str, Any
 
     # 1000 iterations of 2 spans -> 2000 spans
     # 30% sampling -> 600 spans (approximately)
-    assert len(exporter.exported_spans_as_dict()) == 634
+    assert len(exporter.exported_spans_as_dict()) == 588, len(exporter.exported_spans_as_dict())
 
 
 @pytest.mark.skipif(

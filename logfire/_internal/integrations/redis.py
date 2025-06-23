@@ -36,7 +36,7 @@ def instrument_redis(
     if capture_statement:
         request_hook = _capture_statement_hook(request_hook)
 
-    RedisInstrumentor().instrument(request_hook=request_hook, response_hook=response_hook, **kwargs)
+    RedisInstrumentor().instrument(request_hook=request_hook, response_hook=response_hook, **kwargs)  # type: ignore[reportUnknownMemberType]
 
 
 def _capture_statement_hook(request_hook: RequestHook | None = None) -> RequestHook:

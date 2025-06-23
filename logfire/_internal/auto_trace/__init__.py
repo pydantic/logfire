@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import sys
 import warnings
-from typing import TYPE_CHECKING, Callable, Literal, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Callable, Literal
 
 from ..constants import ONE_SECOND_IN_NANOSECONDS
 from .import_hook import LogfireFinder
@@ -24,7 +25,7 @@ def install_auto_tracing(
     See `Logfire.install_auto_tracing` for more information.
     """
     if isinstance(modules, Sequence):
-        modules = modules_func_from_sequence(modules)
+        modules = modules_func_from_sequence(modules)  # type: ignore
 
     if not callable(modules):
         raise TypeError('modules must be a list of strings or a callable')

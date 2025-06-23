@@ -6,6 +6,7 @@ from .scrubbing import BaseScrubber as BaseScrubber, NOOP_SCRUBBER as NOOP_SCRUB
 from .stack_info import warn_at_user_stacklevel as warn_at_user_stacklevel
 from .utils import log_internal_error as log_internal_error, truncate_string as truncate_string
 from _typeshed import Incomplete
+from functools import lru_cache
 from string import Formatter
 from types import CodeType as CodeType
 from typing import Any, Literal
@@ -27,6 +28,7 @@ chunks_formatter: Incomplete
 
 def logfire_format(format_string: str, kwargs: dict[str, Any], scrubber: BaseScrubber) -> str: ...
 def logfire_format_with_magic(format_string: str, kwargs: dict[str, Any], scrubber: BaseScrubber, fstring_frame: types.FrameType | None = None) -> tuple[str, dict[str, Any], str]: ...
+@lru_cache
 def compile_formatted_value(node: ast.FormattedValue, ex_source: executing.Source) -> tuple[str, CodeType, CodeType]:
     """Returns three things that can be expensive to compute.
 
@@ -54,6 +56,13 @@ class KnownFormattingError(Exception):
     In other words this should correspond to errors that would be raised when using `str.format`,
     and generally indicate a user error, most likely that they weren't trying to pass a template string at all.
     """
+class FStringAwaitError(Exception):
+    """An error raised when an await expression is found in an f-string.
+
+    This is a specific case that can't be handled by f-string introspection and requires
+    pre-evaluating the await expression before logging.
+    """
 class FormattingFailedWarning(UserWarning): ...
 
 def warn_formatting(msg: str): ...
+def warn_fstring_await(msg: str): ...

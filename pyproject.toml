@@ -4,9 +4,9 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "3.0.0"
+version = "3.21.1"
 description = "The best Python observability tool! 🪵🔥"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 authors = [
     { name = "Pydantic Team", email = "engineering@pydantic.dev" },
     { name = "Samuel Colvin", email = "samuel@pydantic.dev" },
@@ -20,34 +20,33 @@ authors = [
 license = "MIT"
 readme = "README.md"
 classifiers = [
-    'Development Status :: 5 - Production/Stable',
-    'Programming Language :: Python',
-    'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3 :: Only',
-    'Programming Language :: Python :: 3.8',
-    'Programming Language :: Python :: 3.9',
-    'Programming Language :: Python :: 3.10',
-    'Programming Language :: Python :: 3.11',
-    'Programming Language :: Python :: 3.12',
-    'Programming Language :: Python :: 3.13',
-    'Intended Audience :: Developers',
-    'Intended Audience :: Information Technology',
-    'Intended Audience :: System Administrators',
-    'License :: OSI Approved :: MIT License',
-    'Operating System :: Unix',
-    'Operating System :: POSIX :: Linux',
-    'Environment :: Console',
-    'Environment :: MacOS X',
-    'Topic :: Software Development :: Libraries :: Python Modules',
-    'Topic :: Internet',
-    'Framework :: OpenTelemetry',
-    'Framework :: OpenTelemetry :: Distros',
-    'Framework :: OpenTelemetry :: Exporters',
-    'Framework :: OpenTelemetry :: Instrumentations',
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Unix",
+    "Operating System :: POSIX :: Linux",
+    "Environment :: Console",
+    "Environment :: MacOS X",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Internet",
+    "Framework :: OpenTelemetry",
+    "Framework :: OpenTelemetry :: Distros",
+    "Framework :: OpenTelemetry :: Exporters",
+    "Framework :: OpenTelemetry :: Instrumentations",
 ]
 dependencies = [
-    "opentelemetry-sdk >= 1.21.0",
-    "opentelemetry-exporter-otlp-proto-http >= 1.21.0",
+    "opentelemetry-sdk >= 1.21.0, < 1.35.0",
+    "opentelemetry-exporter-otlp-proto-http >= 1.21.0, < 1.35.0",
     "opentelemetry-instrumentation >= 0.41b0",
     "rich >= 13.4.2",
     "protobuf >= 4.23.4",
@@ -61,8 +60,10 @@ system-metrics = ["opentelemetry-instrumentation-system-metrics >= 0.42b0"]
 asgi = ["opentelemetry-instrumentation-asgi >= 0.42b0"]
 wsgi = ["opentelemetry-instrumentation-wsgi >= 0.42b0"]
 aiohttp = ["opentelemetry-instrumentation-aiohttp-client >= 0.42b0"]
+aiohttp-client = ["opentelemetry-instrumentation-aiohttp-client >= 0.42b0"]
+aiohttp-server = ["opentelemetry-instrumentation-aiohttp-server >= 0.55b0"]
 celery = ["opentelemetry-instrumentation-celery >= 0.42b0"]
-django = ["opentelemetry-instrumentation-django >= 0.42b0"]
+django = ["opentelemetry-instrumentation-django >= 0.42b0", "opentelemetry-instrumentation-asgi >= 0.42b0"]
 fastapi = ["opentelemetry-instrumentation-fastapi >= 0.42b0"]
 flask = ["opentelemetry-instrumentation-flask >= 0.42b0"]
 httpx = ["opentelemetry-instrumentation-httpx >= 0.42b0"]
@@ -78,6 +79,12 @@ mysql = ["opentelemetry-instrumentation-mysql >= 0.42b0"]
 sqlite3 = ["opentelemetry-instrumentation-sqlite3 >= 0.42b0"]
 aws-lambda = ["opentelemetry-instrumentation-aws-lambda >= 0.42b0"]
 
+[project.urls]
+Homepage = "https://logfire.pydantic.dev/"
+Source = "https://github.com/pydantic/logfire"
+Documentation = "https://logfire.pydantic.dev/docs/"
+Changelog = "https://logfire.pydantic.dev/docs/release-notes/"
+
 [project.scripts]
 logfire = "logfire.cli:main"
 
@@ -89,7 +96,6 @@ logfire = "logfire.testing"
 
 [dependency-groups]
 dev = [
-    "anyio < 4.4.0",
     "httpx >= 0.27.2",
     "aiohttp >= 3.10.9",
     "redis >= 5.1.1",
@@ -104,11 +110,11 @@ dev = [
     "pydantic @ git+https://github.com/pydantic/pydantic",
     "requests >= 2.31.0",
     "sqlalchemy >= 1.4.54",
-    "pandas>=2.1.2; python_version >= '3.9'",
-    "pandas<2.1.2; python_version < '3.9'",
+    "pandas>=2.1.2",
     "attrs >= 23.1.0",
     "openai >= 1.58.1",
     "opentelemetry-instrumentation-aiohttp-client>=0.42b0",
+    "opentelemetry-instrumentation-aiohttp-server>=0.55b0",
     "opentelemetry-instrumentation-asgi>=0.42b0",
     "opentelemetry-instrumentation-wsgi>=0.42b0",
     "opentelemetry-instrumentation-fastapi>=0.42b0",
@@ -134,7 +140,7 @@ dev = [
     "structlog >= 24.4.0",
     "loguru >= 0.7.3",
     "ruff >= 0.8.3",
-    "pyright>=1.1.360",
+    "pyright != 1.1.401",
     "pre-commit>=3.5.0",
     "coverage[toml]>=7.5.0",
     "psycopg[binary] >= 3.2.3",
@@ -147,14 +153,12 @@ dev = [
     "sqlmodel>=0.0.15",
     "mypy>=1.10.0",
     "celery>=5.4.0",
-    "testcontainers>3.7.1; python_version >= '3.9'",
-    "testcontainers==3.7.1; python_version < '3.9'",
+    "testcontainers>3.7.1",
     "mysql-connector-python~=8.0",
     "pyarrow>=17.0.0; python_version < '3.13'",
     "pyarrow>=18.1.0; python_version >= '3.13'",
     # It looks like numpy didn't use to have `requires-python`, so we need to specify the version.
-    "numpy>=2.0; python_version >= '3.9' and python_version < '3.12'",
-    "numpy<1.24.4; python_version < '3.9'",
+    "numpy>=2.0; python_version < '3.12'",
     "pytest-recording>=0.13.2",
     "vcrpy>=6",
     "uvicorn>=0.30.6",
@@ -164,18 +168,28 @@ dev = [
     "boto3 >= 1.28.57",
     "botocore >= 1.31.57",
     "greenlet >= 3.1.1",
+    "pytest-xdist>=3.6.1",
+    "openai-agents[voice]>=0.0.7",
+    "pydantic-ai-slim>=0.0.39",
+    "langchain>=0.0.27",
+    "langchain-openai>=0.3.17",
+    "langgraph >= 0",
 ]
 docs = [
+    "black>=23.12.0",
     "mkdocs>=1.5.0",
-    "mkdocs-material>=9.5.48",
+    "mkdocs-material>=9.5.32",
     "mkdocs-glightbox>=0.4.0",
     "mkdocstrings-python>=1.8.0",
     "mkdocs-redirects>=1.2.1",
     "griffe",
+    "algoliasearch>=3,<4",
+    "mkdocs-llmstxt>=0.2.0",
 ]
 
 [tool.inline-snapshot]
 default-flags = ["disable"]
+format-command="ruff format --stdin-filename {filename}"
 
 [tool.uv.sources]
 logfire-api = { workspace = true }
@@ -242,22 +256,14 @@ quote-style = "single"
 typeCheckingMode = "strict"
 reportUnnecessaryTypeIgnoreComment = true
 reportMissingTypeStubs = false
-exclude = [
-    "docs/**/*.py",
-    "examples/**/*.py",
-    "site/**/*.py",
-    ".venv",
-    "venv*",
-    "**/venv*",
-    "ignoreme",
-    "out",
-    "logfire-api",
-]
+include = ["logfire", "tests"]
 venvPath = "."
 venv = ".venv"
 
 [tool.pytest.ini_options]
 xfail_strict = true
+# The langsmith pytest plugin messes with test_langchain.py
+addopts = "-p no:langsmith_plugin"
 filterwarnings = [
     "error",
     # fastapi uses deprecated pydantic functions
@@ -279,6 +285,8 @@ filterwarnings = [
     "ignore:The '__version__' attribute is deprecated and will be removed in Flask 3.1:DeprecationWarning",
     "ignore:The `capture_request_headers` parameter is deprecated. Use `capture_headers` instead.:DeprecationWarning",
     "ignore:The `capture_response_headers` parameter is deprecated. Use `capture_headers` instead.:DeprecationWarning",
+    # kombu using deprecated redis API
+    "ignore:Call to 'get_connection' function with deprecated usage of input argument/s.*:DeprecationWarning",
 ]
 DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_test_site.settings"
 

@@ -59,7 +59,7 @@ Finally, we also have documentation for how to use Logfire with existing logging
 | [Loguru](loguru.md)                    | Logging |
 | [Structlog](structlog.md)              | Logging |
 
-[slack]: https://join.slack.com/t/pydanticlogfire/shared_invite/zt-2war8jrjq-w_nWG6ZX7Zm~gnzY7cXSog
+[slack]: https://logfire.pydantic.dev/docs/join-slack/
 [opentelemetry]: https://opentelemetry.io/
 
 ## Creating Custom Integrations

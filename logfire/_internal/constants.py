@@ -137,15 +137,6 @@ ATTRIBUTES_VALIDATION_ERROR_KEY = 'exception.logfire.data'
 ATTRIBUTES_SCRUBBED_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.scrubbed'
 """Key in OTEL attributes with metadata about parts of a span that have been scrubbed."""
 
-NULL_ARGS_KEY = 'logfire.null_args'
-"""Key in OTEL attributes that collects attributes with a null (None) value."""
-
-PENDING_SPAN_NAME_SUFFIX = ' (pending)'
-"""Suffix added to the name of a pending span to indicate it's a pending span and avoid collisions with the real span while in flight."""
-
-LOGFIRE_BASE_URL = 'https://logfire-api.pydantic.dev'
-"""The Logfire API base URL."""
-
 RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS = 'logfire.package_versions'
 """Versions of installed packages, serialized as list of json objects with keys 'name' and 'version'."""
 
@@ -181,9 +172,6 @@ CONTEXT_ATTRIBUTES_KEY = create_key('logfire.attributes')  # note this has a ran
 
 CONTEXT_SAMPLE_RATE_KEY = create_key('logfire.sample-rate')  # note this has a random suffix that OTEL adds
 """Key in the OTEL context that contains the current sample rate."""
-
-OTLP_MAX_BODY_SIZE = 1024 * 1024 * 5  # 5MB
-"""Maximum body size for an OTLP request. Both our backend and SDK enforce this limit."""
 
 MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT = 128
 """Maximum number of characters for formatted values in a logfire message."""

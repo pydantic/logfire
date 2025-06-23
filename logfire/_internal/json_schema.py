@@ -20,6 +20,7 @@ import datetime
 import re
 import uuid
 from collections import deque
+from collections.abc import Iterable, Mapping, Sequence
 from contextlib import suppress
 from decimal import Decimal
 from enum import Enum
@@ -27,7 +28,7 @@ from functools import lru_cache
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
 from pathlib import PosixPath
 from types import GeneratorType
-from typing import Any, Callable, Iterable, Mapping, NewType, Sequence, cast
+from typing import Any, Callable, NewType, cast
 
 from .constants import ATTRIBUTES_SCRUBBED_KEY
 from .json_encoder import is_attrs, is_sqlalchemy, to_json_value
@@ -43,10 +44,10 @@ def type_to_schema() -> dict[type[Any], JsonDict | Callable[[Any, set[int]], Jso
         bytes: _bytes_schema,
         bytearray: _bytearray_schema,
         Enum: _enum_schema,
-        Decimal: {'type': 'string', 'format': 'decimal'},
-        datetime.datetime: {'type': 'string', 'format': 'date-time'},
-        datetime.date: {'type': 'string', 'format': 'date'},
-        datetime.time: {'type': 'string', 'format': 'time'},
+        Decimal: {'type': 'string', 'format': 'decimal', 'x-python-datatype': 'Decimal'},
+        datetime.datetime: {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
+        datetime.date: {'type': 'string', 'format': 'date', 'x-python-datatype': 'date'},
+        datetime.time: {'type': 'string', 'format': 'time', 'x-python-datatype': 'time'},
         datetime.timedelta: {'type': 'string', 'x-python-datatype': 'timedelta'},
         GeneratorType: _generator_schema,
         IPv4Address: {'type': 'string', 'format': 'ipv4'},
@@ -105,7 +106,7 @@ def create_json_schema(obj: Any, seen: set[int]) -> JsonDict:
         The JSON Schema.
     """
     if obj is None:
-        return {}
+        return {'type': 'null'}
 
     try:
         # cover common types first before calling `type_to_schema` to avoid the overhead of imports if not necessary
@@ -219,7 +220,7 @@ def _enum_schema(obj: Enum, seen: set[int]) -> JsonDict:
 
 # Schemas for values that are already JSON serializable, i.e. that don't need to be included
 # (except at the top level) because the frontend can just render them as plain JSON.
-PLAIN_SCHEMAS: tuple[JsonDict, ...] = ({}, {'type': 'object'}, {'type': 'array'})
+PLAIN_SCHEMAS: tuple[JsonDict, ...] = ({}, {'type': 'object'}, {'type': 'array'}, {'type': 'null'})
 
 
 def _mapping_schema(obj: Any, seen: set[int]) -> JsonDict:
@@ -328,7 +329,7 @@ def _numpy_schema(obj: Any, seen: set[int]) -> JsonDict:
     return {
         'type': 'array',
         'x-python-datatype': 'ndarray',
-        'x-shape': to_json_value(obj.shape, seen),  # type: ignore[reportUnknownMemberType]
+        'x-shape': to_json_value(obj.shape, seen),  # type: ignore
         'x-dtype': str(obj.dtype),  # type: ignore
     }
 

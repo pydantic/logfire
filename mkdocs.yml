@@ -7,7 +7,7 @@ repo_name: pydantic/logfire
 repo_url: https://github.com/pydantic/logfire
 edit_uri: edit/main/docs/
 
-copyright: © Pydantic Services Inc. 2024
+copyright: © Pydantic Services Inc. 2024 to present
 extra:
   # hide the "Made with Material for MkDocs" message
   generator: false
@@ -62,12 +62,16 @@ extra_css:
 # used for analytics
 extra_javascript:
   - "/flarelytics/client.js"
+  - "https://cdn.jsdelivr.net/npm/algoliasearch@5.20.0/dist/lite/builds/browser.umd.js"
+  - "https://cdn.jsdelivr.net/npm/instantsearch.js@4.77.3/dist/instantsearch.production.min.js"
+  - "javascripts/algolia-search.js"
 
 nav:
-  - Logfire:
+  - Getting Started:
       - Logfire: index.md
       - Why Logfire?: why.md
       - Concepts: concepts.md
+      - Get Help: help.md
       - Onboarding Checklist:
           - Onboarding Checklist: guides/onboarding-checklist/index.md
           - Integrate Logfire: guides/onboarding-checklist/integrate.md
@@ -91,12 +95,16 @@ nav:
       - Trace across Multiple Services: how-to-guides/distributed-tracing.md
       - Detect Service is Down: how-to-guides/detect-service-is-down.md
       - Suppress Spans and Metrics: how-to-guides/suppress.md
+      - OpenTelemetry Collector: how-to-guides/otel-collector.md
+      - Connect to the MCP Server: how-to-guides/mcp-server.md
   - Integrations:
       - Integrations: integrations/index.md
       - LLMs:
-          - LLamaIndex: integrations/llms/llamaindex.md
+          - PydanticAI: integrations/llms/pydanticai.md
           - OpenAI: integrations/llms/openai.md
           - Anthropic: integrations/llms/anthropic.md
+          - LangChain: integrations/llms/langchain.md
+          - LLamaIndex: integrations/llms/llamaindex.md
           - Mirascope: integrations/llms/mirascope.md
           - LiteLLM: integrations/llms/litellm.md
           - Magentic: integrations/llms/magentic.md
@@ -106,8 +114,17 @@ nav:
           - Django: integrations/web-frameworks/django.md
           - Flask: integrations/web-frameworks/flask.md
           - Starlette: integrations/web-frameworks/starlette.md
+          - AIOHTTP: integrations/web-frameworks/aiohttp.md
           - ASGI: integrations/web-frameworks/asgi.md
           - WSGI: integrations/web-frameworks/wsgi.md
+      - JavaScript:
+          - JavaScript: integrations/javascript/index.md
+          - Browser: integrations/javascript/browser.md
+          - Next.js: integrations/javascript/nextjs.md
+          - Cloudflare: integrations/javascript/cloudflare.md
+          - Express: integrations/javascript/express.md
+          - Node.js: integrations/javascript/node.md
+          - Deno: integrations/javascript/deno.md
       - Databases:
           - Psycopg: integrations/databases/psycopg.md
           - SQLAlchemy: integrations/databases/sqlalchemy.md
@@ -135,10 +152,12 @@ nav:
       - AWS Lambda: integrations/aws-lambda.md
   - Reference:
       - Advanced:
+          - Baggage: reference/advanced/baggage.md
           - Generators: reference/advanced/generators.md
           - Testing: reference/advanced/testing.md
       - Examples: reference/examples.md
       - Configuration: reference/configuration.md
+      - Data Regions: reference/data-regions.md
       - Organization Structure: reference/organization-structure.md
       - SDK CLI: reference/cli.md
       - SDK API:
@@ -148,8 +167,10 @@ nav:
           - Propagate: reference/api/propagate.md
           - Exceptions: reference/api/exceptions.md
           - Pydantic: reference/api/pydantic.md
-  - Help: help.md
   - Roadmap: roadmap.md
+  - Languages: languages.md
+  - Enterprise: enterprise.md
+  - Compliance: compliance.md
   - Release Notes: release-notes.md
 
 markdown_extensions:
@@ -216,7 +237,7 @@ plugins:
             - url: https://typing-extensions.readthedocs.io/en/latest/objects.inv
             - url: https://rich.readthedocs.io/en/stable/objects.inv
             - url: https://faststream.airt.ai/latest/objects.inv
-            - url: https://redis-py.readthedocs.io/en/stable/objects.inv
+            - url: https://redis.readthedocs.io/en/stable/objects.inv
             - url: https://pymongo.readthedocs.io/en/stable/objects.inv
   - redirects:
       redirect_maps:
@@ -306,5 +327,26 @@ plugins:
         "why-logfire/python-centric.md": "why.md"
         "why-logfire/sql.md": "why.md"
         "get-started/traces.md": "concepts.md"
+  - llmstxt:
+      enabled: !ENV [CI, false]
+      full_output: llms-full.txt
+      markdown_description: |-
+        From the team behind Pydantic, Logfire is an observability platform built on the same belief as our
+        open source library — that the most powerful tools can be easy to use.
+      sections:
+        General:
+          - index.md
+          - why.md
+          - concepts.md
+        How To - Guides:
+          - guides/*/*.md
+          - how-to-guides/*.md
+        Integrations:
+          - integrations/*.md
+          - integrations/*/*.md
+        Optional:
+          - roadmap.md
+          - release-notes.md
 hooks:
   - docs/plugins/main.py
+  - docs/plugins/algolia.py

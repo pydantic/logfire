@@ -5,24 +5,31 @@ import json
 import os
 import sys
 import threading
+from collections.abc import Iterable, Sequence
 from contextlib import ExitStack
 from pathlib import Path
 from time import sleep, time
-from typing import Any, Iterable, Sequence
+from typing import Any
 from unittest import mock
 from unittest.mock import call, patch
 
 import inline_snapshot.extra
 import pytest
+import requests.exceptions
 import requests_mock
+from dirty_equals import IsStr
 from inline_snapshot import snapshot
+from opentelemetry._logs import get_logger_provider
+from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.metrics import NoOpMeterProvider, get_meter_provider
 from opentelemetry.propagate import get_global_textmap
 from opentelemetry.propagators.composite import CompositePropagator
-from opentelemetry.sdk.metrics._internal.export import PeriodicExportingMetricReader
-from opentelemetry.sdk.metrics.export import InMemoryMetricReader
+from opentelemetry.sdk._logs import LogRecordProcessor
+from opentelemetry.sdk._logs._internal import SynchronousMultiLogRecordProcessor
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, LogExporter, SimpleLogRecordProcessor
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader, PeriodicExportingMetricReader
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor, SynchronousMultiSpanProcessor
 from opentelemetry.sdk.trace.export import (
     BatchSpanProcessor,
@@ -37,15 +44,21 @@ from pytest import LogCaptureFixture
 
 import logfire
 from logfire import configure, propagate
+from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
 from logfire._internal.config import (
     GLOBAL_CONFIG,
     CodeSource,
     ConsoleOptions,
     LogfireConfig,
     LogfireCredentials,
+    _get_token_repr,  # type: ignore
+    get_base_url_from_token,
     sanitize_project_name,
 )
-from logfire._internal.exporters.console import ShowParentsConsoleSpanExporter
+from logfire._internal.exporters.console import ConsoleLogExporter, ShowParentsConsoleSpanExporter
+from logfire._internal.exporters.dynamic_batch import DynamicBatchSpanProcessor
+from logfire._internal.exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper, MainLogProcessorWrapper
+from logfire._internal.exporters.otlp import QuietLogExporter, QuietSpanExporter
 from logfire._internal.exporters.processor_wrapper import (
     CheckSuppressInstrumentationProcessorWrapper,
     MainSpanProcessorWrapper,
@@ -59,6 +72,13 @@ from logfire.exceptions import LogfireConfigError
 from logfire.integrations.pydantic import get_pydantic_plugin_config
 from logfire.propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
 from logfire.testing import TestExporter
+
+PROCESS_RUNTIME_VERSION_REGEX = r'(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)'
+
+
+@pytest.fixture(autouse=True)
+def no_log_on_config(config: None, caplog: pytest.LogCaptureFixture) -> None:
+    assert not caplog.messages
 
 
 def test_propagate_config_to_tags(exporter: TestExporter) -> None:
@@ -75,7 +95,7 @@ def test_propagate_config_to_tags(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [
             {
-                'name': 'root (pending)',
+                'name': 'root',
                 'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 1000000000,
@@ -91,7 +111,7 @@ def test_propagate_config_to_tags(exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': 'child (pending)',
+                'name': 'child',
                 'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'start_time': 2000000000,
@@ -187,7 +207,7 @@ def test_propagate_config_to_tags(exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': 'root (pending)',
+                'name': 'root',
                 'context': {'trace_id': 2, 'span_id': 9, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 8, 'is_remote': False},
                 'start_time': 8000000000,
@@ -204,7 +224,7 @@ def test_propagate_config_to_tags(exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': 'child (pending)',
+                'name': 'child',
                 'context': {'trace_id': 2, 'span_id': 11, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 10, 'is_remote': False},
                 'start_time': 9000000000,
@@ -303,7 +323,7 @@ def test_propagate_config_to_tags(exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': 'root (pending)',
+                'name': 'root',
                 'context': {'trace_id': 3, 'span_id': 16, 'is_remote': False},
                 'parent': {'trace_id': 3, 'span_id': 15, 'is_remote': False},
                 'start_time': 15000000000,
@@ -320,7 +340,7 @@ def test_propagate_config_to_tags(exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': 'child (pending)',
+                'name': 'child',
                 'context': {'trace_id': 3, 'span_id': 18, 'is_remote': False},
                 'parent': {'trace_id': 3, 'span_id': 17, 'is_remote': False},
                 'start_time': 16000000000,
@@ -492,6 +512,7 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
         project_name = "test"
         console_colors = "never"
         console_include_timestamp = false
+        console_include_tags = false
         data_dir = "{tmp_path}"
         pydantic_plugin_record = "metrics"
         pydantic_plugin_include = " test1, test2"
@@ -507,6 +528,7 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
     assert GLOBAL_CONFIG.console
     assert GLOBAL_CONFIG.console.colors == 'never'
     assert GLOBAL_CONFIG.console.include_timestamps is False
+    assert GLOBAL_CONFIG.console.include_tags is False
     assert GLOBAL_CONFIG.data_dir == tmp_path
     assert fresh_pydantic_plugin().record == 'metrics'
     assert fresh_pydantic_plugin().include == {'test1', 'test2'}
@@ -551,6 +573,24 @@ def test_logfire_config_console_options() -> None:
         assert LogfireConfig().console == ConsoleOptions(verbose=False)
 
 
+def get_batch_span_exporter(processor: SpanProcessor) -> SpanExporter:
+    assert isinstance(processor, BatchSpanProcessor)
+    try:
+        exporter = processor.span_exporter
+    except AttributeError:  # pragma: no cover
+        exporter = processor._batch_processor._exporter  # type: ignore
+    return exporter  # type: ignore
+
+
+def get_batch_log_exporter(processor: LogRecordProcessor) -> LogExporter:
+    assert isinstance(processor, BatchLogRecordProcessor)
+    try:
+        exporter = processor._batch_processor._exporter  # type: ignore
+    except AttributeError:
+        exporter = processor._exporter  # type: ignore
+    return exporter  # type: ignore
+
+
 def test_configure_export_delay() -> None:
     class TrackingExporter(SpanExporter):
         def __init__(self) -> None:
@@ -567,7 +607,7 @@ def test_configure_export_delay() -> None:
     def configure_tracking_exporter():
         request_mocker = requests_mock.Mocker()
         request_mocker.get(
-            'https://logfire-api.pydantic.dev/v1/info',
+            'https://logfire-us.pydantic.dev/v1/info',
             json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
         )
 
@@ -579,23 +619,31 @@ def test_configure_export_delay() -> None:
             )
             wait_for_check_token_thread()
 
-        batch_span_processor, *_ = get_span_processors()
-        assert isinstance(batch_span_processor, BatchSpanProcessor)
-
-        batch_span_processor.span_exporter = TrackingExporter()
-        return batch_span_processor.span_exporter
+        dynamic_batch_span_processor, *_ = get_span_processors()
+        assert isinstance(dynamic_batch_span_processor, DynamicBatchSpanProcessor)
+        batch_processor = dynamic_batch_span_processor.batch_processor
+        ex = batch_processor.span_exporter = batch_processor._exporter = TrackingExporter()  # type: ignore
+        return ex
 
     def check_delays(exp: TrackingExporter, min_delay: float, max_delay: float) -> None:
         for delay in exp.export_delays:
             assert min_delay < delay < max_delay, f'delay was {delay}, which is not between {min_delay} and {max_delay}'
 
-    # test the default value
+    # test the default behaviour
     exporter = configure_tracking_exporter()
+    for _ in range(10):
+        logfire.info('test')
+    sleep(0.1)
+    # Initially the delay is 100 ms
+    check_delays(exporter, 0.1, 0.4)
+
+    exporter.export_delays.clear()
     while not exporter.export_delays:
         with logfire.span('test'):
             pass
         sleep(0.1)
-    check_delays(exporter, 0.4, 1.0)  # our default is 500ms
+    # After the first 10 spans, we increase to 500ms by default
+    check_delays(exporter, 0.4, 1.0)
 
     # test a very small value
     with patch.dict(os.environ, {'OTEL_BSP_SCHEDULE_DELAY': '1'}):
@@ -671,6 +719,9 @@ def test_otel_service_name_env_var(config_kwargs: dict[str, Any], exporter: Test
                         'service.name': 'potato',
                         'service.version': '1.2.3',
                         'service.instance.id': '00000000000000000000000000000000',
+                        'process.runtime.name': 'cpython',
+                        'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
+                        'process.runtime.description': sys.version,
                         'process.pid': 1234,
                     }
                 },
@@ -714,6 +765,9 @@ def test_otel_otel_resource_attributes_env_var(config_kwargs: dict[str, Any], ex
                         'service.version': '1.2.3',
                         'service.instance.id': 'instance_id',
                         'process.pid': 1234,
+                        'process.runtime.name': 'cpython',
+                        'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
+                        'process.runtime.description': sys.version,
                     }
                 },
             }
@@ -758,6 +812,9 @@ def test_otel_service_name_has_priority_on_otel_resource_attributes_service_name
                         'service.version': '1.2.3',
                         'service.instance.id': '00000000000000000000000000000000',
                         'process.pid': 1234,
+                        'process.runtime.name': 'cpython',
+                        'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
+                        'process.runtime.description': sys.version,
                     }
                 },
             }
@@ -1022,6 +1079,7 @@ def test_initialize_project_not_confirming_organization(tmp_path: Path) -> None:
         ]
 
 
+@pytest.mark.xdist_group(name='sequential')
 def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]):
     auth_file = tmp_path / 'default.toml'
     auth_file.write_text(
@@ -1146,6 +1204,7 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
         }
 
 
+@pytest.mark.xdist_group(name='sequential')
 def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Path, tmp_path: Path):
     auth_file = tmp_path / 'default.toml'
     auth_file.write_text(
@@ -1254,16 +1313,29 @@ def test_send_to_logfire_if_token_present_empty() -> None:
 
 
 def test_send_to_logfire_if_token_present_empty_via_env_var() -> None:
-    with patch.dict(
-        os.environ,
-        {'LOGFIRE_TOKEN': '', 'LOGFIRE_SEND_TO_LOGFIRE': 'if-token-present'},
-    ), mock.patch(
-        'logfire._internal.config.Confirm.ask',
-        side_effect=RuntimeError,
-    ), requests_mock.Mocker() as requests_mocker:
+    with (
+        patch.dict(
+            os.environ,
+            {'LOGFIRE_TOKEN': '', 'LOGFIRE_SEND_TO_LOGFIRE': 'if-token-present'},
+        ),
+        mock.patch(
+            'logfire._internal.config.Confirm.ask',
+            side_effect=RuntimeError,
+        ),
+        requests_mock.Mocker() as requests_mocker,
+    ):
         configure(console=False)
         wait_for_check_token_thread()
     assert len(requests_mocker.request_history) == 0
+
+
+def test_send_to_logfire_if_token_present_empty_via_arg() -> None:
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch('logfire._internal.config.Confirm.ask', side_effect=RuntimeError))
+        requests_mocker = stack.enter_context(requests_mock.Mocker())
+        configure(token='', send_to_logfire='if-token-present', console=False)
+        wait_for_check_token_thread()
+        assert len(requests_mocker.request_history) == 0
 
 
 def wait_for_check_token_thread():
@@ -1277,10 +1349,26 @@ def test_send_to_logfire_if_token_present_not_empty(capsys: pytest.CaptureFixtur
     try:
         with requests_mock.Mocker() as request_mocker:
             request_mocker.get(
-                'https://logfire-api.pydantic.dev/v1/info',
+                'https://logfire-us.pydantic.dev/v1/info',
                 json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
             )
             configure(send_to_logfire='if-token-present')
+            wait_for_check_token_thread()
+            assert len(request_mocker.request_history) == 1
+            assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
+    finally:
+        del os.environ['LOGFIRE_TOKEN']
+
+
+def test_send_to_logfire_if_token_present_not_empty_via_env_with_empty_arg(capsys: pytest.CaptureFixture[str]) -> None:
+    os.environ['LOGFIRE_TOKEN'] = 'non_empty_token'
+    try:
+        with requests_mock.Mocker() as request_mocker:
+            request_mocker.get(
+                'https://logfire-us.pydantic.dev/v1/info',
+                json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+            )
+            configure(token='', send_to_logfire='if-token-present')
             wait_for_check_token_thread()
             assert len(request_mocker.request_history) == 1
             assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
@@ -1295,20 +1383,33 @@ def test_send_to_logfire_if_token_present_in_logfire_dir(tmp_path: Path, capsys:
         {
             "token": "foobar",
             "project_name": "myproject",
-            "project_url": "http://dash.localhost:8000/",
-            "logfire_api_url": "http://dash.localhost:8000/"
+            "project_url": "https://logfire-us.pydantic.dev",
+            "logfire_api_url": "https://logfire-us.pydantic.dev"
         }
         """
     )
     with requests_mock.Mocker() as request_mocker:
         request_mocker.get(
-            'https://logfire-api.pydantic.dev/v1/info',
-            json={'project_name': 'myproject', 'project_url': 'http://dash.localhost:8000/'},
+            'https://logfire-us.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'https://logfire-us.pydantic.dev'},
         )
         configure(send_to_logfire='if-token-present', data_dir=tmp_path)
         wait_for_check_token_thread()
         assert len(request_mocker.request_history) == 1
-        assert capsys.readouterr().err == 'Logfire project URL: http://dash.localhost:8000/\n'
+        assert capsys.readouterr().err == 'Logfire project URL: https://logfire-us.pydantic.dev\n'
+
+
+def test_configure_unknown_token_region(capsys: pytest.CaptureFixture[str]) -> None:
+    # Should default to us:
+    with requests_mock.Mocker() as request_mocker:
+        request_mocker.get(
+            'https://logfire-us.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'https://logfire-us.pydantic.dev'},
+        )
+        configure(send_to_logfire='if-token-present', token='pylf_v1_unknownregion_foobarbaz')
+        wait_for_check_token_thread()
+        assert len(request_mocker.request_history) == 1
+        assert capsys.readouterr().err == 'Logfire project URL: https://logfire-us.pydantic.dev\n'
 
 
 def test_load_creds_file_invalid_json_content(tmp_path: Path):
@@ -1344,13 +1445,90 @@ def test_load_creds_file_invalid_key(tmp_path: Path):
         LogfireCredentials.load_creds_file(creds_dir=tmp_path)
 
 
-def test_get_user_token_not_authenticated(default_credentials: Path):
+def test_get_user_token_data_explicit_url(default_credentials: Path):
+    with patch('logfire._internal.config.DEFAULT_FILE', default_credentials):
+        # https://logfire-us.pydantic.dev is the URL present in the default credentials fixture:
+        _, url = LogfireCredentials._get_user_token_data(logfire_api_url='https://logfire-us.pydantic.dev')  # type: ignore
+        assert url == 'https://logfire-us.pydantic.dev'
+
+        with pytest.raises(LogfireConfigError):
+            LogfireCredentials._get_user_token_data(logfire_api_url='https://logfire-eu.pydantic.dev')  # type: ignore
+
+
+def test_get_user_token_data_no_explicit_url(default_credentials: Path):
+    with patch('logfire._internal.config.DEFAULT_FILE', default_credentials):
+        _, url = LogfireCredentials._get_user_token_data(logfire_api_url=None)  # type: ignore
+        # https://logfire-us.pydantic.dev is the URL present in the default credentials fixture:
+        assert url == 'https://logfire-us.pydantic.dev'
+
+
+def test_get_user_token_data_input_choice(multiple_credentials: Path):
+    with (
+        patch('logfire._internal.config.DEFAULT_FILE', multiple_credentials),
+        patch('rich.prompt.IntPrompt.ask', side_effect=[1]),
+    ):
+        _, url = LogfireCredentials._get_user_token_data(logfire_api_url=None)  # type: ignore
+        # https://logfire-us.pydantic.dev is the first URL present in the multiple credentials fixture:
+        assert url == 'https://logfire-us.pydantic.dev'
+
+
+@pytest.mark.parametrize(
+    ['url', 'token', 'expected'],
+    [
+        (
+            'https://logfire-us.pydantic.dev',
+            'pylf_v1_us_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W',
+            'US (https://logfire-us.pydantic.dev) - pylf_v1_us_0kYhc****',
+        ),
+        (
+            'https://logfire-eu.pydantic.dev',
+            'pylf_v1_eu_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W',
+            'EU (https://logfire-eu.pydantic.dev) - pylf_v1_eu_0kYhc****',
+        ),
+        (
+            'https://logfire-us.pydantic.dev',
+            '0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W',
+            'US (https://logfire-us.pydantic.dev) - 0kYhc****',
+        ),
+        (
+            'https://logfire-us.pydantic.dev',
+            'pylf_v1_unknownregion_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W',
+            'US (https://logfire-us.pydantic.dev) - pylf_v1_unknownregion_0kYhc****',
+        ),
+    ],
+)
+def test_get_token_repr(url: str, token: str, expected: str):
+    assert _get_token_repr(url, token) == expected
+
+
+def test_get_user_token_data_no_credentials(tmp_path: Path):
+    with patch('logfire._internal.config.DEFAULT_FILE', tmp_path):
+        with pytest.raises(LogfireConfigError):
+            LogfireCredentials._get_user_token_data()  # type: ignore
+
+
+def test_get_user_token_data_empty_credentials(tmp_path: Path):
+    empty_auth_file = tmp_path / 'default.toml'
+    empty_auth_file.touch()
+    with patch('logfire._internal.config.DEFAULT_FILE', tmp_path):
+        with pytest.raises(LogfireConfigError):
+            LogfireCredentials._get_user_token_data()  # type: ignore
+
+
+def test_get_user_token_data_expired_credentials(expired_credentials: Path):
+    with patch('logfire._internal.config.DEFAULT_FILE', expired_credentials):
+        with pytest.raises(LogfireConfigError):
+            # https://logfire-us.pydantic.dev is the URL present in the expired credentials fixture:
+            LogfireCredentials._get_user_token_data(logfire_api_url='https://logfire-us.pydantic.dev')  # type: ignore
+
+
+def test_get_user_token_data_not_authenticated(default_credentials: Path):
     with patch('logfire._internal.config.DEFAULT_FILE', default_credentials):
         with pytest.raises(
             LogfireConfigError, match='You are not authenticated. Please run `logfire auth` to authenticate.'
         ):
             # Use a port that we don't use for local development to reduce conflicts with local configuration
-            LogfireCredentials._get_user_token(logfire_api_url='http://localhost:8234')  # type: ignore
+            LogfireCredentials._get_user_token_data(logfire_api_url='http://localhost:8234')  # type: ignore
 
 
 def test_initialize_credentials_from_token_unreachable():
@@ -1366,7 +1544,7 @@ def test_initialize_credentials_from_token_invalid_token():
         request_mocker = requests_mock.Mocker()
         stack.enter_context(request_mocker)
         request_mocker.get(
-            'https://logfire-api.pydantic.dev/v1/info', text='{"detail": "Invalid token"}', status_code=401
+            'https://logfire-us.pydantic.dev/v1/info', text='{"detail": "Invalid token"}', status_code=401
         )
 
         with pytest.warns(match='Logfire API returned status code 401. Detail: Invalid token'):
@@ -1377,7 +1555,7 @@ def test_initialize_credentials_from_token_unhealthy():
     with ExitStack() as stack:
         request_mocker = requests_mock.Mocker()
         stack.enter_context(request_mocker)
-        request_mocker.get('https://logfire-api.pydantic.dev/v1/info', text='Error', status_code=500)
+        request_mocker.get('https://logfire-us.pydantic.dev/v1/info', text='Error', status_code=500)
 
         with pytest.warns(
             UserWarning, match='Logfire API returned status code 500, you may have trouble sending data.'
@@ -1399,33 +1577,24 @@ def test_send_to_logfire_under_pytest():
     assert GLOBAL_CONFIG.send_to_logfire is False
 
 
-@pytest.mark.skipif(sys.version_info[:2] >= (3, 9), reason='Testing an error only raised in Python 3.8+')
-def test_configure_fstring_python_38():
-    with pytest.raises(  # pragma: no branch
-        LogfireConfigError,
-        match=r'Inspecting arguments is only supported in Python 3.9\+ and only recommended in Python 3.11\+.',
-    ):
-        logfire.configure(send_to_logfire=False, inspect_arguments=True)
-
-
 def test_default_exporters(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
     logfire.configure(send_to_logfire=True, token='foo')
     wait_for_check_token_thread()
 
-    [console_processor, send_to_logfire_processor, pending_span_processor] = get_span_processors()
+    [console_span_processor, send_to_logfire_processor, pending_span_processor] = get_span_processors()
 
-    assert isinstance(console_processor, SimpleSpanProcessor)
-    assert isinstance(console_processor.span_exporter, ShowParentsConsoleSpanExporter)
+    assert isinstance(console_span_processor, SimpleSpanProcessor)
+    assert isinstance(console_span_processor.span_exporter, ShowParentsConsoleSpanExporter)
 
-    assert isinstance(send_to_logfire_processor, BatchSpanProcessor)
+    assert isinstance(send_to_logfire_processor, DynamicBatchSpanProcessor)
     assert isinstance(send_to_logfire_processor.span_exporter, RemovePendingSpansExporter)
 
     assert isinstance(pending_span_processor, PendingSpanProcessor)
     assert isinstance(pending_span_processor.processor, MainSpanProcessorWrapper)
     assert isinstance(pending_span_processor.processor.processor, SynchronousMultiSpanProcessor)
     assert pending_span_processor.processor.processor._span_processors == (  # type: ignore
-        console_processor,
+        console_span_processor,
         send_to_logfire_processor,
     )
 
@@ -1433,16 +1602,28 @@ def test_default_exporters(monkeypatch: pytest.MonkeyPatch):
     assert isinstance(logfire_metric_reader, PeriodicExportingMetricReader)
     assert isinstance(logfire_metric_reader._exporter, QuietMetricExporter)  # type: ignore
 
+    [console_log_processor, logfire_log_processor] = get_log_record_processors()
+
+    assert isinstance(console_log_processor, SimpleLogRecordProcessor)
+    assert isinstance(console_log_processor._exporter, ConsoleLogExporter)  # type: ignore
+    assert console_log_processor._exporter.span_exporter is console_span_processor.span_exporter  # type: ignore
+
+    exporter = get_batch_log_exporter(logfire_log_processor)
+    assert isinstance(exporter, QuietLogExporter)
+    assert isinstance(exporter.exporter, OTLPLogExporter)
+
 
 def test_custom_exporters():
     custom_span_processor = SimpleSpanProcessor(ConsoleSpanExporter())
     custom_metric_reader = InMemoryMetricReader()
+    custom_log_processor = SynchronousMultiLogRecordProcessor()
 
     logfire.configure(
         send_to_logfire=False,
         console=False,
         additional_span_processors=[custom_span_processor],
         metrics=logfire.MetricsOptions(additional_readers=[custom_metric_reader]),
+        advanced=logfire.AdvancedOptions(log_record_processors=[custom_log_processor]),
     )
 
     [custom_span_processor2] = get_span_processors()
@@ -1451,6 +1632,9 @@ def test_custom_exporters():
     [custom_metric_reader2] = get_metric_readers()
     assert custom_metric_reader2 is custom_metric_reader
 
+    [custom_log_processor2] = get_log_record_processors()
+    assert custom_log_processor2 is custom_log_processor
+
 
 def test_otel_exporter_otlp_endpoint_env_var():
     # Setting this env var creates an OTLPSpanExporter and an OTLPMetricExporter
@@ -1458,22 +1642,36 @@ def test_otel_exporter_otlp_endpoint_env_var():
         logfire.configure(send_to_logfire=False, console=False)
 
     [otel_processor] = get_span_processors()
-    assert isinstance(otel_processor, BatchSpanProcessor)
-    assert isinstance(otel_processor.span_exporter, OTLPSpanExporter)
-    assert otel_processor.span_exporter._endpoint == 'otel_endpoint/v1/traces'  # type: ignore
+    exporter = get_batch_span_exporter(otel_processor)
+    assert isinstance(exporter, OTLPSpanExporter)
+    assert exporter._endpoint == 'otel_endpoint/v1/traces'  # type: ignore
 
     [otel_metric_reader] = get_metric_readers()
     assert isinstance(otel_metric_reader, PeriodicExportingMetricReader)
     assert isinstance(otel_metric_reader._exporter, OTLPMetricExporter)  # type: ignore
     assert otel_metric_reader._exporter._endpoint == 'otel_endpoint/v1/metrics'  # type: ignore
 
+    [otel_log_processor] = get_log_record_processors()
+    log_exporter = get_batch_log_exporter(otel_log_processor)
+    assert isinstance(log_exporter, OTLPLogExporter)
+    assert log_exporter._endpoint == 'otel_endpoint/v1/logs'  # type: ignore
+
 
 def test_otel_traces_exporter_env_var():
     # Setting OTEL_TRACES_EXPORTER to something other than otlp prevents creating an OTLPSpanExporter
-    with patch.dict(os.environ, {'OTEL_EXPORTER_OTLP_ENDPOINT': 'otel_endpoint2', 'OTEL_TRACES_EXPORTER': 'grpc'}):
+    # Same for OTEL_LOGS_EXPORTER
+    with patch.dict(
+        os.environ,
+        {
+            'OTEL_EXPORTER_OTLP_ENDPOINT': 'otel_endpoint2',
+            'OTEL_TRACES_EXPORTER': 'grpc',
+            'OTEL_LOGS_EXPORTER': 'none',
+        },
+    ):
         logfire.configure(send_to_logfire=False, console=False)
 
     assert len(list(get_span_processors())) == 0
+    assert len(list(get_log_record_processors())) == 0
 
     [otel_metric_reader] = get_metric_readers()
     assert isinstance(otel_metric_reader, PeriodicExportingMetricReader)
@@ -1487,11 +1685,24 @@ def test_otel_metrics_exporter_env_var():
         logfire.configure(send_to_logfire=False, console=False)
 
     [otel_processor] = get_span_processors()
-    assert isinstance(otel_processor, BatchSpanProcessor)
-    assert isinstance(otel_processor.span_exporter, OTLPSpanExporter)
-    assert otel_processor.span_exporter._endpoint == 'otel_endpoint3/v1/traces'  # type: ignore
+    exporter = get_batch_span_exporter(otel_processor)
+    assert isinstance(exporter, OTLPSpanExporter)
+    assert exporter._endpoint == 'otel_endpoint3/v1/traces'  # type: ignore
 
     assert len(list(get_metric_readers())) == 0
+
+
+def test_otel_logs_exporter_env_var():
+    # Setting OTEL_LOGS_EXPORTER to something other than otlp prevents creating an OTLPLogExporter
+    with patch.dict(os.environ, {'OTEL_EXPORTER_OTLP_ENDPOINT': 'otel_endpoint4', 'OTEL_LOGS_EXPORTER': 'none'}):
+        logfire.configure(send_to_logfire=False, console=False)
+
+    [otel_processor] = get_span_processors()
+    exporter = get_batch_span_exporter(otel_processor)
+    assert isinstance(exporter, OTLPSpanExporter)
+    assert exporter._endpoint == 'otel_endpoint4/v1/traces'  # type: ignore
+
+    assert len(list(get_log_record_processors())) == 0
 
 
 def test_otel_exporter_otlp_traces_endpoint_env_var():
@@ -1500,11 +1711,12 @@ def test_otel_exporter_otlp_traces_endpoint_env_var():
         logfire.configure(send_to_logfire=False, console=False)
 
     [otel_processor] = get_span_processors()
-    assert isinstance(otel_processor, BatchSpanProcessor)
-    assert isinstance(otel_processor.span_exporter, OTLPSpanExporter)
-    assert otel_processor.span_exporter._endpoint == 'otel_traces_endpoint'  # type: ignore
+    exporter = get_batch_span_exporter(otel_processor)
+    assert isinstance(exporter, OTLPSpanExporter)
+    assert exporter._endpoint == 'otel_traces_endpoint'  # type: ignore
 
     assert len(list(get_metric_readers())) == 0
+    assert len(list(get_log_record_processors())) == 0
 
 
 def test_otel_exporter_otlp_metrics_endpoint_env_var():
@@ -1513,11 +1725,26 @@ def test_otel_exporter_otlp_metrics_endpoint_env_var():
         logfire.configure(send_to_logfire=False, console=False)
 
     assert len(list(get_span_processors())) == 0
+    assert len(list(get_log_record_processors())) == 0
 
     [otel_metric_reader] = get_metric_readers()
     assert isinstance(otel_metric_reader, PeriodicExportingMetricReader)
     assert isinstance(otel_metric_reader._exporter, OTLPMetricExporter)  # type: ignore
     assert otel_metric_reader._exporter._endpoint == 'otel_metrics_endpoint'  # type: ignore
+
+
+def test_otel_exporter_otlp_logs_endpoint_env_var():
+    # Setting just OTEL_EXPORTER_OTLP_LOGS_ENDPOINT only creates an OTLPLogExporter
+    with patch.dict(os.environ, {'OTEL_EXPORTER_OTLP_LOGS_ENDPOINT': 'otel_logs_endpoint'}):
+        logfire.configure(send_to_logfire=False, console=False)
+
+    assert len(list(get_span_processors())) == 0
+    assert len(list(get_metric_readers())) == 0
+
+    [otel_log_processor] = get_log_record_processors()
+    exporter = get_batch_log_exporter(otel_log_processor)
+    assert isinstance(exporter, OTLPLogExporter)
+    assert exporter._endpoint == 'otel_logs_endpoint'  # type: ignore
 
 
 def test_metrics_false(monkeypatch: pytest.MonkeyPatch):
@@ -1530,16 +1757,29 @@ def test_metrics_false(monkeypatch: pytest.MonkeyPatch):
 
 
 def get_span_processors() -> Iterable[SpanProcessor]:
-    [first, *rest] = get_tracer_provider().provider._active_span_processor._span_processors  # type: ignore
-    assert isinstance(first, CheckSuppressInstrumentationProcessorWrapper)
-    assert isinstance(first.processor, MainSpanProcessorWrapper)
-    assert isinstance(first.processor.processor, SynchronousMultiSpanProcessor)
+    [root] = get_tracer_provider().provider._active_span_processor._span_processors  # type: ignore
+    assert isinstance(root, CheckSuppressInstrumentationProcessorWrapper)
+    assert isinstance(root.processor, MainSpanProcessorWrapper)
+    assert isinstance(root.processor.processor, SynchronousMultiSpanProcessor)
 
-    return [*first.processor.processor._span_processors, *rest]  # type: ignore
+    result = list(root.processor.processor._span_processors)  # type: ignore
+    assert isinstance(result[0], DirectBaggageAttributesSpanProcessor)
+    return result[1:]
 
 
 def get_metric_readers() -> Iterable[SpanProcessor]:
     return get_meter_provider().provider._sdk_config.metric_readers  # type: ignore
+
+
+def get_log_record_processors() -> Iterable[LogRecordProcessor]:
+    [processor] = get_logger_provider().provider._multi_log_record_processor._log_record_processors  # type: ignore
+    assert isinstance(processor, CheckSuppressInstrumentationLogProcessorWrapper)
+    processor = processor.processor
+    assert isinstance(processor, MainLogProcessorWrapper)
+    processor = processor.processor
+    assert isinstance(processor, SynchronousMultiLogRecordProcessor)
+
+    return processor._log_record_processors  # type: ignore
 
 
 def test_dynamic_module_ignored_in_ensure_flush_after_aws_lambda(
@@ -1656,6 +1896,9 @@ def test_environment(config_kwargs: dict[str, Any], exporter: TestExporter):
                         'telemetry.sdk.version': '0.0.0',
                         'service.name': 'unknown_service',
                         'process.pid': 1234,
+                        'process.runtime.name': 'cpython',
+                        'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
+                        'process.runtime.description': sys.version,
                         'service.version': '1.2.3',
                         'deployment.environment.name': 'production',
                     }
@@ -1703,6 +1946,9 @@ def test_code_source(config_kwargs: dict[str, Any], exporter: TestExporter):
                         'telemetry.sdk.version': '0.0.0',
                         'service.name': 'unknown_service',
                         'process.pid': 1234,
+                        'process.runtime.name': 'cpython',
+                        'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
+                        'process.runtime.description': sys.version,
                         'logfire.code.root_path': 'logfire',
                         'logfire.code.work_dir': os.getcwd(),
                         'vcs.repository.url.full': 'https://github.com/pydantic/logfire',
@@ -1752,6 +1998,9 @@ def test_code_source_without_root_path(config_kwargs: dict[str, Any], exporter: 
                         'telemetry.sdk.version': '0.0.0',
                         'service.name': 'unknown_service',
                         'process.pid': 1234,
+                        'process.runtime.name': 'cpython',
+                        'process.runtime.version': IsStr(regex=PROCESS_RUNTIME_VERSION_REGEX),
+                        'process.runtime.description': sys.version,
                         'logfire.code.work_dir': os.getcwd(),
                         'vcs.repository.url.full': 'https://github.com/pydantic/logfire',
                         'vcs.repository.ref.revision': 'main',
@@ -2065,3 +2314,19 @@ def test_distributed_tracing_disabled(exporter: TestExporter, config_kwargs: dic
             },
         ]
     )
+
+
+def test_quiet_span_exporter(caplog: LogCaptureFixture):
+    class ConnectionErrorExporter(SpanExporter):
+        def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
+            raise requests.exceptions.ConnectionError()
+
+    exporter = QuietSpanExporter(ConnectionErrorExporter())
+
+    assert exporter.export([]) == SpanExportResult.FAILURE
+    assert not caplog.messages
+
+
+def test_staging_token_regions():
+    assert get_base_url_from_token('pylf_v1_stagingeu_123456') == 'https://logfire-eu.pydantic.info'
+    assert get_base_url_from_token('pylf_v1_stagingus_123456') == 'https://logfire-us.pydantic.info'

@@ -7,7 +7,7 @@ from opentelemetry.trace import Span
 if TYPE_CHECKING:
     from wsgiref.types import WSGIEnvironment
 
-ResponseHook = Callable[[Span, 'WSGIEnvironment', int, 'list[tuple[str, str]]'], None]
+ResponseHook = Callable[[Span, 'WSGIEnvironment', str, 'list[tuple[str, str]]'], None]
 """A callback called when a response is sent by the server."""
 
 RequestHook = Callable[[Span, 'WSGIEnvironment'], None]

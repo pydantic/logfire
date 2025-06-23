@@ -30,7 +30,7 @@ typecheck:
 
 .PHONY: test  # Run the tests
 test:
-	uv run --no-sync coverage run -m pytest
+	uv run --no-sync coverage run -m pytest -n auto --dist=loadgroup
 
 .PHONY: generate-stubs  # Generate stubs for logfire-api
 generate-stubs:
@@ -45,6 +45,11 @@ generate-stubs:
 testcov: test
 	@echo "building coverage html"
 	uv run coverage html --show-contexts
+
+.PHONY: test-pyodide  # Check logfire runs with pyodide
+test-pyodide:
+	uv build
+	cd pyodide_test && npm install && npm test
 
 .PHONY: docs  # Build the documentation
 docs:

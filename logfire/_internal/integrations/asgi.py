@@ -12,7 +12,8 @@ from opentelemetry.trace.propagation import get_current_span
 from logfire._internal.utils import is_asgi_send_receive_span_name, maybe_capture_server_headers
 
 if TYPE_CHECKING:
-    from typing import Any, Awaitable, Callable, Protocol, TypedDict
+    from collections.abc import Awaitable
+    from typing import Any, Callable, Protocol, TypedDict
 
     from opentelemetry.trace import Span
     from typing_extensions import Unpack

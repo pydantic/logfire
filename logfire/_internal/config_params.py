@@ -5,7 +5,7 @@ import sys
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Callable, Literal, Set, TypeVar, Union
+from typing import Any, Callable, Literal, TypeVar, Union
 
 from opentelemetry.sdk.environment_variables import OTEL_SERVICE_NAME
 from typing_extensions import get_args, get_origin
@@ -13,7 +13,7 @@ from typing_extensions import get_args, get_origin
 from logfire.exceptions import LogfireConfigError
 
 from . import config
-from .constants import LOGFIRE_BASE_URL, LevelName
+from .constants import LevelName
 from .exporters.console import ConsoleColorsValues
 from .utils import read_toml_file
 
@@ -78,6 +78,8 @@ CONSOLE_SPAN_STYLE = ConfigParam(env_vars=['LOGFIRE_CONSOLE_SPAN_STYLE'], allow_
   give the best context."""
 CONSOLE_INCLUDE_TIMESTAMP = ConfigParam(env_vars=['LOGFIRE_CONSOLE_INCLUDE_TIMESTAMP'], allow_file_config=True, default=True, tp=bool)
 """Whether to include the timestamp in the console."""
+CONSOLE_INCLUDE_TAGS = ConfigParam(env_vars=['LOGFIRE_CONSOLE_INCLUDE_TAGS'], allow_file_config=True, default=True, tp=bool)
+"""Whether to include tags in the console."""
 CONSOLE_VERBOSE = ConfigParam(env_vars=['LOGFIRE_CONSOLE_VERBOSE'], allow_file_config=True, default=False, tp=bool)
 """Whether to log in verbose mode in the console."""
 CONSOLE_MIN_LOG_LEVEL = ConfigParam(env_vars=['LOGFIRE_CONSOLE_MIN_LOG_LEVEL'], allow_file_config=True, default='info', tp=LevelName)
@@ -86,9 +88,9 @@ CONSOLE_SHOW_PROJECT_LINK = ConfigParam(env_vars=['LOGFIRE_CONSOLE_SHOW_PROJECT_
 """Whether to enable/disable the console exporter."""
 PYDANTIC_PLUGIN_RECORD = ConfigParam(env_vars=['LOGFIRE_PYDANTIC_PLUGIN_RECORD'], allow_file_config=True, default='off', tp=PydanticPluginRecordValues)
 """Whether instrument Pydantic validation.."""
-PYDANTIC_PLUGIN_INCLUDE = ConfigParam(env_vars=['LOGFIRE_PYDANTIC_PLUGIN_INCLUDE'], allow_file_config=True, default=set(), tp=Set[str])
+PYDANTIC_PLUGIN_INCLUDE = ConfigParam(env_vars=['LOGFIRE_PYDANTIC_PLUGIN_INCLUDE'], allow_file_config=True, default=set(), tp=set[str])
 """Set of items that should be included in Logfire Pydantic plugin instrumentation."""
-PYDANTIC_PLUGIN_EXCLUDE = ConfigParam(env_vars=['LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE'], allow_file_config=True, default=set(), tp=Set[str])
+PYDANTIC_PLUGIN_EXCLUDE = ConfigParam(env_vars=['LOGFIRE_PYDANTIC_PLUGIN_EXCLUDE'], allow_file_config=True, default=set(), tp=set[str])
 """Set of items that should be excluded from Logfire Pydantic plugin instrumentation."""
 TRACE_SAMPLE_RATE = ConfigParam(env_vars=['LOGFIRE_TRACE_SAMPLE_RATE', 'OTEL_TRACES_SAMPLER_ARG'], allow_file_config=True, default=1.0, tp=float)
 """Head sampling rate for traces."""
@@ -96,7 +98,7 @@ INSPECT_ARGUMENTS = ConfigParam(env_vars=['LOGFIRE_INSPECT_ARGUMENTS'], allow_fi
 """Whether to enable the f-string magic feature. On by default for Python 3.11 and above."""
 IGNORE_NO_CONFIG = ConfigParam(env_vars=['LOGFIRE_IGNORE_NO_CONFIG'], allow_file_config=True, default=False, tp=bool)
 """Whether to show a warning message if logfire if used without calling logfire.configure()"""
-BASE_URL = ConfigParam(env_vars=['LOGFIRE_BASE_URL'], allow_file_config=True, default=LOGFIRE_BASE_URL)
+BASE_URL = ConfigParam(env_vars=['LOGFIRE_BASE_URL'], allow_file_config=True, default=None, tp=str)
 """The base URL of the Logfire backend. Primarily for testing purposes."""
 DISTRIBUTED_TRACING = ConfigParam(env_vars=['LOGFIRE_DISTRIBUTED_TRACING'], allow_file_config=True, default=None, tp=bool)
 """Whether to extract incoming trace context. By default, will extract but warn about it."""
@@ -115,6 +117,7 @@ CONFIG_PARAMS = {
     'console_colors': CONSOLE_COLORS,
     'console_span_style': CONSOLE_SPAN_STYLE,
     'console_include_timestamp': CONSOLE_INCLUDE_TIMESTAMP,
+    'console_include_tags': CONSOLE_INCLUDE_TAGS,
     'console_verbose': CONSOLE_VERBOSE,
     'console_min_log_level': CONSOLE_MIN_LOG_LEVEL,
     'console_show_project_link': CONSOLE_SHOW_PROJECT_LINK,
@@ -157,7 +160,7 @@ class ParamManager:
         Returns:
             The value of the parameter.
         """
-        if runtime is not None:
+        if runtime is not None and runtime != '':
             return runtime
 
         param = CONFIG_PARAMS[name]

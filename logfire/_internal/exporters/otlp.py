@@ -1,40 +1,50 @@
 from __future__ import annotations
 
-import contextlib
 import random
 import time
 import uuid
 from collections import deque
+from collections.abc import Mapping, Sequence
 from functools import cached_property
 from pathlib import Path
 from tempfile import mkdtemp
 from threading import Lock, Thread
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 import requests.exceptions
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk._logs import LogData
+from opentelemetry.sdk._logs._internal.export import LogExportResult
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult
 from requests import Session
 
 import logfire
 
-from ..stack_info import STACK_INFO_KEYS
-from ..utils import logger, truncate_string
-from .wrapper import WrapperSpanExporter
+from ..utils import logger, platform_is_emscripten
+from .wrapper import WrapperLogExporter, WrapperSpanExporter
+
+
+class BodySizeCheckingOTLPSpanExporter(OTLPSpanExporter):
+    # 5MB is significantly less than what our backend currently accepts,
+    # but smaller requests are faster and more reliable.
+    # This won't prevent bigger spans/payloads from being exported,
+    # it just tries to make each request smaller.
+    # This also helps in case the backend limit is reduced in the future.
+    max_body_size = 5 * 1024 * 1024
+
+    def _serialize_spans(self, spans: Sequence[ReadableSpan]) -> bytes:
+        result = super()._serialize_spans(spans)  # type: ignore
+        if len(spans) > 1 and len(result) > self.max_body_size:
+            # Tell outer RetryFewerSpansSpanExporter to split in half
+            raise BodyTooLargeError(len(result), self.max_body_size)
+        return result
 
 
 class OTLPExporterHttpSession(Session):
-    """A requests.Session subclass that raises a BodyTooLargeError if the request body is too large.
-
-    Also defers failed requests to a DiskRetryer.
-    """
-
-    def __init__(self, *args: Any, max_body_size: int, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        self.max_body_size = max_body_size
+    """A requests.Session subclass that defers failed requests to a DiskRetryer."""
 
     def post(self, url: str, data: bytes, **kwargs: Any):  # type: ignore
-        self._check_body_size(len(data))
         try:
             response = super().post(url, data=data, **kwargs)
             raise_for_retryable_status(response)
@@ -50,7 +60,9 @@ class OTLPExporterHttpSession(Session):
             #   If we do this we must measure and limit the amount of time spent requesting and retrying.
             # TODO consider increasing the BatchSpanProcessor export delay here
             #   to reduce the number of small inefficient requests.
-            self.retryer.add_task(data, {'url': url, **kwargs})
+            # No threads in Emscripten, we can't add a task to try later, just raise
+            if not platform_is_emscripten():  # pragma: no branch
+                self.retryer.add_task(data, {'url': url, **kwargs})
             raise
 
         return response
@@ -60,10 +72,6 @@ class OTLPExporterHttpSession(Session):
         # Only create this when needed to save resources,
         # and because the full set of headers are only set some time after this session is created.
         return DiskRetryer(self.headers)
-
-    def _check_body_size(self, size: int) -> None:
-        if size > self.max_body_size:
-            raise BodyTooLargeError(size, self.max_body_size)
 
 
 def raise_for_retryable_status(response: requests.Response):
@@ -133,7 +141,7 @@ class DiskRetryer:
             if self._should_log():
                 logger.error('Export and retry failed: %s', e)
 
-    def _should_log(self):
+    def _should_log(self) -> bool:
         result = time.monotonic() - self.last_log_time >= self.LOG_INTERVAL
         if result:
             self.last_log_time = time.monotonic()
@@ -188,41 +196,16 @@ class RetryFewerSpansSpanExporter(WrapperSpanExporter):
     def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
         try:
             return super().export(spans)
-        except BodyTooLargeError as e:
-            if len(spans) == 1:
-                self._log_too_large_span(e, spans[0])
-                return SpanExportResult.FAILURE
-
+        except BodyTooLargeError:
             half = len(spans) // 2
+            # BodySizeCheckingOTLPSpanExporter should only raise BodyTooLargeError for >1 span,
+            # otherwise it should just try exporting it.
+            assert half > 0
             res1 = self.export(spans[:half])
             res2 = self.export(spans[half:])
             if res1 is not SpanExportResult.SUCCESS or res2 is not SpanExportResult.SUCCESS:
                 return SpanExportResult.FAILURE
             return SpanExportResult.SUCCESS
-
-    def _log_too_large_span(self, e: BodyTooLargeError, span: ReadableSpan) -> None:
-        original_attributes = span.attributes or {}
-        new_attributes: dict[str, Any] = {'size': e.size, 'max_size': e.max_size}
-
-        with contextlib.suppress(Exception):  # just being extra cautious
-            for key in STACK_INFO_KEYS:
-                if key in original_attributes:  # pragma: no branch
-                    value = original_attributes[key]
-                    if isinstance(value, str):
-                        value = truncate_string(value, max_length=300)
-                    new_attributes[key] = value
-
-        with contextlib.suppress(Exception):  # separate block to isolate effects of exceptions
-            new_attributes.update(
-                span_name=truncate_string(span.name, max_length=1000),
-                num_attributes=len(original_attributes),
-                num_events=len(span.events),
-                num_links=len(span.links),
-                num_event_attributes=sum(len(event.attributes or {}) for event in span.events),
-                num_link_attributes=sum(len(link.attributes or {}) for link in span.links),
-            )
-
-        logfire.error('Failed to export a span of size {size:,} bytes: {span_name}', **new_attributes)
 
 
 class BodyTooLargeError(Exception):
@@ -230,3 +213,25 @@ class BodyTooLargeError(Exception):
         super().__init__(f'Request body is too large ({size} bytes), must be less than {max_size} bytes.')
         self.size = size
         self.max_size = max_size
+
+
+class QuietSpanExporter(WrapperSpanExporter):
+    """A SpanExporter that catches request exceptions to prevent OTEL from logging a huge traceback."""
+
+    def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
+        try:
+            return super().export(spans)
+        except requests.exceptions.RequestException:
+            # Rely on OTLPExporterHttpSession/DiskRetryer to log this kind of error periodically.
+            return SpanExportResult.FAILURE
+
+
+class QuietLogExporter(WrapperLogExporter):
+    """A LogExporter that catches request exceptions to prevent OTEL from logging a huge traceback."""
+
+    def export(self, batch: Sequence[LogData]):
+        try:
+            return super().export(batch)
+        except requests.exceptions.RequestException:
+            # Rely on OTLPExporterHttpSession/DiskRetryer to log this kind of error periodically.
+            return LogExportResult.FAILURE

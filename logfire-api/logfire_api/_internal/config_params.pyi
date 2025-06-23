@@ -1,5 +1,5 @@
 from . import config as config
-from .constants import LOGFIRE_BASE_URL as LOGFIRE_BASE_URL, LevelName as LevelName
+from .constants import LevelName as LevelName
 from .exporters.console import ConsoleColorsValues as ConsoleColorsValues
 from .utils import read_toml_file as read_toml_file
 from _typeshed import Incomplete
@@ -39,6 +39,7 @@ CONSOLE: Incomplete
 CONSOLE_COLORS: Incomplete
 CONSOLE_SPAN_STYLE: Incomplete
 CONSOLE_INCLUDE_TIMESTAMP: Incomplete
+CONSOLE_INCLUDE_TAGS: Incomplete
 CONSOLE_VERBOSE: Incomplete
 CONSOLE_MIN_LOG_LEVEL: Incomplete
 CONSOLE_SHOW_PROJECT_LINK: Incomplete

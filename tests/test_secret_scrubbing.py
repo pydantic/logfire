@@ -1,18 +1,19 @@
 from __future__ import annotations
 
 import os
-import sys
 from typing import Any
 
 import pytest
 from dirty_equals import IsJson, IsPartialDict
 from inline_snapshot import snapshot
+from opentelemetry._events import Event, get_event_logger
+from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 from opentelemetry.sdk.environment_variables import OTEL_RESOURCE_ATTRIBUTES
 from opentelemetry.trace.propagation import get_current_span
 
 import logfire
 from logfire._internal.scrubbing import NoopScrubber
-from logfire.testing import TestExporter
+from logfire.testing import TestExporter, TestLogExporter
 
 
 def test_scrub_attribute(exporter: TestExporter):
@@ -76,6 +77,65 @@ def test_scrub_attribute(exporter: TestExporter):
     )
 
 
+def test_scrub_log_event_attribute(logs_exporter: TestLogExporter):
+    get_event_logger(__name__).emit(
+        Event(
+            name='Password: {user_password}',
+            attributes=dict(
+                user_password=['hunter2'],
+                mode='password',
+                modes='passwords',
+                Author='Alice1',
+                authors='Alice2',
+                authr='Alice3',
+                authorization='Alice4',
+            ),
+        )
+    )
+    # We redact:
+    # - The `user_password` attribute.
+    # - The `modes` attribute.
+    # - `authr` and `authorization` because they contain 'auth' but don't look like 'author(s)'.
+    # Things intentionally not redacted even though they contain "password":
+    # - The `mode` attribute, because the value 'password' is a full match.
+    # - 'Author' and 'authors': special cases in the regex that looks for 'auth'.
+    # - event.name
+    assert logs_exporter.exported_logs_as_dicts() == snapshot(
+        [
+            {
+                'body': None,
+                'severity_number': 9,
+                'severity_text': None,
+                'attributes': {
+                    'user_password': ("[Scrubbed due to 'password']",),
+                    'mode': 'password',
+                    'modes': "[Scrubbed due to 'password']",
+                    'Author': 'Alice1',
+                    'authors': 'Alice2',
+                    'authr': "[Scrubbed due to 'auth']",
+                    'authorization': "[Scrubbed due to 'auth']",
+                    'event.name': 'Password: {user_password}',
+                    'logfire.scrubbed': IsJson(
+                        snapshot(
+                            [
+                                {'path': ['attributes', 'user_password'], 'matched_substring': 'password'},
+                                {'path': ['attributes', 'modes'], 'matched_substring': 'password'},
+                                {'path': ['attributes', 'authr'], 'matched_substring': 'auth'},
+                                {'path': ['attributes', 'authorization'], 'matched_substring': 'auth'},
+                            ]
+                        )
+                    ),
+                },
+                'timestamp': 1000000000,
+                'observed_timestamp': 2000000000,
+                'trace_id': 0,
+                'span_id': 0,
+                'trace_flags': 0,
+            }
+        ]
+    )
+
+
 def test_scrub_message(exporter: TestExporter):
     logfire.info('User: {user}', user=[{'name': 'John', 'password': 'hunter2'}])
     # Only the sensitive part of the `user` attribute is redacted.
@@ -130,14 +190,9 @@ def test_scrub_events(exporter: TestExporter):
 
     # We redact:
     # - The `password` event attribute.
-    # - The `exception.message` event attribute
-    # - The full `exception.stacktrace` event attribute in the second event, i.e. 'wrong and secret'.
-    # - The part of the `exception.stacktrace` event attribute in the third event that's the exception message.
     # We don't redact (despite containing "password"):
     # - The event name.
-    # - The exception type.
-    # - Most of the `exception.stacktrace` event attribute in the third event.
-    #     (although it's mostly been normalized away by the test exporter)
+    # - The exception stuff.
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
@@ -160,18 +215,6 @@ def test_scrub_events(exporter: TestExporter):
                                 'path': ['otel_events', 0, 'attributes', 'password'],
                                 'matched_substring': 'password',
                             },
-                            {
-                                'path': ['otel_events', 1, 'attributes', 'exception.message'],
-                                'matched_substring': 'Password',
-                            },
-                            {
-                                'path': ['otel_events', 1, 'attributes', 'exception.stacktrace'],
-                                'matched_substring': 'secret',
-                            },
-                            {
-                                'path': ['otel_events', 2, 'attributes', 'exception.message'],
-                                'matched_substring': 'Password',
-                            },
                         ]
                     ),
                 },
@@ -189,8 +232,8 @@ def test_scrub_events(exporter: TestExporter):
                         'timestamp': 3000000000,
                         'attributes': {
                             'exception.type': 'tests.test_secret_scrubbing.PasswordError',
-                            'exception.message': "[Scrubbed due to 'Password']",
-                            'exception.stacktrace': "[Scrubbed due to 'secret']",
+                            'exception.message': 'Password: hunter2',
+                            'exception.stacktrace': 'wrong and secret',
                             'exception.escaped': 'False',
                         },
                     },
@@ -199,10 +242,8 @@ def test_scrub_events(exporter: TestExporter):
                         'timestamp': 4000000000,
                         'attributes': {
                             'exception.type': 'tests.test_secret_scrubbing.PasswordError',
-                            'exception.message': "[Scrubbed due to 'Password']",
-                            'exception.stacktrace': (
-                                "tests.test_secret_scrubbing.PasswordError: [Scrubbed due to 'Password']"
-                            ),
+                            'exception.message': 'Password: hunter2',
+                            'exception.stacktrace': 'tests.test_secret_scrubbing.PasswordError: Password: hunter2',
                             'exception.escaped': 'True',
                         },
                     },
@@ -212,7 +253,7 @@ def test_scrub_events(exporter: TestExporter):
     )
 
 
-def test_scrubbing_config(exporter: TestExporter, config_kwargs: dict[str, Any]):
+def test_scrubbing_config(exporter: TestExporter, logs_exporter: TestLogExporter, config_kwargs: dict[str, Any]):
     def callback(match: logfire.ScrubMatch):
         if match.path[-1] == 'my_password':
             return str(match)
@@ -220,6 +261,7 @@ def test_scrubbing_config(exporter: TestExporter, config_kwargs: dict[str, Any])
             # This is not a valid OTEL attribute value, so it will be removed completely.
             return match
 
+    config_kwargs['advanced'].log_record_processors = [SimpleLogRecordProcessor(logs_exporter)]
     logfire.configure(
         scrubbing=logfire.ScrubbingOptions(
             extra_patterns=['my_pattern'],
@@ -230,6 +272,8 @@ def test_scrubbing_config(exporter: TestExporter, config_kwargs: dict[str, Any])
 
     # Note the values (or lack thereof) of each of these attributes in the exported span.
     logfire.info('hi', my_password='hunter2', other='matches_my_pattern', bad_value='the_password')
+
+    get_event_logger(__name__).emit(Event(name='hi', attributes=dict(my_password='hunter2', bad_value='the_password')))
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
@@ -262,6 +306,31 @@ def test_scrubbing_config(exporter: TestExporter, config_kwargs: dict[str, Any])
         ]
     )
 
+    assert logs_exporter.exported_logs_as_dicts() == snapshot(
+        [
+            {
+                'body': None,
+                'severity_number': 9,
+                'severity_text': None,
+                'attributes': {
+                    'my_password': (
+                        'ScrubMatch('
+                        "path=('attributes', 'my_password'), "
+                        "value='hunter2', "
+                        "pattern_match=<re.Match object; span=(3, 11), match='password'>"
+                        ')'
+                    ),
+                    'event.name': 'hi',
+                },
+                'timestamp': 2000000000,
+                'observed_timestamp': 3000000000,
+                'trace_id': 0,
+                'span_id': 0,
+                'trace_flags': 0,
+            }
+        ]
+    )
+
 
 def test_dont_scrub_resource(exporter: TestExporter, config_kwargs: dict[str, Any]):
     os.environ[OTEL_RESOURCE_ATTRIBUTES] = 'my_password=hunter2,yours=your_password,other=safe=good'
@@ -278,7 +347,8 @@ def test_dont_scrub_resource(exporter: TestExporter, config_kwargs: dict[str, An
     )
 
 
-def test_disable_scrubbing(exporter: TestExporter, config_kwargs: dict[str, Any]):
+def test_disable_scrubbing(exporter: TestExporter, logs_exporter: TestLogExporter, config_kwargs: dict[str, Any]):
+    config_kwargs['advanced'].log_record_processors = [SimpleLogRecordProcessor(logs_exporter)]
     logfire.configure(**config_kwargs, scrubbing=False)
 
     config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
@@ -286,7 +356,9 @@ def test_disable_scrubbing(exporter: TestExporter, config_kwargs: dict[str, Any]
     assert isinstance(config.scrubber, NoopScrubber)
 
     logfire.info('Password: {user_password}', user_password='my secret password')
-
+    get_event_logger(__name__).emit(
+        Event(name='Password: {user_password}', attributes=dict(user_password='my secret password'))
+    )
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
@@ -306,6 +378,24 @@ def test_disable_scrubbing(exporter: TestExporter, config_kwargs: dict[str, Any]
                     'user_password': 'my secret password',
                     'logfire.json_schema': '{"type":"object","properties":{"user_password":{}}}',
                 },
+            }
+        ]
+    )
+    assert logs_exporter.exported_logs_as_dicts() == snapshot(
+        [
+            {
+                'body': None,
+                'severity_number': 9,
+                'severity_text': None,
+                'attributes': {
+                    'user_password': 'my secret password',
+                    'event.name': 'Password: {user_password}',
+                },
+                'timestamp': 2000000000,
+                'observed_timestamp': 3000000000,
+                'trace_id': 0,
+                'span_id': 0,
+                'trace_flags': 0,
             }
         ]
     )
@@ -332,7 +422,48 @@ def test_scrubbing_deprecated_args_combined_with_new_options():
         logfire.configure(scrubbing_patterns=['my_pattern'], scrubbing=logfire.ScrubbingOptions())  # type: ignore
 
 
-@pytest.mark.skipif(sys.version_info[:2] < (3, 9), reason='f-string magic is not allowed in 3.8')
+def test_do_not_scrub(exporter: TestExporter):
+    # do_not_scrub is a safe key to provide a crude workaround, but it only works if the matched value is *inside*
+    logfire.info(
+        'hi',
+        x=[
+            {'do_not_scrub': 'not_secret'},  # only this works
+            {'not_secret': 'do_not_scrub'},
+            {'not_secret': {'do_not_scrub': 'foo'}},
+        ],
+    )
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'hi',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hi',
+                    'logfire.msg': 'hi',
+                    'code.filepath': 'test_secret_scrubbing.py',
+                    'code.function': 'test_do_not_scrub',
+                    'code.lineno': 123,
+                    'x': [
+                        {'do_not_scrub': 'not_secret'},
+                        {'not_secret': "[Scrubbed due to 'secret']"},
+                        {'not_secret': "[Scrubbed due to 'secret']"},
+                    ],
+                    'logfire.json_schema': {'type': 'object', 'properties': {'x': {'type': 'array'}}},
+                    'logfire.scrubbed': [
+                        {'path': ['attributes', 'x', 1, 'not_secret'], 'matched_substring': 'secret'},
+                        {'path': ['attributes', 'x', 2, 'not_secret'], 'matched_substring': 'secret'},
+                    ],
+                },
+            }
+        ]
+    )
+
+
 def test_fstring_magic_scrubbing(exporter: TestExporter):
     password = 'secret-password'
     name = 'John'
@@ -364,6 +495,58 @@ def test_fstring_magic_scrubbing(exporter: TestExporter):
                             {'path': ['attributes', 'password'], 'matched_substring': 'password'},
                         ]
                     ),
+                },
+            }
+        ]
+    )
+
+
+def test_word_boundaries(exporter: TestExporter):
+    logfire.info(
+        'hi',
+        x=[
+            'abcjwt',
+            'abc_jwt',
+            'abc-jwt',
+            'csrf123',
+            'csrf_123',
+            'csrf/123',
+            '456/csrf/123',
+        ],
+    )
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'hi',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hi',
+                    'logfire.msg': 'hi',
+                    'code.filepath': 'test_secret_scrubbing.py',
+                    'code.function': 'test_word_boundaries',
+                    'code.lineno': 123,
+                    'x': [
+                        'abcjwt',
+                        "[Scrubbed due to '_jwt']",
+                        "[Scrubbed due to 'jwt']",
+                        'csrf123',
+                        "[Scrubbed due to 'csrf_']",
+                        "[Scrubbed due to 'csrf']",
+                        "[Scrubbed due to 'csrf']",
+                    ],
+                    'logfire.json_schema': {'type': 'object', 'properties': {'x': {'type': 'array'}}},
+                    'logfire.scrubbed': [
+                        {'path': ['attributes', 'x', 1], 'matched_substring': '_jwt'},
+                        {'path': ['attributes', 'x', 2], 'matched_substring': 'jwt'},
+                        {'path': ['attributes', 'x', 4], 'matched_substring': 'csrf_'},
+                        {'path': ['attributes', 'x', 5], 'matched_substring': 'csrf'},
+                        {'path': ['attributes', 'x', 6], 'matched_substring': 'csrf'},
+                    ],
                 },
             }
         ]

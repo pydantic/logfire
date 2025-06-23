@@ -12,6 +12,8 @@ from pydantic import __version__ as pydantic_version
 
 from logfire._internal.utils import get_version
 
+pydantic_pre_2_5 = get_version(pydantic_version) < get_version('2.5.0')
+
 
 def logfire_dunder_all() -> set[str]:
     logfire = importlib.import_module('logfire')
@@ -22,6 +24,7 @@ def import_logfire_api_without_logfire() -> ModuleType:
     logfire = sys.modules['logfire']
     try:
         sys.modules['logfire'] = None  # type: ignore
+        sys.modules.pop('logfire_api', None)
         return importlib.import_module('logfire_api')
     finally:
         sys.modules['logfire'] = logfire
@@ -73,7 +76,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire_api.log('info', 'test log')
     logfire__all__.remove('log')
 
-    for log_method in ['trace', 'debug', 'info', 'notice', 'warn', 'error', 'exception', 'fatal']:
+    for log_method in ['trace', 'debug', 'info', 'notice', 'warn', 'warning', 'error', 'exception', 'fatal']:
         assert hasattr(logfire_api, log_method)
         getattr(logfire_api, log_method)('test log')
         logfire__all__.remove(log_method)
@@ -93,6 +96,10 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     assert hasattr(logfire_api, 'no_auto_trace')
     logfire_api.no_auto_trace(lambda: None)  # pragma: no branch
     logfire__all__.remove('no_auto_trace')
+
+    assert hasattr(logfire_api, 'add_non_user_code_prefix')
+    logfire_api.add_non_user_code_prefix('/foo/bar')
+    logfire__all__.remove('add_non_user_code_prefix')
 
     assert hasattr(logfire_api, 'suppress_instrumentation')
     with logfire_api.suppress_instrumentation():
@@ -154,9 +161,23 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
             ...
         logfire__all__.remove(member)
 
+    assert hasattr(logfire_api, 'instrument_openai_agents')
+    logfire_api.instrument_openai_agents()
+    logfire__all__.remove('instrument_openai_agents')
+
+    assert hasattr(logfire_api, 'instrument_pydantic_ai')
+    if not pydantic_pre_2_5:
+        logfire_api.instrument_pydantic_ai()
+    logfire__all__.remove('instrument_pydantic_ai')
+
+    assert hasattr(logfire_api, 'instrument_mcp')
+    if sys.version_info >= (3, 10) and get_version(pydantic_version) >= get_version('2.7.0'):
+        logfire_api.instrument_mcp()
+    logfire__all__.remove('instrument_mcp')
+
     for member in [m for m in logfire__all__ if m.startswith('instrument_')]:
         assert hasattr(logfire_api, member), member
-        if not (get_version(pydantic_version) < get_version('2.5.0') and member == 'instrument_pydantic'):
+        if not (pydantic_pre_2_5 and member == 'instrument_pydantic'):
             # skip pydantic instrumentation (which uses the plugin) for versions prior to v2.5
             getattr(logfire_api, member)()
         # just remove the member unconditionally to pass future asserts
@@ -201,6 +222,19 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     assert hasattr(logfire_api, 'MetricsOptions')
     logfire_api.MetricsOptions()
     logfire__all__.remove('MetricsOptions')
+
+    assert hasattr(logfire_api, 'logfire_info')
+    logfire_api.logfire_info()
+    logfire__all__.remove('logfire_info')
+
+    assert hasattr(logfire_api, 'get_baggage')
+    logfire_api.get_baggage()
+    logfire__all__.remove('get_baggage')
+
+    assert hasattr(logfire_api, 'set_baggage')
+    with logfire_api.set_baggage(a='1'):
+        pass
+    logfire__all__.remove('set_baggage')
 
     # If it's not empty, it means that some of the __all__ members are not tested.
     assert logfire__all__ == set(), logfire__all__

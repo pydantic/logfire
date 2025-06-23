@@ -4,6 +4,10 @@ from datetime import datetime
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypedDict, TypeVar
 
+from typing_extensions import Self
+
+from logfire._internal.config import get_base_url_from_token
+
 try:
     from httpx import AsyncClient, Client, Response, Timeout
     from httpx._client import BaseClient
@@ -56,8 +60,6 @@ class RowQueryResults(TypedDict):
 
 
 T = TypeVar('T', bound=BaseClient)
-S = TypeVar('S', bound='LogfireQueryClient')
-R = TypeVar('R', bound='AsyncLogfireQueryClient')
 
 
 class _BaseLogfireQueryClient(Generic[T]):
@@ -65,9 +67,9 @@ class _BaseLogfireQueryClient(Generic[T]):
         self.base_url = base_url
         self.read_token = read_token
         self.timeout = timeout
-        self.client: T = client(
-            timeout=timeout, base_url=base_url, headers={'authorization': read_token}, **client_kwargs
-        )
+        headers = client_kwargs.pop('headers', {})
+        headers['authorization'] = read_token
+        self.client: T = client(timeout=timeout, base_url=base_url, headers=headers, **client_kwargs)
 
     def build_query_params(
         self,
@@ -102,13 +104,14 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
     def __init__(
         self,
         read_token: str,
-        base_url: str = 'https://logfire-api.pydantic.dev/',
+        base_url: str | None = None,
         timeout: Timeout = DEFAULT_TIMEOUT,
         **client_kwargs: Any,
     ):
+        base_url = base_url or get_base_url_from_token(read_token)
         super().__init__(base_url, read_token, timeout, Client, **client_kwargs)
 
-    def __enter__(self: S) -> S:
+    def __enter__(self) -> Self:
         self.client.__enter__()
         return self
 
@@ -226,13 +229,14 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
     def __init__(
         self,
         read_token: str,
-        base_url: str = 'https://logfire-api.pydantic.dev/',
+        base_url: str | None = None,
         timeout: Timeout = DEFAULT_TIMEOUT,
         **async_client_kwargs: Any,
     ):
+        base_url = base_url or get_base_url_from_token(read_token)
         super().__init__(base_url, read_token, timeout, AsyncClient, **async_client_kwargs)
 
-    async def __aenter__(self: R) -> R:
+    async def __aenter__(self) -> Self:
         await self.client.__aenter__()
         return self
 

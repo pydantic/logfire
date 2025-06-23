@@ -12,7 +12,6 @@ def exported_spans_as_models(
     fixed_line_number: int | None = 123,
     strip_filepaths: bool = True,
     include_resources: bool = False,
-    include_package_versions: bool = False,
     _include_pending_spans: bool = False,
     _strip_function_qualname: bool = True,
 ) -> list[ReadableSpanModel]:
@@ -26,7 +25,6 @@ def exported_spans_as_models(
             fixed_line_number=fixed_line_number,
             strip_filepaths=strip_filepaths,
             include_resources=include_resources,
-            include_package_versions=include_package_versions,
             _include_pending_spans=_include_pending_spans,
             _strip_function_qualname=_strip_function_qualname,
         )

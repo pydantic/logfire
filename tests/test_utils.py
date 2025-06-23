@@ -5,7 +5,7 @@ import requests
 import requests_mock
 from inline_snapshot import snapshot
 
-import logfire._internal.stack_info
+import logfire
 from logfire._internal.utils import UnexpectedResponse, handle_internal_errors
 from tests.import_used_for_tests.internal_error_handling import internal_logfire_code_example, user_code_example
 
@@ -24,14 +24,14 @@ def test_raise_for_status() -> None:
 
 def test_reraise_internal_exception():
     with pytest.raises(ZeroDivisionError):
-        with handle_internal_errors():
+        with handle_internal_errors:
             str(1 / 0)
 
 
 def test_internal_exception_tb(caplog: pytest.LogCaptureFixture):
     # Pretend that `internal_logfire_code_example` is a module within logfire,
     # so all frames from it should be included.
-    logfire._internal.stack_info.NON_USER_CODE_PREFIXES += (internal_logfire_code_example.__file__,)
+    logfire.add_non_user_code_prefix(internal_logfire_code_example.__file__)
 
     user_code_example.user1()
 
@@ -122,3 +122,9 @@ ValueError: inner1\
 """,
         ]
     )
+
+
+def test_internal_error_base_exception():
+    with pytest.raises(BaseException):
+        with handle_internal_errors:
+            raise BaseException('base exception')

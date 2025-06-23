@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import importlib.metadata
 import os
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated, Any
 from unittest.mock import patch
 
 import cloudpickle
@@ -23,10 +23,8 @@ from pydantic import (
 )
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 from pydantic_core import core_schema
-from typing_extensions import Annotated
 
 import logfire
-import logfire.integrations.pydantic
 from logfire._internal.config import GLOBAL_CONFIG
 from logfire._internal.utils import get_version
 from logfire.integrations.pydantic import (
@@ -350,15 +348,7 @@ def test_pydantic_plugin_python_success(exporter: TestExporter, metrics_reader: 
                             'start_time_unix_nano': IsInt(gt=0),
                             'time_unix_nano': IsInt(gt=0),
                             'value': 1,
-                            'exemplars': [
-                                {
-                                    'filtered_attributes': {},
-                                    'value': 1,
-                                    'time_unix_nano': IsInt(),
-                                    'span_id': 1,
-                                    'trace_id': 1,
-                                }
-                            ],
+                            'exemplars': [],
                         }
                     ],
                     'aggregation_temporality': AggregationTemporality.DELTA,
@@ -801,6 +791,7 @@ def test_pydantic_plugin_nested_model(exporter: TestExporter):
                     'result': '{"m":{"x":10}}',
                     'success': True,
                     'logfire.level_num': 9,
+                    'logfire.metrics': '{"pydantic.validations": {"details": [{"attributes": {"schema_name": "Model1", "success": true, "validation_method": "validate_python"}, "total": 1}], "total": 1}}',
                 },
             },
             {
@@ -847,6 +838,7 @@ def test_pydantic_plugin_nested_model(exporter: TestExporter):
                     'error_count': 1,
                     'errors': '[{"type":"int_parsing","loc":["m","x"],"msg":"Input should be a valid integer, unable to parse string as an integer","input":"y"}]',
                     'logfire.level_num': 13,
+                    'logfire.metrics': '{"pydantic.validations": {"details": [{"attributes": {"schema_name": "Model1", "success": false, "validation_method": "validate_python"}, "total": 1}], "total": 1}}',
                 },
             },
         ]
@@ -1273,7 +1265,7 @@ def test_sqlmodel_pydantic_plugin(exporter: TestExporter) -> None:
     logfire.instrument_pydantic()
 
     class Hero(sqlmodel.SQLModel, table=True):
-        id: int = sqlmodel.Field(default=1, primary_key=True)  # type: ignore
+        id: int = sqlmodel.Field(default=1, primary_key=True)
 
     Hero.model_validate({})
 

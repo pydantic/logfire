@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import json
 import sys
 import traceback
+from collections import defaultdict
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from threading import Lock
-from typing import TYPE_CHECKING, Any, Callable, Mapping, Sequence, cast
-from weakref import WeakKeyDictionary, WeakSet
+from typing import TYPE_CHECKING, Any, Callable, cast
+from weakref import WeakKeyDictionary, WeakValueDictionary
 
 import opentelemetry.trace as trace_api
 from opentelemetry import context as context_api
@@ -18,8 +21,6 @@ from opentelemetry.sdk.trace import (
     TracerProvider as SDKTracerProvider,
 )
 from opentelemetry.sdk.trace.id_generator import IdGenerator
-from opentelemetry.semconv.resource import ResourceAttributes
-from opentelemetry.semconv.trace import SpanAttributes
 from opentelemetry.trace import Link, NonRecordingSpan, Span, SpanContext, SpanKind, Tracer, TracerProvider
 from opentelemetry.trace.propagation import get_current_span
 from opentelemetry.trace.status import Status, StatusCode
@@ -31,7 +32,6 @@ from .constants import (
     ATTRIBUTES_SAMPLE_RATE_KEY,
     ATTRIBUTES_SPAN_TYPE_KEY,
     ATTRIBUTES_VALIDATION_ERROR_KEY,
-    PENDING_SPAN_NAME_SUFFIX,
     log_level_attributes,
 )
 from .utils import handle_internal_errors
@@ -45,7 +45,7 @@ except ImportError:  # pragma: no cover
     ValidationError = None
 
 
-OPEN_SPANS: WeakSet[_LogfireWrappedSpan] = WeakSet()
+OPEN_SPANS: WeakValueDictionary[tuple[int, int], _LogfireWrappedSpan] = WeakValueDictionary()
 
 
 @dataclass
@@ -54,9 +54,9 @@ class ProxyTracerProvider(TracerProvider):
 
     provider: TracerProvider
     config: LogfireConfig
-    tracers: WeakKeyDictionary[_ProxyTracer, Callable[[], Tracer]] = field(default_factory=WeakKeyDictionary)
+    tracers: WeakKeyDictionary[_ProxyTracer, Callable[[], Tracer]] = field(default_factory=WeakKeyDictionary)  # type: ignore[reportUnknownVariableType]
     lock: Lock = field(default_factory=Lock)
-    suppressed_scopes: set[str] = field(default_factory=set)
+    suppressed_scopes: set[str] = field(default_factory=set)  # type: ignore[reportUnknownVariableType]
 
     def set_provider(self, provider: SDKTracerProvider) -> None:
         with self.lock:
@@ -105,13 +105,30 @@ class ProxyTracerProvider(TracerProvider):
         with self.lock:
             if isinstance(self.provider, SDKTracerProvider):
                 return self.provider.resource
-            return Resource.create({ResourceAttributes.SERVICE_NAME: self.config.service_name})
+            return Resource.create({'service.name': self.config.service_name})
 
     def force_flush(self, timeout_millis: int = 30000) -> bool:
         with self.lock:
             if isinstance(self.provider, SDKTracerProvider):  # pragma: no branch
                 return self.provider.force_flush(timeout_millis)
             return True  # pragma: no cover
+
+
+@dataclass
+class SpanMetric:
+    details: dict[tuple[tuple[str, otel_types.AttributeValue], ...], float] = field(
+        default_factory=lambda: defaultdict(int)
+    )
+
+    def dump(self):
+        return {
+            'details': [{'attributes': dict(attributes), 'total': total} for attributes, total in self.details.items()],
+            'total': sum(total for total in self.details.values()),
+        }
+
+    def increment(self, attributes: Mapping[str, otel_types.AttributeValue], value: float):
+        key = tuple(sorted(attributes.items()))
+        self.details[key] += value
 
 
 @dataclass(eq=False)
@@ -126,18 +143,28 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
 
     span: Span
     ns_timestamp_generator: Callable[[], int]
+    record_metrics: bool
+    metrics: dict[str, SpanMetric] = field(default_factory=lambda: defaultdict(SpanMetric))
 
     def __post_init__(self):
-        OPEN_SPANS.add(self)
+        OPEN_SPANS[self._open_spans_key()] = self
 
     def end(self, end_time: int | None = None) -> None:
-        OPEN_SPANS.discard(self)
+        with handle_internal_errors:
+            OPEN_SPANS.pop(self._open_spans_key(), None)
+            if self.metrics:
+                self.span.set_attribute(
+                    'logfire.metrics', json.dumps({name: metric.dump() for name, metric in self.metrics.items()})
+                )
         self.span.end(end_time or self.ns_timestamp_generator())
+
+    def _open_spans_key(self):
+        return _open_spans_key(self.span.get_span_context())
 
     def get_span_context(self) -> SpanContext:
         return self.span.get_span_context()
 
-    def set_attributes(self, attributes: dict[str, otel_types.AttributeValue]) -> None:
+    def set_attributes(self, attributes: Mapping[str, otel_types.AttributeValue]) -> None:
         self.span.set_attributes(attributes)
 
     def set_attribute(self, key: str, value: otel_types.AttributeValue) -> None:
@@ -177,6 +204,14 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
         timestamp = timestamp or self.ns_timestamp_generator()
         record_exception(self.span, exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
 
+    def increment_metric(self, name: str, attributes: Mapping[str, otel_types.AttributeValue], value: float) -> None:
+        if not self.is_recording() or not self.record_metrics:
+            return
+
+        self.metrics[name].increment(attributes, value)
+        if self.parent and (parent := OPEN_SPANS.get(_open_spans_key(self.parent))):
+            parent.increment_metric(name, attributes, value)
+
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
         if self.is_recording():
             if isinstance(exc_value, BaseException):
@@ -187,6 +222,10 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
         # for ReadableSpan
         def __getattr__(self, name: str) -> Any:
             return getattr(self.span, name)
+
+
+def _open_spans_key(ctx: SpanContext) -> tuple[int, int]:
+    return ctx.trace_id, ctx.span_id
 
 
 @dataclass
@@ -218,7 +257,11 @@ class _ProxyTracer(Tracer):
         record_exception: bool = True,
         set_status_on_exception: bool = True,
     ) -> Span:
-        start_time = start_time or self.provider.config.advanced.ns_timestamp_generator()
+        config = self.provider.config
+        ns_timestamp_generator = config.advanced.ns_timestamp_generator
+        record_metrics: bool = not isinstance(config.metrics, (bool, type(None))) and config.metrics.collect_in_spans
+
+        start_time = start_time or ns_timestamp_generator()
 
         # Make a copy of the attributes since this method can be called by arbitrary external code,
         # e.g. third party instrumentation.
@@ -243,7 +286,8 @@ class _ProxyTracer(Tracer):
             )
         return _LogfireWrappedSpan(
             span,
-            ns_timestamp_generator=self.provider.config.advanced.ns_timestamp_generator,
+            ns_timestamp_generator=ns_timestamp_generator,
+            record_metrics=record_metrics,
         )
 
     # This means that `with start_as_current_span(...):`
@@ -287,7 +331,7 @@ class PendingSpanProcessor(SpanProcessor):
             return
 
         attributes = span.attributes
-        if not attributes or attributes.get(ATTRIBUTES_SPAN_TYPE_KEY) == 'log':
+        if not attributes or attributes.get(ATTRIBUTES_SPAN_TYPE_KEY) not in (None, 'span'):
             return
 
         real_span_context = span.get_span_context()
@@ -315,7 +359,7 @@ class PendingSpanProcessor(SpanProcessor):
         }
         start_and_end_time = span.start_time
         pending_span = ReadableSpan(
-            name=span.name + PENDING_SPAN_NAME_SUFFIX,
+            name=span.name,
             context=span_context,
             parent=real_span_context,
             resource=span.resource,
@@ -346,7 +390,7 @@ def get_sample_rate_from_attributes(attributes: otel_types.Attributes) -> float 
     return cast('float | None', attributes.get(ATTRIBUTES_SAMPLE_RATE_KEY))
 
 
-@handle_internal_errors()
+@handle_internal_errors
 def record_exception(
     span: trace_api.Span,
     exception: BaseException,
@@ -356,11 +400,14 @@ def record_exception(
     escaped: bool = False,
 ) -> None:
     """Similar to the OTEL SDK Span.record_exception method, with our own additions."""
+    if is_starlette_http_exception_400(exception):
+        span.set_attributes(log_level_attributes('warn'))
+
     # From https://opentelemetry.io/docs/specs/semconv/attributes-registry/exception/
     # `escaped=True` means that the exception is escaping the scope of the span.
     # This means we know that the exception hasn't been handled,
     # so we can set the OTEL status and the log level to error.
-    if escaped:
+    elif escaped:
         set_exception_status(span, exception)
         span.set_attributes(log_level_attributes('error'))
 
@@ -380,7 +427,7 @@ def record_exception(
         # ignoring the passed exception.
         # So we override the stacktrace attribute with the correct one.
         stacktrace = ''.join(traceback.format_exception(type(exception), exception, exception.__traceback__))
-        attributes[SpanAttributes.EXCEPTION_STACKTRACE] = stacktrace
+        attributes['exception.stacktrace'] = stacktrace
 
     span.record_exception(exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
 
@@ -392,3 +439,12 @@ def set_exception_status(span: trace_api.Span, exception: BaseException):
             description=f'{exception.__class__.__name__}: {exception}',
         )
     )
+
+
+def is_starlette_http_exception_400(exception: BaseException) -> bool:
+    if 'starlette.exceptions' not in sys.modules:  # pragma: no cover
+        return False
+
+    from starlette.exceptions import HTTPException
+
+    return isinstance(exception, HTTPException) and 400 <= exception.status_code < 500

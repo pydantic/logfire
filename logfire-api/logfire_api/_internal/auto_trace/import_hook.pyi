@@ -2,11 +2,12 @@ from ..main import Logfire as Logfire
 from ..utils import log_internal_error as log_internal_error
 from .rewrite_ast import compile_source as compile_source
 from .types import AutoTraceModule as AutoTraceModule
+from collections.abc import Sequence
 from dataclasses import dataclass
 from importlib.abc import Loader, MetaPathFinder
 from importlib.machinery import ModuleSpec
 from types import ModuleType
-from typing import Any, Callable, Sequence
+from typing import Any, Callable
 
 @dataclass
 class LogfireFinder(MetaPathFinder):
@@ -33,5 +34,6 @@ class LogfireLoader(Loader):
         This is called by the import system.
         """
     def create_module(self, spec: ModuleSpec): ...
+    def get_code(self, _name: str): ...
     def __getattr__(self, item: str):
         """Forward some methods to the plain spec's loader (likely a `SourceFileLoader`) if they exist."""

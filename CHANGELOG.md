@@ -1,5 +1,203 @@
 # Release Notes
 
+## [v3.21.1] (2025-06-18)
+
+* Fix for new OpenAI Agents SDK by @alexmojaki in [#1152](https://github.com/pydantic/logfire/pull/1152)
+
+## [v3.21.0] (2025-06-17)
+
+* Add up counter/histogram metrics in spans by @alexmojaki in [#1099](https://github.com/pydantic/logfire/pull/1099)
+* Fix kwargs in proxy metric instruments, preventing warning about duplicate histograms by @alexmojaki in [#1149](https://github.com/pydantic/logfire/pull/1149)
+
+## [v3.20.0] (2025-06-16)
+
+* Add baggage utilities by @dmontagu in [#1128](https://github.com/pydantic/logfire/pull/1128)
+* Handle NonRecordingSpans correctly in OpenAI instrumentation by @alexmojaki in [#1145](https://github.com/pydantic/logfire/pull/1145)
+
+## [v3.19.0] (2025-06-12)
+
+* `logfire.instrument_aiohttp_server()` by @adtyavrdhn in [#1131](https://github.com/pydantic/logfire/pull/1131)
+* Fix handling of `pydantic_core.Url` and `pydantic.AnyUrl` by @dmontagu in [#1130](https://github.com/pydantic/logfire/pull/1130)
+* Correct context for MCP logs by @alexmojaki in [#1138](https://github.com/pydantic/logfire/pull/1138)
+* Check empty tokens before making connection attempt by @nagarajRPoojari in [#1110](https://github.com/pydantic/logfire/pull/1110)
+* Pass meter provider to Pydantic AI by @alexmojaki in [#1136](https://github.com/pydantic/logfire/pull/1136)
+
+## [v3.18.0] (2025-06-05)
+
+* Upgrade to OpenTelemetry SDK 1.34.0 by @alexmojaki in [#1120](https://github.com/pydantic/logfire/pull/1120)
+* Drop Python 3.8 support by @alexmojaki in [#1122](https://github.com/pydantic/logfire/pull/1122)
+
+## [v3.17.0] (2025-06-03)
+
+* LangChain instrumentation via LangSmith  by @alexmojaki in [#1084](https://github.com/pydantic/logfire/pull/1084)
+* MCP OTel context propagation by @samuelcolvin in [#1103](https://github.com/pydantic/logfire/pull/1103)
+* Add `capfire.get_collected_metrics()` by @alexmojaki in [#1116](https://github.com/pydantic/logfire/pull/1116)
+
+## [v3.16.2] (2025-06-03)
+
+* Fixes for OpenAI Responses API and Agents SDK by @alexmojaki in [#1092](https://github.com/pydantic/logfire/pull/1092),  [#1093](https://github.com/pydantic/logfire/pull/1093), [#1094](https://github.com/pydantic/logfire/pull/1094), and [#1095](https://github.com/pydantic/logfire/pull/1095)
+* Fix verbose console formatting for enum, dates, and decimals by @sbhrwlr in [#1096](https://github.com/pydantic/logfire/pull/1096)
+* Allow setting `logfire.msg` in structlog integration by @alexmojaki in [#1113](https://github.com/pydantic/logfire/pull/1113)
+* Add ASGI instrumentation package to `django` extra by @alexmojaki in [#1097](https://github.com/pydantic/logfire/pull/1097)
+
+## [v3.16.1] (2025-05-26)
+
+* Infer base URL from read token in query client by @Viicos in [#1088](https://github.com/pydantic/logfire/pull/1088)
+* Add `include_binary_content` ([#1090](https://github.com/pydantic/logfire/pull/1090)) and `**kwargs` ([#1078](https://github.com/pydantic/logfire/pull/1078)) to `instrument_pydantic_ai` by @alexmojaki
+
+## [v3.16.0] (2025-05-14)
+
+* Make OpenAI spans show token usage in logfire UI by @alexmojaki in [#1076](https://github.com/pydantic/logfire/pull/1076)
+* Fixes for verbose console logging by @alexmojaki in [#1071](https://github.com/pydantic/logfire/pull/1071) and [#1072](https://github.com/pydantic/logfire/pull/1072)
+* Export first batch of spans more quickly by @alexmojaki in [#1066](https://github.com/pydantic/logfire/pull/1066)
+* Tighten scrubbing patterns to reduce accidental matches by @alexmojaki in [#1074](https://github.com/pydantic/logfire/pull/1074)
+* Add `do_not_scrub` and `binary_content` as safe keys for scrubber by @alexmojaki in [#1075](https://github.com/pydantic/logfire/pull/1075)
+
+## [v3.15.1] (2025-05-12)
+
+* Support OpenTelemetry SDK 1.33.0 by @alexmojaki in [#1067](https://github.com/pydantic/logfire/pull/1067)
+
+## [v3.15.0] (2025-05-08)
+
+* Remove attributes from `http.server.active_requests` metric to prevent emitting too many by @alexmojaki in [#1060](https://github.com/pydantic/logfire/pull/1060)
+  * This is technically a breaking change as it means less data is sent to Logfire, but most users don't use it and some will save a significant amount of money.
+
+## [v3.14.1] (2025-04-24)
+
+* Handle changes in `openai` and `anthropic` by @alexmojaki in [#1030](https://github.com/pydantic/logfire/pull/1030)
+* Fix exporting of very large spans and payloads by @alexmojaki in [#1027](https://github.com/pydantic/logfire/pull/1027)
+* Prevent infinite loop in `get_user_frame_and_stacklevel` by @alexmojaki in [#1031](https://github.com/pydantic/logfire/pull/1031)
+
+## [v3.14.0] (2025-04-11)
+
+* Experimental functions for recording feedback annotations
+
+## [v3.13.1] (2025-04-10)
+
+* Upgrade to OpenTelemetry SDK 1.32.0 by @alexmojaki in [#991](https://github.com/pydantic/logfire/pull/991)
+
+## [v3.13.0] (2025-04-10)
+
+* Emit logs sent from MCP server to client by @alexmojaki in [#974](https://github.com/pydantic/logfire/pull/974)
+* Return `None` from `logfire_api.LogfireSpan.context` when `logfire` could not be imported by @DouweM in [#983](https://github.com/pydantic/logfire/pull/983)
+
+## [v3.12.0] (2025-03-31)
+
+* Add `logfire.instrument_mcp()` method by @alexmojaki in [#966](https://github.com/pydantic/logfire/pull/966)
+* Merge headers if passed via `client_kwargs` in query client by @Kludex in [#958](https://github.com/pydantic/logfire/pull/958)
+* Warn user if f-string expression contains `await` by @Sbargaoui in [#944](https://github.com/pydantic/logfire/pull/944)
+* Handle new MCP span in OpenAI Agents SDK by @alexmojaki in [#963](https://github.com/pydantic/logfire/pull/963)
+
+## [v3.11.0] (2025-03-26)
+
+* Add `record_return` flag to `@logfire.instrument` by @alexmojaki in [#955](https://github.com/pydantic/logfire/pull/955)
+
+## [v3.10.0] (2025-03-25)
+
+* Account for new EU region by @Viicos in [#901](https://github.com/pydantic/logfire/pull/901)
+
+## [v3.9.1] (2025-03-25)
+
+* Handle Anthropic thinking blocks by @alexmojaki in [#952](https://github.com/pydantic/logfire/pull/952)
+* Handle new voice span types from OpenAI Agents SDK by @alexmojaki in [#943](https://github.com/pydantic/logfire/pull/943)
+
+## [v3.9.0] (2025-03-18)
+
+* Add `logfire.instrument_pydantic_ai()` by @alexmojaki in [#926](https://github.com/pydantic/logfire/pull/926)
+
+## [v3.8.1] (2025-03-13)
+
+* Upgrade to OpenTelemetry 1.31.0 by @alexmojaki in [#927](https://github.com/pydantic/logfire/pull/927)
+* Record exception with traceback for non-fatal function tool errors in OpenAI agents SDK by @alexmojaki in [#924](https://github.com/pydantic/logfire/pull/924)
+
+## [v3.8.0] (2025-03-11)
+
+* OpenAI Agents Framework instrumentation by @alexmojaki in [#917](https://github.com/pydantic/logfire/pull/917)
+* OTel log scrubbing by @alexmojaki in [#903](https://github.com/pydantic/logfire/pull/903)
+
+## [v3.7.1] (2025-03-05)
+
+* Handle errors in OpenAI response by @alexmojaki in [#910](https://github.com/pydantic/logfire/pull/910)
+* Include domain in message for outgoing HTTP requests: fix for old semconv by @alexmojaki in [#909](https://github.com/pydantic/logfire/pull/909)
+
+## [v3.7.0] (2025-03-04)
+
+* Include domain in message for outgoing requests by @alexmojaki in [#892](https://github.com/pydantic/logfire/pull/892)
+* Console logging for OTel logs by @alexmojaki in [#882](https://github.com/pydantic/logfire/pull/882)
+* Fix auto-tracing with `python -m` by @alexmojaki in [#905](https://github.com/pydantic/logfire/pull/905)
+
+## [v3.6.4] (2025-02-25)
+
+* Handle mocks by calling `to_dict` on type by @alexmojaki in [#897](https://github.com/pydantic/logfire/pull/897)
+
+## [v3.6.3] (2025-02-25)
+
+* Handle missing `shutdown` and `force_flush` on `NoOpLoggerProvider` better by @alexmojaki in [#895](https://github.com/pydantic/logfire/pull/895)
+* Handle missing events SDK by @alexmojaki in [#893](https://github.com/pydantic/logfire/pull/893)
+
+## [v3.6.2] (2025-02-22)
+
+* Fix typing errors involving `handle_internal_errors` by @alexmojaki in [#885](https://github.com/pydantic/logfire/pull/885)
+* Avoid double shutdown of logger provider by @alexmojaki in [#878](https://github.com/pydantic/logfire/pull/878)
+
+## [v3.6.1] (2025-02-19)
+
+* avoid `BatchLogRecordProcessor` use on pyodide/emscripten by @samuelcolvin in [#873](https://github.com/pydantic/logfire/pull/873)
+
+## [v3.6.0] (2025-02-18)
+
+* Set log level to warning instead of error for 4xx HTTPExceptions from FastAPI/Starlette by @alexmojaki in [#858](https://github.com/pydantic/logfire/pull/858)
+* Add option to disable printing tags to console by @dmontagu in [#860](https://github.com/pydantic/logfire/pull/860)
+* Experimental support for OTel logs by @alexmojaki in [#863](https://github.com/pydantic/logfire/pull/863), [#870](https://github.com/pydantic/logfire/pull/870), and [#871](https://github.com/pydantic/logfire/pull/871)
+* Fix `excluded_urls` typo in instrument_flask by @alexmojaki in [#852](https://github.com/pydantic/logfire/pull/852)
+* Catch more errors when checking for sqlalchemy objects by @alexmojaki in [#854](https://github.com/pydantic/logfire/pull/854)
+* Don't scrub exception message by @alexmojaki in [#865](https://github.com/pydantic/logfire/pull/865)
+* Only skip logging to console after updating span stack and indentation by @alexmojaki in [#844](https://github.com/pydantic/logfire/pull/844)
+
+## [v3.5.3] (2025-02-05)
+
+* Fixes for capturing httpx bodies by @alexmojaki in [#842](https://github.com/pydantic/logfire/pull/842)
+
+## [v3.5.2] (2025-02-05)
+
+* Support OpenTelemetry 1.30.0 by @alexmojaki in [#839](https://github.com/pydantic/logfire/pull/839)
+
+## [v3.5.1] (2025-02-04)
+
+* Prevent side effects when importing logfire by @alexmojaki in [#835](https://github.com/pydantic/logfire/pull/835)
+
+## [v3.5.0] (2025-02-03)
+
+* Add `logfire.logfire_info()` by @samuelcolvin in [#826](https://github.com/pydantic/logfire/pull/826)
+* Add `logfire.add_non_user_code_prefix` function for library developers by @dmontagu in [#829](https://github.com/pydantic/logfire/pull/829)
+* Skip export retry in pyodide by @samuelcolvin in [#823](https://github.com/pydantic/logfire/pull/823)
+* More resilient console logging by @samuelcolvin in [#831](https://github.com/pydantic/logfire/pull/831)
+
+## [v3.4.0] (2025-01-27)
+
+* Support Pyodide by @samuelcolvin in [#818](https://github.com/pydantic/logfire/pull/818)
+
+## [v3.3.0] (2025-01-22)
+
+* Add process runtime information by @Kludex in [#811](https://github.com/pydantic/logfire/pull/811)
+
+## [v3.2.0] (2025-01-17)
+
+* Fix conflict with `ddtrace` futures patching by renaming `fn` parameter by @alexmojaki in [#802](https://github.com/pydantic/logfire/pull/802)
+* Add `logfire.warning` to mirror `logging.warning` by @JacobHayes in [#800](https://github.com/pydantic/logfire/pull/800)
+* Try `to_dict` method when encoding JSON by @alexmojaki in [#799](https://github.com/pydantic/logfire/pull/799)
+* Don't truncate numpy array dimensions below max by @alexmojaki in [#792](https://github.com/pydantic/logfire/pull/792)
+
+## [v3.1.1] (2025-01-14)
+
+* Prevent OTel from logging noisy traceback for handled requests exceptions by @alexmojaki in [#796](https://github.com/pydantic/logfire/pull/796)
+
+## [v3.1.0] (2025-01-09)
+
+* Add `capture_all` to `instrument_httpx` by @Kludex in [#780](https://github.com/pydantic/logfire/pull/780)
+* Ensure cleanup when forked process ends by @alexmojaki in [#785](https://github.com/pydantic/logfire/pull/785)
+* Generate trace IDs as ULIDs by default by @adriangb in [#783](https://github.com/pydantic/logfire/pull/783)
+
 ## [v3.0.0] (2025-01-07)
 
 * **BREAKING CHANGE**: Removed `capture_request_json_body`, `capture_request_text_body`, `capture_request_form_data`, and `capture_response_json_body` parameters from `logfire.instrument_httpx()`, replaced with `capture_request_body` `capture_response_body` by @Kludex in [#769](https://github.com/pydantic/logfire/pull/769)
@@ -517,3 +715,41 @@ First release from new repo!
 [v2.11.0]: https://github.com/pydantic/logfire/compare/v2.10.0...v2.11.0
 [v2.11.1]: https://github.com/pydantic/logfire/compare/v2.11.0...v2.11.1
 [v3.0.0]: https://github.com/pydantic/logfire/compare/v2.11.1...v3.0.0
+[v3.1.0]: https://github.com/pydantic/logfire/compare/v3.0.0...v3.1.0
+[v3.1.1]: https://github.com/pydantic/logfire/compare/v3.1.0...v3.1.1
+[v3.2.0]: https://github.com/pydantic/logfire/compare/v3.1.1...v3.2.0
+[v3.3.0]: https://github.com/pydantic/logfire/compare/v3.2.0...v3.3.0
+[v3.4.0]: https://github.com/pydantic/logfire/compare/v3.3.0...v3.4.0
+[v3.5.0]: https://github.com/pydantic/logfire/compare/v3.4.0...v3.5.0
+[v3.5.1]: https://github.com/pydantic/logfire/compare/v3.5.0...v3.5.1
+[v3.5.2]: https://github.com/pydantic/logfire/compare/v3.5.1...v3.5.2
+[v3.5.3]: https://github.com/pydantic/logfire/compare/v3.5.2...v3.5.3
+[v3.6.0]: https://github.com/pydantic/logfire/compare/v3.5.3...v3.6.0
+[v3.6.1]: https://github.com/pydantic/logfire/compare/v3.6.0...v3.6.1
+[v3.6.2]: https://github.com/pydantic/logfire/compare/v3.6.1...v3.6.2
+[v3.6.3]: https://github.com/pydantic/logfire/compare/v3.6.2...v3.6.3
+[v3.6.4]: https://github.com/pydantic/logfire/compare/v3.6.3...v3.6.4
+[v3.7.0]: https://github.com/pydantic/logfire/compare/v3.6.4...v3.7.0
+[v3.7.1]: https://github.com/pydantic/logfire/compare/v3.7.0...v3.7.1
+[v3.8.0]: https://github.com/pydantic/logfire/compare/v3.7.1...v3.8.0
+[v3.8.1]: https://github.com/pydantic/logfire/compare/v3.8.0...v3.8.1
+[v3.9.0]: https://github.com/pydantic/logfire/compare/v3.8.1...v3.9.0
+[v3.9.1]: https://github.com/pydantic/logfire/compare/v3.9.0...v3.9.1
+[v3.10.0]: https://github.com/pydantic/logfire/compare/v3.9.1...v3.10.0
+[v3.11.0]: https://github.com/pydantic/logfire/compare/v3.10.0...v3.11.0
+[v3.12.0]: https://github.com/pydantic/logfire/compare/v3.11.0...v3.12.0
+[v3.13.0]: https://github.com/pydantic/logfire/compare/v3.12.0...v3.13.0
+[v3.13.1]: https://github.com/pydantic/logfire/compare/v3.13.0...v3.13.1
+[v3.14.0]: https://github.com/pydantic/logfire/compare/v3.13.1...v3.14.0
+[v3.14.1]: https://github.com/pydantic/logfire/compare/v3.14.0...v3.14.1
+[v3.15.0]: https://github.com/pydantic/logfire/compare/v3.14.1...v3.15.0
+[v3.15.1]: https://github.com/pydantic/logfire/compare/v3.15.0...v3.15.1
+[v3.16.0]: https://github.com/pydantic/logfire/compare/v3.15.1...v3.16.0
+[v3.16.1]: https://github.com/pydantic/logfire/compare/v3.16.0...v3.16.1
+[v3.16.2]: https://github.com/pydantic/logfire/compare/v3.16.1...v3.16.2
+[v3.17.0]: https://github.com/pydantic/logfire/compare/v3.16.2...v3.17.0
+[v3.18.0]: https://github.com/pydantic/logfire/compare/v3.17.0...v3.18.0
+[v3.19.0]: https://github.com/pydantic/logfire/compare/v3.18.0...v3.19.0
+[v3.20.0]: https://github.com/pydantic/logfire/compare/v3.19.0...v3.20.0
+[v3.21.0]: https://github.com/pydantic/logfire/compare/v3.20.0...v3.21.0
+[v3.21.1]: https://github.com/pydantic/logfire/compare/v3.21.0...v3.21.1
