@@ -138,6 +138,14 @@ The second line is what you'll see in the database and UI.
 
 Most OpenTelemetry SDKs generate trace IDs that are completely random. However, the Python **Logfire** SDK generates trace IDs where the first few characters are based on the current time. This means that if you want to quickly check at a glance if two records are part of the same trace, it's better to look at the _last_ characters.
 
+#### `span_id`
+
+This is a unique identifier for a single span/log within a trace.
+
+To filter down to a specific record, use a combination of `trace_id` and `span_id`, e.g. `WHERE trace_id = '01979d1e4e4325335569dba4459473fc' AND span_id = 'a1b2c3d4e5f6g7h8'`. Querying only by `span_id` is significantly less efficient and might not always be correct. Because of this, while `span_id` will produce clickable links in the same way as `trace_id`, it will only do so if the `trace_id` column is also present.
+
+Technically the span ID is a 64-bit (8 byte) integer, but in the database it's represented as a 16-character hexadecimal string, similar to the trace ID, but shorter.
+
 ### Timestamps
 
 #### `start_timestamp`
