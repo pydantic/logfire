@@ -340,3 +340,30 @@ special support for them:
 | `telemetry_sdk_name`     | `telemetry.sdk.name`     |
 | `telemetry_sdk_language` | `telemetry.sdk.language` |
 | `telemetry_sdk_version`  | `telemetry.sdk.version`  |
+
+### Miscellaneous useful columns
+
+#### `otel_scope_name`
+
+This is the name of the OpenTelemetry scope (i.e. the instrumenting library) that produced the span/log.
+
+For example, `logfire.instrument_django()` uses the `opentelemetry.instrumentation.django` module, which is also the name of the scope. So `otel_scope_name = 'opentelemetry.instrumentation.django'` will filter down to Django web requests.
+
+The default value for records produced by **Logfire** SDKs is `logfire`. Specific instrumentations add a suffix, e.g. `logfire.openai`.
+
+You can set a custom suffix with the following code:
+
+```python
+import logfire
+
+logfire.configure()
+
+scoped_logfire = logfire.with_settings(custom_scope_suffix='my_scope')
+
+scoped_logfire.info('hello')  # will have the scope `logfire.my_scope`
+logfire.info('world')  # will have the scope `logfire`
+```
+
+In the Live view, the scope is shown as a grey bubble on the right of the record's message. In the details panel, clicking the `otel_scope_name` bubble offers options to copy or filter by that scope name.
+
+In other OpenTelemetry SDKs, the scope name is set when obtaining a tracer (from a tracer provider).
