@@ -163,7 +163,7 @@ otel_docs = {
 def footer_web_frameworks(markdown: str, page: Page) -> str:
     if (
         not page.file.src_uri.startswith('integrations/web-frameworks/')
-        or page.file.src_uri == 'integrations/web-frameworks/advanced.md'
+        or page.file.src_uri == 'integrations/web-frameworks/gunicorn.md'
         or page.file.src_path.endswith('index.md')
     ):
         return markdown
