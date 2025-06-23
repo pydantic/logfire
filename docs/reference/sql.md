@@ -36,7 +36,7 @@ Here's an example of querying in the Explore view:
 
 ![Basic columns example in the explore view](../images/sql-reference/basic-columns-explore.png)
 
-### `span_name`
+#### `span_name`
 
 This is a string label which is typically shared by similar records. Clicking the `span_name` bubble in the details panel of the Live view will give you a few options to filter by that span name, which is a good way to find other records like this one. It should be _low cardinality_, meaning there shouldn't be too many unique values.
 
@@ -48,7 +48,7 @@ In database query spans, this is usually just the operation, e.g. `'SELECT'`, `'
 
 See the docs on [messages and span names](../guides/onboarding-checklist/add-manual-tracing.md#messages-and-span-names) and the [OpenTelemetry spec](https://opentelemetry.io/docs/specs/otel/trace/api/#span) for more details.
 
-### `message`
+#### `message`
 
 This is a human-readable description of the record. It's the text in each line of the list of records in the Live view.
 
@@ -62,7 +62,7 @@ It's usually faster and more correct to use `span_name` in queries. `message` is
 
 OpenTelemetry doesn't have a native 'message' concept. To set a value for the `message` column when using other OpenTelemetry SDKs, set the attribute `logfire.msg`. This will not be kept in the `attributes` column.
 
-### `attributes`
+#### `attributes`
 
 This is a JSON object containing arbitrary additional structured data about the record. It can vary widely between records and even be empty.
 
@@ -72,7 +72,7 @@ See the [manual tracing docs on attributes](../guides/onboarding-checklist/add-m
 
 Note that arguments passed directly to the **Logfire** SDK methods are shown under 'Arguments' in the Live view details panel, but they are still stored in the same `attributes` column.
 
-### `tags`
+#### `tags`
 
 This is an optional array of strings that can be used to group records together.
 
@@ -83,3 +83,21 @@ To find records with the same tag, use the `array_has` function, e.g. `array_has
 To set a tag in the Python **Logfire** SDK, pass a list of strings to the `_tags` argument in the SDK methods. Note the leading underscore. Alternatively, [`logfire.with_tags('a tag')`][logfire.Logfire.with_tags] will return a new `Logfire` instance with all the usual methods, where `'a tag'` will be automatically included in the tags of all method calls.
 
 OpenTelemetry doesn't have a native 'tags' concept. To set a value for the `tags` column when using other OpenTelemetry SDKs, set the attribute `logfire.tags`. This will not be kept in the `attributes` column.
+
+#### `level`
+
+This represents the severity level (aka the 'log level') of the record.
+
+It's stored in the database as a small integer so that it supports operators like `>=` and `<`, but we provide some SQL magic to allow you to use the string names in comparisons. For example, `level = 'warn'` will match the example record above, even though the actual stored value is `13`. A common useful query is `level > 'info'` to find all 'notable' records like warnings and errors.
+
+The level is most commonly set by using the appropriate method in the **Logfire** SDK, e.g. `logfire.warn(...)` or `logfire.error(...)`, but there are [several other ways](../guides/onboarding-checklist/add-manual-tracing.md#log-levels).
+
+The default level for spans is `info`. If a span ends with an unhandled exception, the level is usually set to `error`. One special case is that FastAPI/Starlette `HTTPException`s with a 4xx status code (client errors) are set to `warn`.
+
+You can convert level names to numbers using the `level_num` SQL function, e.g. `level_num('warn')` returns `13`.
+
+You can also use the `level_name` SQL function to convert numbers to names, e.g. `SELECT level_name(level), ...` to see a human-readable level in the Explore view.
+
+The numerical values are based on the [OpenTelemetry spec](https://opentelemetry.io/docs/specs/otel/logs/data-model/#field-severitynumber). Some common values: `info` is `9`, `warn` is `13`, and `error` is `17`.
+
+OpenTelemetry _logs_ have a native severity level, but _spans_ do not. Spans with a status code of `ERROR` will have a level of `error`, otherwise the level is set to `info`. To set a custom value for the `level` column when using other OpenTelemetry SDKs, set the attribute `logfire.level_num`. This will not be kept in the `attributes` column.
