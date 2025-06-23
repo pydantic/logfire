@@ -367,3 +367,13 @@ logfire.info('world')  # will have the scope `logfire`
 In the Live view, the scope is shown as a grey bubble on the right of the record's message. In the details panel, clicking the `otel_scope_name` bubble offers options to copy or filter by that scope name.
 
 In other OpenTelemetry SDKs, the scope name is set when obtaining a tracer (from a tracer provider).
+
+#### `http_response_status_code`
+
+This is set to `attributes->>'http.response.status_code'` if present, falling back to `attributes->>'http.status_code'` otherwise to accommodate older (but still common) versions of the OpenTelemetry semantic conventions. These attributes are set by HTTP server and client instrumentations, e.g. `logfire.instrument_fastapi()` or `logfire.instrument_httpx()`.
+
+In the live view, this is shown after the message with an arrow, e.g. `GET /users/123 → 200`.
+
+Querying `http_response_status_code >= 400` is a good way to find all HTTP requests where something went wrong.
+
+This column is an integer. If you somehow set the `http.response.status_code` attribute to a string that can't be converted to an integer, then `http_response_status_code` and even `attributes->>'http.response.status_code'` will be `null`, but `(attributes::text)->>'http.response.status_code'` will work.
