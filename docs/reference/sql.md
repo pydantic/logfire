@@ -110,7 +110,7 @@ The UTC time when the span/log was first created/started.
 
 This is the time shown on the left side of the list of records in the Live view.
 
-Usually you don't have to filter by this, all views in the UI have some time range dropdown. For example, in the Live view the default is set to 'Last 5 minutes'. But if you wanted to do this manually in SQL, you could use a `WHERE` clause like `start_timestamp >= now() - interval '5 minutes'`.
+All views in the UI have some time range dropdown that filters on this column, so you usually don't have to. For example, in the Live view the default is set to 'Last 5 minutes'. But if you wanted to do this manually in SQL, you could use a `WHERE` clause like `start_timestamp >= now() - interval '5 minutes'`.
 
 In dashboard queries, a time series chart querying `records` should have `time_bucket($resolution, start_timestamp)` in the `SELECT` clause, which will be used as the x-axis. `$resolution` is a variable that will be replaced with the time resolution of the dashboard, e.g. `1 minute`. This variable doesn't exist outside of dashboards, so if you want to copy a query from a dashboard to the Explore view, tick 'Show rendered query' first. This will fill in the variable with the actual value, e.g. `time_bucket('1 minute', start_timestamp)`.
 
@@ -119,3 +119,17 @@ In dashboard queries, a time series chart querying `records` should have `time_b
 
 !!! warning
     The `metrics` table also has a `start_timestamp` column, but you should usually use `recorded_timestamp` instead, which doesn't exist in the `records` table.
+
+#### `end_timestamp`
+
+The UTC time when the span/log was completed/ended.
+
+For logs, this is the same as `start_timestamp` because logs don't have a duration.
+
+#### `duration`
+
+The time in seconds between `start_timestamp` and `end_timestamp`.
+
+For example, `duration > 2` will match all spans that took longer than 2 seconds to complete.
+
+For logs, this is always `null`. Otherwise it's equivalent to `EXTRACT(EPOCH FROM (end_timestamp - start_timestamp))`.
