@@ -117,6 +117,7 @@ nav:
           - AIOHTTP: integrations/web-frameworks/aiohttp.md
           - ASGI: integrations/web-frameworks/asgi.md
           - WSGI: integrations/web-frameworks/wsgi.md
+          - Advanced: integrations/web-frameworks/advanced.md
       - JavaScript:
           - JavaScript: integrations/javascript/index.md
           - Browser: integrations/javascript/browser.md
