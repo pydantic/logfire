@@ -281,3 +281,37 @@ spec:
 Apply this configuration via `kubectl apply -f otel-collector.yaml`.
 
 You should now see logs from the `plain-app` and `json-app` in your Logfire dashboard!
+
+## Sink data into AWS S3
+
+If you want to keep your data stored long-term, the OpenTelemetry Collector offers a great way to send it directly to AWS S3.
+
+Before you can do this, you'll need to set up two things:
+
+1. An S3 bucket.
+2. An IAM user who has permission to write to that S3 bucket.
+
+You can then configure the OpenTelemetry collector to export data to S3 using the `awss3` exporter.
+
+For example, you'd add something like this to the exporters section of your OTel collector's configuration:
+
+```yaml
+awss3:
+  bucket: <your-bucket-name>
+  region: <your-bucket-region>
+```
+
+You will also need to set up the AWS credentials for the collector to use.
+To do this, you can use environment variables to provide the AWS credentials to the collector.
+
+For environment variables, you can set the following variables in your collector deployment:
+
+```yaml
+env:
+  - name: AWS_ACCESS_KEY_ID
+    value: <your-access-key-id>
+  - name: AWS_SECRET_ACCESS_KEY
+    value: <your-secret-access-key>
+```
+
+You can find more information on the `awss3` exporter in the [AWS S3 Exporter for OpenTelemetry Collector documentation](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/awss3exporter).
