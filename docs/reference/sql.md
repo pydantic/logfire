@@ -314,3 +314,11 @@ logfire.info('hello')
 will show this:
 
 ![Service name and version in the Live view](../images/sql-reference/service-name-version-live.png)
+
+#### `service_instance_id`
+
+This is equivalent to `otel_resource_attributes->>'service.instance.id'`.
+
+This should be a unique identifier for the instance of the service that's running.
+
+In the **Logfire** Python SDK, a random UUID is generated when `logfire.configure()` is called. You can override this by setting the `OTEL_RESOURCE_ATTRIBUTES` environment variable, e.g. `OTEL_RESOURCE_ATTRIBUTES=service.instance.id=my-unique-id-1234`.
