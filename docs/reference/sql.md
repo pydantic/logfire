@@ -206,3 +206,48 @@ The time in seconds between `start_timestamp` and `end_timestamp`.
 For example, `duration > 2` will match all spans that took longer than 2 seconds to complete.
 
 For logs, this is always `null`. Otherwise it's equivalent to `EXTRACT(EPOCH FROM (end_timestamp - start_timestamp))`.
+
+### Exceptions
+
+#### `is_exception`
+
+This is a boolean column which is true when an exception is recorded on the span/log.
+
+This usually applies to spans that ended with an unhandled exception, or logs that were created with the method `logfire.exception(...)`. See the [manual tracing docs on exceptions](../guides/onboarding-checklist/add-manual-tracing.md#exceptions) for other possible ways that exceptions can be recorded.
+
+Exceptions usually represent errors, but not always. To filter down to exceptions that are errors, use `WHERE is_exception AND level >= 'error'`. Also note that error logs are not always exceptions, e.g. `logfire.error(...)` does not set `is_exception` to true.
+
+If `is_exception` is false, the other columns in this section will be `null`.
+
+Technically, an exception being recorded on a span means that there's a span event (an item in the `otel_events` column) with the name `exception`. The remaining columns in this section are derived from attributes of the first such event. In the unlikely case that there are multiple `exception` events, we _might_ change which event is used in the future to derive the other columns.
+
+#### `exception_type`
+
+This is the fully qualified name of the exception class, e.g. `ValueError` or `fastapi.exceptions.HTTPException`.
+
+It's derived from the `exception.type` attribute of the `exception` span event.
+
+#### `exception_message`
+
+This is the message of the exception, e.g. this code:
+
+```python
+import logfire
+
+logfire.configure()
+
+with logfire.span('my pan'):
+    raise ValueError('oops')
+```
+
+will produce a record with `exception_message` set to `'oops'`.
+
+Note that this can be an empty string if the exception has no message, e.g. `raise ValueError()`. This is different from `null`, which means that the record is not an exception.
+
+This is derived from the `exception.message` attribute of the `exception` span event.
+
+#### `exception_stacktrace`
+
+This is the fully formatted traceback of the exception, usually a long multiline string. It can be very useful to look at, but isn't great for querying.
+
+This is derived from the `exception.stacktrace` attribute of the `exception` span event.
