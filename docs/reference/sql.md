@@ -381,3 +381,9 @@ This column is an integer. If you somehow set the `http.response.status_code` at
 #### `url_full`
 
 This is set to `attributes->>'url.full'` if present, falling back to `attributes->>'http.url'` otherwise to accommodate older (but still common) versions of the OpenTelemetry semantic conventions. These attributes are set by HTTP server and client instrumentations, e.g. `logfire.instrument_fastapi()` or `logfire.instrument_httpx()`.
+
+#### `log_body`
+
+While the records produced by methods such as `logfire.info()` are typically referred to as 'logs', under the hood they are actually spans with zero duration. OpenTelemetry has a separate concept of 'logs' which are not spans, but which **Logfire** also stores in the `records` table. Logs can have bodies, which are different from attributes and are stored in the `log_body` column.
+
+The body can be a plain string, in which case it will be stored just like that, or it can be a structured object which will be serialized to JSON and can be queried like `attributes` using operators like `->>`.
