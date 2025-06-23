@@ -12,7 +12,6 @@ from openai.types.completion import Completion
 from openai.types.create_embedding_response import CreateEmbeddingResponse
 from openai.types.images_response import ImagesResponse
 from openai.types.responses import Response
-from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.trace import get_current_span
 
 from logfire import LogfireSpan
@@ -94,10 +93,10 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
 def is_current_agent_span(*span_names: str):
     current_span = get_current_span()
     return (
-        isinstance(current_span, ReadableSpan)
-        and current_span.instrumentation_scope
-        and current_span.instrumentation_scope.name == 'logfire.openai_agents'
-        and current_span.name in span_names
+        current_span.is_recording()
+        and (instrumentation_scope := getattr(current_span, 'instrumentation_scope', None))
+        and instrumentation_scope.name == 'logfire.openai_agents'
+        and getattr(current_span, 'name', None) in span_names
     )
 
 
@@ -187,9 +186,13 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
     elif isinstance(response, ImagesResponse):
         span.set_attribute('response_data', {'images': response.data})
     elif isinstance(response, Response):  # pragma: no branch
-        events = json.loads(span.attributes['events'])  # type: ignore
-        events += responses_output_events(response)
-        span.set_attribute('events', events)
+        try:
+            events = json.loads(span.attributes['events'])  # type: ignore
+        except Exception:
+            pass
+        else:
+            events += responses_output_events(response)
+            span.set_attribute('events', events)
 
     return response
 

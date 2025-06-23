@@ -26,5 +26,5 @@ def test_missing_opentelemetry_dependency() -> None:
         assert str(exc_info.value) == snapshot("""\
 `logfire.instrument_aiohttp_client()` requires the `opentelemetry-instrumentation-aiohttp-client` package.
 You can install this with:
-    pip install 'logfire[aiohttp]'\
+    pip install 'logfire[aiohttp-client]'\
 """)

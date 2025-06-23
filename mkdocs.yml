@@ -115,8 +115,17 @@ nav:
           - Django: integrations/web-frameworks/django.md
           - Flask: integrations/web-frameworks/flask.md
           - Starlette: integrations/web-frameworks/starlette.md
+          - AIOHTTP: integrations/web-frameworks/aiohttp.md
           - ASGI: integrations/web-frameworks/asgi.md
           - WSGI: integrations/web-frameworks/wsgi.md
+      - JavaScript:
+          - JavaScript: integrations/javascript/index.md
+          - Browser: integrations/javascript/browser.md
+          - Next.js: integrations/javascript/nextjs.md
+          - Cloudflare: integrations/javascript/cloudflare.md
+          - Express: integrations/javascript/express.md
+          - Node.js: integrations/javascript/node.md
+          - Deno: integrations/javascript/deno.md
       - Databases:
           - Psycopg: integrations/databases/psycopg.md
           - SQLAlchemy: integrations/databases/sqlalchemy.md
@@ -144,6 +153,7 @@ nav:
       - AWS Lambda: integrations/aws-lambda.md
   - Reference:
       - Advanced:
+          - Baggage: reference/advanced/baggage.md
           - Generators: reference/advanced/generators.md
           - Testing: reference/advanced/testing.md
       - Examples: reference/examples.md

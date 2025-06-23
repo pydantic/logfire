@@ -7,7 +7,7 @@ from typing import Any
 
 import anyio._backends._asyncio  # noqa  # type: ignore
 import pytest
-from agents.tracing.setup import GLOBAL_TRACE_PROVIDER
+from agents.tracing import get_trace_provider
 from opentelemetry import trace
 from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
@@ -28,8 +28,8 @@ os.environ['OTEL_SEMCONV_STABILITY_OPT_IN'] = 'http/dup'
 os.environ['LOGFIRE_TOKEN'] = ''
 
 
-GLOBAL_TRACE_PROVIDER.shutdown()
-GLOBAL_TRACE_PROVIDER.set_processors([])
+get_trace_provider().shutdown()
+get_trace_provider().set_processors([])
 
 
 @pytest.fixture(scope='session', autouse=True)
@@ -91,6 +91,7 @@ def config_kwargs(
         # Ensure that inspect_arguments doesn't break things even in versions where it's off by default
         inspect_arguments=True,
         distributed_tracing=True,
+        add_baggage_to_attributes=False,
     )
 
 
@@ -100,6 +101,7 @@ def config(config_kwargs: dict[str, Any], metrics_reader: InMemoryMetricReader) 
         **config_kwargs,
         metrics=logfire.MetricsOptions(
             additional_readers=[metrics_reader],
+            collect_in_spans=True,
         ),
     )
     # sanity check: there are no active spans

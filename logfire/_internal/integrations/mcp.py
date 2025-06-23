@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 from mcp.client.session import ClientSession
 from mcp.server import Server
 from mcp.shared.session import BaseSession
-from mcp.types import CallToolRequest, LoggingMessageNotification, RequestParams
+from mcp.types import CallToolRequest, LoggingMessageNotification
 from pydantic import TypeAdapter
 
 from logfire._internal.utils import handle_internal_errors
@@ -42,25 +42,21 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
                 span_name += f' {root.params.name}'
 
         with logfire_instance.span(span_name, **attributes) as span:
-            with handle_internal_errors:
-                if propagate_otel_context:  # pragma: no branch
-                    carrier = get_context()
-                    if params := getattr(root, 'params', None):
-                        if meta := getattr(params, 'meta', None):  # pragma: no cover # TODO
-                            dumped_meta = meta.model_dump()
-                        else:
-                            dumped_meta = {}
-                        # Prioritise existing values in meta over the context carrier.
-                        # RequestParams.Meta should allow basically anything, we're being extra careful here.
-                        params.meta = RequestParams.Meta.model_validate({**carrier, **dumped_meta})
-                    else:
-                        root.params = _request_params_type_adapter(type(root)).validate_python({'_meta': carrier})  # type: ignore
-
+            _attach_context_to_request(root)
             result = await original_send_request(self, request, *args, **kwargs)
             span.set_attribute('response', result)
             return result
 
     BaseSession.send_request = send_request
+
+    original_send_notification = BaseSession.send_notification  # type: ignore
+
+    @functools.wraps(original_send_notification)  # type: ignore
+    async def send_notification(self: Any, notification: Any, *args: Any, **kwargs: Any):
+        _attach_context_to_request(notification.root)
+        return await original_send_notification(self, notification, *args, **kwargs)
+
+    BaseSession.send_notification = send_notification
 
     original_received_notification = ClientSession._received_notification  # type: ignore
 
@@ -77,7 +73,8 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
                 span_name = 'MCP server log'
                 if params.logger:
                     span_name += f' from {params.logger}'
-                logfire_instance.log(level, span_name, attributes=dict(data=params.data))
+                with _request_context(notification.root):
+                    logfire_instance.log(level, span_name, attributes=dict(data=params.data))
         await original_received_notification(self, notification, *args, **kwargs)
 
     ClientSession._received_notification = _received_notification  # type: ignore
@@ -105,17 +102,38 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
 
     @contextmanager
     def _handle_request_with_context(request: Any, span_name: str):
-        with ExitStack() as exit_stack:
-            if (  # pragma: no branch
-                propagate_otel_context
-                and (params := getattr(request, 'params', None))
-                and (meta := getattr(params, 'meta', None))
-            ):
-                exit_stack.enter_context(attach_context(meta.model_dump()))
+        with _request_context(request):
             if method := getattr(request, 'method', None):  # pragma: no branch
                 span_name += f': {method}'
             with logfire_instance.span(span_name, request=request):
                 yield
+
+    @contextmanager
+    def _request_context(request: Any):
+        with ExitStack() as exit_stack:
+            with handle_internal_errors:
+                if (  # pragma: no branch
+                    propagate_otel_context
+                    and (params := getattr(request, 'params', None))
+                    and (meta := getattr(params, 'meta', None))
+                ):
+                    exit_stack.enter_context(attach_context(meta.model_dump()))
+            yield
+
+    def _attach_context_to_request(root: Any):
+        if not propagate_otel_context:  # pragma: no cover
+            return
+        carrier = get_context()
+        if params := getattr(root, 'params', None):
+            if meta := getattr(params, 'meta', None):  # pragma: no cover # TODO
+                dumped_meta = meta.model_dump()
+            else:
+                dumped_meta = {}
+            # Prioritise existing values in meta over the context carrier.
+            # RequestParams.Meta should allow basically anything, we're being extra careful here.
+            params.meta = type(params).Meta.model_validate({**carrier, **dumped_meta})  # type: ignore
+        else:
+            root.params = _request_params_type_adapter(type(root)).validate_python({'_meta': carrier})  # type: ignore
 
 
 @functools.lru_cache

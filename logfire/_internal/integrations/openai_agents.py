@@ -40,7 +40,7 @@ from logfire._internal.scrubbing import NOOP_SCRUBBER
 from logfire._internal.utils import handle_internal_errors, log_internal_error, truncate_string
 
 if TYPE_CHECKING:  # pragma: no cover
-    from agents.tracing.setup import TraceProvider
+    from agents.tracing import TraceProvider
     from openai.types.responses import Response
 
     from logfire import Logfire, LogfireSpan
@@ -130,18 +130,28 @@ class LogfireTraceProviderWrapper:
 
     @classmethod
     def install(cls, logfire_instance: Logfire) -> None:
-        name = 'GLOBAL_TRACE_PROVIDER'
-        original = getattr(agents.tracing, name)
-        if isinstance(original, cls):
-            return
-        wrapper = cls(original, logfire_instance)
-        for module_name, mod in sys.modules.items():
-            if module_name.startswith('agents'):
-                try:
-                    if getattr(mod, name, None) is original:
-                        setattr(mod, name, wrapper)
-                except Exception:  # pragma: no cover
-                    pass
+        try:
+            from agents.tracing import get_trace_provider, set_trace_provider
+        except ImportError:  # pragma: no cover
+            # Handle older versions of agents where these functions are not available
+            name = 'GLOBAL_TRACE_PROVIDER'
+            original = getattr(agents.tracing, name)
+            if isinstance(original, cls):
+                return
+            wrapper = cls(original, logfire_instance)
+            for module_name, mod in sys.modules.items():
+                if module_name.startswith('agents'):
+                    try:
+                        if getattr(mod, name, None) is original:
+                            setattr(mod, name, wrapper)
+                    except Exception:  # pragma: no cover
+                        pass
+        else:
+            original = get_trace_provider()
+            if isinstance(original, cls):
+                return
+            wrapper = cls(original, logfire_instance)
+            set_trace_provider(wrapper)  # type: ignore
 
 
 @dataclass
@@ -185,13 +195,13 @@ class LogfireWrapperBase(Generic[T]):
     span_helper: LogfireSpanHelper
     token: contextvars.Token[T | None] | None = None
 
-    def start(self, mark_as_current: bool = False):
+    def start(self, mark_as_current: bool = False) -> None:
         self.span_helper.start(mark_as_current)
         if mark_as_current:
             self.attach()
         return self.wrapped.start()
 
-    def finish(self, reset_current: bool = False):
+    def finish(self, reset_current: bool = False) -> None:
         self.on_ending()
         self.span_helper.end(reset_current)
         if reset_current:
@@ -204,7 +214,7 @@ class LogfireWrapperBase(Generic[T]):
         self.attach()
         return self
 
-    def __exit__(self, exc_type: type[BaseException], exc_val: BaseException, exc_tb: TracebackType):
+    def __exit__(self, exc_type: type[BaseException], exc_val: BaseException, exc_tb: TracebackType) -> None:
         self.on_ending()
         self.span_helper.__exit__(exc_type, exc_val, exc_tb)
         self.wrapped.finish()
