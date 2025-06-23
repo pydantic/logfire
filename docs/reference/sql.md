@@ -71,3 +71,15 @@ You can query it using the `->>` operator, e.g. above `attributes->>'thing' = 'b
 See the [manual tracing docs on attributes](../guides/onboarding-checklist/add-manual-tracing.md#attributes) for more information about setting attributes in the **Logfire** SDK.
 
 Note that arguments passed directly to the **Logfire** SDK methods are shown under 'Arguments' in the Live view details panel, but they are still stored in the same `attributes` column.
+
+### `tags`
+
+This is an optional array of strings that can be used to group records together.
+
+Each tag is displayed as a colored bubble in the Live view after the message.
+
+To find records with the same tag, use the `array_has` function, e.g. `array_has(tags, 'a tag')` in the above example.
+
+To set a tag in the Python **Logfire** SDK, pass a list of strings to the `_tags` argument in the SDK methods. Note the leading underscore. Alternatively, [`logfire.with_tags('a tag')`][logfire.Logfire.with_tags] will return a new `Logfire` instance with all the usual methods, where `'a tag'` will be automatically included in the tags of all method calls.
+
+OpenTelemetry doesn't have a native 'tags' concept. To set a value for the `tags` column when using other OpenTelemetry SDKs, set the attribute `logfire.tags`. This will not be kept in the `attributes` column.
