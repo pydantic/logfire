@@ -210,7 +210,10 @@ data:
     exporters:
       debug:
       otlphttp:
-        endpoint: "https://logfire-api.pydantic.dev"
+        # Configure the US / EU endpoint for Logfire.
+        # - US: https://logfire-us.pydantic.dev
+        # - EU: https://logfire-eu.pydantic.dev
+        endpoint: "https://logfire-eu.pydantic.dev"
         headers:
           Authorization: "Bearer ${env:LOGFIRE_TOKEN}"
     service:
