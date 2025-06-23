@@ -377,3 +377,7 @@ In the live view, this is shown after the message with an arrow, e.g. `GET /user
 Querying `http_response_status_code >= 400` is a good way to find all HTTP requests where something went wrong.
 
 This column is an integer. If you somehow set the `http.response.status_code` attribute to a string that can't be converted to an integer, then `http_response_status_code` and even `attributes->>'http.response.status_code'` will be `null`, but `(attributes::text)->>'http.response.status_code'` will work.
+
+#### `url_full`
+
+This is set to `attributes->>'url.full'` if present, falling back to `attributes->>'http.url'` otherwise to accommodate older (but still common) versions of the OpenTelemetry semantic conventions. These attributes are set by HTTP server and client instrumentations, e.g. `logfire.instrument_fastapi()` or `logfire.instrument_httpx()`.
