@@ -328,3 +328,15 @@ In the **Logfire** Python SDK, a random UUID is generated when `logfire.configur
 This is equivalent to `otel_resource_attributes->>'process.pid'`.
 
 The **Logfire** Python SDK sets this to `os.getpid()` when `logfire.configure()` is called **or when the process gets forked**. This is the only resource attribute that is automatically updated when the process is forked. So while `service_instance_id` is usually unique for different processes, if you also want to distinguish between different forks of the same process, use a combination of `service_instance_id` and `process_pid`. However, beware that [some components of the OpenTelemetry SDK which **Logfire** uses are not fork-safe](https://github.com/open-telemetry/opentelemetry-python/issues/3307).
+
+#### Other resource attributes
+
+The following columns corresponding to OpenTelemetry semantic conventions are also available, but the UI and SDK have no
+special support for them:
+
+| Column Name              | Resource attribute name  |
+|--------------------------|--------------------------|
+| `service_namespace`      | `service.namespace`      |
+| `telemetry_sdk_name`     | `telemetry.sdk.name`     |
+| `telemetry_sdk_language` | `telemetry.sdk.language` |
+| `telemetry_sdk_version`  | `telemetry.sdk.version`  |
