@@ -76,7 +76,8 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 
 Create a collector configuration file with the Google Cloud Monitoring receiver:
 
-```yaml title="gcp-metrics-collector.yaml"receivers:
+```yaml title="gcp-metrics-collector.yaml"
+receivers:
   googlecloudmonitoring:
     # Your GCP project ID
     project_id: "${env:PROJECT_ID}"

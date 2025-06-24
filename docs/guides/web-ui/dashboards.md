@@ -96,7 +96,7 @@ Logfire supports these chart types:
 | Values      | NonTimeSeriesQuery | Values displayed as tiles |
 
 !!! note
-    Queries with `TimeSeriesQuery` as the **Query Type** must return a timestamp column.
+    Queries with `TimeSeriesQuery` as the **Query Type** must include a timestamp in the selected columns, typically `time_bucket($resolution, start_timestamp)` when querying `records` or `time_bucket($resolution, recorded_timestamp)` when querying `metrics` - see [below](#resolution-variable). This will be used as the x-axis.
 
 To configure a chart:
 
