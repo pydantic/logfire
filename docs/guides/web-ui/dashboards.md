@@ -1,6 +1,6 @@
 # Dashboards
 
-This guide explains how to use dashboards in the Logfire UI to visualize your observability data. Dashboards let you define custom visualizations using SQL queries.
+This guide explains how to use dashboards in the Logfire UI to visualize your observability data. Dashboards allow you to create custom visualizations using SQL queries.
 
 ---
 
@@ -8,8 +8,8 @@ This guide explains how to use dashboards in the Logfire UI to visualize your ob
 
 There are two types of dashboards:
 
-* **Standard dashboards**: Pre-configured dashboards created and maintained by the Logfire team. You can enable them in your project, but you can't modify them directly.
-* **Custom dashboards**: Dashboards created by you. Fully editable and customizable using the UI. You can define queries, layout, chart types, and variables.
+* **Standard dashboards**: Pre-configured dashboards created and maintained by the Logfire team. You can enable them for your project, but you can't modify them directly.
+* **Custom dashboards**: Dashboards that you create. They are fully editable and customizable, allowing you to define queries, layouts, chart types, and variables.
 
 The easiest way to get started with dashboards is to enable a standard one.
 
@@ -21,30 +21,37 @@ To enable a standard dashboard:
 
 1. Go to the **Dashboards** tab in the top navigation bar.
 2. Click the **+ Dashboard** button.
-3. Browse the list of available dashboards under the "Standard" tab.
-4. Click **Enable dashboard** to activate one in your project.
+3. Browse the list of available dashboards under the **Standard** tab.
+4. Click **Enable dashboard** to add it to your project.
 
-You can view and interact with standard dashboards, but you cannot edit them. These dashboards may change over time as we improve the performance of the panels inside them.
+You can view and interact with standard dashboards, but you cannot edit them.
 
 ### Using a Standard Dashboard as a Template
 
-You can export any standard dashboard and import it using the "Import JSON" feature to use the standard dashboard as a template:
+You can use any standard dashboard as a template by exporting it and then importing it as a custom dashboard.
 
-1. Within a standard dashboard view, click **Download dashboard as code** on the toolbar below the dashboard name (it's the second icon from right to left).
-2. Select the **Custom** tab and then select the **Import JSON** sub-tab.
-3. Import the file you just downloaded, and you will be able to modify this dashboard.
+1. From a standard dashboard, click the **Download dashboard as code** icon in the toolbar.
+2. Go to the **Custom** tab and select the **Import JSON** option.
+3. Import the file you downloaded. This creates a new, fully editable custom dashboard from the template.
 
 ---
 
-## Creating and Editing Custom Dashboards
+## Creating custom dashboards
 
-To create a dashboard:
+To create a dashboard from scratch:
 
 1. Click the **+ Dashboard** button.
 2. Select the **Custom** tab.
-3. After creating your dashboard you can start adding panels. by clicking the **Panel** button on the top right.
 
-You can rearrange and resize panels using drag-and-drop after clicking the **Edit layout** button
+Custom dashboards are structured in a hierarchy: a dashboard contains one or more **panel groups**, and each group contains **panels**. Each panel, in turn, holds a specific **chart type**. By default, new dashboards start with one panel group.
+
+You can add more panel groups to better organize your dashboard. This is useful for grouping related visualizations, effectively allowing you to have multiple views within a single dashboard.
+
+To add a new group, click the **Panel Group** button in the top right. You can name the group and set whether it should be expanded or collapsed by default when the dashboard loads.
+
+To add a new visualization, you add a panel to a group. Click the **Panel** button in the top right. Inside each panel, you'll configure a chart and the SQL query that powers it.
+
+You can rearrange and resize panels by dragging and dropping them after clicking the **Edit layout** button.
 
 ### Chart Types
 
@@ -52,18 +59,21 @@ Logfire supports these chart types:
 
 | Chart Type  | Query Type         | Description                          |
 | ----------- | ------------------ | ------------------------------------ |
-| Time Series | TimeSeriesQuery    | Line charts over time                |
+| Time Series | TimeSeriesQuery    | Data points over time                |
 | Gauge       | TimeSeriesQuery    | Shows current value as a gauge       |
 | Table       | NonTimeSeriesQuery | Tabular data with rows and columns   |
 | Bar Chart   | NonTimeSeriesQuery | Comparisons across categories        |
-| Pie Chart   | NonTimeSeriesQuery | Distribution as segments of a circle |
-| Values      | NonTimeSeriesQuery | Key metrics displayed as value tiles |
+| Pie Chart   | NonTimeSeriesQuery | Data as slices of a circle |
+| Values      | NonTimeSeriesQuery | Values displayed as tiles |
+
+!!! note
+    Queries with `TimeSeriesQuery` as the **Query Type** must return a timestamp column.
 
 To configure a chart:
 
-1. Choose the type.
+1. Choose the chart type.
 2. Write your SQL query.
-3. Customize formatting, labels, and appearance.
+3. Customize the formatting, labels, and appearance.
 
 ---
 
@@ -71,21 +81,21 @@ To configure a chart:
 
 Logfire uses SQL to define dashboard queries.
 
-If you're not sure what tables or columns are available, refer to the [Records schema reference](INSERT_LINK_HERE) and [Metrics schema reference](LINK).
+If you're unsure which tables or columns are available, refer to the [records schema](explore.md#records-schema) and [metrics schema](explore.md#metrics-schema).
 
 ### Variable Usage
 
-You can reference dashboard variables inside SQL using `$variable` syntax:
+You can reference dashboard variables in SQL queries using the `$variable` syntax:
 
 ```sql
 SELECT * FROM records WHERE service = $service_name
 ```
 
-Only SQL queries can use variables. You can't use them in chart titles or elsewhere.
+Variables can only be used in SQL queries. They cannot be used in chart titles or other non-query fields.
 
 ### Resolution Variable
 
-All dashboards have access to a special special variable called `$resolution` into your query. This value is dynamically selected based on the dashboard's duration to ensure optimal performance and data density. You can use it for time bucketing:
+All dashboards have access to a special `$resolution` variable that can be used in your queries. This value is dynamically selected based on the dashboard's time duration to ensure optimal performance and data density. You can use it for time bucketing:
 
 ```sql
 SELECT
@@ -101,28 +111,28 @@ GROUP BY x;
 
 You can define variables to make dashboards dynamic.
 
-### Types
+### Variable Types
 
-* **Text variable**: User enters any string
-* **List variable**: User picks from a static list of values
+* **Text variable**: Allows users to enter any string value.
+* **List variable**: Allows users to select a value from a predefined list.
 
-To add variables:
+To add variables to a custom dashboard:
 
-1. Open a custom dashboard
-2. Click **Variables** on the top right to open the variables settings
-3. Click **+ Add variable**
-4. Add and configure your variables
+1. Open the dashboard you want to edit.
+2. Click **Variables** in the top right to open the variable settings panel.
+3. Click **+ Add variable**.
+4. Define and configure your variables.
 
-Once declared, they are available for use in SQL as `$your_variable_name`
+Once defined, variables can be referenced in SQL queries using the format `$your_variable_name`
 
 ---
 
 ## Layout, Duration, and Refresh
 
-Each dashboard can define:
+Each dashboard has settings for:
 
-* **Layout**: Panels are arranged in a grid. Drag to resize and move.
-* **Duration**: Controls the time range for the data shown (e.g., 1h, 6h, 24h)
-* **Refresh Interval**: Set how often the dashboard should auto-refresh
+* **Layout**: Panels are arranged on a grid. You can drag panels to move and resize them.
+* **Duration**: Controls the time range for the data shown (e.g., 1h, 6h, 24h).
+* **Refresh Interval**: Sets how often the dashboard automatically refreshes its data.
 
-Duration and refresh settings are available in the top-right corner of the dashboard view.
+The duration and refresh settings are in the top-right corner of the dashboard view.
