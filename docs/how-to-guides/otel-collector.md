@@ -244,7 +244,7 @@ spec:
       terminationGracePeriodSeconds: 1
       containers:
       - name: otel-collector
-        image: otel/opentelemetry-collector-contrib:0.119.0
+        image: otel/opentelemetry-collector-contrib:0.128.0
         env:
         - name: LOGFIRE_TOKEN
           valueFrom:
