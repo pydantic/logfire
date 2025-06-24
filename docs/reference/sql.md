@@ -378,10 +378,6 @@ This is an optional version of the OpenTelemetry scope (i.e. the instrumenting l
 
 In the live view, the scope name (see above) is shown as a grey bubble on the right of the record's message, and hovering over it will show the scope version in a tooltip.
 
-#### `otel_scope_attributes`
-
-Arbitrary additional structured data about the OpenTelemetry scope that produced the span/log, although this is very rarely used.
-
 #### `http_response_status_code`
 
 This is set to `attributes->>'http.response.status_code'` if present, falling back to `attributes->>'http.status_code'` otherwise to accommodate older (but still common) versions of the OpenTelemetry semantic conventions. These attributes are set by HTTP server and client instrumentations, e.g. `logfire.instrument_fastapi()` or `logfire.instrument_httpx()`.
@@ -412,3 +408,34 @@ This indicates the type of the record. It can be one of the following values:
 - `pending_span`: This is a special case that should be handled with care. The `records` 'table' is actually a view on the table `records_full` with the filter `kind != 'pending_span'`. When a **Logfire** SDK starts a span, it may send a span with no duration and `logfire.span_type` set to `pending_span`. This allows the span and its children to be displayed in the Live view before it finishes, and ensures there's a record of the span even if it never finishes (e.g. if the process crashes). When the span finishes, the final span is sent with the same `trace_id` and `span_id`, which becomes a record with `kind = 'span'`. The original pending span is still kept in the database, but the Live view deduplicates it and only shows the final span. However this deduplication fails if you use a SQL query in the Live view that matches pending spans and not the corresponding final spans, in which case you will see only the pending span and can be misled into thinking that the span is still in progress. The simplest such query is `kind = 'pending_span'`.
 
 This is not to be confused with the OpenTelemetry span kind, which isn't stored in the database.
+
+#### Other `otel_*` columns
+
+- `otel_status_code` is the [span status](https://opentelemetry.io/docs/concepts/signals/traces/#span-status). Rather use [`level`](#level).
+- `otel_status_message` is the span status description when the status is an error. In Python, this is a combination of the unqualified exception type and the exception message. Prefer using `exception_type` and `exception_message` instead.
+- `otel_events` is a JSON array of span events attached to the span. These are also copied into new rows of `records` with the [`kind`](#kind) set to `span_event`, unless the event name is `exception`.
+- `otel_links` is a JSON array of [span links](https://opentelemetry.io/docs/concepts/signals/traces/#span-links) attached to the span.
+- `otel_scope_attributes` is arbitrary additional structured data about the OpenTelemetry scope that produced the span/log, although this is very rarely used. See [`otel_scope_name`](#otel_scope_name) and [`otel_scope_version`](#otel_scope_version) which are more useful.
+
+#### Other span attributes
+
+The following columns correspond directly to OpenTelemetry span attribute semantic conventions and are produced by some HTTP instrumentations.
+
+| Column Name              | Attribute name            |
+|--------------------------|---------------------------|
+| `http_route`             | `http.route`              |
+| `http_method`            | `http.method`             |
+| `url_path`               | `url.path`                |
+| `url_query`              | `url.query`               |
+
+#### Internal columns
+
+These columns are used internally by **Logfire** and you should ignore them:
+
+- `attributes_json_schema`
+- `attributes_reduced`
+- `created_at`
+- `project_id`
+- `day`
+- `otel_resource_attributes_reduced`
+- `_lf_*`
