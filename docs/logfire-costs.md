@@ -88,7 +88,7 @@ but you can self-archive with the Query / Export API which allows you to run SQL
 and treat Logfire as an analytical database. You're then free to save this data to a storage
 of your choice (S3, GCS etc.)
 
-See **[Export API docs](how-to-guides/export-api)** for Arrow/CSV examples, auth tokens, and tips.
+See **[Query API docs](how-to-guides/query-api.md)** for Arrow/CSV examples, auth tokens, and tips.
 
 Enterprise plans support native extended retention — email `sales@logfire.dev` if that's what you need.
 
