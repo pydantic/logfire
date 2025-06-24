@@ -73,7 +73,7 @@ helm upgrade --install logfire pydantic/logfire -f custom-values.yaml
 
 ## Troubleshooting and support
 
-Encountering issues? Open a detailed issue on [Github]([https://github.com/pydantic/logfire-helm-chart/issues]), including: <br>
+Encountering issues? Open a detailed issue on [Github](https://github.com/pydantic/logfire-helm-chart/issues), including: <br>
 - Chart version <br>
 - Kubernetes version <br>
 - A sanitized copy of your ```values.yaml``` <br>
