@@ -31,7 +31,7 @@ This section shows how to instrument a Flask application running under Gunicorn 
 
 Here is the `Flask` application code (`myapp.py`):
 
-```py
+```py title="myapp.py"
 from flask import Flask
 
 app = Flask(__name__)
@@ -43,7 +43,7 @@ def index():
 
 To instrument this Flask application with Logfire, you can modify the `post_fork` function in your Gunicorn configuration file to import and instrument the Flask app (`gunicorn_config.py`):
 
-```py
+```py title="gunicorn_config.py"
 import logfire
 
 from myapp import app
