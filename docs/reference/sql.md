@@ -387,3 +387,14 @@ This is set to `attributes->>'url.full'` if present, falling back to `attributes
 While the records produced by methods such as `logfire.info()` are typically referred to as 'logs', under the hood they are actually spans with zero duration. OpenTelemetry has a separate concept of 'logs' which are not spans, but which **Logfire** also stores in the `records` table. Logs can have bodies, which are different from attributes and are stored in the `log_body` column.
 
 The body can be a plain string, in which case it will be stored just like that, or it can be a structured object which will be serialized to JSON and can be queried like `attributes` using operators like `->>`.
+
+#### `kind`
+
+This indicates the type of the record. It can be one of the following values:
+
+- `span`: This has a duration and may have children.
+- `log`: This may either come from a **Logfire** SDK method like `logfire.info()` which produces zero duration spans with the attribute `logfire.span_type` set to `log`, or it can come from an actual OpenTelemetry log which is not a span at all and may have a body in the `log_body` column.
+- `span_event`: This is a [span event](https://opentelemetry.io/docs/concepts/signals/traces/#span-events), a sort of mini-log attached directly to a span during tracing. This is different from the newer OpenTelemetry [events](https://opentelemetry.io/docs/specs/otel/logs/data-model/#events) which are a type of log. Span events are copied into new rows of `records` with the `kind` set to `span_event` to make them easier to query, unless the event name is `exception`. All span events also currently remain attached to the original span in the database in the `otel_events` JSON column, but this may change in the future.
+- `pending_span`: This is a special case that should be handled with care. The `records` 'table' is actually a view on the table `records_full` with the filter `kind != 'pending_span'`. When a **Logfire** SDK starts a span, it may send a span with no duration and `logfire.span_type` set to `pending_span`. This allows the span and its children to be displayed in the Live view before it finishes, and ensures there's a record of the span even if it never finishes (e.g. if the process crashes). When the span finishes, the final span is sent with the same `trace_id` and `span_id`, which becomes a record with `kind = 'span'`. The original pending span is still kept in the database, but the Live view deduplicates it and only shows the final span. However this deduplication fails if you use a SQL query in the Live view that matches pending spans and not the corresponding final spans, in which case you will see only the pending span and can be misled into thinking that the span is still in progress. The simplest such query is `kind = 'pending_span'`.
+
+This is not to be confused with the OpenTelemetry span kind, which isn't stored in the database.
