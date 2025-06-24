@@ -96,6 +96,7 @@ nav:
       - Detect Service is Down: how-to-guides/detect-service-is-down.md
       - Suppress Spans and Metrics: how-to-guides/suppress.md
       - OpenTelemetry Collector: how-to-guides/otel-collector.md
+      - Collect Metrics from your Cloud Provider: how-to-guides/cloud-metrics.md
       - Connect to the MCP Server: how-to-guides/mcp-server.md
   - Integrations:
       - Integrations: integrations/index.md
@@ -117,6 +118,7 @@ nav:
           - AIOHTTP: integrations/web-frameworks/aiohttp.md
           - ASGI: integrations/web-frameworks/asgi.md
           - WSGI: integrations/web-frameworks/wsgi.md
+          - Gunicorn: integrations/web-frameworks/gunicorn.md
       - JavaScript:
           - JavaScript: integrations/javascript/index.md
           - Browser: integrations/javascript/browser.md

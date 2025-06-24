@@ -30,7 +30,15 @@ logfire.instrument_django()
 **OpenTelemetry Django Instrumentation** package,
 which you can find more information about [here][opentelemetry-django].
 
-## Database
+!!! note
+    The above lines must be the last thing to execute in your settings. On a regular Django project, this means
+    at the end of `settings.py`. If you use an exotic configuration setup with several settings files divided into
+    `local/prod/dev`, make sure you put those lines where they will be imported and executed last. Otherwise, the
+    instrumentation might not work as expected.
+
+## Instrumenting Django ORM Queries
+
+To instrument Django ORM queries, you need to install the associated DB instrumentation tool, then add the corresponding instrumentation command to your ‍`settings.py` file.
 
 By default, the **Django** configuration [uses SQLite as the database engine].
 To instrument it, you need to call [`logfire.instrument_sqlite3()`][logfire.Logfire.instrument_sqlite3].
