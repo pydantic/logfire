@@ -107,36 +107,6 @@ To configure a chart:
 
 ---
 
-## Writing Queries
-
-Logfire uses SQL to define dashboard queries.
-
-If you're unsure which tables or columns are available, refer to the [records schema](explore.md#records-schema) and [metrics schema](explore.md#metrics-schema).
-
-### Variable Usage
-
-You can reference dashboard variables in SQL queries using the `$variable` syntax:
-
-```sql
-SELECT * FROM records WHERE service = $service_name
-```
-
-Variables can only be used in SQL queries. They cannot be used in chart titles or other non-query fields.
-
-### Resolution Variable
-
-All dashboards have access to a special `$resolution` variable that can be used in your queries. This value is dynamically selected based on the dashboard's time duration to ensure optimal performance and data density. You can use it for time bucketing:
-
-```sql
-SELECT
-  time_bucket($resolution, start_timestamp) AS x,
-  count(1) as count
-FROM records
-GROUP BY x;
-```
-
----
-
 ## Variables
 
 You can define variables to make dashboards dynamic.
@@ -154,6 +124,36 @@ To add variables to a custom dashboard:
 4. Define and configure your variables.
 
 Once defined, variables can be referenced in SQL queries using the format `$your_variable_name`
+
+---
+
+## Writing Queries
+
+Logfire uses SQL to define dashboard queries.
+
+If you're unsure which tables or columns are available, refer to the [records schema](explore.md#records-schema) and [metrics schema](explore.md#metrics-schema).
+
+### Variable Usage
+
+You can reference dashboard variables in SQL queries using the `$variable` syntax:
+
+```sql
+SELECT * FROM records WHERE service_name = $service_name
+```
+
+Variables can only be used in SQL queries. They cannot be used in chart titles or other non-query fields.
+
+### Resolution Variable
+
+All dashboards have access to a special `$resolution` variable that can be used in your queries. This value is dynamically selected based on the dashboard's time duration to ensure optimal performance and data density. You can use it for time bucketing:
+
+```sql
+SELECT
+  time_bucket($resolution, start_timestamp) AS x,
+  count(1) as count
+FROM records
+GROUP BY x;
+```
 
 ---
 
