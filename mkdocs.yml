@@ -72,6 +72,7 @@ nav:
       - Why Logfire?: why.md
       - Concepts: concepts.md
       - Get Help: help.md
+      - Understanding Charges: logfire-costs.md
       - Onboarding Checklist:
           - Onboarding Checklist: guides/onboarding-checklist/index.md
           - Integrate Logfire: guides/onboarding-checklist/integrate.md
