@@ -1,14 +1,15 @@
 # Self-Hosted Deployment with Helm
 
-This reference provides an overview of the official [Logfire Helm chart](https://github.com/pydantic/logfire-helm-chart). Enabling easy deployment and management of Logfire on Kubernetes.
+This reference provides an overview of the official [Logfire Helm chart](https://github.com/pydantic/logfire-helm-chart). Enabling easy deployment and management of Logfire on Kubernetes.<br>
+This chart is included in our Enterprise plan, [Contact us](https://pydantic.dev/contact) for details
 
 ### Key Benefits
 
 * **Simplified Deployment:** Install and manage the entire application stack with a single command.
-* **Flexible Configuration:** Tailor resource allocation, ingress, and authentication to your needs.
+* **Flexible Configuration:** Easily adjust resource allocation, ingress settings, and authentication to your needs.
 * **Production-Ready Defaults:** Built-in settings for high availability, resource limits, and health checks.
 * **Repeatable & Versioned:** Manage your application deployment as code, ensuring consistency across environments.
-
+* **Compliance Friendly:** Easily aligns with internal security standards and regulatory requirements by leveraging your organization's own infrastructure.
 ---
 
 ## Prerequisites
@@ -17,7 +18,7 @@ Before deploying, you will need the following:
 
 * **Kubernetes Cluster:** A running Kuberentes cluster
 * **External Resources:** A production-ready PostgreSQL database and object storage service (e.g., AWS S3, Google Cloud Storage, Azure Blob Storage).
-* **Image Pull Secret:** Obtain credentials for accessing private container images by contacting **sales@pydantic.dev**.
+* **Image Pull Secret:** Obtain credentials for accessing our private container images by contacting **sales@pydantic.dev**.
 
 ---
 
@@ -72,10 +73,10 @@ helm upgrade --install logfire pydantic/logfire -f custom-values.yaml
 
 ## Troubleshooting and support
 
-Encountering issues? Open a detailed issue on [Github]([https://github.com/pydantic/logfire-helm-chart/issues]), including:
-- Chart version
-- Kubernetes version
-- A sanitized copy of your ```values.yaml```
+Encountering issues? Open a detailed issue on [Github]([https://github.com/pydantic/logfire-helm-chart/issues]), including: <br>
+- Chart version <br>
+- Kubernetes version <br>
+- A sanitized copy of your ```values.yaml``` <br>
 - Relevant logs or error messages
 
 For commercial or enterprise support, contact **sales@pydantic.dev**.
