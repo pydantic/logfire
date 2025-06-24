@@ -105,8 +105,8 @@ logfire.info("Hello, Logfire!")
 ```
 
 !!! note
-You generally _don't_ want to call `logfire_api.configure()`, it's up to your users to call
-`logfire.configure()` if they want to use the integration.
+    You generally _don't_ want to call `logfire_api.configure()`, it's up to your users to call
+    `logfire.configure()` if they want to use the integration.
 
 All the **Logfire** API methods are available in `logfire-api`.
 
