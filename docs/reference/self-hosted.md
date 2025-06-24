@@ -1,7 +1,8 @@
 # Self-Hosted Deployment with Helm
 
-This reference provides an overview of the official [Logfire Helm chart](https://github.com/pydantic/logfire-helm-chart). Enabling easy deployment and management of Logfire on Kubernetes.<br>
-This chart is included in our Enterprise plan, [Contact us](https://pydantic.dev/contact) for details
+This reference provides an overview of the official [Logfire Helm chart](https://github.com/pydantic/logfire-helm-chart). Enabling easy deployment and management of Logfire on Kubernetes.
+
+This chart is included in our [Enterprise plan](https://logfire.pydantic.dev/docs/enterprise/), contact us at [sales@pydantic.dev](mailto:sales@pydantic.dev) for details.
 
 ### Key Benefits
 
@@ -10,6 +11,7 @@ This chart is included in our Enterprise plan, [Contact us](https://pydantic.dev
 * **Production-Ready Defaults:** Built-in settings for high availability, resource limits, and health checks.
 * **Repeatable & Versioned:** Manage your application deployment as code, ensuring consistency across environments.
 * **Compliance Friendly:** Easily aligns with internal security standards and regulatory requirements by leveraging your organization's own infrastructure.
+
 ---
 
 ## Prerequisites
@@ -40,15 +42,19 @@ The chart uses Dex as its identity service. You must configure at least one conn
 
 ### 4. External Services
 
-Supply connection details for your PostgreSQL database and object storage.<br>
+Supply connection details for your PostgreSQL database and object storage.
+
+For production environments, we recommend and can assist with configuring a robust, external PostgreSQL database tailored to your specific data volume requirements.
+
 **Note**: The chart doesn't deploy production-grade databases or storage by default.
 
 ### Development-Only Options
-For quick testing or development, the chart can deploy internal instances of Postgres and MinIO. These are enabled with the ```dev.deployPostgres``` and ```dev.deployMinio flags```.<br><br>
+For quick testing or development, the chart can deploy internal instances of Postgres and MinIO. These are enabled with the ```dev.deployPostgres``` and ```dev.deployMinio flags```.
+
 :warning: **Warning:** These development services are not suitable for production use. They lack persistence, backup, and security configurations.
 
-
 ## Installation
+
 For detailed, step-by-step instructions, default values, and configuration examples, please refer to the primary documentation in our GitHub repository [pydantic/logfire-helm-chart](https://github.com/pydantic/logfire-helm-chart)
 
 The basic steps are the following:
@@ -63,10 +69,12 @@ helm repo add Pydantic https://charts.pydantic.dev/
 helm repo update
 ```
 
-### 2. Create your custom-values.yaml
+### 2. Create your `custom-values.yaml`
+
 Based on the configuration requirements outlined above, create a custom values file.
 
 ### 3. Install the chart
+
 ```bash
 helm upgrade --install logfire pydantic/logfire -f custom-values.yaml
 ```
@@ -80,4 +88,4 @@ Encountering issues? Open a detailed issue on [Github](https://github.com/pydant
 * A sanitized copy of your ```values.yaml```
 * Relevant logs or error messages
 
-For commercial or enterprise support, contact **sales@pydantic.dev**.
+For commercial or enterprise support, contact [our sales team](mailto:sales@pydantic.dev).
