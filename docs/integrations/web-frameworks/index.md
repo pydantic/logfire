@@ -14,6 +14,8 @@ If you're using one of the following libraries, check out the integration docs:
 
 Otherwise, check if your server uses [WSGI](../web-frameworks/wsgi.md) or [ASGI](../web-frameworks/asgi.md) and check the corresponding integration.
 
+You can also use [Gunicorn](../web-frameworks/gunicorn.md) with Logfire, which is a Python WSGI HTTP server for UNIX.
+
 ## Capturing HTTP server request and response headers
 
 Some methods (e.g. `logfire.instrument_fastapi()`) allow you to pass `capture_headers=True` to record all request and response headers in the spans,
