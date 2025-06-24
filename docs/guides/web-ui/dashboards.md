@@ -15,7 +15,36 @@ The easiest way to get started with dashboards is to enable a standard one.
 
 ---
 
-## Enabling a Standard Dashboard
+## Standard Dashboards
+
+Pre-built dashboards managed by the **Logfire** team.
+
+### Web Server Metrics
+
+This dashboard gives an overview of how long each of your web server endpoints takes to respond to requests and how often they succeed and fail. It relies on the standard OpenTelemetry http.server.duration metric which is collected by many instrumentation libraries, including those for FastAPI, Flask, Django, ASGI, and WSGI. Each chart is both a timeline and a breakdown by endpoint. Hover over each chart to see the most impactful endpoint at the top of the tooltip. The charts show:
+
+- **Total duration:** Endpoints which need to either be optimized or called less often.
+- **Average duration:** Endpoints which are slow on average and need to be optimized.
+- **2xx request count:** Number of successful requests (HTTP status code between 200 and 299) per endpoint.
+- **5xx request count:** Number of server errors (HTTP status code of 500 or greater) per endpoint.
+- **4xx request count:** Number of bad requests (HTTP status code between 400 and 499) per endpoint.
+
+### Basic System Metrics
+
+This dashboard shows essential system resource utilization metrics. It comes in two variants:
+
+- **Basic System Metrics (Logfire):** Uses the data exported by [`logfire.instrument_system_metrics()`](../../integrations/system-metrics.md).
+- **Basic System Metrics (OpenTelemetry):** Uses data exported by any OpenTelemetry-based instrumentation following the standard semantic conventions.
+
+Both variants include the following metrics:
+
+* **Number of Processes:** Total number of running processes on the system.
+* **System CPU usage %:** Percentage of total available processing power utilized by the whole system, i.e. the average across all CPU cores.
+* **Process CPU usage %:** CPU used by a single process, where e.g. using 2 CPU cores to full capacity would result in a value of 200%.
+* **Memory Usage %:** Percentage of memory currently in use by the system.
+* **Swap Usage %:** Percentage of swap space currently in use by the system.
+
+### Enabling a Standard Dashboard
 
 To enable a standard dashboard:
 
