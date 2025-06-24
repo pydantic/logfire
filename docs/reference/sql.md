@@ -341,7 +341,7 @@ special support for them:
 | `telemetry_sdk_language` | `telemetry.sdk.language` |
 | `telemetry_sdk_version`  | `telemetry.sdk.version`  |
 
-### Miscellaneous useful columns
+### Other columns
 
 #### `otel_scope_name`
 
@@ -364,9 +364,23 @@ scoped_logfire.info('hello')  # will have the scope `logfire.my_scope`
 logfire.info('world')  # will have the scope `logfire`
 ```
 
-In the Live view, the scope is shown as a grey bubble on the right of the record's message. In the details panel, clicking the `otel_scope_name` bubble offers options to copy or filter by that scope name.
+In the Live view, part of the scope is shown as a grey bubble on the right of the record's message. Hovering over it will show the full scope name in a tooltip, along with the `otel_scope_version` if present:
+
+![Scope name in the Live view](../images/sql-reference/scope-name-version-live.png)
+
+In the details panel of a span in the Live view, clicking the `otel_scope_name` bubble offers options to copy or filter by that scope name.
 
 In other OpenTelemetry SDKs, the scope name is set when obtaining a tracer (from a tracer provider).
+
+#### `otel_scope_version`
+
+This is an optional version of the OpenTelemetry scope (i.e. the instrumenting library) that produced the span/log.
+
+In the live view, the scope name (see above) is shown as a grey bubble on the right of the record's message, and hovering over it will show the scope version in a tooltip.
+
+#### `otel_scope_attributes`
+
+Arbitrary additional structured data about the OpenTelemetry scope that produced the span/log, although this is very rarely used.
 
 #### `http_response_status_code`
 
