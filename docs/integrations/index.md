@@ -1,7 +1,7 @@
 # Integrations
 
 **Pydantic Logfire** supports first-class integration with many popular Python packages using a single `logfire.instrument_<package>()`
-function call. Each of these should be called exactly once after `logfire.configure()`
+function call. Each of these should be called exactly once after [`logfire.configure()`][logfire.configure].
 
 For example, to instrument FastAPI and HTTPX, you would do:
 
@@ -20,6 +20,7 @@ If a package you are using is not listed in this documentation, please let us kn
 ## Documented Integrations
 
 **Logfire** has documented integrations with many technologies, including:
+
 - *LLM Clients and AI Frameworks*: PydanticAI, OpenAI, Anthropic, LangChain, LlamaIndex, Mirascope, LiteLLM, Magentic
 - *Web Frameworks*: FastAPI, Django, Flask, Starlette, AIOHTTP, ASGI, WSGI
 - *Database Clients*: Psycopg, SQLAlchemy, Asyncpg, PyMongo, MySQL, SQLite3, Redis, BigQuery
