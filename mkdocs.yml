@@ -99,7 +99,7 @@ nav:
       - OpenTelemetry Collector: how-to-guides/otel-collector.md
       - Collect Metrics from your Cloud Provider: how-to-guides/cloud-metrics.md
       - Connect to the MCP Server: how-to-guides/mcp-server.md
-      - Setup Slack Alerting: how-to-guides/setup-slack-alerting.md
+      - Setup Slack Alerts: how-to-guides/setup-slack-alerts.md
   - Integrations:
       - Integrations: integrations/index.md
       - LLMs:

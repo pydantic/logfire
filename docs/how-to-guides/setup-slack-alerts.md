@@ -1,36 +1,36 @@
 # Setup Slack Alerting
 
-When things don't go so well, it helps to receive notifications from **Logfire**, so that you can recover quickly.
-
-To help with being notified, **Logfire** allows you to send an alert via **Slack** based upon the configured alert criteria.
+*Logfire** allows you to send alerts via **Slack** based upon the configured alert criteria.
 
 ## Creating a Slack Incoming Webhook
 
 **Logfire** uses **Slack's** Incoming Webhooks feature to send alerts.
 
-The [Slack Documentation](https://api.slack.com/messaging/webhooks) goes through a lot of detail about how to setup an incoming webhook.
+The [Incoming Webhooks Slack docs](https://api.slack.com/messaging/webhooks) has all the details on setting up and using incoming webhooks.
 
 For brevity, here's a list of steps you will need to perform:
 
-* Within your Slack Workspace, create or identify a channel you want to send alerts to.
-* Create a new Slack app (or use an existing one) by navigating to [https://api.slack.com/apps/new](https://api.slack.com/apps/new).  Give this a meaningful name such as "Logfire Alerts" or similar so you can identify it later.
-* Within the [Apps Management Dashboard](https://api.slack.com/apps), Underneath the **Features** heading on the side bar, select **Incoming Webhooks**
-* Click on the **Add New Webhook** button.  This will guide you to a page where you select the channel you want to send alerts to.
-* Click the **Allow** button.  You will be redirected back to the **Incoming Webhooks** page, and in the list, you will see your new Webhook URL.  This will be a URL that looks similar to something like this:
+1. In your Slack Workspace, create or identify a channel where you want to send Logfire alerts.
+2. Create a new Slack app (or use an existing one) by navigating to [https://api.slack.com/apps/new](https://api.slack.com/apps/new).  Give this a meaningful name such as "Logfire Alerts" or similar so you can identify it later.
+3. In the [Apps Management Dashboard](https://api.slack.com/apps), Underneath the **Features** heading on the side bar, select **Incoming Webhooks**
+4. Click on the **Add New Webhook** button.  This will guide you to a page where you select the channel you want to send alerts to.
+5. Click the **Allow** button.  You will be redirected back to the **Incoming Webhooks** page, and in the list, you will see your new Webhook URL.  This will be a URL that looks similar to something like this:
   ```
   https://hooks.slack.com/services/...
   ```
-* Copy that somewhere, and save it for the next step
+6. Copy that somewhere, and save it for the next step
 
 
 ## Creating an Alert
 
 There are a few ways to create an alert.  You can:
 
-* Follow our [Detect Service is Down](./detect-service-is-down.md) How To Guide
+* Follow our [Detect Service is Down](./detect-service-is-down.md) guide
 * Have a look at the [alerts documentation](../guides/web-ui/alerts.md).
 
-But, how about we include yet another use example: we'll create an alert that will let us know if any HTTP request takes longer than a second to execute.
+### Define alert
+
+We'll create an alert that will let us know if any HTTP request takes longer than a second to execute.
 
 * Login to Logfire and navigate to your project
 * Click on **Alerts** in the top navigation bar
@@ -59,9 +59,9 @@ But, how about we include yet another use example: we'll create an alert that wi
     * **Notify me when**: the query has any results
 
 
-### Sending to a Slack Channel
+### Send Alert to a Slack Channel
 
-Our alert is almost done, let's link it to a slack channel.
+Our alert is almost done, let's send it to a slack channel.
 
 For this, you will need the [Webhook URL](#creating-a-slack-incoming-webhook) you created & copied from the  Slack [Apps Management Dashboard](https://api.slack.com/apps).
 
