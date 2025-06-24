@@ -210,7 +210,10 @@ data:
     exporters:
       debug:
       otlphttp:
-        endpoint: "https://logfire-api.pydantic.dev"
+        # Configure the US / EU endpoint for Logfire.
+        # - US: https://logfire-us.pydantic.dev
+        # - EU: https://logfire-eu.pydantic.dev
+        endpoint: "https://logfire-eu.pydantic.dev"
         headers:
           Authorization: "Bearer ${env:LOGFIRE_TOKEN}"
     service:
@@ -241,7 +244,7 @@ spec:
       terminationGracePeriodSeconds: 1
       containers:
       - name: otel-collector
-        image: otel/opentelemetry-collector-contrib:0.119.0
+        image: otel/opentelemetry-collector-contrib:0.128.0
         env:
         - name: LOGFIRE_TOKEN
           valueFrom:
@@ -281,3 +284,199 @@ spec:
 Apply this configuration via `kubectl apply -f otel-collector.yaml`.
 
 You should now see logs from the `plain-app` and `json-app` in your Logfire dashboard!
+
+## Sink data into AWS S3
+
+If you want to keep your data stored long-term, the OpenTelemetry Collector offers a great way to send it directly to AWS S3.
+
+Before you can do this, you'll need to set up two things:
+
+1. An S3 bucket.
+2. An IAM user who has permission to write to that S3 bucket.
+
+You can then configure the OpenTelemetry collector to export data to S3 using the `awss3` exporter.
+
+For example, you'd add something like this to the exporters section of your OTel collector's configuration:
+
+```yaml
+awss3:
+  bucket: <your-bucket-name>
+  region: <your-bucket-region>
+```
+
+You will also need to set up the AWS credentials for the collector to use.
+To do this, you can use environment variables to provide the AWS credentials to the collector.
+
+For environment variables, you can set the following variables in your collector deployment:
+
+```yaml
+env:
+  - name: AWS_ACCESS_KEY_ID
+    value: <your-access-key-id>
+  - name: AWS_SECRET_ACCESS_KEY
+    value: <your-secret-access-key>
+```
+
+You can find more information on the `awss3` exporter in the [AWS S3 Exporter for OpenTelemetry Collector documentation](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/awss3exporter).
+
+## Add Kubernetes attributes to traces, logs and metrics
+
+This example shows how to enrich your existing applications traces, logs and metrics with Kubernetes metadata, such as the deployment, node and namespace name.
+
+It is supported by OpenTelemetry Collector in either daemonset or gateway deployment mode with no configuration changes, you can refer to the [OTel collector documentation](https://opentelemetry.io/docs/platforms/kubernetes/collector/components) for more information about the deployment patterns.
+
+First, you need to setup RBAC for the OpenTelemetry Collector to access the metadata you'll need, for example:
+
+```yaml title="rbac.yaml"
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: otel-collector
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: otel-collector
+rules:
+  - apiGroups:
+      - ''
+    resources:
+      - 'pods'
+      - 'namespaces'
+    verbs:
+      - 'get'
+      - 'watch'
+      - 'list'
+  - apiGroups:
+      - 'apps'
+    resources:
+      - 'replicasets'
+      - 'deployments'
+      - 'statefulsets'
+      - 'daemonsets'
+    verbs:
+      - 'get'
+      - 'list'
+      - 'watch'
+  - apiGroups:
+      - 'extensions'
+    resources:
+      - 'replicasets'
+    verbs:
+      - 'get'
+      - 'list'
+      - 'watch'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: otel-collector
+subjects:
+  - kind: ServiceAccount
+    name: otel-collector
+    namespace: otel-collector
+roleRef:
+  kind: ClusterRole
+  name: otel-collector
+  apiGroup: rbac.authorization.k8s.io
+```
+
+If you want to limit the access to a single namespace you can use `Role` and `RoleBinding` with minimal changes documented below.
+
+This is useful if you're running multiple instances of the Collector and you want to limit their access scope.
+
+Now, you need to enable the `k8sattributes` processor in the collector config:
+
+```yaml title="config.yaml"
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+data:
+  config.yaml: |-
+    receivers:
+      # an otlp receiver, you can configure your application to send data to it
+      # for enrichment and processing before exporting to Logfire.
+      otlp:
+        protocols:
+          grpc:
+            endpoint: "0.0.0.0:4317"
+          http:
+            endpoint: "0.0.0.0:4318"
+    processors:
+      # by default the connection IP is used to match data with k8s object
+      # when using, for example, a daemonset to send logs to a gateway
+      # you can use `pod_association` to configure which fields to use for matching.
+      pod_association:
+        - sources:
+            - from: resource_attribute
+              name: k8s.pod.uid
+      # If you're using a namespaced RBAC, you'll need to set this filter
+      # filter:
+      #   namespace: default
+      extract:
+        metadata:
+          # the cluster's UID won't be set with the namespaced configuration
+          - k8s.cluster.uid
+          - k8s.pod.name
+          - k8s.pod.uid
+          - k8s.deployment.name
+          - k8s.namespace.name
+          - k8s.node.name
+          - k8s.pod.start_time
+          - k8s.replicaset.name
+          - k8s.replicaset.uid
+          - k8s.daemonset.name
+          - k8s.daemonset.uid
+          - k8s.job.name
+          - k8s.job.uid
+          - k8s.cronjob.name
+          - k8s.statefulset.name
+          - k8s.statefulset.uid
+          - container.image.name
+          - container.image.tag
+          - container.id
+          - k8s.container.name
+          - container.image.name
+          - container.image.tag
+          - container.id
+    exporters:
+      debug:
+      otlphttp:
+        # Configure the US / EU endpoint for Logfire.
+        # - US: https://logfire-us.pydantic.dev
+        # - EU: https://logfire-eu.pydantic.dev
+        endpoint: "https://logfire-eu.pydantic.dev"
+        headers:
+          Authorization: "Bearer ${env:LOGFIRE_TOKEN}"
+    service:
+      # configure logs, metrics and traces with k8s attributes enrichment
+      # before sending them to Logfire.
+      pipelines:
+        logs:
+          receivers: [otlp]
+          processors: [k8sattributes]
+          exporters: [debug, otlphttp]
+        metrics:
+          receivers: [otlp]
+          processors: [k8sattributes]
+          exporters: [debug, otlphttp]
+        traces:
+          receivers: [otlp]
+          processors: [k8sattributes]
+          exporters: [debug, otlphttp]
+```
+
+After applying this configuration, you should be able to see, query and filter you traces, metrics and logs in Logfire with Kubernetes attributes!
+
+For example:
+
+```sql
+SELECT exception_message
+FROM records
+WHERE is_exception = true
+AND otel_resource_attributes->>'k8s.namespace.name' = 'default';
+```
+
+You can find more information about the `k8sattributes` processor in the [Kubernetes Attributes Processor for OpenTelemetry Collector documentation](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/k8sattributesprocessor).
