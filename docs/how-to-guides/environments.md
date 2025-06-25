@@ -12,7 +12,7 @@ logfire.configure(environment='local')  # (1)!
 
 1. Usually you would retrieve the environment information from an environment variable.
 
-Under the hood, this sets the OTel [`deployment.environment.name`](https://opentelemetry.io/docs/specs/semconv/resource/deployment-environment/).
+Under the hood, this sets the OpenTelemetry resource attribute [`deployment.environment.name`](https://opentelemetry.io/docs/specs/semconv/resource/deployment-environment/).
 Note that you can also set this via the `LOGFIRE_ENVIRONMENT` environment variable.
 
 #### Setting environments in other languages
