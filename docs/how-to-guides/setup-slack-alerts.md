@@ -1,6 +1,6 @@
-# Setup Slack Alerting
+# Setup Slack Alerts
 
-*Logfire** allows you to send alerts via **Slack** based upon the configured alert criteria.
+**Logfire** allows you to send alerts via **Slack** based upon the configured alert criteria.
 
 ## Creating a Slack Incoming Webhook
 
@@ -53,14 +53,14 @@ We'll create an alert that will let us know if any HTTP request takes longer tha
   ```
 * Click **Preview query results** and make sure you get some results back.  If your service is lightning fast, firstly congratulations! Secondly try adjust the duration cutoff to something smaller, like `duration > 0.1` (i.e, any requests taking longer than 100ms).
 
-    ![](../../images/guide/browser-alerts-create-alert.png)
+    ![](../images/guide/browser-alerts-create-alert.png)
 
 * You can adjust when alerts are sent based upon the alert parameters.  With this style of alert, we just want to know if anything within the last 5 minutes has been slow.  So we can use the following options:
     * **Execute the query**: every 5 minutes
     * **Include rows from**: the last 5 minutes
     * **Notify me when**: the query has any results
 
-    ![](../../images/guide/browser-alerts-parameters.png)
+    ![](../images/guide/browser-alerts-parameters.png)
 
 ### Send Alert to a Slack Channel
 
@@ -78,7 +78,7 @@ Let's set up a channel, then test that alerts can be sent with the URL:
 * Click **Create Channel** to create the channel and close the dialog
 * Click the checkbox next to your new channel to select it
 
-    ![](../../images/guide/browser-alerts-create-channel.png)
+    ![](../images/guide/browser-alerts-create-channel.png)
 
 Once all done, select **Create alert** to save all your changes.
 
