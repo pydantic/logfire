@@ -20,19 +20,20 @@ Below we include a couple of examples for using the OpenTelemetry collector, ass
 This documentation does not attempt to be a complete guide to the OpenTelemetry collector, but rather a gentle introduction along with some key examples.
 For more information on the collector please see the [official documentation](https://opentelemetry.io/docs/collector/).
 
-## Sink data into AWS S3
+## Back up data in AWS S3
 
-If you want to keep your data stored long-term, the OpenTelemetry Collector offers a great way to send it directly to AWS S3.
-You need to configure Logfire SDK to send data to the OpenTelemetry Collector, which will then forward the data to AWS S3.
+Data older than **30 days** is pruned from our backend (except for customers on our [enterprise plans](enterprise.md)).
+If you want to keep your data stored long-term, you can configure the **Logfire** SDK to also send data to the
+OpenTelemetry Collector, which will then forward the data to AWS S3.
 
-Here is a simple example of how to send data into Logfire dashboard and AWS S3.
+!!! tip
+    This uses the [OpenTelemetry Collector AWS S3 Exporter](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/awss3exporter),
+    see their docs for more details.
 
-First, you'll need to set up two things in AWS:
+    There are many other exporters available, such as for [Azure Blob Storage](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/azureblobexporter).
 
-1. An S3 bucket.
-2. An IAM user who has permission to write to that S3 bucket.
-
-Here is the example OpenTelemetry Collector configuration that sends data to AWS S3:
+Here's how you can try this out right now. First, copy the below OpenTelemetry Collector configuration
+into a file called `config.yaml` and fill in the `region` and `s3_bucket` fields.
 
 ```yaml title="config.yaml"
 receivers:
@@ -43,6 +44,7 @@ receivers:
 exporters:
   awss3:
     s3uploader:
+      # !!! TODO replace with your actual region and bucket name
       region: eu-central-1
       s3_bucket: test-otel-bucket
 processors:
@@ -65,7 +67,7 @@ service:
       exporters: [awss3]
 ```
 
-Run the OpenTelemetry Collector:
+Next, run the OpenTelemetry Collector locally with the above configuration using Docker:
 
 ```shell
 docker run \
@@ -76,25 +78,24 @@ docker run \
     otel/opentelemetry-collector-contrib
 ```
 
-Then you need to configure Logfire to send data to Logfire backend and OpenTelemetry Collector:
+Now send some data to the OpenTelemetry Collector using the Logfire SDK.
+See the [Alternative Backends guide](./alternative-backends.md) for more details.
 
 ```python title="script.py"
 import os
 
 import logfire
 
+# This will make the Logfire SDK send data to the OpenTelemetry Collector
 os.environ['OTEL_EXPORTER_OTLP_ENDPOINT'] = 'http://localhost:4318'
 
+# Keep the default send_to_logfire=True, so it will also send data to Logfire.
 logfire.configure()
 
 logfire.info('Hello, {name}!', name='world')
 ```
 
-After running the script, you should see the data in the **Logfire** UI and the data will also be stored in your S3 bucket.
-
-Take a look at [Use Alternative Backends](./alternative-backends.md) for more information on how to configure the Logfire SDK to send data to the OpenTelemetry Collector.
-
-You can find more information on the `awss3` exporter in the [AWS S3 Exporter for OpenTelemetry Collector documentation](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/awss3exporter).
+After running the script, you should see the data in both the **Logfire** UI and your S3 bucket.
 
 ## Collecting system logs
 
