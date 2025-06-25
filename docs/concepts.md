@@ -83,10 +83,22 @@ import logfire
 
 logfire.configure()
 
-start = time.perf_counter()
-# … handle request …
-latency = time.perf_counter() - start
+# Create the histogram metric once at import time
+request_duration = logfire.metric_histogram(
+    'request_duration',
+    unit='ms',  # milliseconds
+    description='Duration of HTTP requests',
+)
 
-# Emit a histogram metric with useful tags for slicing and alerting
-logfire.metric('http.request.duration', latency, unit='seconds', tags={'route': '/api/items', 'method': 'GET'})
+
+def handle_request():
+    start = time.perf_counter()
+    # … handle the request …
+    duration_ms = (time.perf_counter() - start) * 1000
+    # Record the observed latency
+    request_duration.record(duration_ms)
 ```
+
+Each call to request_duration.record() adds a sample to the histogram. On the backend you can visualise
+p50/p95 latency, set SLOs, and trigger alerts whenever performance degrades. For more metrics examples
+see the [adding metrics guide](guides/onboarding-checklist/add-metrics.md).
