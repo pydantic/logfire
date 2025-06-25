@@ -1,14 +1,14 @@
-# Advanced scrubbing with the OTEL Collector
+# Advanced scrubbing with the OTel Collector
 
 The Logfire SDK already comes with powerful, [built-in scrubbing](https://logfire.pydantic.dev/docs/how-to-guides/scrubbing/) to automatically protect sensitive data within your application.
 For most use cases, adding `extra_patterns` or using a `callback` is all you need.
 
-However, as your system grows, you may need more powerful, centralized, and conditional scrubbing logic. This is where the [OpenTelemetry (OTEL) Collector](https://logfire.pydantic.dev/docs/how-to-guides/otel-collector/) shines.
-By using the collector as a central hub, you can apply complex data sanitization rules before data reaches our backend, without adding overhead to your applications.
+However, as your system grows, you may need more powerful, centralized, and conditional scrubbing logic. This is where the [OpenTelemetry (OTel) Collector](https://logfire.pydantic.dev/docs/how-to-guides/otel-collector/otel-collector-overview/) shines.
+By using the collector as a central hub, you can apply complex data transformation rules before data reaches our backend, without adding overhead to your applications.
 
-This guide will walk you through advanced scrubbing techniques using OTEL Collector processors.
+This guide will walk you through advanced scrubbing techniques using OTel Collector processors.
 
-Please take a look at the [OTEL Collector overview](https://logfire.pydantic.dev/docs/how-to-guides/otel-collector/) first if you aren't already using it.
+Please take a look at the [OTel Collector overview](https://logfire.pydantic.dev/docs/how-to-guides/otel-collector/) first if you aren't already using it.
 
 ### Why Use the Collector for Scrubbing?
 
@@ -19,29 +19,13 @@ Please take a look at the [OTEL Collector overview](https://logfire.pydantic.dev
 
 ---
 
-## Core Concepts: Collector Processors
-
-In the OTEL Collector, all data manipulation happens in processors. A processor intercepts data after it's received and before it's exported. For scrubbing, we'll focus on three key processors:
-
-[* ***Attributes Processor:***](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/processor/attributesprocessor/README.md) The simplest tool. Perfect for deleting or changing attributes when you know their exact names (keys).
-
-[* ***Redaction Processor:***](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/processor/redactionprocessor/README.md) Ideal for finding and masking data based on patterns in attribute values. It can use a blocklist of regex patterns to find and hide data like emails or credit card numbers.
-
-[* ***Transform Processor:***](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/processor/transformprocessor/README.md) The most powerful tool. It uses the OpenTelemetry Transformation Language (OTTL) to let you write complex if-then logic for scrubbing.
-
-**Note:** This documentation does not attempt to be a complete guide to the OpenTelemetry collector, but rather a gentle introduction along with some key examples. For more information on the collector please see the [official documentation](https://opentelemetry.io/docs/collector/).
-
-Let's explore some scenarios.
-
----
-
 ### Scenario 1: Replicating SDK Behavior (The attributes Processor)
 
-The SDK is great at removing data based on a list of patterns that match attribute keys (like password or session). You can replicate and extend this in the collector.
+The SDK is great at scrubbing data based on a list of patterns that match attribute keys (like password or session). You can replicate and extend this in the collector.
 
 This is useful if you want to enforce a baseline set of scrubbed keys for all services sending data to the collector.
 
-**Use Case:** You want to ensure any attribute with the key session_id, user_token, or password somewhere in the key is completely removed from all telemetry.
+**Use Case:** You want to ensure any attribute with the key session-id, user-token, or password somewhere in the key is completely removed from all telemetry.
 
 **Solution:** Use the [attributes processor](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/processor/attributesprocessor/README.md) with the delete action.
 
@@ -52,7 +36,6 @@ processors:
   attributes/remove_sensitive_keys:
     actions:
       # Use 'delete' to completely remove the key-value pair.
-      # This is similar to the SDK's default behavior.
       - key: session_id
         action: delete
       - key: user_token
@@ -67,6 +50,7 @@ processors:
 ### Scenario 2:  Scrubbing Sensitive Values with Regex (The redaction Processor)
 
 Sometimes, sensitive data isn't in a predictable key; it's in the value itself. For example, a user might include their email address in a log message or a trace attribute.
+The SDK scrubbing already supports this too, but you might want to mask or hash only the sensitive string instead of the full value.
 
 **Use Case:** You want to find and mask any email address, no matter where it appears in your telemetry data.
 
@@ -82,6 +66,8 @@ processors:
     # BlockedValues is a list of regular expressions for blocking span attribute values. Values that match are masked.
     blocked_values:
      - '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
+    # You can also enable a hash function. By default, no hash function is used and masking with a fixed string is performed.
+    # hash_function: md5
 ```
 
 * **Before:** `user.comment` = "My email is `test@example.com`, please contact me."
@@ -170,6 +156,6 @@ service:
       exporters: [otlphttp, debug]
 ```
 
-With this, you have an idea of what you can accomplish setting up data scrubbing in your OTEL Collector config.
+With this, you have an idea of what you can accomplish setting up data scrubbing in your OTel Collector config.
 
-For a full list of OTEL Collector available processors, with examples and their full specs, take a look at the [opentelemetry-collector-contrib](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor) repository.
+For a full list of OTel Collector available processors, with examples and their full specs, take a look at the [opentelemetry-collector-contrib](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor) repository.
