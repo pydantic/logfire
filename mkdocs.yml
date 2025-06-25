@@ -162,6 +162,7 @@ nav:
       - Configuration: reference/configuration.md
       - Data Regions: reference/data-regions.md
       - Organization Structure: reference/organization-structure.md
+      - Self-Hosted Deployment: reference/self-hosted.md
       - SDK CLI: reference/cli.md
       - SDK API:
           - Logfire: reference/api/logfire.md
