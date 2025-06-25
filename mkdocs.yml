@@ -154,6 +154,7 @@ nav:
       - Stripe: integrations/stripe.md
       - AWS Lambda: integrations/aws-lambda.md
   - Reference:
+      - SQL: reference/sql.md
       - Advanced:
           - Baggage: reference/advanced/baggage.md
           - Generators: reference/advanced/generators.md
