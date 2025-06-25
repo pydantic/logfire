@@ -36,6 +36,89 @@ QUERY_LIMIT = 10_000
 # of intervals that need to be split
 TARGET_QUERY_SIZE = 5_000
 
+RECORDS_COLUMNS = [
+    'project_id',
+    'day',
+    'start_timestamp',
+    'end_timestamp',
+    'duration',
+    'trace_id',
+    'span_id',
+    'kind',
+    'level',
+    'parent_span_id',
+    'span_name',
+    'message',
+    'log_body',
+    'otel_status_code',
+    'otel_status_message',
+    'otel_links',
+    'otel_events',
+    'is_exception',
+    'tags',
+    'url_path',
+    'url_query',
+    'url_full',
+    'http_route',
+    'http_method',
+    'attributes',
+    'otel_scope_name',
+    'otel_scope_version',
+    'otel_scope_attributes',
+    'service_namespace',
+    'service_name',
+    'service_version',
+    'otel_resource_attributes',
+    'service_instance_id',
+    'process_pid',
+    'telemetry_sdk_name',
+    'telemetry_sdk_language',
+    'telemetry_sdk_version',
+    'deployment_environment',
+]
+
+METRICS_COLUMNS = [
+    'project_id',
+    'day',
+    'recorded_timestamp',
+    'metric_name',
+    'metric_type',
+    'unit',
+    'start_timestamp',
+    'aggregation_temporality',
+    'is_monotonic',
+    'metric_description',
+    'scalar_value',
+    'histogram_min',
+    'histogram_max',
+    'histogram_count',
+    'histogram_sum',
+    'histogram_bucket_counts',
+    'histogram_explicit_bounds',
+    'exp_histogram_scale',
+    'exp_histogram_zero_count',
+    'exp_histogram_zero_threshold',
+    'exp_histogram_positive_bucket_counts',
+    'exp_histogram_positive_bucket_counts_offset',
+    'exp_histogram_negative_bucket_counts',
+    'exp_histogram_negative_bucket_counts_offset',
+    'exemplars',
+    'attributes',
+    'otel_scope_name',
+    'otel_scope_version',
+    'otel_scope_attributes',
+    'service_namespace',
+    'service_name',
+    'service_version',
+    'service_instance_id',
+    'process_pid',
+    'otel_resource_attributes',
+    'telemetry_sdk_name',
+    'telemetry_sdk_language',
+    'telemetry_sdk_version',
+    'deployment_environment',
+]
+
 
 async def main(export_date: date, table: Literal['records', 'metrics'] = 'records'):
     """Main entry point for exporting all records in a given interval from Pydantic Logfire."""
@@ -73,6 +156,8 @@ async def export_day(
         progress_task = progress.add_task('  Downloading...', total=progress_total)
         queue: list[Query] = queries.copy()
 
+        columns = ', '.join(RECORDS_COLUMNS if table == 'records' else METRICS_COLUMNS)
+
         async def worker() -> None:
             nonlocal exceeded_limit, progress_total, errors
             while True:
@@ -81,7 +166,7 @@ async def export_day(
                 except IndexError:
                     break
                 try:
-                    df_path, df = await run_query(client, f'SELECT * FROM {table} WHERE {query.where()}')
+                    df_path, df = await run_query(client, f'SELECT {columns} FROM {table} WHERE {query.where()}')
                     if df.height < QUERY_LIMIT:
                         del df
                         data_frames.append(df_path)
