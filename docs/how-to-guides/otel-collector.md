@@ -55,6 +55,10 @@ service:
       receivers: [otlp]
       processors: [batch]
       exporters: [awss3]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [awss3]
     logs:
       receivers: [otlp]
       processors: [batch]
