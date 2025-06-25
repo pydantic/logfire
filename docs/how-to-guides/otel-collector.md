@@ -20,6 +20,83 @@ Below we include a couple of examples for using the OpenTelemetry collector, ass
 This documentation does not attempt to be a complete guide to the OpenTelemetry collector, but rather a gentle introduction along with some key examples.
 For more information on the collector please see the [official documentation](https://opentelemetry.io/docs/collector/).
 
+## Sink data into AWS S3
+
+If you want to keep your data stored long-term, the OpenTelemetry Collector offers a great way to send it directly to AWS S3.
+You need to send data to OpenTelemetry Collector, which will then export it to Logfire dashboard and AWS S3.
+
+Here is a simple example of how to send data into Logfire dashboard and AWS S3.
+
+First, you'll need to set up two things in AWS:
+
+1. An S3 bucket.
+2. An IAM user who has permission to write to that S3 bucket.
+
+Here is the example OpenTelemetry Collector configuration that sends data to Logfire and exports it to AWS S3:
+
+```yaml title="config.yaml"
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: "0.0.0.0:4318"
+exporters:
+  otlphttp:
+    # Configure the US / EU endpoint for Logfire.
+    # - US: https://logfire-us.pydantic.dev
+    # - EU: https://logfire-eu.pydantic.dev
+    endpoint: "https://logfire-us.pydantic.dev"
+    headers:
+      Authorization: "Bearer ${env:LOGFIRE_TOKEN}"
+  awss3:
+    s3uploader:
+      region: ${env:AWS_REGION}
+      s3_bucket: ${env:AWS_S3_BUCKET}
+processors:
+  batch:
+    timeout: 10s
+    send_batch_size: 32768
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp, awss3]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp, awss3]
+```
+
+Run the OpenTelemetry Collector:
+
+```shell
+docker run -v $(pwd)/config.yaml:/etc/otelcol-contrib/config.yaml -e LOGFIRE_TOKEN=<logfire-token> -e AWS_REGION=<aws-region> -e AWS_S3_BUCKET=<bucket-name> -e AWS_ACCESS_KEY_ID=<aws-access-key-id> -e AWS_SECRET_ACCESS_KEY=<aws-secret-access-key> -p 4318:4318  otel/opentelemetry-collector-contrib
+```
+
+Then you need to configure Logfire to send data to the OpenTelemetry Collector:
+
+```python title="script.py"
+import os
+
+import logfire
+
+traces_endpoint = 'http://localhost:4318/v1/traces'
+os.environ['OTEL_EXPORTER_OTLP_TRACES_ENDPOINT'] = traces_endpoint
+
+
+logfire.configure(
+    send_to_logfire=False,
+    advanced=logfire.AdvancedOptions(base_url='http://localhost:4318'),
+)
+
+logfire.info('Hello, {name}!', name='world')
+```
+
+After running the script, you should see the data in your Logfire dashboard and the data will also be stored in your S3 bucket.
+
+You can find more information on the `awss3` exporter in the [AWS S3 Exporter for OpenTelemetry Collector documentation](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/awss3exporter).
+
 ## Collecting system logs
 
 This example shows how you can use the OpenTelemetry collector to collect systems logs (logs on stdoutt/stderr) from Kubernetes and send them to Logfire.
@@ -284,40 +361,6 @@ spec:
 Apply this configuration via `kubectl apply -f otel-collector.yaml`.
 
 You should now see logs from the `plain-app` and `json-app` in your Logfire dashboard!
-
-## Sink data into AWS S3
-
-If you want to keep your data stored long-term, the OpenTelemetry Collector offers a great way to send it directly to AWS S3.
-
-Before you can do this, you'll need to set up two things:
-
-1. An S3 bucket.
-2. An IAM user who has permission to write to that S3 bucket.
-
-You can then configure the OpenTelemetry collector to export data to S3 using the `awss3` exporter.
-
-For example, you'd add something like this to the exporters section of your OTel collector's configuration:
-
-```yaml
-awss3:
-  bucket: <your-bucket-name>
-  region: <your-bucket-region>
-```
-
-You will also need to set up the AWS credentials for the collector to use.
-To do this, you can use environment variables to provide the AWS credentials to the collector.
-
-For environment variables, you can set the following variables in your collector deployment:
-
-```yaml
-env:
-  - name: AWS_ACCESS_KEY_ID
-    value: <your-access-key-id>
-  - name: AWS_SECRET_ACCESS_KEY
-    value: <your-secret-access-key>
-```
-
-You can find more information on the `awss3` exporter in the [AWS S3 Exporter for OpenTelemetry Collector documentation](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/awss3exporter).
 
 ## Add Kubernetes attributes to traces, logs and metrics
 
