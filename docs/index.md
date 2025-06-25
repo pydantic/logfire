@@ -39,8 +39,8 @@ This page is a quick walk-through for setting up a Python app:
     A **Logfire** project is a namespace for organizing your data. All data sent to **Logfire** must be associated with a project.
 
 ??? tip "Ready to create your own projects in UI or CLI?"
-    Check the [SDK CLI documentation](reference/cli.md#create-projects-new) for more information on how to create a project via CLI.
-
+- In the UI, create projects by navigating to the Organization > Projects page, and click **New project**. 
+ - For CLI check the [SDK CLI documentation](reference/cli.md#create-projects-new).
 ## Install the SDK {#sdk}
 
 1. In the terminal, install the **Logfire** SDK (Software Developer Kit):
