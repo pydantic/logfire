@@ -43,8 +43,8 @@ receivers:
 exporters:
   awss3:
     s3uploader:
-      region: ${env:AWS_REGION}
-      s3_bucket: ${env:AWS_S3_BUCKET}
+      region: eu-central-1
+      s3_bucket: test-otel-bucket
 processors:
   batch:
     timeout: 10s
