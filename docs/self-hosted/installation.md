@@ -181,7 +181,7 @@ imagePullSecrets:
 
 With the 4 databases configured, you will need to configure Logfire & Dex within `values.yaml`.
 
-The 3 databases for logfire (`crud`, `ff` and `ingest`) can be configured either via the the DSNs in `values.yaml` or as a secret.
+The 3 databases for logfire (`crud`, `ff` and `ingest`) can be configured either via the DSNs in `values.yaml` or as a secret.
 
 I.e,
 
@@ -429,7 +429,7 @@ Once you have created the helm chart `values.yaml` as above, then the next step 
   ```
   kubectl create namespace logfire
   ```
-* Add in the iamge pull secret to your namespace (& any other secrets):
+* Add in the image pull secret to your namespace (& any other secrets):
   ```
   kubectl -n logfire create secret docker-registry logfire-image-key \
     --docker-server=us-docker.pkg.dev \
