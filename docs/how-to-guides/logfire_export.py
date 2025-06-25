@@ -28,6 +28,7 @@ from rich.progress import MofNCompleteColumn, Progress, TimeElapsedColumn, track
 from logfire.experimental.query_client import AsyncLogfireQueryClient
 
 read_token = os.environ['LOGFIRE_READ_TOKEN']
+# we should use `/read-token-info` as a project identifier, not this
 token_hash = hashlib.sha1(read_token[10:].encode()).hexdigest()[:5]
 QUERY_LIMIT = 10_000
 # this can be tweaked to improve performance:
@@ -64,7 +65,7 @@ async def export_day(
     diff = time.perf_counter() - tic
     print(f'  Counts complete in {diff:.2f}s')
     queries = build_queries(filter_groups, start)
-    exceed_limit = 0
+    exceeded_limit = 0
     progress_total = len(queries)
     errors = 0
 
@@ -73,7 +74,7 @@ async def export_day(
         queue: list[Query] = queries.copy()
 
         async def worker() -> None:
-            nonlocal exceed_limit, progress_total, errors
+            nonlocal exceeded_limit, progress_total, errors
             while True:
                 try:
                     query = queue.pop()
@@ -86,12 +87,12 @@ async def export_day(
                         data_frames.append(df_path)
                         progress.update(progress_task, advance=1)
                     else:
-                        exceed_limit += 1
                         # interval has more thank 10k rows we need to split the interval in half
                         lower, upper = query.split()
                         queue.extend([lower, upper])
                         progress_total += 1
                         progress.update(progress_task, total=progress_total)
+                        exceeded_limit += 1
                 except Exception as e:
                     errors += 1
                     if errors <= 20:
@@ -104,7 +105,7 @@ async def export_day(
 
         await asyncio.gather(*[worker() for _ in range(15)])
 
-        print(f'  done, {len(queries)} initial queries, {exceed_limit} exceeded 10k limit and where split')
+        print(f'  done, {len(queries)} initial queries, {exceeded_limit} exceeded 10k limit and where split')
         return data_frames
 
 
@@ -151,8 +152,8 @@ class Query:
     def where(self) -> str:
         return (
             self.filter_group
-            + f" AND created_at >= '{self.lower_bound_inc:%Y-%m-%dT%H:%M:%S}'"
-            + f" AND created_at < '{self.upper_bound:%Y-%m-%dT%H:%M:%S}'"
+            + f" AND created_at >= '{self.lower_bound_inc:%Y-%m-%dT%H:%M:%S.%f}'"
+            + f" AND created_at < '{self.upper_bound:%Y-%m-%dT%H:%M:%S.%f}'"
         )
 
     def split(self) -> tuple[Query, Query]:
@@ -170,15 +171,17 @@ def build_queries(filter_groups: list[tuple[str, int]], start: datetime) -> list
     interval = timedelta(days=1)
 
     for filter_group, count in filter_groups:
-        group_queries = count / TARGET_QUERY_SIZE
-        interval_size = timedelta(seconds=round(interval.total_seconds() / group_queries))
+        query_count = count // TARGET_QUERY_SIZE
+        query_interval = timedelta(seconds=interval.total_seconds() / query_count)
         lower_bound = start
-        for _ in range(int(group_queries)):
-            upper_bound = lower_bound + interval_size
+        for _ in range(query_count):
+            upper_bound = lower_bound + query_interval
             queries.append(Query(filter_group, lower_bound, upper_bound))
             lower_bound = upper_bound
 
-        queries.append(Query(filter_group, lower_bound, start + interval))
+        end = start + interval
+        if lower_bound < end:
+            queries.append(Query(filter_group, lower_bound, end))
 
     return queries
 
