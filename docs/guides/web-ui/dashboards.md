@@ -19,6 +19,12 @@ The easiest way to get started with dashboards is to enable a standard one.
 
 Pre-built dashboards managed by the **Logfire** team.
 
+### Usage Overview
+
+This dashboard is recommended for all users to [manage their costs](../../logfire-costs.md#standard-usage-dashboard).
+It breaks down your data by [service](../../reference/sql.md#service_name), [scope](../../reference/sql.md#otel_scope_name) (i.e. instrumentation), and [`span_name`](../../reference/sql.md#span_name)/`metric_name` for `records`/`metrics` respectively.
+This lets you see which services and operations are generating the most data.
+
 ### Web Server Metrics
 
 This dashboard gives an overview of how long each of your web server endpoints takes to respond to requests and how often they succeed and fail. It relies on the standard OpenTelemetry http.server.duration metric which is collected by many instrumentation libraries, including those for FastAPI, Flask, Django, ASGI, and WSGI. Each chart is both a timeline and a breakdown by endpoint. Hover over each chart to see the most impactful endpoint at the top of the tooltip. The charts show:
