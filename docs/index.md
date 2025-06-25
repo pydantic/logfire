@@ -29,8 +29,7 @@ This page is a quick walk-through for setting up a Python app:
 
 1. [Log into Logfire :material-open-in-new:](https://logfire.pydantic.dev/login){:target="_blank"}
 2. Follow the prompts to create your account
-3. Once logged in, you'll see the **Welcome to Logfire** prompt, Click **Let's go!** button to be taken
-to the **starter-project** project settings page.
+3. Once logged in, you'll see the **Welcome to Logfire** prompt. Click **Let's go!** to go to the **starter-project** Setup page.
 
 ![Welcome to Logfire](images/logfire-screenshot-welcome-to-logfire.png)
 
