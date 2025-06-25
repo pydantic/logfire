@@ -1,9 +1,20 @@
+| Concept   | Description  |
+|-----------|--------------|
+| Span | Atomic unit of telemetry data |
+| Trace | Contains spans, tree structure show parent/child relationships |
+| Metric | Values calculated using telemetry data |
+| Log | No duration, timestamped, emitted by services/loggers |
+
+New to observability? Check out the [OpenTelemetry primer](https://opentelemetry.io/docs/concepts/observability-primer/). 
+
+## What is a Span? 
+
 A **span** is the building block of a trace. You might also think of spans as logs with extra functionality — a single row in our live view.
 
 !!! info
     Spans let you **add context** to your logs and **measure code execution time**. Multiple spans combine to form a trace, providing a complete picture of an operation's journey through your system.
 
-## Example #1
+### Example #1
 
 In this example:
 
@@ -33,7 +44,7 @@ with logfire.span('counting size of {cwd=}', cwd=cwd):
 
 ---
 
-## Example #2
+### Example #2
 
 In this example:
 
@@ -67,11 +78,21 @@ By instrumenting your code with traces and spans, you can see how long operation
 and get a high-level view of request flows in your system — all invaluable for maintaining the performance and
 reliability of your applications.
 
+## What is a trace?
+
+A trace is a tree structure of spans which shows the path of any client request, LLM run, API call through your application. 
+
+Spans are ordered and nested, meaning you can think of this like a stack trace - it shows you the whole history of all services touched and all responses returned. 
+
+
 ## What is a metric?
 
-A metric is a numeric measurement collected at regular intervals—such as request latency, CPU load, or
-queue length. Metrics are aggregated over time, making it easy to chart long‑term trends, establish
-Service‑Level Objectives (SLOs), and trigger alerts when your system drifts outside acceptable thresholds.
+A metric a calculated value measuring your application through time.
+
+- Metrics are collected at regular intervals—such as request latency, CPU load, or queue length
+- Metrics are aggregated over time
+- Metrics make it easy to chart long‑term trends, establish Service‑Level Objectives (SLOs), and trigger alerts when your system drifts outside acceptable thresholds 
+
 Alongside logs and traces, metrics complete the "three pillars" of observability, giving you a continuous,
 low‑overhead signal about the overall health and performance of your services.
 
@@ -102,3 +123,10 @@ def handle_request():
 Each call to request_duration.record() adds a sample to the histogram. On the backend you can visualise
 p50/p95 latency, set SLOs, and trigger alerts whenever performance degrades. For more metrics examples
 see the [adding metrics guide](guides/onboarding-checklist/add-metrics.md).
+
+## What is a log?
+
+Logs record something which happened in your application. Importantly, they do not have a duration, compared to spans and traces. 
+
+A log is a timestamped text record, either structured (recommended) or unstructured, with optional metadata. Of all telemetry signals, logs are the best known and have the largest footprint on our collective understanding. Most programming languages have built-in logging capabilities or well-known, widely used logging libraries. Most [Python users](https://docs.python.org/3/library/sys.html#sys.stdin) are familiar with `sys.stdin`, `sys.stdout` and `sys.stderr` for example.
+
