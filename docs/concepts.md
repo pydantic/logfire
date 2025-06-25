@@ -1,7 +1,7 @@
 | Concept   | Description  |
 |-----------|--------------|
 | Span | Atomic unit of telemetry data |
-| Trace | Contains spans, tree structure show parent/child relationships |
+| Trace | Contains spans, tree structure shows parent/child relationships |
 | Metric | Values calculated using telemetry data |
 | Log | No duration, timestamped, emitted by services/loggers |
 
