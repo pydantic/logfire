@@ -93,7 +93,7 @@ logfire.configure(
 logfire.info('Hello, {name}!', name='world')
 ```
 
-After running the script, you should see the data in your Logfire dashboard and the data will also be stored in your S3 bucket.
+After running the script, you should see the data in the **Logfire** UI and the data will also be stored in your S3 bucket.
 
 You can find more information on the `awss3` exporter in the [AWS S3 Exporter for OpenTelemetry Collector documentation](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/awss3exporter).
 
