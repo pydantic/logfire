@@ -64,7 +64,12 @@ service:
 Run the OpenTelemetry Collector:
 
 ```shell
-docker run -v $(pwd)/config.yaml:/etc/otelcol-contrib/config.yaml -e AWS_REGION=<aws-region> -e AWS_S3_BUCKET=<bucket-name> -e AWS_ACCESS_KEY_ID=<aws-access-key-id> -e AWS_SECRET_ACCESS_KEY=<aws-secret-access-key> -p 4318:4318  otel/opentelemetry-collector-contrib
+docker run \
+    -v ./config.yaml:/etc/otelcol-contrib/config.yaml \
+    -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
+    -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
+    -p 4318:4318 \
+    otel/opentelemetry-collector-contrib
 ```
 
 Then you need to configure Logfire to send data to Logfire backend and OpenTelemetry Collector:
