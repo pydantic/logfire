@@ -8,7 +8,7 @@ This guide explains how to use dashboards in the Logfire UI to visualize your ob
 
 There are two types of dashboards:
 
-* **Standard dashboards**: Pre-configured dashboards created and maintained by the Logfire team. You can enable them for your project, but you can't modify them directly.
+* **Standard dashboards**: Pre-configured dashboards created and maintained by the Logfire team. You can enable or disable them for your project, but you can't modify them directly.
 * **Custom dashboards**: Dashboards that you create. They are fully editable and customizable, allowing you to define queries, layouts, chart types, and variables.
 
 The easiest way to get started with dashboards is to enable a standard one.
