@@ -57,6 +57,7 @@ To enable a standard dashboard:
 1. Go to the **Dashboards** tab in the top navigation bar.
 2. Click the **+ Dashboard** button.
 3. Browse the list of available dashboards under the **Standard** tab.
+![Standard dashboards](../../images/guide/browser-standard-dashboards-list.png)
 4. Click **Enable dashboard** to add it to your project.
 
 You can view and interact with standard dashboards, but you cannot edit them.
@@ -85,7 +86,7 @@ Custom dashboards are structured in a hierarchy:
   - Panel Group (1 or more)
     - Panel (1 or more)
       - Chart (1 only, a [specific type](#chart-types))
-      
+
   By default, new dashboards start with one panel group.
 
 
