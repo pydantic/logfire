@@ -23,7 +23,7 @@ For more information on the collector please see the [official documentation](ht
 ## Sink data into AWS S3
 
 If you want to keep your data stored long-term, the OpenTelemetry Collector offers a great way to send it directly to AWS S3.
-You need to send data to OpenTelemetry Collector, which will then export it to Logfire dashboard and AWS S3.
+You need to configure Logfire SDK to send data to the OpenTelemetry Collector, which will then forward the data to AWS S3.
 
 Here is a simple example of how to send data into Logfire dashboard and AWS S3.
 
@@ -32,7 +32,7 @@ First, you'll need to set up two things in AWS:
 1. An S3 bucket.
 2. An IAM user who has permission to write to that S3 bucket.
 
-Here is the example OpenTelemetry Collector configuration that sends data to Logfire and exports it to AWS S3:
+Here is the example OpenTelemetry Collector configuration that sends data to AWS S3:
 
 ```yaml title="config.yaml"
 receivers:
@@ -41,13 +41,6 @@ receivers:
       http:
         endpoint: "0.0.0.0:4318"
 exporters:
-  otlphttp:
-    # Configure the US / EU endpoint for Logfire.
-    # - US: https://logfire-us.pydantic.dev
-    # - EU: https://logfire-eu.pydantic.dev
-    endpoint: "https://logfire-us.pydantic.dev"
-    headers:
-      Authorization: "Bearer ${env:LOGFIRE_TOKEN}"
   awss3:
     s3uploader:
       region: ${env:AWS_REGION}
@@ -61,39 +54,36 @@ service:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [otlphttp, awss3]
-    metrics:
+      exporters: [awss3]
+    logs:
       receivers: [otlp]
       processors: [batch]
-      exporters: [otlphttp, awss3]
+      exporters: [awss3]
 ```
 
 Run the OpenTelemetry Collector:
 
 ```shell
-docker run -v $(pwd)/config.yaml:/etc/otelcol-contrib/config.yaml -e LOGFIRE_TOKEN=<logfire-token> -e AWS_REGION=<aws-region> -e AWS_S3_BUCKET=<bucket-name> -e AWS_ACCESS_KEY_ID=<aws-access-key-id> -e AWS_SECRET_ACCESS_KEY=<aws-secret-access-key> -p 4318:4318  otel/opentelemetry-collector-contrib
+docker run -v $(pwd)/config.yaml:/etc/otelcol-contrib/config.yaml -e AWS_REGION=<aws-region> -e AWS_S3_BUCKET=<bucket-name> -e AWS_ACCESS_KEY_ID=<aws-access-key-id> -e AWS_SECRET_ACCESS_KEY=<aws-secret-access-key> -p 4318:4318  otel/opentelemetry-collector-contrib
 ```
 
-Then you need to configure Logfire to send data to the OpenTelemetry Collector:
+Then you need to configure Logfire to send data to Logfire backend and OpenTelemetry Collector:
 
 ```python title="script.py"
 import os
 
 import logfire
 
-traces_endpoint = 'http://localhost:4318/v1/traces'
-os.environ['OTEL_EXPORTER_OTLP_TRACES_ENDPOINT'] = traces_endpoint
+os.environ['OTEL_EXPORTER_OTLP_ENDPOINT'] = 'http://localhost:4318'
 
-
-logfire.configure(
-    send_to_logfire=False,
-    advanced=logfire.AdvancedOptions(base_url='http://localhost:4318'),
-)
+logfire.configure()
 
 logfire.info('Hello, {name}!', name='world')
 ```
 
 After running the script, you should see the data in the **Logfire** UI and the data will also be stored in your S3 bucket.
+
+Take a look at [Use Alternative Backends](./alternative-backends.md) for more information on how to configure the Logfire SDK to send data to the OpenTelemetry Collector.
 
 You can find more information on the `awss3` exporter in the [AWS S3 Exporter for OpenTelemetry Collector documentation](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/awss3exporter).
 
