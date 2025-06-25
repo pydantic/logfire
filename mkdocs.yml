@@ -72,7 +72,6 @@ nav:
       - Why Logfire?: why.md
       - Concepts: concepts.md
       - Get Help: help.md
-      - Understanding Charges: logfire-costs.md
       - Onboarding Checklist:
           - Onboarding Checklist: guides/onboarding-checklist/index.md
           - Integrate Logfire: guides/onboarding-checklist/integrate.md
@@ -84,6 +83,7 @@ nav:
           - Dashboards: guides/web-ui/dashboards.md
           - Alerts (Beta): guides/web-ui/alerts.md
           - SQL Explorer: guides/web-ui/explore.md
+  - Understanding Charges: logfire-costs.md
   - How To - Guides:
       - Create Write Tokens: how-to-guides/create-write-tokens.md
       - Use different environments: how-to-guides/environments.md

@@ -46,15 +46,18 @@ is the first thing we recommend looking at.
 
 ## How Instrumentations Generate Metrics
 
-Many auto-instrumentations  such as [httpx](integrations/http-clients/httpx.md), [sqlalchemy](integrations/databases/sqlalchemy.md),[FastAPI](integrations/web-frameworks/fastapi.md) etc.
+Many integrations such as [httpx](integrations/http-clients/httpx.md), [sqlalchemy](integrations/databases/sqlalchemy.md),[FastAPI](integrations/web-frameworks/fastapi.md) etc.
 emit **aggregate metrics** under the hood - typically counts, durations, and error-rates.
 
 Each exported metric **counts exactly once**, no matter how many requests it summarises.
-Disable an instrumentation if you *only* need traces:
+Disable metrics if you *only* need traces:
 
 ```python
-TODO: add code example
+logfire.configure(metrics=False)
 ```
+
+Note that the web server metrics standard dashboard relies on metrics being emitted, so
+that will stop working if you disable metrics.
 
 ---
 
@@ -69,15 +72,6 @@ You may be only interested in certain types of records. For example, you may wis
 
 Tuning these factors is a trade-off between cost and granularity. The way you conduct this
 tuning is via [sampling](how-to-guides/sampling.md).
-
-From Logfire SDK version >3.21.1 you also have the option to set which log levels you will
-send like this:
-
-```python
-import logfire
-
-logfire.configure(send_to_logfire_min_log_level='info')
-```
 
 ---
 
