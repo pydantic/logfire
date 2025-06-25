@@ -22,7 +22,7 @@ For more information on the collector please see the [official documentation](ht
 
 ## Back up data in AWS S3
 
-Data older than **30 days** is pruned from our backend (except for customers on our [enterprise plans](enterprise.md)).
+Data older than **30 days** is pruned from our backend (except for customers on our [enterprise plans](../enterprise.md)).
 If you want to keep your data stored long-term, you can configure the **Logfire** SDK to also send data to the
 OpenTelemetry Collector, which will then forward the data to AWS S3.
 
@@ -96,6 +96,26 @@ logfire.info('Hello, {name}!', name='world')
 ```
 
 After running the script, you should see the data in both the **Logfire** UI and your S3 bucket.
+The files in S3 will have keys like `year=2025/month=06/day=25/hour=14/minute=09/traces_312302042.json`.
+
+Logfire doesn't support importing this data, but you can use other OpenTelemetry-compatible tools. For example,
+run this command to start a [Jaeger](https://www.jaegertracing.io/) container:
+
+```
+docker run --rm \
+  -p 16686:16686 \
+  -p 4318:4318 \
+  jaegertracing/all-in-one:latest
+```
+
+then open [http://localhost:16686/](http://localhost:16686/) and click on 'Upload'.
+
+Alternatively, install [`otel-tui`](https://github.com/ymtdzzz/otel-tui) and run `otel-tui --from-json-file <path-to-file>` to view the data in your terminal.
+
+However, these simple options don't work well for searching through many files. For that, you can set up another OTel collector with
+the [S3 receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/awss3receiver) to
+read directly from S3, or the [OTLP JSON File Receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/otlpjsonfilereceiver) to read from locally downloaded files.
+Then you can point the collector at a tool like Jaeger, `otel-tui`, or Grafana Tempo to visualize the data.
 
 ## Collecting system logs
 
