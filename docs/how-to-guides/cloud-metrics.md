@@ -220,3 +220,359 @@ GROUP BY metric_name;
 Depending on the amount of metrics data points you are collecting you may need to do more advanced configuration of the OpenTelemetry Collector to handle the load.
 For example, you may want to configure the `batch` processor to batch metrics before sending them to Logfire, or use the `memory_limiter` processor to limit memory usage.
 You also may need to tweak the resources allocated to the Cloud Run service to ensure it can handle the load.
+
+## 3. Collecting Metrics from Amazon Web Services (AWS)
+
+The [AWS CloudWatch metrics receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/awscloudwatchmetricsreceiver) allows you to collect metrics from Amazon CloudWatch and forward them to Logfire.
+
+### 3.1 Prerequisites
+
+1. An AWS account with CloudWatch metrics enabled
+2. IAM credentials with appropriate permissions (see IAM Setup below)
+3. OpenTelemetry Collector with the `awscloudwatchmetrics` receiver
+
+### 3.2 IAM Setup
+
+To collect metrics from AWS CloudWatch, you need to configure IAM credentials with the appropriate permissions:
+
+#### 3.2.1 Required Permissions
+
+The IAM role or user needs the following CloudWatch permissions:
+
+- `cloudwatch:GetMetricData`: Retrieve metric data points
+- `cloudwatch:GetMetricStatistics`: Get aggregated metric statistics  
+- `cloudwatch:ListMetrics`: List available metrics
+
+For ECS-specific metrics, you may also need EC2 permissions:
+
+- `ec2:DescribeTags`: Get resource tags
+- `ec2:DescribeInstances`: Get instance information
+- `ec2:DescribeRegions`: List available regions
+
+### 3.3 Configuration
+
+Create a collector configuration file with the AWS CloudWatch metrics receiver:
+
+```yaml title="aws-metrics-collector.yaml"
+receivers:
+  awscloudwatchmetrics:
+    # AWS region
+    region: "${env:AWS_REGION}"
+    # Collection interval
+    poll_interval: 5m
+    # Metrics to collect
+    metrics:
+      named:
+        # ECS service metrics
+        - namespace: "AWS/ECS"
+          metric_name: "CPUUtilization"
+          period: "5m"
+          aws_aggregation: "Average"
+        - namespace: "AWS/ECS"
+          metric_name: "MemoryUtilization"
+          period: "5m"
+          aws_aggregation: "Average"
+        # Application Load Balancer metrics
+        - namespace: "AWS/ApplicationELB"
+          metric_name: "RequestCount"
+          period: "5m"
+          aws_aggregation: "Sum"
+        - namespace: "AWS/ApplicationELB"
+          metric_name: "TargetResponseTime"
+          period: "5m"
+          aws_aggregation: "Average"
+
+exporters:
+  debug:
+  otlphttp:
+    # Configure the US / EU endpoint for Logfire.
+    # - US: https://logfire-us.pydantic.dev
+    # - EU: https://logfire-eu.pydantic.dev
+    endpoint: "https://logfire-eu.pydantic.dev"
+    headers:
+      Authorization: "Bearer ${env:LOGFIRE_TOKEN}"
+
+extensions:
+  health_check:
+    endpoint: "0.0.0.0:13133"
+
+service:
+  pipelines:
+    metrics:
+      receivers: [awscloudwatchmetrics]
+      exporters: [otlphttp, debug]
+  extensions: [health_check]
+```
+
+### 3.4 Authentication
+
+Authentication to AWS uses the [AWS SDK's default credential chain](https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html#specifying-credentials). This includes:
+
+1. Environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
+2. AWS profiles from `~/.aws/credentials`
+3. IAM roles for ECS tasks or EC2 instances
+4. Instance Metadata Service (IMDS) for EC2
+
+For ECS deployments, the recommended approach is to use IAM roles for tasks, which allows the container to assume the necessary permissions without hardcoded credentials.
+
+Authentication to Logfire must happen via a write token. Store the write token as a secret (e.g. in AWS Secrets Manager or ECS task secrets) and reference it as an environment variable.
+
+### 3.5 Example deployment using Amazon ECS
+
+This section shows how to deploy the OpenTelemetry Collector to Amazon ECS using an IAM role for tasks.
+
+#### 3.5.1 Create IAM Policy and ECS Task Role
+
+First, create the IAM policy and ECS task role for the metrics collector:
+
+```bash
+# Create the CloudWatch metrics policy file
+cat > logfire-cloudwatch-policy.json << 'EOF'
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "cloudwatch:GetMetricData",
+        "cloudwatch:GetMetricStatistics",
+        "cloudwatch:ListMetrics"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeTags",
+        "ec2:DescribeInstances",
+        "ec2:DescribeRegions"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+EOF
+
+# Create the ECS task trust policy file
+cat > ecs-task-trust-policy.json << 'EOF'
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "ecs-tasks.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+EOF
+
+# Get your AWS account ID
+export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+# Create the IAM policy
+aws iam create-policy \
+    --policy-name LogfireCloudWatchMetricsPolicy \
+    --policy-document file://logfire-cloudwatch-policy.json \
+    --description "Policy for Logfire metrics collector to access CloudWatch"
+
+# Create the IAM role
+aws iam create-role \
+    --role-name LogfireMetricsCollectorRole \
+    --assume-role-policy-document file://ecs-task-trust-policy.json \
+    --description "ECS task role for Logfire metrics collector"
+
+# Attach the CloudWatch policy to the role
+aws iam attach-role-policy \
+    --role-name LogfireMetricsCollectorRole \
+    --policy-arn "arn:aws:iam::${AWS_ACCOUNT_ID}:policy/LogfireCloudWatchMetricsPolicy"
+```
+
+#### 3.5.2 Store Logfire token in AWS Secrets Manager
+
+Store your Logfire write token as an ECS secret using AWS Secrets Manager. This follows the [ECS best practices for specifying sensitive data](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/specifying-sensitive-data.html):
+
+```bash
+# Create the secret for Logfire token
+aws secretsmanager create-secret \
+    --name logfire-token \
+    --description "Logfire write token for metrics collection" \
+    --secret-string "pylf_v1_stagingeu_YfwFNkbrQQp0hJl1sRcjlDXt76gglRQwXbxzhPkQ6hQF"
+```
+
+#### 3.5.3 Create a Dockerfile
+
+Create a Dockerfile that uses the official OpenTelemetry Collector contrib image:
+
+```dockerfile title="Dockerfile"
+# Update the base image to the latest version as needed
+FROM otel/opentelemetry-collector-contrib:0.128.0
+
+# Copy the collector configuration to the default location
+COPY aws-metrics-collector.yaml /etc/otelcol-contrib/config.yaml
+```
+
+#### 3.5.4 Create an ECS Task Definition
+
+Create an ECS task definition that uses the IAM role. First, get your AWS account ID and create the task definition:
+
+```bash
+# Get your AWS account ID (reuse from earlier or get it again)
+export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+export AWS_REGION="us-east-1"  # Change to your preferred region
+
+# Create the task definition using the account ID
+cat > task-definition.json << EOF
+{
+  "family": "logfire-metrics-collector",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::${AWS_ACCOUNT_ID}:role/LogfireMetricsCollectorRole",
+  "containerDefinitions": [
+    {
+      "name": "otel-collector",
+      "image": "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/logfire-metrics-collector:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 13133,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "AWS_REGION",
+          "value": "${AWS_REGION}"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "LOGFIRE_TOKEN",
+          "valueFrom": "arn:aws:secretsmanager:${AWS_REGION}:${AWS_ACCOUNT_ID}:secret:logfire-token"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/logfire-metrics-collector",
+          "awslogs-region": "${AWS_REGION}",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}
+EOF
+```
+
+**Note**: This task definition references a custom container image stored in Amazon ECR that includes your OpenTelemetry Collector configuration. The next step will show you how to create the ECR repository and build the image.
+
+#### 3.5.5 Create ECR Repository and Build Container Image
+
+Create an ECR repository and build your container image with the OpenTelemetry Collector configuration:
+
+```bash
+# Create an ECR repository
+aws ecr create-repository \
+    --repository-name logfire-metrics-collector \
+    --region ${AWS_REGION}
+
+# Get the ECR repository URI
+export ECR_REPOSITORY_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/logfire-metrics-collector"
+
+# Create the project structure
+mkdir -p logfire-otel-collector
+cd logfire-otel-collector
+
+# Create the OpenTelemetry Collector configuration (same as section 3.3)
+cat > aws-metrics-collector.yaml << 'EOF'
+receivers:
+  awscloudwatchmetrics:
+    region: "${env:AWS_REGION}"
+    poll_interval: 5m
+    metrics:
+      named:
+        - namespace: "AWS/ECS"
+          metric_name: "CPUUtilization"
+          period: "5m"
+          aws_aggregation: "Average"
+        - namespace: "AWS/ECS"
+          metric_name: "MemoryUtilization"
+          period: "5m"
+          aws_aggregation: "Average"
+        - namespace: "AWS/ApplicationELB"
+          metric_name: "RequestCount"
+          period: "5m"
+          aws_aggregation: "Sum"
+        - namespace: "AWS/ApplicationELB"
+          metric_name: "TargetResponseTime"
+          period: "5m"
+          aws_aggregation: "Average"
+
+exporters:
+  debug:
+  otlphttp:
+    endpoint: "https://logfire-eu.pydantic.dev"
+    headers:
+      Authorization: "Bearer ${env:LOGFIRE_TOKEN}"
+
+extensions:
+  health_check:
+    endpoint: "0.0.0.0:13133"
+
+service:
+  pipelines:
+    metrics:
+      receivers: [awscloudwatchmetrics]
+      exporters: [otlphttp, debug]
+  extensions: [health_check]
+EOF
+
+# Create the Dockerfile
+cat > Dockerfile << 'EOF'
+FROM otel/opentelemetry-collector-contrib:0.128.0
+COPY aws-metrics-collector.yaml /etc/otelcol-contrib/config.yaml
+EOF
+
+# Build and push the container image
+aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REPOSITORY_URI}
+docker build -t logfire-metrics-collector .
+docker tag logfire-metrics-collector:latest ${ECR_REPOSITORY_URI}:latest
+docker push ${ECR_REPOSITORY_URI}:latest
+```
+
+#### 3.5.6 Deploy to ECS
+
+Register the task definition and create a service:
+
+```bash
+# Register the task definition
+aws ecs register-task-definition --cli-input-json file://task-definition.json
+
+# Create an ECS service
+aws ecs create-service \
+    --cluster your-cluster-name \
+    --service-name logfire-metrics-collector \
+    --task-definition logfire-metrics-collector:1 \
+    --desired-count 1 \
+    --launch-type FARGATE \
+    --network-configuration "awsvpcConfiguration={subnets=[subnet-12345],securityGroups=[sg-12345],assignPublicIp=ENABLED}"
+```
+
+Once the deployment is complete, you should be able to run the following query in Logfire to verify metrics are being received:
+
+```sql
+SELECT metric_name, count(*) AS metric_count
+FROM metrics
+WHERE metric_name IN ('CPUUtilization', 'MemoryUtilization')
+GROUP BY metric_name;
+```
+
+#### 3.5.7 Cost Considerations
+
+**Important**: The AWS CloudWatch metrics receiver uses the `GetMetricData` API, which is **not included in the AWS free tier**. Each API call incurs costs based on the number of metric data points retrieved. Monitor your CloudWatch API usage and costs, especially when collecting metrics at high frequencies or from many resources.
