@@ -78,14 +78,14 @@ By instrumenting your code with traces and spans, you can see how long operation
 and get a high-level view of request flows in your system — all invaluable for maintaining the performance and
 reliability of your applications.
 
-## What is a trace?
+## What is a Trace?
 
 A trace is a tree structure of spans which shows the path of any client request, LLM run, API call through your application. 
 
 Spans are ordered and nested, meaning you can think of this like a stack trace - it shows you the whole history of all services touched and all responses returned. 
 
 
-## What is a metric?
+## What is a Metric?
 
 A metric a calculated value measuring your application through time.
 
@@ -124,7 +124,7 @@ Each call to request_duration.record() adds a sample to the histogram. On the ba
 p50/p95 latency, set SLOs, and trigger alerts whenever performance degrades. For more metrics examples
 see the [adding metrics guide](guides/onboarding-checklist/add-metrics.md).
 
-## What is a log?
+## What is a Log?
 
 Logs record something which happened in your application. Importantly, they do not have a duration, compared to spans and traces. 
 
