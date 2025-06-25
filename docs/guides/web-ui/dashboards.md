@@ -63,7 +63,7 @@ You can view and interact with standard dashboards, but you cannot edit them.
 
 ### Using a Standard Dashboard as a Template
 
-You can use any standard dashboard as a template by exporting it and then importing it as a custom dashboard.
+You can use any standard dashboard as a template by exporting it to JSON and then importing it from JSON for a new custom dashboard.
 
 1. From a standard dashboard, click the **Download dashboard as code** icon in the toolbar on the top right.
 ![Download dashboard as code](../../images/guide/browser-download-dashboard-as-code.png)
