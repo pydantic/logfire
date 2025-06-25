@@ -66,3 +66,27 @@ with logfire.span('Asking the user for their {question}', question='birthday'): 
 By instrumenting your code with traces and spans, you can see how long operations take, identify bottlenecks,
 and get a high-level view of request flows in your system — all invaluable for maintaining the performance and
 reliability of your applications.
+
+## What is a metric?
+
+A metric is a numeric measurement collected at regular intervals—such as request latency, CPU load, or
+queue length. Metrics are aggregated over time, making it easy to chart long‑term trends, establish
+Service‑Level Objectives (SLOs), and trigger alerts when your system drifts outside acceptable thresholds.
+Alongside logs and traces, metrics complete the "three pillars" of observability, giving you a continuous,
+low‑overhead signal about the overall health and performance of your services.
+
+
+*Metric example in Logfire* (note that many of these are setup for you automatically via our [integrations](integrations/index.md))
+```python
+import time
+import logfire
+
+logfire.configure()
+
+start = time.perf_counter()
+# … handle request …
+latency = time.perf_counter() - start
+
+# Emit a histogram metric with useful tags for slicing and alerting
+logfire.metric('http.request.duration', latency, unit='seconds', tags={'route': '/api/items', 'method': 'GET'})
+```
