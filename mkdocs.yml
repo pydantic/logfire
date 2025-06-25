@@ -84,6 +84,7 @@ nav:
           - Alerts (Beta): guides/web-ui/alerts.md
           - Saved Searches: guides/web-ui/saved-searches.md
           - SQL Explorer: guides/web-ui/explore.md
+  - Understanding your Usage: logfire-costs.md
   - How To - Guides:
       - Create Write Tokens: how-to-guides/create-write-tokens.md
       - Use different environments: how-to-guides/environments.md
@@ -154,6 +155,7 @@ nav:
       - Stripe: integrations/stripe.md
       - AWS Lambda: integrations/aws-lambda.md
   - Reference:
+      - SQL: reference/sql.md
       - Advanced:
           - Baggage: reference/advanced/baggage.md
           - Generators: reference/advanced/generators.md
