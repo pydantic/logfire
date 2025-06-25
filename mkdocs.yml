@@ -83,6 +83,7 @@ nav:
           - Dashboards: guides/web-ui/dashboards.md
           - Alerts (Beta): guides/web-ui/alerts.md
           - SQL Explorer: guides/web-ui/explore.md
+  - Understanding your Usage: logfire-costs.md
   - How To - Guides:
       - Create Write Tokens: how-to-guides/create-write-tokens.md
       - Use different environments: how-to-guides/environments.md
@@ -153,6 +154,7 @@ nav:
       - Stripe: integrations/stripe.md
       - AWS Lambda: integrations/aws-lambda.md
   - Reference:
+      - SQL: reference/sql.md
       - Advanced:
           - Baggage: reference/advanced/baggage.md
           - Generators: reference/advanced/generators.md
@@ -161,6 +163,7 @@ nav:
       - Configuration: reference/configuration.md
       - Data Regions: reference/data-regions.md
       - Organization Structure: reference/organization-structure.md
+      - Self-Hosted Deployment: reference/self-hosted.md
       - SDK CLI: reference/cli.md
       - SDK API:
           - Logfire: reference/api/logfire.md
