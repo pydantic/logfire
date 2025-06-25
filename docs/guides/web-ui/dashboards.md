@@ -79,7 +79,15 @@ To create a dashboard from scratch:
 1. Click the **+ Dashboard** button.
 2. Select the **Custom** tab.
 
-Custom dashboards are structured in a hierarchy: a dashboard contains one or more **panel groups**, and each group contains **panels**. Each panel, in turn, holds a specific **chart type**. By default, new dashboards start with one panel group.
+Custom dashboards are structured in a hierarchy:
+
+- Dashboard
+  - Panel Group (1 or more)
+    - Panel (1 or more)
+      - Chart (1 only, a [specific type](#chart-types))
+      
+  By default, new dashboards start with one panel group.
+
 
 You can add more panel groups to better organize your dashboard. This is useful for grouping related visualizations, effectively allowing you to have multiple views within a single dashboard.
 
