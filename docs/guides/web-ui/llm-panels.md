@@ -10,30 +10,19 @@ For each span Logfire captures:
 
 That context makes it easy to debug prompts, shrink token counts, and compare model performance side‑by‑side.
 
----
+## Understand token & cost badges
 
-## Find traces that include LLM calls
+Logfire shows token usage and cost in two ways:
 
-1. **Open Live view**.
-   Any trace that contains at least one LLM span carries a **LLM** badge that shows the trace‑level token count and cost.
+- **Per-span badge** → shows token usage and cost for that individual LLM call.
+- **Trace-level badge (∑)** → aggregates token usage and cost across all LLM spans in the trace.
+![Expanded trace showing LLM spans](../../images/llm-panels/connect-4-chat-gpt-spans.png)
 
-   ![Trace list with LLM badges](../../images/llm-panels/connect-4-chat-gpt-traces.png)
-
-2. **Expand the trace**.
-   LLM spans inside the trace inherit the same badge, so you can pick them out instantly.
-
-   ![Expanded trace showing LLM spans](../../images/llm-panels/connect-4-chat-gpt-spans.png)
-
----
-
-## Inspect token usage and cost
-
-Hover over any LLM badge to see a breakdown:
-
-* **Model name**
-* **Input tokens**
-* **Output tokens**
-* **Total cost (USD)**
+Hover over either to see:
+- Model name
+- Input tokens
+- Output tokens
+- Total cost (USD)
 
 ![Token‑usage pop‑over](../../images/llm-panels/connect-4-claude-usage-pop-over.png)
 
