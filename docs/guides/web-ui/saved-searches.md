@@ -79,7 +79,7 @@ flowchart TD
 
 - You can test this feature on the [public demo page](https://logfire-eu.pydantic.dev/demo/logfire-demo).
 - Use the search fields in both **Recent** and **Saved** tabs to quickly find queries by name.
-- Use the **Filter by...** chips to build queries faster without writing SQL.
+- Use the **Filter by...** pills to build queries faster without writing SQL.
 
 ---
 
