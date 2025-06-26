@@ -1,6 +1,6 @@
 # Saved Searches
 
-Logfire's **Saved Searches** feature allows you to quickly access, organize, and share your most useful queries in the web UI. This feature is available on the Live and Explore pages, and can be tested on the [public demo](https://logfire-eu.pydantic.dev/demo/logfire-demo).
+Logfire's **Saved Searches** feature allows you to quickly access, organize, and share your most useful queries in the web UI. This feature is available on the Live page, and can be tested on the [public demo](https://logfire-eu.pydantic.dev/demo/logfire-demo).
 
 ## 1. Opening the Search Panel
 
