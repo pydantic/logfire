@@ -177,7 +177,7 @@ GROUP BY x;
 Each dashboard has settings for:
 
 * **Layout**: Panels are arranged on a grid. You can drag panels to move and resize them.
-* **Duration**: Controls the time range for the data shown (e.g., 1h, 6h, 24h).
-* **Refresh Interval**: Sets how often the dashboard automatically refreshes its data.
+* **Duration**: Controls the time window for the data shown. You can select from predefined ranges like `last 5 minutes`, `last 15 minutes`, `last 30 minutes`, `last 6 hours` up to `last 14 days`, or specify a custom time range.
+* **Refresh Interval**: Sets how often the dashboard automatically refreshes its data. Options include `off`, `5s`, `10s`, `15s`, `30s`, and `1m`.
 
 The duration and refresh settings are in the top-right corner of the dashboard view.
