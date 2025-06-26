@@ -28,7 +28,15 @@ from ..config import REGIONS, LogfireCredentials, get_base_url_from_token
 from ..config_params import ParamManager
 from ..tracer import SDKTracerProvider
 from ..utils import read_toml_file
-from .run import parse_run
+from .run import (
+    OTEL_INSTRUMENTATION_MAP,
+    _exclude_special_cases,
+    _installed_packages,
+    instrument_packages,
+    parse_run,
+    print_otel_summary,
+    recommended_instrumentation,
+)
 
 BASE_OTEL_INTEGRATION_URL = 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/'
 BASE_DOCS_URL = 'https://logfire.pydantic.dev/docs'
@@ -100,94 +108,15 @@ def parse_clean(args: argparse.Namespace) -> None:
         sys.stderr.write('Clean aborted.\n')
 
 
-# TODO(Marcelo): Automatically check if this list should be updated.
-# NOTE: List of packages from https://github.com/open-telemetry/opentelemetry-python-contrib/tree/main/instrumentation.
-STANDARD_LIBRARY_PACKAGES = {'urllib', 'sqlite3'}
-OTEL_PACKAGES: set[str] = {
-    *STANDARD_LIBRARY_PACKAGES,
-    'aio_pika',
-    'aiohttp',
-    'aiopg',
-    'asyncpg',
-    'boto',
-    'celery',
-    'confluent_kafka',
-    'django',
-    'elasticsearch',
-    'falcon',
-    'fastapi',
-    'flask',
-    'grpc',
-    'httpx',
-    'jinja2',
-    'kafka_python',
-    'mysql',
-    'mysqlclient',
-    'pika',
-    'psycopg',
-    'psycopg2',
-    'pymemcache',
-    'pymongo',
-    'pymysql',
-    'pyramid',
-    'remoulade',
-    'requests',
-    'sqlalchemy',
-    'starlette',
-    'tornado',
-    'tortoise_orm',
-    'urllib3',
-}
-OTEL_PACKAGE_LINK = {'aiohttp': 'aiohttp-client', 'tortoise_orm': 'tortoiseorm', 'scikit-learn': 'sklearn'}
-
-
 def parse_inspect(args: argparse.Namespace) -> None:
     """Inspect installed packages and recommend packages that might be useful."""
-    packages_to_ignore: set[str] = set(args.ignore) if args.ignore else set()
-    packages_to_inspect = OTEL_PACKAGES - packages_to_ignore
-
-    packages: dict[str, str] = {}
-    for name in packages_to_inspect:
-        # Check if the package can be imported (without actually importing it).
-        if importlib.util.find_spec(name) is None:
-            continue
-
-        otel_package = OTEL_PACKAGE_LINK.get(name, name)
-        otel_package_import = f'opentelemetry.instrumentation.{otel_package}'
-
-        if importlib.util.find_spec(otel_package_import) is None:
-            packages[name] = otel_package
-
-    # Drop packages that are dependencies of other packages.
-    if packages.get('starlette') and packages.get('fastapi'):
-        del packages['starlette']
-    if packages.get('urllib3') and packages.get('requests'):
-        del packages['urllib3']
-
-    # fmt: off
-    sys.stderr.write('The following packages from your environment have an OpenTelemetry instrumentation that is not installed:\n')
-    sys.stderr.write('\n')
-    # fmt: on
-
-    rows: list[list[str]] = []
-    for name, otel_package in sorted(packages.items()):
-        package_name = otel_package.replace('.', '-')
-        otel_package_name = f'opentelemetry-instrumentation-{package_name}'
-        rows.append([name, otel_package_name])
-    sys.stderr.write(_pretty_table(['Package', 'OpenTelemetry instrumentation package'], rows))
-
-    if packages:  # pragma: no branch
-        otel_packages_to_install = ' '.join(
-            f'opentelemetry-instrumentation-{pkg.replace(".", "-")}' for pkg in packages.values()
-        )
-        install_command = f'pip install {otel_packages_to_install}'
-        sys.stderr.writelines(
-            (
-                '\nTo install these packages, run:\n',
-                f'\n$ {install_command}\n',
-                f'\nFor further information, visit {INTEGRATIONS_DOCS_URL}\n',
-            )
-        )
+    installed_pkgs = _installed_packages()
+    installed_otel_pkgs = {pkg for pkg in OTEL_INSTRUMENTATION_MAP.keys() if pkg in installed_pkgs}
+    recommendations = recommended_instrumentation(OTEL_INSTRUMENTATION_MAP, installed_otel_pkgs, installed_pkgs)
+    _exclude_special_cases(installed_pkgs, installed_otel_pkgs, recommendations)
+    instrumented_packages = instrument_packages(installed_otel_pkgs, OTEL_INSTRUMENTATION_MAP)
+    instrumentation_text = instrumentation_checklist(installed_otel_pkgs, instrumented_packages, recommendations)
+    print_otel_summary(instrumentation_text, recommendations)
 
 
 def parse_auth(args: argparse.Namespace) -> None:
