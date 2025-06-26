@@ -78,7 +78,7 @@ docker run \
 ```
 
 Now send some data to the OpenTelemetry Collector using the Logfire SDK.
-See the [Alternative Backends guide](./alternative-backends.md) for more details.
+See the [Alternative Backends guide](../alternative-backends.md) for more details.
 
 ```python title="script.py"
 import os
@@ -204,7 +204,7 @@ Now we will set up a collector that can scrape logs from these apps, process the
 
 We'll need to store Logfire credentials somewhere, a Kubernetes Secret is a reasonable choice, a better choice for a production environment would be to use [External Secrets Operator](https://external-secrets.io/latest/).
 
-First create a Logfire write token, see [Create Write Tokens](./create-write-tokens.md).
+First create a Logfire write token, see [Create Write Tokens](../create-write-tokens.md).
 
 Now to save it as a secret in Kubernetes run the following command, replacing `your-write-token` with the value of the write token you just created:
 

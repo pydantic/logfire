@@ -1,14 +1,14 @@
 # Advanced scrubbing with the OTel Collector
 
-The Logfire SDK already comes with powerful, [built-in scrubbing](https://logfire.pydantic.dev/docs/how-to-guides/scrubbing/) to automatically protect sensitive data within your application.
+The Logfire SDK already comes with powerful, [built-in scrubbing](../scrubbing.md) to automatically protect sensitive data within your application.
 For most use cases, adding `extra_patterns` or using a `callback` is all you need.
 
-However, as your system grows, you may need more powerful, centralized, and conditional scrubbing logic. This is where the [OpenTelemetry (OTel) Collector](https://logfire.pydantic.dev/docs/how-to-guides/otel-collector/otel-collector-overview/) shines.
+However, as your system grows, you may need more powerful, centralized, and conditional scrubbing logic. This is where the [OpenTelemetry (OTel) Collector](./otel-collector-overview.md) shines.
 By using the collector as a central hub, you can apply complex data transformation rules before data reaches our backend, without adding overhead to your applications.
 
 This guide will walk you through advanced scrubbing techniques using OTel Collector processors.
 
-Please take a look at the [OTel Collector overview](https://logfire.pydantic.dev/docs/how-to-guides/otel-collector/) first if you aren't already using it.
+Please take a look at the [OTel Collector overview](./otel-collector-overview.md) first if you aren't already using it.
 
 ### Why Use the Collector for Scrubbing?
 

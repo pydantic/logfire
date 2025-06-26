@@ -2,7 +2,7 @@
 
 This reference provides an overview of the official [Logfire Helm chart](https://github.com/pydantic/logfire-helm-chart). Enabling easy deployment and management of Logfire on Kubernetes.
 
-This chart is included in our [Enterprise plan](https://logfire.pydantic.dev/docs/enterprise/), contact us at [sales@pydantic.dev](mailto:sales@pydantic.dev) for details.
+This chart is included in our [Enterprise plan](../enterprise.md), contact us at [sales@pydantic.dev](mailto:sales@pydantic.dev) for details.
 
 ### Key Benefits
 

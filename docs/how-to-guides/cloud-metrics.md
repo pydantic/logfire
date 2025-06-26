@@ -20,7 +20,7 @@ The advantages of this approach include:
 - **Flexibility**: Transform, enrich, or aggregate metrics before sending them to Logfire
 - **Vendor lock in**: Send the same metrics to multiple monitoring systems if needed
 
-For general information about setting up and configuring the OpenTelemetry Collector, see our [OpenTelemetry Collector guide](./otel-collector.md).
+For general information about setting up and configuring the OpenTelemetry Collector, see our [OpenTelemetry Collector guide](./otel-collector/otel-collector-overview.md).
 
 One important consideration before you embark on this guide is what your overall data flow is going to be.
 For example, you don't want to export your application metrics to Logfire and Google Cloud Monitoring and *also* export your Google Cloud Monitoring metrics to Logfire, you'll end up with duplicate metrics!
