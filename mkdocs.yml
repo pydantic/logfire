@@ -82,6 +82,7 @@ nav:
           - Live View: guides/web-ui/live.md
           - Dashboards: guides/web-ui/dashboards.md
           - Alerts (Beta): guides/web-ui/alerts.md
+          - Saved Searches: guides/web-ui/saved-searches.md
           - SQL Explorer: guides/web-ui/explore.md
   - Understanding your Usage: logfire-costs.md
   - How To - Guides:
@@ -99,6 +100,7 @@ nav:
       - OpenTelemetry Collector: how-to-guides/otel-collector.md
       - Collect Metrics from your Cloud Provider: how-to-guides/cloud-metrics.md
       - Connect to the MCP Server: how-to-guides/mcp-server.md
+      - Setup Slack Alerts: how-to-guides/setup-slack-alerts.md
   - Integrations:
       - Integrations: integrations/index.md
       - LLMs:
@@ -278,7 +280,7 @@ plugins:
         "integrations/third_party/litellm.md": "integrations/llms/litellm.md"
         "integrations/third-party/litellm.md": "integrations/llms/litellm.md"
         "integrations/third-party/mirascope.md": "integrations/llms/mirascope.md"
-        "integrations/third-party/magentic.md": "integrations/llms/magentic.md"
+        "integrations/third_party/magentic.md": "integrations/llms/magentic.md"
         "integrations/use_cases/web_frameworks.md": "integrations/web-frameworks/index.md"
         "integrations/use-cases/web_frameworks.md": "integrations/web-frameworks/index.md"
         "integrations/fastapi.md": "integrations/web-frameworks/fastapi.md"
