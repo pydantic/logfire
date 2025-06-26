@@ -142,6 +142,6 @@ When a prompt includes a file—binary, blob, or URL—Logfire attaches a previe
 
 
 ---
-### Where to start
+### Set up your integration
 
 To get started the integration, please refer to [LLM integration guides](../../integrations/llms/pydanticai.md).
