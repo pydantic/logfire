@@ -11,6 +11,7 @@ Use cases for the OpenTelemetry Collector include:
 
 - **Centralized configuration**: keep Logfire credentials in a single place. Configure exporting to multiple backends (e.g. Logfire and audit logging) in a single place. All with the ability to update the configuration without needing to make changes to applications.
 - **Data transformation**: transform data before sending it to Logfire. For example, you can use the OpenTelemetry Collector to filter out sensitive information, extract structured data from logs or otherwise modify the data before sending it to Logfire.
+    - For a detailed guide on common transformation patterns, see our guide on [Advanced Scrubbing](otel-collector-scrubbing.md) with the OTel Collector.
 - **Data enrichment**: add additional context to your logs before sending them to Logfire. For example, you can use the OpenTelemetry Collector to add information about the host or container where the log was generated.
 - **Collecting existing data sources**: the Collector can be used to collect system logs (e.g. Kubernetes logs) or metrics from other formats. For example, you can use it to collect container logs from Kubernetes and scrape Prometheus metrics.
 

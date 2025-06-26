@@ -141,11 +141,11 @@ service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [attributes/remove_sensitive_keys, redaction/mask_pii, transform/conditional_scrubbing]
+      processors: [attributes, redaction, transform]
       exporters: [otlphttp, debug]
     logs:
       receivers: [otlp]
-      processors: [attributes/remove_sensitive_keys, redaction/mask_pii]
+      processors: [attributes, redaction]
       exporters: [otlphttp, debug]
 ```
 
