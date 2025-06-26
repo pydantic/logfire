@@ -96,9 +96,9 @@ To create a dashboard from scratch:
 Custom dashboards are structured in a hierarchy:
 
 - Dashboard
-  - Panel Group (1 or more)
-    - Panel (1 or more)
-      - Chart (1 only, a [specific type](#chart-types))
+    - Panel Group (1 or more)
+        - Panel (1 or more)
+            - Chart (1 only, a [specific type](#chart-types))
 
   By default, new dashboards start with one panel group.
 
@@ -113,18 +113,23 @@ You can rearrange and resize panels by dragging and dropping them after clicking
 
 ### Chart Types
 
-Logfire supports these chart types:
+Charts are powered by two types of queries:
 
-| Chart Type  | Query Type         | Description                          |
-| ----------- | ------------------ | ------------------------------------ |
-| Time Series | TimeSeriesQuery    | Data points over time                |
-| Table       | NonTimeSeriesQuery | Tabular data with rows and columns   |
-| Bar Chart   | NonTimeSeriesQuery | Comparisons across categories        |
-| Pie Chart   | NonTimeSeriesQuery | Data as slices of a circle |
-| Values      | NonTimeSeriesQuery | Values displayed as tiles |
+* **Time Series Query**: this query type is for visualizing data over time. It must include a timestamp in the selected columns, typically `time_bucket($resolution, start_timestamp)` when querying `records` or `time_bucket($resolution, recorded_timestamp)` when querying `metrics` - see [below](#resolution-variable). This will be used as the x-axis.
 
-!!! note
-    Queries with `TimeSeriesQuery` as the **Query Type** must include a timestamp in the selected columns, typically `time_bucket($resolution, start_timestamp)` when querying `records` or `time_bucket($resolution, recorded_timestamp)` when querying `metrics` - see [below](#resolution-variable). This will be used as the x-axis.
+* **Non-Time Series Query**: This query type is for displaying data where the evolution of data over time is not the primary focus, e.g., a bar chart showing your top slowest endpoints.
+
+Here's a list of the chart types and the query type they require.
+
+| Chart Type  | Query Type          |
+| ----------- | ------------------  |
+| Time Series | `Time Series Query`    |
+| Table       | `Non Time Series Query` |
+| Bar Chart   | `Non Time Series Query`
+| Pie Chart   | `Non Time Series Query`
+| Values      | `Non Time Series Query`
+
+
 
 To configure a chart:
 
@@ -134,11 +139,11 @@ To configure a chart:
 
 ---
 
-## Variables
+### Variables
 
 You can define variables to make dashboards dynamic.
 
-### Variable Types
+#### Variable Types
 
 * **Text variable**: Allows users to enter any string value.
 * **List variable**: Allows users to select a value from a predefined list.
