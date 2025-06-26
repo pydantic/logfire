@@ -113,9 +113,9 @@ You can rearrange and resize panels by dragging and dropping them after clicking
 
 ### Chart Types
 
-Charts are powered by two types of queries:
+Logfire uses SQL as the query language for dashboard visualizations. Each chart in your dashboard requires one of two types of queries:
 
-* **Time Series Query**: this query type is for visualizing data over time. It must include a timestamp in the selected columns, typically `time_bucket($resolution, start_timestamp)` when querying `records` or `time_bucket($resolution, recorded_timestamp)` when querying `metrics` - see [below](#resolution-variable). This will be used as the x-axis.
+* **Time Series Query**: This query type is for visualizing data over time. It must include a timestamp in the selected columns, typically `time_bucket($resolution, start_timestamp)` when querying `records` or `time_bucket($resolution, recorded_timestamp)` when querying `metrics` - see [below](#resolution-variable). This will be used as the x-axis.
 
 * **Non-Time Series Query**: This query type is for displaying data where the evolution of data over time is not the primary focus, e.g., a bar chart showing your top slowest endpoints.
 
@@ -160,8 +160,6 @@ Once defined, variables can be referenced in SQL queries using the format `$your
 ---
 
 ## Writing Queries
-
-Logfire uses SQL to define dashboard queries.
 
 If you're unsure which tables or columns are available, refer to the [records schema](explore.md#records-schema) and [metrics schema](explore.md#metrics-schema).
 
