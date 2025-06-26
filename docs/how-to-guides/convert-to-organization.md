@@ -8,7 +8,7 @@ This guide walks you through the conversion process step by step.
 
 ## 1. Open Account Settings
 
-Navigate to your account settings. In the sidebar, you'll see an option to **Convert to organization**.
+Navigate to your account settings. On the page, you'll see an option to **Convert to organization**.
 
 ![Account settings with Convert to org option](../images/guide/convert-to-org-settings.png)
 
