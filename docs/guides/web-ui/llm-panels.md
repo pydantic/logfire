@@ -15,10 +15,12 @@ That context makes it easy to debug prompts, shrink token counts, and compare mo
 Logfire shows token usage and cost in two ways:
 
 - **Per-span badge** → shows token usage and cost for that individual LLM call.
-- **Trace-level badge (∑)** → aggregates token usage and cost across all LLM spans in the trace.
+- **Trace/Parent-span level badge (∑)** → aggregates token usage and cost across all LLM spans in the trace or any span inside any span.
+
 ![Expanded trace showing LLM spans](../../images/llm-panels/connect-4-chat-gpt-spans.png)
 
 Hover over either to see:
+
 - Model name
 - Input tokens
 - Output tokens
