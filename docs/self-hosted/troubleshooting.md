@@ -44,7 +44,7 @@ One quick thing to check is the console logs involved in those services.  Here a
  kubectl logs -n logfire statefulset/logfire-ff-ingest
  kubectl logs -n logfire deployments/logfire-ff-ingest-api
  ```
-* Check the console logs of the otel collector:
+* Check the console logs of the OTel collector:
  ```
  kubectl logs -n logfire deployments/logfire-otel-collector
  ```
