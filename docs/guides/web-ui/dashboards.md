@@ -118,7 +118,6 @@ Logfire supports these chart types:
 | Chart Type  | Query Type         | Description                          |
 | ----------- | ------------------ | ------------------------------------ |
 | Time Series | TimeSeriesQuery    | Data points over time                |
-| Gauge       | TimeSeriesQuery    | Shows current value as a gauge       |
 | Table       | NonTimeSeriesQuery | Tabular data with rows and columns   |
 | Bar Chart   | NonTimeSeriesQuery | Comparisons across categories        |
 | Pie Chart   | NonTimeSeriesQuery | Data as slices of a circle |
@@ -185,12 +184,39 @@ GROUP BY x;
 
 ---
 
-## Layout, Duration, and Refresh
+## Editing the layout
+
+You can edit the layout of a dashboard by clicking the **Edit layout** button in the top left. This will allow you to drag panels to move and resize them. You can also reorder panel groups . Once you're done making changes, click the **Save** button to persist your changes.
+
+![Edit layout](../../images/guide/browser-edit-layout-button.png)
+
+### Move panels
+
+While in **Edit layout** mode, you can move panels by dragging them from the top right corner.
+
+![Move panels](../../images/guide/browser-move-panel.png)
+
+### Resize panels
+
+While in **Edit layout** mode, you can resize panels by dragging the bottom right corner.
+
+![Resize panels](../../images/guide/browser-resize-panel.png)
+
+### Reorder panel groups
+
+While in **Edit layout** mode, you can reorder panel groups by clicking the up and down arrows in the top right corner of each panel group.
+
+![Reorder panel groups](../../images/guide/browser-reorder-panel-group.png)
+
+
+
+
+
+
+## Duration, and Refresh
 
 Each dashboard has settings for:
 
-* **Layout**: Panels are arranged on a grid. You can drag panels to move and resize them.
 * **Duration**: Controls the time window for the data shown. You can select from predefined ranges like `last 5 minutes`, `last 15 minutes`, `last 30 minutes`, `last 6 hours` up to `last 14 days`, or specify a custom time range.
 * **Refresh Interval**: Sets how often the dashboard automatically refreshes its data. Options include `off`, `5s`, `10s`, `15s`, `30s`, and `1m`.
-
 The duration and refresh settings are in the top-right corner of the dashboard view.
