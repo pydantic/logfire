@@ -1710,6 +1710,18 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_aiohttp_client(self, **kwargs)
 
+    def instrument_aiohttp_server(self, **kwargs: Any) -> None:
+        """Instrument the `aiohttp` module so that spans are automatically created for each server request.
+
+        Uses the
+        [OpenTelemetry aiohttp server Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aiohttp_server/aiohttp_server.html)
+        library, specifically `AioHttpServerInstrumentor().instrument()`, to which it passes `**kwargs`.
+        """
+        from .integrations.aiohttp_server import instrument_aiohttp_server
+
+        self._warn_if_not_initialized_for_instrumentation()
+        return instrument_aiohttp_server(**kwargs)
+
     def instrument_sqlalchemy(
         self,
         engine: AsyncEngine | Engine | None = None,

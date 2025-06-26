@@ -5,10 +5,14 @@ access to OpenTelemetry traces and metrics through Logfire. This server enables 
 application's telemetry data, analyze distributed traces, and perform custom queries using
 **Logfire**'s OpenTelemetry-native API.
 
+<div class="video-wrapper">
+  <iframe width="560" height="315" src="https://www.youtube.com/embed/z56NOvrtG74" frameborder="0" allowfullscreen></iframe>
+</div>
+
 You can check the [Logfire MCP server](https://github.com/pydantic/logfire-mcp) repository
 for more information.
 
-## Usage
+## Installation
 
 The MCP server is a CLI tool that you can run from the command line.
 
@@ -28,6 +32,9 @@ LOGFIRE_READ_TOKEN=<your-token> uvx logfire-mcp
 ### Configuration
 
 The way to configure the MCP server depends on the software you're using.
+
+!!! note
+  If you are in the EU region, you need to set the `LOGFIRE_BASE_URL` environment variable to `https://api-eu.pydantic.dev`. You can also use the `--base-url` flag to set the base URL.
 
 #### Cursor
 
@@ -103,3 +110,29 @@ You can configure it to use the MCP server by adding the following configuration
   }
 }
 ```
+
+### Tools
+
+There are four tools available in the MCP server:
+
+1. `find_exceptions(age: int)` - Get exception counts from traces grouped by file.
+
+    Required arguments:
+
+    - `age`: Number of minutes to look back (e.g., 30 for last 30 minutes, max 7 days)
+
+2. `find_exceptions_in_file(filepath: str, age: int)` - Get detailed trace information about exceptions in a specific file.
+
+    Required arguments:
+
+    - `filepath`: Path to the file to analyze
+    - `age`: Number of minutes to look back (max 7 days)
+
+3. `arbitrary_query(query: str, age: int)` - Run custom SQL queries on your OpenTelemetry traces and metrics.
+
+    Required arguments:
+
+    - `query`: SQL query to execute
+    - `age`: Number of minutes to look back (max 7 days)
+
+4. `get_logfire_records_schema()` - Get the OpenTelemetry schema to help with custom queries.

@@ -8,6 +8,7 @@ from typing import Any
 import httpx
 import openai
 import pytest
+from dirty_equals import IsNumeric
 from httpx._transports.mock import MockTransport
 from inline_snapshot import snapshot
 from openai.types import (
@@ -1637,6 +1638,38 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                     'http.response.status_code': 200,
                     'http.flavor': '1.1',
                     'network.protocol.version': '1.1',
+                    'logfire.metrics': {
+                        'http.client.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.flavor': '1.1',
+                                        'http.host': 'api.openai.com',
+                                        'http.method': 'POST',
+                                        'http.scheme': 'https',
+                                        'http.status_code': 200,
+                                        'net.peer.name': 'api.openai.com',
+                                    },
+                                    'total': IsNumeric(),
+                                }
+                            ],
+                            'total': IsNumeric(),
+                        },
+                        'http.client.request.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.request.method': 'POST',
+                                        'http.response.status_code': 200,
+                                        'network.protocol.version': '1.1',
+                                        'server.address': 'api.openai.com',
+                                    },
+                                    'total': IsNumeric(),
+                                }
+                            ],
+                            'total': IsNumeric(),
+                        },
+                    },
                     'http.target': '/v1/completions',
                 },
             },
@@ -1670,6 +1703,38 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                             'gen_ai.request.model': {},
                             'gen_ai.response.model': {},
                             'response_data': {'type': 'object'},
+                        },
+                    },
+                    'logfire.metrics': {
+                        'http.client.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.flavor': '1.1',
+                                        'http.host': 'api.openai.com',
+                                        'http.method': 'POST',
+                                        'http.scheme': 'https',
+                                        'http.status_code': 200,
+                                        'net.peer.name': 'api.openai.com',
+                                    },
+                                    'total': IsNumeric,
+                                }
+                            ],
+                            'total': IsNumeric,
+                        },
+                        'http.client.request.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.request.method': 'POST',
+                                        'http.response.status_code': 200,
+                                        'network.protocol.version': '1.1',
+                                        'server.address': 'api.openai.com',
+                                    },
+                                    'total': IsNumeric(),
+                                }
+                            ],
+                            'total': IsNumeric(),
                         },
                     },
                 },
@@ -2057,3 +2122,15 @@ def test_responses_api(exporter: TestExporter) -> None:
             },
         ]
     )
+
+
+@pytest.mark.vcr()
+def test_responses_api_nonrecording(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
+    client = openai.Client()
+    logfire.instrument_openai(client)
+    logfire.configure(**config_kwargs, sampling=logfire.SamplingOptions(head=0))
+    with logfire.span('span'):
+        response = client.responses.create(model='gpt-4.1', input='hi')
+    assert response.output_text == snapshot('Hello! How can I help you today? 😊')
+
+    assert exporter.exported_spans_as_dict() == []

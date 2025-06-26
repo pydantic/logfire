@@ -8,6 +8,7 @@ from logfire.sampling import SamplingOptions
 
 from ._internal.auto_trace import AutoTraceModule
 from ._internal.auto_trace.rewrite_ast import no_auto_trace
+from ._internal.baggage import get_baggage, set_baggage
 from ._internal.cli import logfire_info
 from ._internal.config import AdvancedOptions, CodeSource, ConsoleOptions, MetricsOptions, PydanticPlugin, configure
 from ._internal.constants import LevelName
@@ -42,6 +43,7 @@ instrument_django = DEFAULT_LOGFIRE_INSTANCE.instrument_django
 instrument_flask = DEFAULT_LOGFIRE_INSTANCE.instrument_flask
 instrument_starlette = DEFAULT_LOGFIRE_INSTANCE.instrument_starlette
 instrument_aiohttp_client = DEFAULT_LOGFIRE_INSTANCE.instrument_aiohttp_client
+instrument_aiohttp_server = DEFAULT_LOGFIRE_INSTANCE.instrument_aiohttp_server
 instrument_sqlalchemy = DEFAULT_LOGFIRE_INSTANCE.instrument_sqlalchemy
 instrument_sqlite3 = DEFAULT_LOGFIRE_INSTANCE.instrument_sqlite3
 instrument_aws_lambda = DEFAULT_LOGFIRE_INSTANCE.instrument_aws_lambda
@@ -132,6 +134,7 @@ __all__ = (
     'instrument_flask',
     'instrument_starlette',
     'instrument_aiohttp_client',
+    'instrument_aiohttp_server',
     'instrument_sqlalchemy',
     'instrument_sqlite3',
     'instrument_aws_lambda',
@@ -158,4 +161,6 @@ __all__ = (
     'SamplingOptions',
     'MetricsOptions',
     'logfire_info',
+    'get_baggage',
+    'set_baggage',
 )

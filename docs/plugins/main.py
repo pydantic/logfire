@@ -156,11 +156,16 @@ otel_docs = {
     'starlette': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/starlette/starlette.html',
     'asgi': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html',
     'wsgi': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/wsgi/wsgi.html',
+    'aiohttp': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aiohttp_server/aiohttp_server.html',
 }
 
 
 def footer_web_frameworks(markdown: str, page: Page) -> str:
-    if not page.file.src_uri.startswith('integrations/web-frameworks/') or page.file.src_path.endswith('index.md'):
+    if (
+        not page.file.src_uri.startswith('integrations/web-frameworks/')
+        or page.file.src_uri == 'integrations/web-frameworks/gunicorn.md'
+        or page.file.src_path.endswith('index.md')
+    ):
         return markdown
     exclude_lists = """
 ## Excluding URLs from instrumentation

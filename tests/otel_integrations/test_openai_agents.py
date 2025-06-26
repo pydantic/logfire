@@ -30,6 +30,7 @@ from agents import (
     input_guardrail,
     trace,
 )
+from agents.tracing import get_trace_provider
 from agents.tracing.span_data import MCPListToolsSpanData, ResponseSpanData
 from agents.tracing.spans import NoOpSpan
 from agents.tracing.traces import NoOpTrace
@@ -403,6 +404,18 @@ def without_code_attrs(spans: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
+def simplify_spans(spans: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    for span in spans:
+        assert isinstance(span['attributes'].pop('logfire.json_schema'), dict)
+        if span['name'] == 'Responses API with {gen_ai.request.model!r}':
+            # These are huge and constantly change when OpenAI updates
+            assert isinstance(span['attributes'].pop('response'), dict)
+            assert isinstance(span['attributes'].pop('model_settings'), dict)
+        result.append(span)
+    return without_code_attrs(result)
+
+
 @pytest.mark.vcr()
 @pytest.mark.anyio
 async def test_responses(exporter: TestExporter):
@@ -418,7 +431,7 @@ async def test_responses(exporter: TestExporter):
     with logfire.instrument_openai():
         await Runner.run(agent1, input='Generate a random number then, hand off to agent2.')
 
-    assert without_code_attrs(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
+    assert simplify_spans(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
                 'name': 'Responses API with {gen_ai.request.model!r}',
@@ -432,99 +445,6 @@ async def test_responses(exporter: TestExporter):
                     'logfire.msg': "Responses API with 'gpt-4o'",
                     'response_id': 'resp_67ced68228748191b31ea5d9172a7b4b',
                     'gen_ai.request.model': 'gpt-4o',
-                    'model_settings': {
-                        'temperature': None,
-                        'top_p': None,
-                        'frequency_penalty': None,
-                        'presence_penalty': None,
-                        'tool_choice': None,
-                        'parallel_tool_calls': None,
-                        'truncation': None,
-                        'max_tokens': None,
-                        'reasoning': None,
-                        'metadata': None,
-                        'store': None,
-                        'include_usage': None,
-                        'extra_query': None,
-                        'extra_body': None,
-                        'extra_headers': None,
-                    },
-                    'response': {
-                        'id': 'resp_67ced68228748191b31ea5d9172a7b4b',
-                        'created_at': 1741608578.0,
-                        'error': None,
-                        'incomplete_details': None,
-                        'instructions': None,
-                        'metadata': {},
-                        'model': 'gpt-4o-2024-08-06',
-                        'object': 'response',
-                        'output': [
-                            {
-                                'id': 'fc_67ced68352a48191aca3872f9376de86',
-                                'arguments': '{}',
-                                'call_id': 'call_vwqy7HyGGnNht9NNfxMnnouY',
-                                'name': 'random_number',
-                                'type': 'function_call',
-                                'status': 'completed',
-                            },
-                            {
-                                'id': 'fc_67ced683c8d88191b21be486e163e815',
-                                'arguments': '{}',
-                                'call_id': 'call_oEA0MnUXCwKevx8txteoopNL',
-                                'name': 'transfer_to_agent2',
-                                'type': 'function_call',
-                                'status': 'completed',
-                            },
-                        ],
-                        'parallel_tool_calls': True,
-                        'temperature': 1.0,
-                        'tool_choice': 'auto',
-                        'tools': [
-                            {
-                                'name': 'random_number',
-                                'parameters': {
-                                    'properties': {},
-                                    'title': 'random_number_args',
-                                    'type': 'object',
-                                    'additionalProperties': False,
-                                    'required': [],
-                                },
-                                'strict': True,
-                                'type': 'function',
-                                'description': None,
-                            },
-                            {
-                                'name': 'transfer_to_agent2',
-                                'parameters': {
-                                    'additionalProperties': False,
-                                    'type': 'object',
-                                    'properties': {},
-                                    'required': [],
-                                },
-                                'strict': True,
-                                'type': 'function',
-                                'description': 'Handoff to the agent2 agent to handle the request. ',
-                            },
-                        ],
-                        'top_p': 1.0,
-                        'background': None,
-                        'max_output_tokens': None,
-                        'previous_response_id': None,
-                        'reasoning': {'effort': None, 'generate_summary': None, 'summary': None},
-                        'service_tier': None,
-                        'status': 'completed',
-                        'text': {'format': {'type': 'text'}},
-                        'truncation': 'disabled',
-                        'usage': {
-                            'input_tokens': 0,
-                            'output_tokens': 0,
-                            'output_tokens_details': {'reasoning_tokens': 0},
-                            'total_tokens': 0,
-                            'input_tokens_details': {'cached_tokens': 0},
-                        },
-                        'user': None,
-                        'store': True,
-                    },
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
                     'gen_ai.operation.name': 'chat',
@@ -558,80 +478,6 @@ async def test_responses(exporter: TestExporter):
                             ],
                         },
                     ],
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'response_id': {},
-                            'gen_ai.request.model': {},
-                            'model_settings': {
-                                'type': 'object',
-                                'title': 'ModelSettings',
-                                'x-python-datatype': 'dataclass',
-                            },
-                            'response': {
-                                'type': 'object',
-                                'title': 'Response',
-                                'x-python-datatype': 'PydanticModel',
-                                'properties': {
-                                    'output': {
-                                        'type': 'array',
-                                        'items': {
-                                            'type': 'object',
-                                            'title': 'ResponseFunctionToolCall',
-                                            'x-python-datatype': 'PydanticModel',
-                                        },
-                                    },
-                                    'tools': {
-                                        'type': 'array',
-                                        'items': {
-                                            'type': 'object',
-                                            'title': 'FunctionTool',
-                                            'x-python-datatype': 'PydanticModel',
-                                        },
-                                    },
-                                    'reasoning': {
-                                        'type': 'object',
-                                        'title': 'Reasoning',
-                                        'x-python-datatype': 'PydanticModel',
-                                    },
-                                    'text': {
-                                        'type': 'object',
-                                        'title': 'ResponseTextConfig',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'format': {
-                                                'type': 'object',
-                                                'title': 'ResponseFormatText',
-                                                'x-python-datatype': 'PydanticModel',
-                                            }
-                                        },
-                                    },
-                                    'usage': {
-                                        'type': 'object',
-                                        'title': 'ResponseUsage',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'input_tokens_details': {
-                                                'type': 'object',
-                                                'title': 'InputTokensDetails',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                            'output_tokens_details': {
-                                                'type': 'object',
-                                                'title': 'OutputTokensDetails',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                        },
-                                    },
-                                },
-                            },
-                            'gen_ai.response.model': {},
-                            'gen_ai.system': {},
-                            'gen_ai.operation.name': {},
-                            'raw_input': {'type': 'array'},
-                            'events': {'type': 'array'},
-                        },
-                    },
                 },
             },
             {
@@ -649,16 +495,6 @@ async def test_responses(exporter: TestExporter):
                     'mcp_data': 'null',
                     'gen_ai.system': 'openai',
                     'output': '4',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'name': {},
-                            'input': {},
-                            'output': {},
-                            'mcp_data': {'type': 'null'},
-                            'gen_ai.system': {},
-                        },
-                    },
                 },
             },
             {
@@ -674,10 +510,6 @@ async def test_responses(exporter: TestExporter):
                     'from_agent': 'agent1',
                     'gen_ai.system': 'openai',
                     'to_agent': 'agent2',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {'from_agent': {}, 'to_agent': {}, 'gen_ai.system': {}},
-                    },
                 },
             },
             {
@@ -698,16 +530,6 @@ async def test_responses(exporter: TestExporter):
                     'tools': ['random_number'],
                     'gen_ai.system': 'openai',
                     'output_type': 'str',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'name': {},
-                            'handoffs': {'type': 'array'},
-                            'tools': {'type': 'array'},
-                            'output_type': {},
-                            'gen_ai.system': {},
-                        },
-                    },
                 },
             },
             {
@@ -725,71 +547,6 @@ async def test_responses(exporter: TestExporter):
                     'logfire.msg': "Responses API with 'gpt-4o'",
                     'response_id': 'resp_67ced68425f48191a5fb0c2b61cb27dd',
                     'gen_ai.request.model': 'gpt-4o',
-                    'model_settings': {
-                        'temperature': None,
-                        'top_p': None,
-                        'frequency_penalty': None,
-                        'presence_penalty': None,
-                        'tool_choice': None,
-                        'parallel_tool_calls': None,
-                        'truncation': None,
-                        'max_tokens': None,
-                        'reasoning': None,
-                        'metadata': None,
-                        'store': None,
-                        'include_usage': None,
-                        'extra_query': None,
-                        'extra_body': None,
-                        'extra_headers': None,
-                    },
-                    'response': {
-                        'id': 'resp_67ced68425f48191a5fb0c2b61cb27dd',
-                        'created_at': 1741608580.0,
-                        'error': None,
-                        'incomplete_details': None,
-                        'instructions': 'Return double the number',
-                        'metadata': {},
-                        'model': 'gpt-4o-2024-08-06',
-                        'object': 'response',
-                        'output': [
-                            {
-                                'id': 'msg_67ced6848e8c81918a946936d3d5bd42',
-                                'content': [
-                                    {
-                                        'annotations': [],
-                                        'text': "The random number generated is 4, and it's been handed off to agent2.",
-                                        'type': 'output_text',
-                                        'logprobs': None,
-                                    }
-                                ],
-                                'role': 'assistant',
-                                'status': 'completed',
-                                'type': 'message',
-                            }
-                        ],
-                        'parallel_tool_calls': True,
-                        'temperature': 1.0,
-                        'tool_choice': 'auto',
-                        'tools': [],
-                        'top_p': 1.0,
-                        'background': None,
-                        'max_output_tokens': None,
-                        'previous_response_id': None,
-                        'reasoning': {'effort': None, 'generate_summary': None, 'summary': None},
-                        'service_tier': None,
-                        'status': 'completed',
-                        'text': {'format': {'type': 'text'}},
-                        'truncation': 'disabled',
-                        'usage': {
-                            'input_tokens': 89,
-                            'output_tokens': 18,
-                            'output_tokens_details': {'reasoning_tokens': 0},
-                            'total_tokens': 107,
-                            'input_tokens_details': {'cached_tokens': 0},
-                        },
-                        'user': None,
-                        'store': True,
-                    },
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
                     'gen_ai.operation.name': 'chat',
@@ -814,7 +571,7 @@ async def test_responses(exporter: TestExporter):
                         {'call_id': 'call_vwqy7HyGGnNht9NNfxMnnouY', 'output': '4', 'type': 'function_call_output'},
                         {
                             'call_id': 'call_oEA0MnUXCwKevx8txteoopNL',
-                            'output': "{'assistant': 'agent2'}",
+                            'output': '{"assistant": "agent2"}',
                             'type': 'function_call_output',
                         },
                     ],
@@ -862,7 +619,7 @@ async def test_responses(exporter: TestExporter):
                             'event.name': 'gen_ai.tool.message',
                             'role': 'tool',
                             'id': 'call_oEA0MnUXCwKevx8txteoopNL',
-                            'content': "{'assistant': 'agent2'}",
+                            'content': '{"assistant": "agent2"}',
                             'name': 'transfer_to_agent2',
                         },
                         {
@@ -873,84 +630,6 @@ async def test_responses(exporter: TestExporter):
                     ],
                     'gen_ai.usage.input_tokens': 89,
                     'gen_ai.usage.output_tokens': 18,
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'response_id': {},
-                            'gen_ai.request.model': {},
-                            'model_settings': {
-                                'type': 'object',
-                                'title': 'ModelSettings',
-                                'x-python-datatype': 'dataclass',
-                            },
-                            'response': {
-                                'type': 'object',
-                                'title': 'Response',
-                                'x-python-datatype': 'PydanticModel',
-                                'properties': {
-                                    'output': {
-                                        'type': 'array',
-                                        'items': {
-                                            'type': 'object',
-                                            'title': 'ResponseOutputMessage',
-                                            'x-python-datatype': 'PydanticModel',
-                                            'properties': {
-                                                'content': {
-                                                    'type': 'array',
-                                                    'items': {
-                                                        'type': 'object',
-                                                        'title': 'ResponseOutputText',
-                                                        'x-python-datatype': 'PydanticModel',
-                                                    },
-                                                }
-                                            },
-                                        },
-                                    },
-                                    'reasoning': {
-                                        'type': 'object',
-                                        'title': 'Reasoning',
-                                        'x-python-datatype': 'PydanticModel',
-                                    },
-                                    'text': {
-                                        'type': 'object',
-                                        'title': 'ResponseTextConfig',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'format': {
-                                                'type': 'object',
-                                                'title': 'ResponseFormatText',
-                                                'x-python-datatype': 'PydanticModel',
-                                            }
-                                        },
-                                    },
-                                    'usage': {
-                                        'type': 'object',
-                                        'title': 'ResponseUsage',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'input_tokens_details': {
-                                                'type': 'object',
-                                                'title': 'InputTokensDetails',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                            'output_tokens_details': {
-                                                'type': 'object',
-                                                'title': 'OutputTokensDetails',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                        },
-                                    },
-                                },
-                            },
-                            'gen_ai.response.model': {},
-                            'gen_ai.system': {},
-                            'gen_ai.operation.name': {},
-                            'raw_input': {'type': 'array'},
-                            'events': {'type': 'array'},
-                            'gen_ai.usage.input_tokens': {},
-                            'gen_ai.usage.output_tokens': {},
-                        },
-                    },
                 },
             },
             {
@@ -971,16 +650,6 @@ async def test_responses(exporter: TestExporter):
                     'tools': [],
                     'gen_ai.system': 'openai',
                     'output_type': 'str',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'name': {},
-                            'handoffs': {'type': 'array'},
-                            'tools': {'type': 'array'},
-                            'output_type': {},
-                            'gen_ai.system': {},
-                        },
-                    },
                 },
             },
             {
@@ -1000,15 +669,6 @@ async def test_responses(exporter: TestExporter):
                     'logfire.msg': 'OpenAI Agents trace: Agent workflow',
                     'logfire.span_type': 'span',
                     'agent_trace_id': IsStr(),
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'name': {},
-                            'agent_trace_id': {},
-                            'group_id': {'type': 'null'},
-                            'metadata': {'type': 'null'},
-                        },
-                    },
                 },
             },
         ]
@@ -1039,7 +699,7 @@ async def test_input_guardrails(exporter: TestExporter):
     with pytest.raises(InputGuardrailTripwireTriggered):
         await Runner.run(agent, '0?')
 
-    assert without_code_attrs(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
+    assert simplify_spans(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
                 'name': 'Guardrail {name!r} {triggered=}',
@@ -1054,10 +714,6 @@ async def test_input_guardrails(exporter: TestExporter):
                     'name': 'zero_guardrail',
                     'gen_ai.system': 'openai',
                     'triggered': False,
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {'name': {}, 'triggered': {}, 'gen_ai.system': {}},
-                    },
                 },
             },
             {
@@ -1072,71 +728,6 @@ async def test_input_guardrails(exporter: TestExporter):
                     'logfire.msg': "Responses API with 'gpt-4o'",
                     'response_id': 'resp_67cee263c6e0819184efdc0fe2624cc8',
                     'gen_ai.request.model': 'gpt-4o',
-                    'model_settings': {
-                        'temperature': None,
-                        'top_p': None,
-                        'frequency_penalty': None,
-                        'presence_penalty': None,
-                        'tool_choice': None,
-                        'parallel_tool_calls': None,
-                        'truncation': None,
-                        'max_tokens': None,
-                        'reasoning': None,
-                        'metadata': None,
-                        'store': None,
-                        'include_usage': None,
-                        'extra_query': None,
-                        'extra_body': None,
-                        'extra_headers': None,
-                    },
-                    'response': {
-                        'id': 'resp_67cee263c6e0819184efdc0fe2624cc8',
-                        'created_at': 1741611619.0,
-                        'error': None,
-                        'incomplete_details': None,
-                        'instructions': None,
-                        'metadata': {},
-                        'model': 'gpt-4o-2024-08-06',
-                        'object': 'response',
-                        'output': [
-                            {
-                                'id': 'msg_67cee2641544819193c128971fa966e3',
-                                'content': [
-                                    {
-                                        'annotations': [],
-                                        'text': '1 + 1 equals 2.',
-                                        'type': 'output_text',
-                                        'logprobs': None,
-                                    }
-                                ],
-                                'role': 'assistant',
-                                'status': 'completed',
-                                'type': 'message',
-                            }
-                        ],
-                        'parallel_tool_calls': True,
-                        'temperature': 1.0,
-                        'tool_choice': 'auto',
-                        'tools': [],
-                        'top_p': 1.0,
-                        'background': None,
-                        'max_output_tokens': None,
-                        'previous_response_id': None,
-                        'reasoning': {'effort': None, 'generate_summary': None, 'summary': None},
-                        'service_tier': None,
-                        'status': 'completed',
-                        'text': {'format': {'type': 'text'}},
-                        'truncation': 'disabled',
-                        'usage': {
-                            'input_tokens': 29,
-                            'output_tokens': 9,
-                            'output_tokens_details': {'reasoning_tokens': 0},
-                            'total_tokens': 38,
-                            'input_tokens_details': {'cached_tokens': 0},
-                        },
-                        'user': None,
-                        'store': True,
-                    },
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
                     'gen_ai.operation.name': 'chat',
@@ -1147,84 +738,6 @@ async def test_input_guardrails(exporter: TestExporter):
                     ],
                     'gen_ai.usage.input_tokens': 29,
                     'gen_ai.usage.output_tokens': 9,
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'response_id': {},
-                            'gen_ai.request.model': {},
-                            'model_settings': {
-                                'type': 'object',
-                                'title': 'ModelSettings',
-                                'x-python-datatype': 'dataclass',
-                            },
-                            'response': {
-                                'type': 'object',
-                                'title': 'Response',
-                                'x-python-datatype': 'PydanticModel',
-                                'properties': {
-                                    'output': {
-                                        'type': 'array',
-                                        'items': {
-                                            'type': 'object',
-                                            'title': 'ResponseOutputMessage',
-                                            'x-python-datatype': 'PydanticModel',
-                                            'properties': {
-                                                'content': {
-                                                    'type': 'array',
-                                                    'items': {
-                                                        'type': 'object',
-                                                        'title': 'ResponseOutputText',
-                                                        'x-python-datatype': 'PydanticModel',
-                                                    },
-                                                }
-                                            },
-                                        },
-                                    },
-                                    'reasoning': {
-                                        'type': 'object',
-                                        'title': 'Reasoning',
-                                        'x-python-datatype': 'PydanticModel',
-                                    },
-                                    'text': {
-                                        'type': 'object',
-                                        'title': 'ResponseTextConfig',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'format': {
-                                                'type': 'object',
-                                                'title': 'ResponseFormatText',
-                                                'x-python-datatype': 'PydanticModel',
-                                            }
-                                        },
-                                    },
-                                    'usage': {
-                                        'type': 'object',
-                                        'title': 'ResponseUsage',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'input_tokens_details': {
-                                                'type': 'object',
-                                                'title': 'InputTokensDetails',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                            'output_tokens_details': {
-                                                'type': 'object',
-                                                'title': 'OutputTokensDetails',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                        },
-                                    },
-                                },
-                            },
-                            'gen_ai.response.model': {},
-                            'gen_ai.system': {},
-                            'gen_ai.operation.name': {},
-                            'raw_input': {'type': 'array'},
-                            'events': {'type': 'array'},
-                            'gen_ai.usage.input_tokens': {},
-                            'gen_ai.usage.output_tokens': {},
-                        },
-                    },
                 },
             },
             {
@@ -1245,16 +758,6 @@ async def test_input_guardrails(exporter: TestExporter):
                     'tools': [],
                     'gen_ai.system': 'openai',
                     'output_type': 'str',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'name': {},
-                            'handoffs': {'type': 'array'},
-                            'tools': {'type': 'array'},
-                            'output_type': {},
-                            'gen_ai.system': {},
-                        },
-                    },
                 },
             },
             {
@@ -1274,15 +777,6 @@ async def test_input_guardrails(exporter: TestExporter):
                     'logfire.msg': 'OpenAI Agents trace: Agent workflow',
                     'logfire.span_type': 'span',
                     'agent_trace_id': IsStr(),
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'name': {},
-                            'agent_trace_id': {},
-                            'group_id': {'type': 'null'},
-                            'metadata': {'type': 'null'},
-                        },
-                    },
                 },
             },
             {
@@ -1298,10 +792,6 @@ async def test_input_guardrails(exporter: TestExporter):
                     'name': 'zero_guardrail',
                     'gen_ai.system': 'openai',
                     'triggered': True,
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {'name': {}, 'triggered': {}, 'gen_ai.system': {}},
-                    },
                 },
             },
             {
@@ -1309,7 +799,7 @@ async def test_input_guardrails(exporter: TestExporter):
                 'context': {'trace_id': 2, 'span_id': 11, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 9, 'is_remote': False},
                 'start_time': 10000000000,
-                'end_time': 14000000000,
+                'end_time': 13000000000,
                 'attributes': {
                     'code.filepath': 'test_openai_agents.py',
                     'code.function': 'test_input_guardrails',
@@ -1324,17 +814,6 @@ async def test_input_guardrails(exporter: TestExporter):
                     'gen_ai.system': 'openai',
                     'output_type': 'str',
                     'error': {'message': 'Guardrail tripwire triggered', 'data': {'guardrail': 'zero_guardrail'}},
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'name': {},
-                            'handoffs': {'type': 'array'},
-                            'tools': {'type': 'array'},
-                            'output_type': {},
-                            'gen_ai.system': {},
-                            'error': {'type': 'object'},
-                        },
-                    },
                 },
             },
             {
@@ -1342,7 +821,7 @@ async def test_input_guardrails(exporter: TestExporter):
                 'context': {'trace_id': 2, 'span_id': 9, 'is_remote': False},
                 'parent': None,
                 'start_time': 9000000000,
-                'end_time': 15000000000,
+                'end_time': 14000000000,
                 'attributes': {
                     'code.filepath': 'test_openai_agents.py',
                     'code.function': 'test_input_guardrails',
@@ -1354,15 +833,6 @@ async def test_input_guardrails(exporter: TestExporter):
                     'logfire.msg': 'OpenAI Agents trace: Agent workflow',
                     'logfire.span_type': 'span',
                     'agent_trace_id': IsStr(),
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'name': {},
-                            'agent_trace_id': {},
-                            'group_id': {'type': 'null'},
-                            'metadata': {'type': 'null'},
-                        },
-                    },
                 },
             },
         ]
@@ -1378,7 +848,7 @@ async def test_chat_completions(exporter: TestExporter):
     agent = Agent[str](name='my_agent', model=model)
     with logfire.instrument_openai():
         await Runner.run(agent, '1+1?')
-    assert without_code_attrs(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
+    assert simplify_spans(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
                 'name': 'Chat completion with {gen_ai.request.model!r}',
@@ -1419,6 +889,7 @@ async def test_chat_completions(exporter: TestExporter):
                         'extra_query': None,
                         'extra_body': None,
                         'extra_headers': None,
+                        'extra_args': None,
                         'base_url': 'https://api.openai.com/v1/',
                     },
                     'usage': {'input_tokens': 11, 'output_tokens': 8},
@@ -1442,21 +913,6 @@ async def test_chat_completions(exporter: TestExporter):
                         ],
                         'model': 'gpt-4o',
                     },
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'input': {'type': 'array'},
-                            'output': {'type': 'array'},
-                            'model_config': {'type': 'object'},
-                            'usage': {'type': 'object'},
-                            'request_data': {'type': 'object'},
-                            'gen_ai.system': {},
-                            'gen_ai.request.model': {},
-                            'gen_ai.response.model': {},
-                            'gen_ai.usage.input_tokens': {},
-                            'gen_ai.usage.output_tokens': {},
-                        },
-                    },
                 },
             },
             {
@@ -1477,16 +933,6 @@ async def test_chat_completions(exporter: TestExporter):
                     'tools': [],
                     'gen_ai.system': 'openai',
                     'output_type': 'str',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'name': {},
-                            'handoffs': {'type': 'array'},
-                            'tools': {'type': 'array'},
-                            'output_type': {},
-                            'gen_ai.system': {},
-                        },
-                    },
                 },
             },
             {
@@ -1506,15 +952,6 @@ async def test_chat_completions(exporter: TestExporter):
                     'logfire.msg': 'OpenAI Agents trace: Agent workflow',
                     'logfire.span_type': 'span',
                     'agent_trace_id': IsStr(),
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'name': {},
-                            'agent_trace_id': {},
-                            'group_id': {'type': 'null'},
-                            'metadata': {'type': 'null'},
-                        },
-                    },
                 },
             },
         ]
@@ -1637,8 +1074,6 @@ def all_subclasses(cls: type) -> list[type]:
 def test_unknown_span(exporter: TestExporter):
     logfire.instrument_openai_agents()
 
-    from agents.tracing.setup import GLOBAL_TRACE_PROVIDER
-
     class MySpanData(SpanData):
         def export(self):
             return {'foo': 'bar', 'type': self.type}
@@ -1649,7 +1084,7 @@ def test_unknown_span(exporter: TestExporter):
 
     with trace('my_trace', trace_id='trace_123', group_id='456') as t:
         assert t.name == 'my_trace'
-        with GLOBAL_TRACE_PROVIDER.create_span(span_data=MySpanData(), span_id='span_789') as s:
+        with get_trace_provider().create_span(span_data=MySpanData(), span_id='span_789') as s:
             assert s.trace_id == 'trace_123'
             assert s.span_id == 'span_789'
             assert s.parent_id is None
@@ -1672,7 +1107,7 @@ def test_unknown_span(exporter: TestExporter):
         }
     )
 
-    assert without_code_attrs(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
+    assert simplify_spans(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
                 'name': 'OpenAI agents: {type} span',
@@ -1690,10 +1125,6 @@ def test_unknown_span(exporter: TestExporter):
                     'foo': 'bar',
                     'gen_ai.system': 'openai',
                     'type': 'my_span',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {'foo': {}, 'type': {}, 'gen_ai.system': {}},
-                    },
                 },
             },
             {
@@ -1713,10 +1144,6 @@ def test_unknown_span(exporter: TestExporter):
                     'logfire.span_type': 'span',
                     'agent_trace_id': 'trace_123',
                     'group_id': '456',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {'name': {}, 'agent_trace_id': {}, 'group_id': {}, 'metadata': {'type': 'null'}},
-                    },
                 },
             },
         ]
@@ -1749,7 +1176,7 @@ async def test_responses_simple(exporter: TestExporter):
         result = await Runner.run(agent1, input='2+2?')
         await Runner.run(agent1, input=result.to_input_list() + [{'role': 'user', 'content': '4?'}])
 
-    assert without_code_attrs(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
+    assert simplify_spans(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
                 'name': 'Responses API with {gen_ai.request.model!r}',
@@ -1763,71 +1190,6 @@ async def test_responses_simple(exporter: TestExporter):
                     'logfire.msg': "Responses API with 'gpt-4o'",
                     'response_id': 'resp_67ceee053cdc81919f39173ee02cb88e',
                     'gen_ai.request.model': 'gpt-4o',
-                    'model_settings': {
-                        'temperature': None,
-                        'top_p': None,
-                        'frequency_penalty': None,
-                        'presence_penalty': None,
-                        'tool_choice': None,
-                        'parallel_tool_calls': None,
-                        'truncation': None,
-                        'max_tokens': None,
-                        'reasoning': None,
-                        'metadata': None,
-                        'store': None,
-                        'include_usage': None,
-                        'extra_query': None,
-                        'extra_body': None,
-                        'extra_headers': None,
-                    },
-                    'response': {
-                        'id': 'resp_67ceee053cdc81919f39173ee02cb88e',
-                        'created_at': 1741614597.0,
-                        'error': None,
-                        'incomplete_details': None,
-                        'instructions': None,
-                        'metadata': {},
-                        'model': 'gpt-4o-2024-08-06',
-                        'object': 'response',
-                        'output': [
-                            {
-                                'id': 'msg_67ceee05a83c8191a2e1e19ceb63495e',
-                                'content': [
-                                    {
-                                        'annotations': [],
-                                        'text': '2 + 2 equals 4.',
-                                        'type': 'output_text',
-                                        'logprobs': None,
-                                    }
-                                ],
-                                'role': 'assistant',
-                                'status': 'completed',
-                                'type': 'message',
-                            }
-                        ],
-                        'parallel_tool_calls': True,
-                        'temperature': 1.0,
-                        'tool_choice': 'auto',
-                        'tools': [],
-                        'top_p': 1.0,
-                        'background': None,
-                        'max_output_tokens': None,
-                        'previous_response_id': None,
-                        'reasoning': {'effort': None, 'generate_summary': None, 'summary': None},
-                        'service_tier': None,
-                        'status': 'completed',
-                        'text': {'format': {'type': 'text'}},
-                        'truncation': 'disabled',
-                        'usage': {
-                            'input_tokens': 29,
-                            'output_tokens': 9,
-                            'output_tokens_details': {'reasoning_tokens': 0},
-                            'total_tokens': 38,
-                            'input_tokens_details': {'cached_tokens': 0},
-                        },
-                        'user': None,
-                        'store': True,
-                    },
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
                     'gen_ai.operation.name': 'chat',
@@ -1838,84 +1200,6 @@ async def test_responses_simple(exporter: TestExporter):
                     ],
                     'gen_ai.usage.input_tokens': 29,
                     'gen_ai.usage.output_tokens': 9,
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'response_id': {},
-                            'gen_ai.request.model': {},
-                            'model_settings': {
-                                'type': 'object',
-                                'title': 'ModelSettings',
-                                'x-python-datatype': 'dataclass',
-                            },
-                            'response': {
-                                'type': 'object',
-                                'title': 'Response',
-                                'x-python-datatype': 'PydanticModel',
-                                'properties': {
-                                    'output': {
-                                        'type': 'array',
-                                        'items': {
-                                            'type': 'object',
-                                            'title': 'ResponseOutputMessage',
-                                            'x-python-datatype': 'PydanticModel',
-                                            'properties': {
-                                                'content': {
-                                                    'type': 'array',
-                                                    'items': {
-                                                        'type': 'object',
-                                                        'title': 'ResponseOutputText',
-                                                        'x-python-datatype': 'PydanticModel',
-                                                    },
-                                                }
-                                            },
-                                        },
-                                    },
-                                    'reasoning': {
-                                        'type': 'object',
-                                        'title': 'Reasoning',
-                                        'x-python-datatype': 'PydanticModel',
-                                    },
-                                    'text': {
-                                        'type': 'object',
-                                        'title': 'ResponseTextConfig',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'format': {
-                                                'type': 'object',
-                                                'title': 'ResponseFormatText',
-                                                'x-python-datatype': 'PydanticModel',
-                                            }
-                                        },
-                                    },
-                                    'usage': {
-                                        'type': 'object',
-                                        'title': 'ResponseUsage',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'input_tokens_details': {
-                                                'type': 'object',
-                                                'title': 'InputTokensDetails',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                            'output_tokens_details': {
-                                                'type': 'object',
-                                                'title': 'OutputTokensDetails',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                        },
-                                    },
-                                },
-                            },
-                            'gen_ai.response.model': {},
-                            'gen_ai.system': {},
-                            'gen_ai.operation.name': {},
-                            'raw_input': {'type': 'array'},
-                            'events': {'type': 'array'},
-                            'gen_ai.usage.input_tokens': {},
-                            'gen_ai.usage.output_tokens': {},
-                        },
-                    },
                 },
             },
             {
@@ -1936,16 +1220,6 @@ async def test_responses_simple(exporter: TestExporter):
                     'tools': [],
                     'gen_ai.system': 'openai',
                     'output_type': 'str',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'name': {},
-                            'handoffs': {'type': 'array'},
-                            'tools': {'type': 'array'},
-                            'output_type': {},
-                            'gen_ai.system': {},
-                        },
-                    },
                 },
             },
             {
@@ -1960,71 +1234,6 @@ async def test_responses_simple(exporter: TestExporter):
                     'logfire.msg': "Responses API with 'gpt-4o'",
                     'response_id': 'resp_67ceee0623ac819190454bc7af968938',
                     'gen_ai.request.model': 'gpt-4o',
-                    'model_settings': {
-                        'temperature': None,
-                        'top_p': None,
-                        'frequency_penalty': None,
-                        'presence_penalty': None,
-                        'tool_choice': None,
-                        'parallel_tool_calls': None,
-                        'truncation': None,
-                        'max_tokens': None,
-                        'reasoning': None,
-                        'metadata': None,
-                        'store': None,
-                        'include_usage': None,
-                        'extra_query': None,
-                        'extra_body': None,
-                        'extra_headers': None,
-                    },
-                    'response': {
-                        'id': 'resp_67ceee0623ac819190454bc7af968938',
-                        'created_at': 1741614598.0,
-                        'error': None,
-                        'incomplete_details': None,
-                        'instructions': None,
-                        'metadata': {},
-                        'model': 'gpt-4o-2024-08-06',
-                        'object': 'response',
-                        'output': [
-                            {
-                                'id': 'msg_67ceee06885881918c740a6ca0ce2807',
-                                'content': [
-                                    {
-                                        'annotations': [],
-                                        'text': 'Yes, 2 + 2 equals 4.',
-                                        'type': 'output_text',
-                                        'logprobs': None,
-                                    }
-                                ],
-                                'role': 'assistant',
-                                'status': 'completed',
-                                'type': 'message',
-                            }
-                        ],
-                        'parallel_tool_calls': True,
-                        'temperature': 1.0,
-                        'tool_choice': 'auto',
-                        'tools': [],
-                        'top_p': 1.0,
-                        'background': None,
-                        'max_output_tokens': None,
-                        'previous_response_id': None,
-                        'reasoning': {'effort': None, 'generate_summary': None, 'summary': None},
-                        'service_tier': None,
-                        'status': 'completed',
-                        'text': {'format': {'type': 'text'}},
-                        'truncation': 'disabled',
-                        'usage': {
-                            'input_tokens': 47,
-                            'output_tokens': 12,
-                            'output_tokens_details': {'reasoning_tokens': 0},
-                            'total_tokens': 59,
-                            'input_tokens_details': {'cached_tokens': 0},
-                        },
-                        'user': None,
-                        'store': True,
-                    },
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
                     'gen_ai.operation.name': 'chat',
@@ -2051,84 +1260,6 @@ async def test_responses_simple(exporter: TestExporter):
                     ],
                     'gen_ai.usage.input_tokens': 47,
                     'gen_ai.usage.output_tokens': 12,
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'response_id': {},
-                            'gen_ai.request.model': {},
-                            'model_settings': {
-                                'type': 'object',
-                                'title': 'ModelSettings',
-                                'x-python-datatype': 'dataclass',
-                            },
-                            'response': {
-                                'type': 'object',
-                                'title': 'Response',
-                                'x-python-datatype': 'PydanticModel',
-                                'properties': {
-                                    'output': {
-                                        'type': 'array',
-                                        'items': {
-                                            'type': 'object',
-                                            'title': 'ResponseOutputMessage',
-                                            'x-python-datatype': 'PydanticModel',
-                                            'properties': {
-                                                'content': {
-                                                    'type': 'array',
-                                                    'items': {
-                                                        'type': 'object',
-                                                        'title': 'ResponseOutputText',
-                                                        'x-python-datatype': 'PydanticModel',
-                                                    },
-                                                }
-                                            },
-                                        },
-                                    },
-                                    'reasoning': {
-                                        'type': 'object',
-                                        'title': 'Reasoning',
-                                        'x-python-datatype': 'PydanticModel',
-                                    },
-                                    'text': {
-                                        'type': 'object',
-                                        'title': 'ResponseTextConfig',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'format': {
-                                                'type': 'object',
-                                                'title': 'ResponseFormatText',
-                                                'x-python-datatype': 'PydanticModel',
-                                            }
-                                        },
-                                    },
-                                    'usage': {
-                                        'type': 'object',
-                                        'title': 'ResponseUsage',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'input_tokens_details': {
-                                                'type': 'object',
-                                                'title': 'InputTokensDetails',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                            'output_tokens_details': {
-                                                'type': 'object',
-                                                'title': 'OutputTokensDetails',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                        },
-                                    },
-                                },
-                            },
-                            'gen_ai.response.model': {},
-                            'gen_ai.system': {},
-                            'gen_ai.operation.name': {},
-                            'raw_input': {'type': 'array'},
-                            'events': {'type': 'array'},
-                            'gen_ai.usage.input_tokens': {},
-                            'gen_ai.usage.output_tokens': {},
-                        },
-                    },
                 },
             },
             {
@@ -2149,16 +1280,6 @@ async def test_responses_simple(exporter: TestExporter):
                     'tools': [],
                     'gen_ai.system': 'openai',
                     'output_type': 'str',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'name': {},
-                            'handoffs': {'type': 'array'},
-                            'tools': {'type': 'array'},
-                            'output_type': {},
-                            'gen_ai.system': {},
-                        },
-                    },
                 },
             },
             {
@@ -2178,15 +1299,6 @@ async def test_responses_simple(exporter: TestExporter):
                     'logfire.msg': 'OpenAI Agents trace: my_trace',
                     'logfire.span_type': 'span',
                     'agent_trace_id': 'trace_123',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'name': {},
-                            'agent_trace_id': {},
-                            'group_id': {'type': 'null'},
-                            'metadata': {'type': 'null'},
-                        },
-                    },
                 },
             },
         ]
@@ -2207,7 +1319,7 @@ async def test_file_search(exporter: TestExporter):
         result = await Runner.run(agent, 'Who made Logfire?')
         await Runner.run(agent, input=result.to_input_list() + [{'role': 'user', 'content': '2+2?'}])
 
-    assert without_code_attrs(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
+    assert simplify_spans(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
                 'name': 'Responses API with {gen_ai.request.model!r}',
@@ -2221,93 +1333,6 @@ async def test_file_search(exporter: TestExporter):
                     'logfire.msg': "Responses API with 'gpt-4o'",
                     'response_id': 'resp_67ceff39d5e88191885004de76d26e43',
                     'gen_ai.request.model': 'gpt-4o',
-                    'model_settings': {
-                        'temperature': None,
-                        'top_p': None,
-                        'frequency_penalty': None,
-                        'presence_penalty': None,
-                        'tool_choice': None,
-                        'parallel_tool_calls': None,
-                        'truncation': None,
-                        'max_tokens': None,
-                        'reasoning': None,
-                        'metadata': None,
-                        'store': None,
-                        'include_usage': None,
-                        'extra_query': None,
-                        'extra_body': None,
-                        'extra_headers': None,
-                    },
-                    'response': {
-                        'id': 'resp_67ceff39d5e88191885004de76d26e43',
-                        'created_at': 1741619001.0,
-                        'error': None,
-                        'incomplete_details': None,
-                        'instructions': None,
-                        'metadata': {},
-                        'model': 'gpt-4o-2024-08-06',
-                        'object': 'response',
-                        'output': [
-                            {
-                                'id': 'fs_67ceff3ab5b081919945a1b5a1185949',
-                                'queries': ['Who made Logfire?'],
-                                'status': 'completed',
-                                'type': 'file_search_call',
-                                'results': None,
-                            },
-                            {
-                                'id': 'msg_67ceff3bede881918dd73f17abeefdf4',
-                                'content': [
-                                    {
-                                        'annotations': [
-                                            {
-                                                'file_id': 'file-CmKZQn5qLRRgcAjS61GSqv',
-                                                'index': 27,
-                                                'type': 'file_citation',
-                                                'filename': 'test.txt',
-                                            }
-                                        ],
-                                        'text': 'Logfire is made by Pydantic.',
-                                        'type': 'output_text',
-                                        'logprobs': None,
-                                    }
-                                ],
-                                'role': 'assistant',
-                                'status': 'completed',
-                                'type': 'message',
-                            },
-                        ],
-                        'parallel_tool_calls': True,
-                        'temperature': 1.0,
-                        'tool_choice': 'auto',
-                        'tools': [
-                            {
-                                'type': 'file_search',
-                                'vector_store_ids': ['vs_67cd9e6afeb4819198cbffafab95d8ba'],
-                                'max_num_results': 1,
-                                'ranking_options': {'ranker': 'auto', 'score_threshold': 0.0},
-                                'filters': None,
-                            }
-                        ],
-                        'top_p': 1.0,
-                        'background': None,
-                        'max_output_tokens': None,
-                        'previous_response_id': None,
-                        'reasoning': {'effort': None, 'generate_summary': None, 'summary': None},
-                        'service_tier': None,
-                        'status': 'completed',
-                        'text': {'format': {'type': 'text'}},
-                        'truncation': 'disabled',
-                        'usage': {
-                            'input_tokens': 1974,
-                            'output_tokens': 38,
-                            'output_tokens_details': {'reasoning_tokens': 0},
-                            'total_tokens': 2012,
-                            'input_tokens_details': {'cached_tokens': 0},
-                        },
-                        'user': None,
-                        'store': True,
-                    },
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
                     'gen_ai.operation.name': 'chat',
@@ -2338,116 +1363,6 @@ See JSON for details\
                     ],
                     'gen_ai.usage.input_tokens': 1974,
                     'gen_ai.usage.output_tokens': 38,
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'response_id': {},
-                            'gen_ai.request.model': {},
-                            'model_settings': {
-                                'type': 'object',
-                                'title': 'ModelSettings',
-                                'x-python-datatype': 'dataclass',
-                            },
-                            'response': {
-                                'type': 'object',
-                                'title': 'Response',
-                                'x-python-datatype': 'PydanticModel',
-                                'properties': {
-                                    'output': {
-                                        'type': 'array',
-                                        'prefixItems': [
-                                            {
-                                                'type': 'object',
-                                                'title': 'ResponseFileSearchToolCall',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                            {
-                                                'type': 'object',
-                                                'title': 'ResponseOutputMessage',
-                                                'x-python-datatype': 'PydanticModel',
-                                                'properties': {
-                                                    'content': {
-                                                        'type': 'array',
-                                                        'items': {
-                                                            'type': 'object',
-                                                            'title': 'ResponseOutputText',
-                                                            'x-python-datatype': 'PydanticModel',
-                                                            'properties': {
-                                                                'annotations': {
-                                                                    'type': 'array',
-                                                                    'items': {
-                                                                        'type': 'object',
-                                                                        'title': 'AnnotationFileCitation',
-                                                                        'x-python-datatype': 'PydanticModel',
-                                                                    },
-                                                                }
-                                                            },
-                                                        },
-                                                    }
-                                                },
-                                            },
-                                        ],
-                                    },
-                                    'tools': {
-                                        'type': 'array',
-                                        'items': {
-                                            'type': 'object',
-                                            'title': 'FileSearchTool',
-                                            'x-python-datatype': 'PydanticModel',
-                                            'properties': {
-                                                'ranking_options': {
-                                                    'type': 'object',
-                                                    'title': 'RankingOptions',
-                                                    'x-python-datatype': 'PydanticModel',
-                                                }
-                                            },
-                                        },
-                                    },
-                                    'reasoning': {
-                                        'type': 'object',
-                                        'title': 'Reasoning',
-                                        'x-python-datatype': 'PydanticModel',
-                                    },
-                                    'text': {
-                                        'type': 'object',
-                                        'title': 'ResponseTextConfig',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'format': {
-                                                'type': 'object',
-                                                'title': 'ResponseFormatText',
-                                                'x-python-datatype': 'PydanticModel',
-                                            }
-                                        },
-                                    },
-                                    'usage': {
-                                        'type': 'object',
-                                        'title': 'ResponseUsage',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'input_tokens_details': {
-                                                'type': 'object',
-                                                'title': 'InputTokensDetails',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                            'output_tokens_details': {
-                                                'type': 'object',
-                                                'title': 'OutputTokensDetails',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                        },
-                                    },
-                                },
-                            },
-                            'gen_ai.response.model': {},
-                            'gen_ai.system': {},
-                            'gen_ai.operation.name': {},
-                            'raw_input': {'type': 'array'},
-                            'events': {'type': 'array'},
-                            'gen_ai.usage.input_tokens': {},
-                            'gen_ai.usage.output_tokens': {},
-                        },
-                    },
                 },
             },
             {
@@ -2468,16 +1383,6 @@ See JSON for details\
                     'tools': ['file_search'],
                     'gen_ai.system': 'openai',
                     'output_type': 'str',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'name': {},
-                            'handoffs': {'type': 'array'},
-                            'tools': {'type': 'array'},
-                            'output_type': {},
-                            'gen_ai.system': {},
-                        },
-                    },
                 },
             },
             {
@@ -2492,79 +1397,6 @@ See JSON for details\
                     'logfire.msg': "Responses API with 'gpt-4o'",
                     'response_id': 'resp_67ceff3c84548191b620a2cf4c2e37f2',
                     'gen_ai.request.model': 'gpt-4o',
-                    'model_settings': {
-                        'temperature': None,
-                        'top_p': None,
-                        'frequency_penalty': None,
-                        'presence_penalty': None,
-                        'tool_choice': None,
-                        'parallel_tool_calls': None,
-                        'truncation': None,
-                        'max_tokens': None,
-                        'reasoning': None,
-                        'metadata': None,
-                        'store': None,
-                        'include_usage': None,
-                        'extra_query': None,
-                        'extra_body': None,
-                        'extra_headers': None,
-                    },
-                    'response': {
-                        'id': 'resp_67ceff3c84548191b620a2cf4c2e37f2',
-                        'created_at': 1741619004.0,
-                        'error': None,
-                        'incomplete_details': None,
-                        'instructions': None,
-                        'metadata': {},
-                        'model': 'gpt-4o-2024-08-06',
-                        'object': 'response',
-                        'output': [
-                            {
-                                'id': 'msg_67ceff3d201481918300b33fb2968fb5',
-                                'content': [
-                                    {
-                                        'annotations': [],
-                                        'text': 'The answer is 4.',
-                                        'type': 'output_text',
-                                        'logprobs': None,
-                                    }
-                                ],
-                                'role': 'assistant',
-                                'status': 'completed',
-                                'type': 'message',
-                            }
-                        ],
-                        'parallel_tool_calls': True,
-                        'temperature': 1.0,
-                        'tool_choice': 'auto',
-                        'tools': [
-                            {
-                                'type': 'file_search',
-                                'vector_store_ids': ['vs_67cd9e6afeb4819198cbffafab95d8ba'],
-                                'max_num_results': 1,
-                                'ranking_options': {'ranker': 'auto', 'score_threshold': 0.0},
-                                'filters': None,
-                            }
-                        ],
-                        'top_p': 1.0,
-                        'background': None,
-                        'max_output_tokens': None,
-                        'previous_response_id': None,
-                        'reasoning': {'effort': None, 'generate_summary': None, 'summary': None},
-                        'service_tier': None,
-                        'status': 'completed',
-                        'text': {'format': {'type': 'text'}},
-                        'truncation': 'disabled',
-                        'usage': {
-                            'input_tokens': 923,
-                            'output_tokens': 8,
-                            'output_tokens_details': {'reasoning_tokens': 0},
-                            'total_tokens': 931,
-                            'input_tokens_details': {'cached_tokens': 0},
-                        },
-                        'user': None,
-                        'store': True,
-                    },
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
                     'gen_ai.operation.name': 'chat',
@@ -2627,99 +1459,6 @@ See JSON for details\
                     ],
                     'gen_ai.usage.input_tokens': 923,
                     'gen_ai.usage.output_tokens': 8,
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'response_id': {},
-                            'gen_ai.request.model': {},
-                            'model_settings': {
-                                'type': 'object',
-                                'title': 'ModelSettings',
-                                'x-python-datatype': 'dataclass',
-                            },
-                            'response': {
-                                'type': 'object',
-                                'title': 'Response',
-                                'x-python-datatype': 'PydanticModel',
-                                'properties': {
-                                    'output': {
-                                        'type': 'array',
-                                        'items': {
-                                            'type': 'object',
-                                            'title': 'ResponseOutputMessage',
-                                            'x-python-datatype': 'PydanticModel',
-                                            'properties': {
-                                                'content': {
-                                                    'type': 'array',
-                                                    'items': {
-                                                        'type': 'object',
-                                                        'title': 'ResponseOutputText',
-                                                        'x-python-datatype': 'PydanticModel',
-                                                    },
-                                                }
-                                            },
-                                        },
-                                    },
-                                    'tools': {
-                                        'type': 'array',
-                                        'items': {
-                                            'type': 'object',
-                                            'title': 'FileSearchTool',
-                                            'x-python-datatype': 'PydanticModel',
-                                            'properties': {
-                                                'ranking_options': {
-                                                    'type': 'object',
-                                                    'title': 'RankingOptions',
-                                                    'x-python-datatype': 'PydanticModel',
-                                                }
-                                            },
-                                        },
-                                    },
-                                    'reasoning': {
-                                        'type': 'object',
-                                        'title': 'Reasoning',
-                                        'x-python-datatype': 'PydanticModel',
-                                    },
-                                    'text': {
-                                        'type': 'object',
-                                        'title': 'ResponseTextConfig',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'format': {
-                                                'type': 'object',
-                                                'title': 'ResponseFormatText',
-                                                'x-python-datatype': 'PydanticModel',
-                                            }
-                                        },
-                                    },
-                                    'usage': {
-                                        'type': 'object',
-                                        'title': 'ResponseUsage',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'input_tokens_details': {
-                                                'type': 'object',
-                                                'title': 'InputTokensDetails',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                            'output_tokens_details': {
-                                                'type': 'object',
-                                                'title': 'OutputTokensDetails',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                        },
-                                    },
-                                },
-                            },
-                            'gen_ai.response.model': {},
-                            'gen_ai.system': {},
-                            'gen_ai.operation.name': {},
-                            'raw_input': {'type': 'array'},
-                            'events': {'type': 'array'},
-                            'gen_ai.usage.input_tokens': {},
-                            'gen_ai.usage.output_tokens': {},
-                        },
-                    },
                 },
             },
             {
@@ -2740,16 +1479,6 @@ See JSON for details\
                     'tools': ['file_search'],
                     'gen_ai.system': 'openai',
                     'output_type': 'str',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'name': {},
-                            'handoffs': {'type': 'array'},
-                            'tools': {'type': 'array'},
-                            'output_type': {},
-                            'gen_ai.system': {},
-                        },
-                    },
                 },
             },
             {
@@ -2769,15 +1498,6 @@ See JSON for details\
                     'logfire.msg': 'OpenAI Agents trace: my_trace',
                     'logfire.span_type': 'span',
                     'agent_trace_id': 'trace_123',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'name': {},
-                            'agent_trace_id': {},
-                            'group_id': {'type': 'null'},
-                            'metadata': {'type': 'null'},
-                        },
-                    },
                 },
             },
         ]
@@ -2796,7 +1516,7 @@ async def test_function_tool_exception(exporter: TestExporter):
     agent = Agent(name='Start Agent', tools=[tool])
     await Runner.run(agent, input='Call the tool.')
 
-    assert without_code_attrs(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
+    assert simplify_spans(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
                 'name': 'Responses API with {gen_ai.request.model!r}',
@@ -2805,84 +1525,11 @@ async def test_function_tool_exception(exporter: TestExporter):
                 'start_time': 3000000000,
                 'end_time': 4000000000,
                 'attributes': {
-                    'model_settings': {
-                        'temperature': None,
-                        'top_p': None,
-                        'frequency_penalty': None,
-                        'presence_penalty': None,
-                        'tool_choice': None,
-                        'parallel_tool_calls': None,
-                        'truncation': None,
-                        'max_tokens': None,
-                        'reasoning': None,
-                        'metadata': None,
-                        'store': None,
-                        'include_usage': None,
-                        'extra_query': None,
-                        'extra_body': None,
-                        'extra_headers': None,
-                    },
                     'gen_ai.request.model': 'gpt-4o',
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.span_type': 'span',
                     'response_id': 'resp_67d17435ebcc8191b68300d26c22b0f90273f8a636c82b58',
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
-                    'response': {
-                        'id': 'resp_67d17435ebcc8191b68300d26c22b0f90273f8a636c82b58',
-                        'created_at': 1741780021.0,
-                        'error': None,
-                        'incomplete_details': None,
-                        'instructions': None,
-                        'metadata': {},
-                        'model': 'gpt-4o-2024-08-06',
-                        'object': 'response',
-                        'output': [
-                            {
-                                'id': 'fc_67d1743683b4819192c2f0487f38fa280273f8a636c82b58',
-                                'arguments': '{}',
-                                'call_id': 'call_OpJ32C09GImFzxYLe01MiOOd',
-                                'name': 'tool',
-                                'type': 'function_call',
-                                'status': 'completed',
-                            }
-                        ],
-                        'parallel_tool_calls': True,
-                        'temperature': 1.0,
-                        'tool_choice': 'auto',
-                        'tools': [
-                            {
-                                'name': 'tool',
-                                'parameters': {
-                                    'properties': {},
-                                    'title': 'tool_args',
-                                    'type': 'object',
-                                    'additionalProperties': False,
-                                    'required': [],
-                                },
-                                'strict': True,
-                                'type': 'function',
-                                'description': None,
-                            }
-                        ],
-                        'top_p': 1.0,
-                        'background': None,
-                        'max_output_tokens': None,
-                        'previous_response_id': None,
-                        'reasoning': {'effort': None, 'generate_summary': None, 'summary': None},
-                        'service_tier': None,
-                        'status': 'completed',
-                        'text': {'format': {'type': 'text'}},
-                        'truncation': 'disabled',
-                        'usage': {
-                            'input_tokens': 244,
-                            'output_tokens': 10,
-                            'output_tokens_details': {'reasoning_tokens': 0},
-                            'total_tokens': 254,
-                            'input_tokens_details': {'cached_tokens': 0},
-                        },
-                        'user': None,
-                        'store': True,
-                    },
                     'gen_ai.system': 'openai',
                     'gen_ai.operation.name': 'chat',
                     'raw_input': [{'content': 'Call the tool.', 'role': 'user'}],
@@ -2903,82 +1550,6 @@ async def test_function_tool_exception(exporter: TestExporter):
                     'gen_ai.usage.input_tokens': 244,
                     'gen_ai.usage.output_tokens': 10,
                     'logfire.msg': "Responses API with 'gpt-4o'",
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'response_id': {},
-                            'model_settings': {
-                                'type': 'object',
-                                'title': 'ModelSettings',
-                                'x-python-datatype': 'dataclass',
-                            },
-                            'gen_ai.request.model': {},
-                            'gen_ai.response.model': {},
-                            'response': {
-                                'type': 'object',
-                                'title': 'Response',
-                                'x-python-datatype': 'PydanticModel',
-                                'properties': {
-                                    'output': {
-                                        'type': 'array',
-                                        'items': {
-                                            'type': 'object',
-                                            'title': 'ResponseFunctionToolCall',
-                                            'x-python-datatype': 'PydanticModel',
-                                        },
-                                    },
-                                    'tools': {
-                                        'type': 'array',
-                                        'items': {
-                                            'type': 'object',
-                                            'title': 'FunctionTool',
-                                            'x-python-datatype': 'PydanticModel',
-                                        },
-                                    },
-                                    'reasoning': {
-                                        'type': 'object',
-                                        'title': 'Reasoning',
-                                        'x-python-datatype': 'PydanticModel',
-                                    },
-                                    'text': {
-                                        'type': 'object',
-                                        'title': 'ResponseTextConfig',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'format': {
-                                                'type': 'object',
-                                                'title': 'ResponseFormatText',
-                                                'x-python-datatype': 'PydanticModel',
-                                            }
-                                        },
-                                    },
-                                    'usage': {
-                                        'type': 'object',
-                                        'title': 'ResponseUsage',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'input_tokens_details': {
-                                                'type': 'object',
-                                                'title': 'InputTokensDetails',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                            'output_tokens_details': {
-                                                'type': 'object',
-                                                'title': 'OutputTokensDetails',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                        },
-                                    },
-                                },
-                            },
-                            'gen_ai.system': {},
-                            'gen_ai.operation.name': {},
-                            'raw_input': {'type': 'array'},
-                            'events': {'type': 'array'},
-                            'gen_ai.usage.input_tokens': {},
-                            'gen_ai.usage.output_tokens': {},
-                        },
-                    },
                 },
             },
             {
@@ -3001,17 +1572,6 @@ async def test_function_tool_exception(exporter: TestExporter):
                         'data': {'tool_name': 'tool', 'error': "Ouch, don't do that again!"},
                     },
                     'logfire.msg': 'Function: tool failed: Error running tool (non-fatal)',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'name': {},
-                            'input': {},
-                            'output': {},
-                            'mcp_data': {'type': 'null'},
-                            'gen_ai.system': {},
-                            'error': {'type': 'object'},
-                        },
-                    },
                 },
                 'events': [
                     {
@@ -3036,90 +1596,11 @@ async def test_function_tool_exception(exporter: TestExporter):
                     'code.filepath': 'test_openai_agents.py',
                     'code.function': 'test_function_tool_exception',
                     'code.lineno': 123,
-                    'model_settings': {
-                        'temperature': None,
-                        'top_p': None,
-                        'frequency_penalty': None,
-                        'presence_penalty': None,
-                        'tool_choice': None,
-                        'parallel_tool_calls': None,
-                        'truncation': None,
-                        'max_tokens': None,
-                        'reasoning': None,
-                        'metadata': None,
-                        'store': None,
-                        'include_usage': None,
-                        'extra_query': None,
-                        'extra_body': None,
-                        'extra_headers': None,
-                    },
                     'gen_ai.request.model': 'gpt-4o',
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.span_type': 'span',
                     'response_id': 'resp_67d17436e29481919a2bd269518a8a3e0273f8a636c82b58',
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
-                    'response': {
-                        'id': 'resp_67d17436e29481919a2bd269518a8a3e0273f8a636c82b58',
-                        'created_at': 1741780022.0,
-                        'error': None,
-                        'incomplete_details': None,
-                        'instructions': None,
-                        'metadata': {},
-                        'model': 'gpt-4o-2024-08-06',
-                        'object': 'response',
-                        'output': [
-                            {
-                                'id': 'msg_67d174373e2c81918c8b92e4a39381c70273f8a636c82b58',
-                                'content': [
-                                    {
-                                        'annotations': [],
-                                        'text': 'It seems there was an error when trying to call the tool. If you need help with something specific, feel free to let me know!',
-                                        'type': 'output_text',
-                                        'logprobs': None,
-                                    }
-                                ],
-                                'role': 'assistant',
-                                'status': 'completed',
-                                'type': 'message',
-                            }
-                        ],
-                        'parallel_tool_calls': True,
-                        'temperature': 1.0,
-                        'tool_choice': 'auto',
-                        'tools': [
-                            {
-                                'name': 'tool',
-                                'parameters': {
-                                    'properties': {},
-                                    'title': 'tool_args',
-                                    'type': 'object',
-                                    'additionalProperties': False,
-                                    'required': [],
-                                },
-                                'strict': True,
-                                'type': 'function',
-                                'description': None,
-                            }
-                        ],
-                        'top_p': 1.0,
-                        'background': None,
-                        'max_output_tokens': None,
-                        'previous_response_id': None,
-                        'reasoning': {'effort': None, 'generate_summary': None, 'summary': None},
-                        'service_tier': None,
-                        'status': 'completed',
-                        'text': {'format': {'type': 'text'}},
-                        'truncation': 'disabled',
-                        'usage': {
-                            'input_tokens': 283,
-                            'output_tokens': 30,
-                            'output_tokens_details': {'reasoning_tokens': 0},
-                            'total_tokens': 313,
-                            'input_tokens_details': {'cached_tokens': 0},
-                        },
-                        'user': None,
-                        'store': True,
-                    },
                     'gen_ai.system': 'openai',
                     'gen_ai.operation.name': 'chat',
                     'raw_input': [
@@ -3167,92 +1648,6 @@ async def test_function_tool_exception(exporter: TestExporter):
                     'gen_ai.usage.input_tokens': 283,
                     'gen_ai.usage.output_tokens': 30,
                     'logfire.msg': "Responses API with 'gpt-4o'",
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'response_id': {},
-                            'model_settings': {
-                                'type': 'object',
-                                'title': 'ModelSettings',
-                                'x-python-datatype': 'dataclass',
-                            },
-                            'gen_ai.request.model': {},
-                            'gen_ai.response.model': {},
-                            'response': {
-                                'type': 'object',
-                                'title': 'Response',
-                                'x-python-datatype': 'PydanticModel',
-                                'properties': {
-                                    'output': {
-                                        'type': 'array',
-                                        'items': {
-                                            'type': 'object',
-                                            'title': 'ResponseOutputMessage',
-                                            'x-python-datatype': 'PydanticModel',
-                                            'properties': {
-                                                'content': {
-                                                    'type': 'array',
-                                                    'items': {
-                                                        'type': 'object',
-                                                        'title': 'ResponseOutputText',
-                                                        'x-python-datatype': 'PydanticModel',
-                                                    },
-                                                }
-                                            },
-                                        },
-                                    },
-                                    'tools': {
-                                        'type': 'array',
-                                        'items': {
-                                            'type': 'object',
-                                            'title': 'FunctionTool',
-                                            'x-python-datatype': 'PydanticModel',
-                                        },
-                                    },
-                                    'reasoning': {
-                                        'type': 'object',
-                                        'title': 'Reasoning',
-                                        'x-python-datatype': 'PydanticModel',
-                                    },
-                                    'text': {
-                                        'type': 'object',
-                                        'title': 'ResponseTextConfig',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'format': {
-                                                'type': 'object',
-                                                'title': 'ResponseFormatText',
-                                                'x-python-datatype': 'PydanticModel',
-                                            }
-                                        },
-                                    },
-                                    'usage': {
-                                        'type': 'object',
-                                        'title': 'ResponseUsage',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'input_tokens_details': {
-                                                'type': 'object',
-                                                'title': 'InputTokensDetails',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                            'output_tokens_details': {
-                                                'type': 'object',
-                                                'title': 'OutputTokensDetails',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                        },
-                                    },
-                                },
-                            },
-                            'gen_ai.system': {},
-                            'gen_ai.operation.name': {},
-                            'raw_input': {'type': 'array'},
-                            'events': {'type': 'array'},
-                            'gen_ai.usage.input_tokens': {},
-                            'gen_ai.usage.output_tokens': {},
-                        },
-                    },
                 },
             },
             {
@@ -3273,16 +1668,6 @@ async def test_function_tool_exception(exporter: TestExporter):
                     'output_type': 'str',
                     'gen_ai.system': 'openai',
                     'logfire.msg': "Agent run: 'Start Agent'",
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'name': {},
-                            'handoffs': {'type': 'array'},
-                            'tools': {'type': 'array'},
-                            'output_type': {},
-                            'gen_ai.system': {},
-                        },
-                    },
                 },
             },
             {
@@ -3302,15 +1687,6 @@ async def test_function_tool_exception(exporter: TestExporter):
                     'logfire.msg': 'OpenAI Agents trace: Agent workflow',
                     'logfire.span_type': 'span',
                     'agent_trace_id': IsStr(),
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'name': {},
-                            'agent_trace_id': {},
-                            'group_id': {'type': 'null'},
-                            'metadata': {'type': 'null'},
-                        },
-                    },
                 },
             },
         ]
@@ -3358,7 +1734,7 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
         ]
     )
 
-    assert without_code_attrs(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
+    assert simplify_spans(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
                 'name': 'Speech → Text with {gen_ai.request.model!r}',
@@ -3379,17 +1755,6 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
                     'model_config': {'temperature': None, 'language': None, 'prompt': None},
                     'gen_ai.response.model': 'gpt-4o-transcribe',
                     'logfire.msg': "Speech → Text with 'gpt-4o-transcribe': Können Sie mir bitte helfen?",
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'input': {'type': 'object'},
-                            'output': {},
-                            'model_config': {'type': 'object'},
-                            'gen_ai.system': {},
-                            'gen_ai.request.model': {},
-                            'gen_ai.response.model': {},
-                        },
-                    },
                 },
             },
             {
@@ -3409,10 +1774,6 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
                     'logfire.span_type': 'span',
                     'agent_trace_id': IsStr(),
                     'group_id': IsStr(),
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {'name': {}, 'agent_trace_id': {}, 'group_id': {}, 'metadata': {'type': 'null'}},
-                    },
                 },
             },
             {
@@ -3422,76 +1783,11 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
                 'start_time': 6000000000,
                 'end_time': 7000000000,
                 'attributes': {
-                    'model_settings': {
-                        'temperature': None,
-                        'top_p': None,
-                        'frequency_penalty': None,
-                        'presence_penalty': None,
-                        'tool_choice': None,
-                        'parallel_tool_calls': None,
-                        'truncation': None,
-                        'max_tokens': None,
-                        'reasoning': None,
-                        'metadata': None,
-                        'store': None,
-                        'include_usage': None,
-                        'extra_query': None,
-                        'extra_body': None,
-                        'extra_headers': None,
-                    },
                     'gen_ai.request.model': 'gpt-4o',
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.span_type': 'span',
                     'response_id': 'resp_67dd5addb0008191b0d059952c4623eb0f38ae46f61d8b89',
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
-                    'response': {
-                        'id': 'resp_67dd5addb0008191b0d059952c4623eb0f38ae46f61d8b89',
-                        'created_at': 1742559965.0,
-                        'error': None,
-                        'incomplete_details': None,
-                        'instructions': None,
-                        'metadata': {},
-                        'model': 'gpt-4o-2024-08-06',
-                        'object': 'response',
-                        'output': [
-                            {
-                                'id': 'msg_67dd5ade2df881918493d9a586f98b3a0f38ae46f61d8b89',
-                                'content': [
-                                    {
-                                        'annotations': [],
-                                        'text': 'Natürlich! Wobei genau benötigen Sie Hilfe?',
-                                        'type': 'output_text',
-                                        'logprobs': None,
-                                    }
-                                ],
-                                'role': 'assistant',
-                                'status': 'completed',
-                                'type': 'message',
-                            }
-                        ],
-                        'parallel_tool_calls': True,
-                        'temperature': 1.0,
-                        'tool_choice': 'auto',
-                        'tools': [],
-                        'top_p': 1.0,
-                        'background': None,
-                        'max_output_tokens': None,
-                        'previous_response_id': None,
-                        'reasoning': {'effort': None, 'generate_summary': None, 'summary': None},
-                        'service_tier': None,
-                        'status': 'completed',
-                        'text': {'format': {'type': 'text'}},
-                        'truncation': 'disabled',
-                        'usage': {
-                            'input_tokens': 33,
-                            'input_tokens_details': {'cached_tokens': 0},
-                            'output_tokens': 10,
-                            'output_tokens_details': {'reasoning_tokens': 0},
-                            'total_tokens': 43,
-                        },
-                        'user': None,
-                        'store': True,
-                    },
                     'gen_ai.system': 'openai',
                     'gen_ai.operation.name': 'chat',
                     'raw_input': [{'role': 'user', 'content': 'Können Sie mir bitte helfen?'}],
@@ -3510,84 +1806,6 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
                     'gen_ai.usage.input_tokens': 33,
                     'gen_ai.usage.output_tokens': 10,
                     'logfire.msg': "Responses API with 'gpt-4o'",
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'response_id': {},
-                            'model_settings': {
-                                'type': 'object',
-                                'title': 'ModelSettings',
-                                'x-python-datatype': 'dataclass',
-                            },
-                            'gen_ai.request.model': {},
-                            'gen_ai.response.model': {},
-                            'response': {
-                                'type': 'object',
-                                'title': 'Response',
-                                'x-python-datatype': 'PydanticModel',
-                                'properties': {
-                                    'output': {
-                                        'type': 'array',
-                                        'items': {
-                                            'type': 'object',
-                                            'title': 'ResponseOutputMessage',
-                                            'x-python-datatype': 'PydanticModel',
-                                            'properties': {
-                                                'content': {
-                                                    'type': 'array',
-                                                    'items': {
-                                                        'type': 'object',
-                                                        'title': 'ResponseOutputText',
-                                                        'x-python-datatype': 'PydanticModel',
-                                                    },
-                                                }
-                                            },
-                                        },
-                                    },
-                                    'reasoning': {
-                                        'type': 'object',
-                                        'title': 'Reasoning',
-                                        'x-python-datatype': 'PydanticModel',
-                                    },
-                                    'text': {
-                                        'type': 'object',
-                                        'title': 'ResponseTextConfig',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'format': {
-                                                'type': 'object',
-                                                'title': 'ResponseFormatText',
-                                                'x-python-datatype': 'PydanticModel',
-                                            }
-                                        },
-                                    },
-                                    'usage': {
-                                        'type': 'object',
-                                        'title': 'ResponseUsage',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'input_tokens_details': {
-                                                'type': 'object',
-                                                'title': 'InputTokensDetails',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                            'output_tokens_details': {
-                                                'type': 'object',
-                                                'title': 'OutputTokensDetails',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                        },
-                                    },
-                                },
-                            },
-                            'gen_ai.system': {},
-                            'gen_ai.operation.name': {},
-                            'raw_input': {'type': 'array'},
-                            'events': {'type': 'array'},
-                            'gen_ai.usage.input_tokens': {},
-                            'gen_ai.usage.output_tokens': {},
-                        },
-                    },
                 },
             },
             {
@@ -3605,16 +1823,6 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
                     'output_type': 'str',
                     'gen_ai.system': 'openai',
                     'logfire.msg': "Agent run: 'Assistant'",
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'name': {},
-                            'handoffs': {'type': 'array'},
-                            'tools': {'type': 'array'},
-                            'output_type': {},
-                            'gen_ai.system': {},
-                        },
-                    },
                 },
             },
             {
@@ -3638,18 +1846,6 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
                     'gen_ai.response.model': 'gpt-4o-mini-tts',
                     'first_content_at': IsStr(),
                     'logfire.msg': 'Text → Speech: Natürlich! Wobei genau benötigen Sie Hilfe?',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'input': {},
-                            'output': {'type': 'object'},
-                            'model_config': {'type': 'object'},
-                            'first_content_at': {},
-                            'gen_ai.system': {},
-                            'gen_ai.request.model': {},
-                            'gen_ai.response.model': {},
-                        },
-                    },
                 },
             },
             {
@@ -3664,7 +1860,6 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
                     'input': 'Natürlich! Wobei genau benötigen Sie Hilfe?',
                     'gen_ai.system': 'openai',
                     'logfire.msg': 'Text → Speech group: Natürlich! Wobei genau benötigen Sie Hilfe?',
-                    'logfire.json_schema': {'type': 'object', 'properties': {'input': {}, 'gen_ai.system': {}}},
                 },
             },
         ]
