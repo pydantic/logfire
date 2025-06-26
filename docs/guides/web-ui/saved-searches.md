@@ -23,7 +23,7 @@ You'll see a panel where you can enter a query using either:
 
 ![Natural language to SQL](../../images/guide/browser-saved-searches-natural-language.png)
 
-- **Filter by...**: Use the filter chips below the editor to quickly add common filters (e.g., tags, service name, level).
+- **Filter by...**: Use the filter pills below the editor to quickly add common filters (e.g., tags, service name, level).
 
 ## 3. Running and Reviewing Queries
 
