@@ -79,7 +79,7 @@ tuning is via [sampling](how-to-guides/sampling.md).
 
 Data older than **30 days** is pruned (except for customers on our [enterprise plans](enterprise.md)).
 If you need longer retention we recommend writing to both Logfire and a long-term storage
-such as AWS S3. We have a [guide on how to sink data to S3](how-to-guides/otel-collector.md).
+such as AWS S3. We have a [guide on how to back up data to S3](how-to-guides/otel-collector.md#back-up-data-in-aws-s3).
 You can also use the Query API which allows you to run SQL queries
 and treat Logfire as an analytical database. You're then free to save this data to a storage
 of your choice (S3, GCS etc.)

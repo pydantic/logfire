@@ -1,6 +1,6 @@
 # Saved Searches
 
-Logfire's **Saved Searches** feature allows you to quickly access, organize, and share your most useful queries in the web UI. This feature is available on the Live and Explore pages, and can be tested on the [public demo](https://logfire-eu.pydantic.dev/demo/logfire-demo).
+Logfire's **Saved Searches** feature allows you to quickly access, organize, and share your most useful queries in the web UI. This feature is available on the Live page, and can be tested on the [public demo](https://logfire-eu.pydantic.dev/demo/logfire-demo).
 
 ## 1. Opening the Search Panel
 
@@ -23,7 +23,7 @@ You'll see a panel where you can enter a query using either:
 
 ![Natural language to SQL](../../images/guide/browser-saved-searches-natural-language.png)
 
-- **Filter by...**: Use the filter chips below the editor to quickly add common filters (e.g., tags, service name, level).
+- **Filter by...**: Use the filter pills below the editor to quickly add common filters (e.g., tags, service name, level).
 
 ## 3. Running and Reviewing Queries
 
@@ -79,7 +79,7 @@ flowchart TD
 
 - You can test this feature on the [public demo page](https://logfire-eu.pydantic.dev/demo/logfire-demo).
 - Use the search fields in both **Recent** and **Saved** tabs to quickly find queries by name.
-- Use the **Filter by...** chips to build queries faster without writing SQL.
+- Use the **Filter by...** pills to build queries faster without writing SQL.
 
 ---
 
