@@ -1,6 +1,6 @@
 # How to Convert a Personal Account to an Organization
 
-Logfire allows you to convert your personal account into an organization, making it easier to collaborate with a team and manage projects at scale. This is also handy for users upgrading to Pro, who might want to move projects under a corporate organization name. 
+Logfire allows you to convert your personal account into an organization, making it easier to collaborate with a team and manage projects at scale. This is also handy for users upgrading to Pro, who might want to move projects under a corporate organization name.
 
 This guide walks you through the conversion process step by step.
 
@@ -20,7 +20,7 @@ Click **Convert to org**. A modal will appear, outlining the main points of the 
 
 - All existing **projects, members, alerts, dashboards, and settings** will be moved to the new organization.
 - **Write tokens** will continue to work; you do not need to change any ingest URLs.
-- You'll define your new organization's **username** and **display name**.
+- You'll define your new organization's **handle** and **display name**.
 - You can optionally edit the username and display name for your new personal account.
 
 ![Convert to org modal with main points](../images/guide/convert-to-org-modal-main-points.png)
@@ -34,7 +34,7 @@ Click **Acknowledge & continue** to proceed.
 In the next modal, you can:
 
 - Upload an **organization avatar**.
-- Specify the **organization username** (used in URLs).
+- Specify the **organization handle** (used in URLs).
 - Set the **organization display name**.
 
 On the right, you'll see a summary of the migration:
@@ -43,7 +43,7 @@ On the right, you'll see a summary of the migration:
 - The project URLs will change from:
   `https://logfire-eu.pydantic.dev/your-username/project-name`
   to
-  `https://logfire-eu.pydantic.dev/your-org-username/project-name`.
+  `https://logfire-eu.pydantic.dev/your-org-handle/project-name`.
 
 ![Set up new organization modal](../images/guide/convert-to-org-setup-org.png)
 
@@ -68,7 +68,7 @@ Click **Confirm & convert**. The conversion process will complete, and you'll be
 ## Summary
 
 - All your data, projects, and settings are preserved during the migration.
-- Only the URL changes to reflect the new organization username.
+- Only the URL changes to reflect the new organization handle.
 - Your new personal account will be empty, ready for individual use if needed.
 
 ---
