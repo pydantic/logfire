@@ -1,6 +1,8 @@
 # How to Convert a Personal Account to an Organization
 
-Logfire allows you to convert your personal account into an organization, making it easier to collaborate with a team and manage projects at scale. This guide walks you through the conversion process step by step.
+Logfire allows you to convert your personal account into an organization, making it easier to collaborate with a team and manage projects at scale. This is also handy for users upgrading to Pro, who might want to move projects under a corporate organization name. 
+
+This guide walks you through the conversion process step by step.
 
 ---
 
