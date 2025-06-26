@@ -1,13 +1,16 @@
+from __future__ import annotations as _annotations
+
 import argparse
 import importlib
 import importlib.metadata
-import importlib.util
 import os
 import runpy
 import shutil
 import sys
+import warnings
+from collections.abc import Iterable
+from typing import cast
 
-import pkg_resources
 from rich.box import ROUNDED
 from rich.console import Console, Group
 from rich.panel import Panel
@@ -18,18 +21,42 @@ import logfire
 
 # Map of instrumentation packages to the packages they instrument
 OTEL_INSTRUMENTATION_MAP = {
+    'opentelemetry-instrumentation-aio_pika': 'aio_pika',
+    'opentelemetry-instrumentation-aiohttp-client': 'aiohttp',
+    'opentelemetry-instrumentation-aiopg': 'aiopg',
+    'opentelemetry-instrumentation-asyncpg': 'asyncpg',
+    'opentelemetry-instrumentation-boto': 'boto',
+    'opentelemetry-instrumentation-botocore': 'botocore',
+    'opentelemetry-instrumentation-celery': 'celery',
+    'opentelemetry-instrumentation-confluent-kafka': 'confluent_kafka',
+    'opentelemetry-instrumentation-django': 'django',
+    'opentelemetry-instrumentation-elasticsearch': 'elasticsearch',
+    'opentelemetry-instrumentation-falcon': 'falcon',
     'opentelemetry-instrumentation-fastapi': 'fastapi',
     'opentelemetry-instrumentation-flask': 'flask',
-    'opentelemetry-instrumentation-django': 'django',
-    'opentelemetry-instrumentation-requests': 'requests',
+    'opentelemetry-instrumentation-grpc': 'grpc',
     'opentelemetry-instrumentation-httpx': 'httpx',
-    'opentelemetry-instrumentation-sqlalchemy': 'sqlalchemy',
-    'opentelemetry-instrumentation-asyncpg': 'asyncpg',
+    'opentelemetry-instrumentation-jinja2': 'jinja2',
+    'opentelemetry-instrumentation-kafka-python': 'kafka_python',
+    'opentelemetry-instrumentation-mysql': 'mysql',
+    'opentelemetry-instrumentation-mysqlclient': 'mysqlclient',
+    'opentelemetry-instrumentation-pika': 'pika',
+    'opentelemetry-instrumentation-psycopg': 'psycopg',
     'opentelemetry-instrumentation-psycopg2': 'psycopg2',
+    'opentelemetry-instrumentation-pymemcache': 'pymemcache',
+    'opentelemetry-instrumentation-pymongo': 'pymongo',
+    'opentelemetry-instrumentation-pymysql': 'pymysql',
+    'opentelemetry-instrumentation-pyramid': 'pyramid',
     'opentelemetry-instrumentation-redis': 'redis',
-    'opentelemetry-instrumentation-celery': 'celery',
-    'opentelemetry-instrumentation-aiohttp-client': 'aiohttp',
+    'opentelemetry-instrumentation-remoulade': 'remoulade',
+    'opentelemetry-instrumentation-requests': 'requests',
+    'opentelemetry-instrumentation-sqlalchemy': 'sqlalchemy',
     'opentelemetry-instrumentation-sqlite3': 'sqlite3',
+    'opentelemetry-instrumentation-starlette': 'starlette',
+    'opentelemetry-instrumentation-tornado': 'tornado',
+    'opentelemetry-instrumentation-tortoiseorm': 'tortoise_orm',
+    'opentelemetry-instrumentation-urllib': 'urllib',
+    'opentelemetry-instrumentation-urllib3': 'urllib3',
     'pydantic-ai-slim': 'pydantic_ai',
 }
 
@@ -38,8 +65,11 @@ def parse_run(args: argparse.Namespace) -> None:
     # Initialize Logfire
     logfire.configure()
 
-    # Show OpenTelemetry package information
-    print_otel_info()
+    summary = cast(bool, args.summary)
+    exclude = cast('set[str]', args.exclude)
+
+    # Show the instrumentation summary and perform the instrumentation.
+    instrument(exclude=exclude, summary=summary)
 
     # Get arguments from the args parameter
     if hasattr(args, 'module') and args.module:
@@ -94,61 +124,11 @@ def parse_run(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
-def get_installed_packages() -> set[str]:
-    """Get a set of all installed packages."""
-    try:
-        # Try using importlib.metadata first (newer approach)
-        return {dist.metadata['Name'].lower() for dist in importlib.metadata.distributions()}
-    except (ImportError, AttributeError):
-        # Fall back to pkg_resources
-        return {pkg.key for pkg in pkg_resources.working_set}
-
-
-def is_package_directly_imported(package_name: str) -> bool:
-    """Check if a package is directly imported in the application, not just a dependency.
-
-    Uses multiple methods to detect if a package is likely being used:
-    1. Check if it's in sys.modules (currently imported)
-    2. Check if any submodules are imported
-    3. Check if it's an importable module with a valid spec
-    """
-    try:
-        # Method 1: Check if the package or any submodule is already imported
-        if package_name in sys.modules:
-            return True
-
-        # Check if any submodule of this package is imported
-        for module_name in sys.modules:
-            if module_name == package_name or module_name.startswith(f'{package_name}.'):
-                return True
-
-        # Method 2: Check if the package can be found/imported
-        # This helps identify packages that may be used but not yet imported
-        spec = importlib.util.find_spec(package_name)
-        if spec:
-            # For packages that are in our instrumentation map, count them as usable if installed
-            if package_name in OTEL_INSTRUMENTATION_MAP.values():
-                return True
-
-            # If we can find a spec for the package, it's likely installed and usable
-            try:
-                # Try to import it as a simple test
-                # This is reasonable as we're only checking packages that are already installed
-                importlib.import_module(package_name)
-                return True
-            except ImportError:
-                # If import fails, it might be a package that requires special initialization
-                pass
-
-        # Note: We intentionally avoid scanning Python files as it can be unreliable
-        # and would require parsing code which is beyond the scope of this utility
-
-        return False
-    except (ImportError, AttributeError, ValueError, OSError):
-        return False
-
-
-def get_recommended_instrumentation() -> list[tuple[str, str]]:
+def get_recommended_instrumentation(
+    instrumentation_packages_map: dict[str, str],
+    installed_otel_packages: list[str],
+    installed_packages: set[str],
+) -> list[tuple[str, str]]:
     """Get recommended OpenTelemetry instrumentation packages.
 
     Returns:
@@ -156,24 +136,17 @@ def get_recommended_instrumentation() -> list[tuple[str, str]]:
         - Package name
         - Package it instruments
     """
-    installed_packages = get_installed_packages()
-
-    # Get all installed otel packages
-    installed_otel = {pkg for pkg in OTEL_INSTRUMENTATION_MAP.keys() if pkg in installed_packages}
-
     # Find packages that we could instrument
     recommendations: list[tuple[str, str]] = []
 
-    for otel_pkg, required_pkg in OTEL_INSTRUMENTATION_MAP.items():
+    for otel_pkg, required_pkg in instrumentation_packages_map.items():
         # Skip if this instrumentation is already installed
-        if otel_pkg in installed_otel:
+        if otel_pkg in installed_otel_packages:
             continue
 
-        # Include only if the package it instruments is installed
-        if required_pkg in installed_packages:
-            # For built-in modules like sqlite3, we can assume they're usable if in sys.modules
-            if required_pkg in sys.builtin_module_names or is_package_directly_imported(required_pkg):
-                recommendations.append((otel_pkg, required_pkg))
+        # Include only if the package it instruments is installed or in sys.stdlib_module_names
+        if required_pkg in installed_packages or required_pkg in sys.stdlib_module_names:
+            recommendations.append((otel_pkg, required_pkg))
 
     return recommendations
 
@@ -183,35 +156,7 @@ def is_uv_installed() -> bool:
     return shutil.which('uv') is not None
 
 
-def get_install_command(package_name: str) -> str:
-    """Get the appropriate install command based on available package managers."""
-    if is_uv_installed():
-        return f'uv add {package_name}'
-    return f'pip install {package_name}'
-
-
-def get_full_install_command(recommendations: list[tuple[str, str]]) -> str:
-    """Generate a command to install all recommended packages at once."""
-    if not recommendations:
-        return ''
-
-    package_names = [pkg_name for pkg_name, _ in recommendations]
-
-    if is_uv_installed():
-        return f'uv add {" ".join(package_names)}'
-    else:
-        return f'pip install {" ".join(package_names)}'
-
-
-def get_installed_otel_packages() -> list[str]:
-    """Get a list of installed OpenTelemetry instrumentation packages."""
-    installed_packages = get_installed_packages()
-
-    # Return installed OpenTelemetry instrumentation packages
-    return [pkg for pkg in OTEL_INSTRUMENTATION_MAP.keys() if pkg in installed_packages]
-
-
-def instrument_packages(installed_otel_packages: list[str]) -> list[str]:
+def instrument_packages(installed_otel_packages: list[str], instrumentation_packages_map: dict[str, str]) -> list[str]:
     """Automatically instrument the installed OpenTelemetry packages.
 
     Returns a list of packages that were successfully instrumented.
@@ -224,13 +169,13 @@ def instrument_packages(installed_otel_packages: list[str]) -> list[str]:
 
         # Process all installed OpenTelemetry packages
         for pkg_name in installed_otel_packages:
-            if pkg_name in OTEL_INSTRUMENTATION_MAP.keys():
+            if pkg_name in instrumentation_packages_map.keys():
                 base_pkg = pkg_name.replace('opentelemetry-instrumentation-', '')
                 # Handle special cases
                 if base_pkg == 'aiohttp-client':
                     base_pkg = 'aiohttp'
 
-                import_name = OTEL_INSTRUMENTATION_MAP[pkg_name]
+                import_name = instrumentation_packages_map[pkg_name]
                 instrument_attr = f'instrument_{import_name}'
 
                 try:
@@ -248,25 +193,29 @@ def instrument_packages(installed_otel_packages: list[str]) -> list[str]:
     return instrumented
 
 
-def print_otel_info() -> None:
+def instrument(exclude: Iterable[str] = (), summary: bool = True) -> None:
     """Print OpenTelemetry package information using Rich library."""
-    console = Console()
-    recommendations = get_recommended_instrumentation()
+    console = Console(file=sys.stderr)
 
-    # Get installed OpenTelemetry packages
-    installed_otel_packages = get_installed_otel_packages()
+    # Get the packages that we want to consider for instrumentation.
+    instrumentation_packages_map = {
+        otel_package: package for otel_package, package in OTEL_INSTRUMENTATION_MAP.items() if package not in exclude
+    }
 
-    # Try to instrument installed packages
-    instrumented_packages = instrument_packages(installed_otel_packages)
+    installed_packages = _installed_packages()
+    installed_otel_packages = [pkg for pkg in instrumentation_packages_map.keys() if pkg in installed_packages]
+
+    recommendations = get_recommended_instrumentation(
+        instrumentation_packages_map, installed_otel_packages, installed_packages
+    )
+    instrumented_packages = instrument_packages(installed_otel_packages, instrumentation_packages_map)
 
     # Create instrumentation status text for all packages
     instrumentation_text = Text('Your instrumentation checklist:\n\n')
 
     # Add installed and instrumented packages
     for pkg_name in installed_otel_packages:
-        base_pkg = pkg_name.replace('opentelemetry-instrumentation-', '')
-        if base_pkg == 'aiohttp-client':
-            base_pkg = 'aiohttp'
+        base_pkg = _base_pkg_name(pkg_name)
 
         if base_pkg in instrumented_packages:
             instrumentation_text.append(f'✓ {base_pkg} (installed and instrumented)\n', style='green')
@@ -280,7 +229,7 @@ def print_otel_info() -> None:
         instrumentation_text.append(f'☐ {instrumented_pkg} (need to install {pkg_name})\n', style='grey50')
 
     # Get full install command for all packages
-    full_install_cmd = get_full_install_command(recommendations)
+    full_install_cmd = _full_install_command(recommendations)
 
     # Create section for installing all packages at once
     install_all_text = Text()
@@ -316,6 +265,43 @@ def print_otel_info() -> None:
         padding=(1, 2),
     )
 
-    console.print('\n')
-    console.print(panel)
-    console.print()
+    if summary:
+        console.print('\n')
+        console.print(panel)
+        console.print()
+
+
+def _base_pkg_name(pkg_name: str) -> str:
+    base_pkg = pkg_name.replace('opentelemetry-instrumentation-', '')
+    if base_pkg == 'aiohttp-client':
+        base_pkg = 'aiohttp'
+    return base_pkg
+
+
+def _installed_packages() -> set[str]:
+    """Get a set of all installed packages."""
+    try:
+        # Try using importlib.metadata first (it's available in Python >=3.10)
+        return {dist.metadata['Name'].lower() for dist in importlib.metadata.distributions()}
+    except (ImportError, AttributeError):
+        # Fall back to pkg_resources
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', category=UserWarning)
+            import pkg_resources
+
+            return {pkg.key for pkg in pkg_resources.working_set}
+
+
+def _full_install_command(recommendations: list[tuple[str, str]]) -> str:
+    """Generate a command to install all recommended packages at once."""
+    if not recommendations:
+        return ''
+
+    package_names = [pkg_name for pkg_name, _ in recommendations]
+
+    # TODO(Marcelo): We should customize this. If the user uses poetry, they'd use `poetry add`.
+    # Something like `--install-format` with options like `requirements`, `poetry`, `uv`, `pip`.
+    if is_uv_installed():
+        return f'uv add {" ".join(package_names)}'
+    else:
+        return f'pip install {" ".join(package_names)}'

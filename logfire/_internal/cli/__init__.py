@@ -9,7 +9,6 @@ import importlib.util
 import logging
 import platform
 import sys
-import warnings
 import webbrowser
 from collections.abc import Sequence
 from operator import itemgetter
@@ -146,9 +145,6 @@ def parse_inspect(args: argparse.Namespace) -> None:
     """Inspect installed packages and recommend packages that might be useful."""
     packages_to_ignore: set[str] = set(args.ignore) if args.ignore else set()
     packages_to_inspect = OTEL_PACKAGES - packages_to_ignore
-
-    # Ignore warnings from packages that we don't control.
-    warnings.simplefilter('ignore', category=UserWarning)
 
     packages: dict[str, str] = {}
     for name in packages_to_inspect:
@@ -483,6 +479,8 @@ def _main(args: list[str] | None = None) -> None:
     cmd_info.set_defaults(func=parse_info)
 
     cmd_run = subparsers.add_parser('run', help='Run Python scripts/modules with Logfire instrumentation')
+    cmd_run.add_argument('--summary', action=argparse.BooleanOptionalAction, default=True, help='hide the summary box')
+    cmd_run.add_argument('--exclude', action=SplitArgs, default=(), help='exclude a package from instrumentation')
     run_group = cmd_run.add_mutually_exclusive_group(required=True)
     run_group.add_argument('-m', '--module', help='Run module as script')
     run_group.add_argument('script', nargs='?', help='Script path to run')
