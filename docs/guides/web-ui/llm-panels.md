@@ -144,4 +144,4 @@ When a prompt includes a file—binary, blob, or URL—Logfire attaches a previe
 ---
 ### Where to start
 
-To get started the integeration, please refer to [LLM integration guides](../../integrations/llms/pydanticai.md).
+To get started the integration, please refer to [LLM integration guides](../../integrations/llms/pydanticai.md).
