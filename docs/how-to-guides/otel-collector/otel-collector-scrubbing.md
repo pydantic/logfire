@@ -45,13 +45,7 @@ processors:
 
 ### Scenario 2:  Masking Sensitive Values with Regex
 
-Sometimes sensitive data isn't tied to a specific key; it appears directly within attribute values or logs.
-For example, a user might include their email address in a log message or a trace attribute.
-The SDK scrubbing already supports value scrubbing based on patterns, but you might want to **mask** or **hash** only the sensitive string instead of the full value.
-
-**Use Case:** You want to find and mask any email address, no matter where it appears in your telemetry data.
-
-**Solution:** Use the [redaction processor](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/processor/redactionprocessor/README.md). It can search all attribute values and log bodies for regex patterns and replace them.
+The [redaction processor](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/processor/redactionprocessor/README.md) can mask or hash regex patterns _within_ a value instead of scrubbing the whole thing. For example, here's how to mask email addresses:
 
 Collector `config.yaml` snippet:
 ```yaml
