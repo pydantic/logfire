@@ -80,6 +80,6 @@ Let's set up a channel, then test that alerts can be sent with the URL:
 
     ![](../images/guide/browser-alerts-create-channel.png)
 
-Once all done, select **Create alert** to save all your changes.
+Once your Slack channel is connected, click **Create alert** to save all your changes. Your alert is now live!
 
 You will now receive notifications within your slack channel when the alert is triggered!
