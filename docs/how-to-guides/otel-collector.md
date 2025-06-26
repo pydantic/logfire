@@ -44,9 +44,8 @@ receivers:
 exporters:
   awss3:
     s3uploader:
-      # !!! TODO replace with your actual region and bucket name
-      region: eu-central-1
-      s3_bucket: test-otel-bucket
+      region: <REPLACE-WITH-YOUR-REGION>
+      s3_bucket: <REPLACE-WITH-YOUR-BUCKET-NAME>
 processors:
   batch:
     timeout: 10s
