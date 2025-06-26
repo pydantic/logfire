@@ -166,7 +166,7 @@ If you're unsure which tables or columns are available, refer to the [records sc
 You can reference dashboard variables in SQL queries using the `$variable` syntax:
 
 ```sql
-SELECT * FROM records WHERE service_name = $service_name
+SELECT count() FROM records WHERE service_name = $service_name
 ```
 
 Variables can only be used in SQL queries. They cannot be used in chart titles or other non-query fields.
