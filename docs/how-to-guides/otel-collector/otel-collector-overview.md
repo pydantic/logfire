@@ -22,7 +22,7 @@ For more information on the collector please see the [official documentation](ht
 
 ## Back up data in AWS S3
 
-Data older than **30 days** is pruned from our backend (except for customers on our [enterprise plans](../enterprise.md)).
+Data older than **30 days** is pruned from our backend (except for customers on our [enterprise plans](../../enterprise.md)).
 If you want to keep your data stored long-term, you can configure the **Logfire** SDK to also send data to the
 OpenTelemetry Collector, which will then forward the data to AWS S3.
 
