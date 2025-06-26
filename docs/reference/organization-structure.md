@@ -39,17 +39,17 @@ classDiagram
 
 As a **user**, you can be a member of multiple **organizations**. On each **organization**, you can either be:
 
-- [X] An **admin**: who can manage the organization and its projects.
-- [X] A **member**: who can only view the organization and the projects that are shared with them.
-- [X] A **guest**: who can only view the projects that are shared with them.
+- [x] An **admin**: who can manage the organization and its projects.
+- [x] A **member**: who can only view the organization and the projects that are shared with them.
+- [x] A **guest**: who can only view the projects that are shared with them.
 
 An **admin** can invite other users to join the organization.
 When a user accepts the invitation, they become a **member** of the organization.
 
 Each **organization** can have multiple **projects**. On each **project**, you can either be:
 
-- [X] An **admin**: who can manage the project.
-- [X] A **member**: who can only view the project.
+- [x] An **admin**: who can manage the project.
+- [x] A **member**: who can only view the project.
 
 If a user is invited to join a project, they become a **member** of the project, but they are a **guest** in the organization.
 
@@ -62,16 +62,16 @@ and/or belong to many other normal (i.e. non-personal) orgs. Both org types are 
 can invite others to join either type of org. The only difference is that you can't convert a normal
 org to a personal org.
 
-
-|                       | Personal org                      | Normal org |
-|-----------------------|-----------------------------------|---|
-| Admins                | Unlimited                         | Unlimited |
-| Members               | Unlimited                         | Unlimited |
-| Rename / change slug  | ✅                                 | ✅ |
-| Convert to normal org | ✅ (one-way)                       | — |
+|                       | Personal org | Normal org |
+| --------------------- | ------------ | ---------- |
+| Admins                | Unlimited    | Unlimited  |
+| Members               | Unlimited    | Unlimited  |
+| Rename / change slug  | ✅           | ✅         |
+| Convert to normal org | ✅ (one-way) | —          |
 
 ### Which Org Type Should You Use?
-While you *can* use your personal org for production use-cases (e.g. if you
+
+While you _can_ use your personal org for production use-cases (e.g. if you
 are working alone or in a small team), you may wish to switch your personal org to a normal org if you are working
 at a larger company and want to create a more "official" Logfire org for that company. This also means you don't have
 to share your personal org's projects (which you may wish to keep private) with any colleagues.
@@ -85,3 +85,5 @@ steps where you will:
 
 After you do this, all projects, members, alerts, dashboards and settings will be migrated to the new org. You will
 be the owner of the new org.
+
+**See the [step-by-step guide to converting your personal account to an organization](../how-to-guides/convert-to-organization.md) for screenshots and detailed instructions.**
