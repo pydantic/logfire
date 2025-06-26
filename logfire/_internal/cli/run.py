@@ -33,22 +33,6 @@ OTEL_INSTRUMENTATION_MAP = {
     'pydantic-ai-slim': 'pydantic_ai',
 }
 
-# Friendly names for display
-OTEL_FRIENDLY_NAMES = {
-    'opentelemetry-instrumentation-fastapi': 'FastAPI Instrumentation',
-    'opentelemetry-instrumentation-flask': 'Flask Instrumentation',
-    'opentelemetry-instrumentation-django': 'Django Instrumentation',
-    'opentelemetry-instrumentation-requests': 'Requests Instrumentation',
-    'opentelemetry-instrumentation-httpx': 'HTTPX Instrumentation',
-    'opentelemetry-instrumentation-sqlalchemy': 'SQLAlchemy Instrumentation',
-    'opentelemetry-instrumentation-asyncpg': 'AsyncPG Instrumentation',
-    'opentelemetry-instrumentation-psycopg2': 'Psycopg2 Instrumentation',
-    'opentelemetry-instrumentation-redis': 'Redis Instrumentation',
-    'opentelemetry-instrumentation-celery': 'Celery Instrumentation',
-    'opentelemetry-instrumentation-aiohttp-client': 'AIOHTTP Client Instrumentation',
-    'opentelemetry-instrumentation-sqlite3': 'SQLite3 Instrumentation',
-}
-
 
 def parse_run(args: argparse.Namespace) -> None:
     # Initialize Logfire
@@ -164,13 +148,12 @@ def is_package_directly_imported(package_name: str) -> bool:
         return False
 
 
-def get_recommended_instrumentation() -> list[tuple[str, str, str]]:
+def get_recommended_instrumentation() -> list[tuple[str, str]]:
     """Get recommended OpenTelemetry instrumentation packages.
 
     Returns:
         List of tuples containing:
         - Package name
-        - Friendly name
         - Package it instruments
     """
     installed_packages = get_installed_packages()
@@ -179,7 +162,7 @@ def get_recommended_instrumentation() -> list[tuple[str, str, str]]:
     installed_otel = {pkg for pkg in OTEL_INSTRUMENTATION_MAP.keys() if pkg in installed_packages}
 
     # Find packages that we could instrument
-    recommendations: list[tuple[str, str, str]] = []
+    recommendations: list[tuple[str, str]] = []
 
     for otel_pkg, required_pkg in OTEL_INSTRUMENTATION_MAP.items():
         # Skip if this instrumentation is already installed
@@ -190,8 +173,7 @@ def get_recommended_instrumentation() -> list[tuple[str, str, str]]:
         if required_pkg in installed_packages:
             # For built-in modules like sqlite3, we can assume they're usable if in sys.modules
             if required_pkg in sys.builtin_module_names or is_package_directly_imported(required_pkg):
-                friendly_name = OTEL_FRIENDLY_NAMES.get(otel_pkg, otel_pkg)
-                recommendations.append((otel_pkg, friendly_name, required_pkg))
+                recommendations.append((otel_pkg, required_pkg))
 
     return recommendations
 
@@ -208,12 +190,12 @@ def get_install_command(package_name: str) -> str:
     return f'pip install {package_name}'
 
 
-def get_full_install_command(recommendations: list[tuple[str, str, str]]) -> str:
+def get_full_install_command(recommendations: list[tuple[str, str]]) -> str:
     """Generate a command to install all recommended packages at once."""
     if not recommendations:
         return ''
 
-    package_names = [pkg_name for pkg_name, _, _ in recommendations]
+    package_names = [pkg_name for pkg_name, _ in recommendations]
 
     if is_uv_installed():
         return f'uv add {" ".join(package_names)}'
@@ -290,12 +272,11 @@ def print_otel_info() -> None:
             instrumentation_text.append(f'✓ {base_pkg} (installed and instrumented)\n', style='green')
         else:
             instrumentation_text.append(
-                f'⚠️ {base_pkg} (installed but not automatically instrumented)\n',
-                style='yellow',
+                f'⚠️ {base_pkg} (installed but not automatically instrumented)\n', style='yellow'
             )
 
     # Add recommended packages that are not installed
-    for pkg_name, _, instrumented_pkg in recommendations:
+    for pkg_name, instrumented_pkg in recommendations:
         instrumentation_text.append(f'☐ {instrumented_pkg} (need to install {pkg_name})\n', style='grey50')
 
     # Get full install command for all packages
