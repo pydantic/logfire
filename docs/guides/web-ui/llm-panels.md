@@ -10,6 +10,8 @@ For each span Logfire captures:
 
 That context makes it easy to debug prompts, shrink token counts, and compare model performance side‑by‑side.
 
+---
+
 ## Find traces that include LLM calls
 
 1. **Open Live view**.
@@ -22,6 +24,7 @@ That context makes it easy to debug prompts, shrink token counts, and compare mo
 
    ![Expanded trace showing LLM spans](../../images/llm-panels/connect-4-chat-gpt-spans.png)
 
+---
 
 ## Inspect token usage and cost
 
@@ -33,6 +36,8 @@ Hover over any LLM badge to see a breakdown:
 * **Total cost (USD)**
 
 ![Token‑usage pop‑over](../../images/llm-panels/connect-4-claude-usage-pop-over.png)
+
+---
 
 ## Open the LLM details panel
 
@@ -47,6 +52,7 @@ Click an LLM span to open the details panel.
 
 Logfire supports all major model hosts (OpenAI, Anthropic, Google, Azure) and many agent frameworks including **PydanticAI**, **LangChain**, and **LiteLLM**.
 
+---
 
 ## Instrument your code
 
@@ -116,6 +122,8 @@ result = agent.run_sync("Please write me a limerick about Python logging.")
 
 ![Panel with system prompt](../../images/llm-panels/basic-llm-panel-with-system-prompt.png)
 
+---
+
 ### Agents and tool calls
 
 Logfire displays every tool invocation and its structured response.
@@ -124,6 +132,8 @@ Logfire displays every tool invocation and its structured response.
 ![Weather‑tool example](../../images/llm-panels/llm-panel-with-tool-weather.png)
 ![Array‑response example](../../images/llm-panels/llm-panel-with-tool-array-response.png)
 
+---
+
 ### File uploads
 
 When a prompt includes a file—binary, blob, or URL—Logfire attaches a preview so you can verify exactly what the model received.
@@ -131,7 +141,7 @@ When a prompt includes a file—binary, blob, or URL—Logfire attaches a previe
 ![File‑attachment example](../../images/llm-panels/llm-panel-with-file.png)
 
 
-
+---
 ### Where to start
 
 To get started the integeration, please refer to [LLM integration guides](../../integrations/llms/pydanticai.md).
