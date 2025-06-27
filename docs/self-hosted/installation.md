@@ -100,7 +100,7 @@ Here's an example `values.yaml` to get you started:
 
 
 ```yaml
-adminEmail: peter@example.dev
+adminEmail: admin-email@my-company.dev
 
 # Configure the Image Pull Secrets
 
