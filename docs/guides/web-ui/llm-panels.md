@@ -12,10 +12,7 @@ That context makes it easy to debug prompts, shrink token counts, and compare mo
 
 ## Understand token & cost badges
 
-Logfire shows token usage and cost in two ways:
-
-- **Per-span badge** → shows token usage and cost for that individual LLM call.
-- **Trace/Parent-span level badge (∑)** → aggregates token usage and cost across all LLM spans in the trace or any span inside any span.
+Spans in the Live view may have a token usage badge on the right, indicated by a coin icon. If the badge contains a ∑ symbol, that means the badge is showing the sum of token usages across all descendants (children and nested children) of that span. If there's no ∑ symbol, then that specific span represents an LLM request and has recorded token usage on it directly.
 
 ![Expanded trace showing LLM spans](../../images/llm-panels/connect-4-chat-gpt-spans.png)
 
