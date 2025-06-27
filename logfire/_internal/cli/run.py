@@ -69,19 +69,21 @@ def parse_run(args: argparse.Namespace) -> None:
 
     instrument_pkg_map = {otel_pkg: pkg for otel_pkg, pkg in OTEL_INSTRUMENTATION_MAP.items() if pkg not in exclude}
 
-    installed_pkgs = _installed_packages()
+    installed_pkgs = installed_packages()
     installed_otel_pkgs = {pkg for pkg in instrument_pkg_map.keys() if pkg in installed_pkgs}
 
     recommendations = recommended_instrumentation(instrument_pkg_map, installed_otel_pkgs, installed_pkgs)
-    _exclude_special_cases(installed_pkgs, installed_otel_pkgs, recommendations)
 
     instrumented_packages = instrument_packages(installed_otel_pkgs, instrument_pkg_map)
 
     if summary:
-        instrumentation_text = instrumented_packages_text(installed_otel_pkgs, instrumented_packages)
-        recommended_text = recommended_packages_text(recommendations)
-        install_text = install_all_text(recommendations)
-        print_otel_summary(instrumentation_text, recommended_text, install_text)
+        console = Console(file=sys.stderr)
+        instrumentation_text = instrumented_packages_text(installed_otel_pkgs, instrumented_packages, installed_pkgs)
+        print_otel_summary(
+            console=console,
+            instrumented_packages_text=instrumentation_text,
+            recommendations=recommendations,
+        )
 
     # Get arguments from the args parameter
     if hasattr(args, 'module') and args.module:
@@ -201,17 +203,28 @@ def recommended_instrumentation(
         if required_pkg in installed_pkgs or required_pkg in sys.stdlib_module_names:
             recommendations.add((otel_pkg, required_pkg))
 
+    # Special case: if fastapi is installed, don't show starlette instrumentation.
+    if 'fastapi' in installed_pkgs:
+        recommendations.discard(('opentelemetry-instrumentation-starlette', 'starlette'))
+    # Special case: if requests is installed, don't show urllib3 instrumentation.
+    if 'requests' in installed_pkgs:
+        recommendations.discard(('opentelemetry-instrumentation-urllib3', 'urllib3'))
+
     return recommendations
 
 
-def instrumented_packages_text(installed_otel_pkgs: set[str], instrumented_packages: list[str]) -> Text:
-    # Create instrumentation status text for all packages
-    text = Text('Your instrumentation checklist:\n\n')
+def instrumented_packages_text(
+    installed_otel_pkgs: set[str], instrumented_packages: list[str], installed_pkgs: set[str]
+) -> Text:
+    # Filter out special cases for display
+    if 'fastapi' in installed_pkgs:
+        installed_otel_pkgs.discard('opentelemetry-instrumentation-starlette')
+    if 'requests' in installed_pkgs:
+        installed_otel_pkgs.discard('opentelemetry-instrumentation-urllib3')
 
-    # Add installed and instrumented packages
+    text = Text('Your instrumentation checklist:\n\n')
     for pkg_name in sorted(installed_otel_pkgs):
         base_pkg = _base_pkg_name(pkg_name)
-
         if base_pkg in instrumented_packages:
             text.append(f'✓ {base_pkg} (installed and instrumented)\n', style='green')
         else:
@@ -219,27 +232,28 @@ def instrumented_packages_text(installed_otel_pkgs: set[str], instrumented_packa
     return text
 
 
-def recommended_packages_text(recommendations: set[tuple[str, str]]) -> Text:
-    text = Text()
-    for pkg_name, instrumented_pkg in sorted(recommendations):
-        text.append(f'☐ {instrumented_pkg} (need to install {pkg_name})\n', style='grey50')
-    return text.append('\n')
+def get_recommendation_texts(recommendations: set[tuple[str, str]]) -> tuple[Text, Text]:
+    """Return (recommended_packages_text, install_all_text) as Text objects."""
+    sorted_recommendations = sorted(recommendations)
+    recommended_text = Text()
+    for pkg_name, instrumented_pkg in sorted_recommendations:
+        recommended_text.append(f'☐ {instrumented_pkg} (need to install {pkg_name})\n', style='grey50')
+    recommended_text.append('\n')
 
-
-def install_all_text(recommendations: set[tuple[str, str]]) -> Text:
-    text = Text()
+    install_text = Text()
     if recommendations:
-        text.append('To install all recommended packages at once, run:\n\n')
-        text.append(_full_install_command(recommendations), style='bold')
-        text.append('\n')
-    return text
+        install_text.append('To install all recommended packages at once, run:\n\n')
+        install_text.append(_full_install_command(sorted_recommendations), style='bold')
+        install_text.append('\n')
+    return recommended_text, install_text
 
 
 def print_otel_summary(
-    instrumented_packages_text: Text, recommended_packages_text: Text, install_all_text: Text
+    *,
+    console: Console,
+    instrumented_packages_text: Text | None = None,
+    recommendations: set[tuple[str, str]],
 ) -> None:
-    console = Console(file=sys.stderr)
-
     # Create note about hiding the summary
     hide_note = Text('\nTo hide this summary box, use: ', style='italic')
     hide_note.append('logfire run --no-summary', style='italic bold')
@@ -248,8 +262,14 @@ def print_otel_summary(
     # Create a final rule for the bottom section
     footer_rule = Rule(style='blue')
 
+    # Generate recommended and install texts
+    recommended_packages_text, install_all_text = get_recommendation_texts(recommendations)
+
     # We don't want a new line between the two sections.
-    packages_text = instrumented_packages_text + recommended_packages_text
+    if instrumented_packages_text:
+        packages_text = instrumented_packages_text + recommended_packages_text
+    else:
+        packages_text = recommended_packages_text
 
     # Build group with all elements
     content = Group(
@@ -280,7 +300,7 @@ def _base_pkg_name(pkg_name: str) -> str:
     return base_pkg
 
 
-def _installed_packages() -> set[str]:
+def installed_packages() -> set[str]:
     """Get a set of all installed packages."""
     try:
         # Try using importlib.metadata first (it's available in Python >=3.10)
@@ -294,7 +314,7 @@ def _installed_packages() -> set[str]:
             return {pkg.key for pkg in pkg_resources.working_set}
 
 
-def _full_install_command(recommendations: set[tuple[str, str]]) -> str:
+def _full_install_command(recommendations: list[tuple[str, str]]) -> str:
     """Generate a command to install all recommended packages at once."""
     if not recommendations:
         return ''
@@ -307,24 +327,3 @@ def _full_install_command(recommendations: set[tuple[str, str]]) -> str:
         return f'uv add {" ".join(package_names)}'
     else:
         return f'pip install {" ".join(package_names)}'
-
-
-def _exclude_special_cases(
-    installed_packages: set[str], installed_otel_packages: set[str], recommendations: set[tuple[str, str]]
-) -> None:
-    # Special case: if fastapi is installed, don't show starlette instrumentation.
-    if 'fastapi' in installed_packages and (
-        ('opentelemetry-instrumentation-starlette', 'starlette') in recommendations
-        or 'opentelemetry-instrumentation-starlette' in installed_otel_packages
-    ):
-        installed_otel_packages.discard('opentelemetry-instrumentation-starlette')
-        recommendations.discard(('opentelemetry-instrumentation-starlette', 'starlette'))
-
-    # Special case: if urllib3 is installed, don't show requests instrumentation.
-    if (
-        'requests' in installed_packages
-        and ('opentelemetry-instrumentation-urllib3', 'urllib3') in recommendations
-        or 'opentelemetry-instrumentation-urllib3' in installed_otel_packages
-    ):
-        installed_otel_packages.discard('opentelemetry-instrumentation-urllib3')
-        recommendations.discard(('opentelemetry-instrumentation-urllib3', 'urllib3'))

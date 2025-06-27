@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import argparse
 import functools
-import importlib
-import importlib.util
 import logging
 import platform
 import sys
@@ -18,6 +16,7 @@ from urllib.parse import urlparse
 
 import requests
 from opentelemetry import trace
+from rich.console import Console
 
 from logfire.exceptions import LogfireConfigError
 from logfire.propagate import ContextCarrier, get_context
@@ -30,9 +29,7 @@ from ..tracer import SDKTracerProvider
 from ..utils import read_toml_file
 from .run import (
     OTEL_INSTRUMENTATION_MAP,
-    _exclude_special_cases,
-    _installed_packages,
-    instrument_packages,
+    installed_packages,
     parse_run,
     print_otel_summary,
     recommended_instrumentation,
@@ -110,13 +107,19 @@ def parse_clean(args: argparse.Namespace) -> None:
 
 def parse_inspect(args: argparse.Namespace) -> None:
     """Inspect installed packages and recommend packages that might be useful."""
-    installed_pkgs = _installed_packages()
-    installed_otel_pkgs = {pkg for pkg in OTEL_INSTRUMENTATION_MAP.keys() if pkg in installed_pkgs}
-    recommendations = recommended_instrumentation(OTEL_INSTRUMENTATION_MAP, installed_otel_pkgs, installed_pkgs)
-    _exclude_special_cases(installed_pkgs, installed_otel_pkgs, recommendations)
-    instrumented_packages = instrument_packages(installed_otel_pkgs, OTEL_INSTRUMENTATION_MAP)
-    instrumentation_text = instrumentation_checklist(installed_otel_pkgs, instrumented_packages, recommendations)
-    print_otel_summary(instrumentation_text, recommendations)
+    console = Console(file=sys.stderr)
+
+    instrument_pkg_map = {otel_pkg: pkg for otel_pkg, pkg in OTEL_INSTRUMENTATION_MAP.items() if pkg not in args.ignore}
+
+    installed_pkgs = installed_packages()
+    installed_otel_pkgs = {pkg for pkg in instrument_pkg_map.keys() if pkg in installed_pkgs}
+    recommendations = recommended_instrumentation(instrument_pkg_map, installed_otel_pkgs, installed_pkgs)
+
+    if recommendations:
+        print_otel_summary(console=console, recommendations=recommendations)
+        sys.exit(1)
+    else:
+        console.print('No recommended packages found. You are all set!', style='green')
 
 
 def parse_auth(args: argparse.Namespace) -> None:
@@ -376,7 +379,7 @@ def _main(args: list[str] | None = None) -> None:
 
     cmd_inspect = subparsers.add_parser('inspect', help=parse_inspect.__doc__)
     cmd_inspect.set_defaults(func=parse_inspect)
-    cmd_inspect.add_argument('--ignore', action=SplitArgs, help='ignore a package')
+    cmd_inspect.add_argument('--ignore', action=SplitArgs, default=(), help='ignore a package')
 
     cmd_whoami = subparsers.add_parser('whoami', help=parse_whoami.__doc__)
     cmd_whoami.set_defaults(func=parse_whoami)
