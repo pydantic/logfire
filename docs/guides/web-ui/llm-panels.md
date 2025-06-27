@@ -14,7 +14,7 @@ That context makes it easy to debug prompts, shrink token counts, and compare mo
 
 Spans in the Live view may have a token usage badge on the right, indicated by a coin icon. If the badge contains a ∑ symbol, that means the badge is showing the sum of token usages across all descendants (children and nested children) of that span. If there's no ∑ symbol, then that specific span represents an LLM request and has recorded token usage on it directly.
 
-![Expanded trace showing LLM spans](../../images/llm-panels/connect-4-chat-gpt-spans.png)
+![Expanded trace showing LLM spans](../../images/llm-panels/llm-trace-spans.png)
 
 Hover over either to see:
 
@@ -38,53 +38,13 @@ Click an LLM span to open the details panel.
 | **Files**      | Links or inline previews of binary or blob uploads.         |
 | **Metadata**   | Model name, token counts, and cost.                |
 
-Logfire supports all major model hosts (OpenAI, Anthropic, Google, Azure) and many agent frameworks including **PydanticAI**, **LangChain**, and **LiteLLM**.
+Logfire supports all major model hosts and many agent frameworks.
 
 ---
 
 ## Instrument your code
 
-### PydanticAI quick‑start
-
-To capture PydanticAI spans, enable the integration once at startup:
-
-```python
-import logfire
-from pydantic_ai import Agent, RunContext
-
-logfire.configure()
-logfire.instrument_pydantic_ai()  # 👈 one‑liner integration
-```
-
-The example below creates an `Agent` with a custom tool and runs two prompts.
-Each call is recorded in Logfire and rendered in an LLM panel:
-
-```python
-roulette_agent = Agent(
-    'openai:gpt-4o',
-    deps_type=int,
-    result_type=bool,
-    system_prompt=(
-        'Use the `roulette_wheel` function to see if the '
-        'customer has won based on the number they provide.'
-    ),
-)
-
-@roulette_agent.tool
-async def roulette_wheel(ctx: RunContext[int], square: int) -> str:
-    """Check if the square is a winner."""
-    return 'winner' if square == ctx.deps else 'loser'
-
-# Run the agent
-lucky = 18
-result = roulette_agent.run_sync('Put my money on square eighteen', deps=lucky)
-print(result.data)  # -> True
-```
-
-![PydanticAI instrumentation screenshot](../../images/integrations/pydantic-ai/pydanticai-instrumentation-screenshot.png)
-
-> **Tip** – You can also instrument a single agent with
-> `logfire.instrument_pydantic_ai(my_agent)`.
+To get started the integration, please refer to [LLM integration guides](../../integrations/llms/pydanticai.md).
 
 ## Example LLM panel views
 
@@ -124,12 +84,10 @@ Logfire displays every tool invocation and its structured response.
 
 ### File uploads
 
-When a prompt includes a file—binary, blob, or URL—Logfire attaches a preview so you can verify exactly what the model received.
+When a prompt includes a file, binary, blob, or URL, Logfire attaches a preview so you can verify exactly what the model received.
 
-![File‑attachment example](../../images/llm-panels/llm-panel-with-file.png)
+#### LLM panel with image url:
+![File‑attachment with image url example](../../images/llm-panels/llm-panel-with-image-url.png)
 
-
----
-### Set up your integration
-
-To get started the integration, please refer to [LLM integration guides](../../integrations/llms/pydanticai.md).
+#### LLM panel with PDF file:
+![File‑attachment with binary image example](../../images/llm-panels/llm-panel-with-pdf-file.png)
