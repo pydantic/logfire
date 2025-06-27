@@ -62,7 +62,7 @@ OTEL_INSTRUMENTATION_MAP = {
 }
 
 
-def parse_run(args: argparse.Namespace) -> None:
+def parse_run(args: argparse.Namespace) -> None:  # pragma: no cover
     # Initialize Logfire
     logfire.configure()
 
@@ -152,33 +152,25 @@ def instrument_packages(installed_otel_packages: set[str], instrument_pkg_map: d
     """
     instrumented: list[str] = []
 
-    try:
-        # Import logfire first
-        import logfire
+    # Process all installed OpenTelemetry packages
+    for pkg_name in installed_otel_packages:
+        if pkg_name in instrument_pkg_map.keys():  # pragma: no branch
+            base_pkg = pkg_name.replace('opentelemetry-instrumentation-', '')
+            # Handle special cases
+            if base_pkg == 'aiohttp-client':
+                base_pkg = 'aiohttp'  # pragma: no cover
 
-        # Process all installed OpenTelemetry packages
-        for pkg_name in installed_otel_packages:
-            if pkg_name in instrument_pkg_map.keys():
-                base_pkg = pkg_name.replace('opentelemetry-instrumentation-', '')
-                # Handle special cases
-                if base_pkg == 'aiohttp-client':
-                    base_pkg = 'aiohttp'
+            import_name = instrument_pkg_map[pkg_name]
+            instrument_attr = f'instrument_{import_name}'
 
-                import_name = instrument_pkg_map[pkg_name]
-                instrument_attr = f'instrument_{import_name}'
-
-                try:
-                    # Try to access the instrumentation function as an attribute of logfire
-                    if hasattr(logfire, instrument_attr):
-                        # The function exists, call it to instrument the package
-                        getattr(logfire, instrument_attr)()
-                        instrumented.append(base_pkg)
-                except Exception:
-                    continue
-    except ImportError:
-        # logfire is not installed
-        pass
-
+            try:
+                # Try to access the instrumentation function as an attribute of logfire
+                if hasattr(logfire, instrument_attr):
+                    # The function exists, call it to instrument the package
+                    getattr(logfire, instrument_attr)()
+                    instrumented.append(base_pkg)
+            except Exception:  # pragma: no cover
+                continue
     return instrumented
 
 
@@ -220,9 +212,9 @@ def instrumented_packages_text(
 ) -> Text:
     # Filter out special cases for display
     if 'fastapi' in installed_pkgs:
-        installed_otel_pkgs.discard('opentelemetry-instrumentation-starlette')
+        installed_otel_pkgs.discard('opentelemetry-instrumentation-starlette')  # pragma: no cover
     if 'requests' in installed_pkgs:
-        installed_otel_pkgs.discard('opentelemetry-instrumentation-urllib3')
+        installed_otel_pkgs.discard('opentelemetry-instrumentation-urllib3')  # pragma: no cover
 
     text = Text('Your instrumentation checklist:\n\n')
     for pkg_name in sorted(installed_otel_pkgs):

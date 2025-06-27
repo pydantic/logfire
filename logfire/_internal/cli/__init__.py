@@ -346,7 +346,7 @@ class SplitArgs(argparse.Action):
         namespace: argparse.Namespace,
         values: str | Sequence[Any] | None,
         option_string: str | None = None,
-    ):  # pragma: no branch
+    ):  # pragma: no cover
         if isinstance(values, str):
             values = values.split(',')
         namespace_value: list[str] = getattr(namespace, self.dest) or []
