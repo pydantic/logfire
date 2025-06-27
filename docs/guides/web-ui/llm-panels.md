@@ -68,6 +68,8 @@ logfire.info(
 )
 ```
 
+We are actively engaged with the OpenTelemetry community to improve the GenAI specification, so expect more instrumentations to be fully supported in the future.
+
 ## Example LLM panel views
 
 ### Single‑prompt calls
