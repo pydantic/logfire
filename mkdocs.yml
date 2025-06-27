@@ -99,7 +99,9 @@ nav:
       - Trace across Multiple Services: how-to-guides/distributed-tracing.md
       - Detect Service is Down: how-to-guides/detect-service-is-down.md
       - Suppress Spans and Metrics: how-to-guides/suppress.md
-      - OpenTelemetry Collector: how-to-guides/otel-collector.md
+      - OpenTelemetry Collector:
+          - Overview: how-to-guides/otel-collector/otel-collector-overview.md
+          - Advanced Scrubbing: how-to-guides/otel-collector/otel-collector-scrubbing.md
       - Collect Metrics from your Cloud Provider: how-to-guides/cloud-metrics.md
       - Connect to the MCP Server: how-to-guides/mcp-server.md
       - Setup Slack Alerts: how-to-guides/setup-slack-alerts.md
@@ -343,6 +345,7 @@ plugins:
         "why-logfire/python-centric.md": "why.md"
         "why-logfire/sql.md": "why.md"
         "get-started/traces.md": "concepts.md"
+        "how-to-guides/otel-collector.md": "how-to-guides/otel-collector/otel-collector-overview.md"
   - llmstxt:
       enabled: !ENV [CI, false]
       full_output: llms-full.txt
