@@ -167,6 +167,8 @@ def span_to_dict(span: ReadableSpan) -> ReadableSpanDict:
 class UnexpectedResponse(RequestException):
     """An unexpected response was received from the server."""
 
+    response: Response  # type: ignore (guaranteed to exist)
+
     def __init__(self, response: Response) -> None:
         super().__init__(f'Unexpected response: {response.status_code}', response=response)
 
