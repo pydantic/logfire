@@ -8,7 +8,7 @@ Please use the [architecture](./architecture.md) diagram as reference.
 
 PostgreSQL is not managed by the logfire helm chart.  It is assumed that an existing cluster is available in your environment.  If not, a good solution to deploying PostgreSQL in Kubernetes is [CloudNativePG](https://cloudnative-pg.io/).
 
-> **Note:** No telemetry data is stored within PostgreSQL.  We use PostgreSQL to manage organisations, projects, dashboards etc.. and for tracking/compacting files within object storage.
+> **Note:** No telemetry data is stored within PostgreSQL.  We use PostgreSQL to manage organisations, projects, dashboards etc. and for tracking/compacting files within object storage.
 
 A recommended starting size would be 4 vCPUs and 16gb RAM.
 
@@ -31,6 +31,7 @@ Here are some parameters you can use to start tuning:
 | maintenance_work_mem | 4000000 |
 | max_connections | 2048 |
 | max_wal_size | 16000000 |
+| max_slot_wal_keep_size | 8000000 |
 | random_page_cost | 1.1 |
 | work_mem | 128000 |
 

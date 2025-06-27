@@ -47,7 +47,7 @@ One quick thing to check is the console logs involved in those services.  Here a
  ```
  kubectl logs -n logfire deployments/logfire-otel-collector
  ```
-* Check the console logs of the query api:
+* Check the console logs of the query API:
  ```
  kubectl logs -n logfire deployments/logfire-ff-query-api
  ```

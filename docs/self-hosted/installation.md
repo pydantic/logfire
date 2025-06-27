@@ -6,11 +6,11 @@ Installation of the self-hosted **Logfire** requires that you have a few prerequ
 
 ### Helm CLI
 
-This guide assumes that you will be using the Helm CLI to run commands.  If you are running a CI/CD tool such as Argo etc.. then please adapt instructions for that platform.
+This guide assumes that you will be using the Helm CLI to run commands.  If you are running a CI/CD tool such as Argo etc. then please adapt instructions for that platform.
 
 ### Kubernetes Admin
 
-When running the helm chart, you will be required to create resources within a Kubernetes cluster, including secrets, pods, deployments, configurations, etc..
+When running the helm chart, you will be required to create resources within a Kubernetes cluster, including secrets, pods, deployments, configurations, etc.
 
 ### Image Pull Secrets
 
@@ -94,7 +94,7 @@ Here's a checklist you can use to ensure you have all your prerequisites:
 - [ ] The 3 PostgreSQL database set up
 - [ ] Identity Provider Configuration
 - [ ] Object Storage Configuration
-- [ ] HTTP Ingress information (i.e, hostname etc..)
+- [ ] HTTP Ingress information (i.e, hostname etc.)
 
 Here's an example `values.yaml` to get you started:
 
