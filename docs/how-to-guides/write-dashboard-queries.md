@@ -270,3 +270,90 @@ GROUP BY x, service_and_level
 ```
 
 Then set the 'Dimension' dropdown to `service_and_level`. This will create a time series chart with a line for each combination of `service_name` and `level`. Of course this increases the cardinality quickly, making the next section more relevant.
+
+#### High cardinality dimensions
+
+If you try grouping by something with more than a few unique values, you'll end up with a cluttered chart with too many lines. For example, this will look like a mess unless your data is very simple:
+
+```sql
+SELECT
+    time_bucket($resolution, start_timestamp) AS x,
+    count() as count,
+    span_name
+FROM records
+GROUP BY x, span_name
+```
+
+The quick and dirty solution is to add these lines at the end:
+
+```sql
+ORDER BY count DESC
+LIMIT 200
+```
+
+This will give you a point for the 200 most common _combinations of `x` and `span_name`_. This will often work reasonably well, but the limit will need to be tuned based on the data, and the number of points at each time bucket will vary. Here's the better version:
+
+```sql
+WITH original AS (
+    SELECT
+        time_bucket($resolution, start_timestamp) AS x,
+        count() as count,
+        span_name
+    FROM records
+    GROUP BY x, span_name
+),
+ranked AS (
+    SELECT
+        x,
+        count,
+        span_name,
+        ROW_NUMBER() OVER (PARTITION BY x ORDER BY count DESC) AS row_num
+    FROM original
+)
+SELECT
+    x,
+    count,
+    span_name
+FROM ranked
+WHERE row_num <= 5
+ORDER BY x
+```
+
+This selects the top 5 `span_name`s for each time bucket, and will usually work perfectly. It may look intimidating, but constructing a query like this can be done very mechanically. Start with a basic query in this form:
+
+```sql
+SELECT
+    time_bucket($resolution, start_timestamp) AS x,
+    <aggregation_expression> AS metric,
+    <dimension_expression> as dimension
+FROM records
+GROUP BY x, dimension
+```
+
+Fill in `<aggregation_expression>` with your desired aggregation (e.g. `count()`, `SUM(duration)`, etc.) and `<dimension_expression>` with the column(s) you want to group by (e.g. `span_name`). Set the 'Dimension' dropdown to `dimension` and the 'Metrics' dropdown to `metric`. That should give you a working (but probably cluttered) time series chart. Then simply paste it into `<original_query>` in the following template:
+
+```sql
+WITH original AS (
+    SELECT
+    time_bucket($resolution, start_timestamp) AS x,
+    count() AS metric,
+    span_name as dimension
+FROM records
+GROUP BY x, dimension
+),
+ranked AS (
+    SELECT
+        x,
+        metric,
+        dimension,
+        ROW_NUMBER() OVER (PARTITION BY x ORDER BY metric DESC) AS row_num
+    FROM original
+)
+SELECT
+    x,
+    metric,
+    dimension
+FROM ranked
+WHERE row_num <= 5
+ORDER BY x
+```
