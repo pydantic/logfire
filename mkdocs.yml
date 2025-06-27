@@ -337,6 +337,7 @@ plugins:
         "why-logfire/python-centric.md": "why.md"
         "why-logfire/sql.md": "why.md"
         "get-started/traces.md": "concepts.md"
+        "how-to-guides/otel-collector.md": "how-to-guides/otel-collector/otel-collector-overview.md"
   - llmstxt:
       enabled: !ENV [CI, false]
       full_output: llms-full.txt
