@@ -68,6 +68,10 @@ Here's an example of how to use these clients:
         """
 
         async with AsyncLogfireQueryClient(read_token='<your_read_token>') as client:
+            # Get read token info
+            read_token_info = await client.info()
+            print(read_token_info)
+
             # Load data as JSON, in column-oriented format
             json_cols = await client.query_json(sql=query)
             print(json_cols)
@@ -112,6 +116,10 @@ Here's an example of how to use these clients:
         """
 
         with LogfireQueryClient(read_token='<your_read_token>') as client:
+            # Get read token info
+            read_token_info = client.info()
+            print(read_token_info)
+
             # Load data as JSON, in column-oriented format
             json_cols = client.query_json(sql=query)
             print(json_cols)

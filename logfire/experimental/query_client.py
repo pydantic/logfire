@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypedDict, TypeVar
+from uuid import UUID
 
 from typing_extensions import Self
 
@@ -30,6 +31,16 @@ class QueryRequestError(RuntimeError):
     """Raised when the query request is invalid."""
 
     pass
+
+
+class ReadTokenInfo(TypedDict):
+    """Information about the read token."""
+
+    token_id: UUID
+    organization_id: UUID
+    project_id: UUID
+    organization_name: str
+    project_name: str
 
 
 class ColumnDetails(TypedDict):
@@ -122,6 +133,12 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         traceback: TracebackType | None = None,
     ) -> None:
         self.client.__exit__(exc_type, exc_value, traceback)
+
+    def info(self) -> ReadTokenInfo:
+        """Get information about the read token."""
+        response = self.client.get('/api/read-token-info')
+        self.handle_response_errors(response)
+        return response.json()
 
     def query_json(
         self,
@@ -247,6 +264,12 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         traceback: TracebackType | None = None,
     ) -> None:
         await self.client.__aexit__(exc_type, exc_value, traceback)
+
+    async def info(self) -> ReadTokenInfo:
+        """Get information about the read token."""
+        response = await self.client.get('/api/read-token-info')
+        self.handle_response_errors(response)
+        return response.json()
 
     async def query_json(
         self,
