@@ -11,6 +11,7 @@ Use cases for the OpenTelemetry Collector include:
 
 - **Centralized configuration**: keep Logfire credentials in a single place. Configure exporting to multiple backends (e.g. Logfire and audit logging) in a single place. All with the ability to update the configuration without needing to make changes to applications.
 - **Data transformation**: transform data before sending it to Logfire. For example, you can use the OpenTelemetry Collector to filter out sensitive information, extract structured data from logs or otherwise modify the data before sending it to Logfire.
+    - For a detailed guide on common transformation patterns, see our guide on [Advanced Scrubbing](otel-collector-scrubbing.md) with the OTel Collector.
 - **Data enrichment**: add additional context to your logs before sending them to Logfire. For example, you can use the OpenTelemetry Collector to add information about the host or container where the log was generated.
 - **Collecting existing data sources**: the Collector can be used to collect system logs (e.g. Kubernetes logs) or metrics from other formats. For example, you can use it to collect container logs from Kubernetes and scrape Prometheus metrics.
 
@@ -22,7 +23,7 @@ For more information on the collector please see the [official documentation](ht
 
 ## Back up data in AWS S3
 
-Data older than **30 days** is pruned from our backend (except for customers on our [enterprise plans](../enterprise.md)).
+Data older than **30 days** is pruned from our backend (except for customers on our [enterprise plans](../../enterprise.md)).
 If you want to keep your data stored long-term, you can configure the **Logfire** SDK to also send data to the
 OpenTelemetry Collector, which will then forward the data to AWS S3.
 
@@ -78,7 +79,7 @@ docker run \
 ```
 
 Now send some data to the OpenTelemetry Collector using the Logfire SDK.
-See the [Alternative Backends guide](./alternative-backends.md) for more details.
+See the [Alternative Backends guide](../alternative-backends.md) for more details.
 
 ```python title="script.py"
 import os
@@ -204,7 +205,7 @@ Now we will set up a collector that can scrape logs from these apps, process the
 
 We'll need to store Logfire credentials somewhere, a Kubernetes Secret is a reasonable choice, a better choice for a production environment would be to use [External Secrets Operator](https://external-secrets.io/latest/).
 
-First create a Logfire write token, see [Create Write Tokens](./create-write-tokens.md).
+First create a Logfire write token, see [Create Write Tokens](../create-write-tokens.md).
 
 Now to save it as a secret in Kubernetes run the following command, replacing `your-write-token` with the value of the write token you just created:
 
