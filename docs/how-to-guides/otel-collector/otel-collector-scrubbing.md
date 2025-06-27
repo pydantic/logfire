@@ -18,6 +18,10 @@ Please take a look at the [OTel Collector overview](./otel-collector-overview.md
 
 ---
 
+:page_facing_up: **Note:** Make sure you set `logfire.configure(send_to_logfire=False)` where you want to apply data transformation, otherwise traces that reach logfire will not have the desired modifications. You can take a look at [Alternative Backends](../alternative-backends.md).
+
+---
+
 ### Scenario 1: Scrubbing or Removing Attributes by Key
 
 The [attributes processor](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/processor/attributesprocessor/README.md) works well for acting on known attribute keys.
@@ -71,7 +75,6 @@ processors:
 
 The [transform processor](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/processor/transformprocessor/README.md) has a powerful query language called OTTL which lets you apply conditional logic. For example, here's how to scrub the `credit_card_number` attribute, but **only** if the transaction failed, i.e. `http.status_code` is 500 or greater.
 
-Collector `config.yaml` snippet:
 ```yaml
 processors:
   transform:
@@ -145,4 +148,4 @@ service:
 
 Now you should have a clearer sense of what's possible using the OpenTelemetry Collector processors for data scrubbing.
 
-For more details, practical examples, and a complete reference of available processors, take a  look at [OpenTelemtry Collector Processors documentation](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor).
+ Remember, for this scrubbing to work, ensure all telemetry data is only routed through the OTel Collector by setting `logfire.configure(send_to_logfire=False)`
