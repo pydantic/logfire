@@ -6,9 +6,9 @@ import os
 import re
 import shlex
 import sys
+import types
 import webbrowser
 from contextlib import ExitStack
-from importlib.machinery import ModuleSpec
 from pathlib import Path
 from unittest.mock import call, patch
 
@@ -21,7 +21,12 @@ from inline_snapshot import snapshot
 import logfire._internal.cli
 from logfire import VERSION
 from logfire._internal.cli import main
-from logfire._internal.cli.run import recommended_instrumentation
+from logfire._internal.cli.run import (
+    get_recommendation_texts,
+    instrument_packages,
+    instrumented_packages_text,
+    recommended_instrumentation,
+)
 from logfire._internal.config import LogfireCredentials, sanitize_project_name
 from logfire.exceptions import LogfireConfigError
 
@@ -312,15 +317,8 @@ def test_recommended_packages_with_dependencies(
     installed: set[str],
     should_install: set[str],
 ) -> None:
-    logfire_credentials.write_creds_file(tmp_dir_cwd / '.logfire')
-
-    def new_find_spec(name: str) -> ModuleSpec | None:
-        if name in {'urllib', 'sqlite3'} or name in installed:
-            return ModuleSpec(name, None)
-
-    with patch('importlib.util.find_spec', new=new_find_spec):
-        recommendations = recommended_instrumentation(otel_instrumentation_map, set(), installed)
-        assert recommendations == should_install
+    recommendations = recommended_instrumentation(otel_instrumentation_map, set(), installed)
+    assert recommendations == should_install
 
 
 @pytest.mark.parametrize('webbrowser_error', [False, True])
@@ -1391,3 +1389,48 @@ def test_info(capsys: pytest.CaptureFixture[str]) -> None:
     output = capsys.readouterr().err.strip()
     assert output.startswith('logfire="')
     assert '[related_packages]' in output
+
+
+def test_instrument_packages_calls_instrument(monkeypatch: pytest.MonkeyPatch):
+    fake_logfire = types.SimpleNamespace()
+    called = {}
+
+    def make_instrument(name: str):
+        def f():
+            called[name] = True
+
+        return f
+
+    fake_logfire.instrument_foo = make_instrument('foo')
+    monkeypatch.setitem(sys.modules, 'logfire', fake_logfire)
+    installed_otel = {'opentelemetry-instrumentation-foo'}
+    instrument_pkg_map = {'opentelemetry-instrumentation-foo': 'foo'}
+    result = instrument_packages(installed_otel, instrument_pkg_map)
+    assert 'foo' in result
+    assert called['foo'] is True
+
+
+def test_instrument_packages_handles_missing(monkeypatch: pytest.MonkeyPatch):
+    fake_logfire = types.SimpleNamespace()
+    monkeypatch.setitem(sys.modules, 'logfire', fake_logfire)
+    installed_otel = {'opentelemetry-instrumentation-bar'}
+    instrument_pkg_map = {'opentelemetry-instrumentation-bar': 'bar'}
+    result = instrument_packages(installed_otel, instrument_pkg_map)
+    assert result == []
+
+
+def test_instrumented_packages_text_basic():
+    installed_otel_pkgs = {'opentelemetry-instrumentation-foo', 'opentelemetry-instrumentation-bar'}
+    instrumented_packages = ['foo']
+    installed_pkgs = {'foo', 'bar'}
+    text = instrumented_packages_text(installed_otel_pkgs.copy(), instrumented_packages, installed_pkgs)
+    assert '✓ foo' in text
+    assert '⚠️ bar' in text
+
+
+def test_get_recommendation_texts():
+    recs = {('opentelemetry-instrumentation-foo', 'foo'), ('opentelemetry-instrumentation-bar', 'bar')}
+    recommended, install = get_recommendation_texts(recs)
+    assert 'uv add opentelemetry-instrumentation-bar opentelemetry-instrumentation-foo' in install
+    assert 'need to install opentelemetry-instrumentation-bar' in recommended
+    assert 'need to install opentelemetry-instrumentation-foo' in recommended

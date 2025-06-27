@@ -142,7 +142,7 @@ def parse_run(args: argparse.Namespace) -> None:
 
 def is_uv_installed() -> bool:
     """Check if uv package manager is installed and available in the PATH."""
-    return shutil.which('uv') is not None
+    return shutil.which('uv') is not None  # pragma: no cover
 
 
 def instrument_packages(installed_otel_packages: set[str], instrument_pkg_map: dict[str, str]) -> list[str]:

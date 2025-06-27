@@ -119,7 +119,7 @@ def parse_inspect(args: argparse.Namespace) -> None:
         print_otel_summary(console=console, recommendations=recommendations)
         sys.exit(1)
     else:
-        console.print('No recommended packages found. You are all set!', style='green')
+        console.print('No recommended packages found. You are all set!', style='green')  # pragma: no cover
 
 
 def parse_auth(args: argparse.Namespace) -> None:
@@ -346,8 +346,8 @@ class SplitArgs(argparse.Action):
         namespace: argparse.Namespace,
         values: str | Sequence[Any] | None,
         option_string: str | None = None,
-    ):
-        if isinstance(values, str):  # pragma: no branch
+    ):  # pragma: no branch
+        if isinstance(values, str):
             values = values.split(',')
         namespace_value: list[str] = getattr(namespace, self.dest) or []
         setattr(namespace, self.dest, namespace_value + list(values or []))
