@@ -441,7 +441,6 @@ Once you have created the helm chart `values.yaml` as above, then the next step 
   ```
   helm --namespace=logfire upgrade --install logfire pydantic/logfire -f values.yaml --wait
   ```
-* This will run
 
 If everything is configured correctly, you will see a list of pods deployed and ready:
 
@@ -461,6 +460,8 @@ logfire-scheduler-745657cc5f-954jv               1/1     Running   0          2m
 logfire-service-7688f7c56-q7lmk                  1/1     Running   0          2m8s
 logfire-worker-85bd6f5c47-mx8pz                  1/1     Running   0          2m8s
 ```
+
+Once completed, have a read through [scaling](./scaling.md) to start adding replicas.
 
 ### Common Errors
 
