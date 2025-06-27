@@ -20,6 +20,102 @@ Below we include a couple of examples for using the OpenTelemetry collector, ass
 This documentation does not attempt to be a complete guide to the OpenTelemetry collector, but rather a gentle introduction along with some key examples.
 For more information on the collector please see the [official documentation](https://opentelemetry.io/docs/collector/).
 
+## Back up data in AWS S3
+
+Data older than **30 days** is pruned from our backend (except for customers on our [enterprise plans](../enterprise.md)).
+If you want to keep your data stored long-term, you can configure the **Logfire** SDK to also send data to the
+OpenTelemetry Collector, which will then forward the data to AWS S3.
+
+!!! tip
+    This uses the [OpenTelemetry Collector AWS S3 Exporter](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/awss3exporter),
+    see their docs for more details.
+
+    There are many other exporters available, such as for [Azure Blob Storage](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/azureblobexporter).
+
+Here's how you can try this out right now. First, copy the below OpenTelemetry Collector configuration
+into a file called `config.yaml` and fill in the `region` and `s3_bucket` fields.
+
+```yaml title="config.yaml"
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: "0.0.0.0:4318"
+exporters:
+  awss3:
+    s3uploader:
+      region: <REPLACE-WITH-YOUR-REGION>
+      s3_bucket: <REPLACE-WITH-YOUR-BUCKET-NAME>
+processors:
+  batch:
+    timeout: 10s
+    send_batch_size: 32768
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [awss3]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [awss3]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [awss3]
+```
+
+Next, run the OpenTelemetry Collector locally with the above configuration using Docker:
+
+```shell
+docker run \
+    -v ./config.yaml:/etc/otelcol-contrib/config.yaml \
+    -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
+    -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
+    -p 4318:4318 \
+    otel/opentelemetry-collector-contrib
+```
+
+Now send some data to the OpenTelemetry Collector using the Logfire SDK.
+See the [Alternative Backends guide](./alternative-backends.md) for more details.
+
+```python title="script.py"
+import os
+
+import logfire
+
+# This will make the Logfire SDK send data to the OpenTelemetry Collector
+os.environ['OTEL_EXPORTER_OTLP_ENDPOINT'] = 'http://localhost:4318'
+
+# Keep the default send_to_logfire=True, so it will also send data to Logfire.
+logfire.configure()
+
+logfire.info('Hello, {name}!', name='world')
+```
+
+After running the script, you should see the data in both the **Logfire** UI and your S3 bucket.
+The files in S3 will have keys like `year=2025/month=06/day=25/hour=14/minute=09/traces_312302042.json`.
+
+Logfire doesn't support importing this data, but you can use other OpenTelemetry-compatible tools. For example,
+run this command to start a [Jaeger](https://www.jaegertracing.io/) container:
+
+```
+docker run --rm \
+  -p 16686:16686 \
+  -p 4318:4318 \
+  jaegertracing/all-in-one:latest
+```
+
+then open [http://localhost:16686/](http://localhost:16686/) and click on 'Upload'.
+
+Alternatively, install [`otel-tui`](https://github.com/ymtdzzz/otel-tui) and run `otel-tui --from-json-file <path-to-file>` to view the data in your terminal.
+
+However, these simple options don't work well for searching through many files. For that, you can set up another OTel collector with
+the [S3 receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/awss3receiver) to
+read directly from S3, or the [OTLP JSON File Receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/otlpjsonfilereceiver) to read from locally downloaded files.
+Then you can point the collector at a tool like Jaeger, `otel-tui`, or Grafana Tempo to visualize the data.
+
 ## Collecting system logs
 
 This example shows how you can use the OpenTelemetry collector to collect systems logs (logs on stdoutt/stderr) from Kubernetes and send them to Logfire.
@@ -284,40 +380,6 @@ spec:
 Apply this configuration via `kubectl apply -f otel-collector.yaml`.
 
 You should now see logs from the `plain-app` and `json-app` in your Logfire dashboard!
-
-## Sink data into AWS S3
-
-If you want to keep your data stored long-term, the OpenTelemetry Collector offers a great way to send it directly to AWS S3.
-
-Before you can do this, you'll need to set up two things:
-
-1. An S3 bucket.
-2. An IAM user who has permission to write to that S3 bucket.
-
-You can then configure the OpenTelemetry collector to export data to S3 using the `awss3` exporter.
-
-For example, you'd add something like this to the exporters section of your OTel collector's configuration:
-
-```yaml
-awss3:
-  bucket: <your-bucket-name>
-  region: <your-bucket-region>
-```
-
-You will also need to set up the AWS credentials for the collector to use.
-To do this, you can use environment variables to provide the AWS credentials to the collector.
-
-For environment variables, you can set the following variables in your collector deployment:
-
-```yaml
-env:
-  - name: AWS_ACCESS_KEY_ID
-    value: <your-access-key-id>
-  - name: AWS_SECRET_ACCESS_KEY
-    value: <your-secret-access-key>
-```
-
-You can find more information on the `awss3` exporter in the [AWS S3 Exporter for OpenTelemetry Collector documentation](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/awss3exporter).
 
 ## Add Kubernetes attributes to traces, logs and metrics
 

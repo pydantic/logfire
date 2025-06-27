@@ -36,6 +36,8 @@ which you can find more information about [here][opentelemetry-django].
     `local/prod/dev`, make sure you put those lines where they will be imported and executed last. Otherwise, the
     instrumentation might not work as expected.
 
+In case you are using Gunicorn to run your Django application, you can [configure Logfire in Gunicorn](gunicorn.md) as well.
+
 ## Instrumenting Django ORM Queries
 
 To instrument Django ORM queries, you need to install the associated DB instrumentation tool, then add the corresponding instrumentation command to your ‍`settings.py` file.
