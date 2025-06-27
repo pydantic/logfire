@@ -42,7 +42,6 @@ One quick thing to check is the console logs involved in those services.  Here a
 * Check the console logs of the ingest pod for any errors ingesting new traces:
  ```
  kubectl logs -n logfire statefulset/logfire-ff-ingest
- kubectl logs -n logfire deployments/logfire-ff-ingest-api
  ```
 * Check the console logs of the OTel collector:
  ```

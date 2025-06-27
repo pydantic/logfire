@@ -104,17 +104,13 @@ logfire-ff-conhash-cache:
     cpu: "1"
     memory: "1Gi"
 
-logfire-ff-ingest-api:
-  replicas: 2
+logfire-ff-ingest:
+  volumeClaimTemplates:
+    storageClassName: my-storage-class
+    storage: "16Gi"
   resources:
-    cpu: "1"
-    memory: "1Gi"
-
-logfire-ff-ingest-worker:
-  replicas: 6
-  resources:
-    cpu: "1"
-    memory: "2Gi"
+    cpu: "2"
+    memory: "4Gi"
   autoscaling:
     minReplicas: 6
     maxReplicas: 24
