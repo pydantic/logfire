@@ -19,9 +19,8 @@ Spans in the Live view may have a token usage badge on the right, indicated by a
 Hover over either to see:
 
 - Model name
-- Input tokens
-- Output tokens
-- Total cost (USD)
+- Input, Output & Total tokens
+- Input, Output & Total cost (USD)
 
 ![Token‑usage pop‑over](../../images/llm-panels/connect-4-claude-usage-pop-over.png)
 
