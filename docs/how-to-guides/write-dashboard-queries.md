@@ -352,3 +352,36 @@ FROM ranked
 WHERE row_num <= 5
 ORDER BY x
 ```
+
+## Linking to the Live view
+
+While aggregating data with `GROUP BY` is powerful for seeing trends, sometimes you need to investigate specific events, like a single slow operation or a costly API call. In these cases, it's good to include the [`trace_id`](../reference/sql.md#trace_id) column in your `SELECT` clause. Tables in dashboards, the explore view, or alert run results with this column will render the `trace_id` values as clickable links to the Live View.
+
+For example, to find the 10 slowest spans in your system, you can create a 'Table' panel with this query:
+
+```sql
+SELECT
+    trace_id,
+    duration,
+    message
+FROM records
+ORDER BY duration DESC
+LIMIT 10
+```
+
+The table alone won't tell you much, but you can click on the `trace_id` of any row to investigate the full context further.
+
+You can also select the [`span_id`](../reference/sql.md#span_id) column to get a link directly to a specific span within the trace viewer. However, this only works if the `trace_id` column is also included in your `SELECT` statement.
+
+Other columns that may be useful to include in such queries:
+
+- [`message`](../reference/sql.md#message) is a human readable description of the span, as seen in the Live view list of records.
+- [`start_timestamp`](../reference/sql.md#start_timestamp) and [`end_timestamp`](../reference/sql.md#end_timestamp)
+- [`attributes`](../reference/sql.md#attributes)
+- [`service_name`](../reference/sql.md#service_name)
+- [`otel_scope_name`](../reference/sql.md#otel_scope_name)
+- [`deployment_environment`](../reference/sql.md#deployment_environment)
+- [`otel_resource_attributes`](../reference/sql.md#otel_resource_attributes)
+- [`exception_type`](../reference/sql.md#exception_type) and [`exception_message`](../reference/sql.md#exception_message)
+- [`http_response_status_code`](../reference/sql.md#http_response_status_code)
+- [`level_name(level)`](../reference/sql.md#level)
