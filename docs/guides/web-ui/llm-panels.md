@@ -49,6 +49,25 @@ Click an LLM span to open the details panel.
 | [Anthropic](../../integrations/llms/anthropic.md)                                     |              |       | ✅                 |
 | [Google ADK](https://github.com/pydantic/logfire/issues/1201#issuecomment-3012423974) | ✅            |       |                   |
 
+Tokens and costs are more generally supported by any instrumentation that follows the standard [OpenTelemetry semantic conventions for GenAI spans](https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/). The following snippet shows the attributes required if you want to log the data manually:
+
+```python
+import logfire
+
+logfire.configure()
+
+logfire.info(
+    'LLM request',
+    **{
+        'gen_ai.system': 'google',
+        'gen_ai.request.model': 'gemini-2.0-flash',
+        'gen_ai.response.model': 'gemini-2.0-flash-001',
+        'gen_ai.usage.input_tokens': 20,
+        'gen_ai.usage.output_tokens': 40,
+    },
+)
+```
+
 ## Example LLM panel views
 
 ### Single‑prompt calls
