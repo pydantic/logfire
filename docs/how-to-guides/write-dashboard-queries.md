@@ -94,16 +94,16 @@ LIMIT 10
 
 For starters:
 
-1. Create a panel in a new or existing custom (not standard) dashboard.
-2. Click the 'Type' dropdown and select 'Table'.
+1. Create a panel in a [new or existing custom (not standard) dashboard](../guides/web-ui/dashboards.md#creating-custom-dashboards).
+2. Click the **Type** dropdown and select **Table**.
 3. Paste your query into the SQL editor.
 4. Give your panel a name.
-5. Click 'Apply' to save it.
+5. Click **Apply** to save it.
 
 Tables are easy and flexible. They can handle any number of `GROUP BY` columns, and don't really need a `LIMIT` to be practical. But they're not very pretty. Try making a bar chart instead:
 
 1. Click the pencil icon to edit your panel.
-2. Change the 'Type' to 'Bar Chart'.
+2. Change the **Type** to **Bar Chart**.
 3. Add `LIMIT 10` or so at the end of your query if there are too many bars.
 4. If you have multiple `GROUP BY` columns, you will need to convert them to one expression by concatenating strings. Replace each `,` in the `GROUP BY` clause with `|| ' - ' ||` to create a single string with dashes between the values, e.g. replace `service_name, span_name` with `service_name || ' -  ' || span_name`. Do this in both the `SELECT` and `GROUP BY` clauses. You can optionally add an `AS` alias to the concatenated string in the `SELECT` clause, like `service_name || ' - ' || span_name AS service_and_span`, and then use that alias in the `GROUP BY` clause instead of repeating the concatenation.
 5. If your grouping column happens to be a number, add `::text` to it to convert it to a string so that it's recognized as a category by the chart.
@@ -135,8 +135,7 @@ SELECT * FROM (
 ) ORDER BY count ASC
 ```
 
-Finally, check the 'Settings' tab in the panel editor to tweak the appearance of your chart.
-
+Finally, check the **Settings** tab in the panel editor to tweak the appearance of your chart.
 
 ## Aggregating Numerical Data
 
@@ -181,7 +180,7 @@ This query calculates the 95th percentile of the `duration` for each `span_name`
 
 ## Time series
 
-Create a new panel in a dashboard, and by default it will have the type 'Time Series Chart' with a query like this:
+Create a new panel in a dashboard, and by default it will have the type **Time Series Chart** with a query like this:
 
 ```sql
 SELECT
@@ -191,7 +190,7 @@ FROM records
 GROUP BY x
 ```
 
-Here the `time_bucket($resolution, start_timestamp)` is essential. `$resolution` is a special variable that exists in all dashboards and adjusts automatically based on the time range. You can adjust it while viewing the dashboard using the dropdown in the top left corner. It doesn't exist in the Explore view, so you have to use a concrete interval like `time_bucket('1 hour', start_timestamp)` there. Tick 'Show rendered query' in the panel editor to fill in the resolution and other variables so that you can copy the query to the Explore view.
+Here the `time_bucket($resolution, start_timestamp)` is essential. [`$resolution` is a special variable that exists in all dashboards](../guides/web-ui/dashboards.md#resolution-variable) and adjusts automatically based on the time range. You can adjust it while viewing the dashboard using the dropdown in the top left corner. It doesn't exist in the Explore view, so you have to use a concrete interval like `time_bucket('1 hour', start_timestamp)` there. Tick **Show rendered query** in the panel editor to fill in the resolution and other variables so that you can copy the query to the Explore view.
 
 !!! warning
     If you're querying `metrics`, use `recorded_timestamp` instead of `start_timestamp`.
@@ -227,7 +226,7 @@ FROM records
 GROUP BY x, level
 ```
 
-Then set the 'Dimension' dropdown to `level` and the 'Metrics' dropdown to `log_count`. This will create a time series chart with multiple lines, one for each log level (e.g. 'info', 'warning', 'error'). Here's what the configuration and result would look like:
+Then set the **Dimension** dropdown to `level` and the **Metrics** dropdown to `log_count`. This will create a time series chart with multiple lines, one for each log level (e.g. 'info', 'warning', 'error'). Here's what the configuration and result would look like:
 
 ![Time Series Chart with Multiple Lines](../images/guide/dashboard-queries-level-dimension.png)
 
