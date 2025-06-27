@@ -178,6 +178,12 @@ nav:
   - Roadmap: roadmap.md
   - Languages: languages.md
   - Enterprise: enterprise.md
+  - Self-Hosted:
+      - Introduction: self-hosted/introduction.md
+      - Architecture: self-hosted/architecture.md
+      - Installation: self-hosted/installation.md
+      - Troubleshooting: self-hosted/troubleshooting.md
+      - Scaling: self-hosted/scaling.md
   - Compliance: compliance.md
   - Release Notes: release-notes.md
 
