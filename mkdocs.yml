@@ -82,11 +82,13 @@ nav:
           - Live View: guides/web-ui/live.md
           - Dashboards: guides/web-ui/dashboards.md
           - Alerts (Beta): guides/web-ui/alerts.md
+          - Saved Searches: guides/web-ui/saved-searches.md
           - SQL Explorer: guides/web-ui/explore.md
   - Understanding your Usage: logfire-costs.md
   - How To - Guides:
       - Create Write Tokens: how-to-guides/create-write-tokens.md
       - Use different environments: how-to-guides/environments.md
+      - Convert to Organization: how-to-guides/convert-to-organization.md
       - Link to Code Source: how-to-guides/link-to-code-source.md
       - Use Alternative Clients: how-to-guides/alternative-clients.md
       - Use Alternative Backends: how-to-guides/alternative-backends.md
@@ -226,7 +228,7 @@ plugins:
           options:
             members_order: source
             separate_signature: true
-            filters: ["!^_"]
+            filters: ['!^_']
             docstring_options:
               ignore_init_summary: true
             merge_init_into_class: true
@@ -279,7 +281,7 @@ plugins:
         "integrations/third_party/litellm.md": "integrations/llms/litellm.md"
         "integrations/third-party/litellm.md": "integrations/llms/litellm.md"
         "integrations/third-party/mirascope.md": "integrations/llms/mirascope.md"
-        "integrations/third-party/magentic.md": "integrations/llms/magentic.md"
+        "integrations/third_party/magentic.md": "integrations/llms/magentic.md"
         "integrations/use_cases/web_frameworks.md": "integrations/web-frameworks/index.md"
         "integrations/use-cases/web_frameworks.md": "integrations/web-frameworks/index.md"
         "integrations/fastapi.md": "integrations/web-frameworks/fastapi.md"
