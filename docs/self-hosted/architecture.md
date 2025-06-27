@@ -12,7 +12,7 @@ graph
     %% Core services
     LB[logfire-backend:8000]
     RD[logfire-redis:6379]
-    FIA[logfire-ff-ingest-api:8012]
+    FIA[logfire-ff-ingest:8012]
     FQA[logfire-ff-query-api:8011]
     FCC[logfire-ff-cache:9001]
     MW[logfire-maintenance-worker]
