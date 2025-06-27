@@ -52,7 +52,13 @@ if TYPE_CHECKING:
 
 
 class LogfireLoggingHandler(LoggingHandler):
-    """A [logging](../../integrations/logging.md) handler that sends logs to **Logfire**."""
+    """A [logging](../../integrations/logging.md) handler that sends logs to **Logfire**.
+
+    Args:
+        level: The threshold level for this handler. Logging messages which are less severe than *level* will be ignored.
+        fallback: A fallback handler to use when [instrumentation is suppressed](../../how-to-guides/suppress.md#suppress-instrumentation).
+        logfire_instance: The Logfire instance to use when emitting logs. Defaults to the default global instance.
+    """
 
     custom_scope_suffix: ClassVar[str] = 'stdlib.logging'
 
