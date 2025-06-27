@@ -178,3 +178,57 @@ ORDER BY P95 DESC
 ```
 
 This query calculates the 95th percentile of the `duration` for each `span_name`. The general pattern is `approx_percentile_cont(<percentile>) WITHIN GROUP (ORDER BY <column>)` where `<percentile>` is a number between 0 and 1.
+
+## Time series
+
+Create a new panel in a dashboard, and by default it will have the type 'Time Series Chart' with a query like this:
+
+```sql
+SELECT
+    time_bucket($resolution, start_timestamp) AS x,
+    count() as count
+FROM records
+GROUP BY x
+```
+
+Here the `time_bucket($resolution, start_timestamp)` is essential. `$resolution` is a special variable that exists in all dashboards and adjusts automatically based on the time range. You can adjust it while viewing the dashboard using the dropdown in the top left corner. It doesn't exist in the Explore view, so you have to use a concrete interval like `time_bucket('1 hour', start_timestamp)` there. Tick 'Show rendered query' in the panel editor to fill in the resolution and other variables so that you can copy the query to the Explore view.
+
+!!! warning
+    If you're querying `metrics`, use `recorded_timestamp` instead of `start_timestamp`.
+
+You can give the time bucket expression any name (`x` in the example above), but it must be the same in both the `SELECT` and `GROUP BY` clauses. The chart will detect that the type is a timestamp and use it as the x-axis.
+
+You can replace the `count()` with any aggregation(s) you want. For example, you can show multiple levels of percentiles:
+
+```sql
+SELECT
+    time_bucket($resolution, start_timestamp) AS x,
+    approx_percentile_cont(0.80) WITHIN GROUP (ORDER BY duration) AS p80,
+    approx_percentile_cont(0.90) WITHIN GROUP (ORDER BY duration) AS p90,
+    approx_percentile_cont(0.95) WITHIN GROUP (ORDER BY duration) AS p95
+FROM records
+GROUP BY x
+```
+
+### Grouping by Dimension
+
+You can make time series charts with multiple lines (series) for the same numerical metric by grouping by a dimension. This means adding a column to the `SELECT` and `GROUP BY` clauses and then selecting it from the 'Dimension' dropdown next to the SQL editor.
+
+#### Example: Log levels
+
+Paste this into the SQL editor:
+
+```sql
+SELECT
+    time_bucket($resolution, start_timestamp) AS x,
+    log(count()) as log_count,
+    level_name(level) as level
+FROM records
+GROUP BY x, level
+```
+
+Then set the 'Dimension' dropdown to `level` and the 'Metrics' dropdown to `log_count`. This will create a time series chart with multiple lines, one for each log level (e.g. 'info', 'warning', 'error'). Here's what the config and result would look like:
+
+![Time Series Chart with Multiple Lines](../images/guide/dashboard-queries-level-dimension.png)
+
+Here we use `log(count())` instead of just `count()` because you probably have way more 'info' records than 'error' records, making it hard to notice any spikes in the number of errors. This compresses the y-axis into a logarithmic scale to make it more visually useful, but the numbers are harder to interpret. The `level_name(level)` function converts the numeric [`level`](../reference/sql.md#level) value to a human-readable string.
