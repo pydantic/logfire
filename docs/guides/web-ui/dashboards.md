@@ -161,7 +161,7 @@ Once defined, variables can be referenced in SQL queries using the format `$your
 
 ## Writing Queries
 
-If you're unsure which tables or columns are available, refer to the [records schema](explore.md#records-schema) and [metrics schema](explore.md#metrics-schema).
+Please refer to the [SQL Reference](../../reference/sql.md) and [Metrics Schema](../../guides/web-ui/explore.md#metrics-schema) for more information on the data available to you.
 
 ### Variable Usage
 
