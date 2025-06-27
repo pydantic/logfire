@@ -214,9 +214,9 @@ GROUP BY x
 
 You can make time series charts with multiple lines (series) for the same numerical metric by grouping by a dimension. This means adding a column to the `SELECT` and `GROUP BY` clauses and then selecting it from the 'Dimension' dropdown next to the SQL editor.
 
-#### Example: Log levels
+#### Low cardinality dimensions
 
-Paste this into the SQL editor:
+For a simple example, paste this into the SQL editor:
 
 ```sql
 SELECT
@@ -231,4 +231,42 @@ Then set the 'Dimension' dropdown to `level` and the 'Metrics' dropdown to `log_
 
 ![Time Series Chart with Multiple Lines](../images/guide/dashboard-queries-level-dimension.png)
 
+!!! note
+    You can only set one dimension, but you can set multiple metrics.
+
 Here we use `log(count())` instead of just `count()` because you probably have way more 'info' records than 'error' records, making it hard to notice any spikes in the number of errors. This compresses the y-axis into a logarithmic scale to make it more visually useful, but the numbers are harder to interpret. The `level_name(level)` function converts the numeric [`level`](../reference/sql.md#level) value to a human-readable string.
+
+You can replace `level` with [other useful things to group by](#useful-things-to-group-by), but they need to be very low cardinality (i.e. not too many unique values) for this simple query to work well in a time series chart. Good examples are:
+
+- `service_name`
+- `deployment_environment`
+- `exception_type`
+- `http_response_status_code`
+- `attributes->>'http.method'` (or `attributes->>'http.request.method'` for newer OpenTelemetry instrumentations)
+
+#### Multiple dimensions
+
+Because time series charts can only have one dimension, if you want to group by multiple columns, you need to concatenate them into a single string, e.g. instead of:
+
+```sql
+SELECT
+    time_bucket($resolution, start_timestamp) AS x,
+    log(count()) as log_count,
+    service_name,
+    level_name(level) as level
+FROM records
+GROUP BY x, service_name, level
+```
+
+You would do:
+
+```sql
+SELECT
+    time_bucket($resolution, start_timestamp) AS x,
+    log(count()) as log_count,
+    service_name || ' - ' || level_name(level) AS service_and_level
+FROM records
+GROUP BY x, service_and_level
+```
+
+Then set the 'Dimension' dropdown to `service_and_level`. This will create a time series chart with a line for each combination of `service_name` and `level`. Of course this increases the cardinality quickly, making the next section more relevant.
