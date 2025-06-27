@@ -89,6 +89,7 @@ nav:
       - Create Write Tokens: how-to-guides/create-write-tokens.md
       - Use different environments: how-to-guides/environments.md
       - Convert to Organization: how-to-guides/convert-to-organization.md
+      - Write Dashboard Queries: how-to-guides/write-dashboard-queries.md
       - Link to Code Source: how-to-guides/link-to-code-source.md
       - Use Alternative Clients: how-to-guides/alternative-clients.md
       - Use Alternative Backends: how-to-guides/alternative-backends.md
