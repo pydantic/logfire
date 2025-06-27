@@ -1402,11 +1402,11 @@ def test_instrument_packages_calls_instrument(monkeypatch: pytest.MonkeyPatch):
         return f
 
     fake_logfire.instrument_foo = make_instrument('foo')
-    monkeypatch.setitem(sys.modules, 'logfire', fake_logfire)
+    monkeypatch.setattr(logfire._internal.cli.run, 'logfire', fake_logfire)
     installed_otel = {'opentelemetry-instrumentation-foo'}
     instrument_pkg_map = {'opentelemetry-instrumentation-foo': 'foo'}
     result = instrument_packages(installed_otel, instrument_pkg_map)
-    assert 'foo' in result
+    assert result == snapshot(['foo'])
     assert called['foo'] is True
 
 
