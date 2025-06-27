@@ -33,7 +33,7 @@ GROUP BY exception_type
 ORDER BY count DESC
 ```
 
-Finally, to find the bigest traces, which may be a sign of an operation doing too many things:
+Finally, to find the biggest traces, which may be a sign of an operation doing too many things:
 
 ```sql
 SELECT
@@ -67,7 +67,7 @@ LIMIT 10
 
 ### Useful things to group by
 
-- [`span_name`](../reference/sql.md#span_name): this is nice and generic and shouldn't have too much variablity, creating decently sized meaningful groups. It's especially good for HTTP server request spans, where it typically contains the HTTP method and route (the path template) without the specific parameters. To focus on such spans, trying filtering by the appropriate [`otel_scope_name`](../reference/sql.md#otel_scope_name), e.g. `WHERE otel_scope_name = 'opentelemetry.instrumentation.fastapi'` if you're using [`logfire.instrument_fastapi()`](../integrations/web-frameworks/fastapi.md).
+- [`span_name`](../reference/sql.md#span_name): this is nice and generic and shouldn't have too much variability, creating decently sized meaningful groups. It's especially good for HTTP server request spans, where it typically contains the HTTP method and route (the path template) without the specific parameters. To focus on such spans, trying filtering by the appropriate [`otel_scope_name`](../reference/sql.md#otel_scope_name), e.g. `WHERE otel_scope_name = 'opentelemetry.instrumentation.fastapi'` if you're using [`logfire.instrument_fastapi()`](../integrations/web-frameworks/fastapi.md).
 - [`exception_type`](../reference/sql.md#exception_type)
 - [`http_response_status_code`](../reference/sql.md#http_response_status_code)
 - [`attributes->>'...'`](../reference/sql.md#attributes): this will depend on your specific data. Try taking a look at some relevant spans in the Live view first to see what attributes are available.
@@ -227,7 +227,7 @@ FROM records
 GROUP BY x, level
 ```
 
-Then set the 'Dimension' dropdown to `level` and the 'Metrics' dropdown to `log_count`. This will create a time series chart with multiple lines, one for each log level (e.g. 'info', 'warning', 'error'). Here's what the config and result would look like:
+Then set the 'Dimension' dropdown to `level` and the 'Metrics' dropdown to `log_count`. This will create a time series chart with multiple lines, one for each log level (e.g. 'info', 'warning', 'error'). Here's what the configuration and result would look like:
 
 ![Time Series Chart with Multiple Lines](../images/guide/dashboard-queries-level-dimension.png)
 
