@@ -18,6 +18,8 @@ from rich.text import Text
 
 import logfire
 
+STANDARD_LIBRARY_PACKAGES = {'urllib', 'sqlite3'}
+
 # Map of instrumentation packages to the packages they instrument
 OTEL_INSTRUMENTATION_MAP = {
     'opentelemetry-instrumentation-aio_pika': 'aio_pika',
@@ -200,7 +202,7 @@ def recommended_instrumentation(
             continue
 
         # Include only if the package it instruments is installed or in sys.stdlib_module_names
-        if required_pkg in installed_pkgs or required_pkg in sys.stdlib_module_names:
+        if required_pkg in installed_pkgs or required_pkg in STANDARD_LIBRARY_PACKAGES:
             recommendations.add((otel_pkg, required_pkg))
 
     # Special case: if fastapi is installed, don't show starlette instrumentation.
