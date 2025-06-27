@@ -37,13 +37,17 @@ Click an LLM span to open the details panel.
 | **Files**      | Links or inline previews of binary or blob uploads.         |
 | **Metadata**   | Model name, token counts, and cost.                |
 
-Logfire supports all major model hosts and many agent frameworks.
-
 ---
 
-## Instrument your code
+## Supported Instrumentations
 
-To get started the integration, please refer to [LLM integration guides](../../integrations/llms/pydanticai.md).
+| Instrumentation                                                                       | Token badges | Costs | LLM details panel |
+|---------------------------------------------------------------------------------------|--------------|-------|-------------------|
+| [Pydantic AI](../../integrations/llms/pydanticai.md)                                  | ✅            | ✅     | ✅                 |
+| [OpenAI](../../integrations/llms/openai.md)                                           | ✅            | ✅     | ✅                 |
+| [LangChain](../../integrations/llms/langchain.md)                                     | ✅            | ✅     | ✅                 |
+| [Anthropic](../../integrations/llms/anthropic.md)                                     |              |       | ✅                 |
+| [Google ADK](https://github.com/pydantic/logfire/issues/1201#issuecomment-3012423974) | ✅            |       |                   |
 
 ## Example LLM panel views
 
