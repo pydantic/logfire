@@ -89,6 +89,7 @@ nav:
       - Create Write Tokens: how-to-guides/create-write-tokens.md
       - Use different environments: how-to-guides/environments.md
       - Convert to Organization: how-to-guides/convert-to-organization.md
+      - Write Dashboard Queries: how-to-guides/write-dashboard-queries.md
       - Link to Code Source: how-to-guides/link-to-code-source.md
       - Use Alternative Clients: how-to-guides/alternative-clients.md
       - Use Alternative Backends: how-to-guides/alternative-backends.md
@@ -178,6 +179,13 @@ nav:
   - Roadmap: roadmap.md
   - Languages: languages.md
   - Enterprise: enterprise.md
+  - Self-Hosted:
+      - Introduction: self-hosted/introduction.md
+      - Architecture: self-hosted/architecture.md
+      - Installation: self-hosted/installation.md
+      - Troubleshooting: self-hosted/troubleshooting.md
+      - Scaling: self-hosted/scaling.md
+      - Playground: self-hosted/playground.md
   - Compliance: compliance.md
   - Release Notes: release-notes.md
 

@@ -12,18 +12,17 @@ Vercel provides a comprehensive OpenTelemetry integration through the
 following environment variables to your project:
 
 ```sh
-OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://logfire-api.pydantic.dev/v1/traces
-OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=https://logfire-api.pydantic.dev/v1/metrics
+OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-api.pydantic.dev
 OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'
 ```
 
 This configuration directs the OpenTelemetry instrumentation to send data to Logfire.
 
-> [!NOTE]
-> Vercel production deployments use a caching mechanism that may prevent
-> configuration changes from taking effect immediately or prevent spans from being reported. If you
-> don't see spans appearing in Logfire, you can
-> [clear the data cache for your project](https://vercel.com/docs/data-cache/manage-data-cache).
+!!! note
+    Vercel production deployments use a caching mechanism that may prevent
+    configuration changes from taking effect immediately or prevent spans from being reported. If you
+    don't see spans appearing in Logfire, you can
+    [clear the data cache for your project](https://vercel.com/docs/data-cache/manage-data-cache).
 
 Optionally, you can use the Logfire API package to create manual spans.
 Install the `@pydantic/logfire-api` NPM package and call the appropriate methods
