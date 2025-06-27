@@ -20,7 +20,7 @@ You will require image pull secrets to pull down the docker images from our priv
 
 The Helm chart does not include a production-ready Postgres Database (only a development instance).  You will be required to connect to, and create databases on a Postgres instance.
 
-You will need to create 4 databases, that are used for different things.
+You will need to create 3 databases, that are used for different things.
 
 While we are currently working on running **Logfire** on one database, for now they *must* be separated.
 
