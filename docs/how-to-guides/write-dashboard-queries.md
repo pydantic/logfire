@@ -136,3 +136,45 @@ SELECT * FROM (
 ```
 
 Finally, check the 'Settings' tab in the panel editor to tweak the appearance of your chart.
+
+
+## Aggregating Numerical Data
+
+Instead of just counting rows, you can perform calculations on numerical expressions. [`duration`](../reference/sql.md#duration) is a particularly useful column for performance analysis. Tweaking our first example:
+
+```sql
+SELECT
+    SUM(duration) AS total_duration_seconds,
+    span_name
+FROM records
+WHERE duration IS NOT NULL -- Ignore logs, which have no duration
+GROUP BY span_name
+ORDER BY total_duration_seconds DESC
+```
+
+This will show you which operations take the most time overall, whether it's because they run frequently or take a long time each time.
+
+Alternatively you could use `AVG(duration)` (for the mean) or `MEDIAN(duration)` to find which operations are slow on average, or `MAX(duration)` to find the worst case scenarios. See the [Datafusion documentation](https://datafusion.apache.org/user-guide/sql/aggregate_functions.html) for the full list of available aggregation functions.
+
+Other numerical values can typically be found inside `attributes` and will depend on your data. LLM spans often have `attributes->'gen_ai.usage.input_tokens'` and `attributes->'gen_ai.usage.output_tokens'` which you can use to monitor costs.
+
+!!! warning
+    `SUM(attributes->'...')` and other numerical aggregations will typically return an error because the database doesn't know the type of the JSON value inside `attributes`, so use `SUM((attributes->'...')::numeric)` to convert it to a number.
+
+### Percentiles
+
+A slightly more advanced aggregation is to calculate percentiles. For example, the 95th percentile means the value below which 95% of the data falls. This is typically referred to as P95, and tells you a more 'typical' worst-case scenario while ignoring the extreme outliers found by using `MAX()`. P90 and P99 are also commonly used.
+
+To calculate this requires a bit of extra syntax:
+
+```sql
+SELECT
+    approx_percentile_cont(0.95) WITHIN GROUP (ORDER BY duration) as P95,
+    span_name
+FROM records
+WHERE duration > 0
+GROUP BY span_name
+ORDER BY P95 DESC
+```
+
+This query calculates the 95th percentile of the `duration` for each `span_name`. The general pattern is `approx_percentile_cont(<percentile>) WITHIN GROUP (ORDER BY <column>)` where `<percentile>` is a number between 0 and 1.
