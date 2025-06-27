@@ -94,7 +94,7 @@ LIMIT 10
 
 For starters:
 
-1. Create a panel in a [new or existing custom (not standard) dashboard](../../guides/web-ui/dashboards/#creating-custom-dashboards).
+1. Create a panel in a [new or existing custom (not standard) dashboard](../guides/web-ui/dashboards.md#creating-custom-dashboards).
 2. Click the **Type** dropdown and select **Table**.
 3. Paste your query into the SQL editor.
 4. Give your panel a name.
@@ -190,7 +190,7 @@ FROM records
 GROUP BY x
 ```
 
-Here the `time_bucket($resolution, start_timestamp)` is essential. [`$resolution` is a special variable that exists in all dashboards](../../guides/web-ui/dashboards#resolution-variable) and adjusts automatically based on the time range. You can adjust it while viewing the dashboard using the dropdown in the top left corner. It doesn't exist in the Explore view, so you have to use a concrete interval like `time_bucket('1 hour', start_timestamp)` there. Tick **Show rendered query** in the panel editor to fill in the resolution and other variables so that you can copy the query to the Explore view.
+Here the `time_bucket($resolution, start_timestamp)` is essential. [`$resolution` is a special variable that exists in all dashboards](../guides/web-ui/dashboards.md#resolution-variable) and adjusts automatically based on the time range. You can adjust it while viewing the dashboard using the dropdown in the top left corner. It doesn't exist in the Explore view, so you have to use a concrete interval like `time_bucket('1 hour', start_timestamp)` there. Tick **Show rendered query** in the panel editor to fill in the resolution and other variables so that you can copy the query to the Explore view.
 
 !!! warning
     If you're querying `metrics`, use `recorded_timestamp` instead of `start_timestamp`.
