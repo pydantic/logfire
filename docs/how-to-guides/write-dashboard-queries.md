@@ -113,7 +113,7 @@ For a complete example, you can replace this:
 
 ```sql
 SELECT
-    COUNT(1) AS count,
+    COUNT() AS count,
     service_name,
     span_name
 FROM records
@@ -126,7 +126,7 @@ with:
 ```sql
 SELECT * FROM (
     SELECT
-        COUNT(1) AS count,
+        COUNT() AS count,
         service_name || ' - ' || span_name AS service_and_span
     FROM records
     GROUP BY service_and_span
@@ -172,7 +172,7 @@ SELECT
     approx_percentile_cont(0.95) WITHIN GROUP (ORDER BY duration) as P95,
     span_name
 FROM records
-WHERE duration > 0
+WHERE duration IS NOT NULL
 GROUP BY span_name
 ORDER BY P95 DESC
 ```
@@ -334,12 +334,7 @@ Fill in `<aggregation_expression>` with your desired aggregation (e.g. `count()`
 
 ```sql
 WITH original AS (
-    SELECT
-    time_bucket($resolution, start_timestamp) AS x,
-    count() AS metric,
-    span_name as dimension
-FROM records
-GROUP BY x, dimension
+    <original_query>
 ),
 ranked AS (
     SELECT
