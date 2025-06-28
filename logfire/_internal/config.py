@@ -1624,7 +1624,7 @@ To create a write token, refer to https://logfire.pydantic.dev/docs/guides/advan
                     default=project_name_default,
                 )
 
-            url = urljoin(logfire_api_url, f'/v1/projects/{organization}')
+            url = urljoin(logfire_api_url, f'/v1/organizations/{organization}/projects')
             try:
                 response = session.post(url, headers=headers, json={'project_name': project_name})
                 if response.status_code == 409:
