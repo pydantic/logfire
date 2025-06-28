@@ -6,9 +6,9 @@ import os
 import re
 import shlex
 import sys
+import types
 import webbrowser
 from contextlib import ExitStack
-from importlib.machinery import ModuleSpec
 from pathlib import Path
 from unittest.mock import call, patch
 
@@ -20,7 +20,13 @@ from inline_snapshot import snapshot
 
 import logfire._internal.cli
 from logfire import VERSION
-from logfire._internal.cli import STANDARD_LIBRARY_PACKAGES, main
+from logfire._internal.cli import main
+from logfire._internal.cli.run import (
+    get_recommendation_texts,
+    instrument_packages,
+    instrumented_packages_text,
+    recommended_instrumentation,
+)
 from logfire._internal.config import LogfireCredentials, sanitize_project_name
 from logfire.exceptions import LogfireConfigError
 
@@ -230,77 +236,89 @@ def test_clean_default_dir_is_not_a_directory(
 def test_inspect(
     tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    os.environ['COLUMNS'] = '150'
     logfire_credentials.write_creds_file(tmp_dir_cwd / '.logfire')
-    main(['inspect'])
-    assert capsys.readouterr().err.startswith('The following packages')
+    with pytest.raises(SystemExit):
+        main(['inspect'])
+    assert capsys.readouterr().err == snapshot("""\
 
 
-def packages_from_output(output: str) -> set[str]:
-    pattern = r'^\s*([\w]+)\s*\|\s*([\w\-]+)\s*$'
-    matches = re.findall(pattern, output, re.MULTILINE)
-    return {match[1] for match in matches}
+╭───────────────────────────────────────────────────────────────── Logfire Summary ──────────────────────────────────────────────────────────────────╮
+│                                                                                                                                                    │
+│  ☐ botocore (need to install opentelemetry-instrumentation-botocore)                                                                               │
+│  ☐ jinja2 (need to install opentelemetry-instrumentation-jinja2)                                                                                   │
+│  ☐ pymysql (need to install opentelemetry-instrumentation-pymysql)                                                                                 │
+│  ☐ urllib (need to install opentelemetry-instrumentation-urllib)                                                                                   │
+│                                                                                                                                                    │
+│                                                                                                                                                    │
+│  To install all recommended packages at once, run:                                                                                                 │
+│                                                                                                                                                    │
+│  uv add opentelemetry-instrumentation-botocore opentelemetry-instrumentation-jinja2 opentelemetry-instrumentation-pymysql                          │
+│  opentelemetry-instrumentation-urllib                                                                                                              │
+│                                                                                                                                                    │
+│  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────  │
+│                                                                                                                                                    │
+│  To hide this summary box, use: logfire run --no-summary.                                                                                          │
+│                                                                                                                                                    │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+""")
 
 
 @pytest.mark.parametrize(
-    ('command', 'installed', 'should_install'),
+    ('otel_instrumentation_map', 'installed', 'should_install'),
     [
         (
-            'inspect',
-            ['fastapi'],
             {
-                'opentelemetry-instrumentation-fastapi',
-                'opentelemetry-instrumentation-urllib',
-                'opentelemetry-instrumentation-sqlite3',
+                'opentelemetry-instrumentation-fastapi': 'fastapi',
+                'opentelemetry-instrumentation-urllib': 'urllib',
+                'opentelemetry-instrumentation-sqlite3': 'sqlite3',
+            },
+            {'fastapi'},
+            {
+                ('opentelemetry-instrumentation-fastapi', 'fastapi'),
+                ('opentelemetry-instrumentation-urllib', 'urllib'),
+                ('opentelemetry-instrumentation-sqlite3', 'sqlite3'),
             },
         ),
         (
-            'inspect',
-            ['fastapi', 'starlette'],
             {
-                'opentelemetry-instrumentation-fastapi',
-                'opentelemetry-instrumentation-urllib',
-                'opentelemetry-instrumentation-sqlite3',
+                'opentelemetry-instrumentation-fastapi': 'fastapi',
+                'opentelemetry-instrumentation-starlette': 'starlette',
+            },
+            {'fastapi', 'starlette'},
+            {
+                ('opentelemetry-instrumentation-fastapi', 'fastapi'),
             },
         ),
         (
-            'inspect',
-            ['urllib3', 'requests'],
             {
-                'opentelemetry-instrumentation-requests',
-                'opentelemetry-instrumentation-urllib',
-                'opentelemetry-instrumentation-sqlite3',
+                'opentelemetry-instrumentation-urllib3': 'urllib3',
+                'opentelemetry-instrumentation-requests': 'requests',
+                'opentelemetry-instrumentation-sqlite3': 'sqlite3',
+            },
+            {'urllib3', 'requests'},
+            {
+                ('opentelemetry-instrumentation-requests', 'requests'),
+                ('opentelemetry-instrumentation-sqlite3', 'sqlite3'),
             },
         ),
         (
-            'inspect --ignore urllib --ignore sqlite3',
-            ['starlette'],
-            {'opentelemetry-instrumentation-starlette'},
-        ),
-        (
-            'inspect --ignore urllib,sqlite3',
-            ['starlette'],
-            {'opentelemetry-instrumentation-starlette'},
+            {'opentelemetry-instrumentation-starlette': 'starlette'},
+            {'starlette'},
+            {('opentelemetry-instrumentation-starlette', 'starlette')},
         ),
     ],
 )
-def test_inspect_with_dependencies(
+def test_recommended_packages_with_dependencies(
     tmp_dir_cwd: Path,
     logfire_credentials: LogfireCredentials,
-    command: str,
-    installed: list[str],
-    should_install: list[str],
-    capsys: pytest.CaptureFixture[str],
+    otel_instrumentation_map: dict[str, str],
+    installed: set[str],
+    should_install: set[str],
 ) -> None:
-    logfire_credentials.write_creds_file(tmp_dir_cwd / '.logfire')
-
-    def new_find_spec(name: str) -> ModuleSpec | None:
-        if name in STANDARD_LIBRARY_PACKAGES or name in installed:
-            return ModuleSpec(name, None)
-
-    with patch('importlib.util.find_spec', new=new_find_spec):
-        main(shlex.split(command))
-        output = capsys.readouterr().err
-        assert packages_from_output(output) == should_install
+    recommendations = recommended_instrumentation(otel_instrumentation_map, set(), installed)
+    assert recommendations == should_install
 
 
 @pytest.mark.parametrize('webbrowser_error', [False, True])
@@ -1371,3 +1389,48 @@ def test_info(capsys: pytest.CaptureFixture[str]) -> None:
     output = capsys.readouterr().err.strip()
     assert output.startswith('logfire="')
     assert '[related_packages]' in output
+
+
+def test_instrument_packages_calls_instrument(monkeypatch: pytest.MonkeyPatch):
+    fake_logfire = types.SimpleNamespace()
+    called = {}
+
+    def make_instrument(name: str):
+        def f():
+            called[name] = True
+
+        return f
+
+    fake_logfire.instrument_foo = make_instrument('foo')
+    monkeypatch.setattr(logfire._internal.cli.run, 'logfire', fake_logfire)
+    installed_otel = {'opentelemetry-instrumentation-foo'}
+    instrument_pkg_map = {'opentelemetry-instrumentation-foo': 'foo'}
+    result = instrument_packages(installed_otel, instrument_pkg_map)
+    assert result == snapshot(['foo'])
+    assert called['foo'] is True
+
+
+def test_instrument_packages_handles_missing(monkeypatch: pytest.MonkeyPatch):
+    fake_logfire = types.SimpleNamespace()
+    monkeypatch.setitem(sys.modules, 'logfire', fake_logfire)
+    installed_otel = {'opentelemetry-instrumentation-bar'}
+    instrument_pkg_map = {'opentelemetry-instrumentation-bar': 'bar'}
+    result = instrument_packages(installed_otel, instrument_pkg_map)
+    assert result == []
+
+
+def test_instrumented_packages_text_basic():
+    installed_otel_pkgs = {'opentelemetry-instrumentation-foo', 'opentelemetry-instrumentation-bar'}
+    instrumented_packages = ['foo']
+    installed_pkgs = {'foo', 'bar'}
+    text = instrumented_packages_text(installed_otel_pkgs.copy(), instrumented_packages, installed_pkgs)
+    assert '✓ foo' in text
+    assert '⚠️ bar' in text
+
+
+def test_get_recommendation_texts():
+    recs = {('opentelemetry-instrumentation-foo', 'foo'), ('opentelemetry-instrumentation-bar', 'bar')}
+    recommended, install = get_recommendation_texts(recs)
+    assert 'uv add opentelemetry-instrumentation-bar opentelemetry-instrumentation-foo' in install
+    assert 'need to install opentelemetry-instrumentation-bar' in recommended
+    assert 'need to install opentelemetry-instrumentation-foo' in recommended
