@@ -128,5 +128,5 @@ see the [adding metrics guide](guides/onboarding-checklist/add-metrics.md).
 
 Logs record something which happened in your application. Importantly, they do not have a duration, compared to spans and traces. 
 
-A log is a timestamped text record, either structured (recommended) or unstructured, with optional metadata. Of all telemetry signals, logs are the best known and have the largest footprint on our collective understanding. Most programming languages have built-in logging capabilities or well-known, widely used logging libraries. Most [Python users](https://docs.python.org/3/library/sys.html#sys.stdin) are familiar with `sys.stdin`, `sys.stdout` and `sys.stderr` for example.
+A log is a timestamped text record, either structured (recommended) or unstructured, with optional metadata. Of all telemetry signals, logs are the best known and have the largest footprint on our collective understanding. Most programming languages have built-in logging capabilities or well-known, widely used logging libraries. Most Python users are familiar with the [`logging`][] module for example.
 
