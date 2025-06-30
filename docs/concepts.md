@@ -1,6 +1,6 @@
 ## Overview
 
-Understand the core building blocks of observability helps you monitor, debug, and optimize your applications. The four key concepts work together to give you complete insight into your application's behavior: spans and traces show you what's happening and how long it takes, metrics reveal trends and performance over time, and logs capture specific events and details. 
+Understanding the core building blocks of observability helps you monitor, debug, and optimize your applications. The four key concepts work together to give you complete insight into your application's behavior: spans and traces show you what's happening and how long it takes, metrics reveal trends and performance over time, and logs capture specific events and details. 
 
 New to observability? Another great resource is the [OpenTelemetry primer](https://opentelemetry.io/docs/concepts/observability-primer/). 
 
