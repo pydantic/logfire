@@ -108,11 +108,14 @@ A metric a calculated value measuring your application through time.
 Alongside logs and traces, metrics complete the "three pillars" of observability, giving you a continuous,
 low‑overhead signal about the overall health and performance of your services.
 
+!!! info
+    Good news: Logfire's [integrations](integrations/index.md) automatically set up many common metrics for you out of the box. You can also explore our [standard dashboards](guides/web-ui/dashboards.md) which provide pre-built visualizations for:
+    - Web Server Metrics
+    - Basic System Metrics (Logfire)
+    - Basic System Metrics (OpenTelemetry)Spans let you **add context** to your logs and **measure code execution time**. Multiple spans combine to form a trace, providing a complete picture of an operation's journey through your system.
+   
 
 ### Example - Duration of HTTP requests
-
-!!! info
-   Good news: Logfire's [integrations](integrations/index.md) automatically set up many common metrics for you out-of-the-box.
    
 ```python
 import time
