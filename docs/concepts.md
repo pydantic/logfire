@@ -112,8 +112,8 @@ low‑overhead signal about the overall health and performance of your services.
 ### Example - Duration of HTTP requests
 
 !!! info
-   Note that many metrics are setup for you automatically in Logfire via our [integrations](integrations/index.md))
-
+   Good news: Logfire's [integrations](integrations/index.md) automatically set up many common metrics for you out-of-the-box.
+   
 ```python
 import time
 import logfire
