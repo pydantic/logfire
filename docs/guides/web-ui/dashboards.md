@@ -13,11 +13,7 @@ There are two types of dashboards:
 
 The easiest way to get started with dashboards is to enable a standard one.
 
----
-
-## Which type should I use?
-
-Here's a quick guide to help you decide between standard and custom dashboards.
+If you are unsure which type of dashboard to use, here's a quick guide to help you decide between standard and custom dashboards.
 
 | Dashboard Type      | Key benefits                                                                                                                  |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
@@ -161,7 +157,41 @@ Once defined, variables can be referenced in SQL queries using the format `$your
 
 ## Writing Queries
 
-Please refer to the [SQL Reference](../../reference/sql.md) and [Metrics Schema](../../guides/web-ui/explore.md#metrics-schema) for more information on the data available to you.
+As mentioned in the [Chart Types](#chart-types) section, there are two main types of queries you'll write for dashboards. Here are some useful examples for each type.
+
+### Time Series Queries
+
+These queries visualize data over time and must include a timestamp column.
+
+**Request count over time:**
+```sql
+SELECT
+    time_bucket($resolution, start_timestamp) AS x,
+    count() as count
+FROM records
+GROUP BY x
+```
+
+### Non Time Series Queries
+
+These queries focus on aggregating data without the time dimension, perfect for tables, bar charts, and pie charts.
+
+**Most common operations:**
+```sql
+SELECT
+    COUNT() AS count,
+    span_name
+FROM records
+GROUP BY span_name
+ORDER BY count DESC
+LIMIT 10
+```
+
+For comprehensive examples, advanced patterns, and chart-specific configuration tips, see the [Writing SQL Queries for Dashboards](../../how-to-guides/write-dashboard-queries.md) guide.
+
+Please also refer to the [SQL Reference](../../reference/sql.md) and [Metrics Schema](../../guides/web-ui/explore.md#metrics-schema) for more information on the data available to you.
+
+---
 
 ### Variable Usage
 
