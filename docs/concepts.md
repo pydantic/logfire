@@ -109,7 +109,11 @@ Alongside logs and traces, metrics complete the "three pillars" of observability
 low‑overhead signal about the overall health and performance of your services.
 
 
-*Metric example in Logfire* (note that many of these are setup for you automatically via our [integrations](integrations/index.md))
+### Example - Duration of HTTP requests
+
+!!! info
+   Note that many metrics are setup for you automatically in Logfire via our [integrations](integrations/index.md))
+
 ```python
 import time
 import logfire
