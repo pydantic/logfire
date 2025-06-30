@@ -1,5 +1,6 @@
 import ast
 import asyncio
+import importlib.resources
 import runpy
 import sys
 from contextlib import AbstractContextManager
@@ -49,6 +50,17 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
     # The exact plain loader here isn't that essential.
     assert isinstance(loader.plain_spec.loader, SourceFileLoader)
     assert loader.plain_spec.name == foo.__name__ == foo.__spec__.name == 'tests.auto_trace_samples.foo'
+
+    assert (
+        importlib.resources.files('tests.auto_trace_samples') / 'dir/resource.txt'
+    ).read_text() == 'example resource\n'
+    if sys.version_info[:2] >= (3, 12):
+        # https://docs.python.org/3/library/importlib.resources.html#module-importlib.resources
+        # Changed in version 3.12: ... anchor can now be a non-package module
+        # (this is actually the case that triggers a bug that needed fixing)
+        assert (
+            importlib.resources.files('tests.auto_trace_samples.foo') / 'dir/resource.txt'
+        ).read_text() == 'example resource\n'
 
     with pytest.raises(IndexError):  # foo.bar intentionally raises an error to test that it's recorded below
         asyncio.run(foo.bar())
