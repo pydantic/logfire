@@ -120,7 +120,7 @@ def handle_request():
     request_duration.record(duration_ms)
 ```
 
-Each call to request_duration.record() adds a sample to the histogram. On the backend you can visualise
+Each call to `request_duration.record()` adds a sample to the histogram. On the backend you can visualise
 p50/p95 latency, set SLOs, and trigger alerts whenever performance degrades. For more metrics examples
 see the [adding metrics guide](guides/onboarding-checklist/add-metrics.md).
 
