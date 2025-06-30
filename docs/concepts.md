@@ -21,11 +21,16 @@ A **span** is the building block of a trace. You might also think of spans as lo
 !!! info
     Spans let you **add context** to your logs and **measure code execution time**. Multiple spans combine to form a trace, providing a complete picture of an operation's journey through your system.
 
+![Spans](images/concepts/spans.png)
+
 ## What is a Trace?
 
 A trace is a tree structure of spans which shows the path of any client request, LLM run, API call through your application. 
 
 Spans are ordered and nested, meaning you can think of this like a stack trace - it shows you the whole history of all services touched and all responses returned. 
+
+![Trace](images/concepts/trace.png)
+
 
 ### Example - File size counter
 
