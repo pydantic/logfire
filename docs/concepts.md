@@ -1,3 +1,11 @@
+## Overview
+
+Understand the core building blocks of observability helps you monitor, debug, and optimize your applications. The four key concepts work together to give you complete insight into your application's behavior: spans and traces show you what's happening and how long it takes, metrics reveal trends and performance over time, and logs capture specific events and details. 
+
+New to observability? Another great resource is the [OpenTelemetry primer](https://opentelemetry.io/docs/concepts/observability-primer/). 
+
+## Concepts
+
 | Concept   | Description  |
 |-----------|--------------|
 | Span | Atomic unit of telemetry data |
@@ -5,16 +13,21 @@
 | Metric | Values calculated using telemetry data |
 | Log | No duration, timestamped, emitted by services/loggers |
 
-New to observability? Check out the [OpenTelemetry primer](https://opentelemetry.io/docs/concepts/observability-primer/). 
 
-## What is a Span? 
+## What is a Span?
 
 A **span** is the building block of a trace. You might also think of spans as logs with extra functionality — a single row in our live view.
 
 !!! info
     Spans let you **add context** to your logs and **measure code execution time**. Multiple spans combine to form a trace, providing a complete picture of an operation's journey through your system.
 
-### Example #1
+## What is a Trace?
+
+A trace is a tree structure of spans which shows the path of any client request, LLM run, API call through your application. 
+
+Spans are ordered and nested, meaning you can think of this like a stack trace - it shows you the whole history of all services touched and all responses returned. 
+
+### Example - File size counter
 
 In this example:
 
@@ -44,7 +57,7 @@ with logfire.span('counting size of {cwd=}', cwd=cwd):
 
 ---
 
-### Example #2
+### Example - Happy Birthday
 
 In this example:
 
@@ -77,12 +90,6 @@ with logfire.span('Asking the user for their {question}', question='birthday'): 
 By instrumenting your code with traces and spans, you can see how long operations take, identify bottlenecks,
 and get a high-level view of request flows in your system — all invaluable for maintaining the performance and
 reliability of your applications.
-
-## What is a Trace?
-
-A trace is a tree structure of spans which shows the path of any client request, LLM run, API call through your application. 
-
-Spans are ordered and nested, meaning you can think of this like a stack trace - it shows you the whole history of all services touched and all responses returned. 
 
 
 ## What is a Metric?
