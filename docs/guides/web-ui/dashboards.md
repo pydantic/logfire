@@ -2,31 +2,16 @@
 
 This guide explains how to use dashboards in the Logfire UI to visualize your observability data. Dashboards allow you to create custom visualizations using SQL queries.
 
----
-
 ## Overview
 
 There are two types of dashboards:
 
-* **Standard dashboards**: Pre-configured dashboards created and maintained by the Logfire team. You can enable or disable them for your project, but you can't modify them directly.
+* **Standard dashboards**: Pre-configured dashboards created and maintained by the Logfire team, providing you with continuous updates and improvements without any effort on your part. You can enable or disable them for your project, but you can't modify them directly.
 * **Custom dashboards**: Dashboards that you create and maintain. They are fully editable and customizable, allowing you to define queries, layouts, chart types, and variables.
-
-The easiest way to get started with dashboards is to enable a standard one.
-
-If you are unsure which type of dashboard to use, here's a quick guide to help you decide between standard and custom dashboards.
-
-| Dashboard Type      | Key benefits                                                                                                                  |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **Standard**        | Maintained by the Logfire team, providing you with continuous updates and improvements without any effort on your part.         |
-| **Custom**          | Full control over queries, visualizations, and layout, allowing you to tailor the dashboard precisely to your requirements. |
 
 In general, it's a good idea to start with standard dashboards. If they don't meet your needs, you can either use one as a [template for a custom dashboard](#using-a-standard-dashboard-as-a-template) or build a new one from scratch.
 
----
-
 ## Standard Dashboards
-
-Pre-built dashboards managed by the **Logfire** team.
 
 ### Usage Overview
 
