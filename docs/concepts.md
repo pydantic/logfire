@@ -29,6 +29,9 @@ A trace is a tree structure of spans which shows the path of any client request,
 
 Spans are ordered and nested, meaning you can think of this like a stack trace - it shows you the whole history of all services touched and all responses returned. 
 
+!!! info
+    Traces are not limited to a single service — they can be propagated to completely different and isolated services. For example, a single trace could contain http requests to both a Python API and a SQL database.
+
 ![Trace](images/concepts/trace.png)
 
 
