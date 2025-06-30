@@ -886,6 +886,7 @@ async def test_chat_completions(exporter: TestExporter):
                         'metadata': None,
                         'store': None,
                         'include_usage': None,
+                        'response_include': None,
                         'extra_query': None,
                         'extra_body': None,
                         'extra_headers': None,
