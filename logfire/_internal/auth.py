@@ -121,7 +121,7 @@ class UserTokenCollection:
             data = cast(UserTokensFileData, read_toml_file(self.path))
         except FileNotFoundError:
             data: UserTokensFileData = {}
-        self.user_tokens = {url: UserToken(base_url=url, **data) for url, data in data.get('tokens', {}).items()}
+        self.user_tokens = {url: UserToken(base_url=url, **token) for url, token in data.get('tokens', {}).items()}
 
     def get_token(self, base_url: str | None = None) -> UserToken:
         """Get a user token from the collection.
