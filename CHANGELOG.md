@@ -1,5 +1,18 @@
 # Release Notes
 
+## [v3.21.2] (2025-06-30)
+
+* Fix importlib resources with auto tracing by @alexmojaki in [#1212](https://github.com/pydantic/logfire/pull/1212)
+
+## [v3.21.1] (2025-06-18)
+
+* Fix for new OpenAI Agents SDK by @alexmojaki in [#1152](https://github.com/pydantic/logfire/pull/1152)
+
+## [v3.21.0] (2025-06-17)
+
+* Add up counter/histogram metrics in spans by @alexmojaki in [#1099](https://github.com/pydantic/logfire/pull/1099)
+* Fix kwargs in proxy metric instruments, preventing warning about duplicate histograms by @alexmojaki in [#1149](https://github.com/pydantic/logfire/pull/1149)
+
 ## [v3.20.0] (2025-06-16)
 
 * Add baggage utilities by @dmontagu in [#1128](https://github.com/pydantic/logfire/pull/1128)
@@ -742,3 +755,6 @@ First release from new repo!
 [v3.18.0]: https://github.com/pydantic/logfire/compare/v3.17.0...v3.18.0
 [v3.19.0]: https://github.com/pydantic/logfire/compare/v3.18.0...v3.19.0
 [v3.20.0]: https://github.com/pydantic/logfire/compare/v3.19.0...v3.20.0
+[v3.21.0]: https://github.com/pydantic/logfire/compare/v3.20.0...v3.21.0
+[v3.21.1]: https://github.com/pydantic/logfire/compare/v3.21.0...v3.21.1
+[v3.21.2]: https://github.com/pydantic/logfire/compare/v3.21.1...v3.21.2

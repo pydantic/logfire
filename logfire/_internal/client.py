@@ -96,7 +96,7 @@ class LogfireClient:
             The newly created project.
         """
         try:
-            response = self._post_raw(f'/v1/projects/{organization}', body={'project_name': project_name})
+            response = self._post_raw(f'/v1/organizations/{organization}/projects', body={'project_name': project_name})
         except UnexpectedResponse as e:
             r = e.response
             if r.status_code == 409:

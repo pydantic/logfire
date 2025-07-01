@@ -15,7 +15,7 @@ from dirty_equals import IsStr
 import logfire
 from logfire._internal.exporters.test import TestExporter
 from logfire._internal.utils import get_version
-from tests.otel_integrations.test_openai_agents import without_code_attrs
+from tests.otel_integrations.test_openai_agents import simplify_spans
 
 try:
     from agents import Agent, Runner, trace
@@ -87,7 +87,7 @@ async def test_mcp(exporter: TestExporter):
                 result = await Runner.run(agent, 'Give me a random number')
             assert result.final_output == snapshot("Here's a random number for you: 4")
 
-    assert without_code_attrs(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
+    assert simplify_spans(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
                 'name': 'MCP request: initialize',
@@ -104,8 +104,13 @@ async def test_mcp(exporter: TestExporter):
                         'params': {
                             'meta': None,
                             'protocolVersion': IsStr(),
-                            'capabilities': {'experimental': None, 'sampling': None, 'roots': None},
-                            'clientInfo': {'name': 'mcp', 'version': '0.1.0'},
+                            'capabilities': {
+                                'experimental': None,
+                                'sampling': None,
+                                'elicitation': None,
+                                'roots': None,
+                            },
+                            'clientInfo': {'name': 'mcp', 'title': None, 'version': '0.1.0'},
                         },
                     },
                     'rpc.system': 'jsonrpc',
@@ -124,74 +129,8 @@ async def test_mcp(exporter: TestExporter):
                             'resources': {'subscribe': False, 'listChanged': False},
                             'tools': {'listChanged': False},
                         },
-                        'serverInfo': {'name': 'FastMCP', 'version': IsStr()},
+                        'serverInfo': {'name': 'FastMCP', 'title': None, 'version': IsStr()},
                         'instructions': None,
-                    },
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'request': {
-                                'type': 'object',
-                                'title': 'InitializeRequest',
-                                'x-python-datatype': 'PydanticModel',
-                                'properties': {
-                                    'params': {
-                                        'type': 'object',
-                                        'title': 'InitializeRequestParams',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'capabilities': {
-                                                'type': 'object',
-                                                'title': 'ClientCapabilities',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                            'clientInfo': {
-                                                'type': 'object',
-                                                'title': 'Implementation',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                        },
-                                    }
-                                },
-                            },
-                            'rpc.system': {},
-                            'rpc.jsonrpc.version': {},
-                            'rpc.method': {},
-                            'response': {
-                                'type': 'object',
-                                'title': 'InitializeResult',
-                                'x-python-datatype': 'PydanticModel',
-                                'properties': {
-                                    'capabilities': {
-                                        'type': 'object',
-                                        'title': 'ServerCapabilities',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'prompts': {
-                                                'type': 'object',
-                                                'title': 'PromptsCapability',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                            'resources': {
-                                                'type': 'object',
-                                                'title': 'ResourcesCapability',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                            'tools': {
-                                                'type': 'object',
-                                                'title': 'ToolsCapability',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                        },
-                                    },
-                                    'serverInfo': {
-                                        'type': 'object',
-                                        'title': 'Implementation',
-                                        'x-python-datatype': 'PydanticModel',
-                                    },
-                                },
-                            },
-                        },
                     },
                 },
             },
@@ -216,30 +155,6 @@ async def test_mcp(exporter: TestExporter):
                     },
                     'logfire.msg_template': 'MCP server handle request: tools/list',
                     'logfire.msg': 'MCP server handle request: tools/list',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'request': {
-                                'type': 'object',
-                                'title': 'ListToolsRequest',
-                                'x-python-datatype': 'PydanticModel',
-                                'properties': {
-                                    'params': {
-                                        'type': 'object',
-                                        'title': 'PaginatedRequestParams',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'meta': {
-                                                'type': 'object',
-                                                'title': 'Meta',
-                                                'x-python-datatype': 'PydanticModel',
-                                            }
-                                        },
-                                    }
-                                },
-                            }
-                        },
-                    },
                     'logfire.span_type': 'span',
                 },
             },
@@ -269,39 +184,19 @@ async def test_mcp(exporter: TestExporter):
                         'tools': [
                             {
                                 'name': 'random_number',
+                                'title': None,
                                 'description': '',
                                 'inputSchema': {'properties': {}, 'title': 'random_numberArguments', 'type': 'object'},
+                                'outputSchema': {
+                                    'properties': {'result': {'title': 'Result', 'type': 'integer'}},
+                                    'required': ['result'],
+                                    'title': 'random_numberOutput',
+                                    'type': 'object',
+                                },
                                 'annotations': None,
+                                'meta': None,
                             }
                         ],
-                    },
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'request': {
-                                'type': 'object',
-                                'title': 'ListToolsRequest',
-                                'x-python-datatype': 'PydanticModel',
-                            },
-                            'rpc.system': {},
-                            'rpc.jsonrpc.version': {},
-                            'rpc.method': {},
-                            'response': {
-                                'type': 'object',
-                                'title': 'ListToolsResult',
-                                'x-python-datatype': 'PydanticModel',
-                                'properties': {
-                                    'tools': {
-                                        'type': 'array',
-                                        'items': {
-                                            'type': 'object',
-                                            'title': 'Tool',
-                                            'x-python-datatype': 'PydanticModel',
-                                        },
-                                    }
-                                },
-                            },
-                        },
                     },
                 },
             },
@@ -321,10 +216,6 @@ async def test_mcp(exporter: TestExporter):
                     'result': ['random_number'],
                     'gen_ai.system': 'openai',
                     'logfire.msg': 'MCP: list tools from server MyMCPServer',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {'server': {}, 'result': {'type': 'array'}, 'gen_ai.system': {}},
-                    },
                 },
             },
             {
@@ -334,79 +225,12 @@ async def test_mcp(exporter: TestExporter):
                 'start_time': 11000000000,
                 'end_time': 12000000000,
                 'attributes': {
-                    'model_settings': {
-                        'temperature': None,
-                        'top_p': None,
-                        'frequency_penalty': None,
-                        'presence_penalty': None,
-                        'tool_choice': None,
-                        'parallel_tool_calls': None,
-                        'truncation': None,
-                        'max_tokens': None,
-                        'reasoning': None,
-                        'metadata': None,
-                        'store': None,
-                        'include_usage': None,
-                        'extra_query': None,
-                        'extra_body': None,
-                        'extra_headers': None,
-                    },
                     'gen_ai.request.model': 'gpt-4o',
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.span_type': 'span',
                     'response_id': 'resp_67e6908455c48191a9de5131e91abcb805b6a918ffc4827a',
                     'gen_ai.system': 'openai',
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
-                    'response': {
-                        'id': 'resp_67e6908455c48191a9de5131e91abcb805b6a918ffc4827a',
-                        'created_at': 1743163524.0,
-                        'error': None,
-                        'incomplete_details': None,
-                        'instructions': None,
-                        'metadata': {},
-                        'model': 'gpt-4o-2024-08-06',
-                        'object': 'response',
-                        'output': [
-                            {
-                                'arguments': '{}',
-                                'call_id': 'call_jfYaCkab5PQtyNrcrSgMdlRf',
-                                'name': 'random_number',
-                                'type': 'function_call',
-                                'id': 'fc_67e69084b6188191bba33a5f67ac345b05b6a918ffc4827a',
-                                'status': 'completed',
-                            }
-                        ],
-                        'parallel_tool_calls': False,
-                        'temperature': 1.0,
-                        'tool_choice': 'auto',
-                        'tools': [
-                            {
-                                'name': 'random_number',
-                                'parameters': {'properties': {}, 'title': 'random_numberArguments', 'type': 'object'},
-                                'strict': False,
-                                'type': 'function',
-                                'description': None,
-                            }
-                        ],
-                        'top_p': 1.0,
-                        'background': None,
-                        'max_output_tokens': None,
-                        'previous_response_id': None,
-                        'reasoning': {'effort': None, 'generate_summary': None, 'summary': None},
-                        'service_tier': None,
-                        'status': 'completed',
-                        'text': {'format': {'type': 'text'}},
-                        'truncation': 'disabled',
-                        'usage': {
-                            'input_tokens': 51,
-                            'input_tokens_details': {'cached_tokens': 0},
-                            'output_tokens': 11,
-                            'output_tokens_details': {'reasoning_tokens': 0},
-                            'total_tokens': 62,
-                        },
-                        'user': None,
-                        'store': True,
-                    },
                     'gen_ai.operation.name': 'chat',
                     'raw_input': [{'content': 'Give me a random number', 'role': 'user'}],
                     'events': [
@@ -426,82 +250,6 @@ async def test_mcp(exporter: TestExporter):
                     'gen_ai.usage.input_tokens': 51,
                     'gen_ai.usage.output_tokens': 11,
                     'logfire.msg': "Responses API with 'gpt-4o'",
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'response_id': {},
-                            'gen_ai.system': {},
-                            'model_settings': {
-                                'type': 'object',
-                                'title': 'ModelSettings',
-                                'x-python-datatype': 'dataclass',
-                            },
-                            'gen_ai.request.model': {},
-                            'gen_ai.response.model': {},
-                            'response': {
-                                'type': 'object',
-                                'title': 'Response',
-                                'x-python-datatype': 'PydanticModel',
-                                'properties': {
-                                    'output': {
-                                        'type': 'array',
-                                        'items': {
-                                            'type': 'object',
-                                            'title': 'ResponseFunctionToolCall',
-                                            'x-python-datatype': 'PydanticModel',
-                                        },
-                                    },
-                                    'tools': {
-                                        'type': 'array',
-                                        'items': {
-                                            'type': 'object',
-                                            'title': 'FunctionTool',
-                                            'x-python-datatype': 'PydanticModel',
-                                        },
-                                    },
-                                    'reasoning': {
-                                        'type': 'object',
-                                        'title': 'Reasoning',
-                                        'x-python-datatype': 'PydanticModel',
-                                    },
-                                    'text': {
-                                        'type': 'object',
-                                        'title': 'ResponseTextConfig',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'format': {
-                                                'type': 'object',
-                                                'title': 'ResponseFormatText',
-                                                'x-python-datatype': 'PydanticModel',
-                                            }
-                                        },
-                                    },
-                                    'usage': {
-                                        'type': 'object',
-                                        'title': 'ResponseUsage',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'input_tokens_details': {
-                                                'type': 'object',
-                                                'title': 'InputTokensDetails',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                            'output_tokens_details': {
-                                                'type': 'object',
-                                                'title': 'OutputTokensDetails',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                        },
-                                    },
-                                },
-                            },
-                            'gen_ai.operation.name': {},
-                            'raw_input': {'type': 'array'},
-                            'events': {'type': 'array'},
-                            'gen_ai.usage.input_tokens': {},
-                            'gen_ai.usage.output_tokens': {},
-                        },
-                    },
                 },
             },
             {
@@ -516,7 +264,6 @@ async def test_mcp(exporter: TestExporter):
                     'logfire.msg_template': 'MCP server log',
                     'logfire.msg': 'MCP server log',
                     'data': 'Generating a random number',
-                    'logfire.json_schema': {'type': 'object', 'properties': {'data': {}}},
                 },
             },
             {
@@ -531,7 +278,6 @@ async def test_mcp(exporter: TestExporter):
                     'logfire.msg_template': 'MCP server log from my_logger',
                     'logfire.msg': 'MCP server log from my_logger',
                     'data': 'Dice broken! Improvising...',
-                    'logfire.json_schema': {'type': 'object', 'properties': {'data': {}}},
                 },
             },
             {
@@ -556,30 +302,6 @@ async def test_mcp(exporter: TestExporter):
                     },
                     'logfire.msg_template': 'MCP server handle request: tools/call',
                     'logfire.msg': 'MCP server handle request: tools/call',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'request': {
-                                'type': 'object',
-                                'title': 'CallToolRequest',
-                                'x-python-datatype': 'PydanticModel',
-                                'properties': {
-                                    'params': {
-                                        'type': 'object',
-                                        'title': 'CallToolRequestParams',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'meta': {
-                                                'type': 'object',
-                                                'title': 'Meta',
-                                                'x-python-datatype': 'PydanticModel',
-                                            }
-                                        },
-                                    }
-                                },
-                            }
-                        },
-                    },
                     'logfire.span_type': 'span',
                 },
             },
@@ -602,43 +324,9 @@ async def test_mcp(exporter: TestExporter):
                     'logfire.span_type': 'span',
                     'response': {
                         'meta': None,
-                        'content': [{'type': 'text', 'text': '4', 'annotations': None}],
+                        'content': [{'type': 'text', 'text': '4', 'annotations': None, 'meta': None}],
+                        'structuredContent': {'result': 4},
                         'isError': False,
-                    },
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'request': {
-                                'type': 'object',
-                                'title': 'CallToolRequest',
-                                'x-python-datatype': 'PydanticModel',
-                                'properties': {
-                                    'params': {
-                                        'type': 'object',
-                                        'title': 'CallToolRequestParams',
-                                        'x-python-datatype': 'PydanticModel',
-                                    }
-                                },
-                            },
-                            'rpc.system': {},
-                            'rpc.jsonrpc.version': {},
-                            'rpc.method': {},
-                            'response': {
-                                'type': 'object',
-                                'title': 'CallToolResult',
-                                'x-python-datatype': 'PydanticModel',
-                                'properties': {
-                                    'content': {
-                                        'type': 'array',
-                                        'items': {
-                                            'type': 'object',
-                                            'title': 'TextContent',
-                                            'x-python-datatype': 'PydanticModel',
-                                        },
-                                    }
-                                },
-                            },
-                        },
                     },
                 },
             },
@@ -653,20 +341,10 @@ async def test_mcp(exporter: TestExporter):
                     'logfire.span_type': 'span',
                     'name': 'random_number',
                     'input': {},
-                    'output': {'type': 'text', 'text': '4', 'annotations': None},
+                    'output': {'type': 'text', 'text': '4', 'annotations': None, 'meta': None},
                     'mcp_data': {'server': 'MyMCPServer'},
                     'gen_ai.system': 'openai',
                     'logfire.msg': 'Function: random_number',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'name': {},
-                            'input': {},
-                            'output': {},
-                            'mcp_data': {'type': 'object'},
-                            'gen_ai.system': {},
-                        },
-                    },
                 },
             },
             {
@@ -690,30 +368,6 @@ async def test_mcp(exporter: TestExporter):
                     },
                     'logfire.msg_template': 'MCP server handle request: tools/list',
                     'logfire.msg': 'MCP server handle request: tools/list',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'request': {
-                                'type': 'object',
-                                'title': 'ListToolsRequest',
-                                'x-python-datatype': 'PydanticModel',
-                                'properties': {
-                                    'params': {
-                                        'type': 'object',
-                                        'title': 'PaginatedRequestParams',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'meta': {
-                                                'type': 'object',
-                                                'title': 'Meta',
-                                                'x-python-datatype': 'PydanticModel',
-                                            }
-                                        },
-                                    }
-                                },
-                            }
-                        },
-                    },
                     'logfire.span_type': 'span',
                 },
             },
@@ -740,39 +394,19 @@ async def test_mcp(exporter: TestExporter):
                         'tools': [
                             {
                                 'name': 'random_number',
+                                'title': None,
                                 'description': '',
                                 'inputSchema': {'properties': {}, 'title': 'random_numberArguments', 'type': 'object'},
+                                'outputSchema': {
+                                    'properties': {'result': {'title': 'Result', 'type': 'integer'}},
+                                    'required': ['result'],
+                                    'title': 'random_numberOutput',
+                                    'type': 'object',
+                                },
                                 'annotations': None,
+                                'meta': None,
                             }
                         ],
-                    },
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'request': {
-                                'type': 'object',
-                                'title': 'ListToolsRequest',
-                                'x-python-datatype': 'PydanticModel',
-                            },
-                            'rpc.system': {},
-                            'rpc.jsonrpc.version': {},
-                            'rpc.method': {},
-                            'response': {
-                                'type': 'object',
-                                'title': 'ListToolsResult',
-                                'x-python-datatype': 'PydanticModel',
-                                'properties': {
-                                    'tools': {
-                                        'type': 'array',
-                                        'items': {
-                                            'type': 'object',
-                                            'title': 'Tool',
-                                            'x-python-datatype': 'PydanticModel',
-                                        },
-                                    }
-                                },
-                            },
-                        },
                     },
                 },
             },
@@ -792,10 +426,6 @@ async def test_mcp(exporter: TestExporter):
                     'result': ['random_number'],
                     'gen_ai.system': 'openai',
                     'logfire.msg': 'MCP: list tools from server MyMCPServer',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {'server': {}, 'result': {'type': 'array'}, 'gen_ai.system': {}},
-                    },
                 },
             },
             {
@@ -808,85 +438,12 @@ async def test_mcp(exporter: TestExporter):
                     'code.filepath': 'test_openai_agents_mcp.py',
                     'code.function': 'test_mcp',
                     'code.lineno': 123,
-                    'model_settings': {
-                        'temperature': None,
-                        'top_p': None,
-                        'frequency_penalty': None,
-                        'presence_penalty': None,
-                        'tool_choice': None,
-                        'parallel_tool_calls': None,
-                        'truncation': None,
-                        'max_tokens': None,
-                        'reasoning': None,
-                        'metadata': None,
-                        'store': None,
-                        'include_usage': None,
-                        'extra_query': None,
-                        'extra_body': None,
-                        'extra_headers': None,
-                    },
                     'gen_ai.request.model': 'gpt-4o',
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.span_type': 'span',
                     'response_id': 'resp_67e6908542b08191a02609780bb4c28205b6a918ffc4827a',
                     'gen_ai.system': 'openai',
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
-                    'response': {
-                        'id': 'resp_67e6908542b08191a02609780bb4c28205b6a918ffc4827a',
-                        'created_at': 1743163525.0,
-                        'error': None,
-                        'incomplete_details': None,
-                        'instructions': None,
-                        'metadata': {},
-                        'model': 'gpt-4o-2024-08-06',
-                        'object': 'response',
-                        'output': [
-                            {
-                                'id': 'msg_67e69085a34481918093145c9474e87b05b6a918ffc4827a',
-                                'content': [
-                                    {
-                                        'annotations': [],
-                                        'text': "Here's a random number for you: 4",
-                                        'type': 'output_text',
-                                        'logprobs': None,
-                                    }
-                                ],
-                                'role': 'assistant',
-                                'status': 'completed',
-                                'type': 'message',
-                            }
-                        ],
-                        'parallel_tool_calls': False,
-                        'temperature': 1.0,
-                        'tool_choice': 'auto',
-                        'tools': [
-                            {
-                                'name': 'random_number',
-                                'parameters': {'properties': {}, 'title': 'random_numberArguments', 'type': 'object'},
-                                'strict': False,
-                                'type': 'function',
-                                'description': None,
-                            }
-                        ],
-                        'top_p': 1.0,
-                        'background': None,
-                        'max_output_tokens': None,
-                        'previous_response_id': None,
-                        'reasoning': {'effort': None, 'generate_summary': None, 'summary': None},
-                        'service_tier': None,
-                        'status': 'completed',
-                        'text': {'format': {'type': 'text'}},
-                        'truncation': 'disabled',
-                        'usage': {
-                            'input_tokens': 83,
-                            'input_tokens_details': {'cached_tokens': 0},
-                            'output_tokens': 11,
-                            'output_tokens_details': {'reasoning_tokens': 0},
-                            'total_tokens': 94,
-                        },
-                        'user': None,
-                        'store': True,
-                    },
                     'gen_ai.operation.name': 'chat',
                     'raw_input': [
                         {'content': 'Give me a random number', 'role': 'user'},
@@ -900,7 +457,7 @@ async def test_mcp(exporter: TestExporter):
                         },
                         {
                             'call_id': 'call_jfYaCkab5PQtyNrcrSgMdlRf',
-                            'output': '{"type":"text","text":"4","annotations":null}',
+                            'output': '{"type":"text","text":"4","annotations":null,"meta":null}',
                             'type': 'function_call_output',
                         },
                     ],
@@ -921,7 +478,7 @@ async def test_mcp(exporter: TestExporter):
                             'event.name': 'gen_ai.tool.message',
                             'role': 'tool',
                             'id': 'call_jfYaCkab5PQtyNrcrSgMdlRf',
-                            'content': '{"type":"text","text":"4","annotations":null}',
+                            'content': '{"type":"text","text":"4","annotations":null,"meta":null}',
                             'name': 'random_number',
                         },
                         {
@@ -933,92 +490,6 @@ async def test_mcp(exporter: TestExporter):
                     'gen_ai.usage.input_tokens': 83,
                     'gen_ai.usage.output_tokens': 11,
                     'logfire.msg': "Responses API with 'gpt-4o'",
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'response_id': {},
-                            'gen_ai.system': {},
-                            'model_settings': {
-                                'type': 'object',
-                                'title': 'ModelSettings',
-                                'x-python-datatype': 'dataclass',
-                            },
-                            'gen_ai.request.model': {},
-                            'gen_ai.response.model': {},
-                            'response': {
-                                'type': 'object',
-                                'title': 'Response',
-                                'x-python-datatype': 'PydanticModel',
-                                'properties': {
-                                    'output': {
-                                        'type': 'array',
-                                        'items': {
-                                            'type': 'object',
-                                            'title': 'ResponseOutputMessage',
-                                            'x-python-datatype': 'PydanticModel',
-                                            'properties': {
-                                                'content': {
-                                                    'type': 'array',
-                                                    'items': {
-                                                        'type': 'object',
-                                                        'title': 'ResponseOutputText',
-                                                        'x-python-datatype': 'PydanticModel',
-                                                    },
-                                                }
-                                            },
-                                        },
-                                    },
-                                    'tools': {
-                                        'type': 'array',
-                                        'items': {
-                                            'type': 'object',
-                                            'title': 'FunctionTool',
-                                            'x-python-datatype': 'PydanticModel',
-                                        },
-                                    },
-                                    'reasoning': {
-                                        'type': 'object',
-                                        'title': 'Reasoning',
-                                        'x-python-datatype': 'PydanticModel',
-                                    },
-                                    'text': {
-                                        'type': 'object',
-                                        'title': 'ResponseTextConfig',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'format': {
-                                                'type': 'object',
-                                                'title': 'ResponseFormatText',
-                                                'x-python-datatype': 'PydanticModel',
-                                            }
-                                        },
-                                    },
-                                    'usage': {
-                                        'type': 'object',
-                                        'title': 'ResponseUsage',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'input_tokens_details': {
-                                                'type': 'object',
-                                                'title': 'InputTokensDetails',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                            'output_tokens_details': {
-                                                'type': 'object',
-                                                'title': 'OutputTokensDetails',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                        },
-                                    },
-                                },
-                            },
-                            'gen_ai.operation.name': {},
-                            'raw_input': {'type': 'array'},
-                            'events': {'type': 'array'},
-                            'gen_ai.usage.input_tokens': {},
-                            'gen_ai.usage.output_tokens': {},
-                        },
-                    },
                 },
             },
             {
@@ -1039,16 +510,6 @@ async def test_mcp(exporter: TestExporter):
                     'output_type': 'str',
                     'gen_ai.system': 'openai',
                     'logfire.msg': "Agent run: 'Assistant'",
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'name': {},
-                            'handoffs': {'type': 'array'},
-                            'tools': {'type': 'array'},
-                            'output_type': {},
-                            'gen_ai.system': {},
-                        },
-                    },
                 },
             },
             {
@@ -1068,15 +529,6 @@ async def test_mcp(exporter: TestExporter):
                     'logfire.msg': 'OpenAI Agents trace: my_trace',
                     'logfire.span_type': 'span',
                     'agent_trace_id': 'trace_123',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'name': {},
-                            'agent_trace_id': {},
-                            'group_id': {'type': 'null'},
-                            'metadata': {'type': 'null'},
-                        },
-                    },
                 },
             },
         ]

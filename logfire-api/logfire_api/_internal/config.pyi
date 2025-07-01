@@ -81,11 +81,9 @@ class PydanticPlugin:
 
 @dataclass
 class MetricsOptions:
-    """Configuration of metrics.
-
-    This only has one option for now, but it's a place to add more related options in the future.
-    """
+    """Configuration of metrics."""
     additional_readers: Sequence[MetricReader] = ...
+    collect_in_spans: bool = ...
 
 @dataclass
 class CodeSource:

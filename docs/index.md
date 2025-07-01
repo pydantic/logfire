@@ -29,16 +29,18 @@ This page is a quick walk-through for setting up a Python app:
 
 1. [Log into Logfire :material-open-in-new:](https://logfire.pydantic.dev/login){:target="_blank"}
 2. Follow the prompts to create your account
-3. From your Organisation, click **New project** to create your first project
+3. Once logged in, you'll see the **Welcome to Logfire** prompt. Click **Let's go!** to go to the **starter-project** Setup page.
 
-![Counting size of loaded files screenshot](images/logfire-screenshot-first-steps-first-project.png)
+![Welcome to Logfire](images/logfire-screenshot-welcome-to-logfire.png)
+
+4. You will find how to send data to your **starter-project** there. Also, there are some code snippets to help you get started.
 
 !!! info ""
-    The first time you use **Logfire** in a new environment, you'll need to set up a project. A **Logfire** project is a namespace for organizing your data. All data sent to **Logfire** must be associated with a project.
+    A **Logfire** project is a namespace for organizing your data. All data sent to **Logfire** must be associated with a project.
 
-??? tip "You can also create a project via CLI..."
-    Check the [SDK CLI documentation](reference/cli.md#create-projects-new) for more information on how to create a project via CLI.
-
+??? tip "Ready to create your own projects in UI or CLI?"
+- In the UI, create projects by navigating to the Organization > Projects page, and click **New project**. 
+ - For CLI check the [SDK CLI documentation](reference/cli.md#create-projects-new).
 ## Install the SDK {#sdk}
 
 1. In the terminal, install the **Logfire** SDK (Software Developer Kit):

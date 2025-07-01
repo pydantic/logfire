@@ -213,13 +213,13 @@ class PydanticPlugin:
 
 @dataclass
 class MetricsOptions:
-    """Configuration of metrics.
-
-    This only has one option for now, but it's a place to add more related options in the future.
-    """
+    """Configuration of metrics."""
 
     additional_readers: Sequence[MetricReader] = ()
     """Sequence of metric readers to be used in addition to the default which exports metrics to Logfire's API."""
+
+    collect_in_spans: bool = False
+    """Experimental setting to add up the values of counter and histogram metrics in active spans."""
 
 
 @dataclass
@@ -1073,7 +1073,7 @@ class LogfireConfig(_LogfireConfigData):
                 # The reason that spans may be lingering open is that they're in suspended generator frames.
                 # Apart from here, they will be ended when the generator is garbage collected
                 # as the interpreter shuts down, but that's too late.
-                for span in list(OPEN_SPANS):
+                for span in list(OPEN_SPANS.values()):
                     # TODO maybe we should be recording something about what happened here?
                     span.end()
                     # Interpreter shutdown may trigger another call to .end(),
@@ -1491,6 +1491,10 @@ class LogfireCredentials:
                     default=project_name_default,
                 )
 
+<<<<<<< HEAD
+=======
+            url = urljoin(logfire_api_url, f'/v1/organizations/{organization}/projects')
+>>>>>>> main
             try:
                 project = client.create_new_project(organization, project_name)
             except ProjectAlreadyExists:

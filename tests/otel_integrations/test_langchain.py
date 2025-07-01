@@ -26,9 +26,9 @@ def test_instrument_langchain(exporter: TestExporter):
         """Add two numbers."""
         return a + b
 
-    math_agent = create_react_agent(model='gpt-4o', tools=[add])
+    math_agent = create_react_agent(model='gpt-4o', tools=[add])  # pyright: ignore [reportUnknownVariableType]
 
-    result = math_agent.invoke({'messages': [{'role': 'user', 'content': "what's 123 + 456?"}]})
+    result = math_agent.invoke({'messages': [{'role': 'user', 'content': "what's 123 + 456?"}]})  # pyright: ignore
 
     assert result['messages'][-1].content == snapshot('123 + 456 equals 579.')
 
