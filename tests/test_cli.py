@@ -521,7 +521,7 @@ def test_projects_new_with_project_name_and_org(
             }
         }
         m.post(
-            'https://logfire-us.pydantic.dev/v1/projects/fake_org',
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects',
             [create_project_response],
         )
 
@@ -562,7 +562,7 @@ def test_projects_new_with_project_name_without_org(
             }
         }
         m.post(
-            'https://logfire-us.pydantic.dev/v1/projects/fake_org',
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects',
             [create_project_response],
         )
 
@@ -605,7 +605,7 @@ def test_projects_new_with_project_name_and_wrong_org(
             }
         }
         m.post(
-            'https://logfire-us.pydantic.dev/v1/projects/fake_org',
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects',
             [create_project_response],
         )
 
@@ -646,7 +646,7 @@ def test_projects_new_with_project_name_and_default_org(
             }
         }
         m.post(
-            'https://logfire-us.pydantic.dev/v1/projects/fake_org',
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects',
             [create_project_response],
         )
 
@@ -693,7 +693,7 @@ def test_projects_new_with_project_name_multiple_organizations(
             }
         }
         m.post(
-            'https://logfire-us.pydantic.dev/v1/projects/fake_org',
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects',
             [create_project_response],
         )
 
@@ -747,7 +747,7 @@ def test_projects_new_with_project_name_and_default_org_multiple_organizations(
             }
         }
         m.post(
-            'https://logfire-us.pydantic.dev/v1/projects/fake_default_org',
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_default_org/projects',
             [create_project_response],
         )
 
@@ -786,7 +786,7 @@ def test_projects_new_without_project_name(
             }
         }
         m.post(
-            'https://logfire-us.pydantic.dev/v1/projects/fake_org',
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects',
             [create_project_response],
         )
 
@@ -829,7 +829,7 @@ def test_projects_new_invalid_project_name(
             }
         }
         m.post(
-            'https://logfire-us.pydantic.dev/v1/projects/fake_org',
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects',
             [create_project_response],
         )
 
@@ -877,7 +877,7 @@ def test_projects_new_error(tmp_dir_cwd: Path, default_credentials: Path) -> Non
             }
         }
         m.post(
-            'https://logfire-us.pydantic.dev/v1/projects/fake_org',
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects',
             [create_project_response],
         )
 
@@ -910,7 +910,7 @@ def test_projects_without_project_name_without_org(
             }
         }
         m.post(
-            'https://logfire-us.pydantic.dev/v1/projects/fake_org',
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects',
             [create_project_response],
         )
 
@@ -985,7 +985,7 @@ def test_projects_new_create_project_error(tmp_dir_cwd: Path, default_credential
         stack.enter_context(m)
         m.get('https://logfire-us.pydantic.dev/v1/projects/', json=[])
         m.get('https://logfire-us.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
-        m.post('https://logfire-us.pydantic.dev/v1/projects/fake_org', text='Error', status_code=500)
+        m.post('https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects', text='Error', status_code=500)
 
         with pytest.raises(LogfireConfigError, match='Error creating new project.'):
             main(['projects', 'new', 'myproject', '--org', 'fake_org'])

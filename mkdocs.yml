@@ -80,12 +80,17 @@ nav:
           - Add Logfire Metrics: guides/onboarding-checklist/add-metrics.md
       - Web UI:
           - Live View: guides/web-ui/live.md
+          - LLM Panels: guides/web-ui/llm-panels.md
           - Dashboards: guides/web-ui/dashboards.md
           - Alerts (Beta): guides/web-ui/alerts.md
+          - Saved Searches: guides/web-ui/saved-searches.md
           - SQL Explorer: guides/web-ui/explore.md
+  - Understanding your Usage: logfire-costs.md
   - How To - Guides:
       - Create Write Tokens: how-to-guides/create-write-tokens.md
       - Use different environments: how-to-guides/environments.md
+      - Convert to Organization: how-to-guides/convert-to-organization.md
+      - Write Dashboard Queries: how-to-guides/write-dashboard-queries.md
       - Link to Code Source: how-to-guides/link-to-code-source.md
       - Use Alternative Clients: how-to-guides/alternative-clients.md
       - Use Alternative Backends: how-to-guides/alternative-backends.md
@@ -95,8 +100,12 @@ nav:
       - Trace across Multiple Services: how-to-guides/distributed-tracing.md
       - Detect Service is Down: how-to-guides/detect-service-is-down.md
       - Suppress Spans and Metrics: how-to-guides/suppress.md
-      - OpenTelemetry Collector: how-to-guides/otel-collector.md
+      - OpenTelemetry Collector:
+          - Overview: how-to-guides/otel-collector/otel-collector-overview.md
+          - Advanced Scrubbing: how-to-guides/otel-collector/otel-collector-scrubbing.md
+      - Collect Metrics from your Cloud Provider: how-to-guides/cloud-metrics.md
       - Connect to the MCP Server: how-to-guides/mcp-server.md
+      - Setup Slack Alerts: how-to-guides/setup-slack-alerts.md
   - Integrations:
       - Integrations: integrations/index.md
       - LLMs:
@@ -117,6 +126,7 @@ nav:
           - AIOHTTP: integrations/web-frameworks/aiohttp.md
           - ASGI: integrations/web-frameworks/asgi.md
           - WSGI: integrations/web-frameworks/wsgi.md
+          - Gunicorn: integrations/web-frameworks/gunicorn.md
       - JavaScript:
           - JavaScript: integrations/javascript/index.md
           - Browser: integrations/javascript/browser.md
@@ -151,6 +161,7 @@ nav:
       - Stripe: integrations/stripe.md
       - AWS Lambda: integrations/aws-lambda.md
   - Reference:
+      - SQL: reference/sql.md
       - Advanced:
           - Baggage: reference/advanced/baggage.md
           - Generators: reference/advanced/generators.md
@@ -159,6 +170,7 @@ nav:
       - Configuration: reference/configuration.md
       - Data Regions: reference/data-regions.md
       - Organization Structure: reference/organization-structure.md
+      - Self-Hosted Deployment: reference/self-hosted.md
       - SDK CLI: reference/cli.md
       - SDK API:
           - Logfire: reference/api/logfire.md
@@ -170,6 +182,13 @@ nav:
   - Roadmap: roadmap.md
   - Languages: languages.md
   - Enterprise: enterprise.md
+  - Self-Hosted:
+      - Introduction: self-hosted/introduction.md
+      - Architecture: self-hosted/architecture.md
+      - Installation: self-hosted/installation.md
+      - Troubleshooting: self-hosted/troubleshooting.md
+      - Scaling: self-hosted/scaling.md
+      - Playground: self-hosted/playground.md
   - Compliance: compliance.md
   - Release Notes: release-notes.md
 
@@ -220,7 +239,7 @@ plugins:
           options:
             members_order: source
             separate_signature: true
-            filters: ["!^_"]
+            filters: ['!^_']
             docstring_options:
               ignore_init_summary: true
             merge_init_into_class: true
@@ -273,7 +292,7 @@ plugins:
         "integrations/third_party/litellm.md": "integrations/llms/litellm.md"
         "integrations/third-party/litellm.md": "integrations/llms/litellm.md"
         "integrations/third-party/mirascope.md": "integrations/llms/mirascope.md"
-        "integrations/third-party/magentic.md": "integrations/llms/magentic.md"
+        "integrations/third_party/magentic.md": "integrations/llms/magentic.md"
         "integrations/use_cases/web_frameworks.md": "integrations/web-frameworks/index.md"
         "integrations/use-cases/web_frameworks.md": "integrations/web-frameworks/index.md"
         "integrations/fastapi.md": "integrations/web-frameworks/fastapi.md"
@@ -327,6 +346,7 @@ plugins:
         "why-logfire/python-centric.md": "why.md"
         "why-logfire/sql.md": "why.md"
         "get-started/traces.md": "concepts.md"
+        "how-to-guides/otel-collector.md": "how-to-guides/otel-collector/otel-collector-overview.md"
   - llmstxt:
       enabled: !ENV [CI, false]
       full_output: llms-full.txt

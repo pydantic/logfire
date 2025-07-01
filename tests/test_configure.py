@@ -928,7 +928,9 @@ def test_initialize_project_use_existing_project_no_projects(tmp_dir_cwd: Path, 
                 'project_url': 'fake_project_url',
             }
         }
-        request_mocker.post('https://logfire-api.pydantic.dev/v1/projects/fake_org', [create_project_response])
+        request_mocker.post(
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects', [create_project_response]
+        )
 
         logfire.configure(send_to_logfire=True)
         wait_for_check_token_thread()
@@ -1026,7 +1028,9 @@ def test_initialize_project_not_using_existing_project(
                 'project_url': 'fake_project_url',
             }
         }
-        request_mocker.post('https://logfire-api.pydantic.dev/v1/projects/fake_org', [create_project_response])
+        request_mocker.post(
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects', [create_project_response]
+        )
         request_mocker.post(
             'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects/fake_project/write-tokens/',
             [create_project_response],
@@ -1148,7 +1152,7 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
             }
         }
         request_mocker.post(
-            'https://logfire-api.pydantic.dev/v1/projects/fake_org',
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects',
             [
                 create_existing_project_response,
                 create_reserved_project_response,
@@ -1244,7 +1248,7 @@ def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Pat
             }
         }
         request_mocker.post(
-            'https://logfire-api.pydantic.dev/v1/projects/fake_org',
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects',
             [create_project_response],
         )
 
