@@ -113,10 +113,12 @@ class UserTokenCollection:
     path: Path
     """The path where the user tokens are stored."""
 
-    def __init__(self, path: Path = DEFAULT_FILE) -> None:
-        self.path = path
+    def __init__(self, path: Path | None = None) -> None:
+        # FIXME: we can't set the default value of `path` to `DEFAULT_FILE`, otherwise
+        # `mock.patch()` doesn't work:
+        self.path = path if path is not None else DEFAULT_FILE
         try:
-            data = cast(UserTokensFileData, read_toml_file(path))
+            data = cast(UserTokensFileData, read_toml_file(self.path))
         except FileNotFoundError:
             data: UserTokensFileData = {}
         self.user_tokens = {url: UserToken(base_url=url, **data) for url, data in data.get('tokens', {}).items()}
