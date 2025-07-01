@@ -126,6 +126,7 @@ __all__ = (
     'instrument_openai',
     'instrument_openai_agents',
     'instrument_anthropic',
+    'instrument_google_genai',
     'instrument_asyncpg',
     'instrument_httpx',
     'instrument_celery',
