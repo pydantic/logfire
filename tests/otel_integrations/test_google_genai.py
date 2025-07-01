@@ -1,19 +1,30 @@
 import os
 
+import pydantic
 import pytest
 from dirty_equals import IsInt, IsPartialDict
-from google.genai import Client, types
 from inline_snapshot import snapshot
 
 import logfire
+from logfire._internal.utils import get_version
 from logfire.testing import TestExporter
 
 os.environ['OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT'] = 'true'
 os.environ.setdefault('GOOGLE_API_KEY', 'foo')
 
 
+@pytest.mark.skipif(get_version(pydantic.__version__) < get_version('2.6.0'), reason='Requires newer pydantic version')
 @pytest.mark.vcr()
 def test_instrument_google_genai(exporter: TestExporter) -> None:
+    try:
+        from opentelemetry.semconv._incubating.attributes.gen_ai_attributes import (
+            GEN_AI_REQUEST_CHOICE_COUNT,  # type: ignore  # noqa
+        )
+    except ImportError:
+        pytest.skip('Requires newer opentelemetry semconv package')
+
+    from google.genai import Client, types
+
     logfire.instrument_google_genai()
 
     client = Client()
