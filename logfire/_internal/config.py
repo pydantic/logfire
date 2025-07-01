@@ -1491,10 +1491,6 @@ class LogfireCredentials:
                     default=project_name_default,
                 )
 
-<<<<<<< HEAD
-=======
-            url = urljoin(logfire_api_url, f'/v1/organizations/{organization}/projects')
->>>>>>> main
             try:
                 project = client.create_new_project(organization, project_name)
             except ProjectAlreadyExists:
