@@ -34,6 +34,7 @@ instrument_fastapi = DEFAULT_LOGFIRE_INSTANCE.instrument_fastapi
 instrument_openai = DEFAULT_LOGFIRE_INSTANCE.instrument_openai
 instrument_openai_agents = DEFAULT_LOGFIRE_INSTANCE.instrument_openai_agents
 instrument_anthropic = DEFAULT_LOGFIRE_INSTANCE.instrument_anthropic
+instrument_google_genai = DEFAULT_LOGFIRE_INSTANCE.instrument_google_genai
 instrument_asyncpg = DEFAULT_LOGFIRE_INSTANCE.instrument_asyncpg
 instrument_httpx = DEFAULT_LOGFIRE_INSTANCE.instrument_httpx
 instrument_celery = DEFAULT_LOGFIRE_INSTANCE.instrument_celery

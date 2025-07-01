@@ -601,6 +601,7 @@ def test_sync_chat_empty_response_chunk(instrumented_client: openai.Client, expo
                     },
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
+                    'gen_ai.response.model': 'gpt-4',
                 },
             },
             {
@@ -637,6 +638,7 @@ def test_sync_chat_empty_response_chunk(instrumented_client: openai.Client, expo
                             'response_data': {'type': 'object'},
                         },
                     },
+                    'gen_ai.response.model': 'gpt-4',
                 },
             },
         ]
@@ -679,6 +681,7 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                     },
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
+                    'gen_ai.response.model': 'gpt-4',
                 },
             },
             {
@@ -715,6 +718,7 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                             'response_data': {'type': 'object'},
                         },
                     },
+                    'gen_ai.response.model': 'gpt-4',
                 },
             },
         ]
@@ -807,6 +811,7 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                     },
                     'logfire.tags': ('LLM',),
                     'logfire.span_type': 'span',
+                    'gen_ai.response.model': 'gpt-4',
                 },
             },
             {
@@ -925,6 +930,7 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                         },
                     },
                     'logfire.tags': ('LLM',),
+                    'gen_ai.response.model': 'gpt-4',
                 },
             },
         ]
@@ -1021,6 +1027,7 @@ async def test_async_chat_tool_call_stream(
                     },
                     'logfire.tags': ('LLM',),
                     'logfire.span_type': 'span',
+                    'gen_ai.response.model': 'gpt-4',
                 },
             },
             {
@@ -1139,6 +1146,7 @@ async def test_async_chat_tool_call_stream(
                         },
                     },
                     'logfire.tags': ('LLM',),
+                    'gen_ai.response.model': 'gpt-4',
                 },
             },
         ]
@@ -1186,6 +1194,7 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                     },
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
+                    'gen_ai.response.model': 'gpt-4',
                 },
             },
             {
@@ -1246,6 +1255,7 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                             },
                         },
                     },
+                    'gen_ai.response.model': 'gpt-4',
                 },
             },
         ]
@@ -1296,6 +1306,7 @@ async def test_async_chat_completions_stream(
                     },
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
+                    'gen_ai.response.model': 'gpt-4',
                 },
             },
             {
@@ -1356,6 +1367,7 @@ async def test_async_chat_completions_stream(
                             },
                         },
                     },
+                    'gen_ai.response.model': 'gpt-4',
                 },
             },
         ]
@@ -1442,6 +1454,7 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                     },
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
+                    'gen_ai.response.model': 'gpt-3.5-turbo-instruct',
                 },
             },
             {
@@ -1478,6 +1491,7 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                             'response_data': {'type': 'object'},
                         },
                     },
+                    'gen_ai.response.model': 'gpt-3.5-turbo-instruct',
                 },
             },
         ]
@@ -1599,6 +1613,7 @@ def test_images(instrumented_client: openai.Client, exporter: TestExporter) -> N
                             },
                         },
                     },
+                    'gen_ai.response.model': 'dall-e-3',
                 },
             }
         ]

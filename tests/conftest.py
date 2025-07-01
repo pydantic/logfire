@@ -175,4 +175,4 @@ def multiple_credentials(tmp_path: Path) -> Path:
 
 @pytest.fixture(scope='module')
 def vcr_config():
-    return {'filter_headers': ['authorization', 'cookie', 'Set-Cookie']}
+    return {'filter_headers': ['authorization', 'cookie', 'Set-Cookie', 'x-goog-api-key']}

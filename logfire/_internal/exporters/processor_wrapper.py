@@ -7,7 +7,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from opentelemetry import context
-from opentelemetry.sdk.trace import ReadableSpan, Span
+from opentelemetry.sdk.trace import Event, ReadableSpan, Span
 from opentelemetry.sdk.util.instrumentation import InstrumentationScope
 from opentelemetry.trace import SpanKind, Status, StatusCode
 
@@ -79,6 +79,8 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
         _summarize_db_statement(span_dict)
         _set_error_level_and_status(span_dict)
         _transform_langchain_span(span_dict)
+        _transform_google_genai_span(span_dict)
+        _default_gen_ai_response_model(span_dict)
         self.scrubber.scrub_span(span_dict)
         span = ReadableSpan(**span_dict)
         super().on_end(span)
@@ -404,3 +406,38 @@ def _transform_langchain_message(old_message: dict[str, Any]) -> dict[str, Any]:
     if 'tool_call_id' in result:
         result['id'] = result.pop('tool_call_id')
     return result
+
+
+def _default_gen_ai_response_model(span: ReadableSpanDict):
+    attrs = span['attributes']
+    if 'gen_ai.request.model' in attrs and 'gen_ai.response.model' not in attrs:
+        span['attributes'] = {
+            **attrs,
+            'gen_ai.response.model': attrs['gen_ai.request.model'],
+        }
+
+
+def _transform_google_genai_span(span: ReadableSpanDict):
+    scope = span['instrumentation_scope']
+    if not (scope and scope.name == 'opentelemetry.instrumentation.google_genai'):
+        return
+
+    new_events: list[Event] = []
+    events_attr: list[dict[str, Any]] = []
+    for event in span['events']:
+        if not (
+            event.name.startswith('gen_ai.')
+            and event.attributes
+            and isinstance(event_attrs_string := event.attributes.get('event_body'), str)
+        ):
+            new_events.append(event)
+            continue
+        event_attrs: dict[str, Any] = json.loads(event_attrs_string)
+        events_attr.append(event_attrs)
+    span['attributes'] = {
+        **span['attributes'],
+        'events': json.dumps(events_attr),
+        'gen_ai.operation.name': 'chat',
+        ATTRIBUTES_JSON_SCHEMA_KEY: attributes_json_schema(JsonSchemaProperties({'events': {'type': 'array'}})),
+    }
+    span['events'] = new_events
