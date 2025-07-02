@@ -1,5 +1,11 @@
 # Release Notes
 
+## [v3.22.0] (2025-07-02)
+
+* Add `instrument_google_genai` by @alexmojaki in [#1217](https://github.com/pydantic/logfire/pull/1217)
+* Refactor user tokens, introduce Logfire client by @Viicos in [#981](https://github.com/pydantic/logfire/pull/981)
+* Use new endpoint for project creation by @hramezani in [#1202](https://github.com/pydantic/logfire/pull/1202)
+
 ## [v3.21.2] (2025-06-30)
 
 * Fix importlib resources with auto tracing by @alexmojaki in [#1212](https://github.com/pydantic/logfire/pull/1212)
@@ -758,3 +764,4 @@ First release from new repo!
 [v3.21.0]: https://github.com/pydantic/logfire/compare/v3.20.0...v3.21.0
 [v3.21.1]: https://github.com/pydantic/logfire/compare/v3.21.0...v3.21.1
 [v3.21.2]: https://github.com/pydantic/logfire/compare/v3.21.1...v3.21.2
+[v3.22.0]: https://github.com/pydantic/logfire/compare/v3.21.2...v3.22.0
