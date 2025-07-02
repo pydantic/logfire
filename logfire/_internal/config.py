@@ -14,7 +14,7 @@ from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 from threading import RLock, Thread
-from typing import TYPE_CHECKING, Any, Callable, Literal, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Callable, Literal, TypedDict
 from urllib.parse import urljoin
 from uuid import uuid4
 
@@ -55,9 +55,10 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcess
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio, Sampler
 from rich.console import Console
-from rich.prompt import Confirm, IntPrompt, Prompt
+from rich.prompt import Confirm, Prompt
 from typing_extensions import Self, Unpack
 
+from logfire._internal.auth import PYDANTIC_LOGFIRE_TOKEN_PATTERN, REGIONS
 from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
 from logfire.exceptions import LogfireConfigError
 from logfire.sampling import SamplingOptions
@@ -65,7 +66,7 @@ from logfire.sampling._tail_sampling import TailSamplingProcessor
 from logfire.version import VERSION
 
 from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
-from .auth import DEFAULT_FILE, DefaultFile, is_logged_in
+from .client import InvalidProjectName, LogfireClient, ProjectAlreadyExists
 from .config_params import ParamManager, PydanticPluginRecordValues
 from .constants import (
     RESOURCE_ATTRIBUTES_CODE_ROOT_PATH,
@@ -103,11 +104,9 @@ from .stack_info import warn_at_user_stacklevel
 from .tracer import OPEN_SPANS, PendingSpanProcessor, ProxyTracerProvider
 from .utils import (
     SeededRandomIdGenerator,
-    UnexpectedResponse,
     ensure_data_dir_exists,
     handle_internal_errors,
     platform_is_emscripten,
-    read_toml_file,
     suppress_instrumentation,
 )
 
@@ -122,9 +121,6 @@ CREDENTIALS_FILENAME = 'logfire_credentials.json'
 COMMON_REQUEST_HEADERS = {'User-Agent': f'logfire/{VERSION}'}
 """Common request headers for requests to the Logfire API."""
 PROJECT_NAME_PATTERN = r'^[a-z0-9]+(?:-[a-z0-9]+)*$'
-PYDANTIC_LOGFIRE_TOKEN_PATTERN = re.compile(
-    r'^(?P<safe_part>pylf_v(?P<version>[0-9]+)_(?P<region>[a-z]+)_)(?P<token>[a-zA-Z0-9]+)$'
-)
 
 METRICS_PREFERRED_TEMPORALITY = {
     Counter: AggregationTemporality.DELTA,
@@ -138,24 +134,6 @@ METRICS_PREFERRED_TEMPORALITY = {
 This should be passed as the `preferred_temporality` argument of metric readers and exporters
 which send to the Logfire backend.
 """
-
-
-class _RegionData(TypedDict):
-    base_url: str
-    gcp_region: str
-
-
-REGIONS: dict[str, _RegionData] = {
-    'us': {
-        'base_url': 'https://logfire-us.pydantic.dev',
-        'gcp_region': 'us-east4',
-    },
-    'eu': {
-        'base_url': 'https://logfire-eu.pydantic.dev',
-        'gcp_region': 'europe-west4',
-    },
-}
-"""The existing Logfire regions."""
 
 
 @dataclass
@@ -903,10 +881,8 @@ class LogfireConfig(_LogfireConfigData):
                     # if we still don't have a token, try initializing a new project and writing a new creds file
                     # note, we only do this if `send_to_logfire` is explicitly `True`, not 'if-token-present'
                     if self.send_to_logfire is True and credentials is None:
-                        credentials = LogfireCredentials.initialize_project(
-                            logfire_api_url=self.advanced.base_url,
-                            session=requests.Session(),
-                        )
+                        client = LogfireClient.from_url(self.advanced.base_url)
+                        credentials = LogfireCredentials.initialize_project(client=client)
                         credentials.write_creds_file(self.data_dir)
 
                     if credentials is not None:
@@ -1353,95 +1329,11 @@ class LogfireCredentials:
         )
 
     @classmethod
-    def _get_user_token_data(cls, logfire_api_url: str | None = None) -> tuple[str, str]:
-        """Get a token and its associated base API URL.
-
-        Args:
-            logfire_api_url: An explicitly configured base API URL. If set, the token attached
-                to this URL will be used. If not provided, will prompt for a token to use if multiple
-                ones are available, or use the only one available otherwise.
-
-        Returns:
-            A two-tuple, the first element being the token and the second element being the base API URL.
-        """
-        if DEFAULT_FILE.is_file():
-            data = cast(DefaultFile, read_toml_file(DEFAULT_FILE))
-            if logfire_api_url is None:
-                tokens_list = list(data['tokens'].items())
-                if len(tokens_list) == 1:
-                    return cls._get_user_token_data(tokens_list[0][0])
-                elif len(tokens_list) >= 2:  # pragma: no branch
-                    choices_str = '\n'.join(
-                        f'{i}. {_get_token_repr(url, d["token"])}' for i, (url, d) in enumerate(tokens_list, start=1)
-                    )
-                    int_choice = IntPrompt.ask(
-                        f'Multiple user tokens found. Please select one:\n{choices_str}\n',
-                        choices=[str(i) for i in range(1, len(data['tokens']) + 1)],
-                    )
-                    url, token_data = tokens_list[int_choice - 1]
-                    if is_logged_in(data, url):  # pragma: no branch
-                        return token_data['token'], url
-            elif is_logged_in(data, logfire_api_url):
-                return data['tokens'][logfire_api_url]['token'], logfire_api_url
-
-        raise LogfireConfigError(
-            """You are not authenticated. Please run `logfire auth` to authenticate.
-
-If you are running in production, you can set the `LOGFIRE_TOKEN` environment variable.
-To create a write token, refer to https://logfire.pydantic.dev/docs/guides/advanced/creating_write_tokens/
-"""
-        )
-
-    @classmethod
-    def get_current_user(cls, session: requests.Session, logfire_api_url: str | None = None) -> dict[str, Any] | None:
-        try:
-            user_token, logfire_api_url = cls._get_user_token_data(logfire_api_url=logfire_api_url)
-        except LogfireConfigError:
-            return None
-        return cls._get_user_for_token(user_token, session, logfire_api_url)
-
-    @classmethod
-    def _get_user_for_token(cls, user_token: str, session: requests.Session, logfire_api_url: str) -> dict[str, Any]:
-        headers = {**COMMON_REQUEST_HEADERS, 'Authorization': user_token}
-        account_info_url = urljoin(logfire_api_url, '/v1/account/me')
-        try:
-            response = session.get(account_info_url, headers=headers)
-            UnexpectedResponse.raise_for_status(response)
-        except requests.RequestException as e:
-            raise LogfireConfigError('Error retrieving user information.') from e
-        return response.json()
-
-    @classmethod
-    def get_user_projects(cls, session: requests.Session, logfire_api_url: str | None = None) -> list[dict[str, Any]]:
-        """Get list of projects that user has access to them.
-
-        Args:
-            session: HTTP client session used to communicate with the Logfire API.
-            logfire_api_url: The Logfire API base URL.
-
-        Returns:
-            List of user projects.
-
-        Raises:
-            LogfireConfigError: If there was an error retrieving user projects.
-        """
-        user_token, logfire_api_url = cls._get_user_token_data(logfire_api_url=logfire_api_url)
-        headers = {**COMMON_REQUEST_HEADERS, 'Authorization': user_token}
-        projects_url = urljoin(logfire_api_url, '/v1/projects/')
-        try:
-            response = session.get(projects_url, headers=headers)
-            UnexpectedResponse.raise_for_status(response)
-        except requests.RequestException as e:  # pragma: no cover
-            raise LogfireConfigError('Error retrieving list of projects.') from e
-        return response.json()
-
-    @classmethod
     def use_existing_project(
         cls,
         *,
-        session: requests.Session,
+        client: LogfireClient,
         projects: list[dict[str, Any]],
-        logfire_api_url: str | None = None,
         organization: str | None = None,
         project_name: str | None = None,
     ) -> dict[str, Any] | None:
@@ -1451,8 +1343,7 @@ To create a write token, refer to https://logfire.pydantic.dev/docs/guides/advan
         the user has access to it. Otherwise, it asks the user to select a project interactively.
 
         Args:
-            session: HTTP client session used to communicate with the Logfire API.
-            logfire_api_url: The Logfire API base URL.
+            client: The Logfire client to use when making requests.
             projects: List of user projects.
             organization: Project organization.
             project_name: Name of project that has to be used.
@@ -1463,9 +1354,6 @@ To create a write token, refer to https://logfire.pydantic.dev/docs/guides/advan
         Raises:
             LogfireConfigError: If there was an error configuring the project.
         """
-        user_token, logfire_api_url = cls._get_user_token_data(logfire_api_url=logfire_api_url)
-        headers = {**COMMON_REQUEST_HEADERS, 'Authorization': user_token}
-
         org_message = ''
         org_flag = ''
         project_message = 'projects'
@@ -1529,28 +1417,17 @@ To create a write token, refer to https://logfire.pydantic.dev/docs/guides/advan
                 choices=list(project_choices.keys()),
                 default='1',
             )
-            project_info_tuple = project_choices[selected_project_key]
+            project_info_tuple: tuple[str, str] = project_choices[selected_project_key]
             organization = project_info_tuple[0]
             project_name = project_info_tuple[1]
 
-        project_write_token_url = urljoin(
-            logfire_api_url,
-            f'/v1/organizations/{organization}/projects/{project_name}/write-tokens/',
-        )
-        try:
-            response = session.post(project_write_token_url, headers=headers)
-            UnexpectedResponse.raise_for_status(response)
-        except requests.RequestException as e:
-            raise LogfireConfigError('Error creating project write token.') from e
-
-        return response.json()
+        return client.create_write_token(organization, project_name)
 
     @classmethod
     def create_new_project(
         cls,
         *,
-        session: requests.Session,
-        logfire_api_url: str | None = None,
+        client: LogfireClient,
         organization: str | None = None,
         default_organization: bool = False,
         project_name: str | None = None,
@@ -1561,8 +1438,7 @@ To create a write token, refer to https://logfire.pydantic.dev/docs/guides/advan
         Otherwise, it asks the user to select organization and enter a valid project name interactively.
 
         Args:
-            session: HTTP client session used to communicate with the Logfire API.
-            logfire_api_url: The Logfire API base URL.
+            client: The Logfire client to use when making requests.
             organization: The organization name of the new project.
             default_organization: Whether to create the project under the user default organization.
             project_name: The default name of the project.
@@ -1573,24 +1449,15 @@ To create a write token, refer to https://logfire.pydantic.dev/docs/guides/advan
         Raises:
             LogfireConfigError: If there was an error creating projects.
         """
-        user_token, logfire_api_url = cls._get_user_token_data(logfire_api_url=logfire_api_url)
-        headers = {**COMMON_REQUEST_HEADERS, 'Authorization': user_token}
-
-        # Get user organizations
-        organizations_url = urljoin(logfire_api_url, '/v1/organizations/')
-        try:
-            response = session.get(organizations_url, headers=headers)
-            UnexpectedResponse.raise_for_status(response)
-        except requests.RequestException as e:
-            raise LogfireConfigError('Error retrieving list of organizations.') from e
-        organizations = [item['organization_name'] for item in response.json()]
+        organizations: list[str] = [item['organization_name'] for item in client.get_user_organizations()]
 
         if organization not in organizations:
             if len(organizations) > 1:
                 # Get user default organization
-                user_details = cls._get_user_for_token(user_token, session, logfire_api_url)
-                assert user_details is not None
-                user_default_organization_name = user_details.get('default_organization', {}).get('organization_name')
+                user_details = client.get_user_information()
+                user_default_organization_name: str | None = user_details.get('default_organization', {}).get(
+                    'organization_name'
+                )
 
                 if default_organization and user_default_organization_name:
                     organization = user_default_organization_name
@@ -1599,7 +1466,7 @@ To create a write token, refer to https://logfire.pydantic.dev/docs/guides/advan
                         '\nTo create and use a new project, please provide the following information:\n'
                         'Select the organization to create the project in',
                         choices=organizations,
-                        default=user_default_organization_name if user_default_organization_name else organizations[0],
+                        default=user_default_organization_name or organizations[0],
                     )
             else:
                 organization = organizations[0]
@@ -1610,7 +1477,7 @@ To create a write token, refer to https://logfire.pydantic.dev/docs/guides/advan
                     if not confirm:
                         sys.exit(1)
 
-        project_name_default: str | None = default_project_name()
+        project_name_default: str = default_project_name()
         project_name_prompt = 'Enter the project name'
         while True:
             project_name = project_name or Prompt.ask(project_name_prompt, default=project_name_default)
@@ -1624,46 +1491,35 @@ To create a write token, refer to https://logfire.pydantic.dev/docs/guides/advan
                     default=project_name_default,
                 )
 
-            url = urljoin(logfire_api_url, f'/v1/organizations/{organization}/projects')
             try:
-                response = session.post(url, headers=headers, json={'project_name': project_name})
-                if response.status_code == 409:
-                    project_name_default = ...  # type: ignore  # this means the value is required
-                    project_name_prompt = (
-                        f"\nA project with the name '{project_name}' already exists."
-                        f' Please enter a different project name'
-                    )
-                    project_name = None
-                    continue
-                if response.status_code == 422:
-                    error = response.json()['detail'][0]
-                    if error['loc'] == ['body', 'project_name']:  # pragma: no branch
-                        project_name_default = ...  # type: ignore  # this means the value is required
-                        project_name_prompt = (
-                            f'\nThe project name you entered is invalid:\n'
-                            f'{error["msg"]}\n'
-                            f'Please enter a different project name'
-                        )
-                        project_name = None
-                        continue
-                UnexpectedResponse.raise_for_status(response)
-            except requests.RequestException as e:
-                raise LogfireConfigError('Error creating new project.') from e
+                project = client.create_new_project(organization, project_name)
+            except ProjectAlreadyExists:
+                project_name_default = ...  # type: ignore  # this means the value is required
+                project_name_prompt = (
+                    f"\nA project with the name '{project_name}' already exists. Please enter a different project name"
+                )
+                project_name = None
+                continue
+            except InvalidProjectName as exc:
+                project_name_default = ...  # type: ignore  # this means the value is required
+                project_name_prompt = (
+                    f'\nThe project name you entered is invalid:\n{exc.reason}\nPlease enter a different project name'
+                )
+                project_name = None
+                continue
             else:
-                return response.json()
+                return project
 
     @classmethod
     def initialize_project(
         cls,
         *,
-        session: requests.Session,
-        logfire_api_url: str | None = None,
+        client: LogfireClient,
     ) -> Self:
         """Create a new project or use an existing project on logfire.dev requesting the given project name.
 
         Args:
-            session: HTTP client session used to communicate with the Logfire API.
-            logfire_api_url: The Logfire API base URL.
+            client: The Logfire client to use when making requests.
 
         Returns:
             The new credentials.
@@ -1678,24 +1534,17 @@ To create a write token, refer to https://logfire.pydantic.dev/docs/guides/advan
             'All data sent to Logfire must be associated with a project.\n'
         )
 
-        _, logfire_api_url = cls._get_user_token_data(logfire_api_url=logfire_api_url)
-
-        projects = cls.get_user_projects(session=session, logfire_api_url=logfire_api_url)
+        projects = client.get_user_projects()
         if projects:
             use_existing_projects = Confirm.ask('Do you want to use one of your existing projects? ', default=True)
             if use_existing_projects:  # pragma: no branch
-                credentials = cls.use_existing_project(
-                    session=session, logfire_api_url=logfire_api_url, projects=projects
-                )
+                credentials = cls.use_existing_project(client=client, projects=projects)
 
         if not credentials:
-            credentials = cls.create_new_project(
-                session=session,
-                logfire_api_url=logfire_api_url,
-            )
+            credentials = cls.create_new_project(client=client)
 
         try:
-            result = cls(**credentials, logfire_api_url=logfire_api_url)
+            result = cls(**credentials, logfire_api_url=client.base_url)
             Prompt.ask(
                 f'Project initialized successfully. You will be able to view it at: {result.project_url}\n'
                 'Press Enter to continue'
@@ -1736,23 +1585,6 @@ def _print_summary(message: str, min_content_width: int) -> None:
 def _get_creds_file(creds_dir: Path) -> Path:
     """Get the path to the credentials file."""
     return creds_dir / CREDENTIALS_FILENAME
-
-
-def _get_token_repr(url: str, token: str) -> str:
-    region = 'us'
-    if match := PYDANTIC_LOGFIRE_TOKEN_PATTERN.match(token):
-        region = match.group('region')
-        if region not in REGIONS:
-            region = 'us'
-
-    token_repr = f'{region.upper()} ({url}) - '
-    if match:
-        # new_token, include prefix and 5 chars
-        token_repr += match.group('safe_part') + match.group('token')[:5]
-    else:
-        token_repr += token[:5]
-    token_repr += '****'
-    return token_repr
 
 
 def get_base_url_from_token(token: str) -> str:
