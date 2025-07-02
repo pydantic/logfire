@@ -26,6 +26,7 @@ from ..json_schema import JsonSchemaProperties, attributes_json_schema
 from ..scrubbing import BaseScrubber
 from ..utils import (
     ReadableSpanDict,
+    handle_internal_errors,
     is_asgi_send_receive_span_name,
     is_instrumentation_suppressed,
     span_to_dict,
@@ -72,17 +73,18 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
         super().on_start(span, parent_context)
 
     def on_end(self, span: ReadableSpan) -> None:
-        span_dict = span_to_dict(span)
-        _tweak_asgi_send_receive_spans(span_dict)
-        _tweak_sqlalchemy_connect_spans(span_dict)
-        _tweak_http_spans(span_dict)
-        _summarize_db_statement(span_dict)
-        _set_error_level_and_status(span_dict)
-        _transform_langchain_span(span_dict)
-        _transform_google_genai_span(span_dict)
-        _default_gen_ai_response_model(span_dict)
-        self.scrubber.scrub_span(span_dict)
-        span = ReadableSpan(**span_dict)
+        with handle_internal_errors:
+            span_dict = span_to_dict(span)
+            _tweak_asgi_send_receive_spans(span_dict)
+            _tweak_sqlalchemy_connect_spans(span_dict)
+            _tweak_http_spans(span_dict)
+            _summarize_db_statement(span_dict)
+            _set_error_level_and_status(span_dict)
+            _transform_langchain_span(span_dict)
+            _transform_google_genai_span(span_dict)
+            _default_gen_ai_response_model(span_dict)
+            self.scrubber.scrub_span(span_dict)
+            span = ReadableSpan(**span_dict)
         super().on_end(span)
 
 
@@ -429,7 +431,7 @@ def _transform_google_genai_span(span: ReadableSpanDict):
             event.name.startswith('gen_ai.')
             and event.attributes
             and isinstance(event_attrs_string := event.attributes.get('event_body'), str)
-        ):
+        ):  # pragma: no cover
             new_events.append(event)
             continue
         event_attrs: dict[str, Any] = json.loads(event_attrs_string)

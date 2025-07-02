@@ -8,9 +8,11 @@ from opentelemetry.instrumentation.google_genai import GoogleGenAiSdkInstrumento
 from opentelemetry.trace import get_current_span
 
 import logfire
+from logfire._internal.utils import handle_internal_errors
 
 
 class SpanEventLogger(EventLogger):
+    @handle_internal_errors
     def emit(self, event: Event) -> None:
         span = get_current_span()
         assert isinstance(event.body, dict)
@@ -20,7 +22,7 @@ class SpanEventLogger(EventLogger):
             new_parts: list[dict[str, Any] | str] = []
             for part in parts:
                 new_part: str | dict[str, Any] = {k: v for k, v in part.items() if v is not None}
-                if list(new_part.keys()) == ['text']:
+                if list(new_part.keys()) == ['text']:  # pragma: no branch
                     new_part = new_part['text']
                 new_parts.append(new_part)
             body['message'] = {'role': 'assistant', 'content': new_parts}
