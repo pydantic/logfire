@@ -384,3 +384,151 @@ Other columns that may be useful to include in such queries:
 - [`exception_type`](../reference/sql.md#exception_type) and [`exception_message`](../reference/sql.md#exception_message)
 - [`http_response_status_code`](../reference/sql.md#http_response_status_code)
 - [`level_name(level)`](../reference/sql.md#level)
+
+## Creating Histograms
+
+Histograms are useful for visualizing the distribution of numerical data, such as the duration of spans. They provide richer information than simple summary statistics like averages. Currently the UI has no built in way to display histograms, but it's possible with SQL. Just copy this template and fill in the `source_data` CTE with your actual data:
+
+```sql
+WITH
+source_data AS (
+    -- Replace this with your actual source data query.
+    -- It must return a single column named `amount` with numeric values.
+    select duration as amount from records
+),
+histogram_config AS (
+    -- Tweak this number if you want.
+    SELECT 40 AS num_buckets
+),
+
+-- The rest of the query is fully automatic, leave it as is.
+raw_params AS (
+    SELECT MIN(amount)::numeric AS min_a, MAX(amount)::numeric AS max_a, num_buckets
+    FROM source_data, histogram_config GROUP BY num_buckets),
+params_with_shift AS (
+    SELECT *, CASE WHEN min_a <= 0 THEN 1 - min_a ELSE 0 END AS shift
+    FROM raw_params),
+params AS (
+    SELECT *, CASE WHEN min_a = max_a THEN 1.000000001 ELSE exp(ln((max_a + shift) / (min_a + shift)) / num_buckets::double) END AS b
+    FROM params_with_shift),
+actual_counts AS (
+    SELECT floor(log(b, (amount + shift) / (min_a + shift)))::int AS ind, COUNT() AS count
+    FROM source_data, params GROUP BY ind),
+all_buckets AS (
+    SELECT UNNEST(generate_series(0, num_buckets - 1)) as ind
+    FROM params),
+midpoints AS (
+    SELECT ind, (min_a + shift) * power(b, ind + 0.5) - shift as mid
+    FROM all_buckets, params)
+SELECT round(mid, 3)::text as approx_amount, COALESCE(count, 0) as count
+FROM midpoints m LEFT JOIN actual_counts c ON m.ind = c.ind ORDER BY mid;
+```
+
+Then set the chart type to **Bar Chart**. Each bar represents a 'bucket' that actual values are placed into. The x-axis will show the approximate amount that the values in the bucket can be rounded to, and the y-axis will show the count of rows in each bucket. This is an exponential histogram, meaning that the buckets are wider for larger values, which is useful for data that has a long tail distribution.
+
+??? question "How does this work?"
+    Here's the query again with detailed comments:
+
+    ```sql
+    -- =============================================================================
+    -- STEP 1: DEFINE YOUR DATA SOURCE
+    -- =============================================================================
+    WITH source_data AS (
+        -- PASTE YOUR QUERY HERE
+        -- This query must select one numerical column named 'amount'.
+        -- Example: Test case including negative, zero, and positive values.
+        select duration as amount from records
+    ),
+
+    -- =============================================================================
+    -- STEP 2: CONFIGURE HISTOGRAM
+    -- =============================================================================
+    histogram_config AS (
+        -- This sets the desired number of bars in the final chart.
+        SELECT 40 AS num_buckets
+    ),
+
+    -- =============================================================================
+    -- The rest of the query is fully automatic.
+    -- =============================================================================
+
+    -- This CTE performs a single pass over the source data to find its true range.
+    raw_params AS (
+        SELECT
+            MIN(amount)::numeric AS min_a,
+            MAX(amount)::numeric AS max_a,
+            num_buckets
+        FROM source_data, histogram_config
+        GROUP BY num_buckets
+    ),
+
+    -- This CTE calculates a 'shift' value. Logarithms are only defined for positive
+    -- numbers, so if the data contains 0 or negative values, we must temporarily
+    -- shift the entire dataset into the positive domain (where the new minimum is 1).
+    params_with_shift AS (
+        SELECT
+            *,
+            CASE WHEN min_a <= 0 THEN 1 - min_a ELSE 0 END AS shift
+        FROM raw_params
+    ),
+
+    -- This CTE calculates the final exponential 'base' for the histogram scaling.
+    -- The base determines how quickly the bucket sizes grow. It is calculated such
+    -- that 'num_buckets' steps will perfectly cover the shifted data range.
+    params AS (
+        SELECT
+            *,
+            -- If min = max, we use a base slightly > 1. This prevents log(1) errors
+            -- and allows the binning logic to work without a special case.
+            CASE
+                WHEN min_a = max_a THEN 1.000000001
+                ELSE exp(ln((max_a + shift) / (min_a + shift)) / num_buckets::double)
+            END AS base
+        FROM params_with_shift
+    ),
+
+    -- This CTE takes every record from the source data and assigns it to a bucket
+    -- index (0, 1, 2, ...). This is the core binning logic.
+    actual_counts AS (
+        SELECT
+            -- The formula log_base(value/start) calculates "how many exponential steps
+            -- of size 'base' are needed to get from the start of the range to the
+            -- current value". We use the shifted values for this calculation.
+            floor(log(base, (amount + shift) / (min_a + shift)))::int AS bucket_index,
+            COUNT() AS count
+        FROM source_data, params
+        GROUP BY bucket_index
+    ),
+
+    -- This CTE generates a perfect, gap-free template of all possible bucket indices,
+    -- ensuring the final chart has exactly 'num_buckets' bars.
+    all_buckets AS (
+        SELECT UNNEST(generate_series(0, num_buckets - 1)) as bucket_index
+        FROM params
+    ),
+
+    -- This CTE calculates the representative midpoint for every possible bucket.
+    -- This logic is separated from the final join to prevent query planner bugs.
+    midpoints AS (
+        SELECT
+            bucket_index,
+            -- We calculate the geometric midpoint of each bucket in the shifted space
+            -- using 'power(base, index + 0.5)' and then shift it back to the
+            -- original data's scale. This provides a more representative label for
+            -- an exponential scale than a simple arithmetic mean.
+            (min_a + shift) * power(base, bucket_index + 0.5) - shift as bucket_midpoint
+        FROM all_buckets
+        CROSS JOIN params
+    )
+
+    -- This final step assembles the chart data. It joins the calculated midpoints
+    -- with the actual counts and formats the output.
+    SELECT
+        round(m.bucket_midpoint, 3)::text as bucket_midpoint,
+        -- If a bucket has no items, its count will be NULL after the join.
+        -- COALESCE turns these NULLs into 0 for the chart.
+        COALESCE(c.count, 0) as count
+    FROM midpoints m
+    LEFT JOIN actual_counts c ON m.bucket_index = c.bucket_index
+    ORDER BY m.bucket_midpoint;
+    ```
