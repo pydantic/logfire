@@ -42,7 +42,8 @@ Our [full installation guide](../self-hosted/installation.md) provides a complet
 #### Development-Only Options
 For quick testing or development, the chart can deploy internal instances of Postgres and MinIO. These are enabled with the ```dev.deployPostgres``` and ```dev.deployMinio flags```.
 
-:warning: **Warning:** These development services are not suitable for production use. They lack persistence, backup, and security configurations.
+!!! warning
+    These development services are not suitable for production use. They lack persistence, backup, and security configurations.
 
 ### Installation
 

@@ -2,7 +2,7 @@
 
 Installation of the self-hosted **Logfire** requires that you have a few prerequisites before installing.
 
-## Gathering Prerequisites
+## Prerequisites
 
 ### Helm CLI
 
@@ -20,14 +20,15 @@ You will require image pull secrets to pull down the docker images from our priv
 
 The Helm chart does not include a production-ready Postgres Database (only a development instance).  You will be required to connect to, and create databases on a Postgres instance.
 
-You will need to create 3 databases, that are used for different things.
+You will need to create 4 databases, that are used for different things.
 
 While we are currently working on running **Logfire** on one database, for now they *must* be separated.
 
-The 3 database in question are:
+The 4 database in question are:
 
 * Standard Postgres Database, i.e, `crud`
 * Object Storage/File Metadata, i.e, `ff`
+* Ingest Database, i.e, `ingest`
 * Dex i.e, `dex`
 
 While they can be named anything, we will refer to them with these identifiers in this guide.
@@ -91,7 +92,7 @@ Here's a checklist you can use to ensure you have all your prerequisites:
 - [ ] Helm CLI Installed
 - [ ] Image Pull Secrets
 - [ ] Access to a Kubernetes cluster
-- [ ] The 3 PostgreSQL database set up
+- [ ] The 4 PostgreSQL database set up
 - [ ] Identity Provider Configuration
 - [ ] Object Storage Configuration
 - [ ] HTTP Ingress information (i.e, hostname etc.)
@@ -107,10 +108,11 @@ adminEmail: admin-email@my-company.dev
 imagePullSecrets:
   - logfire-image-key
 
-# Configure Postgres Databases
+# Configure Logfire Postgres Databases
 
 postgresDsn: postgres://postgres:postgres@postgres.example.com:5432/crud
 postgresFFDsn: postgres://postgres:postgres@postgres.example.com:5432/ff
+postgresIngestDsn: postgres://postgres:postgres@postgres.example.com:5432/ingest
 
 # Configure Dex Postgres & Identity Provider
 
@@ -179,16 +181,21 @@ imagePullSecrets:
 
 With the 4 databases configured, you will need to configure Logfire & Dex within `values.yaml`.
 
-The 2 databases for logfire (`crud` and `ff`) can be configured either via the DSNs in `values.yaml` or as a secret.
+The 3 databases for logfire (`crud`, `ff` and `ingest`) can be configured either via the DSNs in `values.yaml` or as a secret.
 
 I.e,
 
 ```yaml
 postgresDsn: postgres://postgres:postgres@postgres.example.com:5432/crud
 postgresFFDsn: postgres://postgres:postgres@postgres.example.com:5432/ff
+postgresIngestDsn: postgres://postgres:postgres@postgres.example.com:5432/ingest
 ```
 
-Or if you have a secret containing `postgresDsn` and `postgresFFDsn`  keys:
+Or if you have a secret containing postgresDsn and postgresFFDsn keys:
+
+!!! note
+    For ArgoCD users, it is highly recommended to [use an existing Kubernetes secret](https://argo-cd.readthedocs.io/en/stable/operator-manual/secret-management/) to manage your database credentials.
+    To do so, ensure you set `enabled: true` and provide the name of your secret.
 
 ```yaml
 postgresSecret:
