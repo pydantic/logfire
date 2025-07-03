@@ -14,7 +14,7 @@ When running the helm chart, you will be required to create resources within a K
 
 ### Image Pull Secrets
 
-You will require image pull secrets to pull down the docker images from our private repository.  Get in contact with us to get a copy of them.
+You will require image pull secrets to pull down the docker images from our private repository. Contact us at [sales@pydantic.dev](mailto:sales@pydantic.dev) to get a copy.
 
 ### Postgres Database
 
@@ -158,7 +158,7 @@ This uses Amazon S3 as an Object Store, and Github as an Identity Provider, but 
 
 ### Image Pull Secrets
 
-You will require image pull secrets to pull down the docker images from our private repository.  Get in contact with us to get a copy of them.
+You will require image pull secrets to pull down the docker images from our private repository. Contact us at [sales@pydantic.dev](mailto:sales@pydantic.dev) to get a copy.
 
 When you have the `key.json` file you can load it in as a secret like so:
 
