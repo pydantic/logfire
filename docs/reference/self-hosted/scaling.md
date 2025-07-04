@@ -2,7 +2,7 @@
 
 **Logfire** is designed to be horizontally scalable, and can handle a lot of traffic. Depending on your usage patterns, however, you may be required to scale certain pods in order to maintain performance.
 
-Please use the [architecture](./architecture.md) diagram as reference.
+Please use the [architecture](./overview.md#service-architecture) diagram as reference.
 
 ## PostgreSQL Configuration
 
