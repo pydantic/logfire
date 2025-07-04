@@ -65,43 +65,12 @@ jobs:
         pydantic-version: ['2']  # i.e. the latest
         otel-version: ['1']  # i.e. the latest
         include:
-          - python-version: '3.12'
-            pydantic-version: '2.4'
-            otel-version: '1'
-          - python-version: '3.12'
-            pydantic-version: '2.5'
-            otel-version: '1'
-          - python-version: '3.12'
-            pydantic-version: '2.6'
-            otel-version: '1'
-          - python-version: '3.12'
-            pydantic-version: '2.7'
-            otel-version: '1'
-          - python-version: '3.13'
-            pydantic-version: '2.8'
-            otel-version: '1'
-          - python-version: '3.13'
-            pydantic-version: '2.9'
-            otel-version: '1'
-          - python-version: '3.13'
-            pydantic-version: '2.10'
-            otel-version: '1'
-          - python-version: '3.13'
-            pydantic-version: '2.11'
-            otel-version: '1'
-          # OpenTelemetry versions
-          - python-version: '3.13'
-            pydantic-version: '2'
-            otel-version: '1.33'
-          - python-version: '3.13'
-            pydantic-version: '2'
-            otel-version: '1.32'
-          - python-version: '3.13'
-            pydantic-version: '2'
-            otel-version: '1.31'
-          - python-version: '3.13'
-            pydantic-version: '2'
-            otel-version: '1.30'
+            - python-version: '3.12'
+              pydantic-version: '2.4'
+              otel-version: '1'  # i.e. the latest
+            - python-version: '3.13'
+              pydantic-version: '2'  # i.e. the latest
+              otel-version: '1.30'
     env:
       PYTHON: ${{ matrix.python-version }}
     steps:
@@ -122,9 +91,9 @@ jobs:
 
       - run: uv sync --python ${{ matrix.python-version }}
 
-#      - name: Install pydantic ${{ matrix.pydantic-version }}
-#        # installs the most recent patch on the minor version's track, ex 2.6.* -> 2.6.4
-#        run: uv pip install 'pydantic==${{ matrix.pydantic-version }}.*'
+      - name: Install pydantic ${{ matrix.pydantic-version }}
+        # installs the most recent patch on the minor version's track, ex 2.6.* -> 2.6.4
+        run: uv pip install 'pydantic==${{ matrix.pydantic-version }}.*'
 
       - name: Install OTel SDK ${{ matrix.otel-version }}
         # installs the most recent patch on the minor version's track, ex 2.6.* -> 2.6.4
