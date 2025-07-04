@@ -16,8 +16,18 @@ In general, it's a good idea to start with standard dashboards. If they don't me
 ### Usage Overview
 
 This dashboard is recommended for all users to [manage their costs](../../logfire-costs.md#standard-usage-dashboard).
-It breaks down your data by [service](../../reference/sql.md#service_name), [scope](../../reference/sql.md#otel_scope_name) (i.e. instrumentation), and [`span_name`](../../reference/sql.md#span_name)/`metric_name` for `records`/`metrics` respectively.
+It breaks down your data by [environment](../../reference/sql.md#deployment_environment), [service](../../reference/sql.md#service_name), [scope](../../reference/sql.md#otel_scope_name) (i.e. instrumentation), and [`span_name`](../../reference/sql.md#span_name)/`metric_name` for `records`/`metrics` respectively.
 This lets you see which services and operations are generating the most data.
+
+### Exceptions
+
+This dashboard is recommended for all users, especially for monitoring Python applications. It shows the most common exceptions grouped by [service](../../reference/sql.md#service_name), [scope](../../reference/sql.md#otel_scope_name) (i.e. instrumentation), [`span_name`](../../reference/sql.md#span_name), and [`exception_type`](../../reference/sql.md#exception_type). You can also filter by any of these four columns in the variable fields at the top.
+
+Within each row you can also see the most common [`message`](../../reference/sql.md#exception_message) and [`exception_message`](../../reference/sql.md#exception_message) values. These are more variable (higher cardinality) which is why they don't each produce a new row. If there are multiple different values, each will be shown with a count in brackets at the start, on a separate line. **Double-click on a cell to see all the values within.** Note that `message` is often just the same as `span_name`.
+
+Exceptions are usually errors, but not always. Some exceptions are special-cased and set the [`level`](../../reference/sql.md#level) to `warn`. By default, the dashboard is filtered to `level >= 'error'`, set the 'Errors only' dropdown to 'No' to see all exceptions.
+
+Finally, scroll all the way to the right to see the 'SQL filter to copy to Live View' column to investigate the details of any group.
 
 ### Web Server Metrics
 
