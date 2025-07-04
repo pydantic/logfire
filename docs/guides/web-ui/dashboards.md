@@ -23,7 +23,7 @@ This lets you see which services and operations are generating the most data.
 
 This dashboard is recommended for all users, especially for monitoring Python applications. It shows the most common exceptions grouped by [service](../../reference/sql.md#service_name), [scope](../../reference/sql.md#otel_scope_name) (i.e. instrumentation), [`span_name`](../../reference/sql.md#span_name), and [`exception_type`](../../reference/sql.md#exception_type). You can also filter by any of these four columns in the variable fields at the top.
 
-Within each row you can also see the most common [`message`](../../reference/sql.md#exception_message) and [`exception_message`](../../reference/sql.md#exception_message) values. These are more variable (higher cardinality) which is why they don't each produce a new row. If there are multiple different values, each will be shown with a count in brackets at the start, on a separate line. **Double-click on a cell to see all the values within.** Note that `message` is often just the same as `span_name`.
+Within each row you can also see the most common [`message`](../../reference/sql.md#message) and [`exception_message`](../../reference/sql.md#exception_message) values. These are more variable (higher cardinality) which is why they don't each produce a new row. If there are multiple different values, each will be shown with a count in brackets at the start, on a separate line. **Double-click on a cell to see all the values within.** Note that `message` is often just the same as `span_name`.
 
 Exceptions are usually errors, but not always. Some exceptions are special-cased and set the [`level`](../../reference/sql.md#level) to `warn`. By default, the dashboard is filtered to `level >= 'error'`, set the 'Errors only' dropdown to 'No' to see all exceptions.
 
@@ -46,7 +46,7 @@ This dashboard breaks down input and output LLM token usage by model. It comes i
 - **Token Usage (from `records`):** Uses data from the `records` table, specifically span [attributes](../../reference/sql.md#attributes) following OpenTelemetry conventions. This variant works with more instrumentations, as some don't emit metrics. It's also easier to [use as a template](#using-a-standard-dashboard-as-a-template) if you want to filter by other attributes.
 - **Token Usage (from `metrics`):** Uses data from the `metrics` table, specifically the [`gen_ai.client.token.usage`](https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-metrics/#metric-gen_aiclienttokenusage) metric. This variant is more performant, so you can load data over bigger time ranges more quickly. It's also more accurate if your spans are [sampled](../../how-to-guides/sampling.md).
 
-If you're only using the [Pydantic AI](../../integrations/llms/pydanticai.md) integration, and you're using version 0.2.17 of Pydantic AI or later, we recommend using the `metrics` variant. Otherwise we suggest enabling both variants and checking. If they look roughly identical (some small differences are expected), you can disable the `records` variant to improve performance.
+If you're only using the [Pydantic AI](../../integrations/llms/pydanticai.md) instrumentation, and you have version 0.2.17 of Pydantic AI or later, we recommend using the `metrics` variant. Otherwise we suggest enabling both variants and checking. If they look roughly identical (some small differences are expected), you can disable the `records` variant to improve performance.
 
 ### Basic System Metrics
 
