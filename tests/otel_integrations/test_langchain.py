@@ -107,9 +107,8 @@ def test_instrument_langchain(exporter: TestExporter):
         ]
     )
 
-    spans = [s for s in spans if s['name'] == 'ChatOpenAI']
-    attributes = spans[-1]['attributes']
-    assert attributes['all_messages_events'] == snapshot(
+    [span] = [s for s in spans if s['name'] == 'ChatOpenAI' and len(s['attributes']['all_messages_events']) == 4]
+    assert span['attributes']['all_messages_events'] == snapshot(
         [
             {'content': "what's 123 + 456?", 'role': 'user'},
             {
