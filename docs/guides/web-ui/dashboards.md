@@ -21,7 +21,7 @@ This lets you see which services and operations are generating the most data.
 
 ### Web Server Metrics
 
-This dashboard gives an overview of how long each of your web server endpoints takes to respond to requests and how often they succeed and fail. It relies on the standard OpenTelemetry http.server.duration metric which is collected by many instrumentation libraries, including those for FastAPI, Flask, Django, ASGI, and WSGI. Each chart is both a timeline and a breakdown by endpoint. Hover over each chart to see the most impactful endpoint at the top of the tooltip. The charts show:
+This dashboard gives an overview of how long each of your web server endpoints takes to respond to requests and how often they succeed and fail. It relies on the standard OpenTelemetry `http.server.duration`/`http.server.request.duration` metric which is collected by many instrumentation libraries, including those for FastAPI, Flask, Django, ASGI, and WSGI. The charts give a breakdown by endpoint (and sometimes status code) both overall and over time. Hover over each time series to see the most impactful endpoint at the top of the tooltip. The charts show:
 
 - **Total duration:** Endpoints which need to either be optimized or called less often.
 - **Average duration:** Endpoints which are slow on average and need to be optimized.
