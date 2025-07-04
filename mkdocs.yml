@@ -172,7 +172,7 @@ nav:
       - Organization Structure: reference/organization-structure.md
       - Self-Hosted Deployment:
           - Overview: reference/self-hosted/overview.md
-          - Quickstart: reference/self-hosted/local-quickstart.md
+          - Local Quickstart: reference/self-hosted/local-quickstart.md
           - Installation: reference/self-hosted/installation.md
           - Scaling: reference/self-hosted/scaling.md
           - Troubleshooting: reference/self-hosted/troubleshooting.md
