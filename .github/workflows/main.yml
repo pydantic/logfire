@@ -122,9 +122,9 @@ jobs:
 
       - run: uv sync --python ${{ matrix.python-version }}
 
-      - name: Install pydantic ${{ matrix.pydantic-version }}
-        # installs the most recent patch on the minor version's track, ex 2.6.* -> 2.6.4
-        run: uv pip install 'pydantic==${{ matrix.pydantic-version }}.*'
+#      - name: Install pydantic ${{ matrix.pydantic-version }}
+#        # installs the most recent patch on the minor version's track, ex 2.6.* -> 2.6.4
+#        run: uv pip install 'pydantic==${{ matrix.pydantic-version }}.*'
 
       - name: Install OTel SDK ${{ matrix.otel-version }}
         # installs the most recent patch on the minor version's track, ex 2.6.* -> 2.6.4
