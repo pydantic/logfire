@@ -39,6 +39,35 @@ def test_infers_base_url_from_token(
     assert client.base_url == expected
 
 
+def test_info_sync():
+    with LogfireQueryClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL) as client:
+        info = client.info()
+        assert info == snapshot(
+            {
+                'token_id': '150cda99-9a33-4dce-8b0a-33e0537a521e',
+                'organization_id': '5f344601-70ef-4865-a82a-e2d9e98fd0bc',
+                'project_id': '98186ae1-ce20-45ea-b31c-b0b8afadff79',
+                'organization_name': 'test-org',
+                'project_name': 'starter-project',
+            }
+        )
+
+
+@pytest.mark.anyio
+async def test_info_async():
+    async with AsyncLogfireQueryClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL) as client:
+        info = await client.info()
+        assert info == snapshot(
+            {
+                'token_id': '150cda99-9a33-4dce-8b0a-33e0537a521e',
+                'organization_id': '5f344601-70ef-4865-a82a-e2d9e98fd0bc',
+                'project_id': '98186ae1-ce20-45ea-b31c-b0b8afadff79',
+                'organization_name': 'test-org',
+                'project_name': 'starter-project',
+            }
+        )
+
+
 def test_read_sync():
     with LogfireQueryClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL) as client:
         sql = """
