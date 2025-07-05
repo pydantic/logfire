@@ -43,7 +43,7 @@ from pydantic import __version__ as pydantic_version
 from pytest import LogCaptureFixture
 
 import logfire
-from logfire import configure, propagate
+from logfire import LevelName, configure, propagate
 from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
 from logfire._internal.config import (
     GLOBAL_CONFIG,
@@ -57,6 +57,7 @@ from logfire._internal.config import (
 from logfire._internal.exporters.console import ConsoleLogExporter, ShowParentsConsoleSpanExporter
 from logfire._internal.exporters.dynamic_batch import DynamicBatchSpanProcessor
 from logfire._internal.exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper, MainLogProcessorWrapper
+from logfire._internal.exporters.min_log_level import MinLogLevelFilterLogExporter, MinLogLevelFilterSpanExporter
 from logfire._internal.exporters.otlp import QuietLogExporter, QuietSpanExporter
 from logfire._internal.exporters.processor_wrapper import (
     CheckSuppressInstrumentationProcessorWrapper,
@@ -517,6 +518,7 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
         pydantic_plugin_include = " test1, test2"
         pydantic_plugin_exclude = "test3 ,test4"
         trace_sample_rate = "0.123"
+        send_to_logfire_min_log_level = 'info'
         """
     )
 
@@ -533,6 +535,7 @@ def test_read_config_from_pyproject_toml(tmp_path: Path) -> None:
     assert fresh_pydantic_plugin().include == {'test1', 'test2'}
     assert fresh_pydantic_plugin().exclude == {'test3', 'test4'}
     assert GLOBAL_CONFIG.sampling.head == 0.123
+    assert GLOBAL_CONFIG.send_to_logfire_min_log_level == 'info'
 
 
 def test_logfire_invalid_config_dir(tmp_path: Path):
@@ -1492,9 +1495,10 @@ def test_send_to_logfire_under_pytest():
     assert GLOBAL_CONFIG.send_to_logfire is False
 
 
-def test_default_exporters(monkeypatch: pytest.MonkeyPatch):
+@pytest.mark.parametrize('min_log_level', [None, 9, 'INFO'])
+def test_default_exporters(monkeypatch: pytest.MonkeyPatch, min_log_level: int | None | LevelName):
     monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
-    logfire.configure(send_to_logfire=True, token='foo')
+    logfire.configure(send_to_logfire=True, token='foo', send_to_logfire_min_log_level=min_log_level)
     wait_for_check_token_thread()
 
     [console_span_processor, send_to_logfire_processor, pending_span_processor] = get_span_processors()
@@ -1504,6 +1508,12 @@ def test_default_exporters(monkeypatch: pytest.MonkeyPatch):
 
     assert isinstance(send_to_logfire_processor, DynamicBatchSpanProcessor)
     assert isinstance(send_to_logfire_processor.span_exporter, RemovePendingSpansExporter)
+    inner_exporter = send_to_logfire_processor.span_exporter.exporter
+    if min_log_level is None:
+        assert not isinstance(inner_exporter, MinLogLevelFilterSpanExporter)
+    else:
+        assert isinstance(inner_exporter, MinLogLevelFilterSpanExporter)
+        assert inner_exporter.level_num == 9
 
     assert isinstance(pending_span_processor, PendingSpanProcessor)
     assert isinstance(pending_span_processor.processor, MainSpanProcessorWrapper)
@@ -1525,7 +1535,12 @@ def test_default_exporters(monkeypatch: pytest.MonkeyPatch):
 
     exporter = get_batch_log_exporter(logfire_log_processor)
     assert isinstance(exporter, QuietLogExporter)
-    assert isinstance(exporter.exporter, OTLPLogExporter)
+    if min_log_level is None:
+        assert isinstance(exporter.exporter, OTLPLogExporter)
+    else:
+        assert isinstance(exporter.exporter, MinLogLevelFilterLogExporter)
+        assert exporter.exporter.level_num == 9
+        assert isinstance(exporter.exporter.exporter, OTLPLogExporter)
 
 
 def test_custom_exporters():
@@ -2238,7 +2253,7 @@ def test_quiet_span_exporter(caplog: LogCaptureFixture):
 
     exporter = QuietSpanExporter(ConnectionErrorExporter())
 
-    assert exporter.export([]) == SpanExportResult.FAILURE
+    assert exporter.export([ReadableSpan('foo')]) == SpanExportResult.FAILURE
     assert not caplog.messages
 
 
