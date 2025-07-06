@@ -16,11 +16,8 @@ class QueryExecutionError(RuntimeError):
 class QueryRequestError(RuntimeError):
     """Raised when the query request is invalid."""
 
-class ReadTokenInfo(TypedDict):
+class ReadTokenInfo(TypedDict, total=True):
     """Information about the read token."""
-    token_id: UUID
-    organization_id: UUID
-    project_id: UUID
     organization_name: str
     project_name: str
 

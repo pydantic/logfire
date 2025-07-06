@@ -12,7 +12,7 @@ from logfire.experimental.query_client import AsyncLogfireQueryClient, LogfireQu
 # To update, set the `CLIENT_BASE_URL` and `CLIENT_READ_TOKEN` values to match the local development environment,
 # and run the tests with `--record-mode=rewrite --inline-snapshot=fix` to update the cassettes and snapshots.
 CLIENT_BASE_URL = 'http://localhost:8000/'
-CLIENT_READ_TOKEN = '06KJCLLch8TCYx1FX4N1VGbr2mHrR760Z87zWjpb0TPm'
+CLIENT_READ_TOKEN = 'pylf_v1_local_wk3Vg7NQP1BLtK62PTB0sRqFmn3ThjqvbQn5R27MDZpd'
 pytestmark = [
     pytest.mark.vcr(),
     pytest.mark.skipif(
@@ -44,13 +44,18 @@ def test_info_sync():
         info = client.info()
         assert info == snapshot(
             {
-                'token_id': '150cda99-9a33-4dce-8b0a-33e0537a521e',
-                'organization_id': '5f344601-70ef-4865-a82a-e2d9e98fd0bc',
-                'project_id': '98186ae1-ce20-45ea-b31c-b0b8afadff79',
                 'organization_name': 'test-org',
                 'project_name': 'starter-project',
             }
         )
+
+
+def test_info_invalid_schema_sync():
+    with pytest.raises(
+        RuntimeError, match='The read token info response is missing required fields: organization_name or project_name'
+    ):
+        with LogfireQueryClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL) as client:
+            client.info()
 
 
 @pytest.mark.anyio
@@ -59,13 +64,18 @@ async def test_info_async():
         info = await client.info()
         assert info == snapshot(
             {
-                'token_id': '150cda99-9a33-4dce-8b0a-33e0537a521e',
-                'organization_id': '5f344601-70ef-4865-a82a-e2d9e98fd0bc',
-                'project_id': '98186ae1-ce20-45ea-b31c-b0b8afadff79',
                 'organization_name': 'test-org',
                 'project_name': 'starter-project',
             }
         )
+
+
+async def test_info_invalid_schema_async():
+    with pytest.raises(
+        RuntimeError, match='The read token info response is missing required fields: organization_name or project_name'
+    ):
+        async with AsyncLogfireQueryClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL) as client:
+            await client.info()
 
 
 def test_read_sync():
