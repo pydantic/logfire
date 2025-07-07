@@ -181,7 +181,7 @@ def instrument_packages(installed_otel_packages: set[str], instrument_pkg_map: d
     return instrumented
 
 
-def recommended_instrumentation(
+def find_recommended_instrumentations_to_install(
     instrument_pkg_map: dict[str, str],
     installed_otel_pkgs: set[str],
     installed_pkgs: set[str],
@@ -341,7 +341,9 @@ def collect_instrumentation_context(exclude: set[str]) -> InstrumentationContext
     instrument_pkg_map = {otel_pkg: pkg for otel_pkg, pkg in OTEL_INSTRUMENTATION_MAP.items() if pkg not in exclude}
     installed_pkgs = installed_packages()
     installed_otel_pkgs = {pkg for pkg in instrument_pkg_map.keys() if pkg in installed_pkgs}
-    recommendations = recommended_instrumentation(instrument_pkg_map, installed_otel_pkgs, installed_pkgs)
+    recommendations = find_recommended_instrumentations_to_install(
+        instrument_pkg_map, installed_otel_pkgs, installed_pkgs
+    )
     return InstrumentationContext(
         instrument_pkg_map=instrument_pkg_map,
         installed_pkgs=installed_pkgs,

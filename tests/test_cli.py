@@ -24,10 +24,10 @@ from logfire import VERSION
 from logfire._internal.auth import UserToken
 from logfire._internal.cli import SplitArgs, main
 from logfire._internal.cli.run import (
+    find_recommended_instrumentations_to_install,
     get_recommendation_texts,
     instrument_packages,
     instrumented_packages_text,
-    recommended_instrumentation,
 )
 from logfire._internal.config import LogfireCredentials, sanitize_project_name
 from logfire.exceptions import LogfireConfigError
@@ -319,7 +319,7 @@ def test_recommended_packages_with_dependencies(
     installed: set[str],
     should_install: set[tuple[str, str]],
 ) -> None:
-    recommendations = recommended_instrumentation(otel_instrumentation_map, set(), installed)
+    recommendations = find_recommended_instrumentations_to_install(otel_instrumentation_map, set(), installed)
     assert recommendations == should_install
 
 
