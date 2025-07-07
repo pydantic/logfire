@@ -107,7 +107,7 @@ def parse_run(args: argparse.Namespace) -> None:  # pragma: no cover
             # Set up args for the module
             sys.argv = [f'-m {module_name}'] + module_args
 
-            logfire.info(f'Running command: {cmd_str}')
+            logfire.info('Running command: {cmd_str}', cmd_str=cmd_str)
 
             # Run the module
             runpy.run_module(module_name, run_name='__main__', alter_sys=True)
