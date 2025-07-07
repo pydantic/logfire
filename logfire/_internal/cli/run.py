@@ -225,6 +225,8 @@ def instrumented_packages_text(
         if base_pkg in instrumented_packages:
             text.append(f'✓ {base_pkg} (installed and instrumented)\n', style='green')
         else:
+            # This is the case on OTel packages that don't have a logfire method, and methods that need the app
+            # like Starlette, FastAPI and Flask.
             text.append(f'⚠️ {base_pkg} (installed but not automatically instrumented)\n', style='yellow')
     return text
 
