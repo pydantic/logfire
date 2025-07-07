@@ -1264,6 +1264,12 @@ class Logfire:
             is_async_client,
         )
 
+    def instrument_google_genai(self):
+        from .integrations.google_genai import instrument_google_genai
+
+        self._warn_if_not_initialized_for_instrumentation()
+        instrument_google_genai(self)
+
     def instrument_asyncpg(self, **kwargs: Any) -> None:
         """Instrument the `asyncpg` module so that spans are automatically created for each query."""
         from .integrations.asyncpg import instrument_asyncpg

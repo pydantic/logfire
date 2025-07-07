@@ -2,6 +2,14 @@
 
 There are occasions when you need to troubleshoot the installation.  Since Logfire sends its own internal logs to the `logfire-meta` organisation, this is a good place to start.
 
+## ErrImagePull / ImagePullBackOff
+
+If you are seeing Image pull issues on your logfire pods, make sure you have:
+
+* Created the required Image Pull Secret as described at the [Installation](./installation.md#image-pull-secrets_1) section
+* You set the right secret name at `Values.imagePullSecrets`
+* Both secret and the release are installed on the same namespace
+
 ## Accessing the Meta Organization
 
 Logfire will send internal traces to a meta organisation that is created upon first install.   This meta organisation is helpful in troubleshooting any issues that might arise when running Logfire.
