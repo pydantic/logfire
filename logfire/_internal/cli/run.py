@@ -24,6 +24,7 @@ STANDARD_LIBRARY_PACKAGES = {'urllib', 'sqlite3'}
 OTEL_INSTRUMENTATION_MAP = {
     'opentelemetry-instrumentation-aio_pika': 'aio_pika',
     'opentelemetry-instrumentation-aiohttp-client': 'aiohttp',
+    'opentelemetry-instrumentation-aiohttp-server': 'aiohttp',
     'opentelemetry-instrumentation-aiopg': 'aiopg',
     'opentelemetry-instrumentation-asyncpg': 'asyncpg',
     'opentelemetry-instrumentation-boto': 'boto',
