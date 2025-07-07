@@ -13,7 +13,6 @@ import logfire
 from logfire._internal.utils import handle_internal_errors
 
 Part: TypeAlias = 'dict[str, Any] | str'
-Content: TypeAlias = 'Part | list[Part]'
 
 
 def default_json(x: Any) -> str:
