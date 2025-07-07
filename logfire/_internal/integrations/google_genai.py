@@ -17,9 +17,7 @@ Content: TypeAlias = 'Part | list[Part]'
 
 
 def default_json(x: Any) -> str:
-    if isinstance(x, bytes):
-        return base64.b64encode(x).decode('utf-8')
-    return x
+    return base64.b64encode(x).decode('utf-8') if isinstance(x, bytes) else x
 
 
 class SpanEventLogger(EventLogger):

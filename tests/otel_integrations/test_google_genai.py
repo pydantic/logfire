@@ -44,7 +44,7 @@ def test_instrument_google_genai(exporter: TestExporter) -> None:
     response = client.models.generate_content(  # type: ignore
         model='gemini-2.0-flash-001',
         contents=[
-            types.Part.from_text(text='What is the weather like in Boston?'),
+            'What is the weather like in Boston?',
             types.Part.from_bytes(data=b'123', mime_type='text/plain'),
         ],
         config=types.GenerateContentConfig(
