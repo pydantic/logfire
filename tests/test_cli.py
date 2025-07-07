@@ -1487,3 +1487,46 @@ def test_get_recommendation_texts():
     assert 'uv add opentelemetry-instrumentation-bar opentelemetry-instrumentation-foo' in install
     assert 'need to install opentelemetry-instrumentation-bar' in recommended
     assert 'need to install opentelemetry-instrumentation-foo' in recommended
+
+
+def test_instrument_packages_openai() -> None:
+    instrument_packages({'openai'}, {'openai': 'openai'})
+
+    import openai
+
+    client = openai.Client()
+    assert getattr(client, '_is_instrumented_by_logfire', False) is True
+
+
+def test_instrument_packages_aiohttp_server() -> None:
+    try:
+        instrument_packages(
+            {'opentelemetry-instrumentation-aiohttp-server'},
+            {'opentelemetry-instrumentation-aiohttp-server': 'aiohttp_server'},
+        )
+
+        import aiohttp.web
+
+        app = aiohttp.web.Application()
+        assert app.middlewares[0].__module__ == 'opentelemetry.instrumentation.aiohttp_server'
+    finally:
+        from opentelemetry.instrumentation.aiohttp_server import AioHttpServerInstrumentor
+
+        AioHttpServerInstrumentor().uninstrument()
+
+
+async def test_instrument_packages_aiohttp_client() -> None:
+    try:
+        instrument_packages(
+            {'opentelemetry-instrumentation-aiohttp-client'},
+            {'opentelemetry-instrumentation-aiohttp-client': 'aiohttp_client'},
+        )
+
+        import aiohttp.client
+
+        async with aiohttp.client.ClientSession() as client:
+            assert getattr(client.trace_configs[0], '_is_instrumented_by_opentelemetry', False) is True
+    finally:
+        from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
+
+        AioHttpClientInstrumentor().uninstrument()

@@ -23,8 +23,8 @@ STANDARD_LIBRARY_PACKAGES = {'urllib', 'sqlite3'}
 # Map of instrumentation packages to the packages they instrument
 OTEL_INSTRUMENTATION_MAP = {
     'opentelemetry-instrumentation-aio_pika': 'aio_pika',
-    'opentelemetry-instrumentation-aiohttp-client': 'aiohttp',
-    'opentelemetry-instrumentation-aiohttp-server': 'aiohttp',
+    'opentelemetry-instrumentation-aiohttp-client': 'aiohttp_client',
+    'opentelemetry-instrumentation-aiohttp-server': 'aiohttp_server',
     'opentelemetry-instrumentation-aiopg': 'aiopg',
     'opentelemetry-instrumentation-asyncpg': 'asyncpg',
     'opentelemetry-instrumentation-boto': 'boto',
@@ -59,7 +59,11 @@ OTEL_INSTRUMENTATION_MAP = {
     'opentelemetry-instrumentation-tortoiseorm': 'tortoise_orm',
     'opentelemetry-instrumentation-urllib': 'urllib',
     'opentelemetry-instrumentation-urllib3': 'urllib3',
+    # Those are not OpenTelemetry packages, but Logfire instruments them.
     'pydantic-ai-slim': 'pydantic_ai',
+    'anthropic': 'anthropic',
+    'openai': 'openai',
+    'openai-agents': 'openai_agents',
 }
 
 
@@ -157,9 +161,6 @@ def instrument_packages(installed_otel_packages: set[str], instrument_pkg_map: d
     for pkg_name in installed_otel_packages:
         if pkg_name in instrument_pkg_map.keys():  # pragma: no branch
             base_pkg = pkg_name.replace('opentelemetry-instrumentation-', '')
-            # Handle special cases
-            if base_pkg == 'aiohttp-client':
-                base_pkg = 'aiohttp'  # pragma: no cover
 
             import_name = instrument_pkg_map[pkg_name]
             instrument_attr = f'instrument_{import_name}'
