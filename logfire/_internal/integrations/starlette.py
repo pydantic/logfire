@@ -21,7 +21,7 @@ from logfire._internal.utils import maybe_capture_server_headers
 
 def instrument_starlette(
     logfire_instance: Logfire,
-    app: Starlette,
+    app: Starlette | None = None,
     *,
     record_send_receive: bool = False,
     capture_headers: bool = False,
@@ -35,14 +35,26 @@ def instrument_starlette(
     See the `Logfire.instrument_starlette` method for details.
     """
     maybe_capture_server_headers(capture_headers)
-    StarletteInstrumentor().instrument_app(
-        app,
-        server_request_hook=server_request_hook,
-        client_request_hook=client_request_hook,
-        client_response_hook=client_response_hook,
-        **{  # type: ignore
-            'tracer_provider': tweak_asgi_spans_tracer_provider(logfire_instance, record_send_receive),
-            'meter_provider': logfire_instance.config.get_meter_provider(),
-            **kwargs,
-        },
-    )
+    if app is None:
+        StarletteInstrumentor().instrument(
+            server_request_hook=server_request_hook,
+            client_request_hook=client_request_hook,
+            client_response_hook=client_response_hook,
+            **{
+                'tracer_provider': tweak_asgi_spans_tracer_provider(logfire_instance, record_send_receive),
+                'meter_provider': logfire_instance.config.get_meter_provider(),
+                **kwargs,
+            },
+        )
+    else:
+        StarletteInstrumentor().instrument_app(
+            app,
+            server_request_hook=server_request_hook,
+            client_request_hook=client_request_hook,
+            client_response_hook=client_response_hook,
+            **{  # type: ignore
+                'tracer_provider': tweak_asgi_spans_tracer_provider(logfire_instance, record_send_receive),
+                'meter_provider': logfire_instance.config.get_meter_provider(),
+                **kwargs,
+            },
+        )

@@ -13,6 +13,7 @@ from fastapi.params import Header
 from fastapi.security import SecurityScopes
 from fastapi.staticfiles import StaticFiles
 from inline_snapshot import snapshot
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.propagate import inject
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
@@ -2204,3 +2205,21 @@ def test_sampled_out(client: TestClient, exporter: TestExporter, config_kwargs: 
     make_request_hook_spans(record_send_receive=False)
 
     assert exporter.exported_spans_as_dict() == []
+
+
+def test_instrumentation_no_app(exporter: TestExporter) -> None:
+    logfire.instrument_fastapi()
+    app = FastAPI()
+
+    @app.get('/')
+    async def homepage(request: Request):
+        return PlainTextResponse('Hello, world!')
+
+    try:
+        print(dir(app))
+        client = TestClient(app)
+        response = client.get('/')
+        assert response.text == 'Hello, world!'
+        assert exporter.exported_spans_as_dict() == snapshot([])
+    finally:
+        FastAPIInstrumentor().uninstrument()
