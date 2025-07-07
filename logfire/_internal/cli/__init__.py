@@ -390,7 +390,9 @@ def _main(args: list[str] | None = None) -> None:
     cmd_run.add_argument('--summary', action=argparse.BooleanOptionalAction, default=True, help='hide the summary box')
     cmd_run.add_argument('--exclude', action=SplitArgs, default=(), help='exclude a package from instrumentation')
     cmd_run.add_argument('-m', '--module', help='Run module as script')
-    cmd_run.add_argument('script_and_args', nargs=argparse.REMAINDER, help='Script path and arguments, or module arguments when using -m')
+    cmd_run.add_argument(
+        'script_and_args', nargs=argparse.REMAINDER, help='Script path and arguments, or module arguments when using -m'
+    )
     cmd_run.set_defaults(func=parse_run)
 
     namespace = parser.parse_args(args)
