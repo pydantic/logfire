@@ -389,10 +389,8 @@ def _main(args: list[str] | None = None) -> None:
     cmd_run = subparsers.add_parser('run', help='Run Python scripts/modules with Logfire instrumentation')
     cmd_run.add_argument('--summary', action=argparse.BooleanOptionalAction, default=True, help='hide the summary box')
     cmd_run.add_argument('--exclude', action=SplitArgs, default=(), help='exclude a package from instrumentation')
-    run_group = cmd_run.add_mutually_exclusive_group(required=True)
-    run_group.add_argument('-m', '--module', help='Run module as script')
-    run_group.add_argument('script', nargs='?', help='Script path to run')
-    cmd_run.add_argument('args', nargs='*', help='Arguments to pass to the script/module')
+    cmd_run.add_argument('-m', '--module', help='Run module as script')
+    cmd_run.add_argument('script_and_args', nargs=argparse.REMAINDER, help='Script path and arguments, or module arguments when using -m')
     cmd_run.set_defaults(func=parse_run)
 
     namespace = parser.parse_args(args)

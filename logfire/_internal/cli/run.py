@@ -96,11 +96,11 @@ def parse_run(args: argparse.Namespace) -> None:  # pragma: no cover
             console=console, instrumented_packages_text=instrumentation_text, recommendations=ctx.recommendations
         )
 
-    # Get arguments from the args parameter
-    if hasattr(args, 'module') and args.module:
-        # Module mode
-        module_name = args.module
-        module_args = getattr(args, 'args', [])
+    # Get arguments from the script_and_args parameter
+    script_and_args = args.script_and_args
+
+    if hasattr(args, 'module') and (module_name := args.module):
+        module_args = script_and_args
 
         cmd_str = f'python -m {module_name} {" ".join(module_args)}'
 
@@ -118,10 +118,10 @@ def parse_run(args: argparse.Namespace) -> None:  # pragma: no cover
         finally:
             # Restore original arguments
             sys.argv = orig_argv
-    elif hasattr(args, 'script') and args.script:
+    elif script_and_args:
         # Script mode
-        script_path = args.script
-        script_args = getattr(args, 'args', [])
+        script_path = script_and_args[0]
+        script_args = script_and_args[1:]
 
         cmd_str = f'python {script_path} {" ".join(script_args)}'
 
