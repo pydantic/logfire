@@ -219,9 +219,9 @@ def instrumented_packages_text(
 ) -> Text:
     # Filter out special cases for display
     if 'fastapi' in installed_pkgs:
-        installed_otel_pkgs.discard('opentelemetry-instrumentation-starlette')  # pragma: no cover
+        installed_otel_pkgs.discard('opentelemetry-instrumentation-starlette')
     if 'requests' in installed_pkgs:
-        installed_otel_pkgs.discard('opentelemetry-instrumentation-urllib3')  # pragma: no cover
+        installed_otel_pkgs.discard('opentelemetry-instrumentation-urllib3')
 
     text = Text('Your instrumentation checklist:\n\n')
     for pkg_name in sorted(installed_otel_pkgs):

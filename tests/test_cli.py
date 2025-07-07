@@ -277,11 +277,13 @@ def test_inspect(
                 'opentelemetry-instrumentation-sqlite3': 'sqlite3',
             },
             {'fastapi'},
-            {
-                ('opentelemetry-instrumentation-fastapi', 'fastapi'),
-                ('opentelemetry-instrumentation-urllib', 'urllib'),
-                ('opentelemetry-instrumentation-sqlite3', 'sqlite3'),
-            },
+            snapshot(
+                {
+                    ('opentelemetry-instrumentation-fastapi', 'fastapi'),
+                    ('opentelemetry-instrumentation-urllib', 'urllib'),
+                    ('opentelemetry-instrumentation-sqlite3', 'sqlite3'),
+                }
+            ),
         ),
         (
             {
@@ -289,9 +291,7 @@ def test_inspect(
                 'opentelemetry-instrumentation-starlette': 'starlette',
             },
             {'fastapi', 'starlette'},
-            {
-                ('opentelemetry-instrumentation-fastapi', 'fastapi'),
-            },
+            snapshot({('opentelemetry-instrumentation-fastapi', 'fastapi')}),
         ),
         (
             {
@@ -300,24 +300,24 @@ def test_inspect(
                 'opentelemetry-instrumentation-sqlite3': 'sqlite3',
             },
             {'urllib3', 'requests'},
-            {
-                ('opentelemetry-instrumentation-requests', 'requests'),
-                ('opentelemetry-instrumentation-sqlite3', 'sqlite3'),
-            },
+            snapshot(
+                {
+                    ('opentelemetry-instrumentation-requests', 'requests'),
+                    ('opentelemetry-instrumentation-sqlite3', 'sqlite3'),
+                }
+            ),
         ),
         (
             {'opentelemetry-instrumentation-starlette': 'starlette'},
             {'starlette'},
-            {('opentelemetry-instrumentation-starlette', 'starlette')},
+            snapshot({('opentelemetry-instrumentation-starlette', 'starlette')}),
         ),
     ],
 )
 def test_recommended_packages_with_dependencies(
-    tmp_dir_cwd: Path,
-    logfire_credentials: LogfireCredentials,
     otel_instrumentation_map: dict[str, str],
     installed: set[str],
-    should_install: set[str],
+    should_install: set[tuple[str, str]],
 ) -> None:
     recommendations = recommended_instrumentation(otel_instrumentation_map, set(), installed)
     assert recommendations == should_install
