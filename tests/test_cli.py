@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import io
 import json
 import os
@@ -21,7 +22,7 @@ from inline_snapshot import snapshot
 import logfire._internal.cli
 from logfire import VERSION
 from logfire._internal.auth import UserToken
-from logfire._internal.cli import main
+from logfire._internal.cli import SplitArgs, main
 from logfire._internal.cli.run import (
     get_recommendation_texts,
     instrument_packages,
@@ -1530,3 +1531,10 @@ async def test_instrument_packages_aiohttp_client() -> None:
         from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
 
         AioHttpClientInstrumentor().uninstrument()
+
+
+def test_split_args_action() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--foo', action=SplitArgs)
+    args = parser.parse_args(['--foo', 'a,b,c'])
+    assert args.foo == ['a', 'b', 'c']
