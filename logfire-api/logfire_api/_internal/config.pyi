@@ -1,7 +1,7 @@
 import dataclasses
 import requests
 from ..propagate import NoExtractTraceContextPropagator as NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator as WarnOnExtractTraceContextPropagator
-from .auth import DEFAULT_FILE as DEFAULT_FILE, DefaultFile as DefaultFile, is_logged_in as is_logged_in
+from .client import InvalidProjectName as InvalidProjectName, LogfireClient as LogfireClient, ProjectAlreadyExists as ProjectAlreadyExists
 from .config_params import ParamManager as ParamManager, PydanticPluginRecordValues as PydanticPluginRecordValues
 from .constants import LevelName as LevelName, RESOURCE_ATTRIBUTES_CODE_ROOT_PATH as RESOURCE_ATTRIBUTES_CODE_ROOT_PATH, RESOURCE_ATTRIBUTES_CODE_WORK_DIR as RESOURCE_ATTRIBUTES_CODE_WORK_DIR, RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME as RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME, RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION as RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION, RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL as RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL
 from .exporters.console import ConsoleColorsValues as ConsoleColorsValues, ConsoleLogExporter as ConsoleLogExporter, IndentedConsoleSpanExporter as IndentedConsoleSpanExporter, ShowParentsConsoleSpanExporter as ShowParentsConsoleSpanExporter, SimpleConsoleSpanExporter as SimpleConsoleSpanExporter
@@ -19,10 +19,11 @@ from .metrics import ProxyMeterProvider as ProxyMeterProvider
 from .scrubbing import BaseScrubber as BaseScrubber, NOOP_SCRUBBER as NOOP_SCRUBBER, Scrubber as Scrubber, ScrubbingOptions as ScrubbingOptions
 from .stack_info import warn_at_user_stacklevel as warn_at_user_stacklevel
 from .tracer import OPEN_SPANS as OPEN_SPANS, PendingSpanProcessor as PendingSpanProcessor, ProxyTracerProvider as ProxyTracerProvider
-from .utils import SeededRandomIdGenerator as SeededRandomIdGenerator, UnexpectedResponse as UnexpectedResponse, ensure_data_dir_exists as ensure_data_dir_exists, handle_internal_errors as handle_internal_errors, platform_is_emscripten as platform_is_emscripten, read_toml_file as read_toml_file, suppress_instrumentation as suppress_instrumentation
+from .utils import SeededRandomIdGenerator as SeededRandomIdGenerator, ensure_data_dir_exists as ensure_data_dir_exists, handle_internal_errors as handle_internal_errors, platform_is_emscripten as platform_is_emscripten, suppress_instrumentation as suppress_instrumentation
 from _typeshed import Incomplete
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from logfire._internal.auth import PYDANTIC_LOGFIRE_TOKEN_PATTERN as PYDANTIC_LOGFIRE_TOKEN_PATTERN, REGIONS as REGIONS
 from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor as DirectBaggageAttributesSpanProcessor
 from logfire.exceptions import LogfireConfigError as LogfireConfigError
 from logfire.sampling import SamplingOptions as SamplingOptions
@@ -40,14 +41,7 @@ from typing_extensions import Self, Unpack
 CREDENTIALS_FILENAME: str
 COMMON_REQUEST_HEADERS: Incomplete
 PROJECT_NAME_PATTERN: str
-PYDANTIC_LOGFIRE_TOKEN_PATTERN: Incomplete
 METRICS_PREFERRED_TEMPORALITY: Incomplete
-
-class _RegionData(TypedDict):
-    base_url: str
-    gcp_region: str
-
-REGIONS: dict[str, _RegionData]
 
 @dataclass
 class ConsoleOptions:
@@ -270,31 +264,14 @@ class LogfireCredentials:
             LogfireConfigError: If the token is invalid.
         """
     @classmethod
-    def get_current_user(cls, session: requests.Session, logfire_api_url: str | None = None) -> dict[str, Any] | None: ...
-    @classmethod
-    def get_user_projects(cls, session: requests.Session, logfire_api_url: str | None = None) -> list[dict[str, Any]]:
-        """Get list of projects that user has access to them.
-
-        Args:
-            session: HTTP client session used to communicate with the Logfire API.
-            logfire_api_url: The Logfire API base URL.
-
-        Returns:
-            List of user projects.
-
-        Raises:
-            LogfireConfigError: If there was an error retrieving user projects.
-        """
-    @classmethod
-    def use_existing_project(cls, *, session: requests.Session, projects: list[dict[str, Any]], logfire_api_url: str | None = None, organization: str | None = None, project_name: str | None = None) -> dict[str, Any] | None:
+    def use_existing_project(cls, *, client: LogfireClient, projects: list[dict[str, Any]], organization: str | None = None, project_name: str | None = None) -> dict[str, Any] | None:
         """Configure one of the user projects to be used by Logfire.
 
         It configures the project if organization/project_name is a valid project that
         the user has access to it. Otherwise, it asks the user to select a project interactively.
 
         Args:
-            session: HTTP client session used to communicate with the Logfire API.
-            logfire_api_url: The Logfire API base URL.
+            client: The Logfire client to use when making requests.
             projects: List of user projects.
             organization: Project organization.
             project_name: Name of project that has to be used.
@@ -306,15 +283,14 @@ class LogfireCredentials:
             LogfireConfigError: If there was an error configuring the project.
         """
     @classmethod
-    def create_new_project(cls, *, session: requests.Session, logfire_api_url: str | None = None, organization: str | None = None, default_organization: bool = False, project_name: str | None = None) -> dict[str, Any]:
+    def create_new_project(cls, *, client: LogfireClient, organization: str | None = None, default_organization: bool = False, project_name: str | None = None) -> dict[str, Any]:
         """Create a new project and configure it to be used by Logfire.
 
         It creates the project under the organization if both project and organization are valid.
         Otherwise, it asks the user to select organization and enter a valid project name interactively.
 
         Args:
-            session: HTTP client session used to communicate with the Logfire API.
-            logfire_api_url: The Logfire API base URL.
+            client: The Logfire client to use when making requests.
             organization: The organization name of the new project.
             default_organization: Whether to create the project under the user default organization.
             project_name: The default name of the project.
@@ -326,12 +302,11 @@ class LogfireCredentials:
             LogfireConfigError: If there was an error creating projects.
         """
     @classmethod
-    def initialize_project(cls, *, session: requests.Session, logfire_api_url: str | None = None) -> Self:
+    def initialize_project(cls, *, client: LogfireClient) -> Self:
         """Create a new project or use an existing project on logfire.dev requesting the given project name.
 
         Args:
-            session: HTTP client session used to communicate with the Logfire API.
-            logfire_api_url: The Logfire API base URL.
+            client: The Logfire client to use when making requests.
 
         Returns:
             The new credentials.

@@ -51,7 +51,6 @@ from logfire._internal.config import (
     ConsoleOptions,
     LogfireConfig,
     LogfireCredentials,
-    _get_token_repr,  # type: ignore
     get_base_url_from_token,
     sanitize_project_name,
 )
@@ -904,7 +903,7 @@ def test_initialize_project_use_existing_project_no_projects(tmp_dir_cwd: Path, 
         '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
     )
     with ExitStack() as stack:
-        stack.enter_context(mock.patch('logfire._internal.config.DEFAULT_FILE', auth_file))
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
         confirm_mock = stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=[True, True]))
         stack.enter_context(mock.patch('rich.prompt.Prompt.ask', side_effect=['', 'myproject', '']))
 
@@ -925,7 +924,9 @@ def test_initialize_project_use_existing_project_no_projects(tmp_dir_cwd: Path, 
                 'project_url': 'fake_project_url',
             }
         }
-        request_mocker.post('https://logfire-api.pydantic.dev/v1/projects/fake_org', [create_project_response])
+        request_mocker.post(
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects', [create_project_response]
+        )
 
         logfire.configure(send_to_logfire=True)
         wait_for_check_token_thread()
@@ -941,7 +942,7 @@ def test_initialize_project_use_existing_project(tmp_dir_cwd: Path, tmp_path: Pa
         '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
     )
     with ExitStack() as stack:
-        stack.enter_context(mock.patch('logfire._internal.config.DEFAULT_FILE', auth_file))
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
         confirm_mock = stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=[True, True]))
         prompt_mock = stack.enter_context(mock.patch('rich.prompt.Prompt.ask', side_effect=['1', '']))
 
@@ -999,7 +1000,7 @@ def test_initialize_project_not_using_existing_project(
         '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
     )
     with ExitStack() as stack:
-        stack.enter_context(mock.patch('logfire._internal.config.DEFAULT_FILE', auth_file))
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
         confirm_mock = stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=[False, True]))
         prompt_mock = stack.enter_context(mock.patch('rich.prompt.Prompt.ask', side_effect=['my-project', '']))
 
@@ -1023,7 +1024,9 @@ def test_initialize_project_not_using_existing_project(
                 'project_url': 'fake_project_url',
             }
         }
-        request_mocker.post('https://logfire-api.pydantic.dev/v1/projects/fake_org', [create_project_response])
+        request_mocker.post(
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects', [create_project_response]
+        )
         request_mocker.post(
             'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects/fake_project/write-tokens/',
             [create_project_response],
@@ -1056,7 +1059,7 @@ def test_initialize_project_not_confirming_organization(tmp_path: Path) -> None:
         '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
     )
     with ExitStack() as stack:
-        stack.enter_context(mock.patch('logfire._internal.config.DEFAULT_FILE', auth_file))
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
         confirm_mock = stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=[False, False]))
 
         request_mocker = requests_mock.Mocker()
@@ -1086,7 +1089,7 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
         '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
     )
     with ExitStack() as stack:
-        stack.enter_context(mock.patch('logfire._internal.config.DEFAULT_FILE', auth_file))
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
         confirm_mock = stack.enter_context(mock.patch('rich.prompt.Confirm.ask', side_effect=[True, True]))
         prompt_mock = stack.enter_context(
             mock.patch(
@@ -1145,7 +1148,7 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
             }
         }
         request_mocker.post(
-            'https://logfire-api.pydantic.dev/v1/projects/fake_org',
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects',
             [
                 create_existing_project_response,
                 create_reserved_project_response,
@@ -1211,7 +1214,7 @@ def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Pat
         '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
     )
     with ExitStack() as stack:
-        stack.enter_context(mock.patch('logfire._internal.config.DEFAULT_FILE', auth_file))
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
         prompt_mock = stack.enter_context(
             mock.patch('rich.prompt.Prompt.ask', side_effect=['fake_org', 'mytestproject1', ''])
         )
@@ -1241,7 +1244,7 @@ def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Pat
             }
         }
         request_mocker.post(
-            'https://logfire-api.pydantic.dev/v1/projects/fake_org',
+            'https://logfire-api.pydantic.dev/v1/organizations/fake_org/projects',
             [create_project_response],
         )
 
@@ -1271,11 +1274,9 @@ def test_send_to_logfire_true(tmp_path: Path) -> None:
         '[tokens."https://logfire-api.pydantic.dev"]\ntoken = "fake_user_token"\nexpiration = "2099-12-31T23:59:59"'
     )
     with ExitStack() as stack:
-        stack.enter_context(mock.patch('logfire._internal.config.DEFAULT_FILE', auth_file))
+        stack.enter_context(mock.patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
         stack.enter_context(
-            mock.patch(
-                'logfire._internal.config.LogfireCredentials.get_user_projects', side_effect=RuntimeError('expected')
-            )
+            mock.patch('logfire._internal.client.LogfireClient.get_user_projects', side_effect=RuntimeError('expected'))
         )
         with pytest.raises(RuntimeError, match='^expected$'):
             configure(send_to_logfire=True, console=False, data_dir=data_dir)
@@ -1443,92 +1444,6 @@ def test_load_creds_file_invalid_key(tmp_path: Path):
 
     with pytest.raises(LogfireConfigError, match='Invalid credentials file:'):
         LogfireCredentials.load_creds_file(creds_dir=tmp_path)
-
-
-def test_get_user_token_data_explicit_url(default_credentials: Path):
-    with patch('logfire._internal.config.DEFAULT_FILE', default_credentials):
-        # https://logfire-us.pydantic.dev is the URL present in the default credentials fixture:
-        _, url = LogfireCredentials._get_user_token_data(logfire_api_url='https://logfire-us.pydantic.dev')  # type: ignore
-        assert url == 'https://logfire-us.pydantic.dev'
-
-        with pytest.raises(LogfireConfigError):
-            LogfireCredentials._get_user_token_data(logfire_api_url='https://logfire-eu.pydantic.dev')  # type: ignore
-
-
-def test_get_user_token_data_no_explicit_url(default_credentials: Path):
-    with patch('logfire._internal.config.DEFAULT_FILE', default_credentials):
-        _, url = LogfireCredentials._get_user_token_data(logfire_api_url=None)  # type: ignore
-        # https://logfire-us.pydantic.dev is the URL present in the default credentials fixture:
-        assert url == 'https://logfire-us.pydantic.dev'
-
-
-def test_get_user_token_data_input_choice(multiple_credentials: Path):
-    with (
-        patch('logfire._internal.config.DEFAULT_FILE', multiple_credentials),
-        patch('rich.prompt.IntPrompt.ask', side_effect=[1]),
-    ):
-        _, url = LogfireCredentials._get_user_token_data(logfire_api_url=None)  # type: ignore
-        # https://logfire-us.pydantic.dev is the first URL present in the multiple credentials fixture:
-        assert url == 'https://logfire-us.pydantic.dev'
-
-
-@pytest.mark.parametrize(
-    ['url', 'token', 'expected'],
-    [
-        (
-            'https://logfire-us.pydantic.dev',
-            'pylf_v1_us_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W',
-            'US (https://logfire-us.pydantic.dev) - pylf_v1_us_0kYhc****',
-        ),
-        (
-            'https://logfire-eu.pydantic.dev',
-            'pylf_v1_eu_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W',
-            'EU (https://logfire-eu.pydantic.dev) - pylf_v1_eu_0kYhc****',
-        ),
-        (
-            'https://logfire-us.pydantic.dev',
-            '0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W',
-            'US (https://logfire-us.pydantic.dev) - 0kYhc****',
-        ),
-        (
-            'https://logfire-us.pydantic.dev',
-            'pylf_v1_unknownregion_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W',
-            'US (https://logfire-us.pydantic.dev) - pylf_v1_unknownregion_0kYhc****',
-        ),
-    ],
-)
-def test_get_token_repr(url: str, token: str, expected: str):
-    assert _get_token_repr(url, token) == expected
-
-
-def test_get_user_token_data_no_credentials(tmp_path: Path):
-    with patch('logfire._internal.config.DEFAULT_FILE', tmp_path):
-        with pytest.raises(LogfireConfigError):
-            LogfireCredentials._get_user_token_data()  # type: ignore
-
-
-def test_get_user_token_data_empty_credentials(tmp_path: Path):
-    empty_auth_file = tmp_path / 'default.toml'
-    empty_auth_file.touch()
-    with patch('logfire._internal.config.DEFAULT_FILE', tmp_path):
-        with pytest.raises(LogfireConfigError):
-            LogfireCredentials._get_user_token_data()  # type: ignore
-
-
-def test_get_user_token_data_expired_credentials(expired_credentials: Path):
-    with patch('logfire._internal.config.DEFAULT_FILE', expired_credentials):
-        with pytest.raises(LogfireConfigError):
-            # https://logfire-us.pydantic.dev is the URL present in the expired credentials fixture:
-            LogfireCredentials._get_user_token_data(logfire_api_url='https://logfire-us.pydantic.dev')  # type: ignore
-
-
-def test_get_user_token_data_not_authenticated(default_credentials: Path):
-    with patch('logfire._internal.config.DEFAULT_FILE', default_credentials):
-        with pytest.raises(
-            LogfireConfigError, match='You are not authenticated. Please run `logfire auth` to authenticate.'
-        ):
-            # Use a port that we don't use for local development to reduce conflicts with local configuration
-            LogfireCredentials._get_user_token_data(logfire_api_url='http://localhost:8234')  # type: ignore
 
 
 def test_initialize_credentials_from_token_unreachable():

@@ -104,8 +104,13 @@ async def test_mcp(exporter: TestExporter):
                         'params': {
                             'meta': None,
                             'protocolVersion': IsStr(),
-                            'capabilities': {'experimental': None, 'sampling': None, 'roots': None},
-                            'clientInfo': {'name': 'mcp', 'version': '0.1.0'},
+                            'capabilities': {
+                                'experimental': None,
+                                'sampling': None,
+                                'elicitation': None,
+                                'roots': None,
+                            },
+                            'clientInfo': {'name': 'mcp', 'title': None, 'version': '0.1.0'},
                         },
                     },
                     'rpc.system': 'jsonrpc',
@@ -124,7 +129,7 @@ async def test_mcp(exporter: TestExporter):
                             'resources': {'subscribe': False, 'listChanged': False},
                             'tools': {'listChanged': False},
                         },
-                        'serverInfo': {'name': 'FastMCP', 'version': IsStr()},
+                        'serverInfo': {'name': 'FastMCP', 'title': None, 'version': IsStr()},
                         'instructions': None,
                     },
                 },
@@ -179,9 +184,17 @@ async def test_mcp(exporter: TestExporter):
                         'tools': [
                             {
                                 'name': 'random_number',
+                                'title': None,
                                 'description': '',
                                 'inputSchema': {'properties': {}, 'title': 'random_numberArguments', 'type': 'object'},
+                                'outputSchema': {
+                                    'properties': {'result': {'title': 'Result', 'type': 'integer'}},
+                                    'required': ['result'],
+                                    'title': 'random_numberOutput',
+                                    'type': 'object',
+                                },
                                 'annotations': None,
+                                'meta': None,
                             }
                         ],
                     },
@@ -311,7 +324,8 @@ async def test_mcp(exporter: TestExporter):
                     'logfire.span_type': 'span',
                     'response': {
                         'meta': None,
-                        'content': [{'type': 'text', 'text': '4', 'annotations': None}],
+                        'content': [{'type': 'text', 'text': '4', 'annotations': None, 'meta': None}],
+                        'structuredContent': {'result': 4},
                         'isError': False,
                     },
                 },
@@ -327,7 +341,7 @@ async def test_mcp(exporter: TestExporter):
                     'logfire.span_type': 'span',
                     'name': 'random_number',
                     'input': {},
-                    'output': {'type': 'text', 'text': '4', 'annotations': None},
+                    'output': {'type': 'text', 'text': '4', 'annotations': None, 'meta': None},
                     'mcp_data': {'server': 'MyMCPServer'},
                     'gen_ai.system': 'openai',
                     'logfire.msg': 'Function: random_number',
@@ -380,9 +394,17 @@ async def test_mcp(exporter: TestExporter):
                         'tools': [
                             {
                                 'name': 'random_number',
+                                'title': None,
                                 'description': '',
                                 'inputSchema': {'properties': {}, 'title': 'random_numberArguments', 'type': 'object'},
+                                'outputSchema': {
+                                    'properties': {'result': {'title': 'Result', 'type': 'integer'}},
+                                    'required': ['result'],
+                                    'title': 'random_numberOutput',
+                                    'type': 'object',
+                                },
                                 'annotations': None,
+                                'meta': None,
                             }
                         ],
                     },
@@ -435,7 +457,7 @@ async def test_mcp(exporter: TestExporter):
                         },
                         {
                             'call_id': 'call_jfYaCkab5PQtyNrcrSgMdlRf',
-                            'output': '{"type":"text","text":"4","annotations":null}',
+                            'output': '{"type":"text","text":"4","annotations":null,"meta":null}',
                             'type': 'function_call_output',
                         },
                     ],
@@ -456,7 +478,7 @@ async def test_mcp(exporter: TestExporter):
                             'event.name': 'gen_ai.tool.message',
                             'role': 'tool',
                             'id': 'call_jfYaCkab5PQtyNrcrSgMdlRf',
-                            'content': '{"type":"text","text":"4","annotations":null}',
+                            'content': '{"type":"text","text":"4","annotations":null,"meta":null}',
                             'name': 'random_number',
                         },
                         {

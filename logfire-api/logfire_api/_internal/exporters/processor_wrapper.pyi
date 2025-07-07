@@ -2,11 +2,11 @@ from ..constants import ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY
 from ..db_statement_summary import message_from_db_statement as message_from_db_statement
 from ..json_schema import JsonSchemaProperties as JsonSchemaProperties, attributes_json_schema as attributes_json_schema
 from ..scrubbing import BaseScrubber as BaseScrubber
-from ..utils import ReadableSpanDict as ReadableSpanDict, is_asgi_send_receive_span_name as is_asgi_send_receive_span_name, is_instrumentation_suppressed as is_instrumentation_suppressed, span_to_dict as span_to_dict, truncate_string as truncate_string
+from ..utils import ReadableSpanDict as ReadableSpanDict, handle_internal_errors as handle_internal_errors, is_asgi_send_receive_span_name as is_asgi_send_receive_span_name, is_instrumentation_suppressed as is_instrumentation_suppressed, span_to_dict as span_to_dict, truncate_string as truncate_string
 from .wrapper import WrapperSpanProcessor as WrapperSpanProcessor
 from dataclasses import dataclass
 from opentelemetry import context
-from opentelemetry.sdk.trace import ReadableSpan, Span
+from opentelemetry.sdk.trace import Event as Event, ReadableSpan, Span
 
 class CheckSuppressInstrumentationProcessorWrapper(WrapperSpanProcessor):
     """Checks if instrumentation is suppressed, then suppresses instrumentation itself.
