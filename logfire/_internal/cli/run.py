@@ -163,7 +163,7 @@ def instrument_packages(installed_otel_packages: set[str], instrument_pkg_map: d
 
     # Process all installed OpenTelemetry packages
     for otel_pkg_name in installed_otel_packages:
-        if otel_pkg_name in instrument_pkg_map.keys():  # pragma: no branch
+        if otel_pkg_name in instrument_pkg_map:  # pragma: no branch
             base_pkg = otel_pkg_name.replace('opentelemetry-instrumentation-', '')
 
             import_name = instrument_pkg_map[otel_pkg_name]
