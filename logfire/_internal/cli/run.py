@@ -186,12 +186,16 @@ def recommended_instrumentation(
     installed_otel_pkgs: set[str],
     installed_pkgs: set[str],
 ) -> set[tuple[str, str]]:
-    """Get recommended OpenTelemetry instrumentation packages.
+    """Determine which OpenTelemetry instrumentation packages are recommended for installation.
+
+    Args:
+        instrument_pkg_map: Mapping of instrumentation package names to the packages they instrument.
+        installed_otel_pkgs: Set of already installed instrumentation package names.
+        installed_pkgs: Set of all installed package names.
 
     Returns:
-        List of tuples containing:
-        - Package name
-        - Package it instruments
+        Set of tuples where each tuple is (instrumentation_package, target_package) that
+            is recommended for installation.
     """
     recommendations: set[tuple[str, str]] = set()
 
