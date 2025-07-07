@@ -27,13 +27,7 @@ from ..client import LogfireClient
 from ..config import REGIONS, LogfireCredentials, get_base_url_from_token
 from ..config_params import ParamManager
 from ..tracer import SDKTracerProvider
-from .run import (
-    OTEL_INSTRUMENTATION_MAP,
-    installed_packages,
-    parse_run,
-    print_otel_summary,
-    recommended_instrumentation,
-)
+from .run import collect_instrumentation_context, parse_run, print_otel_summary
 
 BASE_OTEL_INTEGRATION_URL = 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/'
 BASE_DOCS_URL = 'https://logfire.pydantic.dev/docs'
@@ -112,14 +106,10 @@ def parse_inspect(args: argparse.Namespace) -> None:
     """Inspect installed packages and recommend packages that might be useful."""
     console = Console(file=sys.stderr)
 
-    instrument_pkg_map = {otel_pkg: pkg for otel_pkg, pkg in OTEL_INSTRUMENTATION_MAP.items() if pkg not in args.ignore}
+    ctx = collect_instrumentation_context(set(args.ignore))
 
-    installed_pkgs = installed_packages()
-    installed_otel_pkgs = {pkg for pkg in instrument_pkg_map.keys() if pkg in installed_pkgs}
-    recommendations = recommended_instrumentation(instrument_pkg_map, installed_otel_pkgs, installed_pkgs)
-
-    if recommendations:
-        print_otel_summary(console=console, recommendations=recommendations)
+    if ctx.recommendations:
+        print_otel_summary(console=console, recommendations=ctx.recommendations)
         sys.exit(1)
     else:
         console.print('No recommended packages found. You are all set!', style='green')  # pragma: no cover

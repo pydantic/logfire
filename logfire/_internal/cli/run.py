@@ -8,6 +8,7 @@ import runpy
 import shutil
 import sys
 import warnings
+from dataclasses import dataclass
 from typing import cast
 
 from rich.box import ROUNDED
@@ -67,6 +68,14 @@ OTEL_INSTRUMENTATION_MAP = {
 }
 
 
+@dataclass
+class InstrumentationContext:
+    instrument_pkg_map: dict[str, str]
+    installed_pkgs: set[str]
+    installed_otel_pkgs: set[str]
+    recommendations: set[tuple[str, str]]
+
+
 def parse_run(args: argparse.Namespace) -> None:  # pragma: no cover
     # Initialize Logfire
     logfire.configure()
@@ -74,22 +83,17 @@ def parse_run(args: argparse.Namespace) -> None:  # pragma: no cover
     summary = cast(bool, args.summary)
     exclude = cast(set[str], args.exclude)
 
-    instrument_pkg_map = {otel_pkg: pkg for otel_pkg, pkg in OTEL_INSTRUMENTATION_MAP.items() if pkg not in exclude}
+    ctx = collect_instrumentation_context(exclude)
 
-    installed_pkgs = installed_packages()
-    installed_otel_pkgs = {pkg for pkg in instrument_pkg_map.keys() if pkg in installed_pkgs}
-
-    recommendations = recommended_instrumentation(instrument_pkg_map, installed_otel_pkgs, installed_pkgs)
-
-    instrumented_packages = instrument_packages(installed_otel_pkgs, instrument_pkg_map)
+    instrumented_packages = instrument_packages(ctx.installed_otel_pkgs, ctx.instrument_pkg_map)
 
     if summary:
         console = Console(file=sys.stderr)
-        instrumentation_text = instrumented_packages_text(installed_otel_pkgs, instrumented_packages, installed_pkgs)
+        instrumentation_text = instrumented_packages_text(
+            ctx.installed_otel_pkgs, instrumented_packages, ctx.installed_pkgs
+        )
         print_otel_summary(
-            console=console,
-            instrumented_packages_text=instrumentation_text,
-            recommendations=recommendations,
+            console=console, instrumented_packages_text=instrumentation_text, recommendations=ctx.recommendations
         )
 
     # Get arguments from the args parameter
@@ -326,3 +330,17 @@ def _full_install_command(recommendations: list[tuple[str, str]]) -> str:
         return f'uv add {" ".join(package_names)}'
     else:
         return f'pip install {" ".join(package_names)}'  # pragma: no cover
+
+
+def collect_instrumentation_context(exclude: set[str]) -> InstrumentationContext:
+    """Collects all relevant context for instrumentation and recommendations."""
+    instrument_pkg_map = {otel_pkg: pkg for otel_pkg, pkg in OTEL_INSTRUMENTATION_MAP.items() if pkg not in exclude}
+    installed_pkgs = installed_packages()
+    installed_otel_pkgs = {pkg for pkg in instrument_pkg_map.keys() if pkg in installed_pkgs}
+    recommendations = recommended_instrumentation(instrument_pkg_map, installed_otel_pkgs, installed_pkgs)
+    return InstrumentationContext(
+        instrument_pkg_map=instrument_pkg_map,
+        installed_pkgs=installed_pkgs,
+        installed_otel_pkgs=installed_otel_pkgs,
+        recommendations=recommendations,
+    )
