@@ -32,6 +32,19 @@ class QueryRequestError(RuntimeError):
     pass
 
 
+class InfoRequestError(RuntimeError):
+    """Raised when the request for read token info fails because of unavailable information."""
+
+    pass
+
+
+class ReadTokenInfo(TypedDict, total=False):
+    """Information about the read token."""
+
+    organization_name: str
+    project_name: str
+
+
 class ColumnDetails(TypedDict):
     """The details of a column in the row-oriented JSON-format query results."""
 
@@ -122,6 +135,22 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         traceback: TracebackType | None = None,
     ) -> None:
         self.client.__exit__(exc_type, exc_value, traceback)
+
+    def info(self) -> ReadTokenInfo:
+        """Get information about the read token."""
+        response = self.client.get('/api/read-token-info')
+        self.handle_response_errors(response)
+        token_info = response.json()
+        try:
+            # Keep keys defined in ReadTokenInfo
+            return {
+                'organization_name': token_info['organization_name'],
+                'project_name': token_info['project_name'],
+            }
+        except KeyError:
+            raise InfoRequestError(
+                'The read token info response is missing required fields: organization_name or project_name'
+            )
 
     def query_json(
         self,
@@ -247,6 +276,22 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         traceback: TracebackType | None = None,
     ) -> None:
         await self.client.__aexit__(exc_type, exc_value, traceback)
+
+    async def info(self) -> ReadTokenInfo:
+        """Get information about the read token."""
+        response = await self.client.get('/api/read-token-info')
+        self.handle_response_errors(response)
+        token_info = response.json()
+        # Keep keys defined in ReadTokenInfo
+        try:
+            return {
+                'organization_name': token_info['organization_name'],
+                'project_name': token_info['project_name'],
+            }
+        except KeyError:
+            raise InfoRequestError(
+                'The read token info response is missing required fields: organization_name or project_name'
+            )
 
     async def query_json(
         self,
