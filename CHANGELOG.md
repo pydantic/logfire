@@ -1,5 +1,10 @@
 # Release Notes
 
+## [v3.22.1] (2025-07-07)
+
+* Fix OpenAI streaming reasoning by @alexmojaki in [#1232](https://github.com/pydantic/logfire/pull/1232)
+* Handle bytes in google genai messages by @alexmojaki in [#1231](https://github.com/pydantic/logfire/pull/1231)
+
 ## [v3.22.0] (2025-07-02)
 
 * Add `instrument_google_genai` by @alexmojaki in [#1217](https://github.com/pydantic/logfire/pull/1217)
@@ -765,3 +770,4 @@ First release from new repo!
 [v3.21.1]: https://github.com/pydantic/logfire/compare/v3.21.0...v3.21.1
 [v3.21.2]: https://github.com/pydantic/logfire/compare/v3.21.1...v3.21.2
 [v3.22.0]: https://github.com/pydantic/logfire/compare/v3.21.2...v3.22.0
+[v3.22.1]: https://github.com/pydantic/logfire/compare/v3.22.0...v3.22.1

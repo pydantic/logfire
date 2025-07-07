@@ -2149,3 +2149,149 @@ def test_responses_api_nonrecording(exporter: TestExporter, config_kwargs: dict[
     assert response.output_text == snapshot('Hello! How can I help you today? 😊')
 
     assert exporter.exported_spans_as_dict() == []
+
+
+@pytest.mark.vcr()
+def test_openrouter_streaming_reasoning(exporter: TestExporter) -> None:
+    client = openai.Client(base_url='https://openrouter.ai/api/v1')
+    logfire.instrument_openai(client)
+
+    response = client.chat.completions.create(
+        model='google/gemini-2.5-flash',
+        messages=[{'role': 'user', 'content': 'Hello, how are you? (This is a trick question)'}],
+        stream=True,
+        extra_body={'reasoning': {'effort': 'low'}},
+    )
+
+    for _ in response:
+        ...
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Chat Completion with {request_data[model]!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_openrouter_streaming_reasoning',
+                    'code.lineno': 123,
+                    'request_data': {
+                        'messages': [{'role': 'user', 'content': 'Hello, how are you? (This is a trick question)'}],
+                        'model': 'google/gemini-2.5-flash',
+                        'stream': True,
+                    },
+                    'gen_ai.request.model': 'google/gemini-2.5-flash',
+                    'async': False,
+                    'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
+                    'logfire.msg': "Chat Completion with 'google/gemini-2.5-flash'",
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'request_data': {'type': 'object'}, 'gen_ai.request.model': {}, 'async': {}},
+                    },
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.response.model': 'google/gemini-2.5-flash',
+                },
+            },
+            {
+                'name': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 5000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                    'logfire.msg': "streaming response from 'google/gemini-2.5-flash' took 1.00s",
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_openrouter_streaming_reasoning',
+                    'code.lineno': 123,
+                    'request_data': {
+                        'messages': [{'role': 'user', 'content': 'Hello, how are you? (This is a trick question)'}],
+                        'model': 'google/gemini-2.5-flash',
+                        'stream': True,
+                    },
+                    'gen_ai.request.model': 'google/gemini-2.5-flash',
+                    'async': False,
+                    'duration': 1.0,
+                    'response_data': {
+                        'message': {
+                            'content': """\
+That's a clever way to put it! You're right, it is a bit of a trick question for an AI.
+
+As a large language model, I don't experience emotions, have a physical body, or "feel" things in the human sense, so I can't really quantify "how" I am.
+
+However, I am fully operational, my systems are running smoothly, and I'm ready to assist you!
+
+So, while I can't genuinely answer it for myself, how are *you* doing today, and what can I help you with?\
+""",
+                            'refusal': None,
+                            'role': 'assistant',
+                            'annotations': None,
+                            'audio': None,
+                            'function_call': None,
+                            'tool_calls': None,
+                            'parsed': None,
+                            'reasoning': """\
+**Interpreting User Intent**
+
+I'm zeroing in on the core of the query. The "how are you" is basic, but the "trick question" label is key. My focus is on decoding what the user *really* wants. I'm anticipating something beyond a simple pleasantry.
+
+
+""",
+                            'reasoning_details': [
+                                {
+                                    'type': 'reasoning.text',
+                                    'text': """\
+**Interpreting User Intent**
+
+I'm zeroing in on the core of the query. The "how are you" is basic, but the "trick question" label is key. My focus is on decoding what the user *really* wants. I'm anticipating something beyond a simple pleasantry.
+
+
+""",
+                                    'provider': 'google-vertex',
+                                }
+                            ],
+                        },
+                        'usage': {
+                            'completion_tokens': 1003,
+                            'prompt_tokens': 13,
+                            'total_tokens': 1016,
+                            'completion_tokens_details': None,
+                            'prompt_tokens_details': None,
+                        },
+                    },
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.request.model': {},
+                            'async': {},
+                            'duration': {},
+                            'response_data': {
+                                'type': 'object',
+                                'properties': {
+                                    'message': {
+                                        'type': 'object',
+                                        'title': 'ParsedChatCompletionMessage[object]',
+                                        'x-python-datatype': 'PydanticModel',
+                                    },
+                                    'usage': {
+                                        'type': 'object',
+                                        'title': 'CompletionUsage',
+                                        'x-python-datatype': 'PydanticModel',
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    'logfire.tags': ('LLM',),
+                    'gen_ai.response.model': 'google/gemini-2.5-flash',
+                },
+            },
+        ]
+    )
