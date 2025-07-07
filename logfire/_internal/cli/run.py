@@ -170,11 +170,9 @@ def instrument_packages(installed_otel_packages: set[str], instrument_pkg_map: d
             instrument_attr = f'instrument_{import_name}'
 
             try:
-                # Try to access the instrumentation function as an attribute of logfire
-                if hasattr(logfire, instrument_attr):
-                    # The function exists, call it to instrument the package
-                    getattr(logfire, instrument_attr)()
-                    instrumented.append(base_pkg)
+                # If the function exists, call it to instrument the package
+                getattr(logfire, instrument_attr)()
+                instrumented.append(base_pkg)
             except Exception:  # pragma: no cover
                 continue
     return instrumented
