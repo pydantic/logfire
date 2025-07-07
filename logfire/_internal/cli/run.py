@@ -72,7 +72,7 @@ def parse_run(args: argparse.Namespace) -> None:  # pragma: no cover
     logfire.configure()
 
     summary = cast(bool, args.summary)
-    exclude = cast('set[str]', args.exclude)
+    exclude = cast(set[str], args.exclude)
 
     instrument_pkg_map = {otel_pkg: pkg for otel_pkg, pkg in OTEL_INSTRUMENTATION_MAP.items() if pkg not in exclude}
 
