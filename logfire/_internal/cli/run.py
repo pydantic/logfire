@@ -174,9 +174,9 @@ def instrument_packages(installed_otel_packages: set[str], instrument_pkg_map: d
                 if hasattr(logfire, instrument_attr):
                     # The function exists, call it to instrument the package
                     getattr(logfire, instrument_attr)()
+                    instrumented.append(base_pkg)
             except Exception:  # pragma: no cover
                 continue
-            instrumented.append(base_pkg)
     return instrumented
 
 
