@@ -1538,3 +1538,25 @@ def test_split_args_action() -> None:
     parser.add_argument('--foo', action=SplitArgs)
     args = parser.parse_args(['--foo', 'a,b,c'])
     assert args.foo == ['a', 'b', 'c']
+
+
+def test_instrumented_packages_text_filters_starlette_and_urllib3():
+    # Both special cases: fastapi/starlette and requests/urllib3
+    installed_otel_pkgs = {
+        'opentelemetry-instrumentation-fastapi',
+        'opentelemetry-instrumentation-starlette',
+        'opentelemetry-instrumentation-requests',
+        'opentelemetry-instrumentation-urllib3',
+    }
+    instrumented_packages = ['fastapi', 'starlette', 'requests', 'urllib3']
+    installed_pkgs = {'fastapi', 'starlette', 'requests', 'urllib3'}
+
+    text = instrumented_packages_text(installed_otel_pkgs, instrumented_packages, installed_pkgs)
+    assert str(text) == snapshot(
+        """\
+Your instrumentation checklist:
+
+✓ fastapi (installed and instrumented)
+✓ requests (installed and instrumented)
+"""
+    )
