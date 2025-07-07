@@ -43,7 +43,10 @@ def test_instrument_google_genai(exporter: TestExporter) -> None:
 
     response = client.models.generate_content(  # type: ignore
         model='gemini-2.0-flash-001',
-        contents='What is the weather like in Boston?',
+        contents=[
+            types.Part.from_text(text='What is the weather like in Boston?'),
+            types.Part.from_bytes(data=b'123', mime_type='text/plain'),
+        ],
         config=types.GenerateContentConfig(
             tools=[get_current_weather],
         ),
@@ -57,7 +60,7 @@ def test_instrument_google_genai(exporter: TestExporter) -> None:
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': IsInt(),
-                'end_time': 3000000000,
+                'end_time': 4000000000,
                 'attributes': {
                     'code.function.name': 'google.genai.Models.generate_content',
                     'gen_ai.system': 'gemini',
@@ -71,6 +74,12 @@ def test_instrument_google_genai(exporter: TestExporter) -> None:
                     'logfire.metrics': IsPartialDict(),
                     'events': [
                         {'content': 'What is the weather like in Boston?', 'role': 'user'},
+                        {
+                            'content': {
+                                'inline_data': {'display_name': None, 'data': 'MTIz', 'mime_type': 'text/plain'}
+                            },
+                            'role': 'user',
+                        },
                         {
                             'index': 0,
                             'finish_reason': 'STOP',
