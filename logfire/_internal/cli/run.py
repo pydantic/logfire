@@ -157,6 +157,10 @@ def instrument_packages(installed_otel_packages: set[str], instrument_pkg_map: d
     """
     instrumented: list[str] = []
 
+    # Set the environment variables to enable tracing in LangSmith.
+    os.environ.setdefault('LANGSMITH_OTEL_ENABLED', 'true')
+    os.environ.setdefault('LANGSMITH_TRACING_ENABLED', 'true')
+
     # Process all installed OpenTelemetry packages
     for pkg_name in installed_otel_packages:
         if pkg_name in instrument_pkg_map.keys():  # pragma: no branch
