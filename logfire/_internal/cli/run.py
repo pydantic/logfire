@@ -154,7 +154,7 @@ def is_uv_installed() -> bool:
 
 
 def instrument_packages(installed_otel_packages: set[str], instrument_pkg_map: dict[str, str]) -> list[str]:
-    """Automatically instrument the installed OpenTelemetry packages.
+    """Call every `logfire.instrument_x()` we can based on what's installed.
 
     Returns a list of packages that were successfully instrumented.
     """
