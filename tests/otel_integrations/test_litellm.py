@@ -46,34 +46,33 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
             },
         }
     ]
-    model = 'gpt-4o-mini'
-    with warnings.catch_warnings():
-        warnings.filterwarnings('ignore', category=UserWarning)
-        response: Any = litellm.completion(model=model, messages=messages, tools=tools)  # type: ignore
-    response_message = response.choices[0].message
-    tool_calls = response_message.tool_calls
 
+    def completion() -> Any:
+        model = 'gpt-4o-mini'
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', category=UserWarning)
+            return litellm.completion(model=model, messages=messages, tools=tools)  # type: ignore
+
+    response = completion()
+    response_message = response.choices[0].message
     messages.append(response_message)
 
-    for tool_call in tool_calls:
-        function_name = tool_call.function.name
-        assert function_name == get_current_weather.__name__
-        function_args = json.loads(tool_call.function.arguments)
-        function_response = get_current_weather(
-            location=function_args.get('location'),
-        )
-        messages.append(
-            {
-                'tool_call_id': tool_call.id,
-                'role': 'tool',
-                'name': function_name,
-                'content': function_response,
-            }
-        )
-    with warnings.catch_warnings():
-        warnings.filterwarnings('ignore', category=UserWarning)
-        second_response = litellm.completion(model=model, messages=messages)  # type: ignore
-    assert second_response.choices[0].message.content == snapshot(  # type: ignore
+    [tool_call] = response_message.tool_calls
+    function_name = tool_call.function.name
+    assert function_name == get_current_weather.__name__
+    function_args = json.loads(tool_call.function.arguments)
+    function_response = get_current_weather(**function_args)
+    messages.append(
+        {
+            'tool_call_id': tool_call.id,
+            'role': 'tool',
+            'name': function_name,
+            'content': function_response,
+        }
+    )
+
+    second_response = completion()
+    assert second_response.choices[0].message.content == snapshot(
         'The current temperature in San Francisco is 72°F. If you need more specific weather details or a forecast, let me know!'
     )
 
@@ -288,6 +287,26 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                                 'name': 'get_current_weather',
                                 'content': '{"location": "San Francisco", "temperature": "72", "unit": "fahrenheit"}',
                             },
+                        ],
+                        'tools': [
+                            {
+                                'type': 'function',
+                                'function': {
+                                    'name': 'get_current_weather',
+                                    'description': 'Get the current weather in a given location',
+                                    'parameters': {
+                                        'type': 'object',
+                                        'properties': {
+                                            'location': {
+                                                'type': 'string',
+                                                'description': 'The city and state, e.g. San Francisco, CA',
+                                            },
+                                            'unit': {'type': 'string', 'enum': ['celsius', 'fahrenheit']},
+                                        },
+                                        'required': ['location'],
+                                    },
+                                },
+                            }
                         ],
                     },
                     'output.value': {
