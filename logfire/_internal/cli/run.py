@@ -122,8 +122,6 @@ def parse_run(args: argparse.Namespace) -> None:
         script_path = script_and_args[0]
         script_args = script_and_args[1:]
 
-        cmd_str = f'python {script_path} {" ".join(script_args)}'
-
         # Make sure the script directory is in sys.path
         script_dir = os.path.dirname(os.path.abspath(script_path))
         if script_dir not in sys.path:
@@ -136,7 +134,7 @@ def parse_run(args: argparse.Namespace) -> None:
             # Set up args for the script
             sys.argv = [script_path] + script_args
 
-            logfire.info(f'Running command: {cmd_str}')
+            logfire.info('Running command: {cmd_str}', cmd_str=f'python {script_path} {" ".join(script_args)}')
 
             # Run the script
             runpy.run_path(script_path, run_name='__main__')
@@ -174,7 +172,7 @@ def instrument_packages(installed_otel_packages: set[str], instrument_pkg_map: d
         try:
             # If the function exists, call it to instrument the package
             getattr(logfire, instrument_attr)()
-        except Exception:  # pragma: no cover
+        except Exception:
             continue
         instrumented.append(base_pkg)
     return instrumented
@@ -228,7 +226,7 @@ def instrumented_packages_text(
 
     text = Text('Your instrumentation checklist:\n\n')
     for pkg_name in sorted(installed_otel_pkgs):
-        base_pkg = _base_pkg_name(pkg_name)
+        base_pkg = pkg_name.replace('opentelemetry-instrumentation-', '')
         if base_pkg in instrumented_packages:
             text.append(f'✓ {base_pkg} (installed and instrumented)\n', style='green')
         else:
@@ -297,13 +295,6 @@ def print_otel_summary(
     console.print('\n')
     console.print(panel)
     console.print()
-
-
-def _base_pkg_name(pkg_name: str) -> str:
-    base_pkg = pkg_name.replace('opentelemetry-instrumentation-', '')
-    if base_pkg == 'aiohttp-client':
-        base_pkg = 'aiohttp'  # pragma: no cover
-    return base_pkg
 
 
 def installed_packages() -> set[str]:  # pragma: no cover
