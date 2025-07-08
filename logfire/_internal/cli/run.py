@@ -98,7 +98,7 @@ def parse_run(args: argparse.Namespace) -> None:
     # Get arguments from the script_and_args parameter
     script_and_args = args.script_and_args
 
-    if hasattr(args, 'module') and (module_name := args.module):
+    if module_name := args.module:
         module_args = script_and_args
 
         cmd_str = f'python -m {module_name} {" ".join(module_args)}'
