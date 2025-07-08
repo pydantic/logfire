@@ -1,8 +1,14 @@
-# Trying Self Hosted locally
+# Local Quickstart
 
-This guide covers how to setup a local instance, so that you can test, prototype and evaluate Logfire without requiring a full production environment.
+This guide provides a fast path for setting up a local Logfire instance on Kubernetes to test, prototype, and evaluate the product.
+
+For a production setup, including detailed configuration and prerequisites, please refer to our In-Depth [Installation Guide](./installation.md).
+
+---
 
 ## Prerequisites
+
+Before deploying, you will need the following:
 
 - A Logfire Access Key, you'll need to get in contact with [sales@pydantic.dev](mailto:sales@pydantic.dev) to get one.
 - A local Kubernetes cluster, we will be using [Kind](https://kind.sigs.k8s.io/) in this example.
@@ -36,9 +42,11 @@ kubectl create secret docker-registry regcred \
   --docker-email=<YOUR_EMAIL>
 ```
 
-## Installing Logfire
+### Installing Logfire
 
 You can now install Logfire using the Helm chart, with the development dependencies enabled.
+!!! warning
+    These development services are not suitable for production use. They lack persistence, backup, and security configurations.
 
 Here is a minimal command to run Logfire in development mode, you can customize `adminEmail` if you want to access Logfire's self telemetry, but it's not required:
 
@@ -58,39 +66,9 @@ helm install logfire pydantic/logfire \
 ```
 
 You can refer to the [Logfire Helm Chart](https://github.com/pydantic/logfire-helm-chart) documentation to check all the supported configurations.
+Also check our [full installation guide](./installation.md) for a complete checklist and a detailed example `values.yaml` to get you started on your production setup.
 
-
-## Using Logfire
-
-To access your local Logfire installation from you host you'll need to port forward `logfire-service`:
-
-```bash
-kubectl port-forward service/logfire-service 8080:8080
-```
-
-and `logfire-maildev`, for receiving emails and enabling user signups:
-
-```bash
-kubectl port-forward service/logfire-maildev 1080:1080
-```
-
-You are now ready to use Logfire with your browser of choice navigating to `http://localhost:8080/`
-
-You can access the emails for signin up going to `http://localhost:1080`.
-
-After creating your user, your project and your write token, you can start sending data to Logfire in the same fashion as always:
-
-```python
-import logfire
-
-logfire.configure(
-  advanced=logfire.AdvancedOptions(base_url='http://localhost:8080'),
-  token='__YOUR_LOGFIRE_WRITE_TOKEN__'
-)
-logfire.info('Hello, {place}!', place='World')
-```
-
-## Using Tilt
+## Setup with Tilt (Optional)
 
 If you are a [Tilt](https://tilt.dev/) user, you can use this `Tiltfile` to automate the Logfire setup:
 
@@ -157,6 +135,36 @@ LOGFIRE_ADMIN_EMAIL=<ADMIN_EMAIL> \
 tilt up
 ```
 
+## Using Logfire
+
+To access your local Logfire installation from you host you'll need to port forward `logfire-service`:
+
+```bash
+kubectl port-forward service/logfire-service 8080:8080
+```
+
+and `logfire-maildev`, for receiving emails and enabling user signups:
+
+```bash
+kubectl port-forward service/logfire-maildev 1080:1080
+```
+
+You are now ready to use Logfire with your browser of choice navigating to `http://localhost:8080/`
+
+You can access the emails for signin up going to `http://localhost:1080`.
+
+After creating your user, your project and your write token, you can start sending data to Logfire in the same fashion as always:
+
+```python
+import logfire
+
+logfire.configure(
+  advanced=logfire.AdvancedOptions(base_url='http://localhost:8080'),
+  token='__YOUR_LOGFIRE_WRITE_TOKEN__'
+)
+logfire.info('Hello, {place}!', place='World')
+```
+
 ## Cleanup
 
 In order to cleanup your local environment you can just delete the k8s cluster:
@@ -164,3 +172,16 @@ In order to cleanup your local environment you can just delete the k8s cluster:
 ```bash
 kind delete cluster
 ```
+
+## Troubleshooting and support
+
+If you encounter issues, we recommend first consulting the [Troubleshooting](./troubleshooting.md) section.
+
+If your issue persists, please open a detailed issue on [Github](https://github.com/pydantic/logfire-helm-chart/issues), including:
+
+* Chart version
+* Kubernetes version
+* A sanitized copy of your ```values.yaml```
+* Relevant logs or error messages
+
+For commercial or enterprise support, contact [our sales team](mailto:sales@pydantic.dev).
