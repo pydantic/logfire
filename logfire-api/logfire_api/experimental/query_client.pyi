@@ -1,6 +1,5 @@
 from _typeshed import Incomplete
 from datetime import datetime
-from uuid import UUID
 from httpx import AsyncClient, Client, Response, Timeout
 from httpx._client import BaseClient
 from logfire._internal.config import get_base_url_from_token as get_base_url_from_token
@@ -15,8 +14,10 @@ class QueryExecutionError(RuntimeError):
     """Raised when the query execution fails on the server."""
 class QueryRequestError(RuntimeError):
     """Raised when the query request is invalid."""
+class InfoRequestError(RuntimeError):
+    """Raised when the request for read token info fails because of unavailable information."""
 
-class ReadTokenInfo(TypedDict, total=True):
+class ReadTokenInfo(TypedDict, total=False):
     """Information about the read token."""
     organization_name: str
     project_name: str
@@ -56,7 +57,7 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
     def __enter__(self) -> Self: ...
     def __exit__(self, exc_type: type[BaseException] | None = None, exc_value: BaseException | None = None, traceback: TracebackType | None = None) -> None: ...
     def info(self) -> ReadTokenInfo:
-       """Get information about the read token."""
+        """Get information about the read token."""
     def query_json(self, sql: str, min_timestamp: datetime | None = None, max_timestamp: datetime | None = None, limit: int | None = None) -> QueryResults:
         """Query Logfire data and return the results as a column-oriented dictionary."""
     def query_json_rows(self, sql: str, min_timestamp: datetime | None = None, max_timestamp: datetime | None = None, limit: int | None = None) -> RowQueryResults:
@@ -80,7 +81,7 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
     async def __aenter__(self) -> Self: ...
     async def __aexit__(self, exc_type: type[BaseException] | None = None, exc_value: BaseException | None = None, traceback: TracebackType | None = None) -> None: ...
     async def info(self) -> ReadTokenInfo:
-       """Get information about the read token."""
+        """Get information about the read token."""
     async def query_json(self, sql: str, min_timestamp: datetime | None = None, max_timestamp: datetime | None = None, limit: int | None = None) -> QueryResults:
         """Query Logfire data and return the results as a column-oriented dictionary."""
     async def query_json_rows(self, sql: str, min_timestamp: datetime | None = None, max_timestamp: datetime | None = None, limit: int | None = None) -> RowQueryResults:

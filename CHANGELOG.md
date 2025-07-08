@@ -1,5 +1,10 @@
 # Release Notes
 
+## [v3.23.0] (2025-07-08)
+
+* Add info method to logfire query clients by @hramezani in [#1204](https://github.com/pydantic/logfire/pull/1204)
+* Make query client not experimental by @alexmojaki in [#1234](https://github.com/pydantic/logfire/pull/1234)
+
 ## [v3.22.1] (2025-07-07)
 
 * Fix OpenAI streaming reasoning by @alexmojaki in [#1232](https://github.com/pydantic/logfire/pull/1232)
@@ -771,3 +776,4 @@ First release from new repo!
 [v3.21.2]: https://github.com/pydantic/logfire/compare/v3.21.1...v3.21.2
 [v3.22.0]: https://github.com/pydantic/logfire/compare/v3.21.2...v3.22.0
 [v3.22.1]: https://github.com/pydantic/logfire/compare/v3.22.0...v3.22.1
+[v3.23.0]: https://github.com/pydantic/logfire/compare/v3.22.1...v3.23.0
