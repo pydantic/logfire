@@ -76,8 +76,7 @@ class InstrumentationContext:
     recommendations: set[tuple[str, str]]
 
 
-def parse_run(args: argparse.Namespace) -> None:  # pragma: no cover
-    # Initialize Logfire
+def parse_run(args: argparse.Namespace) -> None:
     logfire.configure()
 
     summary = cast(bool, args.summary)
