@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import pytest
 from inline_snapshot import snapshot
 
-from logfire.experimental.query_client import AsyncLogfireQueryClient, LogfireQueryClient
+from logfire.query_client import AsyncLogfireQueryClient, LogfireQueryClient
 
 # This file is intended to be updated by the Logfire developers, with the development platform running locally.
 # To update, set the `CLIENT_BASE_URL` and `CLIENT_READ_TOKEN` values to match the local development environment,
