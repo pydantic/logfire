@@ -88,6 +88,10 @@ Here's an example of how to use these clients:
             df_from_csv = pl.read_csv(StringIO(await client.query_csv(sql=query)))
             print(df_from_csv)
 
+            # Get read token info
+            read_token_info = await client.info()
+            print(read_token_info)
+
 
     if __name__ == '__main__':
         import asyncio
@@ -131,6 +135,10 @@ Here's an example of how to use these clients:
             # JSON-serialized strings
             df_from_csv = pl.read_csv(StringIO(client.query_csv(sql=query)))
             print(df_from_csv)
+
+            # Get read token info
+            read_token_info = client.info()
+            print(read_token_info)
 
 
     if __name__ == '__main__':

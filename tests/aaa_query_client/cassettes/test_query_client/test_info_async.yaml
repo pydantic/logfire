@@ -1,0 +1,40 @@
+interactions:
+- request:
+    body: ''
+    headers:
+      accept:
+      - '*/*'
+      accept-encoding:
+      - gzip, deflate, zstd
+      connection:
+      - keep-alive
+      host:
+      - localhost:8000
+      user-agent:
+      - python-httpx/0.28.1
+    method: GET
+    uri: http://localhost:8000/api/read-token-info
+  response:
+    body:
+      string: '{"token_id":"b630bd4e-6a20-486b-95cb-c02a175767b2","organization_id":"710c0de0-dda1-40fb-9601-b72d120acb71","project_id":"11d5d03b-7fc6-4ad6-bcd9-d1cc4bc87986","organization_name":"test-org","project_name":"starter-project"}'
+    headers:
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '221'
+      Content-Type:
+      - application/json
+      Date:
+      - Sun, 06 Jul 2025 12:57:40 GMT
+      Server:
+      - nginx/1.29.0
+      access-control-expose-headers:
+      - traceresponse
+      traceresponse:
+      - 00-0197dfd050205c9d29c0a1a4a934222c-03c3392466156875-01
+      x-api-version:
+      - UClDZTsUC0iVNKhEvlUL2JNm0ur0dBUm1u2/5He9ZtE=
+    status:
+      code: 200
+      message: OK
+version: 1
