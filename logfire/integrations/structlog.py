@@ -42,7 +42,7 @@ class LogfireProcessor:
         msg_template = event_dict.get('event') or 'structlog event'
         attributes.setdefault(ATTRIBUTES_MESSAGE_KEY, msg_template)
         self.logfire_instance.log(
-            level=level,  # type: ignore
+            level=level,
             msg_template=msg_template,
             attributes=attributes,
             console_log=self.console_log,
