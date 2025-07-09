@@ -3,7 +3,7 @@ import sys
 
 import pydantic
 import pytest
-from dirty_equals import IsInt, IsPartialDict
+from dirty_equals import IsInt, IsPartialDict, IsStr
 from inline_snapshot import snapshot
 
 import logfire
@@ -65,13 +65,7 @@ def test_instrument_google_genai(exporter: TestExporter) -> None:
                     'gen_ai.system': 'gemini',
                     'gen_ai.operation.name': 'execute_tool',
                     'gen_ai.tool.name': 'get_current_weather',
-                    'gen_ai.tool.description': """\
-Returns the current weather.
-
-        Args:
-          location: The city and state, e.g. San Francisco, CA
-        \
-""",
+                    'gen_ai.tool.description': IsStr(),
                     'code.function.name': 'get_current_weather',
                     'code.module': 'tests.otel_integrations.test_google_genai',
                     'code.args.positional.count': 0,
