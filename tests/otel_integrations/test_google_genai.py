@@ -56,11 +56,42 @@ def test_instrument_google_genai(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
+                'name': 'execute_tool get_current_weather',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'gen_ai.system': 'gemini',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.tool.name': 'get_current_weather',
+                    'gen_ai.tool.description': """\
+Returns the current weather.
+
+        Args:
+          location: The city and state, e.g. San Francisco, CA
+        \
+""",
+                    'code.function.name': 'get_current_weather',
+                    'code.module': 'tests.otel_integrations.test_google_genai',
+                    'code.args.positional.count': 0,
+                    'code.args.keyword.count': 1,
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'execute_tool get_current_weather',
+                    'code.function.parameters.location.type': 'str',
+                    'code.function.parameters.location.value': 'Boston, MA',
+                    'code.function.return.type': 'str',
+                    'code.function.return.value': 'rainy',
+                    'events': [],
+                    'logfire.json_schema': {'type': 'object', 'properties': {'events': {'type': 'array'}}},
+                },
+            },
+            {
                 'name': 'generate_content gemini-2.0-flash-001',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': IsInt(),
-                'end_time': 4000000000,
+                'end_time': 6000000000,
                 'attributes': {
                     'code.function.name': 'google.genai.Models.generate_content',
                     'gen_ai.system': 'gemini',
@@ -89,6 +120,6 @@ def test_instrument_google_genai(exporter: TestExporter) -> None:
                     'logfire.json_schema': {'type': 'object', 'properties': {'events': {'type': 'array'}}},
                     'gen_ai.response.model': 'gemini-2.0-flash-001',
                 },
-            }
+            },
         ]
     )
