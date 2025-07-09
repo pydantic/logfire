@@ -63,7 +63,7 @@ def test_instrument_google_genai(exporter: TestExporter) -> None:
                 'end_time': 4000000000,
                 'attributes': {
                     'gen_ai.system': 'gemini',
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'execute_tool',
                     'gen_ai.tool.name': 'get_current_weather',
                     'gen_ai.tool.description': """\
 Returns the current weather.
@@ -82,8 +82,6 @@ Returns the current weather.
                     'code.function.parameters.location.value': 'Boston, MA',
                     'code.function.return.type': 'str',
                     'code.function.return.value': 'rainy',
-                    'events': [],
-                    'logfire.json_schema': {'type': 'object', 'properties': {'events': {'type': 'array'}}},
                 },
             },
             {
