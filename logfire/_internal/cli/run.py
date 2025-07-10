@@ -130,7 +130,7 @@ def parse_run(args: argparse.Namespace) -> None:  # pragma: no cover
 
 
 @contextmanager
-def alter_sys_argv(argv: list[str], cmd: str) -> Generator[None, None, None]:
+def alter_sys_argv(argv: list[str], cmd: str) -> Generator[None, None, None]:  # pragma: no cover
     orig_argv = sys.argv.copy()
     sys.argv = argv
     try:
