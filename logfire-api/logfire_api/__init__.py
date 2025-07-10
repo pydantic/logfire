@@ -148,6 +148,8 @@ except ImportError:
 
             def instrument_google_genai(self, *args, **kwargs) -> None: ...
 
+            def instrument_litellm(self, *args, **kwargs) -> None: ...
+
             def instrument_aiohttp_client(self, *args, **kwargs) -> None: ...
 
             def instrument_aiohttp_server(self, *args, **kwargs) -> None: ...
@@ -185,6 +187,7 @@ except ImportError:
         instrument_openai_agents = DEFAULT_LOGFIRE_INSTANCE.instrument_openai_agents
         instrument_anthropic = DEFAULT_LOGFIRE_INSTANCE.instrument_anthropic
         instrument_google_genai = DEFAULT_LOGFIRE_INSTANCE.instrument_google_genai
+        instrument_litellm = DEFAULT_LOGFIRE_INSTANCE.instrument_litellm
         instrument_asyncpg = DEFAULT_LOGFIRE_INSTANCE.instrument_asyncpg
         instrument_celery = DEFAULT_LOGFIRE_INSTANCE.instrument_celery
         instrument_httpx = DEFAULT_LOGFIRE_INSTANCE.instrument_httpx

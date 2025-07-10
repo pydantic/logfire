@@ -188,6 +188,12 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         # just remove the member unconditionally to pass future asserts
         logfire__all__.remove(member)
 
+    if 'litellm' not in sys.modules:
+        # Trigger the deprecation warning for litellm import
+        # so that instrument_litellm doesn't produce it.
+        with pytest.warns(DeprecationWarning):
+            importlib.import_module('litellm')
+
     assert hasattr(logfire_api, 'shutdown')
     logfire_api.shutdown()
     logfire__all__.remove('shutdown')
