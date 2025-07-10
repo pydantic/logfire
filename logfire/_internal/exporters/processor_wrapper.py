@@ -454,16 +454,30 @@ def _transform_litellm_span(span: ReadableSpanDict):
 
     attributes = span['attributes']
     try:
-        request_data = attributes['input.value']
         output = json.loads(cast(str, attributes['output.value']))
-        response_data = json.dumps({'message': output['choices'][0]['message']})
-    except Exception:
+        new_attrs = {
+            'request_data': attributes['input.value'],
+            'response_data': json.dumps({'message': output['choices'][0]['message']}),
+        }
+    except Exception:  # pragma: no cover
         return
+
+    try:
+        new_attrs.update(
+            {
+                'gen_ai.request.model': attributes['llm.model_name'],
+                'gen_ai.response.model': output['model'],
+                'gen_ai.usage.input_tokens': output['usage']['completion_tokens'],
+                'gen_ai.usage.output_tokens': output['usage']['prompt_tokens'],
+                'gen_ai.system': guess_system(output['model']),
+            }
+        )
+    except Exception:  # pragma: no cover
+        pass
 
     span['attributes'] = {
         **attributes,
-        'request_data': request_data,
-        'response_data': response_data,
+        **new_attrs,
         ATTRIBUTES_TAGS_KEY: ['LLM'],
         ATTRIBUTES_JSON_SCHEMA_KEY: attributes_json_schema(
             JsonSchemaProperties(
@@ -474,3 +488,15 @@ def _transform_litellm_span(span: ReadableSpanDict):
             )
         ),
     }
+
+
+def guess_system(model: str):
+    model_lower = model.lower()
+    if 'openai' in model_lower or 'gpt-4' in model_lower or 'gpt-3.5' in model_lower:
+        return 'openai'
+    elif 'google' in model_lower or 'gemini' in model_lower:
+        return 'google'
+    elif 'anthropic' in model_lower or 'claude' in model_lower:
+        return 'anthropic'
+    else:
+        return 'litellm'

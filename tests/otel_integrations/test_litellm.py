@@ -6,6 +6,7 @@ from typing import Any
 import pytest
 from inline_snapshot import snapshot
 
+from logfire._internal.exporters.processor_wrapper import guess_system
 from logfire.testing import TestExporter
 
 with warnings.catch_warnings():
@@ -201,6 +202,11 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                             'annotations': [],
                         }
                     },
+                    'gen_ai.request.model': 'gpt-4o-mini',
+                    'gen_ai.response.model': 'gpt-4o-mini-2024-07-18',
+                    'gen_ai.usage.input_tokens': 18,
+                    'gen_ai.usage.output_tokens': 80,
+                    'gen_ai.system': 'openai',
                     'logfire.tags': ['LLM'],
                     'logfire.json_schema': {
                         'type': 'object',
@@ -378,6 +384,11 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                             'annotations': [],
                         }
                     },
+                    'gen_ai.request.model': 'gpt-4o-mini',
+                    'gen_ai.response.model': 'gpt-4o-mini-2024-07-18',
+                    'gen_ai.usage.input_tokens': 26,
+                    'gen_ai.usage.output_tokens': 62,
+                    'gen_ai.system': 'openai',
                     'logfire.tags': ['LLM'],
                     'logfire.json_schema': {
                         'type': 'object',
@@ -387,3 +398,15 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
             },
         ]
     )
+
+
+def test_guess_system():
+    assert guess_system('GPT-4') == 'openai'
+    assert guess_system('gpt-4o-mini') == 'openai'
+    assert guess_system('gpt-3.5-turbo') == 'openai'
+    assert guess_system('some-openai-model') == 'openai'
+    assert guess_system('google-other') == 'google'
+    assert guess_system('gemini-1.5-pro') == 'google'
+    assert guess_system('claude-sonnet') == 'anthropic'
+    assert guess_system('other-anthropic') == 'anthropic'
+    assert guess_system('unknown-model') == 'litellm'
