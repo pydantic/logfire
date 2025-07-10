@@ -467,8 +467,8 @@ def _transform_litellm_span(span: ReadableSpanDict):
             {
                 'gen_ai.request.model': attributes['llm.model_name'],
                 'gen_ai.response.model': output['model'],
-                'gen_ai.usage.input_tokens': output['usage']['completion_tokens'],
-                'gen_ai.usage.output_tokens': output['usage']['prompt_tokens'],
+                'gen_ai.usage.input_tokens': output['usage']['prompt_tokens'],
+                'gen_ai.usage.output_tokens': output['usage']['completion_tokens'],
                 'gen_ai.system': guess_system(output['model']),
             }
         )
