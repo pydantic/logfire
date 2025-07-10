@@ -176,6 +176,8 @@ dev = [
     "langgraph >= 0",
     "opentelemetry-instrumentation-google-genai >= 0",
     "google-genai >= 0",
+    "openinference-instrumentation-litellm >= 0",
+    "litellm >= 0",
 ]
 docs = [
     "black>=23.12.0",
