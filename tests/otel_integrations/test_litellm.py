@@ -14,18 +14,14 @@ from logfire._internal.exporters.processor_wrapper import guess_system
 from logfire._internal.utils import get_version
 from logfire.testing import TestExporter
 
-with warnings.catch_warnings():
-    warnings.filterwarnings('ignore', category=DeprecationWarning)
-
-
-logging.getLogger('LiteLLM').disabled = True
-
 
 @pytest.mark.vcr()
 @pytest.mark.skipif(get_version(pydantic.__version__) < get_version('2.5.0'), reason='Requires newer pydantic version')
 def test_litellm_instrumentation(exporter: TestExporter) -> None:
     with nullcontext() if 'litellm' in sys.modules else pytest.warns(DeprecationWarning):
         import litellm
+
+    logging.getLogger('LiteLLM').disabled = True
 
     logfire.instrument_litellm()
 
