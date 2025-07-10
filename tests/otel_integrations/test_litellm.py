@@ -3,11 +3,13 @@ import logging
 import warnings
 from typing import Any
 
+import pydantic
 import pytest
 from inline_snapshot import snapshot
 
 import logfire
 from logfire._internal.exporters.processor_wrapper import guess_system
+from logfire._internal.utils import get_version
 from logfire.testing import TestExporter
 
 with warnings.catch_warnings():
@@ -19,6 +21,7 @@ logging.getLogger('LiteLLM').disabled = True
 
 
 @pytest.mark.vcr()
+@pytest.mark.skipif(get_version(pydantic.__version__) < get_version('2.5.0'), reason='Requires newer pydantic version')
 def test_litellm_instrumentation(exporter: TestExporter) -> None:
     logfire.instrument_litellm()
 

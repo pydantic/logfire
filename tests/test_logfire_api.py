@@ -180,6 +180,17 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         logfire_api.instrument_google_genai()
     logfire__all__.remove('instrument_google_genai')
 
+    assert hasattr(logfire_api, 'instrument_litellm')
+    if not pydantic_pre_2_5:
+        if 'litellm' not in sys.modules:
+            # Trigger the deprecation warning for litellm import
+            # so that instrument_litellm doesn't produce it.
+            with pytest.warns(DeprecationWarning):
+                importlib.import_module('litellm')
+
+        logfire_api.instrument_litellm()
+    logfire__all__.remove('instrument_litellm')
+
     for member in [m for m in logfire__all__ if m.startswith('instrument_')]:
         assert hasattr(logfire_api, member), member
         if not (pydantic_pre_2_5 and member == 'instrument_pydantic'):
@@ -187,12 +198,6 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
             getattr(logfire_api, member)()
         # just remove the member unconditionally to pass future asserts
         logfire__all__.remove(member)
-
-    if 'litellm' not in sys.modules:
-        # Trigger the deprecation warning for litellm import
-        # so that instrument_litellm doesn't produce it.
-        with pytest.warns(DeprecationWarning):
-            importlib.import_module('litellm')
 
     assert hasattr(logfire_api, 'shutdown')
     logfire_api.shutdown()
