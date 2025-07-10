@@ -8,6 +8,8 @@ import runpy
 import shutil
 import sys
 import warnings
+from collections.abc import Generator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import cast
 
@@ -45,7 +47,7 @@ OTEL_INSTRUMENTATION_MAP = {
     'opentelemetry-instrumentation-mysqlclient': 'mysqlclient',
     'opentelemetry-instrumentation-pika': 'pika',
     'opentelemetry-instrumentation-psycopg': 'psycopg',
-    'opentelemetry-instrumentation-psycopg2': 'psycopg2',
+    'opentelemetry-instrumentation-psycopg2': 'psycopg',
     'opentelemetry-instrumentation-pymemcache': 'pymemcache',
     'opentelemetry-instrumentation-pymongo': 'pymongo',
     'opentelemetry-instrumentation-pymysql': 'pymysql',
@@ -76,7 +78,7 @@ class InstrumentationContext:
     recommendations: set[tuple[str, str]]
 
 
-def parse_run(args: argparse.Namespace) -> None:
+def parse_run(args: argparse.Namespace) -> None:  # pragma: no cover
     logfire.configure()
 
     summary = cast(bool, args.summary)
@@ -101,22 +103,14 @@ def parse_run(args: argparse.Namespace) -> None:
     if module_name := args.module:
         module_args = script_and_args
 
-        cmd_str = f'python -m {module_name} {" ".join(module_args)}'
-
-        # Save original arguments
-        orig_argv = sys.argv.copy()
-
-        try:
-            # Set up args for the module
+        with alter_sys_argv(sys.argv, f'python -m {module_name} {" ".join(module_args)}'):
+            # We need to change the `sys.argv` to make sure the module sees the right CLI args
+            # e.g. in case of `logfire run -m uvicorn main:app --reload`, the application will see
+            # ["<uvicorn.__main__.", "main:app", "--reload"].
             sys.argv = [f'-m {module_name}'] + module_args
 
-            logfire.info('Running command: {cmd_str}', cmd_str=cmd_str)
-
-            # Run the module
+            # We also need to se the `alter_sys=True` to ensure our changes are reflected in the module.
             runpy.run_module(module_name, run_name='__main__', alter_sys=True)
-        finally:
-            # Restore original arguments
-            sys.argv = orig_argv
     elif script_and_args:
         # Script mode
         script_path = script_and_args[0]
@@ -127,23 +121,23 @@ def parse_run(args: argparse.Namespace) -> None:
         if script_dir not in sys.path:
             sys.path.insert(0, script_dir)
 
-        # Save original arguments
-        orig_argv = sys.argv.copy()
-
-        try:
-            # Set up args for the script
+        with alter_sys_argv(sys.argv, f'python {script_path} {" ".join(script_args)}'):
             sys.argv = [script_path] + script_args
-
-            logfire.info('Running command: {cmd_str}', cmd_str=f'python {script_path} {" ".join(script_args)}')
-
-            # Run the script
             runpy.run_path(script_path, run_name='__main__')
-        finally:
-            # Restore original arguments
-            sys.argv = orig_argv
     else:
         print('Usage: logfire run [-m MODULE] [args...] OR logfire run SCRIPT [args...]')
         sys.exit(1)
+
+
+@contextmanager
+def alter_sys_argv(argv: list[str], cmd: str) -> Generator[None, None, None]:
+    orig_argv = sys.argv.copy()
+    sys.argv = argv
+    try:
+        logfire.info('Running command: {cmd_str}', cmd_str=cmd)
+        yield
+    finally:
+        sys.argv = orig_argv
 
 
 def is_uv_installed() -> bool:
