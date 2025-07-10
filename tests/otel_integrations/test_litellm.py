@@ -6,13 +6,13 @@ from typing import Any
 import pytest
 from inline_snapshot import snapshot
 
+import logfire
 from logfire._internal.exporters.processor_wrapper import guess_system
 from logfire.testing import TestExporter
 
 with warnings.catch_warnings():
     warnings.filterwarnings('ignore', category=DeprecationWarning)
     import litellm
-    from openinference.instrumentation.litellm import LiteLLMInstrumentor
 
 
 logging.getLogger('LiteLLM').disabled = True
@@ -20,7 +20,7 @@ logging.getLogger('LiteLLM').disabled = True
 
 @pytest.mark.vcr()
 def test_litellm_instrumentation(exporter: TestExporter) -> None:
-    LiteLLMInstrumentor().instrument()
+    logfire.instrument_litellm()
 
     def get_current_weather(location: str):
         """Get the current weather in a given location"""
