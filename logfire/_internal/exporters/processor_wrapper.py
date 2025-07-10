@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from contextlib import suppress
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 from urllib.parse import parse_qs, urlparse
 
 from opentelemetry import context
@@ -18,6 +18,7 @@ from ..constants import (
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,
     ATTRIBUTES_MESSAGE_KEY,
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
+    ATTRIBUTES_TAGS_KEY,
     LEVEL_NUMBERS,
     log_level_attributes,
 )
@@ -83,6 +84,7 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
             _transform_langchain_span(span_dict)
             _transform_google_genai_span(span_dict)
             _default_gen_ai_response_model(span_dict)
+            _transform_litellm_span(span_dict)
             self.scrubber.scrub_span(span_dict)
             span = ReadableSpan(**span_dict)
         super().on_end(span)
@@ -443,3 +445,58 @@ def _transform_google_genai_span(span: ReadableSpanDict):
         ATTRIBUTES_JSON_SCHEMA_KEY: attributes_json_schema(JsonSchemaProperties({'events': {'type': 'array'}})),
     }
     span['events'] = new_events
+
+
+def _transform_litellm_span(span: ReadableSpanDict):
+    scope = span['instrumentation_scope']
+    if not (scope and scope.name == 'openinference.instrumentation.litellm'):
+        return
+
+    attributes = span['attributes']
+    try:
+        output = json.loads(cast(str, attributes['output.value']))
+        new_attrs = {
+            'request_data': attributes['input.value'],
+            'response_data': json.dumps({'message': output['choices'][0]['message']}),
+        }
+    except Exception:  # pragma: no cover
+        return
+
+    try:
+        new_attrs.update(
+            {
+                'gen_ai.request.model': attributes['llm.model_name'],
+                'gen_ai.response.model': output['model'],
+                'gen_ai.usage.input_tokens': output['usage']['prompt_tokens'],
+                'gen_ai.usage.output_tokens': output['usage']['completion_tokens'],
+                'gen_ai.system': guess_system(output['model']),
+            }
+        )
+    except Exception:  # pragma: no cover
+        pass
+
+    span['attributes'] = {
+        **attributes,
+        **new_attrs,
+        ATTRIBUTES_TAGS_KEY: ['LLM'],
+        ATTRIBUTES_JSON_SCHEMA_KEY: attributes_json_schema(
+            JsonSchemaProperties(
+                {
+                    'request_data': {'type': 'object'},
+                    'response_data': {'type': 'object'},
+                }
+            )
+        ),
+    }
+
+
+def guess_system(model: str):
+    model_lower = model.lower()
+    if 'openai' in model_lower or 'gpt-4' in model_lower or 'gpt-3.5' in model_lower:
+        return 'openai'
+    elif 'google' in model_lower or 'gemini' in model_lower:
+        return 'google'
+    elif 'anthropic' in model_lower or 'claude' in model_lower:
+        return 'anthropic'
+    else:
+        return 'litellm'

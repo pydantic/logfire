@@ -1270,6 +1270,12 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         instrument_google_genai(self)
 
+    def instrument_litellm(self, **kwargs: Any):
+        from .integrations.litellm import instrument_litellm
+
+        self._warn_if_not_initialized_for_instrumentation()
+        instrument_litellm(self, **kwargs)
+
     def instrument_asyncpg(self, **kwargs: Any) -> None:
         """Instrument the `asyncpg` module so that spans are automatically created for each query."""
         from .integrations.asyncpg import instrument_asyncpg

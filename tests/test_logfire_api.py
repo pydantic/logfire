@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import sys
+from contextlib import nullcontext
 from pathlib import Path
 from types import ModuleType
 from typing import Callable
@@ -179,6 +180,14 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     if get_version(pydantic_version) >= get_version('2.6.0'):
         logfire_api.instrument_google_genai()
     logfire__all__.remove('instrument_google_genai')
+
+    assert hasattr(logfire_api, 'instrument_litellm')
+    if not pydantic_pre_2_5:
+        with nullcontext() if 'litellm' in sys.modules else pytest.warns(DeprecationWarning):
+            importlib.import_module('litellm')
+
+        logfire_api.instrument_litellm()
+    logfire__all__.remove('instrument_litellm')
 
     for member in [m for m in logfire__all__ if m.startswith('instrument_')]:
         assert hasattr(logfire_api, member), member
