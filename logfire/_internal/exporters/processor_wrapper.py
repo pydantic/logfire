@@ -421,7 +421,7 @@ def _default_gen_ai_response_model(span: ReadableSpanDict):
 
 def _transform_google_genai_span(span: ReadableSpanDict):
     scope = span['instrumentation_scope']
-    if not (scope and scope.name == 'opentelemetry.instrumentation.google_genai'):
+    if not (scope and scope.name == 'opentelemetry.instrumentation.google_genai' and span['events']):
         return
 
     new_events: list[Event] = []
