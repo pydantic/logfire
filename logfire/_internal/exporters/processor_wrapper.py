@@ -456,12 +456,7 @@ def _transform_litellm_span(span: ReadableSpanDict):
     try:
         request_data = attributes['input.value']
         output = json.loads(cast(str, attributes['output.value']))
-        response_data = json.dumps(
-            {
-                'message': output['choices'][0]['message'],
-                'usage': output['usage'],
-            }
-        )
+        response_data = json.dumps({'message': output['choices'][0]['message']})
     except Exception:
         return
 
