@@ -1,4 +1,4 @@
-from ..constants import ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY, ATTRIBUTES_LOG_LEVEL_NUM_KEY as ATTRIBUTES_LOG_LEVEL_NUM_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, LEVEL_NUMBERS as LEVEL_NUMBERS, log_level_attributes as log_level_attributes
+from ..constants import ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY, ATTRIBUTES_LOG_LEVEL_NUM_KEY as ATTRIBUTES_LOG_LEVEL_NUM_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_TAGS_KEY as ATTRIBUTES_TAGS_KEY, LEVEL_NUMBERS as LEVEL_NUMBERS, log_level_attributes as log_level_attributes
 from ..db_statement_summary import message_from_db_statement as message_from_db_statement
 from ..json_schema import JsonSchemaProperties as JsonSchemaProperties, attributes_json_schema as attributes_json_schema
 from ..scrubbing import BaseScrubber as BaseScrubber
@@ -26,3 +26,5 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
     scrubber: BaseScrubber
     def on_start(self, span: Span, parent_context: context.Context | None = None) -> None: ...
     def on_end(self, span: ReadableSpan) -> None: ...
+
+def guess_system(model: str): ...

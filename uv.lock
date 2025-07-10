@@ -1740,7 +1740,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/4d/68/a58b31f25c42fe052
 
 [[package]]
 name = "logfire"
-version = "3.23.0"
+version = "3.24.0"
 source = { editable = "." }
 dependencies = [
     { name = "executing" },
@@ -2058,7 +2058,7 @@ docs = [
 
 [[package]]
 name = "logfire-api"
-version = "3.23.0"
+version = "3.24.0"
 source = { editable = "logfire-api" }
 
 [package.metadata]
