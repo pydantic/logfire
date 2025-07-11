@@ -11,6 +11,7 @@ npm install @pydantic/logfire-cf-workers @pydantic/logfire-api
 ```
 
 Next, add the Node.js compatibility flag to your Wrangler configuration:
+
 - For `wrangler.toml`: `compatibility_flags = [ "nodejs_compat" ]`
 - For `wrangler.jsonc`: `"compatibility_flags": ["nodejs_compat"]`
 
