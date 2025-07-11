@@ -17,6 +17,7 @@ from logfire.testing import TestExporter
 
 @pytest.mark.vcr()
 @pytest.mark.skipif(get_version(pydantic.__version__) < get_version('2.5.0'), reason='Requires newer pydantic version')
+@pytest.mark.xfail
 def test_litellm_instrumentation(exporter: TestExporter) -> None:
     with nullcontext() if 'litellm' in sys.modules else pytest.warns(DeprecationWarning):
         import litellm

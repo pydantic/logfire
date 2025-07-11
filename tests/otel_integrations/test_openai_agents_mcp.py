@@ -128,6 +128,7 @@ async def test_mcp(exporter: TestExporter):
                             'prompts': {'listChanged': False},
                             'resources': {'subscribe': False, 'listChanged': False},
                             'tools': {'listChanged': False},
+                            'completions': None,
                         },
                         'serverInfo': {'name': 'FastMCP', 'title': None, 'version': IsStr()},
                         'instructions': None,
