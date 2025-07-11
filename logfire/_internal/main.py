@@ -1022,7 +1022,7 @@ class Logfire:
 
     def instrument_fastapi(
         self,
-        app: FastAPI,
+        app: FastAPI | None = None,
         *,
         capture_headers: bool = False,
         request_attributes_mapper: Callable[
@@ -1541,7 +1541,7 @@ class Logfire:
 
     def instrument_flask(
         self,
-        app: Flask,
+        app: Flask | None = None,
         *,
         capture_headers: bool = False,
         enable_commenter: bool = True,
@@ -1588,7 +1588,7 @@ class Logfire:
 
     def instrument_starlette(
         self,
-        app: Starlette,
+        app: Starlette | None = None,
         *,
         capture_headers: bool = False,
         record_send_receive: bool = False,

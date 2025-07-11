@@ -20,7 +20,7 @@ from logfire.integrations.flask import CommenterOptions, RequestHook, ResponseHo
 
 
 def instrument_flask(
-    app: Flask,
+    app: Flask | None = None,
     *,
     capture_headers: bool,
     enable_commenter: bool,
@@ -41,12 +41,22 @@ def instrument_flask(
         warn_at_user_stacklevel('exclude_urls is deprecated; use excluded_urls instead', DeprecationWarning)
     excluded_urls = excluded_urls or kwargs.pop('exclude_urls', None)
 
-    FlaskInstrumentor().instrument_app(  # type: ignore[reportUnknownMemberType]
-        app,
-        enable_commenter=enable_commenter,
-        commenter_options=commenter_options,
-        excluded_urls=excluded_urls,
-        request_hook=request_hook,
-        response_hook=response_hook,
-        **kwargs,
-    )
+    if app is None:
+        FlaskInstrumentor().instrument(
+            enable_commenter=enable_commenter,
+            commenter_options=commenter_options,
+            excluded_urls=excluded_urls,
+            request_hook=request_hook,
+            response_hook=response_hook,
+            **kwargs,
+        )
+    else:
+        FlaskInstrumentor().instrument_app(  # type: ignore[reportUnknownMemberType]
+            app,
+            enable_commenter=enable_commenter,
+            commenter_options=commenter_options,
+            excluded_urls=excluded_urls,
+            request_hook=request_hook,
+            response_hook=response_hook,
+            **kwargs,
+        )
