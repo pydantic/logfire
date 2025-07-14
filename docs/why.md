@@ -6,62 +6,61 @@ From the team behind Pydantic Validation, **Pydantic Logfire** is an observabili
 
 <div class="grid cards" markdown>
 
--   :rocket:{ .lg .middle } __Simplicity and Power__
+- :rocket:{ .lg .middle } **Simplicity and Power**
 
-    ---
+  ***
 
-    Logfire's dashboard is simple relative to the power it provides, ensuring your entire engineering team will actually use it. Time-to-first-log should be less than 5 minutes.
+  Logfire's dashboard is simple relative to the power it provides, ensuring your entire engineering team will actually use it. Time-to-first-log should be less than 5 minutes.
 
-    [:octicons-arrow-right-24: Read more](#simplicity-and-power)
+  [:octicons-arrow-right-24: Read more](#simplicity-and-power)
 
--   :snake:{ .lg .middle } __Python-centric Insights__
+- :snake:{ .lg .middle } **Python-centric Insights**
 
-    ---
+  ***
 
-    From rich display of **Python objects**, to **event-loop telemetry**, to **profiling Python code & database queries**, Logfire gives you unparalleled visibility into your Python application's behavior.
+  From rich display of **Python objects**, to **event-loop telemetry**, to **profiling Python code & database queries**, Logfire gives you unparalleled visibility into your Python application's behavior.
 
-    [:octicons-arrow-right-24: Read more](#python-centric-insights)
+  [:octicons-arrow-right-24: Read more](#python-centric-insights)
 
--   :simple-pydantic:{ .lg .middle } __Pydantic Validation Integration__
+- :simple-pydantic:{ .lg .middle } **Pydantic Integration**
 
-    ---
+  ***
 
-    Understand the data flowing through your Pydantic Validation models and get built-in analytics on validations.
+  Understand the data flowing through your Pydantic Validation models and get built-in analytics on validations.
 
-    Pydantic Logfire helps you instrument your applications with less code, less time, and better understanding.
+  Pydantic Logfire helps you instrument your applications with less code, less time, and better understanding.
 
-    [:octicons-arrow-right-24: Read more](#pydantic-integration)
+  [:octicons-arrow-right-24: Read more](#pydantic-integration)
 
--   :telescope:{ .lg .middle } __OpenTelemetry__
+- :telescope:{ .lg .middle } **OpenTelemetry**
 
-    ---
+  ***
 
-    Logfire is an opinionated wrapper around OpenTelemetry, allowing you to leverage existing tooling, infrastructure, and instrumentation for many common Python packages, and enabling support for virtually any language.
+  Logfire is an opinionated wrapper around OpenTelemetry, allowing you to leverage existing tooling, infrastructure, and instrumentation for many common Python packages, and enabling support for virtually any language.
 
-    [:octicons-arrow-right-24: Read more](#opentelemetry-under-the-hood)
+  [:octicons-arrow-right-24: Read more](#opentelemetry-under-the-hood)
 
--   :simple-instructure:{ .lg .middle } __Structured Data__
+- :simple-instructure:{ .lg .middle } **Structured Data**
 
-    ---
+  ***
 
-    Include your Python objects in Logfire calls (lists, dict, dataclasses, Pydantic models, DataFrames, and more), and it'll end up as structured data in our platform ready to be queried.
+  Include your Python objects in Logfire calls (lists, dict, dataclasses, Pydantic models, DataFrames, and more), and it'll end up as structured data in our platform ready to be queried.
 
-    [:octicons-arrow-right-24: Read more](#sql)
+  [:octicons-arrow-right-24: Read more](#sql)
 
--   :abacus:{ .lg .middle } __SQL__
+- :abacus:{ .lg .middle } **SQL**
 
-    ---
+  ***
 
-    Query your data using standard SQL — all the control and (for many) nothing new to learn. Using SQL also means you can query your data with existing BI tools and database querying libraries.
+  Query your data using standard SQL — all the control and (for many) nothing new to learn. Using SQL also means you can query your data with existing BI tools and database querying libraries.
 
-    [:octicons-arrow-right-24: Read more](#sql)
+  [:octicons-arrow-right-24: Read more](#sql)
 
 </div>
 
-
 ## Find the needle in a _stack trace_
 
-We understand Python and its peculiarities. Pydantic Logfire was crafted by Python developers, for Python developers, addressing the unique challenges and opportunities of the Python environment. It's not just about having data; it's about having the *right* data, presented in ways that make sense for Python applications.
+We understand Python and its peculiarities. Pydantic Logfire was crafted by Python developers, for Python developers, addressing the unique challenges and opportunities of the Python environment. It's not just about having data; it's about having the _right_ data, presented in ways that make sense for Python applications.
 
 ![Logfire FastAPI screenshot](images/index/logfire-screenshot-fastapi-200.png)
 
@@ -74,7 +73,6 @@ and productivity, reimagined for observability.
 Within a few minutes you'll have your first logs:
 
 ![Logfire hello world screenshot](images/index/logfire-screenshot-hello-world-age.png)
-
 
 This might look similar to simple logging, but it's much more powerful — you get:
 
@@ -258,7 +256,6 @@ attributes->'result'->>'name' = 'Ben'
 ```
 
 ![Logfire search query screenshot](images/index/logfire-screenshot-search-query.png)
-
 
 Structured Data and Direct SQL Access means you can use familiar tools like Pandas, SQLAlchemy, or `psql`
 for querying, can integrate seamlessly with BI tools, and can even leverage AI for SQL generation, ensuring your Python

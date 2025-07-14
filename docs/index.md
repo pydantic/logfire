@@ -86,45 +86,29 @@ logfire auth
     logfire.info('Hello, {name}!', name='world')  # (2)!
     ```
 
-    3. The `configure()` method should be called once before logging to initialize **Logfire**.
-    4. This will log `Hello world!` with `info` level.
+    1. The `configure()` method should be called once before logging to initialize **Logfire**.
+    2. This will log `Hello world!` with `info` level.
 
     !!! info ""
         Other [log levels][logfire.Logfire] are also available to use, including `trace`, `debug`, `notice`, `warn`,
         `error`, and `fatal`.
 
-
-    3. See your logs in the **Live** view
+    4. See your logs in the **Live** view
 
     ![Hello world screenshot](images/logfire-screenshot-first-steps-hello-world.png)
 
+---
 
-=== ":material-cloud-outline: Production"
-    !!! tip "Production setup"
-        In production, we recommend you provide your write token to the Logfire SDK via environment variables.
+## Next steps
 
-    1. Generate a new write token in the **Logfire** platform
+Ready to keep going?
 
-        - Go to Project :material-chevron-right: Settings :material-chevron-right: Write Tokens
-        - Follow the prompts to create a new token
+- Read about [Concepts](concepts.md)
+- Complete the [Onboarding Checklist](guides/onboarding-checklist/index.md)
 
+More topics to explore...
 
-    2. Configure your **Logfire** environment
-
-    ```bash title="In the terminal:"
-    export LOGFIRE_TOKEN=<your-write-token>
-    ```
-
-    !!! info ""
-        Running this command stores a Write Token used by the SDK to send data to a file in the current directory, at `.logfire/logfire_credentials.json`
-
-    3. Write some basic logs in your Python app
-
-    ```py title="hello_world.py"
-    import logfire
-
-    logfire.configure()  # (1)!
-    logfire.info('Hello, {name}!', name='world')  # (2)!
-    ```
-
-    1. The `configure()`
+- Logfire's real power comes from [integrations with many popular libraries](integrations/index.md)
+- As well as spans, you can [use Logfire to record metrics](guides/onboarding-checklist/add-metrics.md)
+- Logfire doesn't just work with Python, [read more about Language support](https://opentelemetry.io/docs/languages/){:target="_blank"}
+- Compliance requirements (e.g. SOC2)? [See Logfire's certifications](compliance.md)

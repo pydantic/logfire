@@ -11,7 +11,7 @@ git clone https://github.com/pydantic/logfire.git
 cd examples/python/flask-sqlalchemy
 python -m venv venv
 source venv/bin/activate
-pip install 'logfire[sqlalchemy,flask]' flask-sqlalchemy pydantic_validation
+pip install 'logfire[sqlalchemy,flask]' flask-sqlalchemy
 ```
 
 If you don't have a Logfire account, create a free one [in Logfire](https://logfire.pydantic.dev/). Then authenticate Logfire locally:
