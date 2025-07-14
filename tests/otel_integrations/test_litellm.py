@@ -3,7 +3,6 @@ import logging
 import warnings
 from typing import Any
 
-import litellm
 import pydantic
 import pytest
 from inline_snapshot import snapshot
@@ -18,6 +17,8 @@ from logfire.testing import TestExporter
 @pytest.mark.skipif(get_version(pydantic.__version__) < get_version('2.5.0'), reason='Requires newer pydantic version')
 @pytest.mark.xfail
 def test_litellm_instrumentation(exporter: TestExporter) -> None:
+    import litellm
+
     logging.getLogger('LiteLLM').disabled = True
 
     logfire.instrument_litellm()
