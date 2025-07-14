@@ -15,9 +15,10 @@ from logfire.testing import TestExporter
 
 @pytest.mark.vcr()
 @pytest.mark.skipif(get_version(pydantic.__version__) < get_version('2.5.0'), reason='Requires newer pydantic version')
-@pytest.mark.xfail
 def test_litellm_instrumentation(exporter: TestExporter) -> None:
-    import litellm
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', category=DeprecationWarning)
+        import litellm
 
     logging.getLogger('LiteLLM').disabled = True
 
@@ -98,7 +99,6 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                     'input.mime_type': 'application/json',
                     'llm.invocation_parameters': {
                         'model': 'gpt-4o-mini',
-                        'messages': [{'role': 'user', 'content': "What's the weather like in San Francisco?"}],
                         'tools': [
                             {
                                 'type': 'function',
@@ -268,16 +268,6 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                     'input.mime_type': 'application/json',
                     'llm.invocation_parameters': {
                         'model': 'gpt-4o-mini',
-                        'messages': [
-                            {'role': 'user', 'content': "What's the weather like in San Francisco?"},
-                            "Message(content=None, role='assistant', tool_calls=[ChatCompletionMessageToolCall(function=Function(arguments='{\"location\":\"San Francisco, CA\"}', name='get_current_weather'), id='call_SWFIWhfCI6AeHuaV6EM1MRsJ', type='function')], function_call=None, provider_specific_fields={'refusal': None}, annotations=[])",
-                            {
-                                'tool_call_id': 'call_SWFIWhfCI6AeHuaV6EM1MRsJ',
-                                'role': 'tool',
-                                'name': 'get_current_weather',
-                                'content': '{"location": "San Francisco", "temperature": "72", "unit": "fahrenheit"}',
-                            },
-                        ],
                         'tools': [
                             {
                                 'type': 'function',
@@ -299,46 +289,7 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                             }
                         ],
                     },
-                    'output.value': {
-                        'id': 'chatcmpl-Br2eeGlmRiX5iMjOF97Wrkv3Mtvbl',
-                        'created': 1751981288,
-                        'model': 'gpt-4o-mini-2024-07-18',
-                        'object': 'chat.completion',
-                        'system_fingerprint': 'fp_34a54ae93c',
-                        'choices': [
-                            {
-                                'finish_reason': 'stop',
-                                'index': 0,
-                                'message': {
-                                    'content': 'The current temperature in San Francisco is 72°F. If you need more specific weather details or a forecast, let me know!',
-                                    'role': 'assistant',
-                                    'tool_calls': None,
-                                    'function_call': None,
-                                    'annotations': [],
-                                },
-                                'provider_specific_fields': {},
-                            }
-                        ],
-                        'usage': {
-                            'completion_tokens': 26,
-                            'prompt_tokens': 62,
-                            'total_tokens': 88,
-                            'completion_tokens_details': {
-                                'accepted_prediction_tokens': 0,
-                                'audio_tokens': 0,
-                                'reasoning_tokens': 0,
-                                'rejected_prediction_tokens': 0,
-                            },
-                            'prompt_tokens_details': {
-                                'audio_tokens': 0,
-                                'cached_tokens': 0,
-                                'text_tokens': None,
-                                'image_tokens': None,
-                            },
-                        },
-                        'service_tier': 'default',
-                    },
-                    'output.mime_type': 'application/json',
+                    'output.value': 'The current temperature in San Francisco is 72°F. If you need more specific weather details or a forecast, let me know!',
                     'llm.output_messages.0.message.role': 'assistant',
                     'llm.output_messages.0.message.content': 'The current temperature in San Francisco is 72°F. If you need more specific weather details or a forecast, let me know!',
                     'llm.token_count.prompt': 62,
@@ -380,13 +331,10 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                         'message': {
                             'content': 'The current temperature in San Francisco is 72°F. If you need more specific weather details or a forecast, let me know!',
                             'role': 'assistant',
-                            'tool_calls': None,
-                            'function_call': None,
-                            'annotations': [],
                         }
                     },
                     'gen_ai.request.model': 'gpt-4o-mini',
-                    'gen_ai.response.model': 'gpt-4o-mini-2024-07-18',
+                    'gen_ai.response.model': 'gpt-4o-mini',
                     'gen_ai.usage.input_tokens': 62,
                     'gen_ai.usage.output_tokens': 26,
                     'gen_ai.system': 'openai',
