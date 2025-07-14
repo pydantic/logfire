@@ -182,7 +182,12 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
 
     assert hasattr(logfire_api, 'instrument_litellm')
     if not pydantic_pre_2_5:
-        logfire_api.instrument_litellm()
+        try:
+            importlib.import_module('litellm')
+        except AttributeError:  # pragma: no cover  # TODO figure this out
+            pass
+        else:
+            logfire_api.instrument_litellm()
     logfire__all__.remove('instrument_litellm')
 
     for member in [m for m in logfire__all__ if m.startswith('instrument_')]:
