@@ -33,12 +33,21 @@ class BodySizeCheckingOTLPSpanExporter(OTLPSpanExporter):
     # This also helps in case the backend limit is reduced in the future.
     max_body_size = 5 * 1024 * 1024
 
-    def _serialize_spans(self, spans: Sequence[ReadableSpan]) -> bytes:
-        result = super()._serialize_spans(spans)  # type: ignore
-        if len(spans) > 1 and len(result) > self.max_body_size:
+    def __init__(self, *args: Any, **kwargs: Any):
+        super().__init__(*args, **kwargs)
+        self._current_num_spans = 0
+
+    def export(self, spans: Sequence[ReadableSpan]):
+        self._current_num_spans = len(spans)
+        return super().export(spans)
+
+    def _export(self, serialized_data: bytes, timeout_sec: float):
+        # If there are multiple spans, check the body size first.
+        if self._current_num_spans > 1 and len(serialized_data) > self.max_body_size:
             # Tell outer RetryFewerSpansSpanExporter to split in half
-            raise BodyTooLargeError(len(result), self.max_body_size)
-        return result
+            raise BodyTooLargeError(len(serialized_data), self.max_body_size)
+
+        return super()._export(serialized_data, timeout_sec)
 
 
 class OTLPExporterHttpSession(Session):
