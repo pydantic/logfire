@@ -82,7 +82,7 @@ class Record:
             # TODO: this message could be better, for now we just want to have *something*
             # TODO: this message should be constructed in a wrapper processor so that it's also used in the UI
             parts: list[str] = []
-            if event_name := attributes.get('event.name'):
+            if event_name := (getattr(log, 'event_name', None) or attributes.get('event.name')):
                 parts.append(str(event_name))
             if body := log.body:
                 parts.append(truncate_string(str(body), max_length=100))

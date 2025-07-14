@@ -45,8 +45,8 @@ classifiers = [
     "Framework :: OpenTelemetry :: Instrumentations",
 ]
 dependencies = [
-    "opentelemetry-sdk >= 1.21.0, < 1.35.0",
-    "opentelemetry-exporter-otlp-proto-http >= 1.21.0, < 1.35.0",
+    "opentelemetry-sdk >= 1.21.0, < 1.36.0",
+    "opentelemetry-exporter-otlp-proto-http >= 1.21.0, < 1.36.0",
     "opentelemetry-instrumentation >= 0.41b0",
     "rich >= 13.4.2",
     "protobuf >= 4.23.4",
