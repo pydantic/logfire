@@ -9,9 +9,9 @@
   <a href="join-slack/"><img src="https://img.shields.io/badge/Slack-Join%20Slack-4A154B?logo=slack" alt="Join Slack" /></a>
 </p>
 
-## About Logfire
+## About Pydantic Logfire
 
-From the team behind **Pydantic**, **Logfire** is a new type of observability platform built on
+From the team behind **Pydantic Validation**, **Pydantic Logfire** is a new type of observability platform built on
 the same belief as our open source library — that the most powerful tools can be easy to use.
 
 **Logfire** is built on OpenTelemetry, and supports monitoring your application from **any language**,
@@ -39,7 +39,7 @@ This page is a quick walk-through for setting up a Python app:
     A **Logfire** project is a namespace for organizing your data. All data sent to **Logfire** must be associated with a project.
 
 ??? tip "Ready to create your own projects in UI or CLI?"
-- In the UI, create projects by navigating to the Organization > Projects page, and click **New project**. 
+- In the UI, create projects by navigating to the Organization > Projects page, and click **New project**.
  - For CLI check the [SDK CLI documentation](reference/cli.md#create-projects-new).
 ## Install the SDK {#sdk}
 
@@ -127,29 +127,4 @@ logfire auth
     logfire.info('Hello, {name}!', name='world')  # (2)!
     ```
 
-    1. The `configure()` method should be called once before logging to initialize **Logfire**.
-    2. This will log `Hello world!` with `info` level.
-
-    !!! info ""
-        Other [log levels][logfire.Logfire] are also available to use, including `trace`, `debug`, `notice`, `warn`,
-        `error`, and `fatal`.
-
-    4. See your logs in the **Live** view
-
-    ![Hello world screenshot](images/logfire-screenshot-first-steps-hello-world.png)
-
----
-
-## Next steps
-
-Ready to keep going?
-
-- Read about [Concepts](concepts.md)
-- Complete the [Onboarding Checklist](guides/onboarding-checklist/index.md)
-
-More topics to explore...
-
-- Logfire's real power comes from [integrations with many popular libraries](integrations/index.md)
-- As well as spans, you can [use Logfire to record metrics](guides/onboarding-checklist/add-metrics.md)
-- Logfire doesn't just work with Python, [read more about Language support](https://opentelemetry.io/docs/languages/){:target="_blank"}
-- Compliance requirements (e.g. SOC2)? [See Logfire's certifications](compliance.md)
+    1. The `configure()`

@@ -2,7 +2,7 @@
 integration: logfire
 ---
 
-**Logfire** supports instrumenting [PydanticAI](https://ai.pydantic.dev/) with the
+**Pydantic Logfire** supports instrumenting [Pydantic AI](https://ai.pydantic.dev/) with the
 [`logfire.instrument_pydantic_ai()`][logfire.Logfire.instrument_pydantic_ai] method:
 
 ```python hl_lines="5"
@@ -45,7 +45,7 @@ The above example displays like this in **Logfire**:
 ![Logfire PydanticAI Instrumentation](../../images/integrations/pydantic-ai/pydanticai-instrumentation-screenshot.
 png)
 
-You can use PydanticAI with a [large variety of LLMs](https://ai.pydantic.dev/api/models/base/#pydantic_ai.models.KnownModelName), the example
+You can use Pydantic AI with a [large variety of LLMs](https://ai.pydantic.dev/api/models/base/#pydantic_ai.models.KnownModelName), the example
 just happens to show `gpt-4o`.
 
 You can also instrument a specific agent with `logfire.instrument_pydantic_ai(agent)`.

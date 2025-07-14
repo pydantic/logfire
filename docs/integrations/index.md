@@ -21,7 +21,7 @@ If a package you are using is not listed in this documentation, please let us kn
 
 **Logfire** has documented integrations with many technologies, including:
 
-- _LLM Clients and AI Frameworks_: PydanticAI, OpenAI, Anthropic, LangChain, LlamaIndex, Mirascope, LiteLLM, Magentic
+- _LLM Clients and AI Frameworks_: Pydantic AI, OpenAI, Anthropic, LangChain, LlamaIndex, Mirascope, LiteLLM, Magentic
 - _Web Frameworks_: FastAPI, Django, Flask, Starlette, AIOHTTP, ASGI, WSGI
 - _Database Clients_: Psycopg, SQLAlchemy, Asyncpg, PyMongo, MySQL, SQLite3, Redis, BigQuery
 - _HTTP Clients_: HTTPX, Requests, AIOHTTP
@@ -33,6 +33,8 @@ The below table lists these integrations and any corresponding `logfire.instrume
 
 | Package                                   | Type                    | Logfire Instrument Call / Notes                                                                                                                                        |
 | ----------------------------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Pydantic Validation](pydantic.md)        | Data Validation         | [`logfire.instrument_pydantic()`][logfire.Logfire.instrument_pydantic]                                                                                                 |
+| [Pydantic AI](llms/pydanticai.md)         | AI                      | [`logfire.instrument_pydantic_ai()`][logfire.Logfire.instrument_pydantic_ai]                                                                                           |
 | [AIOHTTP](http-clients/aiohttp.md)        | HTTP Client             | [`logfire.instrument_aiohttp_client()`,][logfire.Logfire.instrument_aiohttp_client] [`logfire.instrument_aiohttp_server()`][logfire.Logfire.instrument_aiohttp_server] |
 | [Airflow](event-streams/airflow.md)       | Task Scheduler          | N/A (built in, config needed)                                                                                                                                          |
 | [Anthropic](llms/anthropic.md)            | AI                      | [`logfire.instrument_anthropic()`][logfire.Logfire.instrument_anthropic]                                                                                               |
@@ -55,8 +57,6 @@ The below table lists these integrations and any corresponding `logfire.instrume
 | [MySQL](databases/mysql.md)               | Database                | [`logfire.instrument_mysql()`][logfire.Logfire.instrument_mysql]                                                                                                       |
 | [OpenAI](llms/openai.md)                  | AI                      | [`logfire.instrument_openai()`][logfire.Logfire.instrument_openai]                                                                                                     |
 | [Psycopg](databases/psycopg.md)           | Database                | [`logfire.instrument_psycopg()`][logfire.Logfire.instrument_psycopg]                                                                                                   |
-| [Pydantic](pydantic.md)                   | Data Validation         | [`logfire.instrument_pydantic()`][logfire.Logfire.instrument_pydantic]                                                                                                 |
-| [PydanticAI](llms/pydanticai.md)          | AI                      | [`logfire.instrument_pydantic_ai()`][logfire.Logfire.instrument_pydantic_ai]                                                                                           |
 | [PyMongo](databases/pymongo.md)           | Database                | [`logfire.instrument_pymongo()`][logfire.Logfire.instrument_pymongo]                                                                                                   |
 | [Redis](databases/redis.md)               | Database                | [`logfire.instrument_redis()`][logfire.Logfire.instrument_redis]                                                                                                       |
 | [Requests](http-clients/requests.md)      | HTTP Client             | [`logfire.instrument_requests()`][logfire.Logfire.instrument_requests]                                                                                                 |

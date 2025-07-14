@@ -1,6 +1,6 @@
 # Introducing Pydantic Logfire
 
-From the team behind Pydantic, **Logfire** is an observability platform built on the same belief as our open source library — that the most powerful tools can be easy to use.
+From the team behind Pydantic Validation, **Pydantic Logfire** is an observability platform built on the same belief as our open source library — that the most powerful tools can be easy to use.
 
 ## What sets Logfire apart
 
@@ -18,15 +18,15 @@ From the team behind Pydantic, **Logfire** is an observability platform built on
 
     ---
 
-    From rich display of **Python objects**, to **event-loop telemetry**, to **profiling Python code &amp; database queries**, Logfire gives you unparalleled visibility into your Python application's behavior.
+    From rich display of **Python objects**, to **event-loop telemetry**, to **profiling Python code & database queries**, Logfire gives you unparalleled visibility into your Python application's behavior.
 
     [:octicons-arrow-right-24: Read more](#python-centric-insights)
 
--   :simple-pydantic:{ .lg .middle } __Pydantic Integration__
+-   :simple-pydantic:{ .lg .middle } __Pydantic Validation Integration__
 
     ---
 
-    Understand the data flowing through your Pydantic models and get built-in analytics on validations.
+    Understand the data flowing through your Pydantic Validation models and get built-in analytics on validations.
 
     Pydantic Logfire helps you instrument your applications with less code, less time, and better understanding.
 
@@ -116,7 +116,7 @@ We can record Pydantic models directly:
 from datetime import date
 
 import logfire
-from pydantic import BaseModel
+from pydantic import BaseModel  # reverted to pydantic
 
 logfire.configure()
 
@@ -139,7 +139,7 @@ Or we can record information about validations automatically:
 from datetime import date
 
 import logfire
-from pydantic import BaseModel
+from pydantic import BaseModel  # reverted to pydantic
 
 logfire.configure()
 logfire.instrument_pydantic()  # (1)!
@@ -173,7 +173,7 @@ For example, we can instrument a simple FastAPI app with just 2 lines of code:
 from datetime import date
 
 import logfire
-from pydantic import BaseModel
+from pydantic import BaseModel  # reverted to pydantic
 from fastapi import FastAPI
 
 app = FastAPI()
