@@ -13,9 +13,11 @@ import pytest
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
 from opentelemetry import trace
+from opentelemetry._events import Event, get_event_logger
 from opentelemetry._logs import SeverityNumber, get_logger
 from opentelemetry.sdk._logs import LogRecord
 from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.version import __version__ as otel_version
 
 import logfire
 from logfire import ConsoleOptions
@@ -25,6 +27,7 @@ from logfire._internal.exporters.console import (
     ShowParentsConsoleSpanExporter,
     SimpleConsoleSpanExporter,
 )
+from logfire._internal.utils import get_version
 from logfire.testing import TestExporter
 from tests.utils import ReadableSpanModel, SpanContextModel, exported_spans_as_models
 
@@ -886,28 +889,52 @@ def test_console_otel_logs(capsys: pytest.CaptureFixture[str]):
         send_to_logfire=False,
         console=ConsoleOptions(colors='never', include_timestamps=False, include_tags=False),
     )
+    logger = get_logger('logs')
+    event_logger = get_event_logger('events')
 
     with logfire.span('span'):
-        get_logger('logs').emit(
-            LogRecord(
-                event_name='my_event',
-                severity_number=SeverityNumber.ERROR,
-                body='body',
-                attributes={'key': 'value'},
+        if get_version(otel_version) >= get_version('1.35.0'):
+            logger.emit(
+                LogRecord(
+                    event_name='my_event',
+                    severity_number=SeverityNumber.ERROR,
+                    body='body',
+                    attributes={'key': 'value'},
+                )
             )
-        )
-        get_logger('logs').emit(
-            LogRecord(
-                event_name='my_event',
-                attributes={ATTRIBUTES_MESSAGE_KEY: 'msg'},
+            logger.emit(
+                LogRecord(
+                    event_name='my_event',
+                    attributes={ATTRIBUTES_MESSAGE_KEY: 'msg'},
+                )
             )
-        )
-        get_logger('logs').emit(
-            LogRecord(
-                severity_number=SeverityNumber.INFO,
-                attributes={'key': 'value'},
+            logger.emit(
+                LogRecord(
+                    severity_number=SeverityNumber.INFO,
+                    attributes={'key': 'value'},
+                )
             )
-        )
+        else:
+            event_logger.emit(
+                Event(
+                    name='my_event',
+                    severity_number=SeverityNumber.ERROR,
+                    body='body',
+                    attributes={'key': 'value'},
+                )
+            )
+            event_logger.emit(
+                Event(
+                    name='my_event',
+                    attributes={ATTRIBUTES_MESSAGE_KEY: 'msg'},
+                )
+            )
+            logger.emit(
+                LogRecord(
+                    severity_number=SeverityNumber.INFO,
+                    attributes={'key': 'value'},
+                )
+            )
 
     assert capsys.readouterr().out.splitlines() == snapshot(
         [
