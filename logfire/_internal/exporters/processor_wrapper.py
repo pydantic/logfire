@@ -466,7 +466,7 @@ def _transform_litellm_span(span: ReadableSpanDict):
         else:
             parsed_output_value = json.loads(cast(str, output_value))
             message = parsed_output_value['choices'][0]['message']
-            if 'model' in parsed_output_value:
+            if 'model' in parsed_output_value:  # pragma: no branch
                 new_attrs['gen_ai.response.model'] = parsed_output_value['model']
 
         new_attrs['response_data'] = json.dumps({'message': message})
