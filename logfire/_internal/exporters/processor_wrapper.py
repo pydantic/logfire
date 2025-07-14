@@ -83,8 +83,8 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
             _set_error_level_and_status(span_dict)
             _transform_langchain_span(span_dict)
             _transform_google_genai_span(span_dict)
-            _default_gen_ai_response_model(span_dict)
             _transform_litellm_span(span_dict)
+            _default_gen_ai_response_model(span_dict)
             self.scrubber.scrub_span(span_dict)
             span = ReadableSpan(**span_dict)
         super().on_end(span)
@@ -454,22 +454,40 @@ def _transform_litellm_span(span: ReadableSpanDict):
 
     attributes = span['attributes']
     try:
-        output = json.loads(cast(str, attributes['output.value']))
+        #                         'message': {
+        #                             'content': 'The current temperature in San Francisco is 72°F. If you need more specific weather details or a forecast, let me know!',
+        #                             'role': 'assistant',
+        #                             'tool_calls': None,
+        #                             'function_call': None,
+        #                             'annotations': [],
+        #                         }
+        output_value = attributes['output.value']
         new_attrs = {
             'request_data': attributes['input.value'],
-            'response_data': json.dumps({'message': output['choices'][0]['message']}),
         }
+        if output_value == attributes.get('llm.output_messages.0.message.content'):
+            message = {
+                'content': output_value,
+                'role': attributes.get('llm.output_messages.0.message.role', 'assistant'),
+            }
+        else:
+            parsed_output_value = json.loads(cast(str, output_value))
+            message = parsed_output_value['choices'][0]['message']
+            if 'model' in parsed_output_value:
+                new_attrs['gen_ai.response.model'] = parsed_output_value['model']
+
+        new_attrs['response_data'] = json.dumps({'message': message})
     except Exception:  # pragma: no cover
         return
 
     try:
+        request_model = cast(str, attributes['llm.model_name'])
         new_attrs.update(
             {
-                'gen_ai.request.model': attributes['llm.model_name'],
-                'gen_ai.response.model': output['model'],
-                'gen_ai.usage.input_tokens': output['usage']['prompt_tokens'],
-                'gen_ai.usage.output_tokens': output['usage']['completion_tokens'],
-                'gen_ai.system': guess_system(output['model']),
+                'gen_ai.request.model': request_model,
+                'gen_ai.usage.input_tokens': attributes['llm.token_count.prompt'],
+                'gen_ai.usage.output_tokens': attributes['llm.token_count.completion'],
+                'gen_ai.system': guess_system(request_model),
             }
         )
     except Exception:  # pragma: no cover
