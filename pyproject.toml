@@ -216,7 +216,7 @@ include = ["/README.md", "CHANGELOG.md", "/Makefile", "/logfire", "/tests"]
 # https://beta.ruff.rs/docs/configuration/
 [tool.ruff]
 line-length = 120
-extend-exclude = ["logfire-api/logfire_api/*"]
+extend-exclude = ["logfire-api/logfire_api/*", "tests/auto_trace_samples/param_spec.py"]
 
 [tool.ruff.lint]
 extend-select = [
