@@ -16,6 +16,8 @@ from typing import Any
 
 class BodySizeCheckingOTLPSpanExporter(OTLPSpanExporter):
     max_body_size: Incomplete
+    def __init__(self, *args: Any, **kwargs: Any) -> None: ...
+    def export(self, spans: Sequence[ReadableSpan]): ...
 
 class OTLPExporterHttpSession(Session):
     """A requests.Session subclass that defers failed requests to a DiskRetryer."""
