@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v3.24.2] (2025-07-14)
+
+* Fix auto-tracing Python 3.12 ParamSpec syntax by @alexmojaki in [#1247](https://github.com/pydantic/logfire/pull/1247)
+
 ## [v3.24.1] (2025-07-14)
 
 * Support OpenTelemetry 1.35.0 by @alexmojaki in [#1242](https://github.com/pydantic/logfire/pull/1242)
@@ -787,3 +791,4 @@ First release from new repo!
 [v3.23.0]: https://github.com/pydantic/logfire/compare/v3.22.1...v3.23.0
 [v3.24.0]: https://github.com/pydantic/logfire/compare/v3.23.0...v3.24.0
 [v3.24.1]: https://github.com/pydantic/logfire/compare/v3.24.0...v3.24.1
+[v3.24.2]: https://github.com/pydantic/logfire/compare/v3.24.1...v3.24.2
