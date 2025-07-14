@@ -41,13 +41,13 @@ class BodySizeCheckingOTLPSpanExporter(OTLPSpanExporter):
         self._current_num_spans = len(spans)
         return super().export(spans)
 
-    def _export(self, serialized_data: bytes, timeout_sec: float):
+    def _export(self, serialized_data: bytes, *args: Any, **kwargs: Any):
         # If there are multiple spans, check the body size first.
         if self._current_num_spans > 1 and len(serialized_data) > self.max_body_size:
             # Tell outer RetryFewerSpansSpanExporter to split in half
             raise BodyTooLargeError(len(serialized_data), self.max_body_size)
 
-        return super()._export(serialized_data, timeout_sec)
+        return super()._export(serialized_data, *args, **kwargs)
 
 
 class OTLPExporterHttpSession(Session):
