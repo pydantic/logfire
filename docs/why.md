@@ -114,7 +114,7 @@ We can record Pydantic models directly:
 from datetime import date
 
 import logfire
-from pydantic import BaseModel  # reverted to pydantic
+from pydantic import BaseModel
 
 logfire.configure()
 
@@ -137,7 +137,7 @@ Or we can record information about validations automatically:
 from datetime import date
 
 import logfire
-from pydantic import BaseModel  # reverted to pydantic
+from pydantic import BaseModel
 
 logfire.configure()
 logfire.instrument_pydantic()  # (1)!
@@ -171,7 +171,7 @@ For example, we can instrument a simple FastAPI app with just 2 lines of code:
 from datetime import date
 
 import logfire
-from pydantic import BaseModel  # reverted to pydantic
+from pydantic import BaseModel
 from fastapi import FastAPI
 
 app = FastAPI()
