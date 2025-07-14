@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import importlib
 import sys
-from contextlib import nullcontext
 from pathlib import Path
 from types import ModuleType
 from typing import Callable
@@ -183,9 +182,6 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
 
     assert hasattr(logfire_api, 'instrument_litellm')
     if not pydantic_pre_2_5:
-        with nullcontext() if 'litellm' in sys.modules else pytest.warns(DeprecationWarning):
-            importlib.import_module('litellm')
-
         logfire_api.instrument_litellm()
     logfire__all__.remove('instrument_litellm')
 
