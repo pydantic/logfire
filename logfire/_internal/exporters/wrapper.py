@@ -93,8 +93,20 @@ class WrapperLogProcessor(LogRecordProcessor):
 
     processor: LogRecordProcessor
 
-    def emit(self, log_data: LogData):
-        return self.processor.emit(log_data)
+    if hasattr(LogRecordProcessor, 'on_emit'):
+
+        def on_emit(self, log_data: LogData) -> None:
+            return self.processor.on_emit(log_data)
+
+        def emit(self, log_data: LogData) -> None:
+            return self.on_emit(log_data)
+    else:
+
+        def on_emit(self, log_data: LogData) -> None:
+            return self.emit(log_data)
+
+        def emit(self, log_data: LogData) -> None:
+            return self.processor.emit(log_data)  # type: ignore
 
     def shutdown(self):
         return self.processor.shutdown()
