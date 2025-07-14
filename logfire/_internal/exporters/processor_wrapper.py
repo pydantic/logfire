@@ -454,13 +454,6 @@ def _transform_litellm_span(span: ReadableSpanDict):
 
     attributes = span['attributes']
     try:
-        #                         'message': {
-        #                             'content': 'The current temperature in San Francisco is 72°F. If you need more specific weather details or a forecast, let me know!',
-        #                             'role': 'assistant',
-        #                             'tool_calls': None,
-        #                             'function_call': None,
-        #                             'annotations': [],
-        #                         }
         output_value = attributes['output.value']
         new_attrs = {
             'request_data': attributes['input.value'],

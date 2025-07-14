@@ -1,8 +1,6 @@
 import json
 import logging
-import sys
 import warnings
-from contextlib import nullcontext
 from typing import Any
 
 import pydantic
@@ -18,7 +16,8 @@ from logfire.testing import TestExporter
 @pytest.mark.vcr()
 @pytest.mark.skipif(get_version(pydantic.__version__) < get_version('2.5.0'), reason='Requires newer pydantic version')
 def test_litellm_instrumentation(exporter: TestExporter) -> None:
-    with nullcontext() if 'litellm' in sys.modules else pytest.warns(DeprecationWarning):
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', category=DeprecationWarning)
         import litellm
 
     logging.getLogger('LiteLLM').disabled = True
