@@ -20,6 +20,8 @@ class CheckSuppressInstrumentationLogProcessorWrapper(WrapperLogProcessor):
         with logfire.suppress_instrumentation():
             return super().on_emit(log_data)
 
+    emit = on_emit
+
 
 @dataclass
 class MainLogProcessorWrapper(WrapperLogProcessor):
@@ -28,3 +30,5 @@ class MainLogProcessorWrapper(WrapperLogProcessor):
     def on_emit(self, log_data: LogData):
         log_data.log_record = self.scrubber.scrub_log(log_data.log_record)
         return super().on_emit(log_data)
+
+    emit = on_emit

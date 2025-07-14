@@ -98,15 +98,13 @@ class WrapperLogProcessor(LogRecordProcessor):
         def on_emit(self, log_data: LogData) -> None:
             return self.processor.on_emit(log_data)
 
-        def emit(self, log_data: LogData) -> None:
-            return self.on_emit(log_data)
+        emit = on_emit
     else:
-
-        def on_emit(self, log_data: LogData) -> None:
-            return self.emit(log_data)
 
         def emit(self, log_data: LogData) -> None:
             return self.processor.emit(log_data)  # type: ignore
+
+        on_emit = emit
 
     def shutdown(self):
         return self.processor.shutdown()

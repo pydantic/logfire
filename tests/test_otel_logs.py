@@ -8,7 +8,7 @@ import pytest
 import requests.exceptions
 from dirty_equals import IsPartialDict, IsStr
 from inline_snapshot import snapshot
-from opentelemetry._events import get_event_logger_provider
+from opentelemetry._events import Event, get_event_logger, get_event_logger_provider
 from opentelemetry._logs import SeverityNumber, get_logger, get_logger_provider
 from opentelemetry.sdk._logs import LogData, LogRecord
 from opentelemetry.sdk._logs.export import (
@@ -18,10 +18,12 @@ from opentelemetry.sdk._logs.export import (
     SimpleLogRecordProcessor,
 )
 from opentelemetry.sdk.resources import Resource
+from opentelemetry.version import __version__ as otel_version
 
 import logfire
 from logfire import suppress_instrumentation
 from logfire._internal.exporters.otlp import QuietLogExporter
+from logfire._internal.utils import get_version
 from logfire.testing import TestLogExporter
 
 
@@ -76,15 +78,26 @@ def test_get_logger_provider() -> None:
 
 def test_log_events(logs_exporter: TestLogExporter) -> None:
     logger = get_logger('scope')
-    record = LogRecord(
-        event_name='my_event',
-        timestamp=2,
-        severity_number=SeverityNumber.INFO,
-        body='body',
-        attributes={'key': 'value'},
-    )
+    event_logger = get_event_logger('scope')
     with logfire.span('span'):
-        logger.emit(record)
+        if get_version(otel_version) >= get_version('1.35.0'):
+            record = LogRecord(
+                event_name='my_event',
+                timestamp=2,
+                severity_number=SeverityNumber.INFO,
+                body='body',
+                attributes={'key': 'value'},
+            )
+            logger.emit(record)
+        else:
+            event = Event(
+                name='my_event',
+                timestamp=2,
+                severity_number=SeverityNumber.INFO,
+                body='body',
+                attributes={'key': 'value'},
+            )
+            event_logger.emit(event)
 
     assert logs_exporter.exported_logs_as_dicts(include_resources=True, include_instrumentation_scope=True) == snapshot(
         [
