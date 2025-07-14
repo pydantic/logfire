@@ -13,8 +13,8 @@ import pytest
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
 from opentelemetry import trace
-from opentelemetry._events import Event, get_event_logger
-from opentelemetry._logs import LogRecord, SeverityNumber, get_logger
+from opentelemetry._logs import SeverityNumber, get_logger
+from opentelemetry.sdk._logs import LogRecord
 from opentelemetry.sdk.trace import ReadableSpan
 
 import logfire
@@ -888,17 +888,17 @@ def test_console_otel_logs(capsys: pytest.CaptureFixture[str]):
     )
 
     with logfire.span('span'):
-        get_event_logger('events').emit(
-            Event(
-                name='my_event',
+        get_logger('logs').emit(
+            LogRecord(
+                event_name='my_event',
                 severity_number=SeverityNumber.ERROR,
                 body='body',
                 attributes={'key': 'value'},
             )
         )
-        get_event_logger('events').emit(
-            Event(
-                name='my_event',
+        get_logger('logs').emit(
+            LogRecord(
+                event_name='my_event',
                 attributes={ATTRIBUTES_MESSAGE_KEY: 'msg'},
             )
         )
@@ -914,8 +914,7 @@ def test_console_otel_logs(capsys: pytest.CaptureFixture[str]):
             'span',
             '  my_event: body',
             '  msg',
-            # Non-event logs don't get the parent span context by default, so no indentation for this line.
-            "{'key': 'value'}",
+            "  {'key': 'value'}",
         ]
     )
 
