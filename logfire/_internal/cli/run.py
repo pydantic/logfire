@@ -78,7 +78,7 @@ class InstrumentationContext:
     recommendations: set[tuple[str, str]]
 
 
-def parse_run(args: argparse.Namespace) -> None:  # pragma: no cover
+def parse_run(args: argparse.Namespace) -> None:
     logfire.configure()
 
     summary = cast(bool, args.summary)
@@ -130,7 +130,7 @@ def parse_run(args: argparse.Namespace) -> None:  # pragma: no cover
 
 
 @contextmanager
-def alter_sys_argv(argv: list[str], cmd: str) -> Generator[None, None, None]:  # pragma: no cover
+def alter_sys_argv(argv: list[str], cmd: str) -> Generator[None, None, None]:
     orig_argv = sys.argv.copy()
     sys.argv = argv
     try:
@@ -161,15 +161,17 @@ def instrument_packages(installed_otel_packages: set[str], instrument_pkg_map: d
         base_pkg = otel_pkg_name.replace('opentelemetry-instrumentation-', '')
 
         import_name = instrument_pkg_map[otel_pkg_name]
-        instrument_attr = f'instrument_{import_name}'
-
         try:
-            # If the function exists, call it to instrument the package
-            getattr(logfire, instrument_attr)()
+            instrument_package(import_name)
         except Exception:
             continue
         instrumented.append(base_pkg)
     return instrumented
+
+
+def instrument_package(import_name: str):
+    instrument_attr = f'instrument_{import_name}'
+    getattr(logfire, instrument_attr)()
 
 
 def find_recommended_instrumentations_to_install(
@@ -291,7 +293,7 @@ def print_otel_summary(
     console.print()
 
 
-def installed_packages() -> set[str]:  # pragma: no cover
+def installed_packages() -> set[str]:
     """Get a set of all installed packages."""
     try:
         # Try using importlib.metadata first (it's available in Python >=3.10)

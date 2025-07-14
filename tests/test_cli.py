@@ -11,7 +11,7 @@ import types
 import webbrowser
 from contextlib import ExitStack
 from pathlib import Path
-from unittest.mock import call, patch
+from unittest.mock import Mock, call, patch
 
 import pytest
 import requests
@@ -1560,3 +1560,27 @@ Your instrumentation checklist:
 ✓ requests (installed and instrumented)
 """
     )
+
+
+def test_parse_run_no_script(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr('logfire.configure', configure_mock := Mock())
+    monkeypatch.setattr('logfire._internal.cli.run.instrument_package', Mock())
+
+    with pytest.raises(SystemExit):
+        main(['run', '--no-summary'])
+
+    assert configure_mock.call_count == 1
+
+
+def test_parse_run_script(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    from tests.import_used_for_tests import run_script_test
+
+    monkeypatch.setattr('logfire.configure', configure_mock := Mock())
+    monkeypatch.setattr('logfire._internal.cli.run.instrument_package', instrument_package_mock := Mock())
+    monkeypatch.setattr('logfire._internal.cli.run.OTEL_INSTRUMENTATION_MAP', {'openai': 'openai'})
+
+    main(['run', '--no-summary', run_script_test.__file__])
+
+    assert configure_mock.call_count == 1
+    assert capsys.readouterr().out == 'hi from run_script_test.py\n'
+    assert instrument_package_mock.call_args_list == [(('openai',),)]
