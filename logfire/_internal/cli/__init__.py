@@ -395,7 +395,13 @@ def _main(args: list[str] | None = None) -> None:
     )
     cmd_run.set_defaults(func=parse_run)
 
-    namespace = parser.parse_args(args)
+    # We first try to parse everything, and if it's not the `parse_run` command, we parse again to raise an error on
+    # unknown args. This is to allow the `parse_run` command to forward unknown args to the script/module.
+    namespace, unknown_args = parser.parse_known_args(args)
+    if namespace.func == parse_run:
+        namespace.script_and_args = (namespace.script_and_args or []) + unknown_args
+    else:
+        namespace = parser.parse_args(args)
     namespace.logfire_url = _get_logfire_url(namespace.logfire_url, namespace.region)
 
     trace.set_tracer_provider(tracer_provider=SDKTracerProvider())

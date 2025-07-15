@@ -103,12 +103,10 @@ def parse_run(args: argparse.Namespace) -> None:
     if module_name := args.module:
         module_args = script_and_args
 
-        with alter_sys_argv(sys.argv, f'python -m {module_name} {" ".join(module_args)}'):
-            # We need to change the `sys.argv` to make sure the module sees the right CLI args
-            # e.g. in case of `logfire run -m uvicorn main:app --reload`, the application will see
-            # ["<uvicorn.__main__.", "main:app", "--reload"].
-            sys.argv = [f'-m {module_name}'] + module_args
-
+        # We need to change the `sys.argv` to make sure the module sees the right CLI args
+        # e.g. in case of `logfire run -m uvicorn main:app --reload`, the application will see
+        # ["<uvicorn.__main__.", "main:app", "--reload"].
+        with alter_sys_argv([f'-m {module_name}'] + module_args, f'python -m {module_name} {" ".join(module_args)}'):
             # We also need to se the `alter_sys=True` to ensure our changes are reflected in the module.
             runpy.run_module(module_name, run_name='__main__', alter_sys=True)
     elif script_and_args:
@@ -121,8 +119,7 @@ def parse_run(args: argparse.Namespace) -> None:
         if script_dir not in sys.path:
             sys.path.insert(0, script_dir)
 
-        with alter_sys_argv(sys.argv, f'python {script_path} {" ".join(script_args)}'):
-            sys.argv = [script_path] + script_args
+        with alter_sys_argv([script_path] + script_args, f'python {script_path} {" ".join(script_args)}'):
             runpy.run_path(script_path, run_name='__main__')
     else:
         print('Usage: logfire run [-m MODULE] [args...] OR logfire run SCRIPT [args...]')
