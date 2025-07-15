@@ -1,8 +1,8 @@
-# Logfire Enterprise
+# Pydantic Logfire Enterprise
 
 ## Overview
 
-In addition to the [Pro plan](https://pydantic.dev/pricing), Logfire has two enterprise offerings:
+In addition to the [Pro plan](https://pydantic.dev/pricing), Pydantic Logfire has two enterprise offerings:
 
 - **Enterprise Cloud**: Fully managed, SLA-backed service
 - **Enterprise Self-Hosted**: On-premises deployment via Kubernetes
