@@ -108,9 +108,10 @@ def parse_run(args: argparse.Namespace) -> None:
 
         # We need to change the `sys.argv` to make sure the module sees the right CLI args
         # e.g. in case of `logfire run -m uvicorn main:app --reload`, the application will see
-        # ["<uvicorn.__main__.", "main:app", "--reload"].
+        # ["<uvicorn.__main__.py>", "main:app", "--reload"].
+        # alter_sys=True replaces the first element of sys.argv with the module path.
+        # So we can really put anything there. That's why `-m {module_name}` is a single string.
         with alter_sys_argv([f'-m {module_name}'] + module_args, f'python -m {module_name} {" ".join(module_args)}'):
-            # We also need to se the `alter_sys=True` to ensure our changes are reflected in the module.
             runpy.run_module(module_name, run_name='__main__', alter_sys=True)
     elif script_and_args:
         # Script mode
