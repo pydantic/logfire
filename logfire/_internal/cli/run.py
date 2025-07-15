@@ -100,6 +100,9 @@ def parse_run(args: argparse.Namespace) -> None:
     # Get arguments from the script_and_args parameter
     script_and_args = args.script_and_args
 
+    # Add the current directory to `sys.path`. This is needed for the module to be found.
+    sys.path.insert(0, os.getcwd())
+
     if module_name := args.module:
         module_args = script_and_args
 
@@ -116,7 +119,7 @@ def parse_run(args: argparse.Namespace) -> None:
 
         # Make sure the script directory is in sys.path
         script_dir = os.path.dirname(os.path.abspath(script_path))
-        if script_dir not in sys.path:
+        if script_dir not in sys.path:  # pragma: no branch
             sys.path.insert(0, script_dir)
 
         with alter_sys_argv([script_path] + script_args, f'python {script_path} {" ".join(script_args)}'):
@@ -295,7 +298,7 @@ def installed_packages() -> set[str]:
     try:
         # Try using importlib.metadata first (it's available in Python >=3.10)
         return {dist.metadata['Name'].lower() for dist in importlib.metadata.distributions()}
-    except (ImportError, AttributeError):
+    except (ImportError, AttributeError):  # pragma: no cover
         # Fall back to pkg_resources
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', category=UserWarning)
