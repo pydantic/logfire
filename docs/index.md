@@ -9,9 +9,9 @@
   <a href="join-slack/"><img src="https://img.shields.io/badge/Slack-Join%20Slack-4A154B?logo=slack" alt="Join Slack" /></a>
 </p>
 
-## About Logfire
+## About Pydantic Logfire
 
-From the team behind **Pydantic**, **Logfire** is a new type of observability platform built on
+From the team behind **Pydantic Validation**, **Pydantic Logfire** is a new type of observability platform built on
 the same belief as our open source library — that the most powerful tools can be easy to use.
 
 **Logfire** is built on OpenTelemetry, and supports monitoring your application from **any language**,
@@ -27,7 +27,7 @@ This page is a quick walk-through for setting up a Python app:
 
 ## Set up Logfire {#logfire}
 
-1. [Log into Logfire :material-open-in-new:](https://logfire.pydantic.dev/login){:target="_blank"}
+1. [Log into Logfire :material-open-in-new:](https://logfire.pydantic.dev/login){:target="\_blank"}
 2. Follow the prompts to create your account
 3. Once logged in, you'll see the **Welcome to Logfire** prompt. Click **Let's go!** to go to the **starter-project** Setup page.
 
@@ -36,11 +36,13 @@ This page is a quick walk-through for setting up a Python app:
 4. You will find how to send data to your **starter-project** there. Also, there are some code snippets to help you get started.
 
 !!! info ""
-    A **Logfire** project is a namespace for organizing your data. All data sent to **Logfire** must be associated with a project.
+A **Logfire** project is a namespace for organizing your data. All data sent to **Logfire** must be associated with a project.
 
 ??? tip "Ready to create your own projects in UI or CLI?"
-- In the UI, create projects by navigating to the Organization > Projects page, and click **New project**. 
- - For CLI check the [SDK CLI documentation](reference/cli.md#create-projects-new).
+
+- In the UI, create projects by navigating to the Organization > Projects page, and click **New project**.
+- For CLI check the [SDK CLI documentation](reference/cli.md#create-projects-new).
+
 ## Install the SDK {#sdk}
 
 1. In the terminal, install the **Logfire** SDK (Software Developer Kit):
@@ -60,13 +62,14 @@ logfire auth
 ```
 
 !!! info ""
-    Upon successful authentication, credentials are stored in `~/.logfire/default.toml`.
+Upon successful authentication, credentials are stored in `~/.logfire/default.toml`.
 
 ## Instrument your project {#instrument}
+
 === ":material-cog-outline: Development"
-    !!! tip "Development setup"
-        During development, we recommend using the CLI to configure Logfire.
-        You can also use a [write token](how-to-guides/create-write-tokens.md).
+!!! tip "Development setup"
+During development, we recommend using the CLI to configure Logfire.
+You can also use a [write token](how-to-guides/create-write-tokens.md).
 
     1. Set your project
 
@@ -98,10 +101,9 @@ logfire auth
 
     ![Hello world screenshot](images/logfire-screenshot-first-steps-hello-world.png)
 
-
 === ":material-cloud-outline: Production"
-    !!! tip "Production setup"
-        In production, we recommend you provide your write token to the Logfire SDK via environment variables.
+!!! tip "Production setup"
+In production, we recommend you provide your write token to the Logfire SDK via environment variables.
 
     1. Generate a new write token in the **Logfire** platform
 
@@ -151,5 +153,5 @@ More topics to explore...
 
 - Logfire's real power comes from [integrations with many popular libraries](integrations/index.md)
 - As well as spans, you can [use Logfire to record metrics](guides/onboarding-checklist/add-metrics.md)
-- Logfire doesn't just work with Python, [read more about Language support](https://opentelemetry.io/docs/languages/){:target="_blank"}
+- Logfire doesn't just work with Python, [read more about Language support](https://opentelemetry.io/docs/languages/){:target="\_blank"}
 - Compliance requirements (e.g. SOC2)? [See Logfire's certifications](compliance.md)

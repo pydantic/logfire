@@ -1,6 +1,6 @@
-# Logfire + Flask + SQLAlchemy Example
+# Pydantic Logfire + Flask + SQLAlchemy Example
 
-This example is a simple Python financial calculator app which is instrumented with Logfire. If you spin up the server locally and interact with the calculator app, you'll be able to see traces come in automatically. The Logfire instrumentation is done with just a few lines of code in `main.py`.
+This example is a simple Python financial calculator app which is instrumented with Pydantic Logfire. If you spin up the server locally and interact with the calculator app, you'll be able to see traces come in automatically. The Logfire instrumentation is done with just a few lines of code in `main.py`.
 
 ## Run the project
 

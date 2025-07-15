@@ -7,7 +7,7 @@ repo_name: pydantic/logfire
 repo_url: https://github.com/pydantic/logfire
 edit_uri: edit/main/docs/
 
-copyright: © Pydantic Services Inc. 2024 to present
+copyright: © Pydantic Services Inc. 2025 to present
 extra:
   # hide the "Made with Material for MkDocs" message
   generator: false
@@ -109,7 +109,7 @@ nav:
   - Integrations:
       - Integrations: integrations/index.md
       - LLMs:
-          - PydanticAI: integrations/llms/pydanticai.md
+          - Pydantic AI: integrations/llms/pydanticai.md
           - OpenAI: integrations/llms/openai.md
           - Anthropic: integrations/llms/anthropic.md
           - LangChain: integrations/llms/langchain.md

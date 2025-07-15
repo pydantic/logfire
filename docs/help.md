@@ -3,7 +3,7 @@ hide:
 - toc
 ---
 
-# Getting help with Logfire
+# Getting help with Pydantic Logfire
 
 If you need help getting started with **Pydantic Logfire** or with advanced usage, the following sources may be useful.
 
