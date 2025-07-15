@@ -399,7 +399,7 @@ def _main(args: list[str] | None = None) -> None:
     # unknown args. This is to allow the `parse_run` command to forward unknown args to the script/module.
     namespace, unknown_args = parser.parse_known_args(args)
     if namespace.func == parse_run:
-        namespace.script_and_args = (namespace.script_and_args or []) + unknown_args
+        namespace.script_and_args = unknown_args + (namespace.script_and_args or [])
     else:
         namespace = parser.parse_args(args)
     namespace.logfire_url = _get_logfire_url(namespace.logfire_url, namespace.region)

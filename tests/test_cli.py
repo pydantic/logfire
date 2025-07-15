@@ -1578,7 +1578,7 @@ def test_parse_run_script(monkeypatch: pytest.MonkeyPatch, capsys: pytest.Captur
     monkeypatch.setattr('logfire._internal.cli.run.instrument_package', instrument_package_mock := Mock())
     monkeypatch.setattr('logfire._internal.cli.run.OTEL_INSTRUMENTATION_MAP', {'openai': 'openai'})
 
-    main(['run', '--no-summary', run_script_test.__file__])
+    main(['run', '--no-summary', run_script_test.__file__, '-x', 'foo'])
 
     assert configure_mock.call_count == 1
     assert capsys.readouterr().out == 'hi from run_script_test.py\n'
@@ -1590,7 +1590,7 @@ def test_parse_run_script_with_summary(monkeypatch: pytest.MonkeyPatch, capsys: 
     monkeypatch.setattr('logfire._internal.cli.run.instrument_package', instrument_package_mock := Mock())
     monkeypatch.setattr('logfire._internal.cli.run.OTEL_INSTRUMENTATION_MAP', {'openai': 'openai'})
 
-    main(['run', '--summary', run_script_test.__file__])
+    main(['run', '--summary', run_script_test.__file__, '-x', 'foo'])
 
     assert configure_mock.call_count == 1
     out, err = capsys.readouterr()
@@ -1607,7 +1607,7 @@ def test_parse_run_module(
     monkeypatch.setattr('logfire._internal.cli.run.instrument_package', instrument_package_mock := Mock())
     monkeypatch.setattr('logfire._internal.cli.run.OTEL_INSTRUMENTATION_MAP', {'openai': 'openai'})
 
-    main(['run', '--no-summary', '-m', 'main'])
+    main(['run', '--no-summary', '-m', 'main', '-x', 'foo'])
 
     assert configure_mock.call_count == 1
     assert capsys.readouterr().out == snapshot('hi from run_script_test.py\n')
