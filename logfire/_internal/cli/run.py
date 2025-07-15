@@ -115,14 +115,13 @@ def parse_run(args: argparse.Namespace) -> None:
     elif script_and_args:
         # Script mode
         script_path = script_and_args[0]
-        script_args = script_and_args[1:]
 
         # Make sure the script directory is in sys.path
         script_dir = os.path.dirname(os.path.abspath(script_path))
         if script_dir not in sys.path:  # pragma: no branch
             sys.path.insert(0, script_dir)
 
-        with alter_sys_argv([script_path] + script_args, f'python {script_path} {" ".join(script_args)}'):
+        with alter_sys_argv(script_and_args, f'python {" ".join(script_and_args)}'):
             runpy.run_path(script_path, run_name='__main__')
     else:
         print('Usage: logfire run [-m MODULE] [args...] OR logfire run SCRIPT [args...]')
