@@ -185,6 +185,11 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
         ]
     )
 
+    if sys.version_info >= (3, 12):
+        from tests.auto_trace_samples import param_spec
+
+        assert param_spec.check_param_spec_syntax(1, 2, a=3, b=4) == ((1, 2), {'a': 3, 'b': 4})  # type: ignore
+
 
 def test_check_already_imported() -> None:
     # Check that nothing gets imported during this test,
