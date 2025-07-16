@@ -6,13 +6,13 @@ from datetime import datetime, timezone
 import pytest
 from inline_snapshot import snapshot
 
-from logfire.experimental.query_client import AsyncLogfireQueryClient, LogfireQueryClient
+from logfire.query_client import AsyncLogfireQueryClient, LogfireQueryClient
 
 # This file is intended to be updated by the Logfire developers, with the development platform running locally.
 # To update, set the `CLIENT_BASE_URL` and `CLIENT_READ_TOKEN` values to match the local development environment,
 # and run the tests with `--record-mode=rewrite --inline-snapshot=fix` to update the cassettes and snapshots.
 CLIENT_BASE_URL = 'http://localhost:8000/'
-CLIENT_READ_TOKEN = '06KJCLLch8TCYx1FX4N1VGbr2mHrR760Z87zWjpb0TPm'
+CLIENT_READ_TOKEN = 'pylf_v1_local_wk3Vg7NQP1BLtK62PTB0sRqFmn3ThjqvbQn5R27MDZpd'
 pytestmark = [
     pytest.mark.vcr(),
     pytest.mark.skipif(
@@ -37,6 +37,45 @@ def test_infers_base_url_from_token(
 ):
     client = client_class(read_token=token)
     assert client.base_url == expected
+
+
+def test_info_sync():
+    with LogfireQueryClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL) as client:
+        info = client.info()
+        assert info == snapshot(
+            {
+                'organization_name': 'test-org',
+                'project_name': 'starter-project',
+            }
+        )
+
+
+def test_info_invalid_schema_sync():
+    with pytest.raises(
+        RuntimeError, match='The read token info response is missing required fields: organization_name or project_name'
+    ):
+        with LogfireQueryClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL) as client:
+            client.info()
+
+
+@pytest.mark.anyio
+async def test_info_async():
+    async with AsyncLogfireQueryClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL) as client:
+        info = await client.info()
+        assert info == snapshot(
+            {
+                'organization_name': 'test-org',
+                'project_name': 'starter-project',
+            }
+        )
+
+
+async def test_info_invalid_schema_async():
+    with pytest.raises(
+        RuntimeError, match='The read token info response is missing required fields: organization_name or project_name'
+    ):
+        async with AsyncLogfireQueryClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL) as client:
+            await client.info()
 
 
 def test_read_sync():

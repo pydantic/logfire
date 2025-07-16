@@ -13,7 +13,7 @@ To search the live view, click `Search your spans` (keyboard shortcut `/`), this
 ### SQL Search
 
 For confident SQL users, write your queries directly here. For devs who want a bit of help,
-try the new [PydanticAI](https://ai.pydantic.dev/) feature which generates a SQL query based on your prompt.
+try the new [Pydantic AI](https://ai.pydantic.dev/) feature which generates a SQL query based on your prompt.
 You can also review the fields available and populate your SQL automatically using the `Reference` list, see more on this below.
 
 **WHERE clause**
@@ -72,7 +72,7 @@ Write your question in your native language, and the model will convert that que
 
 This is useful if you're not confident with SQL and/or can't quite remember how to format more complicated clauses. You have the option to create a completely new query with `Get new SQL`, or (if you have some SQL already) modify the existing query with `Modify existing SQL`.
 
-Under the hood this feature uses an LLM running with [PydanticAI](https://github.com/pydantic/pydantic-ai).
+Under the hood this feature uses an LLM running with [Pydantic AI](https://github.com/pydantic/pydantic-ai).
 
 ### Reference
 
@@ -94,7 +94,7 @@ This is what you'll see when you come to the live view of a project with some da
    the project name is a link to this page.
 
 2. **Environment:** In the above screenshot, this is set to `all envs`.
-    See the [environments docs](../../how-to-guides/environments.md) for details.
+   See the [environments docs](../../how-to-guides/environments.md) for details.
 
 3. **Timeline:** This shows a histogram of the counts of spans matching your query over time. The blue-highlighted section corresponds to the time range currently visible in the scrollable list of traces below. You can click at points on this line to move to viewing logs from that point in time.
 

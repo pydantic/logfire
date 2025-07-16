@@ -30,16 +30,15 @@ While you can [make direct HTTP requests](#making-direct-http-requests) to Logfi
 we provide Python clients to simplify the process of interacting with the API from Python.
 
 Logfire provides both synchronous and asynchronous clients.
-These clients are currently experimental, meaning we might introduce breaking changes in the future.
-To use these clients, you can import them from the `experimental` namespace:
+To use these clients, you can import them from the `query_client` namespace:
 
 ```python
-from logfire.experimental.query_client import AsyncLogfireQueryClient, LogfireQueryClient
+from logfire.query_client import AsyncLogfireQueryClient, LogfireQueryClient
 ```
 
 !!! note "Additional required dependencies"
 
-    To use the query clients provided in `logfire.experimental.query_client`, you need to install `httpx`.
+    To use the query clients provided in `logfire.query_client`, you need to install `httpx`.
 
     If you want to retrieve Arrow-format responses, you will also need to install `pyarrow`.
 
@@ -57,7 +56,7 @@ Here's an example of how to use these clients:
     from io import StringIO
 
     import polars as pl
-    from logfire.experimental.query_client import AsyncLogfireQueryClient
+    from logfire.query_client import AsyncLogfireQueryClient
 
 
     async def main():
@@ -88,6 +87,10 @@ Here's an example of how to use these clients:
             df_from_csv = pl.read_csv(StringIO(await client.query_csv(sql=query)))
             print(df_from_csv)
 
+            # Get read token info
+            read_token_info = await client.info()
+            print(read_token_info)
+
 
     if __name__ == '__main__':
         import asyncio
@@ -101,7 +104,7 @@ Here's an example of how to use these clients:
     from io import StringIO
 
     import polars as pl
-    from logfire.experimental.query_client import LogfireQueryClient
+    from logfire.query_client import LogfireQueryClient
 
 
     def main():
@@ -131,6 +134,10 @@ Here's an example of how to use these clients:
             # JSON-serialized strings
             df_from_csv = pl.read_csv(StringIO(client.query_csv(sql=query)))
             print(df_from_csv)
+
+            # Get read token info
+            read_token_info = client.info()
+            print(read_token_info)
 
 
     if __name__ == '__main__':
@@ -209,10 +216,3 @@ The Logfire API supports various response formats and query parameters to give y
     - **`row_oriented`**: Only affects JSON responses. If set to `true`, the JSON response will be row-oriented; otherwise, it will be column-oriented.
 
 All query parameters besides `sql` are optional and can be used in any combination to tailor the API response to your needs.
-
-### Important Notes
-
-- **Experimental Feature**: The query clients are under the `experimental` namespace, indicating that the API may change in future versions.
-- **Environment Configuration**: Remember to securely store your read token in environment variables or a secure vault for production use.
-
-With read tokens, you have the flexibility to integrate Logfire into your workflow, whether using Python scripts, data analysis tools, or other systems.

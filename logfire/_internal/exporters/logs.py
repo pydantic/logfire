@@ -14,17 +14,21 @@ class CheckSuppressInstrumentationLogProcessorWrapper(WrapperLogProcessor):
     Placed at the root of the tree of processors.
     """
 
-    def emit(self, log_data: LogData):
+    def on_emit(self, log_data: LogData):
         if is_instrumentation_suppressed():
-            return
+            return None
         with logfire.suppress_instrumentation():
-            return super().emit(log_data)
+            return super().on_emit(log_data)
+
+    emit = on_emit
 
 
 @dataclass
 class MainLogProcessorWrapper(WrapperLogProcessor):
     scrubber: BaseScrubber
 
-    def emit(self, log_data: LogData):
+    def on_emit(self, log_data: LogData):
         log_data.log_record = self.scrubber.scrub_log(log_data.log_record)
-        return super().emit(log_data)
+        return super().on_emit(log_data)
+
+    emit = on_emit

@@ -9,8 +9,7 @@
   <a href="https://logfire.pydantic.dev/docs/join-slack/"><img src="https://img.shields.io/badge/Slack-Join%20Slack-4A154B?logo=slack" alt="Join Slack" /></a>
 </p>
 
-From the team behind Pydantic, **Logfire** is an observability platform built on the same belief as our
-open source library — that the most powerful tools can be easy to use.
+From the team behind Pydantic Validation, **Pydantic Logfire** is an observability platform built on the same belief as our open source library — that the most powerful tools can be easy to use.
 
 What sets Logfire apart:
 
@@ -18,7 +17,7 @@ What sets Logfire apart:
 - **Python-centric Insights:** From rich display of Python objects, to event-loop telemetry, to profiling Python code and database queries, Logfire gives you unparalleled visibility into your Python application's behavior.
 - **SQL:** Query your data using standard SQL — all the control and (for many) nothing new to learn. Using SQL also means you can query your data with existing BI tools and database querying libraries.
 - **OpenTelemetry:** Logfire is an opinionated wrapper around OpenTelemetry, allowing you to leverage existing tooling, infrastructure, and instrumentation for many common Python packages, and enabling support for virtually any language. We offer full support for all OpenTelemetry signals (traces, metrics and logs).
-- **Pydantic Integration:** Understand the data flowing through your Pydantic models and get built-in analytics on validations.
+- **Pydantic Integration:** Understand the data flowing through your Pydantic Validation models and get built-in analytics on validations.
 
 See the [documentation](https://logfire.pydantic.dev/docs/) for more information.
 
@@ -35,6 +34,7 @@ This is a very brief overview of how to use Logfire, the [documentation](https:/
 ```bash
 pip install logfire
 ```
+
 [_(learn more)_](https://logfire.pydantic.dev/docs/guides/first_steps/#install)
 
 ## Authenticate
@@ -42,6 +42,7 @@ pip install logfire
 ```bash
 logfire auth
 ```
+
 [_(learn more)_](https://logfire.pydantic.dev/docs/guides/first_steps/#authentication)
 
 ### Manual tracing
@@ -60,6 +61,7 @@ with logfire.span('Asking the user their {question}', question='age'):
     dob = date.fromisoformat(user_input)
     logfire.debug('{dob=} {age=!r}', dob=dob, age=date.today() - dob)
 ```
+
 [_(learn more)_](https://logfire.pydantic.dev/docs/guides/onboarding-checklist/add-manual-tracing/)
 
 ### Integration
@@ -86,6 +88,7 @@ async def add_user(user: User):
     # we would store the user here
     return {'message': f'{user.name} added'}
 ```
+
 [_(learn more)_](https://logfire.pydantic.dev/docs/integrations/fastapi/)
 
 Logfire gives you a view into how your code is running like this:

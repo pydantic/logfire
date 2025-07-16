@@ -4,12 +4,9 @@ from __future__ import annotations
 
 import argparse
 import functools
-import importlib
-import importlib.util
 import logging
 import platform
 import sys
-import warnings
 import webbrowser
 from collections.abc import Sequence
 from operator import itemgetter
@@ -19,22 +16,18 @@ from urllib.parse import urlparse
 
 import requests
 from opentelemetry import trace
+from rich.console import Console
 
 from logfire.exceptions import LogfireConfigError
 from logfire.propagate import ContextCarrier, get_context
 
-from ..version import VERSION
-from .auth import (
-    DEFAULT_FILE,
-    HOME_LOGFIRE,
-    UserTokenCollection,
-    poll_for_token,
-    request_device_code,
-)
-from .client import LogfireClient
-from .config import REGIONS, LogfireCredentials, get_base_url_from_token
-from .config_params import ParamManager
-from .tracer import SDKTracerProvider
+from ...version import VERSION
+from ..auth import DEFAULT_FILE, HOME_LOGFIRE, UserTokenCollection, poll_for_token, request_device_code
+from ..client import LogfireClient
+from ..config import REGIONS, LogfireCredentials, get_base_url_from_token
+from ..config_params import ParamManager
+from ..tracer import SDKTracerProvider
+from .run import collect_instrumentation_context, parse_run, print_otel_summary
 
 BASE_OTEL_INTEGRATION_URL = 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/'
 BASE_DOCS_URL = 'https://logfire.pydantic.dev/docs'
@@ -109,97 +102,17 @@ def parse_clean(args: argparse.Namespace) -> None:
         sys.stderr.write('Clean aborted.\n')
 
 
-# TODO(Marcelo): Automatically check if this list should be updated.
-# NOTE: List of packages from https://github.com/open-telemetry/opentelemetry-python-contrib/tree/main/instrumentation.
-STANDARD_LIBRARY_PACKAGES = {'urllib', 'sqlite3'}
-OTEL_PACKAGES: set[str] = {
-    *STANDARD_LIBRARY_PACKAGES,
-    'aio_pika',
-    'aiohttp',
-    'aiopg',
-    'asyncpg',
-    'boto',
-    'celery',
-    'confluent_kafka',
-    'django',
-    'elasticsearch',
-    'falcon',
-    'fastapi',
-    'flask',
-    'grpc',
-    'httpx',
-    'jinja2',
-    'kafka_python',
-    'mysql',
-    'mysqlclient',
-    'pika',
-    'psycopg',
-    'psycopg2',
-    'pymemcache',
-    'pymongo',
-    'pymysql',
-    'pyramid',
-    'remoulade',
-    'requests',
-    'sqlalchemy',
-    'starlette',
-    'tornado',
-    'tortoise_orm',
-    'urllib3',
-}
-OTEL_PACKAGE_LINK = {'aiohttp': 'aiohttp-client', 'tortoise_orm': 'tortoiseorm', 'scikit-learn': 'sklearn'}
-
-
 def parse_inspect(args: argparse.Namespace) -> None:
     """Inspect installed packages and recommend packages that might be useful."""
-    packages_to_ignore: set[str] = set(args.ignore) if args.ignore else set()
-    packages_to_inspect = OTEL_PACKAGES - packages_to_ignore
+    console = Console(file=sys.stderr)
 
-    # Ignore warnings from packages that we don't control.
-    warnings.simplefilter('ignore', category=UserWarning)
+    ctx = collect_instrumentation_context(set(args.ignore))
 
-    packages: dict[str, str] = {}
-    for name in packages_to_inspect:
-        # Check if the package can be imported (without actually importing it).
-        if importlib.util.find_spec(name) is None:
-            continue
-
-        otel_package = OTEL_PACKAGE_LINK.get(name, name)
-        otel_package_import = f'opentelemetry.instrumentation.{otel_package}'
-
-        if importlib.util.find_spec(otel_package_import) is None:
-            packages[name] = otel_package
-
-    # Drop packages that are dependencies of other packages.
-    if packages.get('starlette') and packages.get('fastapi'):
-        del packages['starlette']
-    if packages.get('urllib3') and packages.get('requests'):
-        del packages['urllib3']
-
-    # fmt: off
-    sys.stderr.write('The following packages from your environment have an OpenTelemetry instrumentation that is not installed:\n')
-    sys.stderr.write('\n')
-    # fmt: on
-
-    rows: list[list[str]] = []
-    for name, otel_package in sorted(packages.items()):
-        package_name = otel_package.replace('.', '-')
-        otel_package_name = f'opentelemetry-instrumentation-{package_name}'
-        rows.append([name, otel_package_name])
-    sys.stderr.write(_pretty_table(['Package', 'OpenTelemetry instrumentation package'], rows))
-
-    if packages:  # pragma: no branch
-        otel_packages_to_install = ' '.join(
-            f'opentelemetry-instrumentation-{pkg.replace(".", "-")}' for pkg in packages.values()
-        )
-        install_command = f'pip install {otel_packages_to_install}'
-        sys.stderr.writelines(
-            (
-                '\nTo install these packages, run:\n',
-                f'\n$ {install_command}\n',
-                f'\nFor further information, visit {INTEGRATIONS_DOCS_URL}\n',
-            )
-        )
+    if ctx.recommendations:
+        print_otel_summary(console=console, recommendations=ctx.recommendations)
+        sys.exit(1)
+    else:
+        console.print('No recommended packages found. You are all set!', style='green')  # pragma: no cover
 
 
 def parse_auth(args: argparse.Namespace) -> None:
@@ -442,7 +355,7 @@ def _main(args: list[str] | None = None) -> None:
 
     cmd_inspect = subparsers.add_parser('inspect', help=parse_inspect.__doc__)
     cmd_inspect.set_defaults(func=parse_inspect)
-    cmd_inspect.add_argument('--ignore', action=SplitArgs, help='ignore a package')
+    cmd_inspect.add_argument('--ignore', action=SplitArgs, default=(), help='ignore a package')
 
     cmd_whoami = subparsers.add_parser('whoami', help=parse_whoami.__doc__)
     cmd_whoami.set_defaults(func=parse_whoami)
@@ -473,7 +386,22 @@ def _main(args: list[str] | None = None) -> None:
     cmd_info = subparsers.add_parser('info', help=parse_info.__doc__)
     cmd_info.set_defaults(func=parse_info)
 
-    namespace = parser.parse_args(args)
+    cmd_run = subparsers.add_parser('run', help='Run Python scripts/modules with Logfire instrumentation')
+    cmd_run.add_argument('--summary', action=argparse.BooleanOptionalAction, default=True, help='hide the summary box')
+    cmd_run.add_argument('--exclude', action=SplitArgs, default=(), help='exclude a package from instrumentation')
+    cmd_run.add_argument('-m', '--module', help='Run module as script')
+    cmd_run.add_argument(
+        'script_and_args', nargs=argparse.REMAINDER, help='Script path and arguments, or module arguments when using -m'
+    )
+    cmd_run.set_defaults(func=parse_run)
+
+    # We first try to parse everything, and if it's not the `parse_run` command, we parse again to raise an error on
+    # unknown args. This is to allow the `parse_run` command to forward unknown args to the script/module.
+    namespace, unknown_args = parser.parse_known_args(args)
+    if namespace.func == parse_run:
+        namespace.script_and_args = unknown_args + (namespace.script_and_args or [])
+    else:
+        namespace = parser.parse_args(args)
     namespace.logfire_url = _get_logfire_url(namespace.logfire_url, namespace.region)
 
     trace.set_tracer_provider(tracer_provider=SDKTracerProvider())

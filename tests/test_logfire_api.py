@@ -180,6 +180,16 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         logfire_api.instrument_google_genai()
     logfire__all__.remove('instrument_google_genai')
 
+    assert hasattr(logfire_api, 'instrument_litellm')
+    if not pydantic_pre_2_5:
+        try:
+            importlib.import_module('litellm')
+        except AttributeError:  # pragma: no cover  # TODO figure this out
+            pass
+        else:
+            logfire_api.instrument_litellm()
+    logfire__all__.remove('instrument_litellm')
+
     for member in [m for m in logfire__all__ if m.startswith('instrument_')]:
         assert hasattr(logfire_api, member), member
         if not (pydantic_pre_2_5 and member == 'instrument_pydantic'):

@@ -1,5 +1,27 @@
 # Release Notes
 
+## [v3.24.2] (2025-07-14)
+
+* Fix auto-tracing Python 3.12 ParamSpec syntax by @alexmojaki in [#1247](https://github.com/pydantic/logfire/pull/1247)
+
+## [v3.24.1] (2025-07-14)
+
+* Support OpenTelemetry 1.35.0 by @alexmojaki in [#1242](https://github.com/pydantic/logfire/pull/1242)
+
+## [v3.24.0] (2025-07-10)
+
+* Add experimental `logfire.instrument_litellm()` by @alexmojaki in [#1237](https://github.com/pydantic/logfire/pull/1237)
+
+## [v3.23.0] (2025-07-08)
+
+* Add info method to logfire query clients by @hramezani in [#1204](https://github.com/pydantic/logfire/pull/1204)
+* Make query client not experimental by @alexmojaki in [#1234](https://github.com/pydantic/logfire/pull/1234)
+
+## [v3.22.1] (2025-07-07)
+
+* Fix OpenAI streaming reasoning by @alexmojaki in [#1232](https://github.com/pydantic/logfire/pull/1232)
+* Handle bytes in google genai messages by @alexmojaki in [#1231](https://github.com/pydantic/logfire/pull/1231)
+
 ## [v3.22.0] (2025-07-02)
 
 * Add `instrument_google_genai` by @alexmojaki in [#1217](https://github.com/pydantic/logfire/pull/1217)
@@ -765,3 +787,8 @@ First release from new repo!
 [v3.21.1]: https://github.com/pydantic/logfire/compare/v3.21.0...v3.21.1
 [v3.21.2]: https://github.com/pydantic/logfire/compare/v3.21.1...v3.21.2
 [v3.22.0]: https://github.com/pydantic/logfire/compare/v3.21.2...v3.22.0
+[v3.22.1]: https://github.com/pydantic/logfire/compare/v3.22.0...v3.22.1
+[v3.23.0]: https://github.com/pydantic/logfire/compare/v3.22.1...v3.23.0
+[v3.24.0]: https://github.com/pydantic/logfire/compare/v3.23.0...v3.24.0
+[v3.24.1]: https://github.com/pydantic/logfire/compare/v3.24.0...v3.24.1
+[v3.24.2]: https://github.com/pydantic/logfire/compare/v3.24.1...v3.24.2

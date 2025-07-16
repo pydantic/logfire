@@ -2,9 +2,9 @@
 integration: logfire
 ---
 
-# Pydantic
+# Pydantic Validation
 
-Logfire has a Pydantic plugin to instrument [Pydantic][pydantic] models.
+Pydantic Logfire has a Pydantic Validation plugin to instrument [Pydantic Validation][pydantic] models.
 The plugin provides logs and metrics about model validation.
 
 To enable the plugin, do one of the following:
