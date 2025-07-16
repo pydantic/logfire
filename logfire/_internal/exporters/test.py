@@ -80,6 +80,7 @@ class TestExporter(SpanExporter):
             res: dict[str, Any] = {'name': event.name, 'timestamp': event.timestamp}
             if event.attributes:  # pragma: no branch
                 res['attributes'] = attributes = dict(event.attributes)
+                attributes.pop('logfire.fingerprint', None)  # TODO test?
                 if 'exception.stacktrace' in attributes:
                     last_line = next(  # pragma: no branch
                         line.strip()

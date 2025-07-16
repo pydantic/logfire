@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import hashlib
 import inspect
 import json
 import logging
@@ -8,6 +9,7 @@ import os
 import platform
 import random
 import sys
+import traceback
 from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -34,6 +36,13 @@ from requests import RequestException, Response
 
 from logfire._internal.stack_info import is_user_code
 from logfire._internal.ulid import ulid
+
+try:
+    _ = ExceptionGroup
+    _ = BaseExceptionGroup
+except NameError:
+    if not TYPE_CHECKING:
+        ExceptionGroup = BaseExceptionGroup = ()
 
 if TYPE_CHECKING:
     from typing import ParamSpec
@@ -421,3 +430,33 @@ def platform_is_emscripten() -> bool:
     Threads cannot be created on Emscripten, so we need to avoid any code that creates threads.
     """
     return platform.system().lower() == 'emscripten'
+
+
+def canonicalize_exception(exc: BaseException) -> str:
+    exc_type = type(exc)
+    parts = [f'\n{exc_type.__module__}.{exc_type.__qualname__}\n----']
+    if exc.__traceback__:
+        for frame in traceback.extract_tb(exc.__traceback__):
+            parts.append(f'{frame.filename}:{frame.name}\n    {frame.line}')
+    if isinstance(exc, BaseExceptionGroup):
+        sub_exception_parts: list[str] = []
+        sub_exceptions: tuple[BaseException] = exc.exceptions  # type: ignore
+        for nested_exc in sub_exceptions:
+            nested_representation = canonicalize_exception(nested_exc)
+            sub_exception_parts.append(nested_representation)
+        parts.append('\n<ExceptionGroup>')
+        parts.extend(sorted(set(sub_exception_parts)))
+        parts.append('\n</ExceptionGroup>\n')
+    elif exc.__cause__ is not None:
+        parts.append('\n__cause__:')
+        parts.append(canonicalize_exception(exc.__cause__))
+    elif exc.__context__ is not None and not exc.__suppress_context__:
+        parts.append('\n__context__:')
+        parts.append(canonicalize_exception(exc.__context__))
+    return '\n'.join(parts)
+
+
+def sha256_string(s: str) -> str:
+    hasher = hashlib.sha256()
+    hasher.update(s.encode('utf-8'))
+    return hasher.hexdigest()
