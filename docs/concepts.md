@@ -18,7 +18,7 @@ New to observability? Another great resource is the [OpenTelemetry primer](https
 A **span** is the building block of a trace. You might also think of spans as logs with extra functionality — a single row in our live view.
 
 !!! info
-Spans let you **add context** to your logs and **measure code execution time**. Multiple spans combine to form a trace, providing a complete picture of an operation's journey through your system.
+    Spans let you **add context** to your logs and **measure code execution time**. Multiple spans combine to form a trace, providing a complete picture of an operation's journey through your system.
 
 ![Spans](images/concepts/spans.png)
 
@@ -29,7 +29,7 @@ A trace is a tree structure of spans which shows the path of any client request,
 Spans are ordered and nested, meaning you can think of this like a stack trace - it shows you the whole history of all services touched and all responses returned.
 
 !!! info
-Traces are not limited to a single service — they can be propagated to completely different and isolated services. For example, a single trace could contain http requests to both a Python API and a SQL database.
+    Traces are not limited to a single service — they can be propagated to completely different and isolated services. For example, a single trace could contain http requests to both a Python API and a SQL database.
 
 ![Trace](images/concepts/trace.png)
 
@@ -69,8 +69,7 @@ In this example:
 
 1. The outer span sets the topic — the user's birthday
 2. The user input is captured in the terminal
-3. `dob` (date of birth) is displayed in the span
-4. Logfire calculates the age from the `dob` and displays age in the debug message
+3. `dob` (date of birth) is displayed in the span Logfire calculates the age from the `dob` and displays age in the debug message
 
 ```py
 from datetime import date
@@ -109,7 +108,7 @@ Alongside logs and traces, metrics complete the "three pillars" of observability
 low‑overhead signal about the overall health and performance of your services.
 
 !!! info
-Good news: Logfire's [integrations](integrations/index.md) automatically set up many common metrics for you out of the box.
+    Good news: Logfire's [integrations](integrations/index.md) automatically set up many common metrics for you out of the box.
 
     You can also explore our [standard dashboards](guides/web-ui/dashboards.md) which provide pre-built visualizations for **Web Server Metrics**, **Basic System Metrics (Logfire)** and **Basic System Metrics (OpenTelemetry)**.
 
