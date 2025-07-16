@@ -7,6 +7,7 @@ from threading import Lock
 from typing import TYPE_CHECKING, Any
 from weakref import WeakSet
 
+from opentelemetry import trace
 from opentelemetry._logs import Logger, LoggerProvider, LogRecord, NoOpLoggerProvider
 
 if TYPE_CHECKING:
@@ -83,6 +84,13 @@ class ProxyLogger(Logger):
     attributes: _ExtendedAttributes | None = None
 
     def emit(self, record: LogRecord) -> None:
+        if not record.trace_id:
+            span_context = trace.get_current_span().get_span_context()
+            record.trace_id = span_context.trace_id
+            record.span_id = span_context.span_id
+            record.trace_flags = span_context.trace_flags
+        if hasattr(self.logger, 'resource') and hasattr(record, 'resource'):
+            record.resource = self.logger.resource  # type: ignore
         self.logger.emit(record)
 
     def set_logger(self, provider: LoggerProvider) -> None:
