@@ -9,8 +9,6 @@ from dirty_equals import IsAnyStr, IsJson
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.starlette import StarletteInstrumentor
 from starlette.applications import Starlette
-from starlette.requests import Request
-from starlette.responses import PlainTextResponse
 from starlette.routing import Route, WebSocketRoute
 from starlette.testclient import TestClient
 from starlette.websockets import WebSocket
@@ -247,19 +245,3 @@ def test_missing_opentelemetry_dependency() -> None:
 You can install this with:
     pip install 'logfire[starlette]'\
 """)
-
-
-def test_instrumentation_no_app(exporter: TestExporter) -> None:
-    async def homepage(request: Request):
-        return PlainTextResponse('Hello, world!')
-
-    app = Starlette(routes=[Route('/', homepage)])
-
-    try:
-        logfire.instrument_starlette(capture_headers=True, record_send_receive=True)
-        client = TestClient(app)
-        response = client.get('/')
-        assert response.text == 'Hello, world!'
-        assert exporter.exported_spans_as_dict() == snapshot([])
-    finally:
-        StarletteInstrumentor().uninstrument()

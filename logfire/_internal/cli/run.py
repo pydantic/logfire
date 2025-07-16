@@ -164,6 +164,8 @@ def instrument_packages(installed_otel_packages: set[str], instrument_pkg_map: d
         try:
             instrument_package(import_name)
         except Exception:
+            raise
+            breakpoint()
             continue
         instrumented.append(base_pkg)
     return instrumented
@@ -171,7 +173,12 @@ def instrument_packages(installed_otel_packages: set[str], instrument_pkg_map: d
 
 def instrument_package(import_name: str):
     instrument_attr = f'instrument_{import_name}'
-    getattr(logfire, instrument_attr)()
+
+    if import_name in ('starlette', 'fastapi', 'flask'):
+        module = importlib.import_module(f'logfire._internal.integrations.{import_name}')
+        getattr(module, instrument_attr)(logfire.DEFAULT_LOGFIRE_INSTANCE)
+    else:
+        getattr(logfire, instrument_attr)()
 
 
 def find_recommended_instrumentations_to_install(

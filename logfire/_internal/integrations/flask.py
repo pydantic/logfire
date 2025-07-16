@@ -15,16 +15,18 @@ except ImportError:
         "    pip install 'logfire[flask]'"
     )
 
+from logfire import Logfire
 from logfire._internal.utils import maybe_capture_server_headers
 from logfire.integrations.flask import CommenterOptions, RequestHook, ResponseHook
 
 
 def instrument_flask(
+    logfire_instance: Logfire,
     app: Flask | None = None,
     *,
-    capture_headers: bool,
-    enable_commenter: bool,
-    commenter_options: CommenterOptions | None,
+    capture_headers: bool = False,
+    enable_commenter: bool = False,
+    commenter_options: CommenterOptions | None = None,
     excluded_urls: str | None = None,
     request_hook: RequestHook | None = None,
     response_hook: ResponseHook | None = None,
@@ -48,7 +50,11 @@ def instrument_flask(
             excluded_urls=excluded_urls,
             request_hook=request_hook,
             response_hook=response_hook,
-            **kwargs,
+            **{
+                'tracer_provider': logfire_instance.config.get_tracer_provider(),
+                'meter_provider': logfire_instance.config.get_meter_provider(),
+                **kwargs,
+            },
         )
     else:
         FlaskInstrumentor().instrument_app(  # type: ignore[reportUnknownMemberType]
@@ -58,5 +64,9 @@ def instrument_flask(
             excluded_urls=excluded_urls,
             request_hook=request_hook,
             response_hook=response_hook,
-            **kwargs,
+            **{
+                'tracer_provider': logfire_instance.config.get_tracer_provider(),
+                'meter_provider': logfire_instance.config.get_meter_provider(),
+                **kwargs,
+            },
         )

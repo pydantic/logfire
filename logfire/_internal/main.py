@@ -11,15 +11,7 @@ from contextvars import Token
 from enum import Enum
 from functools import cached_property
 from time import time
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Literal,
-    TypeVar,
-    Union,
-    overload,
-)
+from typing import TYPE_CHECKING, Any, Callable, Literal, TypeVar, Union, overload
 
 import opentelemetry.context as context_api
 import opentelemetry.trace as trace_api
@@ -1022,7 +1014,7 @@ class Logfire:
 
     def instrument_fastapi(
         self,
-        app: FastAPI | None = None,
+        app: FastAPI,
         *,
         capture_headers: bool = False,
         request_attributes_mapper: Callable[
@@ -1541,7 +1533,7 @@ class Logfire:
 
     def instrument_flask(
         self,
-        app: Flask | None = None,
+        app: Flask,
         *,
         capture_headers: bool = False,
         enable_commenter: bool = True,
@@ -1572,6 +1564,7 @@ class Logfire:
 
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_flask(
+            self,
             app,
             capture_headers=capture_headers,
             enable_commenter=enable_commenter,
@@ -1579,16 +1572,12 @@ class Logfire:
             excluded_urls=excluded_urls,
             request_hook=request_hook,
             response_hook=response_hook,
-            **{
-                'tracer_provider': self._config.get_tracer_provider(),
-                'meter_provider': self._config.get_meter_provider(),
-                **kwargs,
-            },
+            **kwargs,
         )
 
     def instrument_starlette(
         self,
-        app: Starlette | None = None,
+        app: Starlette,
         *,
         capture_headers: bool = False,
         record_send_receive: bool = False,
