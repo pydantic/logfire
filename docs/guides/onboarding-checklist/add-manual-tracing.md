@@ -235,8 +235,8 @@ my_function(3, 4)
 
 !!! note
 
-     - The [`@logfire.instrument`][logfire.Logfire.instrument] decorator MUST be applied first, i.e., UNDER any other decorators.
-     - The source code of the function MUST be accessible.
+    - The [`@logfire.instrument`][logfire.Logfire.instrument] decorator MUST be applied first, i.e., UNDER any other decorators.
+    - The source code of the function MUST be accessible.
 
 ## Log levels
 
