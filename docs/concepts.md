@@ -69,7 +69,7 @@ In this example:
 
 1. The outer span sets the topic — the user's birthday
 2. The user input is captured in the terminal
-3. `dob` (date of birth) is displayed in the span Logfire calculates the age from the `dob` and displays age in the debug message
+3. `dob` (date of birth) is displayed in the span. Logfire calculates the age from the `dob` and displays age in the debug message
 
 ```py
 from datetime import date
