@@ -67,9 +67,9 @@ logfire auth
 ## Instrument your project {#instrument}
 
 === ":material-cog-outline: Development"
-!!! tip "Development setup"
-    During development, we recommend using the CLI to configure Logfire.
-    You can also use a [write token](how-to-guides/create-write-tokens.md).
+    !!! tip "Development setup"
+        During development, we recommend using the CLI to configure Logfire.
+        You can also use a [write token](how-to-guides/create-write-tokens.md).
 
     1. Set your project
 
@@ -102,8 +102,8 @@ logfire auth
     ![Hello world screenshot](images/logfire-screenshot-first-steps-hello-world.png)
 
 === ":material-cloud-outline: Production"
-!!! tip "Production setup"
-    In production, we recommend you provide your write token to the Logfire SDK via environment variables.
+    !!! tip "Production setup"
+        In production, we recommend you provide your write token to the Logfire SDK via environment variables.
 
     1. Generate a new write token in the **Logfire** platform
 
