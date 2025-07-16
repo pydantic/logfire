@@ -22,7 +22,7 @@ main()
 ```
 
 !!! note
-    Generator functions will not be traced for reasons explained [here](../../reference/advanced/generators.md).
+ Generator functions will not be traced for reasons explained [here](../../reference/advanced/generators.md).
 
 ## Only tracing functions above a minimum duration
 

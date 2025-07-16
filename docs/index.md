@@ -36,7 +36,7 @@ This page is a quick walk-through for setting up a Python app:
 4. You will find how to send data to your **starter-project** there. Also, there are some code snippets to help you get started.
 
 !!! info ""
-A **Logfire** project is a namespace for organizing your data. All data sent to **Logfire** must be associated with a project.
+ A **Logfire** project is a namespace for organizing your data. All data sent to **Logfire** must be associated with a project.
 
 ??? tip "Ready to create your own projects in UI or CLI?"
 
