@@ -120,6 +120,24 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                             }
                         ],
                     },
+                    'llm.tools.0.tool.json_schema': {
+                        'type': 'function',
+                        'function': {
+                            'name': 'get_current_weather',
+                            'description': 'Get the current weather in a given location',
+                            'parameters': {
+                                'type': 'object',
+                                'properties': {
+                                    'location': {
+                                        'type': 'string',
+                                        'description': 'The city and state, e.g. San Francisco, CA',
+                                    },
+                                    'unit': {'type': 'string', 'enum': ['celsius', 'fahrenheit']},
+                                },
+                                'required': ['location'],
+                            },
+                        },
+                    },
                     'output.value': {
                         'id': 'chatcmpl-Br2eczuAVPiovQVLOcoEi7qbHonyZ',
                         'created': 1751981286,
@@ -288,6 +306,24 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                                 },
                             }
                         ],
+                    },
+                    'llm.tools.0.tool.json_schema': {
+                        'type': 'function',
+                        'function': {
+                            'name': 'get_current_weather',
+                            'description': 'Get the current weather in a given location',
+                            'parameters': {
+                                'type': 'object',
+                                'properties': {
+                                    'location': {
+                                        'type': 'string',
+                                        'description': 'The city and state, e.g. San Francisco, CA',
+                                    },
+                                    'unit': {'type': 'string', 'enum': ['celsius', 'fahrenheit']},
+                                },
+                                'required': ['location'],
+                            },
+                        },
                     },
                     'output.value': 'The current temperature in San Francisco is 72°F. If you need more specific weather details or a forecast, let me know!',
                     'llm.output_messages.0.message.role': 'assistant',
