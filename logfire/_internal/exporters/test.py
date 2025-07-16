@@ -80,7 +80,6 @@ class TestExporter(SpanExporter):
             res: dict[str, Any] = {'name': event.name, 'timestamp': event.timestamp}
             if event.attributes:  # pragma: no branch
                 res['attributes'] = attributes = dict(event.attributes)
-                attributes.pop('logfire.fingerprint', None)  # TODO test?
                 if 'exception.stacktrace' in attributes:
                     last_line = next(  # pragma: no branch
                         line.strip()
@@ -172,6 +171,7 @@ def build_attributes(
         k: process_attribute(k, v, strip_filepaths, fixed_line_number, strip_function_qualname, parse_json_attributes)
         for k, v in attributes.items()
     }
+    attributes.pop('logfire.exception.fingerprint', None)
     if 'telemetry.sdk.version' in attributes:
         attributes['telemetry.sdk.version'] = '0.0.0'
     return attributes

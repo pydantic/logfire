@@ -429,8 +429,7 @@ def record_exception(
         stacktrace = ''.join(traceback.format_exception(type(exception), exception, exception.__traceback__))
         attributes['exception.stacktrace'] = stacktrace
 
-    attributes['logfire.fingerprint'] = sha256_string(canonicalize_exception(exception))
-
+    span.set_attribute('logfire.exception.fingerprint', sha256_string(canonicalize_exception(exception)))
     span.record_exception(exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
 
 

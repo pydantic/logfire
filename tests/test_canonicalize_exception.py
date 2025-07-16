@@ -89,7 +89,7 @@ __context__:
 builtins.ExceptionGroup
 ----
 __file__:test_canonicalize_exception
-    raise BaseExceptionGroup('group', [e1, e1_b, e5])  # type: ignore
+    raise BaseExceptionGroup('group', [e1, e1_b, e5])  # type: ignore  # noqa
 
 <ExceptionGroup>
 
