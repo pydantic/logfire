@@ -436,8 +436,13 @@ def canonicalize_exception(exc: BaseException) -> str:
     exc_type = type(exc)
     parts = [f'\n{exc_type.__module__}.{exc_type.__qualname__}\n----']
     if exc.__traceback__:
+        # Ignore repeated frames
+        visited_frames_info: set[tuple[Any, ...]] = set()
         for frame in traceback.extract_tb(exc.__traceback__):
-            parts.append(f'{frame.filename}:{frame.name}\n    {frame.line}')
+            visited_frame_info = (frame.filename, frame.name, frame.line)
+            if visited_frame_info not in visited_frames_info:
+                visited_frames_info.add(visited_frame_info)
+                parts.append(f'{frame.filename}:{frame.name}\n    {frame.line}')
     if isinstance(exc, BaseExceptionGroup):
         sub_exception_parts: list[str] = []
         sub_exceptions: tuple[BaseException] = exc.exceptions  # type: ignore

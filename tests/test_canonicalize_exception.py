@@ -131,5 +131,31 @@ __file__:bar2
 """)
 
 
+def test_canonicalize_repeated_frame_exception():
+    def foo(n: int):
+        if n == 0:
+            raise ValueError
+        bar(n)
+
+    def bar(n: int):
+        foo(n - 1)
+
+    try:
+        foo(3)
+    except Exception as e:
+        canonicalized = canonicalize_exception(e)
+        assert canonicalized.replace(__file__, '__file__') == snapshot("""
+builtins.ValueError
+----
+__file__:test_canonicalize_repeated_frame_exception
+    foo(3)
+__file__:foo
+    bar(n)
+__file__:bar
+    foo(n-1)
+__file__:foo
+    raise ValueError""")
+
+
 def test_sha256_string():
     assert sha256_string('test') == snapshot('9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08')
