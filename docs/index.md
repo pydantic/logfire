@@ -36,7 +36,7 @@ This page is a quick walk-through for setting up a Python app:
 4. You will find how to send data to your **starter-project** there. Also, there are some code snippets to help you get started.
 
 !!! info ""
-A **Logfire** project is a namespace for organizing your data. All data sent to **Logfire** must be associated with a project.
+    A **Logfire** project is a namespace for organizing your data. All data sent to **Logfire** must be associated with a project.
 
 ??? tip "Ready to create your own projects in UI or CLI?"
 
@@ -62,14 +62,14 @@ logfire auth
 ```
 
 !!! info ""
-Upon successful authentication, credentials are stored in `~/.logfire/default.toml`.
+    Upon successful authentication, credentials are stored in `~/.logfire/default.toml`.
 
 ## Instrument your project {#instrument}
 
 === ":material-cog-outline: Development"
-!!! tip "Development setup"
-During development, we recommend using the CLI to configure Logfire.
-You can also use a [write token](how-to-guides/create-write-tokens.md).
+    !!! tip "Development setup"
+        During development, we recommend using the CLI to configure Logfire.
+        You can also use a [write token](how-to-guides/create-write-tokens.md).
 
     1. Set your project
 
@@ -102,8 +102,8 @@ You can also use a [write token](how-to-guides/create-write-tokens.md).
     ![Hello world screenshot](images/logfire-screenshot-first-steps-hello-world.png)
 
 === ":material-cloud-outline: Production"
-!!! tip "Production setup"
-In production, we recommend you provide your write token to the Logfire SDK via environment variables.
+    !!! tip "Production setup"
+        In production, we recommend you provide your write token to the Logfire SDK via environment variables.
 
     1. Generate a new write token in the **Logfire** platform
 
