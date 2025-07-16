@@ -164,8 +164,6 @@ def instrument_packages(installed_otel_packages: set[str], instrument_pkg_map: d
         try:
             instrument_package(import_name)
         except Exception:
-            raise
-            breakpoint()
             continue
         instrumented.append(base_pkg)
     return instrumented
