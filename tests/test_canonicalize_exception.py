@@ -4,6 +4,7 @@ import pytest
 from inline_snapshot import snapshot
 
 import logfire
+from logfire._internal.constants import ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY
 from logfire._internal.exporters.test import TestExporter
 from logfire._internal.utils import canonicalize_exception_traceback, sha256_string
 
@@ -173,6 +174,6 @@ def test_fingerprint_attribute(exporter: TestExporter):
 
     (_pending, span) = exporter.exported_spans
     assert span.attributes
-    assert span.attributes['logfire.exception.fingerprint'] == snapshot(
+    assert span.attributes[ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY] == snapshot(
         '3ca86c8642e26597ed1f2485859197fd294e17719e31b302b55246dab493ce83'
     )

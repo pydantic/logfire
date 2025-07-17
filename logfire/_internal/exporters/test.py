@@ -18,7 +18,7 @@ from opentelemetry.sdk._logs.export import InMemoryLogExporter
 from opentelemetry.sdk.trace import Event, ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 
-from ..constants import ATTRIBUTES_SPAN_TYPE_KEY
+from ..constants import ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY, ATTRIBUTES_SPAN_TYPE_KEY
 
 
 class TestExporter(SpanExporter):
@@ -171,7 +171,7 @@ def build_attributes(
         k: process_attribute(k, v, strip_filepaths, fixed_line_number, strip_function_qualname, parse_json_attributes)
         for k, v in attributes.items()
     }
-    attributes.pop('logfire.exception.fingerprint', None)
+    attributes.pop(ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY, None)
     if 'telemetry.sdk.version' in attributes:
         attributes['telemetry.sdk.version'] = '0.0.0'
     return attributes
