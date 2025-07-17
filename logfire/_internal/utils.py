@@ -46,8 +46,6 @@ except NameError:
         class BaseExceptionGroup(BaseException):
             """Stub for BaseExceptionGroup for Python < 3.11."""
 
-            pass
-
 
 if TYPE_CHECKING:
     from typing import ParamSpec
