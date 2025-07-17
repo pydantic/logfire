@@ -1,7 +1,10 @@
 import sys
 
+import pytest
 from inline_snapshot import snapshot
 
+import logfire
+from logfire._internal.exporters.test import TestExporter
 from logfire._internal.utils import canonicalize_exception, sha256_string
 
 
@@ -161,3 +164,15 @@ tests.test_canonicalize_exception.foo
 
 def test_sha256_string():
     assert sha256_string('test') == snapshot('9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08')
+
+
+def test_fingerprint_attribute(exporter: TestExporter):
+    with pytest.raises(ValueError):
+        with logfire.span('foo'):
+            raise ValueError('test')
+
+    (_pending, span) = exporter.exported_spans
+    assert span.attributes
+    assert span.attributes['logfire.exception.fingerprint'] == snapshot(
+        '3ca86c8642e26597ed1f2485859197fd294e17719e31b302b55246dab493ce83'
+    )
