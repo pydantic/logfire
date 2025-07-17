@@ -36,7 +36,8 @@ def test_canonicalize_exception_func():
         foo2()
     except Exception:
         try:
-            exec('qiwoue')
+            # Intentionally trigger a NameError by referencing an undefined variable
+            exec('undefined_variable')
         except Exception:
             try:
                 raise ZeroDivisionError
