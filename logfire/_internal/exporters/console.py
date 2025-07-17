@@ -10,7 +10,7 @@ import os
 import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from textwrap import indent as indent_text
 from typing import Any, Literal, TextIO, cast
 
