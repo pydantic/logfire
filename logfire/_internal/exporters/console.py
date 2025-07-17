@@ -195,7 +195,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
         """
         parts: TextParts = []
         if self._include_timestamp:
-            ts = datetime.fromtimestamp(span.timestamp / ONE_SECOND_IN_NANOSECONDS, tz=timezone.utc)
+            ts = datetime.fromtimestamp(span.timestamp / ONE_SECOND_IN_NANOSECONDS)
             # ugly though it is, `[:-3]` is the simplest way to convert microseconds -> milliseconds
             ts_str = f'{ts:%H:%M:%S.%f}'[:-3]
             parts += [(ts_str, 'green'), (' ', '')]
