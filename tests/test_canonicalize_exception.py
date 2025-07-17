@@ -77,18 +77,18 @@ tests.test_canonicalize_exception.bar2
 
     try:
         raise BaseExceptionGroup('group', [e1, e1_b, e5])  # type: ignore  # noqa
-    except BaseExceptionGroup:  # noqa
+    except BaseExceptionGroup as group:  # noqa
         try:
-            raise Exception
+            raise Exception from group
         except Exception as e6:
             assert canonicalize_exception_traceback(e6).replace(__file__, '__file__') == snapshot("""\
 
 builtins.Exception
 ----
 tests.test_canonicalize_exception.test_canonicalize_exception_func
-   raise Exception
+   raise Exception from group
 
-__context__:
+__cause__:
 
 builtins.ExceptionGroup
 ----
