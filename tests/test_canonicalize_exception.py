@@ -144,7 +144,8 @@ def test_canonicalize_repeated_frame_exception():
         foo(3)
     except Exception as e:
         canonicalized = canonicalize_exception(e)
-        assert canonicalized.replace(__file__, '__file__') == snapshot("""
+        assert canonicalized.replace(__file__, '__file__') == snapshot("""\
+
 builtins.ValueError
 ----
 __file__:test_canonicalize_repeated_frame_exception
@@ -152,9 +153,10 @@ __file__:test_canonicalize_repeated_frame_exception
 __file__:foo
     bar(n)
 __file__:bar
-    foo(n-1)
+    foo(n - 1)
 __file__:foo
-    raise ValueError""")
+    raise ValueError\
+""")
 
 
 def test_sha256_string():
