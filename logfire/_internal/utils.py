@@ -39,17 +39,16 @@ from logfire._internal.stack_info import is_user_code
 from logfire._internal.ulid import ulid
 
 try:
-    _ = ExceptionGroup
     _ = BaseExceptionGroup
 except NameError:
     if not TYPE_CHECKING:
+
         class BaseExceptionGroup(BaseException):
             """Stub for BaseExceptionGroup for Python < 3.11."""
+
             pass
 
-        class ExceptionGroup(BaseExceptionGroup):
-            """Stub for ExceptionGroup for Python < 3.11."""
-            pass
+
 if TYPE_CHECKING:
     from typing import ParamSpec
 
@@ -462,20 +461,22 @@ def canonicalize_exception_traceback(exc: BaseException) -> str:
                 visited.add(frame_summary)
                 parts.append(frame_summary)
     if isinstance(exc, BaseExceptionGroup):
-        sub_exception_parts: list[str] = []
         sub_exceptions: tuple[BaseException] = exc.exceptions  # type: ignore
-        for nested_exc in sub_exceptions:
-            nested_representation = canonicalize_exception_traceback(nested_exc)
-            sub_exception_parts.append(nested_representation)
-        parts.append('\n<ExceptionGroup>')
-        parts.extend(sorted(set(sub_exception_parts)))
-        parts.append('\n</ExceptionGroup>\n')
-    elif exc.__cause__ is not None:
-        parts.append('\n__cause__:')
-        parts.append(canonicalize_exception_traceback(exc.__cause__))
-    elif exc.__context__ is not None and not exc.__suppress_context__:
-        parts.append('\n__context__:')
-        parts.append(canonicalize_exception_traceback(exc.__context__))
+        parts += [
+            '\n<ExceptionGroup>',
+            *sorted({canonicalize_exception_traceback(nested_exc) for nested_exc in sub_exceptions}),
+            '\n</ExceptionGroup>\n',
+        ]
+    if exc.__cause__ is not None:
+        parts += [
+            '\n__cause__:',
+            canonicalize_exception_traceback(exc.__cause__),
+        ]
+    if exc.__context__ is not None and not exc.__suppress_context__:
+        parts += [
+            '\n__context__:',
+            canonicalize_exception_traceback(exc.__context__),
+        ]
     return '\n'.join(parts)
 
 

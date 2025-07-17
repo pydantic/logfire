@@ -57,7 +57,7 @@ __context__:
 builtins.NameError
 ----
 tests.test_canonicalize_exception.test_canonicalize_exception_func
-   exec('qiwoue')
+   exec('undefined_variable')
 tests.test_canonicalize_exception.<module>
    \n\
 
@@ -117,7 +117,7 @@ __context__:
 builtins.NameError
 ----
 tests.test_canonicalize_exception.test_canonicalize_exception_func
-   exec('qiwoue')
+   exec('undefined_variable')
 tests.test_canonicalize_exception.<module>
    \n\
 
