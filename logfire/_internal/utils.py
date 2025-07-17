@@ -43,8 +43,13 @@ try:
     _ = BaseExceptionGroup
 except NameError:
     if not TYPE_CHECKING:
-        ExceptionGroup = BaseExceptionGroup = ()
+        class BaseExceptionGroup(BaseException):
+            """Stub for BaseExceptionGroup for Python < 3.11."""
+            pass
 
+        class ExceptionGroup(BaseExceptionGroup):
+            """Stub for ExceptionGroup for Python < 3.11."""
+            pass
 if TYPE_CHECKING:
     from typing import ParamSpec
 
