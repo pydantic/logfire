@@ -5,7 +5,7 @@ from inline_snapshot import snapshot
 
 import logfire
 from logfire._internal.exporters.test import TestExporter
-from logfire._internal.utils import canonicalize_exception, sha256_string
+from logfire._internal.utils import canonicalize_exception_traceback, sha256_string
 
 
 def test_canonicalize_exception_func():
@@ -42,7 +42,7 @@ def test_canonicalize_exception_func():
             except Exception as e4:
                 e5 = e4
 
-    canonicalized = canonicalize_exception(e5)  # type: ignore
+    canonicalized = canonicalize_exception_traceback(e5)  # type: ignore
     assert canonicalized.replace(__file__, '__file__') == snapshot("""\
 
 builtins.ZeroDivisionError
@@ -80,7 +80,7 @@ tests.test_canonicalize_exception.bar2
         try:
             raise Exception
         except Exception as e6:
-            assert canonicalize_exception(e6).replace(__file__, '__file__') == snapshot("""\
+            assert canonicalize_exception_traceback(e6).replace(__file__, '__file__') == snapshot("""\
 
 builtins.Exception
 ----
@@ -146,7 +146,7 @@ def test_canonicalize_repeated_frame_exception():
     try:
         foo(3)
     except Exception as e:
-        canonicalized = canonicalize_exception(e)
+        canonicalized = canonicalize_exception_traceback(e)
         assert canonicalized.replace(__file__, '__file__') == snapshot("""\
 
 builtins.ValueError

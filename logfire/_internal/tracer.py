@@ -34,7 +34,7 @@ from .constants import (
     ATTRIBUTES_VALIDATION_ERROR_KEY,
     log_level_attributes,
 )
-from .utils import canonicalize_exception, handle_internal_errors, sha256_string
+from .utils import canonicalize_exception_traceback, handle_internal_errors, sha256_string
 
 if TYPE_CHECKING:
     from .config import LogfireConfig
@@ -429,7 +429,7 @@ def record_exception(
         stacktrace = ''.join(traceback.format_exception(type(exception), exception, exception.__traceback__))
         attributes['exception.stacktrace'] = stacktrace
 
-    span.set_attribute('logfire.exception.fingerprint', sha256_string(canonicalize_exception(exception)))
+    span.set_attribute('logfire.exception.fingerprint', sha256_string(canonicalize_exception_traceback(exception)))
     span.record_exception(exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
 
 

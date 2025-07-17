@@ -433,7 +433,17 @@ def platform_is_emscripten() -> bool:
     return platform.system().lower() == 'emscripten'
 
 
-def canonicalize_exception(exc: BaseException) -> str:
+def canonicalize_exception_traceback(exc: BaseException) -> str:
+    """Return a canonical string representation of an exception traceback.
+
+    Exceptions with the same representation are considered the same for fingerprinting purposes.
+    The source line is used, but not the line number, so that changes elsewhere in a file are irrelevant.
+    The module is used instead of the filename.
+    The same line appearing multiple times in a stack is ignored.
+    Exception group sub-exceptions are sorted and deduplicated.
+    If the exception has a cause or (not suppressed) context, it is included in the representation.
+    Cause and context are treated as different.
+    """
     exc_type = type(exc)
     parts = [f'\n{exc_type.__module__}.{exc_type.__qualname__}\n----']
     if exc.__traceback__:
@@ -450,17 +460,17 @@ def canonicalize_exception(exc: BaseException) -> str:
         sub_exception_parts: list[str] = []
         sub_exceptions: tuple[BaseException] = exc.exceptions  # type: ignore
         for nested_exc in sub_exceptions:
-            nested_representation = canonicalize_exception(nested_exc)
+            nested_representation = canonicalize_exception_traceback(nested_exc)
             sub_exception_parts.append(nested_representation)
         parts.append('\n<ExceptionGroup>')
         parts.extend(sorted(set(sub_exception_parts)))
         parts.append('\n</ExceptionGroup>\n')
     elif exc.__cause__ is not None:
         parts.append('\n__cause__:')
-        parts.append(canonicalize_exception(exc.__cause__))
+        parts.append(canonicalize_exception_traceback(exc.__cause__))
     elif exc.__context__ is not None and not exc.__suppress_context__:
         parts.append('\n__context__:')
-        parts.append(canonicalize_exception(exc.__context__))
+        parts.append(canonicalize_exception_traceback(exc.__context__))
     return '\n'.join(parts)
 
 
