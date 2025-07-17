@@ -446,36 +446,40 @@ def canonicalize_exception_traceback(exc: BaseException) -> str:
     If the exception has a cause or (not suppressed) context, it is included in the representation.
     Cause and context are treated as different.
     """
-    exc_type = type(exc)
-    parts = [f'\n{exc_type.__module__}.{exc_type.__qualname__}\n----']
-    if exc.__traceback__:
-        visited: set[str] = set()
-        for frame, lineno in traceback.walk_tb(exc.__traceback__):
-            filename = frame.f_code.co_filename
-            source_line = linecache.getline(filename, lineno, frame.f_globals).strip()
-            module = frame.f_globals.get('__name__', filename)
-            frame_summary = f'{module}.{frame.f_code.co_name}\n   {source_line}'
-            if frame_summary not in visited:  # ignore repeated frames
-                visited.add(frame_summary)
-                parts.append(frame_summary)
-    if isinstance(exc, BaseExceptionGroup):
-        sub_exceptions: tuple[BaseException] = exc.exceptions  # type: ignore
-        parts += [
-            '\n<ExceptionGroup>',
-            *sorted({canonicalize_exception_traceback(nested_exc) for nested_exc in sub_exceptions}),
-            '\n</ExceptionGroup>\n',
-        ]
-    if exc.__cause__ is not None:
-        parts += [
-            '\n__cause__:',
-            canonicalize_exception_traceback(exc.__cause__),
-        ]
-    if exc.__context__ is not None and not exc.__suppress_context__:
-        parts += [
-            '\n__context__:',
-            canonicalize_exception_traceback(exc.__context__),
-        ]
-    return '\n'.join(parts)
+    try:
+        exc_type = type(exc)
+        parts = [f'\n{exc_type.__module__}.{exc_type.__qualname__}\n----']
+        if exc.__traceback__:
+            visited: set[str] = set()
+            for frame, lineno in traceback.walk_tb(exc.__traceback__):
+                filename = frame.f_code.co_filename
+                source_line = linecache.getline(filename, lineno, frame.f_globals).strip()
+                module = frame.f_globals.get('__name__', filename)
+                frame_summary = f'{module}.{frame.f_code.co_name}\n   {source_line}'
+                if frame_summary not in visited:  # ignore repeated frames
+                    visited.add(frame_summary)
+                    parts.append(frame_summary)
+        if isinstance(exc, BaseExceptionGroup):
+            sub_exceptions: tuple[BaseException] = exc.exceptions  # type: ignore
+            parts += [
+                '\n<ExceptionGroup>',
+                *sorted({canonicalize_exception_traceback(nested_exc) for nested_exc in sub_exceptions}),
+                '\n</ExceptionGroup>\n',
+            ]
+        if exc.__cause__ is not None:
+            parts += [
+                '\n__cause__:',
+                canonicalize_exception_traceback(exc.__cause__),
+            ]
+        if exc.__context__ is not None and not exc.__suppress_context__:
+            parts += [
+                '\n__context__:',
+                canonicalize_exception_traceback(exc.__context__),
+            ]
+        return '\n'.join(parts)
+    except Exception:  # pragma: no cover
+        log_internal_error()
+        return '<error while canonicalizing>'
 
 
 def sha256_string(s: str) -> str:
