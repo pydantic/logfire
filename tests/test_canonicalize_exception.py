@@ -5,7 +5,7 @@ from inline_snapshot import snapshot
 from logfire._internal.utils import canonicalize_exception, sha256_string
 
 
-def test_canonicalize_exception():
+def test_canonicalize_exception_func():
     def foo():
         bar()
 
@@ -44,28 +44,28 @@ def test_canonicalize_exception():
 
 builtins.ZeroDivisionError
 ----
-__file__:test_canonicalize_exception
-    raise ZeroDivisionError
+tests.test_canonicalize_exception.test_canonicalize_exception_func
+   raise ZeroDivisionError
 
 __context__:
 
 builtins.NameError
 ----
-__file__:test_canonicalize_exception
-    exec('qiwoue')
-<string>:<module>
-    \n\
+tests.test_canonicalize_exception.test_canonicalize_exception_func
+   exec('qiwoue')
+tests.test_canonicalize_exception.<module>
+   \n\
 
 __context__:
 
 builtins.TypeError
 ----
-__file__:test_canonicalize_exception
-    foo2()
-__file__:foo2
-    bar2()
-__file__:bar2
-    raise TypeError\
+tests.test_canonicalize_exception.test_canonicalize_exception_func
+   foo2()
+tests.test_canonicalize_exception.foo2
+   bar2()
+tests.test_canonicalize_exception.bar2
+   raise TypeError\
 """)
 
     if sys.version_info < (3, 11):
@@ -81,51 +81,51 @@ __file__:bar2
 
 builtins.Exception
 ----
-__file__:test_canonicalize_exception
-    raise Exception
+tests.test_canonicalize_exception.test_canonicalize_exception_func
+   raise Exception
 
 __context__:
 
 builtins.ExceptionGroup
 ----
-__file__:test_canonicalize_exception
-    raise BaseExceptionGroup('group', [e1, e1_b, e5])  # type: ignore  # noqa
+tests.test_canonicalize_exception.test_canonicalize_exception_func
+   raise BaseExceptionGroup('group', [e1, e1_b, e5])  # type: ignore  # noqa
 
 <ExceptionGroup>
 
 builtins.ValueError
 ----
-__file__:test_canonicalize_exception
-    foo()
-__file__:foo
-    bar()
-__file__:bar
-    raise ValueError
+tests.test_canonicalize_exception.test_canonicalize_exception_func
+   foo()
+tests.test_canonicalize_exception.foo
+   bar()
+tests.test_canonicalize_exception.bar
+   raise ValueError
 
 builtins.ZeroDivisionError
 ----
-__file__:test_canonicalize_exception
-    raise ZeroDivisionError
+tests.test_canonicalize_exception.test_canonicalize_exception_func
+   raise ZeroDivisionError
 
 __context__:
 
 builtins.NameError
 ----
-__file__:test_canonicalize_exception
-    exec('qiwoue')
-<string>:<module>
-    \n\
+tests.test_canonicalize_exception.test_canonicalize_exception_func
+   exec('qiwoue')
+tests.test_canonicalize_exception.<module>
+   \n\
 
 __context__:
 
 builtins.TypeError
 ----
-__file__:test_canonicalize_exception
-    foo2()
-__file__:foo2
-    bar2()
-__file__:bar2
-    raise TypeError
+tests.test_canonicalize_exception.test_canonicalize_exception_func
+   foo2()
+tests.test_canonicalize_exception.foo2
+   bar2()
+tests.test_canonicalize_exception.bar2
+   raise TypeError
 
 </ExceptionGroup>
 """)
@@ -148,14 +148,14 @@ def test_canonicalize_repeated_frame_exception():
 
 builtins.ValueError
 ----
-__file__:test_canonicalize_repeated_frame_exception
-    foo(3)
-__file__:foo
-    bar(n)
-__file__:bar
-    foo(n - 1)
-__file__:foo
-    raise ValueError\
+tests.test_canonicalize_exception.test_canonicalize_repeated_frame_exception
+   foo(3)
+tests.test_canonicalize_exception.foo
+   bar(n)
+tests.test_canonicalize_exception.bar
+   foo(n - 1)
+tests.test_canonicalize_exception.foo
+   raise ValueError\
 """)
 
 

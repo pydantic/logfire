@@ -4,6 +4,7 @@ import functools
 import hashlib
 import inspect
 import json
+import linecache
 import logging
 import os
 import platform
@@ -436,13 +437,15 @@ def canonicalize_exception(exc: BaseException) -> str:
     exc_type = type(exc)
     parts = [f'\n{exc_type.__module__}.{exc_type.__qualname__}\n----']
     if exc.__traceback__:
-        # Ignore repeated frames
-        visited_frames_info: set[tuple[Any, ...]] = set()
-        for frame in traceback.extract_tb(exc.__traceback__):
-            visited_frame_info = (frame.filename, frame.name, frame.line)
-            if visited_frame_info not in visited_frames_info:
-                visited_frames_info.add(visited_frame_info)
-                parts.append(f'{frame.filename}:{frame.name}\n    {frame.line}')
+        visited: set[str] = set()
+        for frame, lineno in traceback.walk_tb(exc.__traceback__):
+            filename = frame.f_code.co_filename
+            source_line = linecache.getline(filename, lineno, frame.f_globals).strip()
+            module = frame.f_globals.get('__name__', filename)
+            frame_summary = f'{module}.{frame.f_code.co_name}\n   {source_line}'
+            if frame_summary not in visited:  # ignore repeated frames
+                visited.add(frame_summary)
+                parts.append(frame_summary)
     if isinstance(exc, BaseExceptionGroup):
         sub_exception_parts: list[str] = []
         sub_exceptions: tuple[BaseException] = exc.exceptions  # type: ignore
