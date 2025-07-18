@@ -266,7 +266,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
                     if isinstance(val, (int, float, bool)) or val is None:
                         schema = None
                     else:
-                        value = json.loads(value)
+                        value = val
                 except json.JSONDecodeError:
                     schema = None
             value = json_args_value_formatter(value, schema=schema)
