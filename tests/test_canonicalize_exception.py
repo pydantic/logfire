@@ -52,7 +52,7 @@ ZeroDivisionError
 test_canonicalize_exception_func
    raise ZeroDivisionError
 
-__context__:
+chain:
 
 NameError
 ----
@@ -61,7 +61,7 @@ test_canonicalize_exception_func
 <module>
    \n\
 
-__context__:
+chain:
 
 TypeError
 ----
@@ -89,7 +89,7 @@ Exception
 test_canonicalize_exception_func
    raise Exception from group
 
-__cause__:
+chain:
 
 ExceptionGroup
 ----
@@ -112,7 +112,7 @@ ZeroDivisionError
 test_canonicalize_exception_func
    raise ZeroDivisionError
 
-__context__:
+chain:
 
 NameError
 ----
@@ -121,7 +121,7 @@ test_canonicalize_exception_func
 <module>
    \n\
 
-__context__:
+chain:
 
 TypeError
 ----

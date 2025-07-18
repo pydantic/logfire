@@ -440,11 +440,11 @@ def canonicalize_exception_traceback(exc: BaseException) -> str:
 
     Exceptions with the same representation are considered the same for fingerprinting purposes.
     The source line is used, but not the line number, so that changes elsewhere in a file are irrelevant.
-    The module is used instead of the filename.
+    The module/filename is ignored.
     The same line appearing multiple times in a stack is ignored.
     Exception group sub-exceptions are sorted and deduplicated.
     If the exception has a cause or (not suppressed) context, it is included in the representation.
-    Cause and context are treated as different.
+    Cause and context are treated as the same.
     """
     try:
         parts = [f'\n{type(exc).__name__}\n----']
@@ -466,12 +466,12 @@ def canonicalize_exception_traceback(exc: BaseException) -> str:
             ]
         if exc.__cause__ is not None:
             parts += [
-                '\n__cause__:',
+                '\nchain:',
                 canonicalize_exception_traceback(exc.__cause__),
             ]
         if exc.__context__ is not None and not exc.__suppress_context__:
             parts += [
-                '\n__context__:',
+                '\nchain:',
                 canonicalize_exception_traceback(exc.__context__),
             ]
         return '\n'.join(parts)
