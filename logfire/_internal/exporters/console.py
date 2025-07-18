@@ -263,7 +263,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
             if schema and isinstance(value, str):
                 try:
                     val = json.loads(value)
-                    if isinstance(val, (int, float, bool)) and 'x-python-datatype' not in schema:
+                    if isinstance(val, (str, int, float, bool)) and 'x-python-datatype' not in schema:
                         schema = None
                     else:
                         value = val
