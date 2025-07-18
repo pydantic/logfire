@@ -265,11 +265,11 @@ class FastAPIInstrumentation:
         if not (root_span and root_span.is_recording()):
             return await original_run_endpoint_function(dependant=dependant, values=values, **kwargs)
 
-        callback = inspect.unwrap(dependant.call)
-        code = getattr(callback, '__code__', None)
-        stack_info: StackInfo = get_code_object_info(code) if code else {}
-        with (
-            self.logfire_instance.span(
+        if self.extra_spans:
+            callback = inspect.unwrap(dependant.call)
+            code = getattr(callback, '__code__', None)
+            stack_info: StackInfo = get_code_object_info(code) if code else {}
+            extra_span = self.logfire_instance.span(
                 '{method} {http.route} ({code.function})',
                 method=request.method,
                 # Using `http.route` prevents it from being scrubbed if it contains a word like 'secret'.
@@ -279,9 +279,9 @@ class FastAPIInstrumentation:
                 **stack_info,
                 _level='debug',
             )
-            if self.extra_spans
-            else NoopSpan()
-        ):
+        else:
+            extra_span = NoopSpan()
+        with extra_span:
             start_time = time.time()
             try:
                 try:

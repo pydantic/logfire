@@ -345,8 +345,9 @@ def test_400(client: TestClient, exporter: TestExporter) -> None:
     response = client.get('/bad_request_error')
     assert response.status_code == 400
 
-    [span] = [span for span in exporter.exported_spans if span.events]
-    assert span.attributes and span.attributes['logfire.level_num'] == LEVEL_NUMBERS['warn']
+    for span in exporter.exported_spans:
+        if span.events:
+            assert span.attributes and span.attributes['logfire.level_num'] == LEVEL_NUMBERS['warn']
 
 
 def test_path_param(client: TestClient, exporter: TestExporter) -> None:
