@@ -275,11 +275,12 @@ class FastAPIInstrumentation:
         values: dict[str, Any],
         **kwargs: Any,
     ) -> Any:
+        original = original_run_endpoint_function(dependant=dependant, values=values, **kwargs)
         root_span = request.scope.get(LOGFIRE_SPAN_SCOPE_KEY)
         if not (root_span and root_span.is_recording()):  # pragma: no cover
             # This should never happen because we only get to this function after solve_dependencies
             # passes the same check, just being paranoid.
-            return await original_run_endpoint_function(dependant=dependant, values=values, **kwargs)
+            return await original
 
         if self.extra_spans:
             callback = inspect.unwrap(dependant.call)
@@ -298,7 +299,7 @@ class FastAPIInstrumentation:
         else:
             extra_span = NoopSpan()
         with extra_span, self.pseudo_span('endpoint_function', root_span):
-            return await original_run_endpoint_function(dependant=dependant, values=values, **kwargs)
+            return await original
 
 
 def _default_request_attributes_mapper(
