@@ -3420,3 +3420,33 @@ def test_start_end_attach_detach(exporter: TestExporter, caplog: pytest.LogCaptu
             },
         ]
     )
+
+
+def test_tracer_start_span_with_null_and_json_schema(exporter: TestExporter):
+    import json
+
+    tracer = get_tracer(__name__)
+    schema = {'type': 'object', 'properties': {'foo': {'type': 'null'}}}
+    with tracer.start_span(
+        'foo',
+        attributes={'foo': 'null', 'logfire.json_schema': json.dumps(schema)},
+    ):
+        pass
+
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'foo': 'null',
+                    'logfire.json_schema': '{"type": "object", "properties": {"foo": {"type": "null"}}}',
+                    'logfire.msg': 'foo',
+                    'logfire.span_type': 'span',
+                },
+            }
+        ]
+    )
