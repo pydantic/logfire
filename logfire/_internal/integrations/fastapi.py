@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import dataclasses
 import inspect
-import time
 from collections.abc import Awaitable, Iterable
 from contextlib import AbstractContextManager, contextmanager
+from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Any, Callable
 from weakref import WeakKeyDictionary
@@ -18,6 +18,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 from starlette.websockets import WebSocket
 
+from ..constants import ONE_SECOND_IN_NANOSECONDS
 from ..main import Logfire, NoopSpan, set_user_attributes_on_raw_span
 from ..stack_info import StackInfo, get_code_object_info
 from ..utils import handle_internal_errors, maybe_capture_server_headers
@@ -167,6 +168,26 @@ class FastAPIInstrumentation:
         self.request_attributes_mapper = request_attributes_mapper
         self.extra_spans = extra_spans
 
+    @contextmanager
+    def pseudo_span(self, namespace: str, root_span: Span):
+        timestamp_generator = self.logfire_instance.config.advanced.ns_timestamp_generator
+
+        def set_timestamp(attribute_name: str):
+            value = datetime.fromtimestamp(timestamp_generator() / ONE_SECOND_IN_NANOSECONDS, tz=timezone.utc).strftime(
+                '%Y-%m-%dT%H:%M:%S.%fZ'
+            )
+            root_span.set_attribute(f'fastapi.{namespace}.{attribute_name}', value)
+
+        set_timestamp('start_timestamp')
+        try:
+            try:
+                yield
+            finally:
+                set_timestamp('end_timestamp')
+        except Exception as exc:
+            root_span.record_exception(exc)
+            raise
+
     async def solve_dependencies(self, request: Request | WebSocket, original: Awaitable[Any]) -> Any:
         root_span = request.scope.get(LOGFIRE_SPAN_SCOPE_KEY)
         if not (root_span and root_span.is_recording()):
@@ -185,16 +206,8 @@ class FastAPIInstrumentation:
                     set_user_attributes_on_raw_span(root_span, fastapi_route_attributes)
                     span.set_attributes(fastapi_route_attributes)
 
-            start_time = time.time()
-            try:
-                try:
-                    result: Any = await original
-                finally:
-                    end_time = time.time()
-                    root_span.set_attribute('fastapi.arguments.duration', end_time - start_time)
-            except Exception as exc:
-                root_span.record_exception(exc)
-                raise
+            with self.pseudo_span('arguments', root_span):
+                result: Any = await original
 
             with handle_internal_errors:
                 solved_values: dict[str, Any]
@@ -283,17 +296,8 @@ class FastAPIInstrumentation:
             )
         else:
             extra_span = NoopSpan()
-        with extra_span:
-            start_time = time.time()
-            try:
-                try:
-                    return await original_run_endpoint_function(dependant=dependant, values=values, **kwargs)
-                finally:
-                    end_time = time.time()
-                    root_span.set_attribute('fastapi.endpoint_function.duration', end_time - start_time)
-            except Exception as exc:
-                root_span.record_exception(exc)
-                raise
+        with extra_span, self.pseudo_span('endpoint_function', root_span):
+            return await original_run_endpoint_function(dependant=dependant, values=values, **kwargs)
 
 
 def _default_request_attributes_mapper(
