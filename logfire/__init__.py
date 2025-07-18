@@ -8,6 +8,7 @@ from logfire.sampling import SamplingOptions
 
 from ._internal.auto_trace import AutoTraceModule
 from ._internal.auto_trace.rewrite_ast import no_auto_trace
+from ._internal.baggage import get_baggage, set_baggage
 from ._internal.cli import logfire_info
 from ._internal.config import AdvancedOptions, CodeSource, ConsoleOptions, MetricsOptions, PydanticPlugin, configure
 from ._internal.constants import LevelName
@@ -26,12 +27,15 @@ force_flush = DEFAULT_LOGFIRE_INSTANCE.force_flush
 log_slow_async_callbacks = DEFAULT_LOGFIRE_INSTANCE.log_slow_async_callbacks
 install_auto_tracing = DEFAULT_LOGFIRE_INSTANCE.install_auto_tracing
 instrument_pydantic = DEFAULT_LOGFIRE_INSTANCE.instrument_pydantic
+instrument_pydantic_ai = DEFAULT_LOGFIRE_INSTANCE.instrument_pydantic_ai
 instrument_asgi = DEFAULT_LOGFIRE_INSTANCE.instrument_asgi
 instrument_wsgi = DEFAULT_LOGFIRE_INSTANCE.instrument_wsgi
 instrument_fastapi = DEFAULT_LOGFIRE_INSTANCE.instrument_fastapi
 instrument_openai = DEFAULT_LOGFIRE_INSTANCE.instrument_openai
 instrument_openai_agents = DEFAULT_LOGFIRE_INSTANCE.instrument_openai_agents
 instrument_anthropic = DEFAULT_LOGFIRE_INSTANCE.instrument_anthropic
+instrument_google_genai = DEFAULT_LOGFIRE_INSTANCE.instrument_google_genai
+instrument_litellm = DEFAULT_LOGFIRE_INSTANCE.instrument_litellm
 instrument_asyncpg = DEFAULT_LOGFIRE_INSTANCE.instrument_asyncpg
 instrument_httpx = DEFAULT_LOGFIRE_INSTANCE.instrument_httpx
 instrument_celery = DEFAULT_LOGFIRE_INSTANCE.instrument_celery
@@ -41,6 +45,7 @@ instrument_django = DEFAULT_LOGFIRE_INSTANCE.instrument_django
 instrument_flask = DEFAULT_LOGFIRE_INSTANCE.instrument_flask
 instrument_starlette = DEFAULT_LOGFIRE_INSTANCE.instrument_starlette
 instrument_aiohttp_client = DEFAULT_LOGFIRE_INSTANCE.instrument_aiohttp_client
+instrument_aiohttp_server = DEFAULT_LOGFIRE_INSTANCE.instrument_aiohttp_server
 instrument_sqlalchemy = DEFAULT_LOGFIRE_INSTANCE.instrument_sqlalchemy
 instrument_sqlite3 = DEFAULT_LOGFIRE_INSTANCE.instrument_sqlite3
 instrument_aws_lambda = DEFAULT_LOGFIRE_INSTANCE.instrument_aws_lambda
@@ -48,6 +53,7 @@ instrument_redis = DEFAULT_LOGFIRE_INSTANCE.instrument_redis
 instrument_pymongo = DEFAULT_LOGFIRE_INSTANCE.instrument_pymongo
 instrument_mysql = DEFAULT_LOGFIRE_INSTANCE.instrument_mysql
 instrument_system_metrics = DEFAULT_LOGFIRE_INSTANCE.instrument_system_metrics
+instrument_mcp = DEFAULT_LOGFIRE_INSTANCE.instrument_mcp
 suppress_scopes = DEFAULT_LOGFIRE_INSTANCE.suppress_scopes
 shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
 with_tags = DEFAULT_LOGFIRE_INSTANCE.with_tags
@@ -116,10 +122,13 @@ __all__ = (
     'instrument_asgi',
     'instrument_wsgi',
     'instrument_pydantic',
+    'instrument_pydantic_ai',
     'instrument_fastapi',
     'instrument_openai',
     'instrument_openai_agents',
     'instrument_anthropic',
+    'instrument_google_genai',
+    'instrument_litellm',
     'instrument_asyncpg',
     'instrument_httpx',
     'instrument_celery',
@@ -129,6 +138,7 @@ __all__ = (
     'instrument_flask',
     'instrument_starlette',
     'instrument_aiohttp_client',
+    'instrument_aiohttp_server',
     'instrument_sqlalchemy',
     'instrument_sqlite3',
     'instrument_aws_lambda',
@@ -136,6 +146,7 @@ __all__ = (
     'instrument_pymongo',
     'instrument_mysql',
     'instrument_system_metrics',
+    'instrument_mcp',
     'AutoTraceModule',
     'with_tags',
     'with_settings',
@@ -154,4 +165,6 @@ __all__ = (
     'SamplingOptions',
     'MetricsOptions',
     'logfire_info',
+    'get_baggage',
+    'set_baggage',
 )

@@ -100,6 +100,11 @@ def get_user_frame_and_stacklevel() -> tuple[FrameType | None, int]:
             return frame, stacklevel
         frame = frame.f_back
         stacklevel += 1
+        if stacklevel > 10_000:  # pragma: no cover
+            # This is a safety check to prevent infinite recursion in case of a bug,
+            # as reported in https://github.com/pydantic/logfire/issues/1028.
+            # It should never happen in practice, but it's good to have a safety net.
+            break
     return None, 0
 
 

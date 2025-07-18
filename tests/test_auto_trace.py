@@ -1,9 +1,11 @@
 import ast
 import asyncio
+import importlib.resources
 import runpy
 import sys
+from contextlib import AbstractContextManager
 from importlib.machinery import SourceFileLoader
-from typing import Any, Callable, ContextManager
+from typing import Any, Callable
 
 import pytest
 from inline_snapshot import snapshot
@@ -48,6 +50,17 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
     # The exact plain loader here isn't that essential.
     assert isinstance(loader.plain_spec.loader, SourceFileLoader)
     assert loader.plain_spec.name == foo.__name__ == foo.__spec__.name == 'tests.auto_trace_samples.foo'
+
+    assert (
+        importlib.resources.files('tests.auto_trace_samples') / 'dir/resource.txt'
+    ).read_text() == 'example resource\n'
+    if sys.version_info[:2] >= (3, 12):
+        # https://docs.python.org/3/library/importlib.resources.html#module-importlib.resources
+        # Changed in version 3.12: ... anchor can now be a non-package module
+        # (this is actually the case that triggers a bug that needed fixing)
+        assert (
+            importlib.resources.files('tests.auto_trace_samples.foo') / 'dir/resource.txt'
+        ).read_text() == 'example resource\n'
 
     with pytest.raises(IndexError):  # foo.bar intentionally raises an error to test that it's recorded below
         asyncio.run(foo.bar())
@@ -172,6 +185,11 @@ def test_auto_trace_sample(exporter: TestExporter) -> None:
         ]
     )
 
+    if sys.version_info >= (3, 12):
+        from tests.auto_trace_samples import param_spec
+
+        assert param_spec.check_param_spec_syntax(1, 2, a=3, b=4) == ((1, 2), {'a': 3, 'b': 4})  # type: ignore
+
 
 def test_check_already_imported() -> None:
     # Check that nothing gets imported during this test,
@@ -244,7 +262,7 @@ def only_ellipsis_function():
 
 
 def test_rewrite_ast():
-    context_factories: list[Callable[[], ContextManager[Any]]] = []
+    context_factories: list[Callable[[], AbstractContextManager[Any]]] = []
     tree = rewrite_ast(
         ast.parse(nested_sample),
         'foo.py',
@@ -300,15 +318,7 @@ def only_ellipsis_function():
     ...
 '''
 
-    if sys.version_info >= (3, 9):  # pragma: no branch
-        assert ast.unparse(tree).strip() == result.strip()
-
-    # Python 3.8 doesn't have ast.unparse, and testing that the AST is equivalent is a bit tricky.
-    assert (
-        compile(nested_sample, '<filename>', 'exec').co_code == compile(result, '<filename>', 'exec').co_code
-        or ast.dump(tree, annotate_fields=False) == ast.dump(ast.parse(result), annotate_fields=False)
-        or ast.dump(tree) == ast.dump(ast.parse(result))
-    )
+    assert ast.unparse(tree).strip() == result.strip()
 
     assert [f.args for f in context_factories] == snapshot(  # type: ignore
         [
@@ -429,7 +439,7 @@ class NotTracedClass:
 
 
 def get_calling_strings(sample: str):
-    context_factories: list[Callable[[], ContextManager[Any]]] = []
+    context_factories: list[Callable[[], AbstractContextManager[Any]]] = []
     rewrite_ast(
         ast.parse(sample),
         'foo.py',

@@ -6,6 +6,7 @@ from unittest import mock
 
 import pytest
 import requests
+from dirty_equals import IsFloat
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
 
@@ -42,7 +43,7 @@ async def test_requests_instrumentation(exporter: TestExporter):
         traceparent_header = response.headers['traceparent']
         assert f'{trace_id:032x}' == traceparent_header.split('-')[1]
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'GET',
@@ -65,6 +66,38 @@ async def test_requests_instrumentation(exporter: TestExporter):
                     'logfire.msg': 'GET example.org/foo',
                     'http.status_code': 200,
                     'http.response.status_code': 200,
+                    'logfire.metrics': {
+                        'http.client.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.host': 'example.org',
+                                        'http.method': 'GET',
+                                        'http.scheme': 'https',
+                                        'http.status_code': 200,
+                                        'net.peer.name': 'example.org',
+                                        'net.peer.port': 8080,
+                                    },
+                                    'total': 0,
+                                }
+                            ],
+                            'total': 0,
+                        },
+                        'http.client.request.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.request.method': 'GET',
+                                        'http.response.status_code': 200,
+                                        'server.address': 'example.org',
+                                        'server.port': 8080,
+                                    },
+                                    'total': IsFloat(),
+                                }
+                            ],
+                            'total': IsFloat(),
+                        },
+                    },
                     'http.target': '/foo',
                 },
             },
@@ -81,6 +114,38 @@ async def test_requests_instrumentation(exporter: TestExporter):
                     'logfire.msg_template': 'test span',
                     'logfire.span_type': 'span',
                     'logfire.msg': 'test span',
+                    'logfire.metrics': {
+                        'http.client.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.host': 'example.org',
+                                        'http.method': 'GET',
+                                        'http.scheme': 'https',
+                                        'http.status_code': 200,
+                                        'net.peer.name': 'example.org',
+                                        'net.peer.port': 8080,
+                                    },
+                                    'total': 0,
+                                }
+                            ],
+                            'total': 0,
+                        },
+                        'http.client.request.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.request.method': 'GET',
+                                        'http.response.status_code': 200,
+                                        'server.address': 'example.org',
+                                        'server.port': 8080,
+                                    },
+                                    'total': IsFloat(),
+                                }
+                            ],
+                            'total': IsFloat(),
+                        },
+                    },
                 },
             },
         ]

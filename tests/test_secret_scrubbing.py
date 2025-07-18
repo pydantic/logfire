@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import sys
 from typing import Any
 
 import pytest
@@ -423,7 +422,48 @@ def test_scrubbing_deprecated_args_combined_with_new_options():
         logfire.configure(scrubbing_patterns=['my_pattern'], scrubbing=logfire.ScrubbingOptions())  # type: ignore
 
 
-@pytest.mark.skipif(sys.version_info[:2] < (3, 9), reason='f-string magic is not allowed in 3.8')
+def test_do_not_scrub(exporter: TestExporter):
+    # do_not_scrub is a safe key to provide a crude workaround, but it only works if the matched value is *inside*
+    logfire.info(
+        'hi',
+        x=[
+            {'do_not_scrub': 'not_secret'},  # only this works
+            {'not_secret': 'do_not_scrub'},
+            {'not_secret': {'do_not_scrub': 'foo'}},
+        ],
+    )
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'hi',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hi',
+                    'logfire.msg': 'hi',
+                    'code.filepath': 'test_secret_scrubbing.py',
+                    'code.function': 'test_do_not_scrub',
+                    'code.lineno': 123,
+                    'x': [
+                        {'do_not_scrub': 'not_secret'},
+                        {'not_secret': "[Scrubbed due to 'secret']"},
+                        {'not_secret': "[Scrubbed due to 'secret']"},
+                    ],
+                    'logfire.json_schema': {'type': 'object', 'properties': {'x': {'type': 'array'}}},
+                    'logfire.scrubbed': [
+                        {'path': ['attributes', 'x', 1, 'not_secret'], 'matched_substring': 'secret'},
+                        {'path': ['attributes', 'x', 2, 'not_secret'], 'matched_substring': 'secret'},
+                    ],
+                },
+            }
+        ]
+    )
+
+
 def test_fstring_magic_scrubbing(exporter: TestExporter):
     password = 'secret-password'
     name = 'John'
@@ -455,6 +495,58 @@ def test_fstring_magic_scrubbing(exporter: TestExporter):
                             {'path': ['attributes', 'password'], 'matched_substring': 'password'},
                         ]
                     ),
+                },
+            }
+        ]
+    )
+
+
+def test_word_boundaries(exporter: TestExporter):
+    logfire.info(
+        'hi',
+        x=[
+            'abcjwt',
+            'abc_jwt',
+            'abc-jwt',
+            'csrf123',
+            'csrf_123',
+            'csrf/123',
+            '456/csrf/123',
+        ],
+    )
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'hi',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'hi',
+                    'logfire.msg': 'hi',
+                    'code.filepath': 'test_secret_scrubbing.py',
+                    'code.function': 'test_word_boundaries',
+                    'code.lineno': 123,
+                    'x': [
+                        'abcjwt',
+                        "[Scrubbed due to '_jwt']",
+                        "[Scrubbed due to 'jwt']",
+                        'csrf123',
+                        "[Scrubbed due to 'csrf_']",
+                        "[Scrubbed due to 'csrf']",
+                        "[Scrubbed due to 'csrf']",
+                    ],
+                    'logfire.json_schema': {'type': 'object', 'properties': {'x': {'type': 'array'}}},
+                    'logfire.scrubbed': [
+                        {'path': ['attributes', 'x', 1], 'matched_substring': '_jwt'},
+                        {'path': ['attributes', 'x', 2], 'matched_substring': 'jwt'},
+                        {'path': ['attributes', 'x', 4], 'matched_substring': 'csrf_'},
+                        {'path': ['attributes', 'x', 5], 'matched_substring': 'csrf'},
+                        {'path': ['attributes', 'x', 6], 'matched_substring': 'csrf'},
+                    ],
                 },
             }
         ]

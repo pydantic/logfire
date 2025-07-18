@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
 from typing import Any
 
 import anyio._backends._asyncio  # noqa  # type: ignore
 import pytest
+from agents.tracing import get_trace_provider
 from opentelemetry import trace
 from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
@@ -24,13 +24,12 @@ from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 # Emit both new and old semantic convention attribute names
 os.environ['OTEL_SEMCONV_STABILITY_OPT_IN'] = 'http/dup'
 
-try:
-    from agents.tracing import GLOBAL_TRACE_PROVIDER
+# Ensure that LOGFIRE_TOKEN in the environment doesn't interfere
+os.environ['LOGFIRE_TOKEN'] = ''
 
-    GLOBAL_TRACE_PROVIDER.shutdown()
-    GLOBAL_TRACE_PROVIDER.set_processors([])
-except ImportError:
-    pass
+
+get_trace_provider().shutdown()
+get_trace_provider().set_processors([])
 
 
 @pytest.fixture(scope='session', autouse=True)
@@ -89,10 +88,10 @@ def config_kwargs(
             log_record_processors=[SimpleLogRecordProcessor(logs_exporter)],
         ),
         additional_span_processors=[SimpleSpanProcessor(exporter)],
-        # Ensure that inspect_arguments doesn't break things in most versions
-        # (it's off by default for <3.11) but it's completely forbidden for 3.8.
-        inspect_arguments=sys.version_info[:2] >= (3, 9),
+        # Ensure that inspect_arguments doesn't break things even in versions where it's off by default
+        inspect_arguments=True,
         distributed_tracing=True,
+        add_baggage_to_attributes=False,
     )
 
 
@@ -102,6 +101,7 @@ def config(config_kwargs: dict[str, Any], metrics_reader: InMemoryMetricReader) 
         **config_kwargs,
         metrics=logfire.MetricsOptions(
             additional_readers=[metrics_reader],
+            collect_in_spans=True,
         ),
     )
     # sanity check: there are no active spans
@@ -136,8 +136,37 @@ def default_credentials(tmp_path: Path) -> Path:
     auth_file = tmp_path / 'default.toml'
     auth_file.write_text(
         """
-        [tokens."https://logfire-api.pydantic.dev"]
-        token = "0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W"
+        [tokens."https://logfire-us.pydantic.dev"]
+        token = "pylf_v1_us_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W"
+        expiration = "2099-12-31T23:59:59"
+        """
+    )
+    return auth_file
+
+
+@pytest.fixture
+def expired_credentials(tmp_path: Path) -> Path:
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        """
+        [tokens."https://logfire-us.pydantic.dev"]
+        token = "pylf_v1_us_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W"
+        expiration = "1970-01-01T00:00:00"
+        """
+    )
+    return auth_file
+
+
+@pytest.fixture
+def multiple_credentials(tmp_path: Path) -> Path:
+    auth_file = tmp_path / 'default.toml'
+    auth_file.write_text(
+        """
+        [tokens."https://logfire-us.pydantic.dev"]
+        token = "pylf_v1_us_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W"
+        expiration = "2099-12-31T23:59:59"
+        [tokens."https://logfire-eu.pydantic.dev"]
+        token = "pylf_v1_eu_0kYhc414Ys2FNDRdt5vFB05xFx5NjVcbcBMy4Kp6PH0W"
         expiration = "2099-12-31T23:59:59"
         """
     )
@@ -146,4 +175,4 @@ def default_credentials(tmp_path: Path) -> Path:
 
 @pytest.fixture(scope='module')
 def vcr_config():
-    return {'filter_headers': ['authorization', 'cookie', 'Set-Cookie']}
+    return {'filter_headers': ['authorization', 'cookie', 'Set-Cookie', 'x-goog-api-key']}

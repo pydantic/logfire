@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from contextlib import contextmanager
 from logging import Logger, getLogger
-from typing import Any, Sequence
+from typing import Any
 
 import pytest
 from dirty_equals import IsPositiveInt
@@ -244,7 +245,7 @@ def test_recursive_logging_from_batch_span_processor(exporter: TestExporter, con
 
     with logfire_logging_handler_on_root_logger() as test_logging_handler:
         for _ in range(1000):  # just preventing an infinite loop, this should break much sooner.  # pragma: no branch
-            if test_logging_handler.logs:
+            if test_logging_handler.logs:  # pragma: no cover
                 # Stop when we get the log we want caused by a full queue.
                 # It's not easy to predict when this will happen since the queue is processed in a separate thread.
                 break
@@ -252,29 +253,32 @@ def test_recursive_logging_from_batch_span_processor(exporter: TestExporter, con
 
     logfire.force_flush()
 
-    [record] = test_logging_handler.logs
-    # This is the message logged by OTEL, in BatchSpanProcessor.on_end.
-    # We're testing that it doesn't get converted to a logfire log by LogfireLoggingHandler.
-    # To prevent that, MainSpanProcessorWrapper.on_end uses suppress_instrumentation.
-    assert record.message == 'Queue is full, likely spans will be dropped.'
+    # This test no longer works as the log has been removed,
+    # but keeping it in case we test older OTel versions in the future.
+    if test_logging_handler.logs:  # pragma: no cover
+        [record] = test_logging_handler.logs
+        # This is the message logged by OTEL, in BatchSpanProcessor.on_end.
+        # We're testing that it doesn't get converted to a logfire log by LogfireLoggingHandler.
+        # To prevent that, MainSpanProcessorWrapper.on_end uses suppress_instrumentation.
+        assert record.message == 'Queue is full, likely spans will be dropped.'
 
-    # Ensure that we got some of the spans from `logfire.info('test')` above and nothing else.
-    assert exporter.exported_spans
-    for span in exporter.exported_spans:
-        assert span.name == 'test'
+        # Ensure that we got some of the spans from `logfire.info('test')` above and nothing else.
+        assert exporter.exported_spans
+        for span in exporter.exported_spans:
+            assert span.name == 'test'
 
-    exporter.clear()
+        exporter.clear()
 
-    logfire.shutdown()
+        logfire.shutdown()
 
-    with logfire_logging_handler_on_root_logger() as test_logging_handler:
-        logfire.info('spans after shutdown are dropped')
+        with logfire_logging_handler_on_root_logger() as test_logging_handler:
+            logfire.info('spans after shutdown are dropped')
 
-    [record] = test_logging_handler.logs
-    # This is the message logged by OTEL, in BatchSpanProcessor.on_end, same as above.
-    assert record.message == 'Already shutdown, dropping span.'
+        [record] = test_logging_handler.logs
+        # This is the message logged by OTEL, in BatchSpanProcessor.on_end, same as above.
+        assert record.message == 'Already shutdown, dropping span.'
 
-    assert not exporter.exported_spans
+        assert not exporter.exported_spans
 
 
 def test_logging_from_opentelemetry(exporter: TestExporter) -> None:

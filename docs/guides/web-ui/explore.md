@@ -17,7 +17,7 @@ have exceptions:
 SELECT
   message,
   start_timestamp,
-  EXTRACT(EPOCH FROM (end_timestamp - start_timestamp)) * 1000 AS duration_ms,
+  duration * 1000 AS duration_ms,
   attributes
 FROM records
 WHERE is_exception
@@ -26,40 +26,7 @@ WHERE is_exception
 You can run more complex queries as well, using subqueries, CTEs, joins, aggregations, custom expressions,
 and any other standard SQL.
 
-## Records Schema
-
-The schema of the `records` table is:
-
-```sql
-CREATE TABLE records AS (
-    start_timestamp timestamp with time zone,
-    created_at timestamp with time zone,
-    trace_id text,
-    span_id text,
-    parent_span_id text,
-    kind span_kind,
-    end_timestamp timestamp with time zone,
-    level smallint,
-    span_name text,
-    message text,
-    attributes_json_schema text,
-    attributes jsonb,
-    tags text[],
-    otel_links jsonb,
-    otel_events jsonb,
-    is_exception boolean,
-    otel_status_code status_code,
-    otel_status_message text,
-    otel_scope_name text,
-    otel_scope_version text,
-    otel_scope_attributes jsonb,
-    service_namespace text,
-    service_name text,
-    service_version text,
-    service_instance_id text,
-    process_pid integer
-)
-```
+See the [SQL Reference](../../reference/sql.md) for details on the SQL syntax supported by Logfire as well as the tables and their columns.
 
 ## Cross-linking with Live View
 
@@ -137,8 +104,3 @@ controls the maximum number of result rows returned.
 The Explore page provides a flexible interface to query your traces and metrics using standard SQL.
 
 Happy querying! :rocket:
-
-
-## SQL Reference
-
-The primary reference for the SQL syntax can be found in the [SQL Language Reference for Apache DataFusion](https://datafusion.apache.org/user-guide/sql/index.html). For specific information on json related functions, see the [DataFusion JSON functions](https://github.com/datafusion-contrib/datafusion-functions-json).

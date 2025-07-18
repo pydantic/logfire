@@ -9,11 +9,12 @@ import re
 import sys
 import time
 import warnings
+from collections.abc import Sequence
 from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 from threading import RLock, Thread
-from typing import TYPE_CHECKING, Any, Callable, Literal, Sequence, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Callable, Literal, TypedDict
 from urllib.parse import urljoin
 from uuid import uuid4
 
@@ -31,7 +32,6 @@ from opentelemetry.sdk._logs import LoggerProvider as SDKLoggerProvider, LogReco
 from opentelemetry.sdk._logs._internal import SynchronousMultiLogRecordProcessor
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, SimpleLogRecordProcessor
 from opentelemetry.sdk.environment_variables import (
-    OTEL_BSP_SCHEDULE_DELAY,
     OTEL_EXPORTER_OTLP_ENDPOINT,
     OTEL_EXPORTER_OTLP_LOGS_ENDPOINT,
     OTEL_EXPORTER_OTLP_METRICS_ENDPOINT,
@@ -54,21 +54,21 @@ from opentelemetry.sdk.trace import SpanProcessor, SynchronousMultiSpanProcessor
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio, Sampler
-from opentelemetry.semconv.resource import ResourceAttributes
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
 from typing_extensions import Self, Unpack
 
+from logfire._internal.auth import PYDANTIC_LOGFIRE_TOKEN_PATTERN, REGIONS
+from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
 from logfire.exceptions import LogfireConfigError
 from logfire.sampling import SamplingOptions
 from logfire.sampling._tail_sampling import TailSamplingProcessor
 from logfire.version import VERSION
 
 from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
-from .auth import DEFAULT_FILE, DefaultFile, is_logged_in
+from .client import InvalidProjectName, LogfireClient, ProjectAlreadyExists
 from .config_params import ParamManager, PydanticPluginRecordValues
 from .constants import (
-    OTLP_MAX_BODY_SIZE,
     RESOURCE_ATTRIBUTES_CODE_ROOT_PATH,
     RESOURCE_ATTRIBUTES_CODE_WORK_DIR,
     RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME,
@@ -83,8 +83,15 @@ from .exporters.console import (
     ShowParentsConsoleSpanExporter,
     SimpleConsoleSpanExporter,
 )
+from .exporters.dynamic_batch import DynamicBatchSpanProcessor
 from .exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper, MainLogProcessorWrapper
-from .exporters.otlp import OTLPExporterHttpSession, QuietLogExporter, QuietSpanExporter, RetryFewerSpansSpanExporter
+from .exporters.otlp import (
+    BodySizeCheckingOTLPSpanExporter,
+    OTLPExporterHttpSession,
+    QuietLogExporter,
+    QuietSpanExporter,
+    RetryFewerSpansSpanExporter,
+)
 from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper
 from .exporters.quiet_metrics import QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter
@@ -97,11 +104,9 @@ from .stack_info import warn_at_user_stacklevel
 from .tracer import OPEN_SPANS, PendingSpanProcessor, ProxyTracerProvider
 from .utils import (
     SeededRandomIdGenerator,
-    UnexpectedResponse,
     ensure_data_dir_exists,
     handle_internal_errors,
     platform_is_emscripten,
-    read_toml_file,
     suppress_instrumentation,
 )
 
@@ -158,8 +163,11 @@ class ConsoleOptions:
 class AdvancedOptions:
     """Options primarily used for testing by Logfire developers."""
 
-    base_url: str = 'https://logfire-api.pydantic.dev'
-    """Root URL for the Logfire API."""
+    base_url: str | None = None
+    """Base URL for the Logfire API.
+
+    If not set, Logfire will infer the base URL from the token (which contains information about the region).
+    """
 
     id_generator: IdGenerator = dataclasses.field(default_factory=lambda: SeededRandomIdGenerator(None))
     """Generator for trace and span IDs.
@@ -172,6 +180,12 @@ class AdvancedOptions:
 
     log_record_processors: Sequence[LogRecordProcessor] = ()
     """Configuration for OpenTelemetry logging. This is experimental and may be removed."""
+
+    def generate_base_url(self, token: str) -> str:
+        if self.base_url is not None:
+            return self.base_url
+
+        return get_base_url_from_token(token)
 
 
 @dataclass
@@ -191,21 +205,21 @@ class PydanticPlugin:
     * `failure`: Send metrics for all validations and traces only for validation failures.
     * `metrics`: Send only metrics.
     """
-    include: set[str] = field(default_factory=set)
+    include: set[str] = field(default_factory=set)  # type: ignore[reportUnknownVariableType]
     """By default, third party modules are not instrumented. This option allows you to include specific modules."""
-    exclude: set[str] = field(default_factory=set)
+    exclude: set[str] = field(default_factory=set)  # type: ignore[reportUnknownVariableType]
     """Exclude specific modules from instrumentation."""
 
 
 @dataclass
 class MetricsOptions:
-    """Configuration of metrics.
-
-    This only has one option for now, but it's a place to add more related options in the future.
-    """
+    """Configuration of metrics."""
 
     additional_readers: Sequence[MetricReader] = ()
     """Sequence of metric readers to be used in addition to the default which exports metrics to Logfire's API."""
+
+    collect_in_spans: bool = False
+    """Experimental setting to add up the values of counter and histogram metrics in active spans."""
 
 
 @dataclass
@@ -219,7 +233,7 @@ class CodeSource:
     """The git revision of the code e.g. branch name, commit hash, tag name etc."""
 
     root_path: str = ''
-    """The root path for the source code in the repository.
+    """The path from the root of the repository to the current working directory of the process.
 
     If you run the code from the directory corresponding to the root of the repository, you can leave this blank.
 
@@ -254,6 +268,7 @@ def configure(  # noqa: D417
     scrubbing: ScrubbingOptions | Literal[False] | None = None,
     inspect_arguments: bool | None = None,
     sampling: SamplingOptions | None = None,
+    add_baggage_to_attributes: bool = True,
     code_source: CodeSource | None = None,
     distributed_tracing: bool | None = None,
     advanced: AdvancedOptions | None = None,
@@ -306,6 +321,8 @@ def configure(  # noqa: D417
             Defaults to `True` if and only if the Python version is at least 3.11.
 
         sampling: Sampling options. See the [sampling guide](https://logfire.pydantic.dev/docs/guides/advanced/sampling/).
+        add_baggage_to_attributes: Set to `False` to prevent OpenTelemetry Baggage from being added to spans as attributes.
+            See the [Baggage documentation](https://logfire.pydantic.dev/docs/reference/advanced/baggage/) for more details.
         code_source: Settings for the source code of the project.
         distributed_tracing: By default, incoming trace context is extracted, but generates a warning.
             Set to `True` to disable the warning.
@@ -440,6 +457,7 @@ def configure(  # noqa: D417
         scrubbing=scrubbing,
         inspect_arguments=inspect_arguments,
         sampling=sampling,
+        add_baggage_to_attributes=add_baggage_to_attributes,
         code_source=code_source,
         distributed_tracing=distributed_tracing,
         advanced=advanced,
@@ -449,13 +467,6 @@ def configure(  # noqa: D417
         return Logfire(config=config)
     else:
         return DEFAULT_LOGFIRE_INSTANCE
-
-
-def _get_int_from_env(env_var: str) -> int | None:
-    value = os.getenv(env_var)
-    if not value:
-        return None
-    return int(value)  # pragma: no cover
 
 
 @dataclasses.dataclass
@@ -503,6 +514,9 @@ class _LogfireConfigData:
     sampling: SamplingOptions
     """Sampling options."""
 
+    add_baggage_to_attributes: bool
+    """Whether to add OpenTelemetry Baggage to span attributes."""
+
     code_source: CodeSource | None
     """Settings for the source code of the project."""
 
@@ -530,6 +544,7 @@ class _LogfireConfigData:
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
         sampling: SamplingOptions | None,
+        add_baggage_to_attributes: bool,
         code_source: CodeSource | None,
         distributed_tracing: bool | None,
         advanced: AdvancedOptions | None,
@@ -546,10 +561,7 @@ class _LogfireConfigData:
         self.inspect_arguments = param_manager.load_param('inspect_arguments', inspect_arguments)
         self.distributed_tracing = param_manager.load_param('distributed_tracing', distributed_tracing)
         self.ignore_no_config = param_manager.load_param('ignore_no_config')
-        if self.inspect_arguments and sys.version_info[:2] <= (3, 8):
-            raise LogfireConfigError(
-                'Inspecting arguments is only supported in Python 3.9+ and only recommended in Python 3.11+.'
-            )
+        self.add_baggage_to_attributes = add_baggage_to_attributes
 
         # We save `scrubbing` just so that it can be serialized and deserialized.
         if isinstance(scrubbing, dict):
@@ -635,6 +647,7 @@ class LogfireConfig(_LogfireConfigData):
         scrubbing: ScrubbingOptions | Literal[False] | None = None,
         inspect_arguments: bool | None = None,
         sampling: SamplingOptions | None = None,
+        add_baggage_to_attributes: bool = True,
         code_source: CodeSource | None = None,
         distributed_tracing: bool | None = None,
         advanced: AdvancedOptions | None = None,
@@ -661,6 +674,7 @@ class LogfireConfig(_LogfireConfigData):
             scrubbing=scrubbing,
             inspect_arguments=inspect_arguments,
             sampling=sampling,
+            add_baggage_to_attributes=add_baggage_to_attributes,
             code_source=code_source,
             distributed_tracing=distributed_tracing,
             advanced=advanced,
@@ -698,6 +712,7 @@ class LogfireConfig(_LogfireConfigData):
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
         sampling: SamplingOptions | None,
+        add_baggage_to_attributes: bool,
         code_source: CodeSource | None,
         distributed_tracing: bool | None,
         advanced: AdvancedOptions | None,
@@ -718,6 +733,7 @@ class LogfireConfig(_LogfireConfigData):
                 scrubbing,
                 inspect_arguments,
                 sampling,
+                add_baggage_to_attributes,
                 code_source,
                 distributed_tracing,
                 advanced,
@@ -737,12 +753,12 @@ class LogfireConfig(_LogfireConfigData):
 
         with suppress_instrumentation():
             otel_resource_attributes: dict[str, Any] = {
-                ResourceAttributes.SERVICE_NAME: self.service_name,
-                ResourceAttributes.PROCESS_PID: os.getpid(),
+                'service.name': self.service_name,
+                'process.pid': os.getpid(),
                 # https://opentelemetry.io/docs/specs/semconv/resource/process/#python-runtimes
-                ResourceAttributes.PROCESS_RUNTIME_NAME: sys.implementation.name,
-                ResourceAttributes.PROCESS_RUNTIME_VERSION: get_runtime_version(),
-                ResourceAttributes.PROCESS_RUNTIME_DESCRIPTION: sys.version,
+                'process.runtime.name': sys.implementation.name,
+                'process.runtime.version': get_runtime_version(),
+                'process.runtime.description': sys.version,
                 # Having this giant blob of data associated with every span/metric causes various problems so it's
                 # disabled for now, but we may want to re-enable something like it in the future
                 # RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS: json.dumps(collect_package_info(), separators=(',', ':')),
@@ -757,7 +773,7 @@ class LogfireConfig(_LogfireConfigData):
                 if self.code_source.root_path:
                     otel_resource_attributes[RESOURCE_ATTRIBUTES_CODE_ROOT_PATH] = self.code_source.root_path
             if self.service_version:
-                otel_resource_attributes[ResourceAttributes.SERVICE_VERSION] = self.service_version
+                otel_resource_attributes['service.version'] = self.service_version
             if self.environment:
                 otel_resource_attributes[RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME] = self.environment
             otel_resource_attributes_from_env = os.getenv(OTEL_RESOURCE_ATTRIBUTES)
@@ -785,7 +801,7 @@ class LogfireConfig(_LogfireConfigData):
             # Currently there's a newer version with some differences here:
             # https://github.com/open-telemetry/semantic-conventions/blob/e44693245eef815071402b88c3a44a8f7f8f24c8/docs/resource/README.md#service-experimental
             # Both recommend generating a UUID.
-            resource = Resource({ResourceAttributes.SERVICE_INSTANCE_ID: uuid4().hex}).merge(resource)
+            resource = Resource({'service.instance.id': uuid4().hex}).merge(resource)
 
             head = self.sampling.head
             sampler: Sampler | None = None
@@ -815,13 +831,15 @@ class LogfireConfig(_LogfireConfigData):
 
             def add_span_processor(span_processor: SpanProcessor) -> None:
                 main_multiprocessor.add_span_processor(span_processor)
-
                 has_pending = isinstance(
                     getattr(span_processor, 'span_exporter', None),
                     (TestExporter, RemovePendingSpansExporter, SimpleConsoleSpanExporter),
                 )
                 if has_pending:
                     processors_with_pending_spans.append(span_processor)
+
+            if self.add_baggage_to_attributes:
+                add_span_processor(DirectBaggageAttributesSpanProcessor())
 
             if self.additional_span_processors is not None:
                 for processor in self.additional_span_processors:
@@ -857,23 +875,21 @@ class LogfireConfig(_LogfireConfigData):
 
                 # try loading credentials (and thus token) from file if a token is not already available
                 # this takes the lowest priority, behind the token passed to `configure` and the environment variable
-                if self.token is None:
+                if not self.token:
                     credentials = LogfireCredentials.load_creds_file(self.data_dir)
 
                     # if we still don't have a token, try initializing a new project and writing a new creds file
                     # note, we only do this if `send_to_logfire` is explicitly `True`, not 'if-token-present'
                     if self.send_to_logfire is True and credentials is None:
-                        credentials = LogfireCredentials.initialize_project(
-                            logfire_api_url=self.advanced.base_url,
-                            session=requests.Session(),
-                        )
+                        client = LogfireClient.from_url(self.advanced.base_url)
+                        credentials = LogfireCredentials.initialize_project(client=client)
                         credentials.write_creds_file(self.data_dir)
 
                     if credentials is not None:
                         self.token = credentials.token
                         self.advanced.base_url = self.advanced.base_url or credentials.logfire_api_url
 
-                if self.token is not None:
+                if self.token:
 
                     def check_token():
                         assert self.token is not None
@@ -887,25 +903,23 @@ class LogfireConfig(_LogfireConfigData):
                         thread = Thread(target=check_token, name='check_logfire_token')
                         thread.start()
 
+                    base_url = self.advanced.generate_base_url(self.token)
                     headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': self.token}
-                    session = OTLPExporterHttpSession(max_body_size=OTLP_MAX_BODY_SIZE)
+                    session = OTLPExporterHttpSession()
                     session.headers.update(headers)
-                    span_exporter = OTLPSpanExporter(
-                        endpoint=urljoin(self.advanced.base_url, '/v1/traces'),
+                    span_exporter = BodySizeCheckingOTLPSpanExporter(
+                        endpoint=urljoin(base_url, '/v1/traces'),
                         session=session,
                         compression=Compression.Gzip,
                     )
                     span_exporter = QuietSpanExporter(span_exporter)
                     span_exporter = RetryFewerSpansSpanExporter(span_exporter)
                     span_exporter = RemovePendingSpansExporter(span_exporter)
-                    schedule_delay_millis = _get_int_from_env(OTEL_BSP_SCHEDULE_DELAY) or 500
                     if emscripten:  # pragma: no cover
                         # BatchSpanProcessor uses threads which fail in Pyodide / Emscripten
                         logfire_processor = SimpleSpanProcessor(span_exporter)
                     else:
-                        logfire_processor = BatchSpanProcessor(
-                            span_exporter, schedule_delay_millis=schedule_delay_millis
-                        )
+                        logfire_processor = DynamicBatchSpanProcessor(span_exporter)
                     add_span_processor(logfire_processor)
 
                     # TODO should we warn here if we have metrics but we're in emscripten?
@@ -915,7 +929,7 @@ class LogfireConfig(_LogfireConfigData):
                             PeriodicExportingMetricReader(
                                 QuietMetricExporter(
                                     OTLPMetricExporter(
-                                        endpoint=urljoin(self.advanced.base_url, '/v1/metrics'),
+                                        endpoint=urljoin(base_url, '/v1/metrics'),
                                         headers=headers,
                                         session=session,
                                         compression=Compression.Gzip,
@@ -930,7 +944,7 @@ class LogfireConfig(_LogfireConfigData):
                         )
 
                     log_exporter = OTLPLogExporter(
-                        endpoint=urljoin(self.advanced.base_url, '/v1/logs'),
+                        endpoint=urljoin(base_url, '/v1/logs'),
                         session=session,
                         compression=Compression.Gzip,
                     )
@@ -988,7 +1002,18 @@ class LogfireConfig(_LogfireConfigData):
                         View(
                             instrument_type=Histogram,
                             aggregation=ExponentialBucketHistogramAggregation(),
-                        )
+                        ),
+                        View(
+                            instrument_type=UpDownCounter,
+                            instrument_name='http.server.active_requests',
+                            attribute_keys={
+                                'url.scheme',
+                                'http.scheme',
+                                'http.flavor',
+                                'http.method',
+                                'http.request.method',
+                            },
+                        ),
                     ],
                 )
             else:
@@ -998,7 +1023,7 @@ class LogfireConfig(_LogfireConfigData):
 
                 def fix_pid():  # pragma: no cover
                     with handle_internal_errors:
-                        new_resource = resource.merge(Resource({ResourceAttributes.PROCESS_PID: os.getpid()}))
+                        new_resource = resource.merge(Resource({'process.pid': os.getpid()}))
                         tracer_provider._resource = new_resource  # type: ignore
                         meter_provider._resource = new_resource  # type: ignore
                         logger_provider._resource = new_resource  # type: ignore
@@ -1048,7 +1073,7 @@ class LogfireConfig(_LogfireConfigData):
                 # The reason that spans may be lingering open is that they're in suspended generator frames.
                 # Apart from here, they will be ended when the generator is garbage collected
                 # as the interpreter shuts down, but that's too late.
-                for span in list(OPEN_SPANS):
+                for span in list(OPEN_SPANS.values()):
                     # TODO maybe we should be recording something about what happened here?
                     span.end()
                     # Interpreter shutdown may trigger another call to .end(),
@@ -1151,7 +1176,7 @@ class LogfireConfig(_LogfireConfigData):
             )
 
     def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
-        return LogfireCredentials.from_token(token, requests.Session(), self.advanced.base_url)
+        return LogfireCredentials.from_token(token, requests.Session(), self.advanced.generate_base_url(token))
 
     def _ensure_flush_after_aws_lambda(self):
         """Ensure that `force_flush` is called after an AWS Lambda invocation.
@@ -1304,68 +1329,10 @@ class LogfireCredentials:
         )
 
     @classmethod
-    def _get_user_token(cls, logfire_api_url: str) -> str:
-        if DEFAULT_FILE.is_file():  # pragma: no branch
-            data = cast(DefaultFile, read_toml_file(DEFAULT_FILE))
-            if is_logged_in(data, logfire_api_url):  # pragma: no branch
-                return data['tokens'][logfire_api_url]['token']
-        raise LogfireConfigError(
-            """You are not authenticated. Please run `logfire auth` to authenticate.
-
-If you are running in production, you can set the `LOGFIRE_TOKEN` environment variable.
-To create a write token, refer to https://logfire.pydantic.dev/docs/guides/advanced/creating_write_tokens/
-"""
-        )
-
-    @classmethod
-    def get_current_user(cls, session: requests.Session, logfire_api_url: str) -> dict[str, Any] | None:
-        try:
-            user_token = cls._get_user_token(logfire_api_url=logfire_api_url)
-        except LogfireConfigError:
-            return None
-        return cls._get_user_for_token(user_token, session, logfire_api_url)
-
-    @classmethod
-    def _get_user_for_token(cls, user_token: str, session: requests.Session, logfire_api_url: str) -> dict[str, Any]:
-        headers = {**COMMON_REQUEST_HEADERS, 'Authorization': user_token}
-        account_info_url = urljoin(logfire_api_url, '/v1/account/me')
-        try:
-            response = session.get(account_info_url, headers=headers)
-            UnexpectedResponse.raise_for_status(response)
-        except requests.RequestException as e:
-            raise LogfireConfigError('Error retrieving user information.') from e
-        return response.json()
-
-    @classmethod
-    def get_user_projects(cls, session: requests.Session, logfire_api_url: str) -> list[dict[str, Any]]:
-        """Get list of projects that user has access to them.
-
-        Args:
-            session: HTTP client session used to communicate with the Logfire API.
-            logfire_api_url: The Logfire API base URL.
-
-        Returns:
-            List of user projects.
-
-        Raises:
-            LogfireConfigError: If there was an error retrieving user projects.
-        """
-        user_token = cls._get_user_token(logfire_api_url=logfire_api_url)
-        headers = {**COMMON_REQUEST_HEADERS, 'Authorization': user_token}
-        projects_url = urljoin(logfire_api_url, '/v1/projects/')
-        try:
-            response = session.get(projects_url, headers=headers)
-            UnexpectedResponse.raise_for_status(response)
-        except requests.RequestException as e:  # pragma: no cover
-            raise LogfireConfigError('Error retrieving list of projects.') from e
-        return response.json()
-
-    @classmethod
     def use_existing_project(
         cls,
         *,
-        session: requests.Session,
-        logfire_api_url: str,
+        client: LogfireClient,
         projects: list[dict[str, Any]],
         organization: str | None = None,
         project_name: str | None = None,
@@ -1376,8 +1343,7 @@ To create a write token, refer to https://logfire.pydantic.dev/docs/guides/advan
         the user has access to it. Otherwise, it asks the user to select a project interactively.
 
         Args:
-            session: HTTP client session used to communicate with the Logfire API.
-            logfire_api_url: The Logfire API base URL.
+            client: The Logfire client to use when making requests.
             projects: List of user projects.
             organization: Project organization.
             project_name: Name of project that has to be used.
@@ -1388,9 +1354,6 @@ To create a write token, refer to https://logfire.pydantic.dev/docs/guides/advan
         Raises:
             LogfireConfigError: If there was an error configuring the project.
         """
-        user_token = cls._get_user_token(logfire_api_url=logfire_api_url)
-        headers = {**COMMON_REQUEST_HEADERS, 'Authorization': user_token}
-
         org_message = ''
         org_flag = ''
         project_message = 'projects'
@@ -1454,28 +1417,17 @@ To create a write token, refer to https://logfire.pydantic.dev/docs/guides/advan
                 choices=list(project_choices.keys()),
                 default='1',
             )
-            project_info_tuple = project_choices[selected_project_key]
+            project_info_tuple: tuple[str, str] = project_choices[selected_project_key]
             organization = project_info_tuple[0]
             project_name = project_info_tuple[1]
 
-        project_write_token_url = urljoin(
-            logfire_api_url,
-            f'/v1/organizations/{organization}/projects/{project_name}/write-tokens/',
-        )
-        try:
-            response = session.post(project_write_token_url, headers=headers)
-            UnexpectedResponse.raise_for_status(response)
-        except requests.RequestException as e:
-            raise LogfireConfigError('Error creating project write token.') from e
-
-        return response.json()
+        return client.create_write_token(organization, project_name)
 
     @classmethod
     def create_new_project(
         cls,
         *,
-        session: requests.Session,
-        logfire_api_url: str,
+        client: LogfireClient,
         organization: str | None = None,
         default_organization: bool = False,
         project_name: str | None = None,
@@ -1486,8 +1438,7 @@ To create a write token, refer to https://logfire.pydantic.dev/docs/guides/advan
         Otherwise, it asks the user to select organization and enter a valid project name interactively.
 
         Args:
-            session: HTTP client session used to communicate with the Logfire API.
-            logfire_api_url: The Logfire API base URL.
+            client: The Logfire client to use when making requests.
             organization: The organization name of the new project.
             default_organization: Whether to create the project under the user default organization.
             project_name: The default name of the project.
@@ -1498,24 +1449,15 @@ To create a write token, refer to https://logfire.pydantic.dev/docs/guides/advan
         Raises:
             LogfireConfigError: If there was an error creating projects.
         """
-        user_token = cls._get_user_token(logfire_api_url=logfire_api_url)
-        headers = {**COMMON_REQUEST_HEADERS, 'Authorization': user_token}
-
-        # Get user organizations
-        organizations_url = urljoin(logfire_api_url, '/v1/organizations/')
-        try:
-            response = session.get(organizations_url, headers=headers)
-            UnexpectedResponse.raise_for_status(response)
-        except requests.RequestException as e:
-            raise LogfireConfigError('Error retrieving list of organizations.') from e
-        organizations = [item['organization_name'] for item in response.json()]
+        organizations: list[str] = [item['organization_name'] for item in client.get_user_organizations()]
 
         if organization not in organizations:
             if len(organizations) > 1:
                 # Get user default organization
-                user_details = cls._get_user_for_token(user_token, session, logfire_api_url)
-                assert user_details is not None
-                user_default_organization_name = user_details.get('default_organization', {}).get('organization_name')
+                user_details = client.get_user_information()
+                user_default_organization_name: str | None = user_details.get('default_organization', {}).get(
+                    'organization_name'
+                )
 
                 if default_organization and user_default_organization_name:
                     organization = user_default_organization_name
@@ -1524,7 +1466,7 @@ To create a write token, refer to https://logfire.pydantic.dev/docs/guides/advan
                         '\nTo create and use a new project, please provide the following information:\n'
                         'Select the organization to create the project in',
                         choices=organizations,
-                        default=user_default_organization_name if user_default_organization_name else organizations[0],
+                        default=user_default_organization_name or organizations[0],
                     )
             else:
                 organization = organizations[0]
@@ -1535,7 +1477,7 @@ To create a write token, refer to https://logfire.pydantic.dev/docs/guides/advan
                     if not confirm:
                         sys.exit(1)
 
-        project_name_default: str | None = default_project_name()
+        project_name_default: str = default_project_name()
         project_name_prompt = 'Enter the project name'
         while True:
             project_name = project_name or Prompt.ask(project_name_prompt, default=project_name_default)
@@ -1549,46 +1491,35 @@ To create a write token, refer to https://logfire.pydantic.dev/docs/guides/advan
                     default=project_name_default,
                 )
 
-            url = urljoin(logfire_api_url, f'/v1/projects/{organization}')
             try:
-                response = session.post(url, headers=headers, json={'project_name': project_name})
-                if response.status_code == 409:
-                    project_name_default = ...  # type: ignore  # this means the value is required
-                    project_name_prompt = (
-                        f"\nA project with the name '{project_name}' already exists."
-                        f' Please enter a different project name'
-                    )
-                    project_name = None
-                    continue
-                if response.status_code == 422:
-                    error = response.json()['detail'][0]
-                    if error['loc'] == ['body', 'project_name']:  # pragma: no branch
-                        project_name_default = ...  # type: ignore  # this means the value is required
-                        project_name_prompt = (
-                            f'\nThe project name you entered is invalid:\n'
-                            f'{error["msg"]}\n'
-                            f'Please enter a different project name'
-                        )
-                        project_name = None
-                        continue
-                UnexpectedResponse.raise_for_status(response)
-            except requests.RequestException as e:
-                raise LogfireConfigError('Error creating new project.') from e
+                project = client.create_new_project(organization, project_name)
+            except ProjectAlreadyExists:
+                project_name_default = ...  # type: ignore  # this means the value is required
+                project_name_prompt = (
+                    f"\nA project with the name '{project_name}' already exists. Please enter a different project name"
+                )
+                project_name = None
+                continue
+            except InvalidProjectName as exc:
+                project_name_default = ...  # type: ignore  # this means the value is required
+                project_name_prompt = (
+                    f'\nThe project name you entered is invalid:\n{exc.reason}\nPlease enter a different project name'
+                )
+                project_name = None
+                continue
             else:
-                return response.json()
+                return project
 
     @classmethod
     def initialize_project(
         cls,
         *,
-        logfire_api_url: str,
-        session: requests.Session,
+        client: LogfireClient,
     ) -> Self:
         """Create a new project or use an existing project on logfire.dev requesting the given project name.
 
         Args:
-            logfire_api_url: The Logfire API base URL.
-            session: HTTP client session used to communicate with the Logfire API.
+            client: The Logfire client to use when making requests.
 
         Returns:
             The new credentials.
@@ -1603,22 +1534,17 @@ To create a write token, refer to https://logfire.pydantic.dev/docs/guides/advan
             'All data sent to Logfire must be associated with a project.\n'
         )
 
-        projects = cls.get_user_projects(session=session, logfire_api_url=logfire_api_url)
+        projects = client.get_user_projects()
         if projects:
             use_existing_projects = Confirm.ask('Do you want to use one of your existing projects? ', default=True)
             if use_existing_projects:  # pragma: no branch
-                credentials = cls.use_existing_project(
-                    session=session, logfire_api_url=logfire_api_url, projects=projects
-                )
+                credentials = cls.use_existing_project(client=client, projects=projects)
 
         if not credentials:
-            credentials = cls.create_new_project(
-                session=session,
-                logfire_api_url=logfire_api_url,
-            )
+            credentials = cls.create_new_project(client=client)
 
         try:
-            result = cls(**credentials, logfire_api_url=logfire_api_url)
+            result = cls(**credentials, logfire_api_url=client.base_url)
             Prompt.ask(
                 f'Project initialized successfully. You will be able to view it at: {result.project_url}\n'
                 'Press Enter to continue'
@@ -1659,6 +1585,24 @@ def _print_summary(message: str, min_content_width: int) -> None:
 def _get_creds_file(creds_dir: Path) -> Path:
     """Get the path to the credentials file."""
     return creds_dir / CREDENTIALS_FILENAME
+
+
+def get_base_url_from_token(token: str) -> str:
+    """Get the base API URL from the token's region."""
+    # default to US for tokens that were created before regions were added:
+    region = 'us'
+    if match := PYDANTIC_LOGFIRE_TOKEN_PATTERN.match(token):
+        region = match.group('region')
+
+        if region == 'stagingus':
+            return 'https://logfire-us.pydantic.info'
+        elif region == 'stagingeu':
+            return 'https://logfire-eu.pydantic.info'
+
+        if region not in REGIONS:
+            region = 'us'
+
+    return REGIONS[region]['base_url']
 
 
 def get_git_revision_hash() -> str:

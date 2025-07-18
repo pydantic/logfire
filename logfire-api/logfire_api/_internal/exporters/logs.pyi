@@ -9,9 +9,11 @@ class CheckSuppressInstrumentationLogProcessorWrapper(WrapperLogProcessor):
 
     Placed at the root of the tree of processors.
     """
-    def emit(self, log_data: LogData): ...
+    def on_emit(self, log_data: LogData): ...
+    emit = on_emit
 
 @dataclass
 class MainLogProcessorWrapper(WrapperLogProcessor):
     scrubber: BaseScrubber
-    def emit(self, log_data: LogData): ...
+    def on_emit(self, log_data: LogData): ...
+    emit = on_emit

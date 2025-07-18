@@ -13,14 +13,15 @@ logfire.configure(
     code_source=logfire.CodeSource(
         repository='https://github.com/pydantic/logfire',  #(1)!
         revision='<hash of commit used on release>',  #(2)!
-        root_path='/root/path',  #(3)!
+        root_path='path/within/repo',  #(3)!
     )
 )
 ```
 
 1. The URL of the repository e.g. `https://github.com/pydantic/logfire`.
 2. The specific branch, tag, or commit hash to link to e.g. `main`.
-3. The path to the root of the repository. If your code is in a subdirectory, you can specify it here.
+3. The path from the root of the repository to the current working directory of the process. If your code is in a
+   subdirectory of your repo, you can specify it here. Otherwise you can probably omit this.
 
 You can learn more in our [`logfire.CodeSource`][logfire.CodeSource] API reference.
 
@@ -32,7 +33,7 @@ For other OpenTelemetry SDKs, you can configure these settings using resource at
 ```
 OTEL_RESOURCE_ATTRIBUTES=vcs.repository.url.full=https://github.com/pydantic/platform
 OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES},vcs.repository.ref.revision=main
-OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES},vcs.root.path=.
+OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES},vcs.root.path=path/within/repo
 ```
 
 [otel-resource-attributes]: https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/#general-sdk-configuration

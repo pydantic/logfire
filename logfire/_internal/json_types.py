@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, List, Literal, TypedDict, TypeVar, Union
+from typing import Any, Literal, TypedDict, TypeVar, Union
 
 from typing_extensions import NotRequired
 
@@ -40,6 +40,7 @@ DataType = Literal[
     'Exception',
     # pydantic types
     'PydanticModel',
+    'AnyUrl',
     'Url',
     'NameEmail',
     'SecretBytes',
@@ -96,7 +97,7 @@ class _Items(TypedDict):
 
 
 class _PrefixItems(TypedDict):
-    prefixItems: List[JSONSchema]  # noqa
+    prefixItems: list[JSONSchema]
 
 
 _ArrayBase = TypedDict(
@@ -104,9 +105,9 @@ _ArrayBase = TypedDict(
     {
         'type': Literal['array'],
         'x-python-datatype': Literal['tuple', 'deque', 'set', 'frozenset', 'ndarray'],
-        'x-columns': NotRequired[List[str]],
-        'x-indices': NotRequired[List[Any]],
-        'x-shape': NotRequired[List[int]],
+        'x-columns': NotRequired[list[str]],
+        'x-indices': NotRequired[list[Any]],
+        'x-shape': NotRequired[list[int]],
         'x-dtype': NotRequired[str],
     },
 )

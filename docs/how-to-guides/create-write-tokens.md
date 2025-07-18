@@ -8,8 +8,8 @@ You can create a write token by following these steps:
 1. Open the **Logfire** web interface at [logfire.pydantic.dev](https://logfire.pydantic.dev).
 2. Select your project from the **Projects** section on the left hand side of the page.
 3. Click on the ⚙️ **Settings** tab in the top right corner of the page.
-4. Select the **{} Write tokens** tab from the left hand menu.
-5. Click on the **Create write token** button.
+4. Select the **Write tokens** tab from the left hand menu.
+5. Click on the **New write token** button.
 
 After creating the write token, you'll see a dialog with the token value.
 **Copy this value and store it securely, it will not be shown again**.

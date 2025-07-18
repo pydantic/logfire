@@ -1,28 +1,33 @@
 from __future__ import annotations
 
+import json
+from contextlib import suppress
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 from urllib.parse import parse_qs, urlparse
 
 from opentelemetry import context
-from opentelemetry.sdk.trace import ReadableSpan, Span
+from opentelemetry.sdk.trace import Event, ReadableSpan, Span
 from opentelemetry.sdk.util.instrumentation import InstrumentationScope
-from opentelemetry.semconv.trace import SpanAttributes
 from opentelemetry.trace import SpanKind, Status, StatusCode
 
 import logfire
 
 from ..constants import (
+    ATTRIBUTES_JSON_SCHEMA_KEY,
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,
     ATTRIBUTES_MESSAGE_KEY,
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
+    ATTRIBUTES_TAGS_KEY,
     LEVEL_NUMBERS,
     log_level_attributes,
 )
 from ..db_statement_summary import message_from_db_statement
+from ..json_schema import JsonSchemaProperties, attributes_json_schema
 from ..scrubbing import BaseScrubber
 from ..utils import (
     ReadableSpanDict,
+    handle_internal_errors,
     is_asgi_send_receive_span_name,
     is_instrumentation_suppressed,
     span_to_dict,
@@ -69,14 +74,19 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
         super().on_start(span, parent_context)
 
     def on_end(self, span: ReadableSpan) -> None:
-        span_dict = span_to_dict(span)
-        _tweak_asgi_send_receive_spans(span_dict)
-        _tweak_sqlalchemy_connect_spans(span_dict)
-        _tweak_http_spans(span_dict)
-        _summarize_db_statement(span_dict)
-        _set_error_level_and_status(span_dict)
-        self.scrubber.scrub_span(span_dict)
-        span = ReadableSpan(**span_dict)
+        with handle_internal_errors:
+            span_dict = span_to_dict(span)
+            _tweak_asgi_send_receive_spans(span_dict)
+            _tweak_sqlalchemy_connect_spans(span_dict)
+            _tweak_http_spans(span_dict)
+            _summarize_db_statement(span_dict)
+            _set_error_level_and_status(span_dict)
+            _transform_langchain_span(span_dict)
+            _transform_google_genai_span(span_dict)
+            _transform_litellm_span(span_dict)
+            _default_gen_ai_response_model(span_dict)
+            self.scrubber.scrub_span(span_dict)
+            span = ReadableSpan(**span_dict)
         super().on_end(span)
 
 
@@ -116,7 +126,7 @@ def _tweak_sqlalchemy_connect_spans(span: ReadableSpanDict) -> None:
     attributes = span['attributes']
     # We never expect db.statement to be in the attributes here.
     # This is just to be extra sure that we're not accidentally hiding an actual query span.
-    if SpanAttributes.DB_SYSTEM not in attributes or SpanAttributes.DB_STATEMENT in attributes:  # pragma: no cover
+    if 'db.system' not in attributes or 'db.statement' in attributes:  # pragma: no cover
         return
     span['attributes'] = {**attributes, **log_level_attributes('debug')}
 
@@ -191,17 +201,17 @@ def _tweak_http_spans(span: ReadableSpanDict):
     if name != attributes.get(ATTRIBUTES_MESSAGE_KEY):  # pragma: no cover
         return
 
-    method = attributes.get(SpanAttributes.HTTP_METHOD)
-    route = attributes.get(SpanAttributes.HTTP_ROUTE)
-    target = attributes.get(SpanAttributes.HTTP_TARGET)
-    url = attributes.get(SpanAttributes.HTTP_URL)
+    method = attributes.get('http.method')
+    route = attributes.get('http.route')
+    target = attributes.get('http.target')
+    url: Any = attributes.get('http.url')
     if not (method or route or target or url):
         return
 
     if not target and url and isinstance(url, str):
         try:
             target = urlparse(url).path
-            span['attributes'] = attributes = {**attributes, SpanAttributes.HTTP_TARGET: target}
+            span['attributes'] = attributes = {**attributes, 'http.target': target}
         except Exception:  # pragma: no cover
             pass
 
@@ -219,13 +229,11 @@ def _tweak_http_spans(span: ReadableSpanDict):
         if span['kind'] == SpanKind.CLIENT:
             # For outgoing requests, we also want the domain, not just the path.
             server_name: Any = (
-                attributes.get(SpanAttributes.SERVER_ADDRESS)
-                or attributes.get(SpanAttributes.HTTP_SERVER_NAME)
-                or attributes.get(SpanAttributes.HTTP_HOST)
+                attributes.get('server.address') or attributes.get('http.server_name') or attributes.get('http.host')
             )
             if not server_name:
                 try:
-                    server_name = urlparse(url).hostname  # type: ignore
+                    server_name = urlparse(url).hostname
                 except Exception:  # pragma: no cover
                     pass
             server_name = server_name or url
@@ -289,3 +297,217 @@ def _summarize_db_statement(span: ReadableSpanDict):
     summary = message_from_db_statement(attributes, message, span['name'])
     if summary is not None:
         span['attributes'] = {**attributes, ATTRIBUTES_MESSAGE_KEY: summary}
+
+
+def _transform_langchain_span(span: ReadableSpanDict):
+    """Transform spans generated by LangSmith to work better in the Logfire UI.
+
+    - Add attribute names to the JSON schema so that they get parsed as JSON.
+    - Add OTel semconv attributes.
+    - Add `all_messages_events` to display the conversation in the Generation panel.
+    """
+    scope = span['instrumentation_scope']
+
+    # This was originally written for and tested with openinference.instrumentation.langchain,
+    # which produces essentially the same spans as langsmith but with different attribute names.
+    if not (scope and scope.name in ('openinference.instrumentation.langchain', 'langsmith')):
+        return
+
+    attributes = span['attributes']
+    existing_json_schema = attributes.get(ATTRIBUTES_JSON_SCHEMA_KEY)
+    if existing_json_schema:  # pragma: no cover
+        return
+
+    properties = JsonSchemaProperties({})
+    parsed_attributes: dict[str, Any] = {}
+    for key, value in attributes.items():
+        if not isinstance(value, str) or not value.startswith(('{"', '[')):
+            continue
+        try:
+            parsed_attributes[key] = json.loads(value)
+        except json.JSONDecodeError:  # pragma: no cover
+            continue
+        # Tell the Logfire backend to parse this attribute as JSON.
+        properties[key] = {'type': 'object' if value.startswith('{') else 'array'}
+
+    new_attributes: dict[str, Any] = {}
+
+    # OTel semconv attributes, needed for displaying costs.
+    with suppress(Exception):
+        new_attributes['gen_ai.request.model'] = parsed_attributes['llm.invocation_parameters']['model']
+    with suppress(Exception):
+        new_attributes['gen_ai.response.model'] = parsed_attributes['gen_ai.completion']['llm_output']['model_name']
+
+    if 'gen_ai.request.model' not in attributes and 'gen_ai.usage.input_tokens' in attributes:
+        # Only keep usage attributes on spans with actual token usage, i.e. model requests,
+        # to prevent double counting costs in the UI.
+        attributes = {k: v for k, v in attributes.items() if not k.startswith('gen_ai.usage.')}
+
+    if attributes.get('gen_ai.system') == 'langchain':
+        # Remove gen_ai.system=langchain as this also interferes with costs in the UI.
+        attributes = {k: v for k, v in attributes.items() if k != 'gen_ai.system'}
+
+    # Add `all_messages_events`
+    with suppress(Exception):
+        input_messages = parsed_attributes.get('input.value', parsed_attributes.get('gen_ai.prompt', {}))['messages']
+        if len(input_messages) == 1 and isinstance(input_messages[0], list):
+            [input_messages] = input_messages
+
+        message_events = [_transform_langchain_message(old_message) for old_message in input_messages]
+
+        # If we fail to parse output messages, fine, but only try if we've succeeded to parse input messages.
+        with suppress(Exception):
+            output_value = parsed_attributes.get('output.value', parsed_attributes.get('gen_ai.completion', {}))
+            try:
+                # Multiple generations mean multiple choices, we can only display one.
+                message_events += [_transform_langchain_message(output_value['generations'][0][0]['message'])]
+            except Exception:
+                try:
+                    output_message_events = [_transform_langchain_message(m) for m in output_value['messages']]
+                    if (
+                        message_events
+                        and len(message_events) <= len(output_message_events)
+                        and all(
+                            all(om.get(k) == im.get(k) for k in im)
+                            for im, om in zip(message_events, output_message_events)
+                        )
+                    ):
+                        # If the input messages are a prefix of the output messages, we can just use the output messages.
+                        message_events = output_message_events
+                    else:
+                        message_events += output_message_events
+                except Exception:
+                    message_events += [_transform_langchain_message(output_value['output'])]
+
+        new_attributes['all_messages_events'] = json.dumps(message_events)
+        properties['all_messages_events'] = {'type': 'array'}
+
+    span['attributes'] = {
+        **attributes,
+        ATTRIBUTES_JSON_SCHEMA_KEY: attributes_json_schema(properties),
+        **new_attributes,
+    }
+
+
+def _transform_langchain_message(old_message: dict[str, Any]) -> dict[str, Any]:
+    if old_message.get('type') == 'constructor' and 'kwargs' in old_message:
+        kwargs = old_message['kwargs']
+    else:
+        kwargs = old_message
+
+    role = kwargs.get('role') or {'human': 'user', 'ai': 'assistant'}.get(kwargs['type'], kwargs['type'])
+    result = {
+        **{
+            k: v
+            for k, v in kwargs.items()
+            if k not in ('type', 'additional_kwargs', 'response_metadata', 'id', 'usage_metadata')
+        },
+        **kwargs.get('additional_kwargs', {}),
+        'role': role,
+    }
+    if not result.get('tool_calls'):
+        result.pop('tool_calls', None)
+    if 'tool_call_id' in result:
+        result['id'] = result.pop('tool_call_id')
+    return result
+
+
+def _default_gen_ai_response_model(span: ReadableSpanDict):
+    attrs = span['attributes']
+    if 'gen_ai.request.model' in attrs and 'gen_ai.response.model' not in attrs:
+        span['attributes'] = {
+            **attrs,
+            'gen_ai.response.model': attrs['gen_ai.request.model'],
+        }
+
+
+def _transform_google_genai_span(span: ReadableSpanDict):
+    scope = span['instrumentation_scope']
+    if not (scope and scope.name == 'opentelemetry.instrumentation.google_genai' and span['events']):
+        return
+
+    new_events: list[Event] = []
+    events_attr: list[dict[str, Any]] = []
+    for event in span['events']:
+        if not (
+            event.name.startswith('gen_ai.')
+            and event.attributes
+            and isinstance(event_attrs_string := event.attributes.get('event_body'), str)
+        ):  # pragma: no cover
+            new_events.append(event)
+            continue
+        event_attrs: dict[str, Any] = json.loads(event_attrs_string)
+        events_attr.append(event_attrs)
+    span['attributes'] = {
+        **span['attributes'],
+        'events': json.dumps(events_attr),
+        'gen_ai.operation.name': 'chat',
+        ATTRIBUTES_JSON_SCHEMA_KEY: attributes_json_schema(JsonSchemaProperties({'events': {'type': 'array'}})),
+    }
+    span['events'] = new_events
+
+
+def _transform_litellm_span(span: ReadableSpanDict):
+    scope = span['instrumentation_scope']
+    if not (scope and scope.name == 'openinference.instrumentation.litellm'):
+        return
+
+    attributes = span['attributes']
+    try:
+        output_value = attributes['output.value']
+        new_attrs = {
+            'request_data': attributes['input.value'],
+        }
+        if output_value == attributes.get('llm.output_messages.0.message.content'):
+            message = {
+                'content': output_value,
+                'role': attributes.get('llm.output_messages.0.message.role', 'assistant'),
+            }
+        else:
+            parsed_output_value = json.loads(cast(str, output_value))
+            message = parsed_output_value['choices'][0]['message']
+            if 'model' in parsed_output_value:  # pragma: no branch
+                new_attrs['gen_ai.response.model'] = parsed_output_value['model']
+
+        new_attrs['response_data'] = json.dumps({'message': message})
+    except Exception:  # pragma: no cover
+        return
+
+    try:
+        request_model = cast(str, attributes['llm.model_name'])
+        new_attrs.update(
+            {
+                'gen_ai.request.model': request_model,
+                'gen_ai.usage.input_tokens': attributes['llm.token_count.prompt'],
+                'gen_ai.usage.output_tokens': attributes['llm.token_count.completion'],
+                'gen_ai.system': guess_system(request_model),
+            }
+        )
+    except Exception:  # pragma: no cover
+        pass
+
+    span['attributes'] = {
+        **attributes,
+        **new_attrs,
+        ATTRIBUTES_TAGS_KEY: ['LLM'],
+        ATTRIBUTES_JSON_SCHEMA_KEY: attributes_json_schema(
+            JsonSchemaProperties(
+                {
+                    'request_data': {'type': 'object'},
+                    'response_data': {'type': 'object'},
+                }
+            )
+        ),
+    }
+
+
+def guess_system(model: str):
+    model_lower = model.lower()
+    if 'openai' in model_lower or 'gpt-4' in model_lower or 'gpt-3.5' in model_lower:
+        return 'openai'
+    elif 'google' in model_lower or 'gemini' in model_lower:
+        return 'google'
+    elif 'anthropic' in model_lower or 'claude' in model_lower:
+        return 'anthropic'
+    else:
+        return 'litellm'

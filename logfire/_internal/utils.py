@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import functools
+import hashlib
 import inspect
 import json
+import linecache
 import logging
 import os
 import platform
 import random
 import sys
+import traceback
+from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,11 +21,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
-    Dict,
-    List,
-    Mapping,
-    Sequence,
-    Tuple,
     TypedDict,
     TypeVar,
     Union,
@@ -39,6 +38,15 @@ from requests import RequestException, Response
 from logfire._internal.stack_info import is_user_code
 from logfire._internal.ulid import ulid
 
+try:
+    _ = BaseExceptionGroup
+except NameError:
+    if not TYPE_CHECKING:
+
+        class BaseExceptionGroup(BaseException):
+            """Stub for BaseExceptionGroup for Python < 3.11."""
+
+
 if TYPE_CHECKING:
     from typing import ParamSpec
 
@@ -53,8 +61,8 @@ if TYPE_CHECKING:
 
 T = TypeVar('T')
 
-JsonValue = Union[int, float, str, bool, None, List['JsonValue'], Tuple['JsonValue', ...], 'JsonDict']
-JsonDict = Dict[str, JsonValue]
+JsonValue = Union[int, float, str, bool, None, list['JsonValue'], tuple['JsonValue', ...], 'JsonDict']
+JsonDict = dict[str, JsonValue]
 
 try:
     import pydantic_core
@@ -170,6 +178,8 @@ def span_to_dict(span: ReadableSpan) -> ReadableSpanDict:
 
 class UnexpectedResponse(RequestException):
     """An unexpected response was received from the server."""
+
+    response: Response  # type: ignore (guaranteed to exist)
 
     def __init__(self, response: Response) -> None:
         super().__init__(f'Unexpected response: {response.status_code}', response=response)
@@ -423,3 +433,56 @@ def platform_is_emscripten() -> bool:
     Threads cannot be created on Emscripten, so we need to avoid any code that creates threads.
     """
     return platform.system().lower() == 'emscripten'
+
+
+def canonicalize_exception_traceback(exc: BaseException) -> str:
+    """Return a canonical string representation of an exception traceback.
+
+    Exceptions with the same representation are considered the same for fingerprinting purposes.
+    The source line is used, but not the line number, so that changes elsewhere in a file are irrelevant.
+    The module is used instead of the filename.
+    The same line appearing multiple times in a stack is ignored.
+    Exception group sub-exceptions are sorted and deduplicated.
+    If the exception has a cause or (not suppressed) context, it is included in the representation.
+    Cause and context are treated as different.
+    """
+    try:
+        exc_type = type(exc)
+        parts = [f'\n{exc_type.__module__}.{exc_type.__qualname__}\n----']
+        if exc.__traceback__:
+            visited: set[str] = set()
+            for frame, lineno in traceback.walk_tb(exc.__traceback__):
+                filename = frame.f_code.co_filename
+                source_line = linecache.getline(filename, lineno, frame.f_globals).strip()
+                module = frame.f_globals.get('__name__', filename)
+                frame_summary = f'{module}.{frame.f_code.co_name}\n   {source_line}'
+                if frame_summary not in visited:  # ignore repeated frames
+                    visited.add(frame_summary)
+                    parts.append(frame_summary)
+        if isinstance(exc, BaseExceptionGroup):
+            sub_exceptions: tuple[BaseException] = exc.exceptions  # type: ignore
+            parts += [
+                '\n<ExceptionGroup>',
+                *sorted({canonicalize_exception_traceback(nested_exc) for nested_exc in sub_exceptions}),
+                '\n</ExceptionGroup>\n',
+            ]
+        if exc.__cause__ is not None:
+            parts += [
+                '\n__cause__:',
+                canonicalize_exception_traceback(exc.__cause__),
+            ]
+        if exc.__context__ is not None and not exc.__suppress_context__:
+            parts += [
+                '\n__context__:',
+                canonicalize_exception_traceback(exc.__context__),
+            ]
+        return '\n'.join(parts)
+    except Exception:  # pragma: no cover
+        log_internal_error()
+        return '<error while canonicalizing>'
+
+
+def sha256_string(s: str) -> str:
+    hasher = hashlib.sha256()
+    hasher.update(s.encode('utf-8'))
+    return hasher.hexdigest()

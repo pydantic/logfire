@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass
-from typing import cast
+from typing import Any, cast
 
 from opentelemetry.util import types as otel_types
 
@@ -104,19 +104,10 @@ class BaseTransformer(ast.NodeTransformer):
         )
         new_body.append(span)
 
-        return ast.fix_missing_locations(
-            ast.copy_location(
-                type(node)(  # type: ignore
-                    name=node.name,
-                    args=node.args,
-                    body=new_body,
-                    decorator_list=node.decorator_list,
-                    returns=node.returns,
-                    type_comment=node.type_comment,
-                ),
-                node,
-            )
-        )
+        kwargs: dict[str, Any] = {name: getattr(node, name, None) for name in node._fields}
+        kwargs['body'] = new_body
+        new_node = type(node)(**kwargs)
+        return ast.fix_missing_locations(ast.copy_location(new_node, node))
 
     def logfire_method_call_node(self, node: ast.FunctionDef | ast.AsyncFunctionDef, qualname: str) -> ast.Call:
         raise NotImplementedError()

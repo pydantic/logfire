@@ -13,7 +13,6 @@ from opentelemetry.propagate import extract
 
 import logfire
 import logfire._internal.integrations.aws_lambda
-import logfire._internal.integrations.pymongo
 from logfire._internal.integrations.aws_lambda import LambdaEvent
 from logfire.propagate import get_context
 from logfire.testing import TestExporter

@@ -7,7 +7,7 @@ import json
 from collections.abc import Mapping, Sequence
 from decimal import Decimal
 from enum import Enum
-from functools import lru_cache
+from functools import cache, lru_cache
 from ipaddress import IPv4Address, IPv4Interface, IPv4Network, IPv6Address, IPv6Interface, IPv6Network
 from itertools import chain
 from pathlib import PosixPath
@@ -186,7 +186,7 @@ def _get_sqlalchemy_data(o: Any, seen: set[int]) -> JsonValue | None:
 EncoderFunction = Callable[[Any, 'set[int]'], JsonValue]
 
 
-@lru_cache(maxsize=None)
+@cache
 def encoder_by_type() -> dict[type[Any], EncoderFunction]:
     lookup: dict[type[Any], EncoderFunction] = {
         set: _set_encoder,
@@ -213,10 +213,12 @@ def encoder_by_type() -> dict[type[Any], EncoderFunction]:
     }
     with contextlib.suppress(ModuleNotFoundError):
         import pydantic
+        import pydantic_core
 
         lookup.update(
             {
                 pydantic.AnyUrl: _to_str,
+                pydantic_core.Url: _to_str,
                 pydantic.NameEmail: _to_str,
                 pydantic.SecretBytes: _to_str,
                 pydantic.SecretStr: _to_str,

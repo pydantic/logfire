@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import ast
 import sys
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from importlib.abc import Loader, MetaPathFinder
 from importlib.machinery import ModuleSpec
 from importlib.util import spec_from_loader
 from types import ModuleType
-from typing import TYPE_CHECKING, Any, Callable, Iterator, Sequence, cast
+from typing import TYPE_CHECKING, Any, Callable, cast
 
 from ..utils import log_internal_error
 from .rewrite_ast import compile_source
@@ -132,7 +133,5 @@ class LogfireLoader(Loader):
         return compile(source, '<string>', 'exec', dont_inherit=True)
 
     def __getattr__(self, item: str):
-        """Forward some methods to the plain spec's loader (likely a `SourceFileLoader`) if they exist."""
-        if item in {'get_filename', 'is_package'}:
-            return getattr(self.plain_spec.loader, item)
-        raise AttributeError(item)
+        """Forward to the plain spec's loader (likely a `SourceFileLoader`)."""
+        return getattr(self.plain_spec.loader, item)

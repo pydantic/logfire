@@ -127,16 +127,16 @@ class _ValidateWrapper:
                 try:
                     result = validator(input_data, *args, **kwargs)
                 except ValidationError as error:
-                    self._count_validation(success=False)
                     self._on_error_span(span, error)
+                    self._count_validation(success=False)
                     raise
                 except Exception as exception:
-                    self._count_validation(success=False)
                     self._on_exception_span(span, exception)
+                    self._count_validation(success=False)
                     raise
                 else:
-                    self._count_validation(success=True)
                     self._on_success(span, result)
+                    self._count_validation(success=True)
                     return result
 
         elif self._record == 'failure':

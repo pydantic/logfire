@@ -98,9 +98,6 @@ def test_source_code_extraction_method(exporter: TestExporter) -> None:
     )
 
 
-@pytest.mark.skipif(
-    sys.version_info[:2] == (3, 8), reason='Warning is only raised in Python 3.9+ because f-string magic is enabled'
-)
 def test_source_code_extraction_module(exporter: TestExporter) -> None:
     with pytest.warns(InspectArgumentsFailedWarning, match='No source code available'):
         exec(

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import importlib
-import sys
 from unittest import mock
 
 import mysql.connector
@@ -14,8 +13,6 @@ from testcontainers.mysql import MySqlContainer
 import logfire
 import logfire._internal.integrations.mysql
 from logfire.testing import TestExporter
-
-pytestmark = pytest.mark.skipif(sys.version_info < (3, 9), reason='MySQL testcontainers has problems in 3.8')
 
 
 @pytest.fixture(scope='module')

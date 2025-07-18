@@ -4,11 +4,14 @@ import dataclasses
 import functools
 from dataclasses import dataclass
 from threading import Lock
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from weakref import WeakSet
 
+from opentelemetry import trace
 from opentelemetry._logs import Logger, LoggerProvider, LogRecord, NoOpLoggerProvider
-from opentelemetry.util.types import Attributes
+
+if TYPE_CHECKING:
+    from opentelemetry.util.types import _ExtendedAttributes  # type: ignore
 
 
 @dataclass
@@ -17,12 +20,16 @@ class ProxyLoggerProvider(LoggerProvider):
 
     provider: LoggerProvider
 
-    loggers: WeakSet[ProxyLogger] = dataclasses.field(default_factory=WeakSet)
+    loggers: WeakSet[ProxyLogger] = dataclasses.field(default_factory=WeakSet)  # type: ignore[reportUnknownVariableType]
     lock: Lock = dataclasses.field(default_factory=Lock)
-    suppressed_scopes: set[str] = dataclasses.field(default_factory=set)
+    suppressed_scopes: set[str] = dataclasses.field(default_factory=set)  # type: ignore[reportUnknownVariableType]
 
     def get_logger(
-        self, name: str, version: str | None = None, schema_url: str | None = None, attributes: Attributes | None = None
+        self,
+        name: str,
+        version: str | None = None,
+        schema_url: str | None = None,
+        attributes: _ExtendedAttributes | None = None,
     ) -> Logger:
         with self.lock:
             if name in self.suppressed_scopes:
@@ -74,9 +81,16 @@ class ProxyLogger(Logger):
     name: str
     version: str | None = None
     schema_url: str | None = None
-    attributes: Attributes | None = None
+    attributes: _ExtendedAttributes | None = None
 
     def emit(self, record: LogRecord) -> None:
+        if not record.trace_id:
+            span_context = trace.get_current_span().get_span_context()
+            record.trace_id = span_context.trace_id
+            record.span_id = span_context.span_id
+            record.trace_flags = span_context.trace_flags
+        if hasattr(self.logger, 'resource') and hasattr(record, 'resource'):
+            record.resource = self.logger.resource  # type: ignore
         self.logger.emit(record)
 
     def set_logger(self, provider: LoggerProvider) -> None:

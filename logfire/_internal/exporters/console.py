@@ -8,17 +8,16 @@ from __future__ import annotations
 import json
 import os
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from textwrap import indent as indent_text
-from typing import Any, List, Literal, Mapping, TextIO, Tuple, cast
+from typing import Any, Literal, TextIO, cast
 
 from opentelemetry.sdk._logs import LogData, LogRecord
 from opentelemetry.sdk._logs.export import LogExporter, LogExportResult
 from opentelemetry.sdk.trace import Event, ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
-from opentelemetry.util import types as otel_types
 from rich.columns import Columns
 from rich.console import Console, Group
 from rich.syntax import Syntax
@@ -47,12 +46,12 @@ _ERROR_LEVEL = LEVEL_NUMBERS['error']
 
 # A list of (text, style) pairs that can be passed to rich's `Text.assemble`.
 # When logging without colors, just the text is used in a plain `print`.
-TextParts = List[Tuple[str, str]]
+TextParts = list[tuple[str, str]]
 
 
 @dataclass
 class Record:
-    attributes: Mapping[str, otel_types.AttributeValue]
+    attributes: Mapping[str, object]
     timestamp: int
     message: str
     events: Sequence[Event]
@@ -83,7 +82,7 @@ class Record:
             # TODO: this message could be better, for now we just want to have *something*
             # TODO: this message should be constructed in a wrapper processor so that it's also used in the UI
             parts: list[str] = []
-            if event_name := attributes.get('event.name'):
+            if event_name := (getattr(log, 'event_name', None) or attributes.get('event.name')):
                 parts.append(str(event_name))
             if body := log.body:
                 parts.append(truncate_string(str(body), max_length=100))
@@ -196,7 +195,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
         """
         parts: TextParts = []
         if self._include_timestamp:
-            ts = datetime.fromtimestamp(span.timestamp / ONE_SECOND_IN_NANOSECONDS, tz=timezone.utc)
+            ts = datetime.fromtimestamp(span.timestamp / ONE_SECOND_IN_NANOSECONDS)
             # ugly though it is, `[:-3]` is the simplest way to convert microseconds -> milliseconds
             ts_str = f'{ts:%H:%M:%S.%f}'[:-3]
             parts += [(ts_str, 'green'), (' ', '')]
@@ -261,8 +260,11 @@ class SimpleConsoleSpanExporter(SpanExporter):
         json_schema = cast('dict[str, Any]', json.loads(span.attributes.get(ATTRIBUTES_JSON_SCHEMA_KEY, '{}')))  # type: ignore
         for key, schema in json_schema.get('properties', {}).items():
             value = span.attributes.get(key)
-            if schema:
-                value = json.loads(cast(str, value))
+            if schema and isinstance(value, str):
+                try:
+                    value = json.loads(value)
+                except json.JSONDecodeError:
+                    schema = None
             value = json_args_value_formatter(value, schema=schema)
             arguments[key] = value
 
@@ -476,7 +478,7 @@ class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
         return parts
 
 
-def _pending_span_parent(attributes: Mapping[str, otel_types.AttributeValue]) -> int | None:
+def _pending_span_parent(attributes: Mapping[str, object]) -> int | None:
     """Pending span marks the start of a span.
 
     Since they're nested within another span we haven't seen yet,

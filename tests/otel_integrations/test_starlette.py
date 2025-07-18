@@ -5,7 +5,7 @@ import os
 from unittest import mock
 
 import pytest
-from dirty_equals import IsJson
+from dirty_equals import IsAnyStr, IsJson
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.starlette import StarletteInstrumentor
 from starlette.applications import Starlette
@@ -140,6 +140,7 @@ def test_websocket(client: TestClient, exporter: TestExporter) -> None:
                     'http.scheme': 'ws',
                     'url.scheme': 'ws',
                     'http.host': 'testserver',
+                    'server.address': 'testserver',
                     'net.host.port': 80,
                     'server.port': 80,
                     'http.target': '/ws/foo',
@@ -149,13 +150,15 @@ def test_websocket(client: TestClient, exporter: TestExporter) -> None:
                     'http.user_agent': 'testclient',
                     'user_agent.original': 'testclient',
                     'net.peer.ip': 'testclient',
-                    'client.address': 'testserver',
+                    'client.address': 'testclient',
                     'net.peer.port': 50000,
                     'client.port': 50000,
                     'http.route': '/ws/{name}',
                     'http.request.header.host': ('testserver',),
                     'http.request.header.accept': ('*/*',),
-                    'http.request.header.accept_encoding': ('gzip, deflate',),
+                    'http.request.header.accept_encoding': (
+                        IsAnyStr(regex='^gzip, deflate(?:, br|, zstd|, br, zstd)?$'),
+                    ),
                     'http.request.header.user_agent': ('testclient',),
                     'http.request.header.connection': ('upgrade',),
                     'http.request.header.sec_websocket_key': ('testserver==',),
@@ -191,6 +194,7 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                     'http.scheme': 'http',
                     'url.scheme': 'http',
                     'http.host': 'testserver',
+                    'server.address': 'testserver',
                     'net.host.port': 80,
                     'server.port': 80,
                     'http.flavor': '1.1',
@@ -205,7 +209,7 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                     'http.user_agent': 'testclient',
                     'user_agent.original': 'testclient',
                     'net.peer.ip': 'testclient',
-                    'client.address': 'testserver',
+                    'client.address': 'testclient',
                     'net.peer.port': 50000,
                     'client.port': 50000,
                     'http.route': '/secret/{path_param}',

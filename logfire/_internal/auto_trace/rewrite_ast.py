@@ -3,9 +3,10 @@ from __future__ import annotations
 import ast
 import uuid
 from collections import deque
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from functools import partial
-from typing import TYPE_CHECKING, Any, Callable, ContextManager, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 import logfire
 
@@ -35,7 +36,7 @@ def compile_source(
     Otherwise, it's initially the `partial` above.
     """
     logfire_name = f'logfire_{uuid.uuid4().hex}'
-    context_factories: list[Callable[[], ContextManager[Any]]] = []
+    context_factories: list[Callable[[], AbstractContextManager[Any]]] = []
     tree = rewrite_ast(tree, filename, logfire_name, module_name, logfire_instance, context_factories, min_duration)
     assert isinstance(tree, ast.Module)  # for type checking
     # dont_inherit=True is necessary to prevent the module from inheriting the __future__ import from this module.
@@ -54,7 +55,7 @@ def rewrite_ast(
     logfire_name: str,
     module_name: str,
     logfire_instance: Logfire,
-    context_factories: list[Callable[[], ContextManager[Any]]],
+    context_factories: list[Callable[[], AbstractContextManager[Any]]],
     min_duration: int,
 ) -> ast.AST:
     logfire_args = LogfireArgs(logfire_instance._tags, logfire_instance._sample_rate)  # type: ignore
@@ -69,7 +70,7 @@ class AutoTraceTransformer(BaseTransformer):
     """Trace all encountered functions except those explicitly marked with `@no_auto_trace`."""
 
     logfire_instance: Logfire
-    context_factories: list[Callable[[], ContextManager[Any]]]
+    context_factories: list[Callable[[], AbstractContextManager[Any]]]
     min_duration: int
 
     def check_no_auto_trace(self, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) -> bool:

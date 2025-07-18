@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import importlib
 import os
-from typing import Any
+from typing import Annotated, Any
 from unittest import mock
 
 import pytest
-from dirty_equals import IsJson
+from dirty_equals import IsFloat, IsInt, IsJson
 from fastapi import BackgroundTasks, FastAPI, Response, WebSocket
 from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi.params import Header
@@ -17,7 +17,6 @@ from opentelemetry.propagate import inject
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
 from starlette.testclient import TestClient
-from typing_extensions import Annotated
 
 import logfire
 import logfire._internal
@@ -174,6 +173,7 @@ def test_404(client: TestClient, exporter: TestExporter) -> None:
                     'http.scheme': 'http',
                     'url.scheme': 'http',
                     'http.host': 'testserver',
+                    'server.address': 'testserver',
                     'net.host.port': 80,
                     'server.port': 80,
                     'http.flavor': '1.1',
@@ -187,7 +187,7 @@ def test_404(client: TestClient, exporter: TestExporter) -> None:
                     'http.user_agent': 'testclient',
                     'user_agent.original': 'testclient',
                     'net.peer.ip': 'testclient',
-                    'client.address': 'testserver',
+                    'client.address': 'testclient',
                     'net.peer.port': 50000,
                     'client.port': 50000,
                     'http.status_code': 404,
@@ -235,6 +235,7 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                     'http.scheme': 'http',
                     'url.scheme': 'http',
                     'http.host': 'testserver',
+                    'server.address': 'testserver',
                     'net.host.port': 80,
                     'server.port': 80,
                     'http.flavor': '1.1',
@@ -248,7 +249,7 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                     'http.user_agent': 'testclient',
                     'user_agent.original': 'testclient',
                     'net.peer.ip': 'testclient',
-                    'client.address': 'testserver',
+                    'client.address': 'testclient',
                     'net.peer.port': 50000,
                     'client.port': 50000,
                     'http.route': '/with_path_param/{param}',
@@ -393,6 +394,7 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                     'http.scheme': 'http',
                     'url.scheme': 'http',
                     'http.host': 'testserver',
+                    'server.address': 'testserver',
                     'net.host.port': 80,
                     'server.port': 80,
                     'http.flavor': '1.1',
@@ -406,7 +408,7 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                     'http.user_agent': 'testclient',
                     'user_agent.original': 'testclient',
                     'net.peer.ip': 'testclient',
-                    'client.address': 'testserver',
+                    'client.address': 'testclient',
                     'net.peer.port': 50000,
                     'client.port': 50000,
                     'http.route': '/with_path_param/{param}',
@@ -430,7 +432,7 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
     assert response.status_code == 200
     assert response.text == 'middleware test'
 
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True, parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'outside request handler',
@@ -458,6 +460,7 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'http.scheme': 'http',
                     'url.scheme': 'http',
                     'http.host': 'testserver',
+                    'server.address': 'testserver',
                     'net.host.port': 80,
                     'server.port': 80,
                     'http.flavor': '1.1',
@@ -471,7 +474,7 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'http.user_agent': 'testclient',
                     'user_agent.original': 'testclient',
                     'net.peer.ip': 'testclient',
-                    'client.address': 'testserver',
+                    'client.address': 'testclient',
                     'net.peer.port': 50000,
                     'client.port': 50000,
                     'http.route': '/',
@@ -508,7 +511,15 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'http.route': '/',
                     'fastapi.route.operation_id': 'null',
                     'logfire.level_num': 5,
-                    'logfire.json_schema': '{"type":"object","properties":{"http.method":{},"http.route":{},"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'http.method': {},
+                            'http.route': {},
+                            'fastapi.route.name': {},
+                            'fastapi.route.operation_id': {'type': 'null'},
+                        },
+                    },
                 },
             },
             {
@@ -524,7 +535,7 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'method': 'GET',
                     'http.route': '/',
                     'logfire.msg_template': '{method} {http.route} ({code.function})',
-                    'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'method': {}, 'http.route': {}}},
                     'logfire.span_type': 'pending_span',
                     'logfire.msg': 'GET / (homepage)',
                     'logfire.level_num': 5,
@@ -561,7 +572,7 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'code.lineno': 123,
                     'logfire.msg_template': '{method} {http.route} ({code.function})',
                     'logfire.span_type': 'span',
-                    'logfire.json_schema': '{"type":"object","properties":{"method":{},"http.route":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'method': {}, 'http.route': {}}},
                     'logfire.msg': 'GET / (homepage)',
                     'logfire.level_num': 5,
                 },
@@ -632,6 +643,7 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'http.scheme': 'http',
                     'url.scheme': 'http',
                     'http.host': 'testserver',
+                    'server.address': 'testserver',
                     'net.host.port': 80,
                     'server.port': 80,
                     'http.flavor': '1.1',
@@ -645,13 +657,16 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'http.user_agent': 'testclient',
                     'user_agent.original': 'testclient',
                     'net.peer.ip': 'testclient',
-                    'client.address': 'testserver',
+                    'client.address': 'testclient',
                     'net.peer.port': 50000,
                     'client.port': 50000,
                     'http.route': '/',
                     'fastapi.route.name': 'homepage',
                     'fastapi.route.operation_id': 'null',
-                    'logfire.json_schema': '{"type":"object","properties":{"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'fastapi.route.name': {}, 'fastapi.route.operation_id': {'type': 'null'}},
+                    },
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                 },
@@ -669,6 +684,74 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                     'logfire.msg_template': 'outside request handler',
                     'logfire.msg': 'outside request handler',
                     'logfire.span_type': 'span',
+                    'logfire.metrics': {
+                        'http.server.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.flavor': '1.1',
+                                        'http.host': 'testserver',
+                                        'http.method': 'GET',
+                                        'http.scheme': 'http',
+                                        'http.server_name': 'testserver',
+                                        'http.status_code': 200,
+                                        'http.target': '/',
+                                        'net.host.port': 80,
+                                    },
+                                    'total': IsInt(),
+                                }
+                            ],
+                            'total': IsInt(),
+                        },
+                        'http.server.request.duration': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.request.method': 'GET',
+                                        'http.response.status_code': 200,
+                                        'http.route': '/',
+                                        'network.protocol.version': '1.1',
+                                        'url.scheme': 'http',
+                                    },
+                                    'total': IsFloat(),
+                                }
+                            ],
+                            'total': IsFloat(),
+                        },
+                        'http.server.response.size': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.flavor': '1.1',
+                                        'http.host': 'testserver',
+                                        'http.method': 'GET',
+                                        'http.scheme': 'http',
+                                        'http.server_name': 'testserver',
+                                        'http.status_code': 200,
+                                        'http.target': '/',
+                                        'net.host.port': 80,
+                                    },
+                                    'total': 15,
+                                }
+                            ],
+                            'total': 15,
+                        },
+                        'http.server.response.body.size': {
+                            'details': [
+                                {
+                                    'attributes': {
+                                        'http.request.method': 'GET',
+                                        'http.response.status_code': 200,
+                                        'http.route': '/',
+                                        'network.protocol.version': '1.1',
+                                        'url.scheme': 'http',
+                                    },
+                                    'total': 15,
+                                }
+                            ],
+                            'total': 15,
+                        },
+                    },
                 },
             },
         ]
@@ -760,6 +843,7 @@ def test_fastapi_arguments(client: TestClient, exporter: TestExporter) -> None:
                     'http.scheme': 'http',
                     'url.scheme': 'http',
                     'http.host': 'testserver',
+                    'server.address': 'testserver',
                     'net.host.port': 80,
                     'server.port': 80,
                     'http.flavor': '1.1',
@@ -774,7 +858,7 @@ def test_fastapi_arguments(client: TestClient, exporter: TestExporter) -> None:
                     'http.user_agent': 'testclient',
                     'user_agent.original': 'testclient',
                     'net.peer.ip': 'testclient',
-                    'client.address': 'testserver',
+                    'client.address': 'testclient',
                     'net.peer.port': 50000,
                     'client.port': 50000,
                     'http.route': '/other',
@@ -891,6 +975,7 @@ def test_get_fastapi_arguments(client: TestClient, exporter: TestExporter) -> No
                     'http.scheme': 'http',
                     'url.scheme': 'http',
                     'http.host': 'testserver',
+                    'server.address': 'testserver',
                     'net.host.port': 80,
                     'server.port': 80,
                     'http.flavor': '1.1',
@@ -905,7 +990,7 @@ def test_get_fastapi_arguments(client: TestClient, exporter: TestExporter) -> No
                     'http.user_agent': 'testclient',
                     'user_agent.original': 'testclient',
                     'net.peer.ip': 'testclient',
-                    'client.address': 'testserver',
+                    'client.address': 'testclient',
                     'net.peer.port': 50000,
                     'client.port': 50000,
                     'http.route': '/other',
@@ -1022,6 +1107,7 @@ def test_first_lvl_subapp_fastapi_arguments(client: TestClient, exporter: TestEx
                     'http.scheme': 'http',
                     'url.scheme': 'http',
                     'http.host': 'testserver',
+                    'server.address': 'testserver',
                     'net.host.port': 80,
                     'server.port': 80,
                     'http.flavor': '1.1',
@@ -1036,7 +1122,7 @@ def test_first_lvl_subapp_fastapi_arguments(client: TestClient, exporter: TestEx
                     'http.user_agent': 'testclient',
                     'user_agent.original': 'testclient',
                     'net.peer.ip': 'testclient',
-                    'client.address': 'testserver',
+                    'client.address': 'testclient',
                     'net.peer.port': 50000,
                     'client.port': 50000,
                     'http.route': '/first_lvl',
@@ -1153,6 +1239,7 @@ def test_second_lvl_subapp_fastapi_arguments(client: TestClient, exporter: TestE
                     'http.scheme': 'http',
                     'url.scheme': 'http',
                     'http.host': 'testserver',
+                    'server.address': 'testserver',
                     'net.host.port': 80,
                     'server.port': 80,
                     'http.flavor': '1.1',
@@ -1167,7 +1254,7 @@ def test_second_lvl_subapp_fastapi_arguments(client: TestClient, exporter: TestE
                     'http.user_agent': 'testclient',
                     'user_agent.original': 'testclient',
                     'net.peer.ip': 'testclient',
-                    'client.address': 'testserver',
+                    'client.address': 'testclient',
                     'net.peer.port': 50000,
                     'client.port': 50000,
                     'http.route': '/first_lvl',
@@ -1241,17 +1328,47 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
                 ],
             },
             {
+                'name': 'GET /exception http send response.start',
+                'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 7000000000,
+                'end_time': 8000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /exception http send response.start',
+                    'logfire.level_num': 5,
+                    'asgi.event.type': 'http.response.start',
+                    'http.status_code': 500,
+                    'http.response.status_code': 500,
+                    'error.type': '500',
+                },
+            },
+            {
+                'name': 'GET /exception http send response.body',
+                'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 9000000000,
+                'end_time': 10000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /exception http send response.body',
+                    'logfire.level_num': 5,
+                    'asgi.event.type': 'http.response.body',
+                },
+            },
+            {
                 'name': 'GET /exception',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
-                'end_time': 8000000000,
+                'end_time': 11000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET /exception',
                     'http.scheme': 'http',
                     'url.scheme': 'http',
                     'http.host': 'testserver',
+                    'server.address': 'testserver',
                     'net.host.port': 80,
                     'server.port': 80,
                     'http.flavor': '1.1',
@@ -1265,27 +1382,18 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
                     'http.user_agent': 'testclient',
                     'user_agent.original': 'testclient',
                     'net.peer.ip': 'testclient',
-                    'client.address': 'testserver',
+                    'client.address': 'testclient',
                     'net.peer.port': 50000,
                     'client.port': 50000,
                     'http.route': '/exception',
                     'fastapi.route.name': 'exception',
                     'fastapi.route.operation_id': 'null',
                     'logfire.json_schema': '{"type":"object","properties":{"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"}}}',
+                    'http.status_code': 500,
+                    'http.response.status_code': 500,
+                    'error.type': '500',
                     'logfire.level_num': 17,
                 },
-                'events': [
-                    {
-                        'name': 'exception',
-                        'timestamp': 7000000000,
-                        'attributes': {
-                            'exception.type': 'ValueError',
-                            'exception.message': 'test exception',
-                            'exception.stacktrace': 'ValueError: test exception',
-                            'exception.escaped': 'False',
-                        },
-                    }
-                ],
             },
         ]
     )
@@ -1388,6 +1496,7 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                     'http.scheme': 'http',
                     'url.scheme': 'http',
                     'http.host': 'testserver',
+                    'server.address': 'testserver',
                     'net.host.port': 80,
                     'server.port': 80,
                     'http.flavor': '1.1',
@@ -1401,7 +1510,7 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                     'http.user_agent': 'testclient',
                     'user_agent.original': 'testclient',
                     'net.peer.ip': 'testclient',
-                    'client.address': 'testserver',
+                    'client.address': 'testclient',
                     'net.peer.port': 50000,
                     'client.port': 50000,
                     'http.route': '/validation_error',
@@ -1521,6 +1630,7 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                     'http.scheme': 'http',
                     'url.scheme': 'http',
                     'http.host': 'testserver',
+                    'server.address': 'testserver',
                     'net.host.port': 80,
                     'server.port': 80,
                     'http.flavor': '1.1',
@@ -1535,7 +1645,7 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                     'http.user_agent': 'testclient',
                     'user_agent.original': 'testclient',
                     'net.peer.ip': 'testclient',
-                    'client.address': 'testserver',
+                    'client.address': 'testclient',
                     'net.peer.port': 50000,
                     'client.port': 50000,
                     'http.route': '/secret/{path_param}',
@@ -1718,6 +1828,7 @@ def test_request_hooks_without_send_receiev_spans(exporter: TestExporter):
                     'http.scheme': 'http',
                     'url.scheme': 'http',
                     'http.host': 'testserver',
+                    'server.address': 'testserver',
                     'net.host.port': 80,
                     'server.port': 80,
                     'http.flavor': '1.1',
@@ -1731,7 +1842,7 @@ def test_request_hooks_without_send_receiev_spans(exporter: TestExporter):
                     'http.user_agent': 'testclient',
                     'user_agent.original': 'testclient',
                     'net.peer.ip': 'testclient',
-                    'client.address': 'testserver',
+                    'client.address': 'testclient',
                     'net.peer.port': 50000,
                     'client.port': 50000,
                     'http.route': '/echo_body',
@@ -1908,6 +2019,7 @@ def test_request_hooks_with_send_receive_spans(exporter: TestExporter):
                     'http.scheme': 'http',
                     'url.scheme': 'http',
                     'http.host': 'testserver',
+                    'server.address': 'testserver',
                     'net.host.port': 80,
                     'server.port': 80,
                     'http.flavor': '1.1',
@@ -1921,7 +2033,7 @@ def test_request_hooks_with_send_receive_spans(exporter: TestExporter):
                     'http.user_agent': 'testclient',
                     'user_agent.original': 'testclient',
                     'net.peer.ip': 'testclient',
-                    'client.address': 'testserver',
+                    'client.address': 'testclient',
                     'net.peer.port': 50000,
                     'client.port': 50000,
                     'http.route': '/echo_body',
@@ -2062,7 +2174,8 @@ def test_websocket(client: TestClient, exporter: TestExporter) -> None:
                     'http.scheme': 'ws',
                     'url.scheme': 'ws',
                     'http.host': 'testserver',
-                    'client.address': 'testserver',
+                    'server.address': 'testserver',
+                    'client.address': 'testclient',
                     'net.host.port': 80,
                     'server.port': 80,
                     'http.target': '/ws/foo',

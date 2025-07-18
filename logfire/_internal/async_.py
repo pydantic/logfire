@@ -4,10 +4,10 @@ import asyncio
 import asyncio.events
 import asyncio.tasks
 import inspect
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager
 from pathlib import Path
 from types import CoroutineType
-from typing import TYPE_CHECKING, Any, ContextManager
+from typing import TYPE_CHECKING, Any
 
 from .constants import ONE_SECOND_IN_NANOSECONDS
 from .stack_info import StackInfo, get_code_object_info, get_stack_info_from_frame
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 ASYNCIO_PATH = str(Path(asyncio.__file__).parent.absolute())
 
 
-def log_slow_callbacks(logfire: Logfire, slow_duration: float) -> ContextManager[None]:
+def log_slow_callbacks(logfire: Logfire, slow_duration: float) -> AbstractContextManager[None]:
     """Log a warning whenever a function running in the asyncio event loop blocks for too long.
 
     See Logfire.log_slow_async_callbacks.
@@ -87,7 +87,7 @@ def _callback_attributes(callback: Any) -> _CallbackAttributes:
         # `callback` is a bound method of a Task.
         # This is the common case for typical user code.
         # In particular this method is usually for advancing an async function (coroutine) to the next `await`.
-        coro: Any = task.get_coro()
+        coro: Any = task.get_coro()  # type: ignore
         result: _CallbackAttributes = {'name': f'task {task.get_name()}'}
         if not isinstance(coro, CoroutineType):  # pragma: no cover
             return result

@@ -1,7 +1,8 @@
 # Alternative clients
 
 **Logfire** uses the OpenTelemetry standard. This means that you can configure standard OpenTelemetry SDKs
-in many languages to export to the **Logfire** backend. Depending on your SDK, you may need to set only
+in many languages to export to the **Logfire** backend, including those outside our
+[first-class supported languages](../languages.md). Depending on your SDK, you may need to set only
 these [environment variables](https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/):
 
 - `OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-api.pydantic.dev` for both traces and metrics, or:
@@ -52,6 +53,8 @@ exporter = OTLPSpanExporter(
 
 ## Example with NodeJS
 
+> See also our [JS/TS SDK](https://github.com/pydantic/logfire-js) which supports many JS environments, including NodeJS, web browsers, and Cloudflare Workers.
+
 Create a `main.js` file containing the following:
 
 ```js title="main.js"
@@ -86,6 +89,8 @@ node main.js
 ```
 
 ## Example with Rust
+
+> See also our [Rust SDK](https://github.com/pydantic/logfire-rust) which provides a more streamlined developer experience for Rust applications.
 
 First, set up a new Cargo project:
 

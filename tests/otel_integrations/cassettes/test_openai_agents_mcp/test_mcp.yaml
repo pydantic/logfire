@@ -1,0 +1,178 @@
+interactions:
+- request:
+    body: '{"input":[{"content":"Give me a random number","role":"user"}],"model":"gpt-4o","include":[],"parallel_tool_calls":false,"stream":false,"tools":[{"name":"random_number","parameters":{"properties":{},"title":"random_numberArguments","type":"object"},"strict":false,"type":"function","description":""}]}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      connection:
+      - keep-alive
+      content-length:
+      - '301'
+      content-type:
+      - application/json
+      host:
+      - api.openai.com
+      user-agent:
+      - Agents/Python 0.0.0
+      x-stainless-arch:
+      - arm64
+      x-stainless-async:
+      - async:asyncio
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - MacOS
+      x-stainless-package-version:
+      - 1.69.0
+      x-stainless-read-timeout:
+      - '600'
+      x-stainless-retry-count:
+      - '0'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.12.6
+    method: POST
+    uri: https://api.openai.com/v1/responses
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAAA4RUTY+bMBC951dYPm8qnAAhuVU9t+rHqaoqNJgh611jI3tc7SrKf68wBEg2q70g
+        eG8+38xwWjHGVc0PjDv0XZnvMN8nRZplMi3EXsC+xkxsBe4FVLIqkqzKYS+KppFpsdkBf+gD2OoJ
+        JV2CWONxwKVDIKxL6DmxS7ci32abNHKegILvfaRtO42E9eCEzlnHD8wErSOgzMWirJFAaX/NenJB
+        krLmCm/hpbSBukAl2We8IW2Nus997Gid2vUm2aTrpFgn+dhQdOQH9mfFGGOn+GSM02uHvVsTTMxY
+        StA6ukR6ELKRk4xVLopexqqC7RayJt+B3KZZdVfGGKIPWA5x4utT8xu+PEOVff9Br9+cdL+OX2v9
+        s5k9DLSxJgemtm1pQluhm2lwx9CioSj16TwT9wYQufOKsb9Rhg4caI26JGt17LW3b0B7HHiH/5QN
+        vryMfah8ktkheGuUOfLDqCHHprGOFkaM8SMadEBY+tC24F5HdsXYeVwV6/oWyYUhL2Hb9R4hwuJT
+        MqIvNCdqrGth/l4ML9pNnQ4phgYfrZLRBAJZPhH+40WYZa3RS6e6CC67/HhSvdotEjq/qDqqbDt0
+        pDDi54eZIUX6bcTP08SXpmPB46mOxHmxDU7FE47TvdkDsl3ZLZV2wUgYW+S18lDpy/kGD0ecx6DM
+        1QVm4uEtvjjr03wH8hHr2TFZLerlt4ctxD3iXtxpJd8LTZZAz2S+mXYkeLz6L7VIUANBnMrq/B8A
+        AP//AwCKzjbsSwUAAA==
+    headers:
+      CF-RAY:
+      - 9276feda7c64cd2e-LHR
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Fri, 28 Mar 2025 12:05:24 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=6eDE9J48cf_3l36R_LHXEkHy7mQa49suuAdlx7lxtbM-1743163524-1.0.1.1-EnRkmqc.lDYYfIpiVoPQ1iNYNY1iGp.kZv3Lxp0jjdCMf3oCxuvJ3ATAM7_Vx.9Tr_k59CAR53VXamacp2HVcZzu5PjAKC7cgk_VnMT.CVE;
+        path=/; expires=Fri, 28-Mar-25 12:35:24 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=sxnl400MFWpIMIAisr4kAbfKwXzzPildtoANErtUhtg-1743163524980-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      openai-organization:
+      - pydantic-28gund
+      openai-processing-ms:
+      - '616'
+      openai-version:
+      - '2020-10-01'
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-request-id:
+      - req_392cdaaf1c77f2ee3d5c1d679c00fe3d
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"input":[{"content":"Give me a random number","role":"user"},{"arguments":"{}","call_id":"call_jfYaCkab5PQtyNrcrSgMdlRf","name":"random_number","type":"function_call","id":"fc_67e69084b6188191bba33a5f67ac345b05b6a918ffc4827a","status":"completed"},{"call_id":"call_jfYaCkab5PQtyNrcrSgMdlRf","output":"{\"type\":\"text\",\"text\":\"4\",\"annotations\":null}","type":"function_call_output"}],"model":"gpt-4o","include":[],"parallel_tool_calls":false,"stream":false,"tools":[{"name":"random_number","parameters":{"properties":{},"title":"random_numberArguments","type":"object"},"strict":false,"type":"function","description":""}]}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      connection:
+      - keep-alive
+      content-length:
+      - '629'
+      content-type:
+      - application/json
+      host:
+      - api.openai.com
+      user-agent:
+      - Agents/Python 0.0.0
+      x-stainless-arch:
+      - arm64
+      x-stainless-async:
+      - async:asyncio
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - MacOS
+      x-stainless-package-version:
+      - 1.69.0
+      x-stainless-read-timeout:
+      - '600'
+      x-stainless-retry-count:
+      - '0'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.12.6
+    method: POST
+    uri: https://api.openai.com/v1/responses
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAAA3RUyW7bMBC9+ysIXnqJC0mWbcm33voPQSCMqJHDlotADosYgf+9EKnNWS6GNW/W
+        94bzvmOMy45fGHfoh+Z0xlOdVceyaLMqr3PIilNWn6usbUtRVEV2bE9Q51Xfi7IqzsCfxgS2/YOC
+        5iTWeEx24RAIuwZGLD+Xh/x0OBbHiHkCCn6MEVYPCgm7FITOWccvzASlokGa2aPpkEAq/4h6ckGQ
+        tObBruGtsYGGQA3Zv/gBtB2qsfZ1oH1p90VWlPus2menaaAYyC/seccYY+/xlzFOtwHHMI3ewzVN
+        GYFEofbXhUE4lOXIYJXVh7w8iro8l1id2y8ZjDm+YySCzqpYGbyXnsDQCglrCM3a7bbjh65nOvBt
+        jU4Oo+XC+G90+MMzYA5MZzUzQbfoWG8du9lwYeVjGBhjCWbmn18W7D79S5bx6yXSOoADpVA1ZK1q
+        BKgoZQ/KY8Id/pM2+GZeoybyusjmELw10lz5ZZqQY99bRxsnxvgVDTogbHzQGtxtQneM3afVs24k
+        hFxIdQn1MEaEaM5/ZpM1sjIV6q3TsH5vaI1+y6SpRBrw1UqRVAtk+QL47xerDyau8qpuh144OUTj
+        dkrGuAEdg5JaTVJrjRzZ1kjo/KbryLId0JHEaL+vknKSpD5n/OWuQaMhz7eu806lpz8B980yOxlP
+        QlT3wx6QHZphy7QLRsA0Iu+kh1bN5yDEh7bIIM3Di64OT5/tmzOxECxAvGK3Bma7Tb/846HI86+A
+        r/IuK/ldarIEagXrctmR4PHhzmkk6IAgqrK7/wcAAP//AwAz+TzKmwUAAA==
+    headers:
+      CF-RAY:
+      - 9276fee049cdcd2e-LHR
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Fri, 28 Mar 2025 12:05:25 GMT
+      Server:
+      - cloudflare
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      openai-organization:
+      - pydantic-28gund
+      openai-processing-ms:
+      - '493'
+      openai-version:
+      - '2020-10-01'
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-request-id:
+      - req_0b2fa8903624a73e37c1a20feaeaea22
+    status:
+      code: 200
+      message: OK
+version: 1

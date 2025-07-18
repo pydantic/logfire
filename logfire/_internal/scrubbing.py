@@ -4,14 +4,14 @@ import copy
 import json
 import re
 from abc import ABC, abstractmethod
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping, Sequence, TypedDict, cast
+from typing import Any, Callable, TypedDict, cast
 
 import typing_extensions
 from opentelemetry.attributes import BoundedAttributes
 from opentelemetry.sdk._logs import LogRecord
 from opentelemetry.sdk.trace import Event
-from opentelemetry.semconv.trace import SpanAttributes
 from opentelemetry.trace import Link
 
 from .constants import (
@@ -42,12 +42,19 @@ DEFAULT_PATTERNS = [
     'api[._ -]?key',
     'session',
     'cookie',
-    'csrf',
-    'xsrf',
-    'jwt',
-    'ssn',
     'social[._ -]?security',
     'credit[._ -]?card',
+    *[
+        # Require these to be surrounded by word boundaries or underscores,
+        # to reduce the chance of accidentally matching them in a big blob of random chars, e.g. base64.
+        rf'(?:\b|_){acronym}(?:\b|_)'
+        for acronym in [
+            'csrf',
+            'xsrf',
+            'jwt',
+            'ssn',
+        ]
+    ],
 ]
 
 JsonPath: typing_extensions.TypeAlias = 'tuple[str | int, ...]'
@@ -115,24 +122,25 @@ class BaseScrubber(ABC):
         ATTRIBUTES_SCRUBBED_KEY,
         RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS,
         *STACK_INFO_KEYS,
-        SpanAttributes.EXCEPTION_STACKTRACE,
-        SpanAttributes.EXCEPTION_TYPE,
-        SpanAttributes.EXCEPTION_MESSAGE,
-        SpanAttributes.SCHEMA_URL,
-        SpanAttributes.HTTP_METHOD,
-        SpanAttributes.HTTP_STATUS_CODE,
-        SpanAttributes.HTTP_SCHEME,
-        SpanAttributes.HTTP_URL,
-        SpanAttributes.HTTP_TARGET,
-        SpanAttributes.HTTP_ROUTE,
-        SpanAttributes.DB_STATEMENT,
+        'exception.stacktrace',
+        'exception.type',
+        'exception.message',
+        'http.method',
+        'http.status_code',
+        'http.scheme',
+        'http.url',
+        'http.target',
+        'http.route',
+        'db.statement',
         'db.plan',
         # Newer semantic conventions
-        SpanAttributes.URL_FULL,
-        SpanAttributes.URL_PATH,
-        SpanAttributes.URL_QUERY,
+        'url.full',
+        'url.path',
+        'url.query',
         'event.name',
         'agent_session_id',
+        'do_not_scrub',
+        'binary_content',
     }
 
     @abstractmethod

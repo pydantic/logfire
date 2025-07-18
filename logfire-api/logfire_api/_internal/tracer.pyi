@@ -3,6 +3,7 @@ from .config import LogfireConfig as LogfireConfig
 from .constants import ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY as ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_VALIDATION_ERROR_KEY as ATTRIBUTES_VALIDATION_ERROR_KEY, log_level_attributes as log_level_attributes
 from .utils import handle_internal_errors as handle_internal_errors
 from _typeshed import Incomplete
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from opentelemetry import context as context_api
 from opentelemetry.context import Context
@@ -13,10 +14,10 @@ from opentelemetry.trace import Link as Link, Span, SpanContext, SpanKind, Trace
 from opentelemetry.trace.status import Status, StatusCode
 from opentelemetry.util import types as otel_types
 from threading import Lock
-from typing import Any, Callable, Mapping, Sequence
-from weakref import WeakKeyDictionary, WeakSet
+from typing import Any, Callable
+from weakref import WeakKeyDictionary, WeakValueDictionary
 
-OPEN_SPANS: WeakSet[_LogfireWrappedSpan]
+OPEN_SPANS: WeakValueDictionary[tuple[int, int], _LogfireWrappedSpan]
 
 @dataclass
 class ProxyTracerProvider(TracerProvider):
@@ -35,6 +36,12 @@ class ProxyTracerProvider(TracerProvider):
     def resource(self) -> Resource: ...
     def force_flush(self, timeout_millis: int = 30000) -> bool: ...
 
+@dataclass
+class SpanMetric:
+    details: dict[tuple[tuple[str, otel_types.AttributeValue], ...], float] = field(default_factory=Incomplete)
+    def dump(self): ...
+    def increment(self, attributes: Mapping[str, otel_types.AttributeValue], value: float): ...
+
 @dataclass(eq=False)
 class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
     """A span that wraps another span and overrides some behaviors in a logfire-specific way.
@@ -46,6 +53,8 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
     """
     span: Span
     ns_timestamp_generator: Callable[[], int]
+    record_metrics: bool
+    metrics: dict[str, SpanMetric] = field(default_factory=Incomplete)
     def __post_init__(self) -> None: ...
     def end(self, end_time: int | None = None) -> None: ...
     def get_span_context(self) -> SpanContext: ...
@@ -57,6 +66,7 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
     def is_recording(self) -> bool: ...
     def set_status(self, status: Status | StatusCode, description: str | None = None) -> None: ...
     def record_exception(self, exception: BaseException, attributes: otel_types.Attributes = None, timestamp: int | None = None, escaped: bool = False) -> None: ...
+    def increment_metric(self, name: str, attributes: Mapping[str, otel_types.AttributeValue], value: float) -> None: ...
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None: ...
     def __getattr__(self, name: str) -> Any: ...
 
@@ -96,6 +106,7 @@ def should_sample(span_context: SpanContext, attributes: Mapping[str, otel_types
     This is used to sample spans that are not sampled by the OTEL sampler.
     """
 def get_sample_rate_from_attributes(attributes: otel_types.Attributes) -> float | None: ...
+@handle_internal_errors
 def record_exception(span: trace_api.Span, exception: BaseException, *, attributes: otel_types.Attributes = None, timestamp: int | None = None, escaped: bool = False) -> None:
     """Similar to the OTEL SDK Span.record_exception method, with our own additions."""
 def set_exception_status(span: trace_api.Span, exception: BaseException): ...

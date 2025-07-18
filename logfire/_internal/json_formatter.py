@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import io
-from datetime import timedelta
+from datetime import date, datetime, time, timedelta
 from functools import partial
 from typing import Any, Callable, cast
 
@@ -30,12 +30,13 @@ class JsonArgsValueFormatter:
             'generator': partial(self._format_list_like, 'generator((', '))'),
             'bytes': self._format_bytes,
             'Decimal': partial(self._write, 'Decimal(', ')', True),
-            'date': partial(self._write, 'date(', ')', True),
-            'datetime': partial(self._write, 'datetime(', ')', True),
-            'time': partial(self._write, 'time(', ')', True),
+            'date': self._format_date,
+            'datetime': self._format_datetime,
+            'time': self._format_time,
             'timedelta': self._format_timedelta,
             'Enum': partial(self._write, '(', ')', True),
             'IPv4Address': partial(self._write, 'IPv4Address(', ')', True),
+            'AnyUrl': partial(self._write, 'AnyUrl(', ')', True),
             'Url': partial(self._write, 'Url(', ')', True),
             'IPv4Interface': partial(self._write, 'IPv4Interface(', ')', True),
             'IPv4Network': partial(self._write, 'IPv4Network(', ')', True),
@@ -69,8 +70,12 @@ class JsonArgsValueFormatter:
                 if (data_type := schema.get('x-python-datatype')) is None:
                     if schema['type'] == 'object':
                         self._format_items('{', ': ', '}', True, indent_current, value, None)
-                    else:
+                    elif schema['type'] == 'array':
                         self._format_list_like('[', ']', indent_current, value, schema)
+                    else:
+                        # e.g. {'type': 'string', 'format': 'date-time'}
+                        # or {'type': 'null'}
+                        self._write('', '', False, 0, value, None)
                 else:
                     func = self._data_type_map.get(data_type)
                     assert func is not None, f'Unknown data type {data_type}'
@@ -268,6 +273,15 @@ class JsonArgsValueFormatter:
             real_column_count=schema.get('x-column-count', 0),
             real_row_count=schema.get('x-row-count', 0),
         )
+
+    def _format_date(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
+        self._write('', '', True, 0, date.fromisoformat(value) if isinstance(value, str) else value, schema)
+
+    def _format_datetime(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
+        self._write('', '', True, 0, datetime.fromisoformat(value) if isinstance(value, str) else value, schema)
+
+    def _format_time(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
+        self._write('', '', True, 0, time.fromisoformat(value) if isinstance(value, str) else value, schema)
 
 
 json_args_value_formatter = JsonArgsValueFormatter(indent=4)

@@ -1,5 +1,5 @@
 from . import config as config
-from .constants import LOGFIRE_BASE_URL as LOGFIRE_BASE_URL, LevelName as LevelName
+from .constants import LevelName as LevelName
 from .exporters.console import ConsoleColorsValues as ConsoleColorsValues
 from .utils import read_toml_file as read_toml_file
 from _typeshed import Incomplete

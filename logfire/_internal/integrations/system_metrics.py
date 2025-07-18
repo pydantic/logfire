@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Iterable
 from platform import python_implementation
-from typing import TYPE_CHECKING, Dict, Iterable, Literal, Optional, cast
+from typing import TYPE_CHECKING, Literal, Optional, cast
 
 from opentelemetry.metrics import CallbackOptions, Observation
 
@@ -47,6 +48,7 @@ MetricName: type[
         'process.context_switches',
         'process.cpu.time',
         'process.cpu.utilization',
+        'process.cpu.core_utilization',
         'process.memory.usage',
         'process.memory.virtual',
         'process.thread.count',
@@ -73,13 +75,14 @@ MetricName: type[
     'process.context_switches',
     'process.cpu.time',
     'process.cpu.utilization',
+    'process.cpu.core_utilization',
     'process.memory.usage',
     'process.memory.virtual',
     'process.thread.count',
     'process.runtime.gc_count',
 ]
 
-Config = Dict[MetricName, Optional[Iterable[str]]]
+Config = dict[MetricName, Optional[Iterable[str]]]
 
 # All the cpu_times fields provided by psutil (used by system_metrics) across all platforms,
 # except for 'guest' and 'guest_nice' which are included in 'user' and 'nice' in Linux (see psutil._cpu_tot_time).
@@ -94,6 +97,8 @@ MEMORY_FIELDS: list[LiteralString] = 'available used free active inactive buffer
 FULL_CONFIG: Config = {
     **cast(Config, _DEFAULT_CONFIG),
     'system.cpu.simple_utilization': None,
+    'process.cpu.utilization': None,
+    'process.cpu.core_utilization': None,
     'system.cpu.time': CPU_FIELDS,
     'system.cpu.utilization': CPU_FIELDS,
     # For usage, knowing the total amount of bytes available might be handy.
@@ -146,11 +151,19 @@ def instrument_system_metrics(logfire_instance: Logfire, config: Config | None =
     if 'system.cpu.simple_utilization' in config:
         measure_simple_cpu_utilization(logfire_instance)
 
+    if 'process.cpu.core_utilization' in config:
+        measure_process_cpu_core_utilization(logfire_instance)
+
     if 'process.runtime.cpu.utilization' in config:  # type: ignore
         # Override OTEL here, see comment in measure_process_runtime_cpu_utilization.<locals>.callback.
         # (The name is also deprecated by OTEL, but that's not really important)
         measure_process_runtime_cpu_utilization(logfire_instance)
         del config['process.runtime.cpu.utilization']  # type: ignore
+
+    if 'process.cpu.utilization' in config:
+        # Override OTEL here to avoid emitting 0 in the first measurement.
+        measure_process_cpu_utilization(logfire_instance)
+        del config['process.cpu.utilization']
 
     instrumentor = SystemMetricsInstrumentor(config=config)  # type: ignore
     instrumentor.instrument(meter_provider=logfire_instance.config.get_meter_provider())
@@ -188,4 +201,42 @@ def measure_process_runtime_cpu_utilization(logfire_instance: Logfire):
         [callback],
         description='Runtime CPU utilization',
         unit='1',
+    )
+
+
+def measure_process_cpu_utilization(logfire_instance: Logfire):
+    process = psutil.Process()
+    # This first call always returns 0, do it here so that the first real measurement from an exporter
+    # will return a nonzero value.
+    # Otherwise this function mimics what OTel's SystemMetricsInstrumentor does.
+    process.cpu_percent()
+
+    num_cpus = psutil.cpu_count() or 1
+
+    def callback(_options: CallbackOptions) -> Iterable[Observation]:
+        yield Observation(process.cpu_percent() / 100 / num_cpus)
+
+    logfire_instance.metric_gauge_callback(
+        'process.cpu.utilization',
+        [callback],
+        description='Runtime CPU utilization',
+        unit='1',
+    )
+
+
+def measure_process_cpu_core_utilization(logfire_instance: Logfire):
+    """Same as process.cpu.utilization, but not divided by the number of available cores."""
+    process = psutil.Process()
+    # This first call always returns 0, do it here so that the first real measurement from an exporter
+    # will return a nonzero value.
+    process.cpu_percent()
+
+    def callback(_options: CallbackOptions) -> Iterable[Observation]:
+        yield Observation(process.cpu_percent() / 100)
+
+    logfire_instance.metric_gauge_callback(
+        'process.cpu.core_utilization',
+        [callback],
+        description='Runtime CPU utilization, not divided by the number of available cores.',
+        unit='core',
     )

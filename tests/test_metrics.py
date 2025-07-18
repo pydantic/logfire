@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import json
-from typing import Any, cast
+from typing import Any
 
 import pytest
 import requests
@@ -9,12 +8,20 @@ from dirty_equals import IsInt
 from inline_snapshot import Is, snapshot
 from opentelemetry import metrics
 from opentelemetry.metrics import CallbackOptions, Observation
-from opentelemetry.sdk.metrics._internal.export import MetricExporter, MetricExportResult
-from opentelemetry.sdk.metrics.export import AggregationTemporality, InMemoryMetricReader, MetricsData
+from opentelemetry.sdk.metrics.export import (
+    AggregationTemporality,
+    InMemoryMetricReader,
+    MetricExporter,
+    MetricExportResult,
+    MetricsData,
+)
 
 import logfire
 import logfire._internal.metrics
+from logfire._internal.config import METRICS_PREFERRED_TEMPORALITY
 from logfire._internal.exporters.quiet_metrics import QuietMetricExporter
+from logfire._internal.exporters.test import TestExporter
+from logfire.testing import get_collected_metrics
 
 meter = metrics.get_meter('global_test_meter')
 
@@ -346,12 +353,6 @@ def test_create_metric_up_down_counter_callback(metrics_reader: InMemoryMetricRe
     )
 
 
-def get_collected_metrics(metrics_reader: InMemoryMetricReader) -> list[dict[str, Any]]:
-    exported_metrics = json.loads(cast(MetricsData, metrics_reader.get_metrics_data()).to_json())  # type: ignore
-    [resource_metric] = exported_metrics['resource_metrics']
-    return [metric for scope_metric in resource_metric['scope_metrics'] for metric in scope_metric['metrics']]
-
-
 def test_quiet_metric_exporter(caplog: pytest.LogCaptureFixture) -> None:
     force_flush_called = False
     shutdown_called = False
@@ -382,3 +383,120 @@ def test_quiet_metric_exporter(caplog: pytest.LogCaptureFixture) -> None:
     exporter.shutdown()
     assert force_flush_called
     assert shutdown_called
+
+
+def test_metrics_in_spans(exporter: TestExporter):
+    tokens = logfire.metric_counter('tokens')
+
+    with logfire.span('span'):
+        tokens.add(100, attributes=dict(model='gpt4'))
+        with logfire.span('nested_span'):
+            tokens.add(200, attributes=dict(model='gpt4'))
+            tokens.add(500, attributes=dict(model='gemini-2.5'))
+        tokens.add(999)
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'nested_span',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'code.filepath': 'test_metrics.py',
+                    'code.function': 'test_metrics_in_spans',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'nested_span',
+                    'logfire.msg': 'nested_span',
+                    'logfire.span_type': 'span',
+                    'logfire.metrics': {
+                        'tokens': {
+                            'details': [
+                                {'attributes': {'model': 'gpt4'}, 'total': 200},
+                                {'attributes': {'model': 'gemini-2.5'}, 'total': 500},
+                            ],
+                            'total': 700,
+                        }
+                    },
+                },
+            },
+            {
+                'name': 'span',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_metrics.py',
+                    'code.function': 'test_metrics_in_spans',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'span',
+                    'logfire.msg': 'span',
+                    'logfire.span_type': 'span',
+                    'logfire.metrics': {
+                        'tokens': {
+                            'details': [
+                                {'attributes': {'model': 'gpt4'}, 'total': 300},
+                                {'attributes': {'model': 'gemini-2.5'}, 'total': 500},
+                                {'attributes': {}, 'total': 999},
+                            ],
+                            'total': 1799,
+                        }
+                    },
+                },
+            },
+        ]
+    )
+
+
+def test_metrics_in_non_recording_spans(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    metrics_reader = InMemoryMetricReader(preferred_temporality=METRICS_PREFERRED_TEMPORALITY)
+    logfire.configure(
+        **config_kwargs,
+        sampling=logfire.SamplingOptions(head=0),
+        metrics=logfire.MetricsOptions(
+            additional_readers=[metrics_reader],
+        ),
+    )
+    tokens = logfire.metric_counter('tokens')
+
+    with logfire.span('span'):
+        tokens.add(100, attributes=dict(model='gpt4'))
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == []
+
+    assert get_collected_metrics(metrics_reader) == snapshot(
+        [
+            {
+                'name': 'tokens',
+                'description': '',
+                'unit': '',
+                'data': {
+                    'data_points': [
+                        {
+                            'attributes': {'model': 'gpt4'},
+                            'start_time_unix_nano': IsInt(),
+                            'time_unix_nano': IsInt(),
+                            'value': 100,
+                            'exemplars': [],
+                        }
+                    ],
+                    'aggregation_temporality': AggregationTemporality.DELTA,
+                    'is_monotonic': True,
+                },
+            }
+        ]
+    )
+
+
+def test_reconfigure(caplog: pytest.LogCaptureFixture):
+    for _ in range(3):
+        logfire.configure(send_to_logfire=False, console=False)
+        meter.create_histogram('foo', unit='x', description='bar', explicit_bucket_boundaries_advisory=[1, 2, 3])
+    # Previously a bug caused a warning to be logged when reconfiguring the metrics
+    assert not caplog.messages
+
+    # For comparison, this logs a warning because the advisory is different (unset)
+    meter.create_histogram('foo', unit='x', description='bar')
+    assert caplog.messages

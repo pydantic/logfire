@@ -660,7 +660,7 @@ def test_log_with_multiple_tags(exporter: TestExporter):
 def test_instrument(exporter: TestExporter):
     tagged = logfire.with_tags('test_instrument')
 
-    @tagged.instrument('hello-world {a=}')
+    @tagged.instrument('hello-world {a=}', record_return=True)
     def hello_world(a: int) -> str:
         return f'hello {a}'
 
@@ -700,8 +700,9 @@ def test_instrument(exporter: TestExporter):
                     'a': 123,
                     'logfire.tags': ('test_instrument',),
                     'logfire.msg_template': 'hello-world {a=}',
-                    'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{},"return":{}}}',
                     'logfire.span_type': 'span',
+                    'return': 'hello 123',
                     'logfire.msg': 'hello-world a=123',
                 },
             },
@@ -1041,7 +1042,7 @@ async def test_instrument_asynccontextmanager_prevent_warning(exporter: TestExpo
 
 @pytest.mark.anyio
 async def test_instrument_async(exporter: TestExporter):
-    @logfire.instrument()
+    @logfire.instrument
     async def foo():
         return 456
 
@@ -1063,6 +1064,38 @@ async def test_instrument_async(exporter: TestExporter):
                     'code.filepath': 'test_logfire.py',
                     'logfire.msg': 'Calling tests.test_logfire.test_instrument_async.<locals>.foo',
                     'logfire.span_type': 'span',
+                },
+            }
+        ]
+    )
+
+
+@pytest.mark.anyio
+async def test_instrument_async_record_return(exporter: TestExporter):
+    @logfire.instrument(record_return=True)
+    async def foo():
+        return 456
+
+    assert foo.__name__ == 'foo'
+    assert await foo() == 456
+
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_async_record_return.<locals>.foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_async_record_return.<locals>.foo',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_async_record_return.<locals>.foo',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_async_record_return.<locals>.foo',
+                    'logfire.span_type': 'span',
+                    'return': 456,
+                    'logfire.json_schema': '{"type":"object","properties":{"return":{}}}',
                 },
             }
         ]
@@ -2364,7 +2397,6 @@ def test_span_add_link_before_start(exporter: TestExporter):
 GLOBAL_VAR = 1
 
 
-@pytest.mark.skipif(sys.version_info < (3, 9), reason='f-string magic is disabled in Python 3.8')
 def test_inspect_arguments(exporter: TestExporter):
     local_var = 2
     x = 1.2345
@@ -2745,9 +2777,6 @@ Failed to introspect calling code. Please report this issue to Logfire. Falling 
     assert exporter.exported_spans_as_dict() == expected_spans
 
 
-@pytest.mark.skipif(
-    sys.version_info[:2] == (3, 8), reason='Warning is only raised in Python 3.9+ because f-string magic is enabled'
-)
 def test_find_arg_failure(exporter: TestExporter):
     info = partial(logfire.info, 'info')
     log = partial(logfire.log, 'error', 'log')
@@ -2894,7 +2923,6 @@ Couldn't identify the `msg_template` argument in the call.\
     )
 
 
-@pytest.mark.skipif(sys.version_info[:2] == (3, 8), reason='fstring magic is only for 3.9+')
 def test_wrong_fstring_source_segment(exporter: TestExporter):
     name = 'me'
     # This is a case where `ast.get_source_segment` returns an incorrect string for `{name}`
@@ -3174,8 +3202,9 @@ def test_logfire_span_records_exceptions_once(exporter: TestExporter):
 
         return record_exception(*args, **kwargs)
 
-    with patch('logfire._internal.tracer.record_exception', patched_record_exception), patch(
-        'logfire._internal.main.record_exception', patched_record_exception
+    with (
+        patch('logfire._internal.tracer.record_exception', patched_record_exception),
+        patch('logfire._internal.main.record_exception', patched_record_exception),
     ):
         with pytest.raises(RuntimeError):
             with logfire.span('foo'):
@@ -3225,8 +3254,9 @@ def test_logfire_span_records_exceptions_manually_once(exporter: TestExporter):
 
         return record_exception(*args, **kwargs)
 
-    with patch('logfire._internal.tracer.record_exception', patched_record_exception), patch(
-        'logfire._internal.main.record_exception', patched_record_exception
+    with (
+        patch('logfire._internal.tracer.record_exception', patched_record_exception),
+        patch('logfire._internal.main.record_exception', patched_record_exception),
     ):
         with logfire.span('foo') as span:
             span.record_exception(RuntimeError('error'))

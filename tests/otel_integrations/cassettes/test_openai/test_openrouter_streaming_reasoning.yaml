@@ -1,0 +1,213 @@
+interactions:
+- request:
+    body: '{"messages":[{"role":"user","content":"Hello, how are you? (This is a trick
+      question)"}],"model":"google/gemini-2.5-flash","stream":true,"reasoning":{"effort":"low"}}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate, zstd
+      connection:
+      - keep-alive
+      content-length:
+      - '166'
+      content-type:
+      - application/json
+      host:
+      - openrouter.ai
+      user-agent:
+      - OpenAI/Python 1.93.1
+      x-stainless-arch:
+      - arm64
+      x-stainless-async:
+      - 'false'
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - MacOS
+      x-stainless-package-version:
+      - 1.93.1
+      x-stainless-read-timeout:
+      - '600'
+      x-stainless-retry-count:
+      - '0'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.12.6
+    method: POST
+    uri: https://openrouter.ai/api/v1/chat/completions
+  response:
+    body:
+      string: ': OPENROUTER PROCESSING
+
+
+        : OPENROUTER PROCESSING
+
+
+        : OPENROUTER PROCESSING
+
+
+        : OPENROUTER PROCESSING
+
+
+        : OPENROUTER PROCESSING
+
+
+        : OPENROUTER PROCESSING
+
+
+        : OPENROUTER PROCESSING
+
+
+        : OPENROUTER PROCESSING
+
+
+        : OPENROUTER PROCESSING
+
+
+        : OPENROUTER PROCESSING
+
+
+        : OPENROUTER PROCESSING
+
+
+        data: {"id":"gen-1751918758-SZqPQwzFgmd8JdDUxRuL","provider":"Google","model":"google/gemini-2.5-flash","object":"chat.completion.chunk","created":1751918759,"choices":[{"index":0,"delta":{"role":"assistant","content":"","reasoning":"**Interpreting
+        User Intent**\n\nI''m zeroing in on the core of the query. The \"how are you\"
+        is basic, but the \"trick question\" label is key. My focus is on decoding
+        what the user *really* wants. I''m anticipating something beyond a simple
+        pleasantry.\n\n\n","reasoning_details":[{"type":"reasoning.text","text":"**Interpreting
+        User Intent**\n\nI''m zeroing in on the core of the query. The \"how are you\"
+        is basic, but the \"trick question\" label is key. My focus is on decoding
+        what the user *really* wants. I''m anticipating something beyond a simple
+        pleasantry.\n\n\n","provider":"google-vertex"}]},"finish_reason":null,"native_finish_reason":null,"logprobs":null}]}
+
+
+        : OPENROUTER PROCESSING
+
+
+        : OPENROUTER PROCESSING
+
+
+        : OPENROUTER PROCESSING
+
+
+        : OPENROUTER PROCESSING
+
+
+        : OPENROUTER PROCESSING
+
+
+        data: {"id":"gen-1751918758-SZqPQwzFgmd8JdDUxRuL","provider":"Google","model":"google/gemini-2.5-flash","object":"chat.completion.chunk","created":1751918759,"choices":[{"index":0,"delta":{"role":"assistant","content":"","reasoning":"**Deconstructing
+        the \"Trick\"**\n\nI''ve analyzed the intent: the trick lies in the expectation
+        gap between human and AI responses. The raw data is processed. I need to politely
+        but directly address the inherent lack of feeling, then shift focus to my
+        capabilities. I''m now drafting refined responses, iterating for a balance
+        of humor, clarity, and user engagement.\n\n\n","reasoning_details":[{"type":"reasoning.text","text":"**Deconstructing
+        the \"Trick\"**\n\nI''ve analyzed the intent: the trick lies in the expectation
+        gap between human and AI responses. The raw data is processed. I need to politely
+        but directly address the inherent lack of feeling, then shift focus to my
+        capabilities. I''m now drafting refined responses, iterating for a balance
+        of humor, clarity, and user engagement.\n\n\n","provider":"google-vertex"}]},"finish_reason":null,"native_finish_reason":null,"logprobs":null}]}
+
+
+        : OPENROUTER PROCESSING
+
+
+        : OPENROUTER PROCESSING
+
+
+        : OPENROUTER PROCESSING
+
+
+        : OPENROUTER PROCESSING
+
+
+        : OPENROUTER PROCESSING
+
+
+        data: {"id":"gen-1751918758-SZqPQwzFgmd8JdDUxRuL","provider":"Google","model":"google/gemini-2.5-flash","object":"chat.completion.chunk","created":1751918759,"choices":[{"index":0,"delta":{"role":"assistant","content":"","reasoning":"**Formulating
+        the Perfect Response**\n\nThe response is evolving. I''ve created multiple
+        drafts, each aiming for the ideal blend of acknowledging the \"trick,\" explaining
+        my AI limitations, and offering assistance. I''m now focused on fine-tuning
+        the tone. I''m evaluating options for humor to enhance the user experience.
+        I''m experimenting with different phrasing to ensure the response is both
+        clever and clear, avoiding being overly verbose.\n\n\n","reasoning_details":[{"type":"reasoning.text","text":"**Formulating
+        the Perfect Response**\n\nThe response is evolving. I''ve created multiple
+        drafts, each aiming for the ideal blend of acknowledging the \"trick,\" explaining
+        my AI limitations, and offering assistance. I''m now focused on fine-tuning
+        the tone. I''m evaluating options for humor to enhance the user experience.
+        I''m experimenting with different phrasing to ensure the response is both
+        clever and clear, avoiding being overly verbose.\n\n\n","provider":"google-vertex"}]},"finish_reason":null,"native_finish_reason":null,"logprobs":null}]}
+
+
+        : OPENROUTER PROCESSING
+
+
+        data: {"id":"gen-1751918758-SZqPQwzFgmd8JdDUxRuL","provider":"Google","model":"google/gemini-2.5-flash","object":"chat.completion.chunk","created":1751918759,"choices":[{"index":0,"delta":{"role":"assistant","content":"","reasoning":"**Optimizing
+        Response Structure**\n\nI''m now focused on the final polishing stage. The
+        draft is finalized; it acknowledges the question''s nature, explains my AI
+        limitations, offers a functional answer, and re-engages the user. I''m tweaking
+        the flow, tightening the language, and optimizing the response''s overall
+        impact, aiming for maximum clarity and user satisfaction.\n\n\n","reasoning_details":[{"type":"reasoning.text","text":"**Optimizing
+        Response Structure**\n\nI''m now focused on the final polishing stage. The
+        draft is finalized; it acknowledges the question''s nature, explains my AI
+        limitations, offers a functional answer, and re-engages the user. I''m tweaking
+        the flow, tightening the language, and optimizing the response''s overall
+        impact, aiming for maximum clarity and user satisfaction.\n\n\n","provider":"google-vertex"}]},"finish_reason":null,"native_finish_reason":null,"logprobs":null}]}
+
+
+        data: {"id":"gen-1751918758-SZqPQwzFgmd8JdDUxRuL","provider":"Google","model":"google/gemini-2.5-flash","object":"chat.completion.chunk","created":1751918759,"choices":[{"index":0,"delta":{"role":"assistant","content":"That''s
+        a clever way to put it! You''re right, it is a bit of a trick question for
+        an AI.\n\nAs a large language model, I don''t experience emotions, have a
+        physical body, or","reasoning":null,"reasoning_details":[]},"finish_reason":null,"native_finish_reason":null,"logprobs":null}]}
+
+
+        data: {"id":"gen-1751918758-SZqPQwzFgmd8JdDUxRuL","provider":"Google","model":"google/gemini-2.5-flash","object":"chat.completion.chunk","created":1751918759,"choices":[{"index":0,"delta":{"role":"assistant","content":"
+        \"feel\" things in the human sense, so I can''t really quantify \"how\" I
+        am.\n\nHowever, I am fully operational, my systems are running smoothly, and
+        I''m ready to assist you!\n\nSo, while I can''t genuinely answer it for myself,
+        how are *you* doing today","reasoning":null,"reasoning_details":[]},"finish_reason":null,"native_finish_reason":null,"logprobs":null}]}
+
+
+        data: {"id":"gen-1751918758-SZqPQwzFgmd8JdDUxRuL","provider":"Google","model":"google/gemini-2.5-flash","object":"chat.completion.chunk","created":1751918759,"choices":[{"index":0,"delta":{"role":"assistant","content":",
+        and what can I help you with?","reasoning":null,"reasoning_details":[]},"finish_reason":"stop","native_finish_reason":"STOP","logprobs":null}]}
+
+
+        data: {"id":"gen-1751918758-SZqPQwzFgmd8JdDUxRuL","provider":"Google","model":"google/gemini-2.5-flash","object":"chat.completion.chunk","created":1751918759,"choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null,"native_finish_reason":null,"logprobs":null}],"usage":{"prompt_tokens":13,"completion_tokens":1003,"total_tokens":1016}}
+
+
+        data: [DONE]
+
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      CF-RAY:
+      - 95b9f5aaead53f1f-CPT
+      Cache-Control:
+      - no-cache
+      Connection:
+      - keep-alive
+      Content-Type:
+      - text/event-stream
+      Date:
+      - Mon, 07 Jul 2025 20:06:03 GMT
+      Permissions-Policy:
+      - payment=(self "https://checkout.stripe.com" "https://connect-js.stripe.com"
+        "https://js.stripe.com" "https://*.js.stripe.com" "https://hooks.stripe.com")
+      Referrer-Policy:
+      - no-referrer, strict-origin-when-cross-origin
+      Server:
+      - cloudflare
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Accept-Encoding
+      X-Content-Type-Options:
+      - nosniff
+    status:
+      code: 200
+      message: OK
+version: 1

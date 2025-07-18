@@ -1,5 +1,6 @@
 from .utils import JsonDict
 from _typeshed import Incomplete
+from functools import lru_cache
 from typing import Any
 
 __all__ = ['create_json_schema', 'attributes_json_schema_properties', 'attributes_json_schema', 'JsonSchemaProperties']

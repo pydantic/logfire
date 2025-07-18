@@ -7,7 +7,6 @@ from inline_snapshot import snapshot
 from opentelemetry.instrumentation.sqlite3 import SQLite3Instrumentor
 
 import logfire
-import logfire._internal.integrations.httpx
 import logfire._internal.integrations.sqlite3
 from logfire.testing import TestExporter
 
