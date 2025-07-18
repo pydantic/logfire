@@ -17,7 +17,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 from starlette.websockets import WebSocket
 
-from ..main import Logfire, set_user_attributes_on_raw_span
+from ..main import Logfire, NoopSpan, set_user_attributes_on_raw_span
 from ..stack_info import StackInfo, get_code_object_info
 from ..utils import handle_internal_errors, maybe_capture_server_headers
 
@@ -61,6 +61,7 @@ def instrument_fastapi(
     | None = None,
     excluded_urls: str | Iterable[str] | None = None,
     record_send_receive: bool = False,
+    extra_spans: bool = True,
     **opentelemetry_kwargs: Any,
 ) -> AbstractContextManager[None]:
     """Instrument a FastAPI app so that spans and logs are automatically created for each request.
@@ -96,6 +97,7 @@ def instrument_fastapi(
         registry[_app] = FastAPIInstrumentation(
             logfire_instance,
             request_attributes_mapper or _default_request_attributes_mapper,
+            extra_spans=extra_spans,
         )
 
     @contextmanager
@@ -158,16 +160,18 @@ class FastAPIInstrumentation:
             ],
             dict[str, Any] | None,
         ],
+        extra_spans: bool,
     ):
         self.logfire_instance = logfire_instance.with_settings(custom_scope_suffix='fastapi')
         self.request_attributes_mapper = request_attributes_mapper
+        self.extra_spans = extra_spans
 
     async def solve_dependencies(self, request: Request | WebSocket, original: Awaitable[Any]) -> Any:
         root_span = request.scope.get(LOGFIRE_SPAN_SCOPE_KEY)
         if not (root_span and root_span.is_recording()):
             return await original
 
-        with self.logfire_instance.span('FastAPI arguments') as span:
+        with self.logfire_instance.span('FastAPI arguments') if self.extra_spans else NoopSpan() as span:
             with handle_internal_errors:
                 if isinstance(request, Request):  # pragma: no branch
                     span.set_attribute('http.method', request.method)
@@ -249,15 +253,19 @@ class FastAPIInstrumentation:
         callback = inspect.unwrap(dependant.call)
         code = getattr(callback, '__code__', None)
         stack_info: StackInfo = get_code_object_info(code) if code else {}
-        with self.logfire_instance.span(
-            '{method} {http.route} ({code.function})',
-            method=request.method,
-            # Using `http.route` prevents it from being scrubbed if it contains a word like 'secret'.
-            # We don't use `http.method` because some dashboards do things like count spans with
-            # both `http.method` and `http.route`.
-            **{'http.route': request.scope['route'].path},
-            **stack_info,
-            _level='debug',
+        with (
+            self.logfire_instance.span(
+                '{method} {http.route} ({code.function})',
+                method=request.method,
+                # Using `http.route` prevents it from being scrubbed if it contains a word like 'secret'.
+                # We don't use `http.method` because some dashboards do things like count spans with
+                # both `http.method` and `http.route`.
+                **{'http.route': request.scope['route'].path},
+                **stack_info,
+                _level='debug',
+            )
+            if self.extra_spans
+            else NoopSpan()
         ):
             return await original_run_endpoint_function(dependant=dependant, values=values, **kwargs)
 

@@ -118,7 +118,9 @@ def auto_instrument_fastapi(app: FastAPI):
             return attributes
 
     # uninstrument at the end of each test
-    with logfire.instrument_fastapi(app, request_attributes_mapper=request_attributes_mapper, record_send_receive=True):
+    with logfire.instrument_fastapi(
+        app, request_attributes_mapper=request_attributes_mapper, record_send_receive=True, extra_spans=True
+    ):
         yield
 
 
@@ -1704,6 +1706,7 @@ def make_request_hook_spans(record_send_receive: bool):
         server_request_hook=server_request_hook,
         client_request_hook=lambda *_, **__: logfire.info('client_request_hook'),  # type: ignore
         client_response_hook=lambda *_, **__: logfire.info('client_response_hook'),  # type: ignore
+        extra_spans=True,
     ):
         response = client.post('/echo_body', content=b'hello')
         assert response.status_code == 200
