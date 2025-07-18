@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 import inspect
+import time
 from collections.abc import Awaitable, Iterable
 from contextlib import AbstractContextManager, contextmanager
 from functools import lru_cache
@@ -184,7 +185,16 @@ class FastAPIInstrumentation:
                     set_user_attributes_on_raw_span(root_span, fastapi_route_attributes)
                     span.set_attributes(fastapi_route_attributes)
 
-            result: Any = await original
+            start_time = time.time()
+            try:
+                try:
+                    result: Any = await original
+                finally:
+                    end_time = time.time()
+                    root_span.set_attribute('fastapi.arguments.duration', end_time - start_time)
+            except Exception as exc:
+                root_span.record_exception(exc)
+                raise
 
             with handle_internal_errors:
                 solved_values: dict[str, Any]
