@@ -176,7 +176,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('instrument_mcp')
 
     assert hasattr(logfire_api, 'instrument_google_genai')
-    if get_version(pydantic_version) >= get_version('2.6.0'):
+    if get_version(pydantic_version) >= get_version('2.7.0'):
         logfire_api.instrument_google_genai()
     logfire__all__.remove('instrument_google_genai')
 
