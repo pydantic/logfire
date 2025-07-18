@@ -183,6 +183,7 @@ class FastAPIInstrumentation:
             try:
                 yield
             finally:
+                # Record the end timestamp before recording exceptions.
                 set_timestamp('end_timestamp')
         except Exception as exc:
             root_span.record_exception(exc)
