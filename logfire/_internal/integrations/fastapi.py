@@ -242,7 +242,8 @@ class FastAPIInstrumentation:
 
                 # request_attributes_mapper may have removed the errors, so we need .get() here.
                 if attributes.get('errors'):
-                    span.set_level('error')
+                    # Errors should imply a 422 response. 4xx errors are warnings, not errors.
+                    span.set_level('warn')
 
                 span.set_attributes(attributes)
                 for key in ('values', 'errors'):

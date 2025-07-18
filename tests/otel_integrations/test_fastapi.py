@@ -776,7 +776,7 @@ def test_fastapi_arguments(client: TestClient, exporter: TestExporter) -> None:
                 'attributes': {
                     'custom_attr': 'custom_value',
                     'logfire.span_type': 'span',
-                    'logfire.level_num': 17,
+                    'logfire.level_num': 13,
                     'logfire.msg_template': 'FastAPI arguments',
                     'logfire.msg': 'FastAPI arguments',
                     'values': '{"foo":"foo_val"}',
