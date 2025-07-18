@@ -447,15 +447,13 @@ def canonicalize_exception_traceback(exc: BaseException) -> str:
     Cause and context are treated as different.
     """
     try:
-        exc_type = type(exc)
-        parts = [f'\n{exc_type.__module__}.{exc_type.__qualname__}\n----']
+        parts = [f'\n{type(exc).__name__}\n----']
         if exc.__traceback__:
             visited: set[str] = set()
             for frame, lineno in traceback.walk_tb(exc.__traceback__):
                 filename = frame.f_code.co_filename
                 source_line = linecache.getline(filename, lineno, frame.f_globals).strip()
-                module = frame.f_globals.get('__name__', filename)
-                frame_summary = f'{module}.{frame.f_code.co_name}\n   {source_line}'
+                frame_summary = f'{frame.f_code.co_name}\n   {source_line}'
                 if frame_summary not in visited:  # ignore repeated frames
                     visited.add(frame_summary)
                     parts.append(frame_summary)

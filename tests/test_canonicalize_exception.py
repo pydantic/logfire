@@ -47,29 +47,29 @@ def test_canonicalize_exception_func():
     canonicalized = canonicalize_exception_traceback(e5)  # type: ignore
     assert canonicalized.replace(__file__, '__file__') == snapshot("""\
 
-builtins.ZeroDivisionError
+ZeroDivisionError
 ----
-tests.test_canonicalize_exception.test_canonicalize_exception_func
+test_canonicalize_exception_func
    raise ZeroDivisionError
 
 __context__:
 
-builtins.NameError
+NameError
 ----
-tests.test_canonicalize_exception.test_canonicalize_exception_func
+test_canonicalize_exception_func
    exec('undefined_variable')
-tests.test_canonicalize_exception.<module>
+<module>
    \n\
 
 __context__:
 
-builtins.TypeError
+TypeError
 ----
-tests.test_canonicalize_exception.test_canonicalize_exception_func
+test_canonicalize_exception_func
    foo2()
-tests.test_canonicalize_exception.foo2
+foo2
    bar2()
-tests.test_canonicalize_exception.bar2
+bar2
    raise TypeError\
 """)
 
@@ -84,52 +84,52 @@ tests.test_canonicalize_exception.bar2
         except Exception as e6:
             assert canonicalize_exception_traceback(e6).replace(__file__, '__file__') == snapshot("""\
 
-builtins.Exception
+Exception
 ----
-tests.test_canonicalize_exception.test_canonicalize_exception_func
+test_canonicalize_exception_func
    raise Exception from group
 
 __cause__:
 
-builtins.ExceptionGroup
+ExceptionGroup
 ----
-tests.test_canonicalize_exception.test_canonicalize_exception_func
+test_canonicalize_exception_func
    raise BaseExceptionGroup('group', [e1, e1_b, e5])  # type: ignore  # noqa
 
 <ExceptionGroup>
 
-builtins.ValueError
+ValueError
 ----
-tests.test_canonicalize_exception.test_canonicalize_exception_func
+test_canonicalize_exception_func
    foo()
-tests.test_canonicalize_exception.foo
+foo
    bar()
-tests.test_canonicalize_exception.bar
+bar
    raise ValueError
 
-builtins.ZeroDivisionError
+ZeroDivisionError
 ----
-tests.test_canonicalize_exception.test_canonicalize_exception_func
+test_canonicalize_exception_func
    raise ZeroDivisionError
 
 __context__:
 
-builtins.NameError
+NameError
 ----
-tests.test_canonicalize_exception.test_canonicalize_exception_func
+test_canonicalize_exception_func
    exec('undefined_variable')
-tests.test_canonicalize_exception.<module>
+<module>
    \n\
 
 __context__:
 
-builtins.TypeError
+TypeError
 ----
-tests.test_canonicalize_exception.test_canonicalize_exception_func
+test_canonicalize_exception_func
    foo2()
-tests.test_canonicalize_exception.foo2
+foo2
    bar2()
-tests.test_canonicalize_exception.bar2
+bar2
    raise TypeError
 
 </ExceptionGroup>
@@ -151,15 +151,15 @@ def test_canonicalize_repeated_frame_exception():
         canonicalized = canonicalize_exception_traceback(e)
         assert canonicalized.replace(__file__, '__file__') == snapshot("""\
 
-builtins.ValueError
+ValueError
 ----
-tests.test_canonicalize_exception.test_canonicalize_repeated_frame_exception
+test_canonicalize_repeated_frame_exception
    foo(3)
-tests.test_canonicalize_exception.foo
+foo
    bar(n)
-tests.test_canonicalize_exception.bar
+bar
    foo(n - 1)
-tests.test_canonicalize_exception.foo
+foo
    raise ValueError\
 """)
 
@@ -176,5 +176,5 @@ def test_fingerprint_attribute(exporter: TestExporter):
     (_pending, span) = exporter.exported_spans
     assert span.attributes
     assert span.attributes[ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY] == snapshot(
-        '3ca86c8642e26597ed1f2485859197fd294e17719e31b302b55246dab493ce83'
+        '802d1bda208c36477712a331b54d1a7eefc03f44bcba751bf616b5bb48246822'
     )
