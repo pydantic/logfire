@@ -1,5 +1,13 @@
 # Release Notes
 
+## [v3.25.0] (2025-07-18)
+
+* Use local timezone in console logging by @fswair in [#1255](https://github.com/pydantic/logfire/pull/1255)
+* Add `logfire run` command by @Kludex in [#1139](https://github.com/pydantic/logfire/pull/1139)
+* Allow removing extra FastAPI spans by @alexmojaki in [#1258](https://github.com/pydantic/logfire/pull/1258)
+* Fix `litellm` instrumentation by @alexmojaki in [#1249](https://github.com/pydantic/logfire/pull/1249)
+* Add `logfire.exception.fingerprint` attribute to spans with exceptions by @alexmojaki in [#1253](https://github.com/pydantic/logfire/pull/1253)
+
 ## [v3.24.2] (2025-07-14)
 
 * Fix auto-tracing Python 3.12 ParamSpec syntax by @alexmojaki in [#1247](https://github.com/pydantic/logfire/pull/1247)
@@ -792,3 +800,4 @@ First release from new repo!
 [v3.24.0]: https://github.com/pydantic/logfire/compare/v3.23.0...v3.24.0
 [v3.24.1]: https://github.com/pydantic/logfire/compare/v3.24.0...v3.24.1
 [v3.24.2]: https://github.com/pydantic/logfire/compare/v3.24.1...v3.24.2
+[v3.25.0]: https://github.com/pydantic/logfire/compare/v3.24.2...v3.25.0
