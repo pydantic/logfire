@@ -262,7 +262,11 @@ class SimpleConsoleSpanExporter(SpanExporter):
             value = span.attributes.get(key)
             if schema and isinstance(value, str):
                 try:
-                    value = json.loads(value)
+                    val = json.loads(value)
+                    if isinstance(val, (int, float, bool)) or val is None:
+                        schema = None
+                    else:
+                        value = json.loads(value)
                 except json.JSONDecodeError:
                     schema = None
             value = json_args_value_formatter(value, schema=schema)
