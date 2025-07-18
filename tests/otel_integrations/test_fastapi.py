@@ -9,7 +9,7 @@ import pytest
 from dirty_equals import IsFloat, IsInt, IsJson
 from fastapi import BackgroundTasks, FastAPI, Response, WebSocket
 from fastapi.exceptions import HTTPException, RequestValidationError
-from fastapi.params import Header
+from fastapi.params import Depends, Header
 from fastapi.security import SecurityScopes
 from fastapi.staticfiles import StaticFiles
 from inline_snapshot import snapshot
@@ -86,6 +86,14 @@ async def websocket_endpoint(websocket: WebSocket, name: str):
     await websocket.close()
 
 
+def bad_dependency():
+    raise ValueError('bad dependency')
+
+
+async def bad_dependency_route(good: str, bad: Annotated[str, Depends(bad_dependency)]):
+    return 'hi'
+
+
 @pytest.fixture()
 def app():
     # Don't define the endpoint functions in this fixture to prevent a qualname with <locals> in it
@@ -104,6 +112,7 @@ def app():
     app.get('/bad_request_error')(bad_request_error)
     app.get('/with_path_param/{param}')(with_path_param)
     app.get('/secret/{path_param}', name='secret')(get_secret)
+    app.get('/bad_dependency_route/{good}')(bad_dependency_route)
     app.websocket('/ws/{name}')(websocket_endpoint)
     first_lvl_app.get('/other', name='other_route_name', operation_id='other_route_operation_id')(other_route)
     second_lvl_app.get('/other', name='other_route_name', operation_id='other_route_operation_id')(other_route)
@@ -127,6 +136,138 @@ def auto_instrument_fastapi(app: FastAPI):
 @pytest.fixture()
 def client(app: FastAPI) -> TestClient:
     return TestClient(app)
+
+
+def test_bad_dependency_route(client: TestClient, exporter: TestExporter) -> None:
+    with pytest.raises(ValueError):
+        client.get('/bad_dependency_route/good_value')
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'FastAPI arguments',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'logfire.msg_template': 'FastAPI arguments',
+                    'logfire.msg': 'FastAPI arguments',
+                    'logfire.span_type': 'span',
+                    'http.method': 'GET',
+                    'http.route': '/bad_dependency_route/{good}',
+                    'fastapi.route.name': 'bad_dependency_route',
+                    'fastapi.route.operation_id': 'null',
+                    'logfire.level_num': 17,
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'http.method': {},
+                            'http.route': {},
+                            'fastapi.route.name': {},
+                            'fastapi.route.operation_id': {'type': 'null'},
+                        },
+                    },
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 4000000000,
+                        'attributes': {
+                            'exception.type': 'ValueError',
+                            'exception.message': 'bad dependency',
+                            'exception.stacktrace': 'ValueError: bad dependency',
+                            'exception.escaped': 'True',
+                        },
+                    }
+                ],
+            },
+            {
+                'name': 'GET /bad_dependency_route/{good} http send response.start',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 6000000000,
+                'end_time': 7000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /bad_dependency_route/{good} http send response.start',
+                    'logfire.level_num': 5,
+                    'asgi.event.type': 'http.response.start',
+                    'http.status_code': 500,
+                    'http.response.status_code': 500,
+                    'error.type': '500',
+                },
+            },
+            {
+                'name': 'GET /bad_dependency_route/{good} http send response.body',
+                'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 8000000000,
+                'end_time': 9000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /bad_dependency_route/{good} http send response.body',
+                    'logfire.level_num': 5,
+                    'asgi.event.type': 'http.response.body',
+                },
+            },
+            {
+                'name': 'GET /bad_dependency_route/{good}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 10000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /bad_dependency_route/good_value',
+                    'http.scheme': 'http',
+                    'url.scheme': 'http',
+                    'http.host': 'testserver',
+                    'server.address': 'testserver',
+                    'net.host.port': 80,
+                    'server.port': 80,
+                    'http.flavor': '1.1',
+                    'network.protocol.version': '1.1',
+                    'http.target': '/bad_dependency_route/good_value',
+                    'url.path': '/bad_dependency_route/good_value',
+                    'http.url': 'http://testserver/bad_dependency_route/good_value',
+                    'http.method': 'GET',
+                    'http.request.method': 'GET',
+                    'http.server_name': 'testserver',
+                    'http.user_agent': 'testclient',
+                    'user_agent.original': 'testclient',
+                    'net.peer.ip': 'testclient',
+                    'client.address': 'testclient',
+                    'net.peer.port': 50000,
+                    'client.port': 50000,
+                    'http.route': '/bad_dependency_route/{good}',
+                    'fastapi.route.name': 'bad_dependency_route',
+                    'fastapi.route.operation_id': 'null',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'fastapi.route.name': {}, 'fastapi.route.operation_id': {'type': 'null'}},
+                    },
+                    'fastapi.arguments.duration': 1.23,
+                    'http.status_code': 500,
+                    'http.response.status_code': 500,
+                    'error.type': '500',
+                    'logfire.level_num': 17,
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 3000000000,
+                        'attributes': {
+                            'exception.type': 'ValueError',
+                            'exception.message': 'bad dependency',
+                            'exception.stacktrace': 'ValueError: bad dependency',
+                            'exception.escaped': 'False',
+                        },
+                    }
+                ],
+            },
+        ]
+    )
 
 
 def test_404(client: TestClient, exporter: TestExporter) -> None:
