@@ -38,6 +38,8 @@ from requests import RequestException, Response
 from logfire._internal.stack_info import is_user_code
 from logfire._internal.ulid import ulid
 
+from .json_types import JSONSchema
+
 try:
     _ = BaseExceptionGroup
 except NameError:
@@ -486,3 +488,47 @@ def sha256_string(s: str) -> str:
     hasher = hashlib.sha256()
     hasher.update(s.encode('utf-8'))
     return hasher.hexdigest()
+
+
+def normalize_value_and_schema_for_display(value: Any, schema: Any) -> tuple[Any, JSONSchema | None]:
+    """Parses and aligns a given value with its JSON schema for display or formatting.
+
+    If the value is a JSON-encoded string, it attempts to decode it and match it
+    with the provided schema, returning the most appropriate representation of both.
+    """
+
+    def is_schema_plain(s: Any) -> bool:
+        return not s.get('x-python-datatype')
+
+    if schema:
+        if isinstance(value, str):
+            try:
+                decoded: Any = json.loads(value)
+            except json.JSONDecodeError:
+                return value, None
+
+            if decoded is None:
+                return value, None  # Avoid invalid type check
+
+            if isinstance(decoded, (str, int, float, bool)):
+                if is_schema_plain(schema):
+                    return value, None
+                return value, schema
+
+            if isinstance(decoded, (list, tuple)):
+                if schema.get('type') == 'array' or not is_schema_plain(schema):
+                    return decoded, schema  # type: ignore[reportUnknownMemberType]
+                return decoded, None  # type: ignore[reportUnknownMemberType]
+
+            if isinstance(decoded, dict):
+                if schema.get('type') == 'object' or not is_schema_plain(schema):
+                    return decoded, schema  # type: ignore[reportUnknownMemberType]
+                return decoded, None  # type: ignore[reportUnknownMemberType]
+
+            return decoded, schema
+
+        if isinstance(value, (list, tuple)):
+            if schema.get('type') != 'array' and is_schema_plain(schema):
+                return value, None  # type: ignore[reportUnknownMemberType]
+
+    return value, schema  # type: ignore[reportUnknownMemberType]

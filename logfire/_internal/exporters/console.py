@@ -37,7 +37,7 @@ from ..constants import (
     LevelName,
 )
 from ..json_formatter import json_args_value_formatter
-from ..utils import truncate_string
+from ..utils import normalize_value_and_schema_for_display, truncate_string
 
 ConsoleColorsValues = Literal['auto', 'always', 'never']
 _INFO_LEVEL = LEVEL_NUMBERS['info']
@@ -260,15 +260,8 @@ class SimpleConsoleSpanExporter(SpanExporter):
         json_schema = cast('dict[str, Any]', json.loads(span.attributes.get(ATTRIBUTES_JSON_SCHEMA_KEY, '{}')))  # type: ignore
         for key, schema in json_schema.get('properties', {}).items():
             value = span.attributes.get(key)
-            if schema and isinstance(value, str):
-                try:
-                    val = json.loads(value)
-                    if isinstance(val, (str, int, float, bool)) and 'x-python-datatype' not in schema:
-                        schema = None
-                    else:
-                        value = val
-                except json.JSONDecodeError:
-                    schema = None
+            if schema:
+                value, schema = normalize_value_and_schema_for_display(value, schema)
             value = json_args_value_formatter(value, schema=schema)
             arguments[key] = value
 
