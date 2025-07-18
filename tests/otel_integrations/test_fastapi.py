@@ -90,7 +90,7 @@ def bad_dependency():
     raise ValueError('bad dependency')
 
 
-async def bad_dependency_route(good: str, bad: Annotated[str, Depends(bad_dependency)]):
+async def bad_dependency_route(good: str, bad: Annotated[str, Depends(bad_dependency)]):  # pragma: no cover
     return 'hi'
 
 
