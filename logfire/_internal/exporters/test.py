@@ -150,7 +150,7 @@ def process_attribute(
     if name == 'service.instance.id':
         if re.match(r'^[0-9a-f]{32}$', value):
             return '0' * 32
-    if name == 'fastapi.arguments.duration':
+    if name in ('fastapi.arguments.duration', 'fastapi.endpoint_function.duration'):
         assert isinstance(value, float)
         return 1.23
     if parse_json_attributes and isinstance(value, str) and (value.startswith('{') or value.startswith('[')):

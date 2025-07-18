@@ -559,6 +559,7 @@ def test_path_param(client: TestClient, exporter: TestExporter) -> None:
                     'fastapi.route.operation_id': 'null',
                     'logfire.json_schema': '{"type":"object","properties":{"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"}}}',
                     'fastapi.arguments.duration': 1.23,
+                    'fastapi.endpoint_function.duration': 1.23,
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                 },
@@ -812,6 +813,7 @@ def test_fastapi_instrumentation(client: TestClient, exporter: TestExporter) -> 
                         'properties': {'fastapi.route.name': {}, 'fastapi.route.operation_id': {'type': 'null'}},
                     },
                     'fastapi.arguments.duration': 1.23,
+                    'fastapi.endpoint_function.duration': 1.23,
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                 },
@@ -1147,6 +1149,7 @@ def test_get_fastapi_arguments(client: TestClient, exporter: TestExporter) -> No
                     'fastapi.arguments.errors': '[]',
                     'custom_attr': 'custom_value',
                     'logfire.json_schema': '{"type":"object","properties":{"fastapi.route.name":{},"fastapi.route.operation_id":{},"custom_attr":{},"fastapi.arguments.values":{"type":"object"},"fastapi.arguments.errors":{"type":"array"}}}',
+                    'fastapi.endpoint_function.duration': 1.23,
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                 },
@@ -1280,6 +1283,7 @@ def test_first_lvl_subapp_fastapi_arguments(client: TestClient, exporter: TestEx
                     'fastapi.arguments.errors': '[]',
                     'custom_attr': 'custom_value',
                     'logfire.json_schema': '{"type":"object","properties":{"fastapi.route.name":{},"fastapi.route.operation_id":{},"custom_attr":{},"fastapi.arguments.values":{"type":"object"},"fastapi.arguments.errors":{"type":"array"}}}',
+                    'fastapi.endpoint_function.duration': 1.23,
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                 },
@@ -1413,6 +1417,7 @@ def test_second_lvl_subapp_fastapi_arguments(client: TestClient, exporter: TestE
                     'fastapi.arguments.errors': '[]',
                     'custom_attr': 'custom_value',
                     'logfire.json_schema': '{"type":"object","properties":{"fastapi.route.name":{},"fastapi.route.operation_id":{},"custom_attr":{},"fastapi.arguments.values":{"type":"object"},"fastapi.arguments.errors":{"type":"array"}}}',
+                    'fastapi.endpoint_function.duration': 1.23,
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                 },
@@ -1450,7 +1455,7 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
                 'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 4000000000,
-                'end_time': 6000000000,
+                'end_time': 7000000000,
                 'attributes': {
                     'method': 'GET',
                     'http.route': '/exception',
@@ -1466,7 +1471,7 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
                 'events': [
                     {
                         'name': 'exception',
-                        'timestamp': 5000000000,
+                        'timestamp': 6000000000,
                         'attributes': {
                             'exception.type': 'ValueError',
                             'exception.message': 'test exception',
@@ -1480,8 +1485,8 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
                 'name': 'GET /exception http send response.start',
                 'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 7000000000,
-                'end_time': 8000000000,
+                'start_time': 8000000000,
+                'end_time': 9000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET /exception http send response.start',
@@ -1496,8 +1501,8 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
                 'name': 'GET /exception http send response.body',
                 'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 9000000000,
-                'end_time': 10000000000,
+                'start_time': 10000000000,
+                'end_time': 11000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET /exception http send response.body',
@@ -1510,7 +1515,7 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
-                'end_time': 11000000000,
+                'end_time': 12000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET /exception',
@@ -1539,11 +1544,24 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
                     'fastapi.route.operation_id': 'null',
                     'logfire.json_schema': '{"type":"object","properties":{"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"}}}',
                     'fastapi.arguments.duration': 1.23,
+                    'fastapi.endpoint_function.duration': 1.23,
                     'http.status_code': 500,
                     'http.response.status_code': 500,
                     'error.type': '500',
                     'logfire.level_num': 17,
                 },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 5000000000,
+                        'attributes': {
+                            'exception.type': 'ValueError',
+                            'exception.message': 'test exception',
+                            'exception.stacktrace': 'ValueError: test exception',
+                            'exception.escaped': 'False',
+                        },
+                    }
+                ],
             },
         ]
     )
@@ -1580,7 +1598,7 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                 'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 4000000000,
-                'end_time': 6000000000,
+                'end_time': 7000000000,
                 'attributes': {
                     'method': 'GET',
                     'http.route': '/validation_error',
@@ -1596,7 +1614,7 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                 'events': [
                     {
                         'name': 'exception',
-                        'timestamp': 5000000000,
+                        'timestamp': 6000000000,
                         'attributes': {
                             'exception.type': 'fastapi.exceptions.RequestValidationError',
                             'exception.message': '[]',
@@ -1610,8 +1628,8 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                 'name': 'GET /validation_error http send response.start',
                 'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 7000000000,
-                'end_time': 8000000000,
+                'start_time': 8000000000,
+                'end_time': 9000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET /validation_error http send response.start',
@@ -1625,8 +1643,8 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                 'name': 'GET /validation_error http send response.body',
                 'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 9000000000,
-                'end_time': 10000000000,
+                'start_time': 10000000000,
+                'end_time': 11000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET /validation_error http send response.body',
@@ -1639,7 +1657,7 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
-                'end_time': 11000000000,
+                'end_time': 12000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET /validation_error',
@@ -1668,9 +1686,22 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                     'fastapi.route.operation_id': 'null',
                     'logfire.json_schema': '{"type":"object","properties":{"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"}}}',
                     'fastapi.arguments.duration': 1.23,
+                    'fastapi.endpoint_function.duration': 1.23,
                     'http.status_code': 422,
                     'http.response.status_code': 422,
                 },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 5000000000,
+                        'attributes': {
+                            'exception.type': 'fastapi.exceptions.RequestValidationError',
+                            'exception.message': '[]',
+                            'exception.stacktrace': 'fastapi.exceptions.RequestValidationError: []',
+                            'exception.escaped': 'False',
+                        },
+                    }
+                ],
             },
         ]
     )
@@ -1808,6 +1839,7 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                     'fastapi.arguments.errors': '[]',
                     'custom_attr': 'custom_value',
                     'logfire.json_schema': '{"type":"object","properties":{"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"},"custom_attr":{},"fastapi.arguments.values":{"type":"object"},"fastapi.arguments.errors":{"type":"array"}}}',
+                    'fastapi.endpoint_function.duration': 1.23,
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'logfire.scrubbed': IsJson(
@@ -1968,6 +2000,7 @@ def test_request_hooks_without_send_receiev_spans(exporter: TestExporter):
                     'fastapi.arguments.values': '{}',
                     'fastapi.arguments.errors': '[]',
                     'logfire.json_schema': '{"type":"object","properties":{"attr_key":{},"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"},"fastapi.arguments.values":{"type":"object"},"fastapi.arguments.errors":{"type":"array"}}}',
+                    'fastapi.endpoint_function.duration': 1.23,
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                 },
@@ -2122,6 +2155,7 @@ def test_request_hooks_with_send_receive_spans(exporter: TestExporter):
                     'fastapi.arguments.values': '{}',
                     'fastapi.arguments.errors': '[]',
                     'logfire.json_schema': '{"type":"object","properties":{"attr_key":{},"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"},"fastapi.arguments.values":{"type":"object"},"fastapi.arguments.errors":{"type":"array"}}}',
+                    'fastapi.endpoint_function.duration': 1.23,
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                 },

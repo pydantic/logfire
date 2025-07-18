@@ -261,6 +261,10 @@ class FastAPIInstrumentation:
         values: dict[str, Any],
         **kwargs: Any,
     ) -> Any:
+        root_span = request.scope.get(LOGFIRE_SPAN_SCOPE_KEY)
+        if not (root_span and root_span.is_recording()):
+            return await original_run_endpoint_function(dependant=dependant, values=values, **kwargs)
+
         callback = inspect.unwrap(dependant.call)
         code = getattr(callback, '__code__', None)
         stack_info: StackInfo = get_code_object_info(code) if code else {}
@@ -278,7 +282,16 @@ class FastAPIInstrumentation:
             if self.extra_spans
             else NoopSpan()
         ):
-            return await original_run_endpoint_function(dependant=dependant, values=values, **kwargs)
+            start_time = time.time()
+            try:
+                try:
+                    return await original_run_endpoint_function(dependant=dependant, values=values, **kwargs)
+                finally:
+                    end_time = time.time()
+                    root_span.set_attribute('fastapi.endpoint_function.duration', end_time - start_time)
+            except Exception as exc:
+                root_span.record_exception(exc)
+                raise
 
 
 def _default_request_attributes_mapper(
