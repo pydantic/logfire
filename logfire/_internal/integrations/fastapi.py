@@ -165,17 +165,17 @@ class FastAPIInstrumentation:
         extra_spans: bool,
     ):
         self.logfire_instance = logfire_instance.with_settings(custom_scope_suffix='fastapi')
+        self.timestamp_generator = self.logfire_instance.config.advanced.ns_timestamp_generator
         self.request_attributes_mapper = request_attributes_mapper
         self.extra_spans = extra_spans
 
     @contextmanager
     def pseudo_span(self, namespace: str, root_span: Span):
-        timestamp_generator = self.logfire_instance.config.advanced.ns_timestamp_generator
+        """Record start and end timestamps in the root span, and possibly exceptions."""
 
         def set_timestamp(attribute_name: str):
-            value = datetime.fromtimestamp(timestamp_generator() / ONE_SECOND_IN_NANOSECONDS, tz=timezone.utc).strftime(
-                '%Y-%m-%dT%H:%M:%S.%fZ'
-            )
+            dt = datetime.fromtimestamp(self.timestamp_generator() / ONE_SECOND_IN_NANOSECONDS, tz=timezone.utc)
+            value = dt.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
             root_span.set_attribute(f'fastapi.{namespace}.{attribute_name}', value)
 
         set_timestamp('start_timestamp')
