@@ -3426,8 +3426,17 @@ def test_min_level(exporter: TestExporter, config_kwargs: dict[str, Any]) -> Non
     config_kwargs['min_level'] = 'info'
     logfire.configure(**config_kwargs)
 
-    logfire.debug('debug message')
-    logfire.info('info message')
-    logfire.warn('warn message')
+    with logfire.span('default span') as span:
+        # all these set_level calls make no difference because min_level applies when the span starts.
+        span.set_level('debug')
+        with logfire.span('warning span', _level='warning') as warning_span:
+            warning_span.set_level('trace')
+            logfire.debug('debug message')
+        with logfire.span('debug span', _level='debug') as debug_span:
+            logfire.info('info message')
+            debug_span.set_level('error')
+        logfire.warn('warn message')
 
-    assert [span.name for span in exporter.exported_spans] == ['info message', 'warn message']
+    assert [span['name'] for span in exporter.exported_spans_as_dict()] == snapshot(
+        ['warning span', 'info message', 'warn message', 'default span']
+    )

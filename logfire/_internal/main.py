@@ -179,6 +179,12 @@ class Logfire:
         _links: Sequence[tuple[SpanContext, otel_types.Attributes]] = (),
     ) -> LogfireSpan:
         try:
+            if _level is not None:
+                level_attributes = log_level_attributes(_level)
+                [level_num] = level_attributes.values()
+                if level_num < self.config.min_level:
+                    return NoopSpan()  # type: ignore
+
             stack_info = get_user_stack_info()
             merged_attributes = {**stack_info, **attributes}
 
