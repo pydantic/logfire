@@ -62,7 +62,7 @@ If you are seeing Image pull issues on your logfire pods, make sure you have:
 
 ## ff-conhash-cache errors
 
-If you see errors on your conhash-cache pods, possibly ```ERROR panic: Failed to build listeners```
+If you see errors on your conhash-cache pods that look like ```ERROR panic: Failed to build listeners``` or some message like ```Address family not supported by protocol```
 
 This might be due to your hosts having IPv6 disabled.
 To fix this, you can add the following to your values file
@@ -73,7 +73,7 @@ logfire-ff-conhash-cache:
       value: "0.0.0.0"
 ```
 
-Which will make the cache bind only to the IPv4 interface.
+Which will make the cache pod bind only to the IPv4 interface and fix the issue.
 
 ## Troubleshooting and support
 
