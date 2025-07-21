@@ -2,14 +2,6 @@
 
 There are occasions when you need to troubleshoot the installation.  Since Logfire sends its own internal logs to the `logfire-meta` organisation, this is a good place to start.
 
-## ErrImagePull / ImagePullBackOff
-
-If you are seeing Image pull issues on your logfire pods, make sure you have:
-
-* Created the required Image Pull Secret as described at the [Installation](./installation.md#image-pull-secrets_1) section
-* You set the right secret name at `Values.imagePullSecrets`
-* Both secret and the release are installed on the same namespace
-
 ## Accessing the Meta Organization
 
 Logfire will send internal traces to a meta organisation that is created upon first install.   This meta organisation is helpful in troubleshooting any issues that might arise when running Logfire.
@@ -59,3 +51,37 @@ One quick thing to check is the console logs involved in those services.  Here a
  ```
  kubectl logs -n logfire deployments/logfire-ff-query-api
  ```
+
+## ErrImagePull / ImagePullBackOff
+
+If you are seeing Image pull issues on your logfire pods, make sure you have:
+
+* Created the required Image Pull Secret as described at the [Installation](./installation.md#image-pull-secrets_1) section
+* You set the right secret name at `Values.imagePullSecrets`
+* Both secret and the release are installed on the same namespace
+
+## ff-conhash-cache errors
+
+If you see errors on your conhash-cache pods, possibly ```ERROR panic: Failed to build listeners```
+
+This might be due to your hosts having IPv6 disabled.
+To fix this, you can add the following to your values file
+```
+logfire-ff-conhash-cache:
+  env:
+    - name: HOST
+      value: "0.0.0.0"
+```
+
+Which will make the cache bind only to the IPv4 interface.
+
+## Troubleshooting and support
+
+If this page didn't help, please open a detailed issue on [Github](https://github.com/pydantic/logfire-helm-chart/issues), including:
+
+* Chart version
+* Kubernetes version
+* A sanitized copy of your ```values.yaml```
+* Relevant logs or error messages
+
+For commercial or enterprise support, contact [our sales team](mailto:sales@pydantic.dev).
