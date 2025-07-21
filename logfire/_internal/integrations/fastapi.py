@@ -88,7 +88,7 @@ def instrument_fastapi(
         FastAPIInstrumentor().instrument(**opentelemetry_kwargs)
 
         @contextmanager
-        def uninstrument_context():
+        def uninstrument_context():  # pragma: no cover
             yield
             FastAPIInstrumentor().uninstrument()
 
