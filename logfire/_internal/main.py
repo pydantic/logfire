@@ -673,6 +673,11 @@ class Logfire:
             console_log: Whether to log to the console, defaults to `True`.
         """
         with handle_internal_errors:
+            level_attributes = log_level_attributes(level)
+            [level_num] = level_attributes.values()
+            if level_num < self.config.min_level:
+                return
+
             stack_info = get_user_stack_info()
 
             attributes = attributes or {}
@@ -706,7 +711,7 @@ class Logfire:
             otlp_attributes = prepare_otlp_attributes(merged_attributes)
             otlp_attributes = {
                 ATTRIBUTES_SPAN_TYPE_KEY: 'log',
-                **log_level_attributes(level),
+                **level_attributes,
                 ATTRIBUTES_MESSAGE_TEMPLATE_KEY: msg_template,
                 ATTRIBUTES_MESSAGE_KEY: msg,
                 **otlp_attributes,

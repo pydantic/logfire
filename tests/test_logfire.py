@@ -3420,3 +3420,14 @@ def test_start_end_attach_detach(exporter: TestExporter, caplog: pytest.LogCaptu
             },
         ]
     )
+
+
+def test_min_level(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
+    config_kwargs['min_level'] = 'info'
+    logfire.configure(**config_kwargs)
+
+    logfire.debug('debug message')
+    logfire.info('info message')
+    logfire.warn('warn message')
+
+    assert [span.name for span in exporter.exported_spans] == ['info message', 'warn message']
