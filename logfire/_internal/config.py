@@ -1079,6 +1079,7 @@ class LogfireConfig(_LogfireConfigData):
                 self._logger_provider.shutdown()
 
             self._logger_provider.set_provider(logger_provider)
+            self._logger_provider.set_min_level(self.min_level)
 
             if self is GLOBAL_CONFIG and not self._has_set_providers:
                 self._has_set_providers = True

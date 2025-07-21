@@ -23,6 +23,7 @@ class ProxyLoggerProvider(LoggerProvider):
     loggers: WeakSet[ProxyLogger] = dataclasses.field(default_factory=WeakSet)  # type: ignore[reportUnknownVariableType]
     lock: Lock = dataclasses.field(default_factory=Lock)
     suppressed_scopes: set[str] = dataclasses.field(default_factory=set)  # type: ignore[reportUnknownVariableType]
+    min_level: int = 0
 
     def get_logger(
         self,
@@ -37,9 +38,15 @@ class ProxyLoggerProvider(LoggerProvider):
             else:
                 provider = self.provider
             inner_logger = provider.get_logger(name, version, schema_url, attributes)
-            logger = ProxyLogger(inner_logger, name, version, schema_url, attributes)
+            logger = ProxyLogger(inner_logger, self.min_level, name, version, schema_url, attributes)
             self.loggers.add(logger)
             return logger
+
+    def set_min_level(self, min_level: int) -> None:
+        with self.lock:
+            self.min_level = min_level
+            for logger in self.loggers:
+                logger.min_level = min_level
 
     def suppress_scopes(self, *scopes: str) -> None:
         with self.lock:
@@ -78,12 +85,16 @@ class ProxyLoggerProvider(LoggerProvider):
 @dataclass(eq=False)
 class ProxyLogger(Logger):
     logger: Logger
+    min_level: int
     name: str
     version: str | None = None
     schema_url: str | None = None
     attributes: _ExtendedAttributes | None = None
 
     def emit(self, record: LogRecord) -> None:
+        if record.severity_number and record.severity_number.value < self.min_level:
+            return
+
         if not record.trace_id:
             span_context = trace.get_current_span().get_span_context()
             record.trace_id = span_context.trace_id
