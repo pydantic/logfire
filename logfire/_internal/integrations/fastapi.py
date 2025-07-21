@@ -77,16 +77,15 @@ def instrument_fastapi(
 
     maybe_capture_server_headers(capture_headers)
     opentelemetry_kwargs = {
+        'excluded_urls': excluded_urls,
+        'server_request_hook': _server_request_hook(opentelemetry_kwargs.pop('server_request_hook', None)),
         'tracer_provider': tweak_asgi_spans_tracer_provider(logfire_instance, record_send_receive),
         'meter_provider': logfire_instance.config.get_meter_provider(),
         **opentelemetry_kwargs,
     }
+
     if app is None:
-        FastAPIInstrumentor().instrument(
-            excluded_urls=excluded_urls,
-            server_request_hook=_server_request_hook(opentelemetry_kwargs.pop('server_request_hook', None)),
-            **opentelemetry_kwargs,
-        )
+        FastAPIInstrumentor().instrument(**opentelemetry_kwargs)
 
         @contextmanager
         def uninstrument_context():
@@ -95,12 +94,7 @@ def instrument_fastapi(
 
         return uninstrument_context()
     else:
-        FastAPIInstrumentor.instrument_app(
-            app,
-            excluded_urls=excluded_urls,
-            server_request_hook=_server_request_hook(opentelemetry_kwargs.pop('server_request_hook', None)),
-            **opentelemetry_kwargs,
-        )
+        FastAPIInstrumentor.instrument_app(app, **opentelemetry_kwargs)
 
         registry = patch_fastapi()
         if app in registry:  # pragma: no cover

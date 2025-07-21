@@ -172,6 +172,8 @@ def instrument_packages(installed_otel_packages: set[str], instrument_pkg_map: d
 def instrument_package(import_name: str):
     instrument_attr = f'instrument_{import_name}'
 
+    # On those packages, the public `logfire.instrument_<package>` function needs to receive the app object.
+    # But the internal function doesn't need it.
     if import_name in ('starlette', 'fastapi', 'flask'):
         module = importlib.import_module(f'logfire._internal.integrations.{import_name}')
         getattr(module, instrument_attr)(logfire.DEFAULT_LOGFIRE_INSTANCE)
