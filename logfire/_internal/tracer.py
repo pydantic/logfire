@@ -27,6 +27,7 @@ from opentelemetry.trace.status import Status, StatusCode
 from opentelemetry.util import types as otel_types
 
 from .constants import (
+    ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY,
     ATTRIBUTES_MESSAGE_KEY,
     ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY,
     ATTRIBUTES_SAMPLE_RATE_KEY,
@@ -34,7 +35,7 @@ from .constants import (
     ATTRIBUTES_VALIDATION_ERROR_KEY,
     log_level_attributes,
 )
-from .utils import handle_internal_errors
+from .utils import canonicalize_exception_traceback, handle_internal_errors, sha256_string
 
 if TYPE_CHECKING:
     from .config import LogfireConfig
@@ -429,6 +430,7 @@ def record_exception(
         stacktrace = ''.join(traceback.format_exception(type(exception), exception, exception.__traceback__))
         attributes['exception.stacktrace'] = stacktrace
 
+    span.set_attribute(ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY, sha256_string(canonicalize_exception_traceback(exception)))
     span.record_exception(exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
 
 

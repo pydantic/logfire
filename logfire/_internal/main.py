@@ -1027,6 +1027,7 @@ class Logfire:
         | None = None,
         excluded_urls: str | Iterable[str] | None = None,
         record_send_receive: bool = False,
+        extra_spans: bool = True,
         **opentelemetry_kwargs: Any,
     ) -> AbstractContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.
@@ -1061,6 +1062,7 @@ class Logfire:
                 These are disabled by default to reduce overhead and the number of spans created,
                 since many can be created for a single request, and they are not often useful.
                 If enabled, they will be set to debug level, meaning they will usually still be hidden in the UI.
+            extra_spans: Whether to include the extra 'FastAPI arguments' and 'endpoint function' spans.
             opentelemetry_kwargs: Additional keyword arguments to pass to the OpenTelemetry FastAPI instrumentation.
 
         Returns:
@@ -1080,6 +1082,7 @@ class Logfire:
             request_attributes_mapper=request_attributes_mapper,
             excluded_urls=excluded_urls,
             record_send_receive=record_send_receive,
+            extra_spans=extra_spans,
             **opentelemetry_kwargs,
         )
 

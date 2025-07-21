@@ -14,7 +14,7 @@ os.environ['OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT'] = 'true'
 os.environ.setdefault('GOOGLE_API_KEY', 'foo')
 
 
-@pytest.mark.skipif(get_version(pydantic.__version__) < get_version('2.6.0'), reason='Requires newer pydantic version')
+@pytest.mark.skipif(get_version(pydantic.__version__) < get_version('2.7.0'), reason='Requires newer pydantic version')
 @pytest.mark.skipif(
     sys.version_info < (3, 10), reason='Python 3.9 produces ResourceWarnings unrelated to the instrumentation'
 )

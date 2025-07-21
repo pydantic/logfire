@@ -17,6 +17,10 @@ from requests import RequestException, Response
 from types import TracebackType
 from typing import Any, Callable, ParamSpec, TypeVar, TypedDict
 
+_ = BaseExceptionGroup
+
+class BaseExceptionGroup(BaseException):
+    """Stub for BaseExceptionGroup for Python < 3.11."""
 SysExcInfo = tuple[type[BaseException], BaseException, TracebackType | None] | tuple[None, None, None]
 P = ParamSpec('P')
 T = TypeVar('T')
@@ -125,3 +129,15 @@ def platform_is_emscripten() -> bool:
 
     Threads cannot be created on Emscripten, so we need to avoid any code that creates threads.
     """
+def canonicalize_exception_traceback(exc: BaseException) -> str:
+    """Return a canonical string representation of an exception traceback.
+
+    Exceptions with the same representation are considered the same for fingerprinting purposes.
+    The source line is used, but not the line number, so that changes elsewhere in a file are irrelevant.
+    The module is used instead of the filename.
+    The same line appearing multiple times in a stack is ignored.
+    Exception group sub-exceptions are sorted and deduplicated.
+    If the exception has a cause or (not suppressed) context, it is included in the representation.
+    Cause and context are treated as different.
+    """
+def sha256_string(s: str) -> str: ...
