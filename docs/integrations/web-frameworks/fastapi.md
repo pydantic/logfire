@@ -89,7 +89,7 @@ logfire.instrument_fastapi(app, request_attributes_mapper=request_attributes_map
     The [`request_attributes_mapper`][logfire.Logfire.instrument_fastapi(request_attributes_mapper)] function mustn't mutate the
     contents of `values` or `errors`, but it can safely replace them with new values.
 
-## Extra timestamps
+## Timestamps of argument parsing and endpoint execution
 
 [`logfire.instrument_fastapi()`][logfire.Logfire.instrument_fastapi] also adds the following attributes to the request spans:
 
@@ -99,6 +99,13 @@ logfire.instrument_fastapi(app, request_attributes_mapper=request_attributes_map
 - The times when the actual endpoint function started and ended executing, leaving out the time spent on dependencies and middleware:
     - `fastapi.endpoint_function.start_timestamp`
     - `fastapi.endpoint_function.end_timestamp`
+
+## Spans for argument parsing and endpoint execution
+
+You can also enable spans for argument parsing and endpoint execution with `logfire.instrument_fastapi(app, extra_spans=True)`.
+The main request span will still have the attributes described above, but it will also have two extra child spans.
+This is mostly redundant now and is mainly provided for backwards compatibility.
+It can also be useful for grouping together child logs and spans produced by the request.
 
 [fastapi]: https://fastapi.tiangolo.com/
 [opentelemetry-asgi]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html
