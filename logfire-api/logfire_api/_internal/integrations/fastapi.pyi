@@ -15,7 +15,7 @@ from typing import Any, Callable
 
 def find_mounted_apps(app: FastAPI) -> list[FastAPI]:
     """Fetch all sub-apps mounted to a FastAPI app, including nested sub-apps."""
-def instrument_fastapi(logfire_instance: Logfire, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, excluded_urls: str | Iterable[str] | None = None, record_send_receive: bool = False, extra_spans: bool = True, **opentelemetry_kwargs: Any) -> AbstractContextManager[None]:
+def instrument_fastapi(logfire_instance: Logfire, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, excluded_urls: str | Iterable[str] | None = None, record_send_receive: bool = False, extra_spans: bool = False, **opentelemetry_kwargs: Any) -> AbstractContextManager[None]:
     """Instrument a FastAPI app so that spans and logs are automatically created for each request.
 
     See `Logfire.instrument_fastapi` for more details.
