@@ -53,12 +53,6 @@ MetricName: type[
         'process.memory.virtual',
         'process.thread.count',
         'process.runtime.gc_count',
-        # ##### These are deprecated:
-        'process.runtime.memory',
-        'process.runtime.cpu.time',
-        'process.runtime.thread_count',
-        'process.runtime.cpu.utilization',
-        'process.runtime.context_switches',
     ]
 ] = Literal[  # type: ignore  # but pyright doesn't like it
     'system.cpu.simple_utilization',
@@ -86,12 +80,6 @@ MetricName: type[
     'process.memory.virtual',
     'process.thread.count',
     'process.runtime.gc_count',
-    # ##### These are deprecated:
-    'process.runtime.memory',
-    'process.runtime.cpu.time',
-    'process.runtime.thread_count',
-    'process.runtime.cpu.utilization',
-    'process.runtime.context_switches',
 ]
 
 Config = dict[MetricName, Optional[Iterable[str]]]
@@ -109,6 +97,7 @@ MEMORY_FIELDS: list[LiteralString] = 'available used free active inactive buffer
 FULL_CONFIG: Config = {
     **cast(Config, _DEFAULT_CONFIG),
     'system.cpu.simple_utilization': None,
+    'process.cpu.utilization': None,
     'process.cpu.core_utilization': None,
     'system.cpu.time': CPU_FIELDS,
     'system.cpu.utilization': CPU_FIELDS,
@@ -125,8 +114,17 @@ if sys.platform == 'darwin':  # pragma: no cover
     # upstream pr: https://github.com/open-telemetry/opentelemetry-python-contrib/pull/2008
     FULL_CONFIG.pop('system.network.connections', None)
 
+for _deprecated in [
+    'process.runtime.memory',
+    'process.runtime.cpu.time',
+    'process.runtime.thread_count',
+    'process.runtime.cpu.utilization',
+    'process.runtime.context_switches',
+]:
+    FULL_CONFIG.pop(_deprecated, None)  # type: ignore
+
 BASIC_CONFIG: Config = {
-    'process.runtime.cpu.utilization': None,
+    'process.cpu.utilization': None,
     'system.cpu.simple_utilization': None,
     # The actually used memory ratio can be calculated as `1 - available`.
     'system.memory.utilization': ['available'],
@@ -156,10 +154,11 @@ def instrument_system_metrics(logfire_instance: Logfire, config: Config | None =
     if 'process.cpu.core_utilization' in config:
         measure_process_cpu_core_utilization(logfire_instance)
 
-    if 'process.runtime.cpu.utilization' in config:
+    if 'process.runtime.cpu.utilization' in config:  # type: ignore
         # Override OTEL here, see comment in measure_process_runtime_cpu_utilization.<locals>.callback.
+        # (The name is also deprecated by OTEL, but that's not really important)
         measure_process_runtime_cpu_utilization(logfire_instance)
-        del config['process.runtime.cpu.utilization']
+        del config['process.runtime.cpu.utilization']  # type: ignore
 
     if 'process.cpu.utilization' in config:
         # Override OTEL here to avoid emitting 0 in the first measurement.
