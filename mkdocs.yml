@@ -176,6 +176,7 @@ nav:
           - Installation: reference/self-hosted/installation.md
           - Scaling: reference/self-hosted/scaling.md
           - Troubleshooting: reference/self-hosted/troubleshooting.md
+          - Examples: reference/self-hosted/examples.md
       - SDK CLI: reference/cli.md
       - SDK API:
           - Logfire: reference/api/logfire.md
