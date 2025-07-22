@@ -65,21 +65,20 @@ def test_otel_logs_supress_scopes(logs_exporter: InMemoryLogExporter, config_kwa
 
 
 def test_otel_logs_min_level(config_kwargs: dict[str, Any]) -> None:
-    record = LogRecord(
-        timestamp=1,
-        observed_timestamp=2,
-        severity_number=SeverityNumber.DEBUG,
-        body='body',
-        attributes={'key': 'value'},
-    )
     logs_exporter = InMemoryLogExporter()
     config_kwargs['min_level'] = 'error'
     config_kwargs['advanced'].log_record_processors = [SimpleLogRecordProcessor(logs_exporter)]
     logfire.configure(**config_kwargs)
 
-    logger1 = get_logger('scope')
-    logger1.emit(record)
-    assert not logs_exporter.get_finished_logs()
+    logger = get_logger('scope')
+    logger.emit(LogRecord(severity_number=SeverityNumber.DEBUG))
+    logger.emit(LogRecord(severity_number=SeverityNumber.INFO))
+    logger.emit(LogRecord(severity_number=SeverityNumber.ERROR))
+    logger.emit(LogRecord(severity_number=SeverityNumber.FATAL))
+    assert [log.log_record.severity_number for log in logs_exporter.get_finished_logs()] == [
+        SeverityNumber.ERROR,
+        SeverityNumber.FATAL,
+    ]
 
 
 def test_get_logger_provider() -> None:
