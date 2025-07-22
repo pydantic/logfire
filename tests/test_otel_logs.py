@@ -72,9 +72,9 @@ def test_otel_logs_min_level(config_kwargs: dict[str, Any]) -> None:
 
     logger = get_logger('scope')
     logger.emit(LogRecord(severity_number=SeverityNumber.DEBUG))
-    logger.emit(LogRecord(severity_number=SeverityNumber.INFO))
+    logger.emit(LogRecord(severity_text='info'))
     logger.emit(LogRecord(severity_number=SeverityNumber.ERROR))
-    logger.emit(LogRecord(severity_number=SeverityNumber.FATAL))
+    logger.emit(LogRecord(severity_text='FATAL'))
     assert [log.log_record.severity_number for log in logs_exporter.get_finished_logs()] == [
         SeverityNumber.ERROR,
         SeverityNumber.FATAL,

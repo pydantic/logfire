@@ -8,7 +8,9 @@ from typing import TYPE_CHECKING, Any
 from weakref import WeakSet
 
 from opentelemetry import trace
-from opentelemetry._logs import Logger, LoggerProvider, LogRecord, NoOpLoggerProvider
+from opentelemetry._logs import Logger, LoggerProvider, LogRecord, NoOpLoggerProvider, SeverityNumber
+
+from logfire._internal.constants import LEVEL_NUMBERS
 
 if TYPE_CHECKING:
     from opentelemetry.util.types import _ExtendedAttributes  # type: ignore
@@ -92,8 +94,15 @@ class ProxyLogger(Logger):
     attributes: _ExtendedAttributes | None = None
 
     def emit(self, record: LogRecord) -> None:
-        if record.severity_number and record.severity_number.value < self.min_level:
-            return
+        if record.severity_number:
+            if record.severity_number.value < self.min_level:
+                return
+        elif record.severity_text:
+            level_number = LEVEL_NUMBERS.get(record.severity_text.lower())  # type: ignore
+            if level_number:
+                if level_number < self.min_level:
+                    return
+                record.severity_number = SeverityNumber(level_number)
 
         if not record.trace_id:
             span_context = trace.get_current_span().get_span_context()
