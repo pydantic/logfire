@@ -1,5 +1,12 @@
 # Release Notes
 
+## [v4.0.0] (2025-07-22)
+
+**BREAKING CHANGES**:
+
+* Remove extra FastAPI spans by default by @alexmojaki in [#1268](https://github.com/pydantic/logfire/pull/1268)
+* Stop implicitly emitting deprecated process runtime metrics by @alexmojaki in [#932](https://github.com/pydantic/logfire/pull/932)
+
 ## [v3.25.0] (2025-07-18)
 
 * Use local timezone in console logging by @fswair in [#1255](https://github.com/pydantic/logfire/pull/1255)
@@ -801,3 +808,4 @@ First release from new repo!
 [v3.24.1]: https://github.com/pydantic/logfire/compare/v3.24.0...v3.24.1
 [v3.24.2]: https://github.com/pydantic/logfire/compare/v3.24.1...v3.24.2
 [v3.25.0]: https://github.com/pydantic/logfire/compare/v3.24.2...v3.25.0
+[v4.0.0]: https://github.com/pydantic/logfire/compare/v3.25.0...v4.0.0
