@@ -432,7 +432,7 @@ class Logfire:
     def instrument_pydantic_ai(self, obj: pydantic_ai.Agent | None = None, /, *, event_mode: Literal['attributes', 'logs'] = 'attributes', include_binary_content: bool | None = None, **kwargs: Any) -> None: ...
     @overload
     def instrument_pydantic_ai(self, obj: pydantic_ai.models.Model, /, *, event_mode: Literal['attributes', 'logs'] = 'attributes', include_binary_content: bool | None = None, **kwargs: Any) -> pydantic_ai.models.Model: ...
-    def instrument_fastapi(self, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, excluded_urls: str | Iterable[str] | None = None, record_send_receive: bool = False, **opentelemetry_kwargs: Any) -> AbstractContextManager[None]:
+    def instrument_fastapi(self, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, excluded_urls: str | Iterable[str] | None = None, record_send_receive: bool = False, extra_spans: bool = True, **opentelemetry_kwargs: Any) -> AbstractContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.
 
         Uses the [OpenTelemetry FastAPI Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html)
@@ -465,6 +465,7 @@ class Logfire:
                 These are disabled by default to reduce overhead and the number of spans created,
                 since many can be created for a single request, and they are not often useful.
                 If enabled, they will be set to debug level, meaning they will usually still be hidden in the UI.
+            extra_spans: Whether to include the extra 'FastAPI arguments' and 'endpoint function' spans.
             opentelemetry_kwargs: Additional keyword arguments to pass to the OpenTelemetry FastAPI instrumentation.
 
         Returns:

@@ -20,7 +20,8 @@ except (ImportError, AttributeError):
         assert False
 
 
-def test_instrument_pydantic_ai():
+@pytest.mark.anyio
+async def test_instrument_pydantic_ai():
     logfire_inst = logfire.configure(local=True)
 
     model = TestModel()
