@@ -250,14 +250,6 @@ The following methods exist for creating logs with different levels:
 - `logfire.error`
 - `logfire.fatal`
 
-You can set the minimum level used for console logging (`info` by default) with [`logfire.configure`][logfire.configure], e.g:
-
-```python
-import logfire
-
-logfire.configure(console=logfire.ConsoleOptions(min_log_level='debug'))
-```
-
 To log a message with a variable level you can use `logfire.log`, e.g. `logfire.log('info', 'This is an info log')` is equivalent to `logfire.info('This is an info log')`.
 
 Spans are level `info` by default. You can change this with the `_level` argument, e.g. `with logfire.span('This is a debug span', _level='debug'):`. You can also change the level after the span has started but before it's finished with [`span.set_level`][logfire.LogfireSpan.set_level], e.g:
@@ -270,3 +262,44 @@ with logfire.span('Doing a thing') as span:
 ```
 
 If a span finishes with an unhandled exception, then in addition to recording a traceback as described above, the span's log level will be set to `error`. This will not happen when using the [`span.record_exception`][logfire.LogfireSpan.record_exception] method.
+
+To skip creating logs/spans below a certain level, use the [`min_level`][logfire.configure(min_level)] argument to
+`logfire.configure`, e.g:
+
+```python
+import logfire
+
+logfire.configure(min_level='info')
+```
+
+For spans, this only applies when `_level` is explicitly specified in `logfire.span`.
+Setting the level after will be ignored by this.
+If a span is not created because of the minimum level, this has no effect on parents or children.
+For example, this code:
+
+```python
+import logfire
+
+logfire.configure(min_level='info')
+
+with logfire.span('root') as root:
+    root.set_level('debug')  # (1)!
+    with logfire.span('debug span excluded', _level='debug'):  # (2)!
+        logfire.info('info message')
+```
+
+1. This span has already been created with the default level of `info`, so `min_level` won't affect it.
+   It's also logged to the console because that happens at creation time.
+   But it will show in the Live view as having level `debug`.
+2. This span is not created because its level is below the minimum.
+   That makes this line a complete no-op.
+
+creates, logs, and sends the `root` span and the `info message` log, with the log being a direct child of the span.
+
+To set the minimum level for console logging only (`info` by default):
+
+```python
+import logfire
+
+logfire.configure(console=logfire.ConsoleOptions(min_log_level='debug'))
+```

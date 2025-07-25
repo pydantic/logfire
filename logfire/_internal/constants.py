@@ -4,7 +4,6 @@ import warnings
 from typing import Literal
 
 from opentelemetry.context import create_key
-from opentelemetry.util import types as otel_types
 
 LOGFIRE_ATTRIBUTES_NAMESPACE = 'logfire'
 """Namespace within OTEL attributes used by logfire."""
@@ -90,7 +89,7 @@ ATTRIBUTES_LOG_LEVEL_NUM_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.level_num'
 
 
 # This is in this file to encourage using it instead of setting these attributes manually.
-def log_level_attributes(level: LevelName | int) -> dict[str, otel_types.AttributeValue]:
+def log_level_attributes(level: LevelName | int) -> dict[str, int]:
     if isinstance(level, str):
         if level not in LEVEL_NUMBERS:
             warnings.warn(f'Invalid log level name: {level!r}')
