@@ -325,9 +325,8 @@ def configure(  # noqa: D417
         min_level:
             Minimum log level for logs and spans to be created. By default, all logs and spans are created.
             For example, set to 'info' to only create logs with level 'info' or higher, thus filtering out debug logs.
-            For spans, this only applies when they are first created, so setting the level after will be ignored by this.
-            Since spans themselves have level 'info' by default, it's highly discouraged to set this to a level higher than 'info',
-            since that means most or all spans will be filtered out.
+            For spans, this only applies when `_level` is explicitly specified in `logfire.span`.
+            Setting the level after will be ignored by this.
             If a span is not created, this has no effect on the current active span, or on logs/spans created inside the
             filtered `logfire.span` context manager.
             If set to `None`, uses the `LOGFIRE_MIN_LEVEL` environment variable.

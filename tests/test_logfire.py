@@ -3423,7 +3423,7 @@ def test_start_end_attach_detach(exporter: TestExporter, caplog: pytest.LogCaptu
 
 
 def test_min_level(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
-    config_kwargs['min_level'] = 'info'
+    config_kwargs['min_level'] = 'notice'
     logfire.configure(**config_kwargs)
 
     with logfire.span('default span') as span:
@@ -3433,10 +3433,10 @@ def test_min_level(exporter: TestExporter, config_kwargs: dict[str, Any]) -> Non
             warning_span.set_level('trace')
             logfire.debug('debug message')
         with logfire.span('debug span', _level='debug') as debug_span:
-            logfire.info('info message')
+            logfire.notice('notice message')
             debug_span.set_level('error')
         logfire.warn('warn message')
 
     assert [span['name'] for span in exporter.exported_spans_as_dict()] == snapshot(
-        ['warning span', 'info message', 'warn message', 'default span']
+        ['warning span', 'notice message', 'warn message', 'default span']
     )
