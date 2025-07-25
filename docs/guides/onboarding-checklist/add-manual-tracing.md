@@ -272,6 +272,30 @@ import logfire
 logfire.configure(min_level='info')
 ```
 
+For spans, this only applies when `_level` is explicitly specified in `logfire.span`.
+Setting the level after will be ignored by this.
+If a span is not created because of the minimum level, this has no effect on parents or children.
+For example, this code:
+
+```python
+import logfire
+
+logfire.configure(min_level='info')
+
+with logfire.span('root') as root:
+    root.set_level('debug')  # (1)!
+    with logfire.span('debug span excluded', _level='debug'):  # (2)!
+        logfire.info('info message')
+```
+
+1. This span has already been created with the default level of `info`, so `min_level` won't affect it.
+   It's also logged to the console because that happens at creation time.
+   But it will show in the Live view as having level `debug`.
+2. This span is not created because its level is below the minimum.
+   That makes this line a complete no-op.
+
+creates, logs, and sends the `root` span and the `info message` log, with the log being a direct child of the span.
+
 To set the minimum level for console logging only (`info` by default):
 
 ```python
