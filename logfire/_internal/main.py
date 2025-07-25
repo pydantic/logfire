@@ -184,6 +184,8 @@ class Logfire:
                 [level_num] = level_attributes.values()
                 if level_num < self.config.min_level:
                     return NoopSpan()  # type: ignore
+            else:
+                level_attributes = None
 
             stack_info = get_user_stack_info()
             merged_attributes = {**stack_info, **attributes}
@@ -221,8 +223,8 @@ class Logfire:
             if sample_rate is not None and sample_rate != 1:  # pragma: no cover
                 otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
 
-            if _level is not None:
-                otlp_attributes.update(log_level_attributes(_level))
+            if level_attributes is not None:
+                otlp_attributes.update(level_attributes)
 
             return LogfireSpan(
                 _span_name or msg_template,
