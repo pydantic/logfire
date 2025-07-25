@@ -75,10 +75,16 @@ def test_otel_logs_min_level(config_kwargs: dict[str, Any]) -> None:
     logger.emit(LogRecord(severity_text='info'))
     logger.emit(LogRecord(severity_number=SeverityNumber.ERROR))
     logger.emit(LogRecord(severity_text='FATAL'))
-    assert [log.log_record.severity_number for log in logs_exporter.get_finished_logs()] == [
-        SeverityNumber.ERROR,
-        SeverityNumber.FATAL,
-    ]
+    logger.emit(LogRecord(severity_text='unknown'))
+    assert [
+        (log.log_record.severity_number, log.log_record.severity_text) for log in logs_exporter.get_finished_logs()
+    ] == snapshot(
+        [
+            (SeverityNumber.ERROR, None),
+            (SeverityNumber.FATAL, 'FATAL'),
+            (None, 'unknown'),
+        ]
+    )
 
 
 def test_get_logger_provider() -> None:
