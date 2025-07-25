@@ -1046,7 +1046,7 @@ class Logfire:
         | None = None,
         excluded_urls: str | Iterable[str] | None = None,
         record_send_receive: bool = False,
-        extra_spans: bool = True,
+        extra_spans: bool = False,
         **opentelemetry_kwargs: Any,
     ) -> AbstractContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.
