@@ -181,7 +181,7 @@ class Logfire:
         try:
             if _level is not None:
                 level_attributes = log_level_attributes(_level)
-                [level_num] = level_attributes.values()
+                level_num = level_attributes[ATTRIBUTES_LOG_LEVEL_NUM_KEY]
                 if level_num < self.config.min_level:
                     return NoopSpan()  # type: ignore
             else:
@@ -682,7 +682,7 @@ class Logfire:
         """
         with handle_internal_errors:
             level_attributes = log_level_attributes(level)
-            [level_num] = level_attributes.values()
+            level_num = level_attributes[ATTRIBUTES_LOG_LEVEL_NUM_KEY]
             if level_num < self.config.min_level:
                 return
 
