@@ -250,14 +250,6 @@ The following methods exist for creating logs with different levels:
 - `logfire.error`
 - `logfire.fatal`
 
-You can set the minimum level used for console logging (`info` by default) with [`logfire.configure`][logfire.configure], e.g:
-
-```python
-import logfire
-
-logfire.configure(console=logfire.ConsoleOptions(min_log_level='debug'))
-```
-
 To log a message with a variable level you can use `logfire.log`, e.g. `logfire.log('info', 'This is an info log')` is equivalent to `logfire.info('This is an info log')`.
 
 Spans are level `info` by default. You can change this with the `_level` argument, e.g. `with logfire.span('This is a debug span', _level='debug'):`. You can also change the level after the span has started but before it's finished with [`span.set_level`][logfire.LogfireSpan.set_level], e.g:
@@ -270,3 +262,20 @@ with logfire.span('Doing a thing') as span:
 ```
 
 If a span finishes with an unhandled exception, then in addition to recording a traceback as described above, the span's log level will be set to `error`. This will not happen when using the [`span.record_exception`][logfire.LogfireSpan.record_exception] method.
+
+To skip creating logs/spans below a certain level, use the [`min_level`][logfire.configure(min_level)] argument to
+`logfire.configure`, e.g:
+
+```python
+import logfire
+
+logfire.configure(min_level='info')
+```
+
+To set the minimum level for console logging only (`info` by default):
+
+```python
+import logfire
+
+logfire.configure(console=logfire.ConsoleOptions(min_log_level='debug'))
+```
