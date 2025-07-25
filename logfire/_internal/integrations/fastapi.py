@@ -295,6 +295,9 @@ class FastAPIInstrumentation:
                 **{'http.route': request.scope['route'].path},
                 **stack_info,
             )
+            # This span is level debug mostly for legacy reasons.
+            # We set the level after starting so that it's not excluded by the min_level setting,
+            # since this span is requested explicitly.
             extra_span.set_level('debug')
         else:
             extra_span = NoopSpan()
