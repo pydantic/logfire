@@ -94,15 +94,15 @@ class ProxyLogger(Logger):
     attributes: _ExtendedAttributes | None = None
 
     def emit(self, record: LogRecord) -> None:
-        if record.severity_number:
+        if record.severity_number is not None:
             if record.severity_number.value < self.min_level:
                 return
-        elif record.severity_text:
-            level_number = LEVEL_NUMBERS.get(record.severity_text.lower())  # type: ignore
-            if level_number:
-                if level_number < self.min_level:
-                    return
-                record.severity_number = SeverityNumber(level_number)
+        elif record.severity_text and (level_name := record.severity_text.lower()) in LEVEL_NUMBERS:
+            level_number = LEVEL_NUMBERS[level_name]
+            if level_number < self.min_level:
+                return
+            # record.severity_number is known to be None here, so we can safely set it
+            record.severity_number = SeverityNumber(level_number)
 
         if not record.trace_id:
             span_context = trace.get_current_span().get_span_context()
