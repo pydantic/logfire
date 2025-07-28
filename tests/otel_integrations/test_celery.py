@@ -7,7 +7,7 @@ import pytest
 from celery import Celery
 from celery.contrib.testing.worker import start_worker
 from celery.worker.worker import WorkController
-from dirty_equals import IsStr
+from dirty_equals import IsInt, IsStr
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.celery import CeleryInstrumentor
 from testcontainers.redis import RedisContainer
@@ -58,56 +58,62 @@ def celery_worker(celery_app: Celery) -> Iterator[WorkController]:
 
 
 def test_instrument_celery(celery_app: Celery, exporter: TestExporter) -> None:
-    # Send and wait for the task to be executed
-    result = celery_app.send_task('tasks.say_hello')  # type: ignore
-    value = result.get(timeout=10)  # type: ignore
-    assert value == 'hello'
+    with logfire.span('trace'):
+        for _ in range(3):
+            exporter.clear()
+            # Send and wait for the task to be executed
+            result = celery_app.send_task('tasks.say_hello')  # type: ignore
+            value = result.get(timeout=10)  # type: ignore
+            assert value == 'hello'
 
-    # There are two spans:
-    # 1. Trigger the task with `send_task`.
-    # 2. Run the task.
-    spans = exporter.exported_spans_as_dict()
-    assert spans[0] == snapshot(
-        {
-            'name': 'apply_async/tasks.say_hello',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 2000000000,
-            'attributes': {
-                'logfire.span_type': 'span',
-                'logfire.msg': 'apply_async/tasks.say_hello',
-                'celery.action': 'apply_async',
-                'messaging.message.id': IsStr(),
-                'celery.task_name': 'tasks.say_hello',
-                'messaging.destination_kind': 'queue',
-                'messaging.destination': 'celery',
-            },
-        }
-    )
-    # The second span is a bit flaky.
-    # TODO: Actually solve the problem.
-    assert len(spans) in (1, 2)
-    if len(spans) == 2:
-        assert spans[1] == snapshot(
-            {
-                'name': 'run/tasks.say_hello',
-                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': True},
-                'start_time': 3000000000,
-                'end_time': 4000000000,
-                'attributes': {
-                    'logfire.span_type': 'span',
-                    'logfire.msg': 'run/tasks.say_hello',
-                    'celery.action': 'run',
-                    'celery.state': 'SUCCESS',
-                    'messaging.conversation_id': IsStr(),
-                    'messaging.destination': 'celery',
-                    'celery.delivery_info': "{'exchange': '', 'routing_key': 'celery', 'priority': 0, 'redelivered': False}",
-                    'messaging.message.id': IsStr(),
-                    'celery.reply_to': IsStr(),
-                    'celery.hostname': IsStr(),
-                    'celery.task_name': 'tasks.say_hello',
-                },
-            },
-        )
+            # There are two spans:
+            # 1. Trigger the task with `send_task`.
+            # 2. Run the task.
+            spans = exporter.exported_spans_as_dict()
+            assert spans[0] == snapshot(
+                {
+                    'name': 'apply_async/tasks.say_hello',
+                    'context': {'trace_id': 1, 'span_id': IsInt(), 'is_remote': False},
+                    'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                    'start_time': IsInt(),
+                    'end_time': IsInt(),
+                    'attributes': {
+                        'logfire.span_type': 'span',
+                        'logfire.msg': 'apply_async/tasks.say_hello',
+                        'celery.action': 'apply_async',
+                        'messaging.message.id': IsStr(),
+                        'celery.task_name': 'tasks.say_hello',
+                        'messaging.destination_kind': 'queue',
+                        'messaging.destination': 'celery',
+                    },
+                }
+            )
+            # The second span is a bit flaky.
+            # TODO: Actually solve the problem.
+            assert len(spans) in (1, 2)
+            if len(spans) == 2:
+                assert spans[1] == snapshot(
+                    {
+                        'name': 'run/tasks.say_hello',
+                        'context': {'trace_id': 1, 'span_id': IsInt(), 'is_remote': False},
+                        'parent': {'trace_id': 1, 'span_id': IsInt(), 'is_remote': True},
+                        'start_time': IsInt(),
+                        'end_time': IsInt(),
+                        'attributes': {
+                            'logfire.span_type': 'span',
+                            'logfire.msg': 'run/tasks.say_hello',
+                            'celery.action': 'run',
+                            'celery.state': 'SUCCESS',
+                            'messaging.conversation_id': IsStr(),
+                            'messaging.destination': 'celery',
+                            'celery.delivery_info': "{'exchange': '', 'routing_key': 'celery', 'priority': 0, 'redelivered': False}",
+                            'messaging.message.id': IsStr(),
+                            'celery.reply_to': IsStr(),
+                            'celery.hostname': IsStr(),
+                            'celery.task_name': 'tasks.say_hello',
+                        },
+                    },
+                )
+                break
+        else:
+            pytest.fail('No spans found for the task execution')
