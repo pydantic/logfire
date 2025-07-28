@@ -91,7 +91,7 @@ def test_instrument_celery(celery_app: Celery, exporter: TestExporter) -> None:
             # The second span is a bit flaky.
             # TODO: Actually solve the problem.
             assert len(spans) in (1, 2)
-            if len(spans) == 2:
+            if len(spans) == 2:  # pragma: no branch
                 assert spans[1] == snapshot(
                     {
                         'name': 'run/tasks.say_hello',
@@ -115,5 +115,5 @@ def test_instrument_celery(celery_app: Celery, exporter: TestExporter) -> None:
                     },
                 )
                 break
-        else:
+        else:  # pragma: no cover
             pytest.fail('No spans found for the task execution')
