@@ -229,7 +229,7 @@ __context__:
 builtins.ExceptionGroup
 ----
 tests.test_canonicalize_exception.test_cyclic_exception_group
-   raise ExceptionGroup('group', [ValueError('test')])
+   raise ExceptionGroup('group', [ValueError('test')])  # noqa
 
 <ExceptionGroup>
 
