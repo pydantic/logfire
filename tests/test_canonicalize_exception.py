@@ -178,3 +178,67 @@ def test_fingerprint_attribute(exporter: TestExporter):
     assert span.attributes[ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY] == snapshot(
         '3ca86c8642e26597ed1f2485859197fd294e17719e31b302b55246dab493ce83'
     )
+
+
+def test_cyclic_exception_cause():
+    try:
+        try:
+            raise ValueError('test')
+        except Exception as e:
+            raise e from e
+    except Exception as e2:
+        assert canonicalize_exception_traceback(e2) == snapshot("""\
+
+builtins.ValueError
+----
+tests.test_canonicalize_exception.test_cyclic_exception_cause
+   raise e from e
+tests.test_canonicalize_exception.test_cyclic_exception_cause
+   raise ValueError('test')
+
+__cause__:
+
+builtins.ValueError
+----
+tests.test_canonicalize_exception.test_cyclic_exception_cause
+   raise e from e
+tests.test_canonicalize_exception.test_cyclic_exception_cause
+   raise ValueError('test')
+
+<repeated exception>\
+""")
+
+
+@pytest.mark.skipif(sys.version_info < (3, 11), reason='ExceptionGroup is not available in Python < 3.11')
+def test_cyclic_exception_group():
+    try:
+        raise ExceptionGroup('group', [ValueError('test')])  # noqa
+    except ExceptionGroup as group:  # noqa
+        try:
+            raise group.exceptions[0]
+        except Exception as e:
+            assert canonicalize_exception_traceback(e) == snapshot("""\
+
+builtins.ValueError
+----
+tests.test_canonicalize_exception.test_cyclic_exception_group
+   raise group.exceptions[0]
+
+__context__:
+
+builtins.ExceptionGroup
+----
+tests.test_canonicalize_exception.test_cyclic_exception_group
+   raise ExceptionGroup('group', [ValueError('test')])
+
+<ExceptionGroup>
+
+builtins.ValueError
+----
+tests.test_canonicalize_exception.test_cyclic_exception_group
+   raise group.exceptions[0]
+
+<repeated exception>
+
+</ExceptionGroup>
+""")
