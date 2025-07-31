@@ -435,7 +435,7 @@ def platform_is_emscripten() -> bool:
     return platform.system().lower() == 'emscripten'
 
 
-def canonicalize_exception_traceback(exc: BaseException) -> str:
+def canonicalize_exception_traceback(exc: BaseException, seen: set[int] | None = None) -> str:
     """Return a canonical string representation of an exception traceback.
 
     Exceptions with the same representation are considered the same for fingerprinting purposes.
@@ -459,23 +459,28 @@ def canonicalize_exception_traceback(exc: BaseException) -> str:
                 if frame_summary not in visited:  # ignore repeated frames
                     visited.add(frame_summary)
                     parts.append(frame_summary)
-        if isinstance(exc, BaseExceptionGroup):
-            sub_exceptions: tuple[BaseException] = exc.exceptions  # type: ignore
-            parts += [
-                '\n<ExceptionGroup>',
-                *sorted({canonicalize_exception_traceback(nested_exc) for nested_exc in sub_exceptions}),
-                '\n</ExceptionGroup>\n',
-            ]
-        if exc.__cause__ is not None:
-            parts += [
-                '\n__cause__:',
-                canonicalize_exception_traceback(exc.__cause__),
-            ]
-        if exc.__context__ is not None and not exc.__suppress_context__:
-            parts += [
-                '\n__context__:',
-                canonicalize_exception_traceback(exc.__context__),
-            ]
+        seen = seen or set()
+        if id(exc) in seen:
+            parts.append('\n<repeated exception>')
+        else:
+            seen.add(id(exc))
+            if isinstance(exc, BaseExceptionGroup):
+                sub_exceptions: tuple[BaseException] = exc.exceptions  # type: ignore
+                parts += [
+                    '\n<ExceptionGroup>',
+                    *sorted({canonicalize_exception_traceback(nested_exc, seen) for nested_exc in sub_exceptions}),
+                    '\n</ExceptionGroup>\n',
+                ]
+            if exc.__cause__ is not None:
+                parts += [
+                    '\n__cause__:',
+                    canonicalize_exception_traceback(exc.__cause__, seen),
+                ]
+            if exc.__context__ is not None and not exc.__suppress_context__:
+                parts += [
+                    '\n__context__:',
+                    canonicalize_exception_traceback(exc.__context__, seen),
+                ]
         return '\n'.join(parts)
     except Exception:  # pragma: no cover
         log_internal_error()

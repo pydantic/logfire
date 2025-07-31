@@ -1,5 +1,6 @@
 import os
 
+import langgraph.warnings
 import pydantic
 import pytest
 from dirty_equals import IsPartialDict
@@ -26,7 +27,8 @@ def test_instrument_langchain(exporter: TestExporter):
         """Add two numbers."""
         return a + b
 
-    math_agent = create_react_agent(model='gpt-4o', tools=[add])  # pyright: ignore [reportUnknownVariableType]
+    with pytest.warns(langgraph.warnings.LangGraphDeprecatedSinceV10):
+        math_agent = create_react_agent(model='gpt-4o', tools=[add])  # pyright: ignore [reportUnknownVariableType]
 
     result = math_agent.invoke({'messages': [{'role': 'user', 'content': "what's 123 + 456?"}]})  # pyright: ignore
 
