@@ -326,10 +326,10 @@ def configure(  # noqa: D417
             Minimum log level for logs and spans to be created. By default, all logs and spans are created.
             For example, set to 'info' to only create logs with level 'info' or higher, thus filtering out debug logs.
             For spans, this only applies when `_level` is explicitly specified in `logfire.span`.
-            Setting the level after will be ignored by this.
+            Changing the level of a span _after_ it is created will be ignored by this.
             If a span is not created, this has no effect on the current active span, or on logs/spans created inside the
             filtered `logfire.span` context manager.
-            If set to `None`, uses the `LOGFIRE_MIN_LEVEL` environment variable.
+            If set to `None`, uses the `LOGFIRE_MIN_LEVEL` environment variable; if that is not set, there is no minimum level.
         sampling: Sampling options. See the [sampling guide](https://logfire.pydantic.dev/docs/guides/advanced/sampling/).
         add_baggage_to_attributes: Set to `False` to prevent OpenTelemetry Baggage from being added to spans as attributes.
             See the [Baggage documentation](https://logfire.pydantic.dev/docs/reference/advanced/baggage/) for more details.
