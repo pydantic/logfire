@@ -1,5 +1,10 @@
 # Release Notes
 
+## [v4.0.1] (2025-07-31)
+
+* Handle cyclic references in exceptions by @alexmojaki in [#1284](https://github.com/pydantic/logfire/pull/1284)
+* Support OpenTelemetry 1.36.0 by @alexmojaki in [#1285](https://github.com/pydantic/logfire/pull/1285)
+
 ## [v4.0.0] (2025-07-22)
 
 **BREAKING CHANGES**:
@@ -809,3 +814,4 @@ First release from new repo!
 [v3.24.2]: https://github.com/pydantic/logfire/compare/v3.24.1...v3.24.2
 [v3.25.0]: https://github.com/pydantic/logfire/compare/v3.24.2...v3.25.0
 [v4.0.0]: https://github.com/pydantic/logfire/compare/v3.25.0...v4.0.0
+[v4.0.1]: https://github.com/pydantic/logfire/compare/v4.0.0...v4.0.1
