@@ -5,6 +5,7 @@ import sys
 from contextlib import contextmanager, nullcontext
 from typing import Any, ContextManager, Literal, TYPE_CHECKING, Sequence
 from unittest.mock import MagicMock
+from opentelemetry.sdk.trace import ReadableSpan
 
 try:
     logfire_module = importlib.import_module('logfire')
@@ -19,8 +20,11 @@ except ImportError:
         def configure(*args, **kwargs): ...
 
         class LogfireSpan:
+            def __init__(self, *args, **kwargs):
+                self.readable_span = ReadableSpan(name='')
+
             def __getattr__(self, attr):
-                return MagicMock()  # pragma: no cover
+                return self.readable_span.attributes.get(attr) # pragma: no cover
 
             def __enter__(self):
                 return self
@@ -48,8 +52,12 @@ except ImportError:
             def is_recording(self) -> bool:  # pragma: no cover
                 return False
 
+            def set_attribute(self, key: str, value: Any) -> None: ... # pragma: no cover
+
             @property
-            def context(self): ...  # pragma: no cover
+            def instrumentation_info(self) -> None:
+                """__getattr__ raises a warning for instrumentation_info tho pytest.warns won't catch it."""
+                return self.readable_span.instrumentation_info
 
         class Logfire:
             def __getattr__(self, attr):
