@@ -56,7 +56,7 @@ except ImportError:
 
             @property
             def instrumentation_info(self) -> None:
-                """__getattr__ raises a warning for instrumentation_info tho pytest.warns won't catch it."""
+                """The concrete class raises a warning instrumentation_info as it is deprecated, __getattr__ wouldn't as it accesses the parent class directly."""
                 return self.readable_span.instrumentation_info
 
         class Logfire:
