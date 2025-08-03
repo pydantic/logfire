@@ -27,7 +27,7 @@ def test_default_system_metrics_collection(metrics_reader: InMemoryMetricReader)
     logfire.instrument_system_metrics()
     assert get_collected_metric_names(metrics_reader) == snapshot(
         [
-            'process.runtime.cpython.cpu.utilization',
+            'process.cpu.utilization',
             'system.cpu.simple_utilization',
             'system.memory.utilization',
             'system.swap.utilization',
@@ -46,12 +46,7 @@ def test_all_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> 
             'process.memory.usage',
             'process.memory.virtual',
             'process.open_file_descriptor.count',
-            'process.runtime.cpython.context_switches',
-            'process.runtime.cpython.cpu.utilization',
-            'process.runtime.cpython.cpu_time',
             'process.runtime.cpython.gc_count',
-            'process.runtime.cpython.memory',
-            'process.runtime.cpython.thread_count',
             'process.thread.count',
             'system.cpu.simple_utilization',
             'system.cpu.time',
@@ -70,6 +65,12 @@ def test_all_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> 
             'system.thread_count',
         ]
     )
+
+
+def test_measure_process_runtime_cpu_utilization(metrics_reader: InMemoryMetricReader) -> None:
+    # This metric is now deprecated by OTEL, but there isn't a strong reason to stop allowing it when requested
+    logfire.instrument_system_metrics({'process.runtime.cpu.utilization': None}, base=None)  # type: ignore
+    assert get_collected_metric_names(metrics_reader) == ['process.runtime.cpython.cpu.utilization']
 
 
 def test_custom_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> None:
@@ -92,7 +93,7 @@ def test_custom_system_metrics_collection(metrics_reader: InMemoryMetricReader) 
 
 def test_basic_base():
     assert get_base_config('basic') == {
-        'process.runtime.cpu.utilization': None,
+        'process.cpu.utilization': None,
         'system.cpu.simple_utilization': None,
         'system.memory.utilization': ['available'],
         'system.swap.utilization': ['used'],
@@ -158,16 +159,10 @@ def test_full_base():
         'process.memory.virtual': None,
         'process.cpu.time': ['user', 'system'],
         # There's no reason for OTel to give a value here, so the docs say `None`
-        'process.cpu.utilization': ['user', 'system'],
+        'process.cpu.utilization': None,
         'process.cpu.core_utilization': None,
         'process.thread.count': None,
         'process.context_switches': ['involuntary', 'voluntary'],
-        # These are deprecated:
-        'process.runtime.memory': ['rss', 'vms'],
-        'process.runtime.cpu.time': ['user', 'system'],
-        'process.runtime.cpu.utilization': None,
-        'process.runtime.thread_count': None,
-        'process.runtime.context_switches': ['involuntary', 'voluntary'],
     }, 'Docs and the MetricName type need to be updated if this test fails'
 
 

@@ -51,17 +51,15 @@ and passes them to the OpenTelemetry `FastAPIInstrumentor.instrument_app()` meth
 
 ## Endpoint arguments and validation errors
 
-[`logfire.instrument_fastapi()`][logfire.Logfire.instrument_fastapi] will emit a span for each request
-called `FastAPI arguments` which shows how long it takes FastAPI to parse and validate the endpoint function
-arguments from the request and resolve any dependencies.
-By default the span will also contain the following attributes:
+[`logfire.instrument_fastapi()`][logfire.Logfire.instrument_fastapi] adds the following attributes to the request spans:
 
-- `values`: A dictionary mapping argument names of the endpoint function to parsed and validated values.
-- `errors`: A list of validation errors for any invalid inputs.
+- `fastapi.arguments.values`: A dictionary mapping argument names of the endpoint function to parsed and validated values.
+- `fastapi.arguments.errors`: A list of validation errors for any invalid inputs.
 
-You can customize this by passing an `request_attributes_mapper` function to `instrument_fastapi`. This function will be called
-with the `Request` or `WebSocket` object and the default attributes dictionary. It should return a new dictionary of
-attributes, or `None` to set the span level to 'debug' so that it's hidden by default. For example:
+You can customize these attributes by passing a `request_attributes_mapper` function to `instrument_fastapi`.
+This function will be called with the `Request` or `WebSocket` object
+and a dictionary containing keys `values` and `errors` corresponding to the attributes above.
+It should return a new dictionary of attributes. For example:
 
 ```py
 import logfire
@@ -73,12 +71,14 @@ def request_attributes_mapper(request, attributes):
     if attributes["errors"]:
         # Only log validation errors, not valid arguments
         return {
+            # This will become the `fastapi.arguments.errors` attribute
             "errors": attributes["errors"],
+            # Arbitrary custom attributes can also be added here
             "my_custom_attribute": ...,
         }
     else:
         # Don't log anything for valid requests
-        return None
+        return {}
 
 
 logfire.configure()
@@ -89,9 +89,23 @@ logfire.instrument_fastapi(app, request_attributes_mapper=request_attributes_map
     The [`request_attributes_mapper`][logfire.Logfire.instrument_fastapi(request_attributes_mapper)] function mustn't mutate the
     contents of `values` or `errors`, but it can safely replace them with new values.
 
-!!! note
-    The attributes on the `FastAPI arguments` span are also set on the root span created by OpenTelemetry for easier querying.
-    The `values` and `error` attributes are under the names `fastapi.arguments.values` and `fastapi.arguments.errors` to avoid name collisions.
+## Timestamps of argument parsing and endpoint execution
+
+[`logfire.instrument_fastapi()`][logfire.Logfire.instrument_fastapi] also adds the following attributes to the request spans:
+
+- The times when parsing arguments and resolving dependencies started and ended:
+    - `fastapi.arguments.start_timestamp`
+    - `fastapi.arguments.end_timestamp`
+- The times when the actual endpoint function started and ended executing, leaving out the time spent on dependencies and middleware:
+    - `fastapi.endpoint_function.start_timestamp`
+    - `fastapi.endpoint_function.end_timestamp`
+
+## Spans for argument parsing and endpoint execution
+
+You can also enable spans for argument parsing and endpoint execution with `logfire.instrument_fastapi(app, extra_spans=True)`.
+The main request span will still have the attributes described above, but it will also have two extra child spans.
+This is mostly redundant now and is mainly provided for backwards compatibility.
+It can also be useful for grouping together child logs and spans produced by the request.
 
 [fastapi]: https://fastapi.tiangolo.com/
 [opentelemetry-asgi]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html
