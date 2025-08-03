@@ -82,10 +82,6 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         assert hasattr(span, 'end_time')
         assert hasattr(span, 'instrumentation_scope')
 
-        match = 'You should use instrumentation_scope. Deprecated since version 1.11.1.'
-        with pytest.warns(DeprecationWarning, match=match):
-            assert hasattr(span, 'instrumentation_info')
-
     logfire__all__.remove('LogfireSpan')
     logfire__all__.remove('span')
 

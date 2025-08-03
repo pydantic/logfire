@@ -54,11 +54,6 @@ except ImportError:
 
             def set_attribute(self, key: str, value: Any) -> None: ... # pragma: no cover
 
-            @property
-            def instrumentation_info(self) -> None:
-                """This method helps with the unit tests, the concrete class raises a warning as instrumentation_info is deprecated, __getattr__ wouldn't."""
-                return self._readable_span.instrumentation_info
-
         class Logfire:
             def __getattr__(self, attr):
                 return MagicMock()  # pragma: no cover
