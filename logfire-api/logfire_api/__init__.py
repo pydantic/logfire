@@ -21,10 +21,10 @@ except ImportError:
 
         class LogfireSpan:
             def __init__(self, *args, **kwargs):
-                self.readable_span = ReadableSpan(name='')
+                self._readable_span = ReadableSpan(name='')
 
             def __getattr__(self, attr):
-                return self.readable_span.attributes.get(attr) # pragma: no cover
+                return self._readable_span.attributes.get(attr) # pragma: no cover
 
             def __enter__(self):
                 return self
@@ -56,8 +56,8 @@ except ImportError:
 
             @property
             def instrumentation_info(self) -> None:
-                """The concrete class raises a warning instrumentation_info as it is deprecated, __getattr__ wouldn't as it accesses the parent class directly."""
-                return self.readable_span.instrumentation_info
+                """This method helps with the unit tests, the concrete class raises a warning as instrumentation_info is deprecated, __getattr__ wouldn't."""
+                return self._readable_span.instrumentation_info
 
         class Logfire:
             def __getattr__(self, attr):
