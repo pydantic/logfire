@@ -4,6 +4,7 @@ from __future__ import annotations
 import decimal
 import enum
 import io
+import re
 import sys
 from datetime import datetime
 from typing import Any
@@ -994,6 +995,7 @@ def test_other_json_schema_types(capsys: pytest.CaptureFixture[str]) -> None:
         e=MyEnum.ABC,
         se=MyStrEnum.STR,
         ie=MyIntEnum.INT,
+        rp=re.compile(r'^[\w\.-]+@[\w\.-]+\.\w+$'),
     )
 
     assert capsys.readouterr().out.splitlines() == snapshot(
@@ -1006,6 +1008,7 @@ def test_other_json_schema_types(capsys: pytest.CaptureFixture[str]) -> None:
             "│ e=MyEnum('abc')",
             "│ se=MyStrEnum('str_val')",
             '│ ie=MyIntEnum(1)',
+            '│ rp=^[\\w\\.-]+@[\\w\\.-]+\\.\\w+$',
         ]
     )
 
