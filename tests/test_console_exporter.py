@@ -17,6 +17,7 @@ from opentelemetry._events import Event, get_event_logger
 from opentelemetry._logs import SeverityNumber, get_logger
 from opentelemetry.sdk._logs import LogRecord
 from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.trace import get_tracer
 from opentelemetry.version import __version__ as otel_version
 
 import logfire
@@ -1005,5 +1006,57 @@ def test_other_json_schema_types(capsys: pytest.CaptureFixture[str]) -> None:
             "│ e=MyEnum('abc')",
             "│ se=MyStrEnum('str_val')",
             '│ ie=MyIntEnum(1)',
+        ]
+    )
+
+
+def test_console_exporter_list_data_with_object_schema_mismatch(capsys: pytest.CaptureFixture[str]) -> None:
+    """Test console output when list data is provided but schema expects object type."""
+    logfire.configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(verbose=True, colors='never', include_timestamps=False),
+    )
+    tracer = get_tracer(__name__)
+
+    # Schema expects object but data is a list
+    object_schema = '{"type": "object", "properties": {"foo": {"type": "object"}}}'
+    list_data = '["item1", "item2", "item3"]'
+
+    span = tracer.start_span(
+        'test_span',
+        attributes={'foo': list_data, 'logfire.json_schema': object_schema},
+    )
+    span.end()
+
+    assert capsys.readouterr().out.splitlines() == snapshot(
+        [
+            'test_span',
+            "│ foo=['item1', 'item2', 'item3']",
+        ]
+    )
+
+
+def test_console_exporter_dict_data_with_array_schema_mismatch(capsys: pytest.CaptureFixture[str]) -> None:
+    """Test console output when dict data is provided but schema expects array type."""
+    logfire.configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(verbose=True, colors='never', include_timestamps=False),
+    )
+    tracer = get_tracer(__name__)
+
+    # Schema expects array but data is a dict
+    array_schema = '{"type": "array", "properties": {"foo": {"type": "array"}}}'
+    dict_data = '{"name":"Alice","age":30}'
+
+    span = tracer.start_span(
+        'test_span',
+        attributes={'foo': dict_data, 'logfire.json_schema': array_schema},
+    )
+    span.end()
+
+    assert capsys.readouterr().out.splitlines() == snapshot(
+        [
+            'test_span',
+            "│ foo={'name': 'Alice', 'age': 30}",
         ]
     )
