@@ -265,6 +265,22 @@ class SimpleConsoleSpanExporter(SpanExporter):
                     value = json.loads(value)
                 except json.JSONDecodeError:
                     schema = None
+                    value = json_args_value_formatter(value, schema=None)
+                    arguments[key] = value
+                    continue
+
+            schema_type = schema.get('type') if schema else None
+
+            if schema_type:
+                invalid_type = (
+                    isinstance(value, (int, float, bool))
+                    or value is None
+                    or (isinstance(value, dict) and schema_type != 'object')
+                    or (isinstance(value, list) and schema_type != 'array')
+                )
+                if invalid_type:
+                    schema = None
+
             value = json_args_value_formatter(value, schema=schema)
             arguments[key] = value
 
