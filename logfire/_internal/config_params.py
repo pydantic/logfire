@@ -55,6 +55,8 @@ _send_to_logfire_default = _DefaultCallback(lambda: 'PYTEST_VERSION' not in os.e
 # fmt: off
 SEND_TO_LOGFIRE = ConfigParam(env_vars=['LOGFIRE_SEND_TO_LOGFIRE'], allow_file_config=True, default=_send_to_logfire_default, tp=Union[bool, Literal['if-token-present']])
 """Whether to send spans to Logfire."""
+MIN_LEVEL = ConfigParam(env_vars=['LOGFIRE_MIN_LEVEL'], allow_file_config=True, default=None, tp=LevelName)
+"""Minimum log level for logs and spans to be created. By default, all logs and spans are created."""
 TOKEN = ConfigParam(env_vars=['LOGFIRE_TOKEN'])
 """Token for the Logfire API."""
 SERVICE_NAME = ConfigParam(env_vars=['LOGFIRE_SERVICE_NAME', OTEL_SERVICE_NAME], allow_file_config=True, default='')
@@ -107,6 +109,7 @@ DISTRIBUTED_TRACING = ConfigParam(env_vars=['LOGFIRE_DISTRIBUTED_TRACING'], allo
 CONFIG_PARAMS = {
     'base_url': BASE_URL,
     'send_to_logfire': SEND_TO_LOGFIRE,
+    'min_level': MIN_LEVEL,
     'token': TOKEN,
     'service_name': SERVICE_NAME,
     'service_version': SERVICE_VERSION,
