@@ -69,6 +69,7 @@ from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceConte
 from .client import InvalidProjectName, LogfireClient, ProjectAlreadyExists
 from .config_params import ParamManager, PydanticPluginRecordValues
 from .constants import (
+    LEVEL_NUMBERS,
     RESOURCE_ATTRIBUTES_CODE_ROOT_PATH,
     RESOURCE_ATTRIBUTES_CODE_WORK_DIR,
     RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME,
@@ -268,6 +269,7 @@ def configure(  # noqa: D417
     scrubbing: ScrubbingOptions | Literal[False] | None = None,
     inspect_arguments: bool | None = None,
     sampling: SamplingOptions | None = None,
+    min_level: int | LevelName | None = None,
     add_baggage_to_attributes: bool = True,
     code_source: CodeSource | None = None,
     distributed_tracing: bool | None = None,
@@ -320,6 +322,14 @@ def configure(  # noqa: D417
 
             Defaults to `True` if and only if the Python version is at least 3.11.
 
+        min_level:
+            Minimum log level for logs and spans to be created. By default, all logs and spans are created.
+            For example, set to 'info' to only create logs with level 'info' or higher, thus filtering out debug logs.
+            For spans, this only applies when `_level` is explicitly specified in `logfire.span`.
+            Changing the level of a span _after_ it is created will be ignored by this.
+            If a span is not created, this has no effect on the current active span, or on logs/spans created inside the
+            filtered `logfire.span` context manager.
+            If set to `None`, uses the `LOGFIRE_MIN_LEVEL` environment variable; if that is not set, there is no minimum level.
         sampling: Sampling options. See the [sampling guide](https://logfire.pydantic.dev/docs/guides/advanced/sampling/).
         add_baggage_to_attributes: Set to `False` to prevent OpenTelemetry Baggage from being added to spans as attributes.
             See the [Baggage documentation](https://logfire.pydantic.dev/docs/reference/advanced/baggage/) for more details.
@@ -456,6 +466,7 @@ def configure(  # noqa: D417
         additional_span_processors=additional_span_processors,
         scrubbing=scrubbing,
         inspect_arguments=inspect_arguments,
+        min_level=min_level,
         sampling=sampling,
         add_baggage_to_attributes=add_baggage_to_attributes,
         code_source=code_source,
@@ -514,6 +525,9 @@ class _LogfireConfigData:
     sampling: SamplingOptions
     """Sampling options."""
 
+    min_level: int
+    """Minimum log level for logs and spans to be created."""
+
     add_baggage_to_attributes: bool
     """Whether to add OpenTelemetry Baggage to span attributes."""
 
@@ -544,6 +558,7 @@ class _LogfireConfigData:
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
         sampling: SamplingOptions | None,
+        min_level: int | LevelName | None,
         add_baggage_to_attributes: bool,
         code_source: CodeSource | None,
         distributed_tracing: bool | None,
@@ -561,6 +576,12 @@ class _LogfireConfigData:
         self.inspect_arguments = param_manager.load_param('inspect_arguments', inspect_arguments)
         self.distributed_tracing = param_manager.load_param('distributed_tracing', distributed_tracing)
         self.ignore_no_config = param_manager.load_param('ignore_no_config')
+        min_level = param_manager.load_param('min_level', min_level)
+        if min_level is None:
+            min_level = 0
+        elif isinstance(min_level, str):
+            min_level = LEVEL_NUMBERS[min_level]
+        self.min_level = min_level
         self.add_baggage_to_attributes = add_baggage_to_attributes
 
         # We save `scrubbing` just so that it can be serialized and deserialized.
@@ -647,6 +668,7 @@ class LogfireConfig(_LogfireConfigData):
         scrubbing: ScrubbingOptions | Literal[False] | None = None,
         inspect_arguments: bool | None = None,
         sampling: SamplingOptions | None = None,
+        min_level: int | LevelName | None = None,
         add_baggage_to_attributes: bool = True,
         code_source: CodeSource | None = None,
         distributed_tracing: bool | None = None,
@@ -674,6 +696,7 @@ class LogfireConfig(_LogfireConfigData):
             scrubbing=scrubbing,
             inspect_arguments=inspect_arguments,
             sampling=sampling,
+            min_level=min_level,
             add_baggage_to_attributes=add_baggage_to_attributes,
             code_source=code_source,
             distributed_tracing=distributed_tracing,
@@ -712,6 +735,7 @@ class LogfireConfig(_LogfireConfigData):
         scrubbing: ScrubbingOptions | Literal[False] | None,
         inspect_arguments: bool | None,
         sampling: SamplingOptions | None,
+        min_level: int | LevelName | None,
         add_baggage_to_attributes: bool,
         code_source: CodeSource | None,
         distributed_tracing: bool | None,
@@ -733,6 +757,7 @@ class LogfireConfig(_LogfireConfigData):
                 scrubbing,
                 inspect_arguments,
                 sampling,
+                min_level,
                 add_baggage_to_attributes,
                 code_source,
                 distributed_tracing,
@@ -1053,6 +1078,7 @@ class LogfireConfig(_LogfireConfigData):
                 self._logger_provider.shutdown()
 
             self._logger_provider.set_provider(logger_provider)
+            self._logger_provider.set_min_level(self.min_level)
 
             if self is GLOBAL_CONFIG and not self._has_set_providers:
                 self._has_set_providers = True

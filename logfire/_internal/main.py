@@ -179,6 +179,14 @@ class Logfire:
         _links: Sequence[tuple[SpanContext, otel_types.Attributes]] = (),
     ) -> LogfireSpan:
         try:
+            if _level is not None:
+                level_attributes = log_level_attributes(_level)
+                level_num = level_attributes[ATTRIBUTES_LOG_LEVEL_NUM_KEY]
+                if level_num < self.config.min_level:
+                    return NoopSpan()  # type: ignore
+            else:
+                level_attributes = None
+
             stack_info = get_user_stack_info()
             merged_attributes = {**stack_info, **attributes}
 
@@ -215,8 +223,8 @@ class Logfire:
             if sample_rate is not None and sample_rate != 1:  # pragma: no cover
                 otlp_attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
 
-            if _level is not None:
-                otlp_attributes.update(log_level_attributes(_level))
+            if level_attributes is not None:
+                otlp_attributes.update(level_attributes)
 
             return LogfireSpan(
                 _span_name or msg_template,
@@ -673,6 +681,11 @@ class Logfire:
             console_log: Whether to log to the console, defaults to `True`.
         """
         with handle_internal_errors:
+            level_attributes = log_level_attributes(level)
+            level_num = level_attributes[ATTRIBUTES_LOG_LEVEL_NUM_KEY]
+            if level_num < self.config.min_level:
+                return
+
             stack_info = get_user_stack_info()
 
             attributes = attributes or {}
@@ -706,7 +719,7 @@ class Logfire:
             otlp_attributes = prepare_otlp_attributes(merged_attributes)
             otlp_attributes = {
                 ATTRIBUTES_SPAN_TYPE_KEY: 'log',
-                **log_level_attributes(level),
+                **level_attributes,
                 ATTRIBUTES_MESSAGE_TEMPLATE_KEY: msg_template,
                 ATTRIBUTES_MESSAGE_KEY: msg,
                 **otlp_attributes,
