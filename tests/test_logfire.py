@@ -3420,3 +3420,23 @@ def test_start_end_attach_detach(exporter: TestExporter, caplog: pytest.LogCaptu
             },
         ]
     )
+
+
+def test_min_level(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
+    config_kwargs['min_level'] = 'notice'
+    logfire.configure(**config_kwargs)
+
+    with logfire.span('default span') as span:
+        # all these set_level calls make no difference because min_level applies when the span starts.
+        span.set_level('debug')
+        with logfire.span('warning span', _level='warning') as warning_span:
+            warning_span.set_level('trace')
+            logfire.debug('debug message')
+        with logfire.span('debug span', _level='debug') as debug_span:
+            logfire.notice('notice message')
+            debug_span.set_level('error')
+        logfire.warn('warn message')
+
+    assert [span['name'] for span in exporter.exported_spans_as_dict()] == snapshot(
+        ['warning span', 'notice message', 'warn message', 'default span']
+    )

@@ -294,7 +294,6 @@ class FastAPIInstrumentation:
                 # both `http.method` and `http.route`.
                 **{'http.route': request.scope['route'].path},
                 **stack_info,
-                _level='debug',
             )
         else:
             extra_span = NoopSpan()
