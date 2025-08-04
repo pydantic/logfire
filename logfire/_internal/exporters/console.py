@@ -257,9 +257,9 @@ class SimpleConsoleSpanExporter(SpanExporter):
         if schema_type:
             if value is None:
                 return False
-            elif isinstance(value, dict) and schema_type != 'object':
+            if schema_type == 'object' and not isinstance(value, dict):
                 return False
-            elif isinstance(value, list) and schema_type != 'array':
+            if schema_type == 'array' and not isinstance(value, list):
                 return False
         return True
 
