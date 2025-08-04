@@ -1,5 +1,4 @@
 from _typeshed import Incomplete
-from opentelemetry.util import types as otel_types
 
 LOGFIRE_ATTRIBUTES_NAMESPACE: str
 LevelName: Incomplete
@@ -9,7 +8,7 @@ LOGGING_TO_OTEL_LEVEL_NUMBERS: dict[int, int]
 ATTRIBUTES_LOG_LEVEL_NAME_KEY: Incomplete
 ATTRIBUTES_LOG_LEVEL_NUM_KEY: Incomplete
 
-def log_level_attributes(level: LevelName | int) -> dict[str, otel_types.AttributeValue]: ...
+def log_level_attributes(level: LevelName | int) -> dict[str, int]: ...
 
 SpanTypeType: Incomplete
 ATTRIBUTES_SPAN_TYPE_KEY: Incomplete

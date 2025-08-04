@@ -30,6 +30,7 @@ class _DefaultCallback:
     callback: Callable[[], Any]
 
 SEND_TO_LOGFIRE: Incomplete
+MIN_LEVEL: Incomplete
 TOKEN: Incomplete
 SERVICE_NAME: Incomplete
 SERVICE_VERSION: Incomplete
