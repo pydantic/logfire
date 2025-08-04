@@ -251,16 +251,6 @@ class SimpleConsoleSpanExporter(SpanExporter):
         else:
             return []
 
-    def is_schema_valid(self, schema: dict[str, Any], value: Any) -> bool:
-        """Check if the schema is valid for the value."""
-        schema_type = schema.get('type') if schema else None
-        if schema_type:
-            if schema_type == 'object' and not isinstance(value, dict):
-                return False
-            if schema_type == 'array' and not isinstance(value, list):
-                return False
-        return True
-
     def _print_arguments(self, span: Record, indent_str: str):
         """Pretty-print formatted logfire arguments for the span if `self._verbose` is True."""
         if not self._verbose or not span.attributes:
@@ -275,13 +265,6 @@ class SimpleConsoleSpanExporter(SpanExporter):
                     value = json.loads(value)
                 except json.JSONDecodeError:
                     schema = None
-                    value = json_args_value_formatter(value, schema=None)
-                    arguments[key] = value
-                    continue
-
-            if not self.is_schema_valid(schema, value):
-                schema = None
-
             value = json_args_value_formatter(value, schema=schema)
             arguments[key] = value
 
