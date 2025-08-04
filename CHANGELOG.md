@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v4.1.0] (2025-08-04)
+
+* Add `min_level` argument to `logfire.configure` by @alexmojaki in [#1265](https://github.com/pydantic/logfire/pull/1265)
+
 ## [v4.0.1] (2025-07-31)
 
 * Handle cyclic references in exceptions by @alexmojaki in [#1284](https://github.com/pydantic/logfire/pull/1284)
@@ -815,3 +819,4 @@ First release from new repo!
 [v3.25.0]: https://github.com/pydantic/logfire/compare/v3.24.2...v3.25.0
 [v4.0.0]: https://github.com/pydantic/logfire/compare/v3.25.0...v4.0.0
 [v4.0.1]: https://github.com/pydantic/logfire/compare/v4.0.0...v4.0.1
+[v4.1.0]: https://github.com/pydantic/logfire/compare/v4.0.1...v4.1.0
