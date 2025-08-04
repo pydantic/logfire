@@ -92,7 +92,7 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
 
     original_handle_server_request = Server._handle_request  # type: ignore
 
-    @functools.wraps(original_handle_server_request)  # type: ignore
+    @functools.wraps(original_handle_server_request)
     async def _handle_request(self: Any, message: Any, request: Any, *args: Any, **kwargs: Any) -> Any:
         span_name = 'MCP server handle request'
         with _handle_request_with_context(request, span_name):
