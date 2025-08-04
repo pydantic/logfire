@@ -24,7 +24,7 @@ except ImportError:
                 self._readable_span = ReadableSpan(name='')
 
             def __getattr__(self, attr):
-                return self._readable_span.attributes.get(attr) # pragma: no cover
+                return getattr(self._readable_span, attr, MagicMock())
 
             def __enter__(self):
                 return self
