@@ -255,8 +255,6 @@ class SimpleConsoleSpanExporter(SpanExporter):
         """Check if the schema is valid for the value."""
         schema_type = schema.get('type') if schema else None
         if schema_type:
-            if value is None:
-                return False
             if schema_type == 'object' and not isinstance(value, dict):
                 return False
             if schema_type == 'array' and not isinstance(value, list):
