@@ -3,11 +3,13 @@ from __future__ import annotations
 import importlib
 import sys
 from pathlib import Path
-from types import ModuleType
+from types import MappingProxyType, ModuleType
 from typing import Callable
 from unittest.mock import MagicMock
 
 import pytest
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.trace import SpanKind, Status
 from pydantic import __version__ as pydantic_version
 
 from logfire._internal.utils import get_version
@@ -69,18 +71,23 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     with logfire_api.span('test span') as span:
         assert isinstance(span, logfire_api.LogfireSpan)
         span.set_attribute('foo', 'bar')
-        assert hasattr(span, 'context')
-        assert hasattr(span, 'name')
-        assert hasattr(span, 'parent')
-        assert hasattr(span, 'resource')
-        assert hasattr(span, 'attributes')
-        assert hasattr(span, 'events')
-        assert hasattr(span, 'links')
-        assert hasattr(span, 'kind')
-        assert hasattr(span, 'status')
-        assert hasattr(span, 'start_time')
-        assert hasattr(span, 'end_time')
-        assert hasattr(span, 'instrumentation_scope')
+
+        if module_name == 'logfire_api.':
+            match = 'You should use instrumentation_scope. Deprecated since version 1.11.1.'
+            assert getattr(span, 'context') is None
+            assert getattr(span, 'name') == ''
+            assert getattr(span, 'parent') is None
+            assert isinstance(getattr(span, 'resource'), Resource)
+            assert isinstance(getattr(span, 'attributes'), MappingProxyType)
+            assert getattr(span, 'events') == ()
+            assert getattr(span, 'links') == ()
+            assert isinstance(getattr(span, 'kind'), SpanKind)
+            with pytest.warns(DeprecationWarning, match=match):
+                assert hasattr(span, 'instrumentation_info')
+            assert isinstance(getattr(span, 'status'), Status)
+            assert getattr(span, 'start_time') is None
+            assert getattr(span, 'end_time') is None
+            assert getattr(span, 'instrumentation_scope') is None
 
     logfire__all__.remove('LogfireSpan')
     logfire__all__.remove('span')
