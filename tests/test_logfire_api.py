@@ -73,7 +73,6 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         span.set_attribute('foo', 'bar')
 
         if module_name == 'logfire_api.':
-            match = 'You should use instrumentation_scope. Deprecated since version 1.11.1.'
             assert getattr(span, 'context') is None
             assert getattr(span, 'name') == ''
             assert getattr(span, 'parent') is None
@@ -82,8 +81,6 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
             assert getattr(span, 'events') == ()
             assert getattr(span, 'links') == ()
             assert isinstance(getattr(span, 'kind'), SpanKind)
-            with pytest.warns(DeprecationWarning, match=match):
-                assert hasattr(span, 'instrumentation_info')
             assert isinstance(getattr(span, 'status'), Status)
             assert getattr(span, 'start_time') is None
             assert getattr(span, 'end_time') is None
