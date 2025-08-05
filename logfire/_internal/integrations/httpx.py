@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, Callable, Literal, cast
 import httpx
 from opentelemetry.trace import NonRecordingSpan, Span, use_span
 
+from logfire._internal.config import GLOBAL_CONFIG
 from logfire._internal.stack_info import warn_at_user_stacklevel
 
 try:
@@ -75,6 +76,8 @@ def instrument_httpx(
         warn_at_user_stacklevel(
             'The `capture_response_headers` parameter is deprecated. Use `capture_headers` instead.', DeprecationWarning
         )
+
+    capture_all = GLOBAL_CONFIG.param_manager.load_param('httpx_capture_all') or capture_all
 
     should_capture_request_headers = capture_request_headers or capture_headers or capture_all
     should_capture_response_headers = capture_response_headers or capture_headers or capture_all
