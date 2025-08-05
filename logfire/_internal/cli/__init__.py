@@ -410,12 +410,12 @@ def _main(args: list[str] | None = None) -> None:
     def log_trace_id(response: requests.Response, context: ContextCarrier, *args: Any, **kwargs: Any) -> None:
         logger.debug('context=%s url=%s', context, response.url)
 
-    with tracer.start_as_current_span('logfire._internal.cli'):
-        if namespace.version:
-            version_callback()
-        elif namespace.func == parse_info:
-            namespace.func(namespace)
-        else:
+    if namespace.version:
+        version_callback()
+    elif namespace.func in (parse_info, parse_run):
+        namespace.func(namespace)
+    else:
+        with tracer.start_as_current_span('logfire._internal.cli'):
             with requests.Session() as session:
                 context = get_context()
                 session.hooks = {'response': functools.partial(log_trace_id, context=context)}
