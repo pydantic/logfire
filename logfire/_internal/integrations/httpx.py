@@ -46,7 +46,7 @@ if TYPE_CHECKING:
 def instrument_httpx(
     logfire_instance: Logfire,
     client: httpx.Client | httpx.AsyncClient | None,
-    capture_all: bool,
+    capture_all: bool | None,
     capture_headers: bool,
     capture_request_body: bool,
     capture_response_body: bool,
@@ -77,7 +77,7 @@ def instrument_httpx(
             'The `capture_response_headers` parameter is deprecated. Use `capture_headers` instead.', DeprecationWarning
         )
 
-    capture_all = GLOBAL_CONFIG.param_manager.load_param('httpx_capture_all') or capture_all
+    capture_all = cast(bool, GLOBAL_CONFIG.param_manager.load_param('httpx_capture_all', capture_all))
 
     should_capture_request_headers = capture_request_headers or capture_headers or capture_all
     should_capture_response_headers = capture_response_headers or capture_headers or capture_all

@@ -1353,7 +1353,7 @@ class Logfire:
         self,
         client: httpx.Client | httpx.AsyncClient | None = None,
         *,
-        capture_all: bool = False,
+        capture_all: bool | None = None,
         capture_headers: bool = False,
         capture_request_body: bool = False,
         capture_response_body: bool = False,
