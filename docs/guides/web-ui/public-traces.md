@@ -4,7 +4,7 @@ Public Traces lets you to create shareable links for specific traces. Perfect fo
 
 ## Overview
 
-When you create a public trace link, anyone with access to the link can view the complete trace data, including all spans and their attributes. This is particularly useful for:
+When you create a public trace link, anyone with access to the link can view the complete trace data, **including all spans and their attributes**. This is particularly useful for:
 
 - Sharing debugging information with external collaborators
 - Providing trace examples in support tickets
@@ -14,21 +14,16 @@ When you create a public trace link, anyone with access to the link can view the
 
 1. Navigate to any trace in your project
 2. Select the inner span you want to highlight (optional)
-3. Click the "Private" button
-4. Configure the link expiration:
-   - 3 days
-   - 1 week  
-   - 1 month
-   - Never *(Coming soon!)*
-5. If you want the link to navigate to the inner span you've selected, use "This span selected" - otherwise uncheck this and the public link to share the root span of the trace. 
-6. Click "Create" to generate the shareable link
+3. In the details panel, click the **Private** button
 
-## Span Highlighting
+![Private button](../../images/public-traces/private-button.png)
 
-When creating a public trace from a nested span:
-- The shared trace will automatically expand to show the selected span
-- The selected span will be highlighted in the public view
-- This makes it easy to direct attention to specific parts of complex traces
+4. Configure the link expiration 
+5. If you want the link to navigate to the inner span you've selected, use **This span selected**, otherwise uncheck this and the public link will point to root span of the trace.
+6. Click **Create** to generate the shareable link
+
+!!! warning
+    Due to data retention limits, the shared data might expire before the selected expiration.
 
 ## Managing Public Traces
 
