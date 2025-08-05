@@ -107,7 +107,7 @@ DISTRIBUTED_TRACING = ConfigParam(env_vars=['LOGFIRE_DISTRIBUTED_TRACING'], allo
 
 # Instrumentation packages parameters
 HTTPX_CAPTURE_ALL = ConfigParam(env_vars=['LOGFIRE_HTTPX_CAPTURE_ALL'], allow_file_config=True, default=False, tp=bool)
-"""Whether to capture all HTTP headers, request and response bodies."""
+"""Whether to capture all HTTP headers, request and response bodies when using `logfire.instrument_httpx()`"""
 # fmt: on
 
 CONFIG_PARAMS = {
