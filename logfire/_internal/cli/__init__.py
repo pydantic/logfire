@@ -415,13 +415,12 @@ def _main(args: list[str] | None = None) -> None:
     elif namespace.func in (parse_info, parse_run):
         namespace.func(namespace)
     else:
-        with tracer.start_as_current_span('logfire._internal.cli'):
-            with requests.Session() as session:
-                context = get_context()
-                session.hooks = {'response': functools.partial(log_trace_id, context=context)}
-                session.headers.update(context)
-                namespace._session = session
-                namespace.func(namespace)
+        with tracer.start_as_current_span('logfire._internal.cli'), requests.Session() as session:
+            context = get_context()
+            session.hooks = {'response': functools.partial(log_trace_id, context=context)}
+            session.headers.update(context)
+            namespace._session = session
+            namespace.func(namespace)
 
 
 def main(args: list[str] | None = None) -> None:
