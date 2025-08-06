@@ -1,5 +1,11 @@
 # Release Notes
 
+## [v4.2.0] (2025-08-06)
+
+* Handle wrong JSON schema in console exporter by @alexmojaki in [#1294](https://github.com/pydantic/logfire/pull/1294)
+* Move creation of span down on cli by @Kludex in [#1298](https://github.com/pydantic/logfire/pull/1298)
+* Allow to set `instrument_httpx(capture_all=True)` via env var by @Kludex in [#1295](https://github.com/pydantic/logfire/pull/1295)
+
 ## [v4.1.0] (2025-08-04)
 
 * Add `min_level` argument to `logfire.configure` by @alexmojaki in [#1265](https://github.com/pydantic/logfire/pull/1265)
@@ -820,3 +826,4 @@ First release from new repo!
 [v4.0.0]: https://github.com/pydantic/logfire/compare/v3.25.0...v4.0.0
 [v4.0.1]: https://github.com/pydantic/logfire/compare/v4.0.0...v4.0.1
 [v4.1.0]: https://github.com/pydantic/logfire/compare/v4.0.1...v4.1.0
+[v4.2.0]: https://github.com/pydantic/logfire/compare/v4.1.0...v4.2.0
