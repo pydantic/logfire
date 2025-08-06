@@ -5,6 +5,7 @@ from collections.abc import Awaitable as Awaitable, Generator, Mapping
 from email.headerregistry import ContentTypeHeader
 from functools import cached_property, lru_cache
 from logfire import Logfire as Logfire, LogfireSpan as LogfireSpan
+from logfire._internal.config import GLOBAL_CONFIG as GLOBAL_CONFIG
 from logfire._internal.main import set_user_attributes_on_raw_span as set_user_attributes_on_raw_span
 from logfire._internal.stack_info import warn_at_user_stacklevel as warn_at_user_stacklevel
 from logfire._internal.utils import handle_internal_errors as handle_internal_errors
@@ -14,7 +15,7 @@ from typing import Any, Callable, Literal, ParamSpec
 
 P = ParamSpec('P')
 
-def instrument_httpx(logfire_instance: Logfire, client: httpx.Client | httpx.AsyncClient | None, capture_all: bool, capture_headers: bool, capture_request_body: bool, capture_response_body: bool, request_hook: RequestHook | AsyncRequestHook | None, response_hook: ResponseHook | AsyncResponseHook | None, async_request_hook: AsyncRequestHook | None, async_response_hook: AsyncResponseHook | None, **kwargs: Any) -> None:
+def instrument_httpx(logfire_instance: Logfire, client: httpx.Client | httpx.AsyncClient | None, capture_all: bool | None, capture_headers: bool, capture_request_body: bool, capture_response_body: bool, request_hook: RequestHook | AsyncRequestHook | None, response_hook: ResponseHook | AsyncResponseHook | None, async_request_hook: AsyncRequestHook | None, async_response_hook: AsyncResponseHook | None, **kwargs: Any) -> None:
     """Instrument the `httpx` module so that spans are automatically created for each request.
 
     See the `Logfire.instrument_httpx` method for details.
