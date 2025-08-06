@@ -1375,6 +1375,7 @@ class Logfire:
             client: The `httpx.Client` or `httpx.AsyncClient` instance to instrument.
                 If `None`, the default, all clients will be instrumented.
             capture_all: Set to `True` to capture all HTTP headers, request and response bodies.
+                By default checks the environment variable `LOGFIRE_HTTPX_CAPTURE_ALL`.
             capture_headers: Set to `True` to capture all HTTP headers.
 
                 If you don't want to capture all headers, you can customize the headers captured. See the
