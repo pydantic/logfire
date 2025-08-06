@@ -104,6 +104,10 @@ BASE_URL = ConfigParam(env_vars=['LOGFIRE_BASE_URL'], allow_file_config=True, de
 """The base URL of the Logfire backend. Primarily for testing purposes."""
 DISTRIBUTED_TRACING = ConfigParam(env_vars=['LOGFIRE_DISTRIBUTED_TRACING'], allow_file_config=True, default=None, tp=bool)
 """Whether to extract incoming trace context. By default, will extract but warn about it."""
+
+# Instrumentation packages parameters
+HTTPX_CAPTURE_ALL = ConfigParam(env_vars=['LOGFIRE_HTTPX_CAPTURE_ALL'], allow_file_config=True, default=False, tp=bool)
+"""Whether to capture all HTTP headers, request and response bodies when using `logfire.instrument_httpx()`"""
 # fmt: on
 
 CONFIG_PARAMS = {
@@ -130,6 +134,8 @@ CONFIG_PARAMS = {
     'inspect_arguments': INSPECT_ARGUMENTS,
     'ignore_no_config': IGNORE_NO_CONFIG,
     'distributed_tracing': DISTRIBUTED_TRACING,
+    # Instrumentation packages parameters
+    'httpx_capture_all': HTTPX_CAPTURE_ALL,
 }
 
 
