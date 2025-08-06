@@ -31,6 +31,7 @@ from logfire._internal.cli.run import (
 )
 from logfire._internal.config import LogfireCredentials, sanitize_project_name
 from logfire.exceptions import LogfireConfigError
+from logfire.testing import TestExporter
 from tests.import_used_for_tests import run_script_test
 
 
@@ -1532,6 +1533,38 @@ async def test_instrument_packages_aiohttp_client() -> None:
         from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
 
         AioHttpClientInstrumentor().uninstrument()
+
+
+def test_instrument_web_frameworks(exporter: TestExporter) -> None:
+    try:
+        instrument_packages(
+            {
+                'opentelemetry-instrumentation-starlette',
+                'opentelemetry-instrumentation-fastapi',
+                'opentelemetry-instrumentation-flask',
+            },
+            {
+                'opentelemetry-instrumentation-starlette': 'starlette',
+                'opentelemetry-instrumentation-fastapi': 'fastapi',
+                'opentelemetry-instrumentation-flask': 'flask',
+            },
+        )
+
+        from fastapi import FastAPI
+        from flask import Flask
+        from starlette.applications import Starlette
+
+        assert getattr(Starlette(), '_is_instrumented_by_opentelemetry', False) is True
+        assert getattr(FastAPI(), '_is_instrumented_by_opentelemetry', False) is True
+        assert getattr(Flask(__name__), '_is_instrumented_by_opentelemetry', False) is True
+    finally:
+        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+        from opentelemetry.instrumentation.flask import FlaskInstrumentor
+        from opentelemetry.instrumentation.starlette import StarletteInstrumentor
+
+        StarletteInstrumentor().uninstrument()
+        FastAPIInstrumentor().uninstrument()
+        FlaskInstrumentor().uninstrument()
 
 
 def test_split_args_action() -> None:
