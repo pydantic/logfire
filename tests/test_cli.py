@@ -1087,14 +1087,13 @@ def test_get_prompt(tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest
         stack.enter_context(m)
         m.get(
             'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects/myproject/prompts/',
-            params={'issue': 'fix-span-issue:123'},
-            json='This is the prompt',
+            json='This is the prompt\n',
         )
 
         main(['prompt', '--project', 'fake_org/myproject', '--issue', 'fix-span-issue:123'])
 
         output = capsys.readouterr().out
-        assert output == snapshot('This is a prompt\n')
+        assert output == snapshot('This is the prompt\n')
 
 
 def test_projects_use(tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
