@@ -1080,13 +1080,12 @@ def test_get_prompt(tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest
                 ),
             )
         )
-        stack.enter_context(patch('logfire._internal.cli.LogfireCredentials.write_creds_file', side_effect=TypeError))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get(
             'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects/myproject/prompts/',
-            json='This is the prompt\n',
+            json={'prompt': 'This is the prompt\n'},
         )
 
         main(['prompt', 'fake_org/myproject', 'fix-span-issue:123'])

@@ -22,4 +22,4 @@ def parse_prompt(args: argparse.Namespace) -> None:
     client = LogfireClient.from_url(args.logfire_url)
 
     response = client.get_prompt(organization, project, args.issue)
-    sys.stdout.write(response)
+    sys.stdout.write(response['prompt'])
