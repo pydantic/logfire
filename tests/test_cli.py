@@ -1061,13 +1061,13 @@ def test_create_read_token(tmp_dir_cwd: Path, default_credentials: Path, capsys:
         stack.enter_context(m)
         m.post(
             'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects/myproject/read-tokens',
-            json='fake_token',
+            json='{"token": "fake_token"}',
         )
 
         main(['read-tokens', '--org', 'fake_org', '--project', 'myproject', 'create'])
 
         output = capsys.readouterr().out
-        assert output == snapshot('fake_token\n')
+        assert output == snapshot('{"token": "fake_token"}\n')
 
 
 def test_projects_use(tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
