@@ -228,8 +228,8 @@ def parse_create_new_project(args: argparse.Namespace) -> None:
 def parse_create_read_token(args: argparse.Namespace) -> None:
     """Create a read token for a project."""
     client = LogfireClient.from_url(args.logfire_url)
-    token = client.create_read_token(args.org, args.project)
-    sys.stdout.write(token + '\n')
+    response = client.create_read_token(args.org, args.project)
+    sys.stdout.write(response['token'] + '\n')
 
 
 def parse_use_project(args: argparse.Namespace) -> None:
