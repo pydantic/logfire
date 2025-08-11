@@ -34,7 +34,7 @@ You can also create read tokens programmatically using the Logfire CLI:
 logfire read-tokens --org <organization> --project <project> create
 ```
 
-This command will output the read token directly to stdout, making it convenient for use in scripts or CI/CD pipelines.
+This command will output the read token directly to stdout, making it convenient for use in scripts.
 
 ## Using the Read Clients
 
