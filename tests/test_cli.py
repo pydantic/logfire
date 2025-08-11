@@ -1056,13 +1056,12 @@ def test_create_read_token(tmp_dir_cwd: Path, default_credentials: Path, capsys:
                 ),
             )
         )
-        stack.enter_context(patch('logfire._internal.cli.LogfireCredentials.write_creds_file', side_effect=TypeError))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.post(
             'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects/myproject/read-tokens',
-            json='fake_token',
+            json={'token': 'fake_token'},
         )
 
         main(['read-tokens', '--org', 'fake_org', '--project', 'myproject', 'create'])

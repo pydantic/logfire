@@ -116,7 +116,7 @@ class LogfireClient:
             error_message='Error creating project write token',
         )
 
-    def create_read_token(self, organization: str, project_name: str) -> str:
+    def create_read_token(self, organization: str, project_name: str) -> dict[str, Any]:
         """Create a read token for the given project in the given organization."""
         return self._post(
             f'/v1/organizations/{organization}/projects/{project_name}/read-tokens',
