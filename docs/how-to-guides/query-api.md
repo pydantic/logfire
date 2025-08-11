@@ -10,10 +10,12 @@ See [here](#additional-configuration) for more details about the available respo
 
 ## How to Create a Read Token
 
-If you've set up Logfire following the [getting started guide](../index.md), you can generate read tokens from
-the Logfire web interface, for use accessing the Logfire Query API.
+If you've set up Logfire following the [getting started guide](../index.md), you can generate read tokens either from
+the Logfire web interface or via the CLI.
 
-To create a read token:
+### Via Web Interface
+
+To create a read token using the web interface:
 
 1. Open the **Logfire** web interface at [logfire.pydantic.dev](https://logfire.pydantic.dev).
 2. Select your project from the **Projects** section on the left-hand side of the page.
@@ -23,6 +25,16 @@ To create a read token:
 
 After creating the read token, you'll see a dialog with the token value.
 **Copy this value and store it securely, it will not be shown again.**
+
+### Via CLI
+
+You can also create read tokens programmatically using the Logfire CLI:
+
+```bash
+logfire read-tokens --org <organization> --project <project> create
+```
+
+This command will output the read token directly to stdout, making it convenient for use in scripts.
 
 ## Using the Read Clients
 

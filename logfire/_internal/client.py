@@ -115,3 +115,11 @@ class LogfireClient:
             f'/v1/organizations/{organization}/projects/{project_name}/write-tokens/',
             error_message='Error creating project write token',
         )
+
+    def create_read_token(self, organization: str, project_name: str) -> dict[str, Any]:
+        """Create a read token for the given project in the given organization."""
+        return self._post(
+            f'/v1/organizations/{organization}/projects/{project_name}/read-tokens',
+            body={'description': 'Created by Logfire CLI'},
+            error_message='Error creating project read token',
+        )
