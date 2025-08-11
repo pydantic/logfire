@@ -27,6 +27,7 @@ from ..client import LogfireClient
 from ..config import REGIONS, LogfireCredentials, get_base_url_from_token
 from ..config_params import ParamManager
 from ..tracer import SDKTracerProvider
+from .prompt import parse_prompt
 from .run import collect_instrumentation_context, parse_run, print_otel_summary
 
 BASE_OTEL_INTEGRATION_URL = 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/'
@@ -225,6 +226,13 @@ def parse_create_new_project(args: argparse.Namespace) -> None:
     sys.stderr.write(f'Project created successfully. You will be able to view it at: {credentials.project_url}\n')
 
 
+def parse_create_read_token(args: argparse.Namespace) -> None:
+    """Create a read token for a project."""
+    client = LogfireClient.from_url(args.logfire_url)
+    token = client.create_read_token(args.org, args.project)
+    sys.stdout.write(token + '\n')
+
+
 def parse_use_project(args: argparse.Namespace) -> None:
     """Use an existing project."""
     data_dir = Path(args.data_dir)
@@ -382,6 +390,17 @@ def _main(args: list[str] | None = None) -> None:
     cmd_projects_use.add_argument('--org', help='project organization')
     cmd_projects_use.add_argument('--data-dir', default='.logfire')
     cmd_projects_use.set_defaults(func=parse_use_project)
+
+    cmd_read_tokens = subparsers.add_parser('read-tokens', help='Manage read tokens for a project')
+    cmd_read_tokens.add_argument('--project', help='project')
+    cmd_read_tokens.add_argument('--org', help='organization')
+    cmd_read_tokens.set_defaults(func=lambda _: cmd_read_tokens.print_help())  # type: ignore
+    read_tokens_subparsers = cmd_read_tokens.add_subparsers()
+
+    # With this command you can do:
+    # claude mcp add logfire -e LOGFIRE_READ_TOKEN=$(logfire read-tokens --org kludex --project potato create) -- uvx logfire-mcp@latest
+    cmd_read_tokens_create = read_tokens_subparsers.add_parser('create', help=parse_create_read_token.__doc__)
+    cmd_read_tokens_create.set_defaults(func=parse_create_read_token)
 
     cmd_info = subparsers.add_parser('info', help=parse_info.__doc__)
     cmd_info.set_defaults(func=parse_info)
