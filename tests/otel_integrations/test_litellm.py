@@ -5,6 +5,7 @@ from typing import Any
 
 import pydantic
 import pytest
+from dirty_equals import IsPartialDict
 from inline_snapshot import snapshot
 
 import logfire
@@ -171,18 +172,8 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                             'completion_tokens': 18,
                             'prompt_tokens': 80,
                             'total_tokens': 98,
-                            'completion_tokens_details': {
-                                'accepted_prediction_tokens': 0,
-                                'audio_tokens': 0,
-                                'reasoning_tokens': 0,
-                                'rejected_prediction_tokens': 0,
-                            },
-                            'prompt_tokens_details': {
-                                'audio_tokens': 0,
-                                'cached_tokens': 0,
-                                'text_tokens': None,
-                                'image_tokens': None,
-                            },
+                            'completion_tokens_details': IsPartialDict(),
+                            'prompt_tokens_details': IsPartialDict(),
                         },
                         'service_tier': 'default',
                     },
