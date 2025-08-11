@@ -1090,7 +1090,7 @@ def test_get_prompt(tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest
             json='This is the prompt\n',
         )
 
-        main(['prompt', '--project', 'fake_org/myproject', '--issue', 'fix-span-issue:123'])
+        main(['prompt', 'fake_org/myproject', 'fix-span-issue:123'])
 
         output = capsys.readouterr().out
         assert output == snapshot('This is the prompt\n')
