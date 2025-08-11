@@ -1094,6 +1094,13 @@ def test_get_prompt(tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest
         assert output == snapshot('This is the prompt\n')
 
 
+def test_get_prompt_invalid_project_format(
+    tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with pytest.raises(LogfireConfigError, match='Project must be in the format <org>/<project>'):
+        main(['prompt', 'myproject', 'fix-span-issue:123'])
+
+
 def test_projects_use(tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
     with ExitStack() as stack:
         stack.enter_context(
