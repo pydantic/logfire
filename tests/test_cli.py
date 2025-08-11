@@ -1071,6 +1071,32 @@ def test_create_read_token(tmp_dir_cwd: Path, default_credentials: Path, capsys:
         assert output == snapshot('fake_token\n')
 
 
+def test_get_prompt(tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+        stack.enter_context(patch('logfire._internal.cli.LogfireCredentials.write_creds_file', side_effect=TypeError))
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects/myproject/prompts/',
+            params={'issue': 'fix-span-issue:123'},
+            json='This is the prompt',
+        )
+
+        main(['prompt', '--project', 'fake_org/myproject', '--issue', 'fix-span-issue:123'])
+
+        output = capsys.readouterr().out
+        assert output == snapshot('This is a prompt\n')
+
+
 def test_projects_use(tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
     with ExitStack() as stack:
         stack.enter_context(

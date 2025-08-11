@@ -18,6 +18,7 @@ import requests
 from opentelemetry import trace
 from rich.console import Console
 
+from logfire._internal.cli.prompt import parse_prompt
 from logfire.exceptions import LogfireConfigError
 from logfire.propagate import ContextCarrier, get_context
 
@@ -400,6 +401,11 @@ def _main(args: list[str] | None = None) -> None:
     # claude mcp add logfire -e LOGFIRE_READ_TOKEN=$(logfire read-tokens --org kludex --project potato create) -- uvx logfire-mcp@latest
     cmd_read_tokens_create = read_tokens_subparsers.add_parser('create', help=parse_create_read_token.__doc__)
     cmd_read_tokens_create.set_defaults(func=parse_create_read_token)
+
+    cmd_prompt = subparsers.add_parser('prompt', help=parse_prompt.__doc__)
+    cmd_prompt.add_argument('--project', help='project in the format <org>/<project>')
+    cmd_prompt.add_argument('--issue', help='the issue to get a prompt for')
+    cmd_prompt.set_defaults(func=parse_prompt)
 
     cmd_info = subparsers.add_parser('info', help=parse_info.__doc__)
     cmd_info.set_defaults(func=parse_info)
