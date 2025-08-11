@@ -25,12 +25,6 @@ You can then start the MCP server with the following command:
 LOGFIRE_READ_TOKEN=<your-token> uvx logfire-mcp@latest
 ```
 
-You can also generate the read token from the CLI, and use it in the MCP server:
-
-```bash
-LOGFIRE_READ_TOKEN=$(logfire read-tokens --org <your-org> --project <your-project> create) uvx logfire-mcp@latest
-```
-
 !!! note
     The `uvx` command will download the PyPI package [`logfire-mcp`](https://pypi.org/project/logfire-mcp/),
     and run the `logfire-mcp` command.
@@ -99,7 +93,7 @@ for more information.
 You can run the following command to add the Logfire MCP server to your Claude Code:
 
 ```bash
-claude mcp add logfire -e LOGFIRE_READ_TOKEN=$(logfire read-tokens --org <your-org> --project <your-project> create) -- uvx logfire-mcp@latest
+claude mcp add logfire -e LOGFIRE_READ_TOKEN="your-token" -- uvx logfire-mcp@latest
 ```
 
 #### Cline
