@@ -5,7 +5,6 @@ import sys
 from contextlib import contextmanager, nullcontext
 from typing import Any, ContextManager, Literal, TYPE_CHECKING, Sequence
 from unittest.mock import MagicMock
-from opentelemetry.sdk.trace import ReadableSpan
 
 try:
     logfire_module = importlib.import_module('logfire')
@@ -20,11 +19,24 @@ except ImportError:
         def configure(*args, **kwargs): ...
 
         class LogfireSpan:
-            def __init__(self, *args, **kwargs):
-                self._readable_span = ReadableSpan(name='')
-
             def __getattr__(self, attr):
-                return getattr(self._readable_span, attr, MagicMock())
+                return MagicMock()
+
+            @property
+            def name(self):
+                return ''
+
+            @property
+            def attributes(self):
+                return {}
+
+            @property
+            def events(self):
+                return ()
+
+            @property
+            def links(self):
+                return ()
 
             def __enter__(self):
                 return self
