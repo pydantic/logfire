@@ -10,5 +10,8 @@ def logfire_info() -> str:
 class SplitArgs(argparse.Action):
     def __call__(self, parser: argparse.ArgumentParser, namespace: argparse.Namespace, values: str | Sequence[Any] | None, option_string: str | None = None): ...
 
+class OrgProjectAction(argparse.Action):
+    def __call__(self, parser: argparse.ArgumentParser, namespace: argparse.Namespace, values: str | Sequence[Any] | None, option_string: str | None = None): ...
+
 def main(args: list[str] | None = None) -> None:
     """Run the CLI."""

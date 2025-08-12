@@ -1,5 +1,15 @@
 # Release Notes
 
+## [v4.3.0] (2025-08-12)
+
+* Closes logfire_api.LogfireSpan should support ReadableSpan attributes #989 by @RichardMarto in [#1288](https://github.com/pydantic/logfire/pull/1288)
+* Fix `test_instrument_google_genai` for specific versions by @alexmojaki in [#1303](https://github.com/pydantic/logfire/pull/1303)
+* Create read tokens via CLI by @Kludex in [#1306](https://github.com/pydantic/logfire/pull/1306)
+* Retrieve the prompt to fix issues via CLI by @Kludex in [#1307](https://github.com/pydantic/logfire/pull/1307)
+
+## New Contributors
+* @RichardMarto made their first contribution in [#1288](https://github.com/pydantic/logfire/pull/1288)
+
 ## [v4.2.0] (2025-08-06)
 
 * Handle wrong JSON schema in console exporter by @alexmojaki in [#1294](https://github.com/pydantic/logfire/pull/1294)
@@ -827,3 +837,4 @@ First release from new repo!
 [v4.0.1]: https://github.com/pydantic/logfire/compare/v4.0.0...v4.0.1
 [v4.1.0]: https://github.com/pydantic/logfire/compare/v4.0.1...v4.1.0
 [v4.2.0]: https://github.com/pydantic/logfire/compare/v4.1.0...v4.2.0
+[v4.3.0]: https://github.com/pydantic/logfire/compare/v4.2.0...v4.3.0
