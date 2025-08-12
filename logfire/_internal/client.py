@@ -51,14 +51,14 @@ class LogfireClient:
         """
         return cls(user_token=UserTokenCollection().get_token(base_url))
 
-    def _get_raw(self, endpoint: str) -> Response:
-        response = self._session.get(urljoin(self.base_url, endpoint))
+    def _get_raw(self, endpoint: str, params: dict[str, Any] | None = None) -> Response:
+        response = self._session.get(urljoin(self.base_url, endpoint), params=params)
         UnexpectedResponse.raise_for_status(response)
         return response
 
-    def _get(self, endpoint: str, *, error_message: str) -> Any:
+    def _get(self, endpoint: str, *, params: dict[str, Any] | None = None, error_message: str) -> Any:
         try:
-            return self._get_raw(endpoint).json()
+            return self._get_raw(endpoint, params).json()
         except UnexpectedResponse as e:
             raise LogfireConfigError(error_message) from e
 
@@ -122,4 +122,12 @@ class LogfireClient:
             f'/v1/organizations/{organization}/projects/{project_name}/read-tokens',
             body={'description': 'Created by Logfire CLI'},
             error_message='Error creating project read token',
+        )
+
+    def get_prompt(self, organization: str, project_name: str, issue: str) -> dict[str, Any]:
+        """Get a prompt to be used with your favorite LLM."""
+        return self._get(
+            f'/v1/organizations/{organization}/projects/{project_name}/prompts/',
+            params={'issue': issue},
+            error_message='Error retrieving prompt',
         )
