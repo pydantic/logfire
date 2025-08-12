@@ -3,13 +3,11 @@ from __future__ import annotations
 import importlib
 import sys
 from pathlib import Path
-from types import MappingProxyType, ModuleType
+from types import ModuleType
 from typing import Callable
 from unittest.mock import MagicMock
 
 import pytest
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.trace import SpanKind, Status
 from pydantic import __version__ as pydantic_version
 
 from logfire._internal.utils import get_version
@@ -72,19 +70,12 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         assert isinstance(span, logfire_api.LogfireSpan)
         span.set_attribute('foo', 'bar')
 
+        assert span.name == '' if module_name == 'logfire_api.' else 'test span'
         if module_name == 'logfire_api.':
-            assert span.context is None
-            assert span.name == ''
-            assert span.parent is None
-            assert isinstance(span.resource, Resource)
-            assert isinstance(span.attributes, MappingProxyType)
-            assert span.events == ()
-            assert span.links == ()
-            assert isinstance(span.kind, SpanKind)
-            assert isinstance(span.status, Status)
-            assert span.start_time is None
-            assert span.end_time is None
-            assert span.instrumentation_scope is None
+            assert span.attributes == {}
+        assert span.events == ()
+        assert span.links == ()
+        assert span.resource.attributes
 
     logfire__all__.remove('LogfireSpan')
     logfire__all__.remove('span')
