@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v4.3.1] (2025-08-12)
+
+* Fix `logfire_api` requiring OpenTelemetry SDK by @alexmojaki in [#1310](https://github.com/pydantic/logfire/pull/1310)
+
 ## [v4.3.0] (2025-08-12)
 
 * Closes logfire_api.LogfireSpan should support ReadableSpan attributes #989 by @RichardMarto in [#1288](https://github.com/pydantic/logfire/pull/1288)
@@ -838,3 +842,4 @@ First release from new repo!
 [v4.1.0]: https://github.com/pydantic/logfire/compare/v4.0.1...v4.1.0
 [v4.2.0]: https://github.com/pydantic/logfire/compare/v4.1.0...v4.2.0
 [v4.3.0]: https://github.com/pydantic/logfire/compare/v4.2.0...v4.3.0
+[v4.3.1]: https://github.com/pydantic/logfire/compare/v4.3.0...v4.3.1
