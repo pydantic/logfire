@@ -138,7 +138,7 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
 
     def info(self) -> ReadTokenInfo:
         """Get information about the read token."""
-        response = self.client.get('/api/read-token-info')
+        response = self.client.get('/v1/read-token-info')
         self.handle_response_errors(response)
         token_info = response.json()
         try:
@@ -279,7 +279,7 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
 
     async def info(self) -> ReadTokenInfo:
         """Get information about the read token."""
-        response = await self.client.get('/api/read-token-info')
+        response = await self.client.get('/v1/read-token-info')
         self.handle_response_errors(response)
         token_info = response.json()
         # Keep keys defined in ReadTokenInfo
