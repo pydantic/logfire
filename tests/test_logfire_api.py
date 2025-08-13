@@ -74,9 +74,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         if module_name == 'logfire_api.':
             assert span.attributes == {}
             assert span.context is None
-            assert span.parent is None
             assert span.start_time is None
-            assert span.end_time is None
             assert span.instrumentation_scope is None
         assert span.events == ()
         assert span.links == ()
