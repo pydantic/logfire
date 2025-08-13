@@ -64,6 +64,26 @@ except ImportError:
             def is_recording(self) -> bool:  # pragma: no cover
                 return False
 
+            @property
+            def context(self):
+                return None
+
+            @property
+            def instrumentation_scope(self):
+                return None
+
+            @property
+            def start_time(self):
+                return None
+
+            @property
+            def end_time(self):
+                return None
+
+            @property
+            def parent(self):
+                return None
+
             def set_attribute(self, key: str, value: Any) -> None: ... # pragma: no cover
 
         class Logfire:
