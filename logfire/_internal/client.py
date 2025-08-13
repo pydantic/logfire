@@ -127,7 +127,7 @@ class LogfireClient:
     def get_prompt(self, organization: str, project_name: str, issue: str) -> dict[str, Any]:
         """Get a prompt to be used with your favorite LLM."""
         return self._get(
-            f'/v1/organizations/{organization}/projects/{project_name}/prompts/',
+            f'/v1/organizations/{organization}/projects/{project_name}/prompts',
             params={'issue': issue},
             error_message='Error retrieving prompt',
         )
