@@ -1084,7 +1084,7 @@ def test_get_prompt(tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get(
-            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects/myproject/prompts/',
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects/myproject/prompts',
             json={'prompt': 'This is the prompt\n'},
         )
 
