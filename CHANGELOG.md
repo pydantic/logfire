@@ -1,5 +1,11 @@
 # Release Notes
 
+## [v4.3.2] (2025-08-13)
+
+* Able to see output from token selection by @Kludex in [#1312](https://github.com/pydantic/logfire/pull/1312)
+* Remove trailing `/` from prompts call by @Kludex in [#1314](https://github.com/pydantic/logfire/pull/1314)
+* Change get read token info endpoint by @hramezani in [#1309](https://github.com/pydantic/logfire/pull/1309)
+
 ## [v4.3.1] (2025-08-12)
 
 * Fix `logfire_api` requiring OpenTelemetry SDK by @alexmojaki in [#1310](https://github.com/pydantic/logfire/pull/1310)
@@ -843,3 +849,4 @@ First release from new repo!
 [v4.2.0]: https://github.com/pydantic/logfire/compare/v4.1.0...v4.2.0
 [v4.3.0]: https://github.com/pydantic/logfire/compare/v4.2.0...v4.3.0
 [v4.3.1]: https://github.com/pydantic/logfire/compare/v4.3.0...v4.3.1
+[v4.3.2]: https://github.com/pydantic/logfire/compare/v4.3.1...v4.3.2
