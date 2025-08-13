@@ -72,7 +72,7 @@ def test_instrument_langchain(exporter: TestExporter):
 
         if span['name'] == 'ChatOpenAI':
             assert span['attributes']['gen_ai.usage.input_tokens'] > 0
-            assert span['attributes']['gen_ai.request.model'] == snapshot('gpt-4o')
+            assert span['attributes']['gen_ai.request.model'] == snapshot('gpt-4o-2024-08-06')
             assert span['attributes']['gen_ai.response.model'] == snapshot('gpt-4o-2024-08-06')
             assert span['attributes']['gen_ai.system'] == 'openai'
         else:

@@ -385,4 +385,4 @@ def test_guess_system():
     assert guess_system('gemini-1.5-pro') == 'google'
     assert guess_system('claude-sonnet') == 'anthropic'
     assert guess_system('other-anthropic') == 'anthropic'
-    assert guess_system('unknown-model') == 'litellm'
+    assert guess_system('unknown-model', 'litellm') == 'litellm'

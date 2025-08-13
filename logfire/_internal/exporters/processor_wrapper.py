@@ -336,14 +336,24 @@ def _transform_langchain_span(span: ReadableSpanDict):
     with suppress(Exception):
         new_attributes['gen_ai.request.model'] = parsed_attributes['llm.invocation_parameters']['model']
     with suppress(Exception):
-        new_attributes['gen_ai.response.model'] = parsed_attributes['gen_ai.completion']['llm_output']['model_name']
+        new_attributes['gen_ai.response.model'] = model = parsed_attributes['gen_ai.completion']['llm_output'][
+            'model_name'
+        ]
+        new_attributes.setdefault('gen_ai.request.model', model)
 
-    if 'gen_ai.request.model' not in attributes and 'gen_ai.usage.input_tokens' in attributes:
+    request_model: str = attributes.get('gen_ai.request.model') or new_attributes.get('gen_ai.request.model', '')  # type: ignore
+
+    if not request_model and 'gen_ai.usage.input_tokens' in attributes:
         # Only keep usage attributes on spans with actual token usage, i.e. model requests,
         # to prevent double counting costs in the UI.
         attributes = {k: v for k, v in attributes.items() if not k.startswith('gen_ai.usage.')}
 
-    if attributes.get('gen_ai.system') == 'langchain':
+    guessed_system = guess_system(request_model)
+    actual_system = attributes.get('gen_ai.system')
+    if guessed_system:
+        if actual_system in (None, 'langchain'):
+            new_attributes['gen_ai.system'] = guessed_system
+    elif actual_system == 'langchain':
         # Remove gen_ai.system=langchain as this also interferes with costs in the UI.
         attributes = {k: v for k, v in attributes.items() if k != 'gen_ai.system'}
 
@@ -480,7 +490,7 @@ def _transform_litellm_span(span: ReadableSpanDict):
                 'gen_ai.request.model': request_model,
                 'gen_ai.usage.input_tokens': attributes['llm.token_count.prompt'],
                 'gen_ai.usage.output_tokens': attributes['llm.token_count.completion'],
-                'gen_ai.system': guess_system(request_model),
+                'gen_ai.system': guess_system(request_model, 'litellm'),
             }
         )
     except Exception:  # pragma: no cover
@@ -501,7 +511,7 @@ def _transform_litellm_span(span: ReadableSpanDict):
     }
 
 
-def guess_system(model: str):
+def guess_system(model: str, default: str = ''):
     model_lower = model.lower()
     if 'openai' in model_lower or 'gpt-4' in model_lower or 'gpt-3.5' in model_lower:
         return 'openai'
@@ -510,4 +520,4 @@ def guess_system(model: str):
     elif 'anthropic' in model_lower or 'claude' in model_lower:
         return 'anthropic'
     else:
-        return 'litellm'
+        return default
