@@ -18,8 +18,7 @@ from anthropic.types import (
     TextDelta,
     Usage,
 )
-from dirty_equals import IsJson
-from dirty_equals._strings import IsStr
+from dirty_equals import IsJson, IsPartialDict, IsStr
 from httpx._transports.mock import MockTransport
 from inline_snapshot import snapshot
 
@@ -173,14 +172,17 @@ def test_sync_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                                     'content': 'Nine',
                                     'role': 'assistant',
                                 },
-                                'usage': {
-                                    'input_tokens': 2,
-                                    'output_tokens': 3,
-                                    'cache_creation_input_tokens': None,
-                                    'cache_read_input_tokens': None,
-                                    'server_tool_use': None,
-                                    'service_tier': None,
-                                },
+                                'usage': IsPartialDict(
+                                    {
+                                        'cache_creation': None,
+                                        'input_tokens': 2,
+                                        'output_tokens': 3,
+                                        'cache_creation_input_tokens': None,
+                                        'cache_read_input_tokens': None,
+                                        'server_tool_use': None,
+                                        'service_tier': None,
+                                    }
+                                ),
                             }
                         )
                     ),
@@ -252,14 +254,17 @@ async def test_async_messages(instrumented_async_client: anthropic.AsyncAnthropi
                                     'content': 'Nine',
                                     'role': 'assistant',
                                 },
-                                'usage': {
-                                    'input_tokens': 2,
-                                    'output_tokens': 3,
-                                    'cache_creation_input_tokens': None,
-                                    'cache_read_input_tokens': None,
-                                    'server_tool_use': None,
-                                    'service_tier': None,
-                                },
+                                'usage': IsPartialDict(
+                                    {
+                                        'cache_creation': None,
+                                        'input_tokens': 2,
+                                        'output_tokens': 3,
+                                        'cache_creation_input_tokens': None,
+                                        'cache_read_input_tokens': None,
+                                        'server_tool_use': None,
+                                        'service_tier': None,
+                                    }
+                                ),
                             }
                         )
                     ),
@@ -481,7 +486,7 @@ def test_tool_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
     )
     content = response.content[0]
     assert content.input == {'param': 'param'}  # type: ignore
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'Message with {request_data[model]!r}',
@@ -493,14 +498,47 @@ def test_tool_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                     'code.filepath': 'test_anthropic.py',
                     'code.function': 'test_tool_messages',
                     'code.lineno': 123,
-                    'request_data': '{"max_tokens":1000,"messages":[],"model":"claude-3-haiku-20240307","system":"tool response"}',
+                    'request_data': {
+                        'max_tokens': 1000,
+                        'messages': [],
+                        'model': 'claude-3-haiku-20240307',
+                        'system': 'tool response',
+                    },
                     'async': False,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
                     'logfire.msg': "Message with 'claude-3-haiku-20240307'",
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
-                    'response_data': '{"message":{"role":"assistant","tool_calls":[{"function":{"arguments":"{\\"input\\":{\\"param\\":\\"param\\"}}","name":"tool"}}]},"usage":{"cache_creation_input_tokens":null,"cache_read_input_tokens":null,"input_tokens":2,"output_tokens":3,"server_tool_use":null,"service_tier":null}}',
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{},"response_data":{"type":"object","properties":{"usage":{"type":"object","title":"Usage","x-python-datatype":"PydanticModel"}}}}}',
+                    'response_data': {
+                        'message': {
+                            'role': 'assistant',
+                            'tool_calls': [{'function': {'arguments': '{"input":{"param":"param"}}', 'name': 'tool'}}],
+                        },
+                        'usage': IsPartialDict(
+                            {
+                                'cache_creation': None,
+                                'cache_creation_input_tokens': None,
+                                'cache_read_input_tokens': None,
+                                'input_tokens': 2,
+                                'output_tokens': 3,
+                                'server_tool_use': None,
+                                'service_tier': None,
+                            }
+                        ),
+                    },
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'async': {},
+                            'response_data': {
+                                'type': 'object',
+                                'properties': {
+                                    'usage': {'type': 'object', 'title': 'Usage', 'x-python-datatype': 'PydanticModel'}
+                                },
+                            },
+                        },
+                    },
                 },
             }
         ]

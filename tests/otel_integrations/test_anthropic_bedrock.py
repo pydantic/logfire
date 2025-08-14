@@ -4,7 +4,7 @@ import httpx
 import pytest
 from anthropic import Anthropic, AnthropicBedrock, AsyncAnthropic, AsyncAnthropicBedrock
 from anthropic.types import Message, TextBlock, Usage
-from dirty_equals import IsJson
+from dirty_equals import IsJson, IsPartialDict
 from httpx._transports.mock import MockTransport
 from inline_snapshot import snapshot
 
@@ -101,14 +101,17 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                                     'content': 'Nine',
                                     'role': 'assistant',
                                 },
-                                'usage': {
-                                    'input_tokens': 2,
-                                    'output_tokens': 3,
-                                    'cache_creation_input_tokens': None,
-                                    'cache_read_input_tokens': None,
-                                    'server_tool_use': None,
-                                    'service_tier': None,
-                                },
+                                'usage': IsPartialDict(
+                                    {
+                                        'cache_creation': None,
+                                        'input_tokens': 2,
+                                        'output_tokens': 3,
+                                        'cache_creation_input_tokens': None,
+                                        'cache_read_input_tokens': None,
+                                        'server_tool_use': None,
+                                        'service_tier': None,
+                                    }
+                                ),
                             }
                         )
                     ),
