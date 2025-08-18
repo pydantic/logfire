@@ -21,6 +21,9 @@ from logfire._internal.utils import maybe_capture_server_headers
 
 def instrument_starlette(
     logfire_instance: Logfire,
+    # Note that `Logfire.instrument_starlette()` requires this argument. It's only omitted when called via the
+    # `logfire run` CLI. This is because `StarletteInstrumentor.instrument()` has to be called before
+    # `from starlette import Starlette` which is easy to get wrong.
     app: Starlette | None = None,
     *,
     record_send_receive: bool = False,

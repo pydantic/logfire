@@ -22,6 +22,9 @@ from logfire.integrations.flask import CommenterOptions, RequestHook, ResponseHo
 
 def instrument_flask(
     logfire_instance: Logfire,
+    # Note that `Logfire.instrument_flask()` requires this argument. It's only omitted when called via the
+    # `logfire run` CLI. This is because `FlaskInstrumentor.instrument_app()` has to be called before
+    # `from flask import Flask` which is easy to get wrong.
     app: Flask | None = None,
     *,
     capture_headers: bool = False,
