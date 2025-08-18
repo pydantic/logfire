@@ -50,3 +50,7 @@ class LogfireClient:
         """
     def create_write_token(self, organization: str, project_name: str) -> dict[str, Any]:
         """Create a write token for the given project in the given organization."""
+    def create_read_token(self, organization: str, project_name: str) -> dict[str, Any]:
+        """Create a read token for the given project in the given organization."""
+    def get_prompt(self, organization: str, project_name: str, issue: str) -> dict[str, Any]:
+        """Get a prompt to be used with your favorite LLM."""

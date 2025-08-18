@@ -1,5 +1,51 @@
 # Release Notes
 
+## [v4.3.3] (2025-08-13)
+
+* Ensure `logfire_api.LogfireSpan.context` and other attrs are None by @alexmojaki in [#1317](https://github.com/pydantic/logfire/pull/1317)
+
+## [v4.3.2] (2025-08-13)
+
+* Able to see output from token selection by @Kludex in [#1312](https://github.com/pydantic/logfire/pull/1312)
+* Remove trailing `/` from prompts call by @Kludex in [#1314](https://github.com/pydantic/logfire/pull/1314)
+* Change get read token info endpoint by @hramezani in [#1309](https://github.com/pydantic/logfire/pull/1309)
+
+## [v4.3.1] (2025-08-12)
+
+* Fix `logfire_api` requiring OpenTelemetry SDK by @alexmojaki in [#1310](https://github.com/pydantic/logfire/pull/1310)
+
+## [v4.3.0] (2025-08-12)
+
+* Closes logfire_api.LogfireSpan should support ReadableSpan attributes #989 by @RichardMarto in [#1288](https://github.com/pydantic/logfire/pull/1288)
+* Fix `test_instrument_google_genai` for specific versions by @alexmojaki in [#1303](https://github.com/pydantic/logfire/pull/1303)
+* Create read tokens via CLI by @Kludex in [#1306](https://github.com/pydantic/logfire/pull/1306)
+* Retrieve the prompt to fix issues via CLI by @Kludex in [#1307](https://github.com/pydantic/logfire/pull/1307)
+
+## New Contributors
+* @RichardMarto made their first contribution in [#1288](https://github.com/pydantic/logfire/pull/1288)
+
+## [v4.2.0] (2025-08-06)
+
+* Handle wrong JSON schema in console exporter by @alexmojaki in [#1294](https://github.com/pydantic/logfire/pull/1294)
+* Move creation of span down on cli by @Kludex in [#1298](https://github.com/pydantic/logfire/pull/1298)
+* Allow to set `instrument_httpx(capture_all=True)` via env var by @Kludex in [#1295](https://github.com/pydantic/logfire/pull/1295)
+
+## [v4.1.0] (2025-08-04)
+
+* Add `min_level` argument to `logfire.configure` by @alexmojaki in [#1265](https://github.com/pydantic/logfire/pull/1265)
+
+## [v4.0.1] (2025-07-31)
+
+* Handle cyclic references in exceptions by @alexmojaki in [#1284](https://github.com/pydantic/logfire/pull/1284)
+* Support OpenTelemetry 1.36.0 by @alexmojaki in [#1285](https://github.com/pydantic/logfire/pull/1285)
+
+## [v4.0.0] (2025-07-22)
+
+**BREAKING CHANGES**:
+
+* Remove extra FastAPI spans by default by @alexmojaki in [#1268](https://github.com/pydantic/logfire/pull/1268)
+* Stop implicitly emitting deprecated process runtime metrics by @alexmojaki in [#932](https://github.com/pydantic/logfire/pull/932)
+
 ## [v3.25.0] (2025-07-18)
 
 * Use local timezone in console logging by @fswair in [#1255](https://github.com/pydantic/logfire/pull/1255)
@@ -801,3 +847,11 @@ First release from new repo!
 [v3.24.1]: https://github.com/pydantic/logfire/compare/v3.24.0...v3.24.1
 [v3.24.2]: https://github.com/pydantic/logfire/compare/v3.24.1...v3.24.2
 [v3.25.0]: https://github.com/pydantic/logfire/compare/v3.24.2...v3.25.0
+[v4.0.0]: https://github.com/pydantic/logfire/compare/v3.25.0...v4.0.0
+[v4.0.1]: https://github.com/pydantic/logfire/compare/v4.0.0...v4.0.1
+[v4.1.0]: https://github.com/pydantic/logfire/compare/v4.0.1...v4.1.0
+[v4.2.0]: https://github.com/pydantic/logfire/compare/v4.1.0...v4.2.0
+[v4.3.0]: https://github.com/pydantic/logfire/compare/v4.2.0...v4.3.0
+[v4.3.1]: https://github.com/pydantic/logfire/compare/v4.3.0...v4.3.1
+[v4.3.2]: https://github.com/pydantic/logfire/compare/v4.3.1...v4.3.2
+[v4.3.3]: https://github.com/pydantic/logfire/compare/v4.3.2...v4.3.3

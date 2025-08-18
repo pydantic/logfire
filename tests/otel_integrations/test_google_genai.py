@@ -1,5 +1,6 @@
 import os
 import sys
+import warnings
 
 import pydantic
 import pytest
@@ -41,16 +42,20 @@ def test_instrument_google_genai(exporter: TestExporter) -> None:
         """
         return 'rainy'
 
-    response = client.models.generate_content(  # type: ignore
-        model='gemini-2.0-flash-001',
-        contents=[
-            'What is the weather like in Boston?',
-            types.Part.from_bytes(data=b'123', mime_type='text/plain'),
-        ],
-        config=types.GenerateContentConfig(
-            tools=[get_current_weather],
-        ),
-    )
+    with warnings.catch_warnings():
+        # generate_content itself produces this warning, but only with pydantic 2.9.2 and python 3.13.
+        warnings.filterwarnings('ignore', category=UserWarning)
+
+        response = client.models.generate_content(  # type: ignore
+            model='gemini-2.0-flash-001',
+            contents=[
+                'What is the weather like in Boston?',
+                types.Part.from_bytes(data=b'123', mime_type='text/plain'),
+            ],
+            config=types.GenerateContentConfig(
+                tools=[get_current_weather],
+            ),
+        )
 
     assert response.text == snapshot('It is rainy in Boston, MA.\n')
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(

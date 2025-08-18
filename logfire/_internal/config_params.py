@@ -55,6 +55,8 @@ _send_to_logfire_default = _DefaultCallback(lambda: 'PYTEST_VERSION' not in os.e
 # fmt: off
 SEND_TO_LOGFIRE = ConfigParam(env_vars=['LOGFIRE_SEND_TO_LOGFIRE'], allow_file_config=True, default=_send_to_logfire_default, tp=Union[bool, Literal['if-token-present']])
 """Whether to send spans to Logfire."""
+MIN_LEVEL = ConfigParam(env_vars=['LOGFIRE_MIN_LEVEL'], allow_file_config=True, default=None, tp=LevelName)
+"""Minimum log level for logs and spans to be created. By default, all logs and spans are created."""
 TOKEN = ConfigParam(env_vars=['LOGFIRE_TOKEN'])
 """Token for the Logfire API."""
 SERVICE_NAME = ConfigParam(env_vars=['LOGFIRE_SERVICE_NAME', OTEL_SERVICE_NAME], allow_file_config=True, default='')
@@ -102,11 +104,16 @@ BASE_URL = ConfigParam(env_vars=['LOGFIRE_BASE_URL'], allow_file_config=True, de
 """The base URL of the Logfire backend. Primarily for testing purposes."""
 DISTRIBUTED_TRACING = ConfigParam(env_vars=['LOGFIRE_DISTRIBUTED_TRACING'], allow_file_config=True, default=None, tp=bool)
 """Whether to extract incoming trace context. By default, will extract but warn about it."""
+
+# Instrumentation packages parameters
+HTTPX_CAPTURE_ALL = ConfigParam(env_vars=['LOGFIRE_HTTPX_CAPTURE_ALL'], allow_file_config=True, default=False, tp=bool)
+"""Whether to capture all HTTP headers, request and response bodies when using `logfire.instrument_httpx()`"""
 # fmt: on
 
 CONFIG_PARAMS = {
     'base_url': BASE_URL,
     'send_to_logfire': SEND_TO_LOGFIRE,
+    'min_level': MIN_LEVEL,
     'token': TOKEN,
     'service_name': SERVICE_NAME,
     'service_version': SERVICE_VERSION,
@@ -127,6 +134,8 @@ CONFIG_PARAMS = {
     'inspect_arguments': INSPECT_ARGUMENTS,
     'ignore_no_config': IGNORE_NO_CONFIG,
     'distributed_tracing': DISTRIBUTED_TRACING,
+    # Instrumentation packages parameters
+    'httpx_capture_all': HTTPX_CAPTURE_ALL,
 }
 
 

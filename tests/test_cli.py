@@ -22,7 +22,7 @@ from inline_snapshot import snapshot
 import logfire._internal.cli
 from logfire import VERSION
 from logfire._internal.auth import UserToken
-from logfire._internal.cli import SplitArgs, main
+from logfire._internal.cli import OrgProjectAction, SplitArgs, main
 from logfire._internal.cli.run import (
     find_recommended_instrumentations_to_install,
     get_recommendation_texts,
@@ -1047,6 +1047,54 @@ def test_projects_new_create_project_error(tmp_dir_cwd: Path, default_credential
             main(['projects', 'new', 'myproject', '--org', 'fake_org'])
 
 
+def test_create_read_token(tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.post(
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects/myproject/read-tokens',
+            json={'token': 'fake_token'},
+        )
+
+        main(['read-tokens', '--project', 'fake_org/myproject', 'create'])
+
+        output = capsys.readouterr().out
+        assert output == snapshot('fake_token\n')
+
+
+def test_get_prompt(tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects/myproject/prompts',
+            json={'prompt': 'This is the prompt\n'},
+        )
+
+        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123'])
+
+        output = capsys.readouterr().out
+        assert output == snapshot('This is the prompt\n')
+
+
 def test_projects_use(tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
     with ExitStack() as stack:
         stack.enter_context(
@@ -1572,6 +1620,26 @@ def test_split_args_action() -> None:
     parser.add_argument('--foo', action=SplitArgs)
     args = parser.parse_args(['--foo', 'a,b,c'])
     assert args.foo == ['a', 'b', 'c']
+
+
+def test_org_project_action() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--project', action=OrgProjectAction)
+    args = parser.parse_args(['--project', 'organization/project'])
+    assert args.project == 'project'
+    assert args.organization == 'organization'
+
+    # Missing `/` separation.
+    with pytest.raises(SystemExit):
+        args = parser.parse_args(['--project', 'organization'])
+
+    # Empty project or organization name.
+    with pytest.raises(SystemExit):
+        args = parser.parse_args(['--project', 'organization/'])
+
+    # Can't split multiple `/`.
+    with pytest.raises(SystemExit):
+        args = parser.parse_args(['--project', 'organization/project/extra'])
 
 
 def test_instrumented_packages_text_filters_starlette_and_urllib3():

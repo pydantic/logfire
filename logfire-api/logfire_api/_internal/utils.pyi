@@ -129,7 +129,7 @@ def platform_is_emscripten() -> bool:
 
     Threads cannot be created on Emscripten, so we need to avoid any code that creates threads.
     """
-def canonicalize_exception_traceback(exc: BaseException) -> str:
+def canonicalize_exception_traceback(exc: BaseException, seen: set[int] | None = None) -> str:
     """Return a canonical string representation of an exception traceback.
 
     Exceptions with the same representation are considered the same for fingerprinting purposes.

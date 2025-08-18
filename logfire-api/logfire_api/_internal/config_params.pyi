@@ -30,6 +30,7 @@ class _DefaultCallback:
     callback: Callable[[], Any]
 
 SEND_TO_LOGFIRE: Incomplete
+MIN_LEVEL: Incomplete
 TOKEN: Incomplete
 SERVICE_NAME: Incomplete
 SERVICE_VERSION: Incomplete
@@ -51,6 +52,7 @@ INSPECT_ARGUMENTS: Incomplete
 IGNORE_NO_CONFIG: Incomplete
 BASE_URL: Incomplete
 DISTRIBUTED_TRACING: Incomplete
+HTTPX_CAPTURE_ALL: Incomplete
 CONFIG_PARAMS: Incomplete
 
 @dataclass

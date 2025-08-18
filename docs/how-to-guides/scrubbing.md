@@ -38,7 +38,7 @@ Here are the default scrubbing patterns:
 
 ## Scrubbing less with a callback
 
-On the other hand, if the scrubbing is to aggressive, you can pass a function to [`callback`][logfire.ScrubbingOptions.callback] to prevent certain data from being redacted.
+On the other hand, if the scrubbing is too aggressive, you can pass a function to [`callback`][logfire.ScrubbingOptions.callback] to prevent certain data from being redacted.
 
 The function will be called for each potential match found by the scrubber. If it returns `None`, the value is redacted. Otherwise, the returned value replaces the matched value. The function accepts a single argument of type [`logfire.ScrubMatch`][logfire.ScrubMatch].
 
