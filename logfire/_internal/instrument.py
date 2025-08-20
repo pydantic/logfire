@@ -131,7 +131,9 @@ def get_open_span(
         if sig.parameters:  # only extract args if there are any
 
             def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
-                args_dict = sig.bind(*func_args, **func_kwargs).arguments
+                bound = sig.bind(*func_args, **func_kwargs)
+                bound.apply_defaults()
+                args_dict = bound.arguments
                 return logfire._instrument_span_with_args(  # type: ignore
                     final_span_name, attributes, args_dict
                 )
@@ -156,7 +158,9 @@ def get_open_span(
         if extract_args_final:  # check that there are still arguments to extract
 
             def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
-                args_dict = sig.bind(*func_args, **func_kwargs).arguments
+                bound = sig.bind(*func_args, **func_kwargs)
+                bound.apply_defaults()
+                args_dict = bound.arguments
 
                 # This line is the only difference from the extract_args=True case
                 args_dict = {k: args_dict[k] for k in extract_args_final}
