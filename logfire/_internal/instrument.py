@@ -63,19 +63,28 @@ def instrument(
         attributes = get_attributes(func, msg_template, tags)
         open_span = get_open_span(logfire, attributes, span_name, extract_args, func)
 
+        def open_span_defaults(
+            func: Callable[P, R], *func_args: P.args, **func_kwargs: P.kwargs
+        ) -> AbstractContextManager[Any, bool | None]:
+            """Open a span with default arguments bound from the function."""
+            sig = inspect.signature(func)
+            bound = sig.bind(*func_args, **func_kwargs)
+            bound.apply_defaults()
+            return open_span(*bound.args, **bound.kwargs)
+
         if inspect.isgeneratorfunction(func):
             if not allow_generator:
                 warnings.warn(GENERATOR_WARNING_MESSAGE, stacklevel=2)
 
             def wrapper(*func_args: P.args, **func_kwargs: P.kwargs):  # type: ignore
-                with open_span(*func_args, **func_kwargs):
+                with open_span_defaults(func, *func_args, **func_kwargs):  # type: ignore
                     yield from func(*func_args, **func_kwargs)
         elif inspect.isasyncgenfunction(func):
             if not allow_generator:
                 warnings.warn(GENERATOR_WARNING_MESSAGE, stacklevel=2)
 
             async def wrapper(*func_args: P.args, **func_kwargs: P.kwargs):  # type: ignore
-                with open_span(*func_args, **func_kwargs):
+                with open_span_defaults(func, *func_args, **func_kwargs):  # type: ignore
                     # `yield from` is invalid syntax in an async function.
                     # This loop is not quite equivalent, because `yield from` also handles things like
                     # sending values to the subgenerator.
@@ -89,7 +98,7 @@ def instrument(
         elif inspect.iscoroutinefunction(func):
 
             async def wrapper(*func_args: P.args, **func_kwargs: P.kwargs) -> R:  # type: ignore
-                with open_span(*func_args, **func_kwargs) as span:
+                with open_span_defaults(func, *func_args, **func_kwargs) as span:  # type: ignore
                     result = await func(*func_args, **func_kwargs)
                     if record_return:
                         # open_span returns a FastLogfireSpan, so we can't use span.set_attribute for complex types.
@@ -101,7 +110,7 @@ def instrument(
         else:
             # Same as the above, but without the async/await
             def wrapper(*func_args: P.args, **func_kwargs: P.kwargs) -> R:
-                with open_span(*func_args, **func_kwargs) as span:
+                with open_span_defaults(func, *func_args, **func_kwargs) as span:
                     result = func(*func_args, **func_kwargs)
                     if record_return:
                         set_user_attributes_on_raw_span(span._span, {'return': result})
