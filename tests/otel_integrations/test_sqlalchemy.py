@@ -9,6 +9,7 @@ from unittest import mock
 import pytest
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+from opentelemetry.instrumentation.sqlite3 import SQLite3Instrumentor
 from sqlalchemy.engine import Engine, create_engine
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
@@ -207,6 +208,162 @@ CREATE TABLE auth_records ( id INTEGER … t VARCHAR NOT NULL, PRIMARY KEY (id)
     )
 
     SQLAlchemyInstrumentor().uninstrument()
+
+
+def test_sqlalchemy_instrumentation_commenter(exporter: TestExporter):
+    with sqlite_engine(Path('example3.db')) as engine:
+        logfire.instrument_sqlalchemy(engine=engine, enable_commenter=True, commenter_options={'db_framework': False})
+        logfire.instrument_sqlite3()
+
+        Base.metadata.create_all(engine)
+
+    assert exporter.exported_spans_as_dict(include_instrumentation_scope=True) == snapshot(
+        [
+            {
+                'name': 'PRAGMA',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 3000000000,
+                'instrumentation_scope': 'opentelemetry.instrumentation.sqlite3',
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'PRAGMA read_uncommitted',
+                    'db.system': 'sqlite',
+                    'db.name': '',
+                    'db.statement': 'PRAGMA read_uncommitted',
+                },
+            },
+            {
+                'name': 'connect',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 4000000000,
+                'instrumentation_scope': 'opentelemetry.instrumentation.sqlalchemy',
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'connect',
+                    'db.name': 'example3.db',
+                    'db.system': 'sqlite',
+                    'logfire.level_num': 5,
+                },
+            },
+            {
+                'name': 'PRAGMA',
+                'context': {'trace_id': 3, 'span_id': 7, 'is_remote': False},
+                'parent': None,
+                'start_time': 6000000000,
+                'end_time': 7000000000,
+                'instrumentation_scope': 'opentelemetry.instrumentation.sqlite3',
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'PRAGMA main.table_info("auth_records") … 000000000000002-0000000000000005-01\'*/',
+                    'db.system': 'sqlite',
+                    'db.name': '',
+                    'db.statement': "PRAGMA main.table_info(\"auth_records\") /*db_driver='pysqlite',traceparent='00-00000000000000000000000000000002-0000000000000005-01'*/",
+                },
+            },
+            {
+                'name': 'PRAGMA example3.db',
+                'context': {'trace_id': 2, 'span_id': 5, 'is_remote': False},
+                'parent': None,
+                'start_time': 5000000000,
+                'end_time': 8000000000,
+                'instrumentation_scope': 'opentelemetry.instrumentation.sqlalchemy',
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'PRAGMA main.table_info("auth_records")',
+                    'db.statement': 'PRAGMA main.table_info("auth_records")',
+                    'db.system': 'sqlite',
+                    'db.name': 'example3.db',
+                },
+            },
+            {
+                'name': 'PRAGMA',
+                'context': {'trace_id': 5, 'span_id': 11, 'is_remote': False},
+                'parent': None,
+                'start_time': 10000000000,
+                'end_time': 11000000000,
+                'instrumentation_scope': 'opentelemetry.instrumentation.sqlite3',
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'PRAGMA temp.table_info("auth_records") … 000000000000004-0000000000000009-01\'*/',
+                    'db.system': 'sqlite',
+                    'db.name': '',
+                    'db.statement': "PRAGMA temp.table_info(\"auth_records\") /*db_driver='pysqlite',traceparent='00-00000000000000000000000000000004-0000000000000009-01'*/",
+                },
+            },
+            {
+                'name': 'PRAGMA example3.db',
+                'context': {'trace_id': 4, 'span_id': 9, 'is_remote': False},
+                'parent': None,
+                'start_time': 9000000000,
+                'end_time': 12000000000,
+                'instrumentation_scope': 'opentelemetry.instrumentation.sqlalchemy',
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'PRAGMA temp.table_info("auth_records")',
+                    'db.statement': 'PRAGMA temp.table_info("auth_records")',
+                    'db.system': 'sqlite',
+                    'db.name': 'example3.db',
+                },
+            },
+            {
+                'name': 'CREATE',
+                'context': {'trace_id': 7, 'span_id': 15, 'is_remote': False},
+                'parent': None,
+                'start_time': 14000000000,
+                'end_time': 15000000000,
+                'instrumentation_scope': 'opentelemetry.instrumentation.sqlite3',
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': "CREATE TABLE auth_records ( id INTEGER … 000000000000006-000000000000000d-01'*/",
+                    'db.system': 'sqlite',
+                    'db.name': '',
+                    'db.statement': """\
+
+CREATE TABLE auth_records (
+	id INTEGER NOT NULL, \n\
+	number INTEGER NOT NULL, \n\
+	content VARCHAR NOT NULL, \n\
+	PRIMARY KEY (id)
+) /*db_driver='pysqlite',traceparent='00-00000000000000000000000000000006-000000000000000d-01'*/\
+""",
+                },
+            },
+            {
+                'name': 'CREATE example3.db',
+                'context': {'trace_id': 6, 'span_id': 13, 'is_remote': False},
+                'parent': None,
+                'start_time': 13000000000,
+                'end_time': 16000000000,
+                'instrumentation_scope': 'opentelemetry.instrumentation.sqlalchemy',
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': """\
+CREATE TABLE auth_records ( id INTEGER … t VARCHAR NOT NULL, PRIMARY KEY (id)
+)\
+""",
+                    'db.statement': """\
+
+CREATE TABLE auth_records (
+	id INTEGER NOT NULL, \n\
+	number INTEGER NOT NULL, \n\
+	content VARCHAR NOT NULL, \n\
+	PRIMARY KEY (id)
+)
+
+""",
+                    'db.system': 'sqlite',
+                    'db.name': 'example3.db',
+                },
+            },
+        ]
+    )
+
+    SQLAlchemyInstrumentor().uninstrument()
+    SQLite3Instrumentor().uninstrument()
 
 
 @contextmanager
