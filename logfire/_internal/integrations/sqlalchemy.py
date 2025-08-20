@@ -34,4 +34,6 @@ def instrument_sqlalchemy(
 
         if isinstance(engine, AsyncEngine):
             engine = engine.sync_engine
-    return SQLAlchemyInstrumentor().instrument(engine=engine, **kwargs)
+    return SQLAlchemyInstrumentor().instrument(
+        engine=engine, enable_commenter=enable_commenter, commenter_options=commenter_options, **kwargs
+    )
