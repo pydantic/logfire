@@ -92,6 +92,7 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                     'logfire.span_type': 'span',
                     'logfire.msg': 'completion',
                     'llm.model_name': 'gpt-4o-mini',
+                    'llm.provider': 'openai',
                     'llm.input_messages.0.message.role': 'user',
                     'llm.input_messages.0.message.content': "What's the weather like in San Francisco?",
                     'input.value': {
@@ -234,6 +235,7 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                     'logfire.span_type': 'span',
                     'logfire.msg': 'completion',
                     'llm.model_name': 'gpt-4o-mini',
+                    'llm.provider': 'openai',
                     'llm.input_messages.0.message.role': 'user',
                     'llm.input_messages.0.message.content': "What's the weather like in San Francisco?",
                     'llm.input_messages.1.message.role': 'assistant',
