@@ -10,7 +10,22 @@ from opentelemetry.trace import get_current_span
 from typing_extensions import TypeAlias
 
 import logfire
-from logfire._internal.utils import handle_internal_errors
+from logfire._internal.utils import handle_internal_errors, safe_repr
+
+try:
+    from opentelemetry.instrumentation.google_genai import dict_util
+
+    original_flatten_compound_value = dict_util._flatten_compound_value  # type: ignore
+
+    def wrapped_flatten_compound_value(key: str, value: Any, *args: Any, **kwargs: Any):
+        try:
+            return original_flatten_compound_value(key, value, *args, **kwargs)
+        except Exception:
+            return {key: safe_repr(value)}
+
+    dict_util._flatten_compound_value = wrapped_flatten_compound_value  # type: ignore
+except Exception:  # pragma: no cover
+    pass
 
 Part: TypeAlias = 'dict[str, Any] | str'
 

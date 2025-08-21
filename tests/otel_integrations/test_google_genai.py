@@ -14,13 +14,17 @@ from logfire.testing import TestExporter
 os.environ['OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT'] = 'true'
 os.environ.setdefault('GOOGLE_API_KEY', 'foo')
 
+pytestmark = [
+    pytest.mark.skipif(
+        get_version(pydantic.__version__) < get_version('2.7.0'), reason='Requires newer pydantic version'
+    ),
+    pytest.mark.skipif(
+        sys.version_info < (3, 10), reason='Python 3.9 produces ResourceWarnings unrelated to the instrumentation'
+    ),
+]
 
-@pytest.mark.skipif(get_version(pydantic.__version__) < get_version('2.7.0'), reason='Requires newer pydantic version')
-@pytest.mark.skipif(
-    sys.version_info < (3, 10), reason='Python 3.9 produces ResourceWarnings unrelated to the instrumentation'
-)
-@pytest.mark.vcr()
-def test_instrument_google_genai(exporter: TestExporter) -> None:
+
+def check_otel_semconv():
     try:
         from opentelemetry.semconv._incubating.attributes.gen_ai_attributes import (
             GEN_AI_REQUEST_CHOICE_COUNT,  # type: ignore  # noqa
@@ -28,8 +32,12 @@ def test_instrument_google_genai(exporter: TestExporter) -> None:
     except ImportError:
         pytest.skip('Requires newer opentelemetry semconv package')
 
+
+@pytest.mark.vcr()
+def test_instrument_google_genai(exporter: TestExporter) -> None:
     from google.genai import Client, types
 
+    check_otel_semconv()
     logfire.instrument_google_genai()
 
     client = Client()
@@ -118,5 +126,66 @@ def test_instrument_google_genai(exporter: TestExporter) -> None:
                     'gen_ai.response.model': 'gemini-2.0-flash-001',
                 },
             },
+        ]
+    )
+
+
+@pytest.mark.vcr()
+def test_instrument_google_genai_response_schema(exporter: TestExporter) -> None:
+    from google.genai import Client, types
+
+    check_otel_semconv()
+    logfire.instrument_google_genai()
+
+    client = Client()
+
+    class ResponseData(pydantic.BaseModel):
+        answer: str
+
+    with warnings.catch_warnings():
+        # generate_content itself produces this warning, but only with pydantic 2.9.2 and python 3.13.
+        warnings.filterwarnings('ignore', category=UserWarning)
+
+        response = client.models.generate_content(  # type: ignore
+            model='gemini-2.5-flash',
+            contents='Hi',
+            config=types.GenerateContentConfig(response_schema=ResponseData, response_mime_type='application/json'),
+        )
+        assert response.text == snapshot('{"answer":"Hello! How can I help you today?"}')
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'generate_content gemini-2.5-flash',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': IsInt(),
+                'end_time': 3000000000,
+                'attributes': {
+                    'code.function.name': 'google.genai.Models.generate_content',
+                    'gen_ai.system': 'gemini',
+                    'gen_ai.request.model': 'gemini-2.5-flash',
+                    'gen_ai.operation.name': 'chat',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'generate_content gemini-2.5-flash',
+                    'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.usage.output_tokens': 13,
+                    'gen_ai.response.finish_reasons': ('stop',),
+                    'logfire.metrics': IsPartialDict(),
+                    'events': [
+                        {'content': 'Hi', 'role': 'user'},
+                        {
+                            'index': 0,
+                            'finish_reason': 'STOP',
+                            'message': {
+                                'role': 'assistant',
+                                'content': ['{"answer":"Hello! How can I help you today?"}'],
+                            },
+                        },
+                    ],
+                    'logfire.json_schema': {'type': 'object', 'properties': {'events': {'type': 'array'}}},
+                    'gen_ai.response.model': 'gemini-2.5-flash',
+                },
+            }
         ]
     )
