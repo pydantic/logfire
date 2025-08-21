@@ -918,7 +918,8 @@ class LogfireConfig(_LogfireConfigData):
 
                     def check_token():
                         assert self.token is not None
-                        validated_credentials = self._initialize_credentials_from_token(self.token)
+                        with suppress_instrumentation():
+                            validated_credentials = self._initialize_credentials_from_token(self.token)
                         if show_project_link and validated_credentials is not None:
                             validated_credentials.print_token_summary()
 
