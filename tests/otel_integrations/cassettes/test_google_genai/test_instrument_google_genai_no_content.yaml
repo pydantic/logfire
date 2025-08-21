@@ -1,0 +1,131 @@
+interactions:
+- request:
+    body: '{"contents": [{"parts": [{"text": "What is the weather like in Boston?"},
+      {"inlineData": {"data": "MTIz", "mimeType": "text/plain"}}], "role": "user"}],
+      "tools": [{"functionDeclarations": [{"description": "Returns the current weather.",
+      "name": "get_current_weather", "parameters": {"properties": {"location": {"type":
+      "STRING"}}, "required": ["location"], "type": "OBJECT"}}]}], "generationConfig":
+      {}}'
+    headers:
+      accept:
+      - '*/*'
+      accept-encoding:
+      - gzip, deflate, zstd
+      connection:
+      - keep-alive
+      content-length:
+      - '403'
+      content-type:
+      - application/json
+      host:
+      - generativelanguage.googleapis.com
+      user-agent:
+      - google-genai-sdk/1.31.0 gl-python/3.12.6
+      x-goog-api-client:
+      - google-genai-sdk/1.31.0 gl-python/3.12.6
+    method: POST
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/61STU+DQBC98yvInkuzQNqqN62mGq2tlhiNMc0IU0pcdsnu4kea/neXrxaq3uRA
+        hnlv35vZx8aybRICj5IINCpyYj+bjm1vyneBCa6RawM0LdPMQOo9t3o2rdpQVjkPdSL4GBjrHK5x
+        DimaPolRL8NcSuOx/EDQa5Skd0gGGatfRAzCRAiFTSF1JpQ21QFpa/31ta9f9o5EClYOlooIWSO2
+        bQhklfBEre8RVGW6CGbz3cAE3uMbEWdSvBbzOrRPKfW94bE7GLl06HveMXUHVmNe2pJcQYxT1GAS
+        gN2WxIikmQ7EG/KxyMsEvEFl1Aqsg49qWAsNrIP4Xu+Hqjo3nglr59iK2KwPLNFfxY7BxWPQCsXo
+        d4Zq7shqXeXhiP9kNup6WXUyVVgPKFX9K8SYmpwcr0+dFQO1dih1S1EiUWWCK7yKCh5MZhym/uXs
+        enH6eXs0j8PJ3Ll7ItbW+gZE9moLGgMAAA==
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Thu, 21 Aug 2025 18:20:25 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=756
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"contents": [{"parts": [{"text": "What is the weather like in Boston?"},
+      {"inlineData": {"data": "MTIz", "mimeType": "text/plain"}}], "role": "user"},
+      {"parts": [{"functionCall": {"args": {"location": "Boston"}, "name": "get_current_weather"}}],
+      "role": "model"}, {"parts": [{"functionResponse": {"name": "get_current_weather",
+      "response": {"result": "rainy"}}}], "role": "user"}], "tools": [{"functionDeclarations":
+      [{"description": "Returns the current weather.", "name": "get_current_weather",
+      "parameters": {"properties": {"location": {"type": "STRING"}}, "required": ["location"],
+      "type": "OBJECT"}}]}], "generationConfig": {}}'
+    headers:
+      accept:
+      - '*/*'
+      accept-encoding:
+      - gzip, deflate, zstd
+      connection:
+      - keep-alive
+      content-length:
+      - '633'
+      content-type:
+      - application/json
+      host:
+      - generativelanguage.googleapis.com
+      user-agent:
+      - google-genai-sdk/1.31.0 gl-python/3.12.6
+      x-goog-api-client:
+      - google-genai-sdk/1.31.0 gl-python/3.12.6
+    method: POST
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/61RwVLCMBC99ysyOVMmQLHgUfFQB4eqHXRGPSw2lIxl02kCIzD8u0lLIdWrOWQy
+        +1727b538Aihn4CpSEFzRa/Jm6kQcqhui0nUHLUBmpIpFlDqC7c+B+dtKJp/20800kQoUoLAHRFI
+        bqTSErvvSB368fz+6FxESplz22EtU5439GNDoEuBQq2eOCiJlvaczGJ6RmGbTWVWlHJh5/RZl7He
+        MByMRr2AsWDUH4+HPa/RrlTpRkHGH7gG4wSc96Wmx7rQifzieCs3lRODca3jGNfCwxOspYa8hQRX
+        nT9d1cRoitz107HabA+50Du7YnL3mlDHId0eqrHIc5z8PeI/iYVtLe8UTJ3VnJdK1KFkfG1i8vtd
+        5i9zUCvfxFA1pSVXhUTFo9Ty4GWGMF3spzCJt2kU7wO8Z48R9Y7eD4oUC+aiAgAA
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Thu, 21 Aug 2025 18:20:26 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=751
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+version: 1
