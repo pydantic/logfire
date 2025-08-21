@@ -41,7 +41,7 @@ class SpanEventLogger(EventLogger):
         assert isinstance(event.body, dict)
         body: dict[str, Any] = {**event.body}
         if event.name == 'gen_ai.choice':
-            if 'content' in body:  # pragma: no branch
+            if 'content' in body and isinstance(body['content'], dict):
                 parts = body.pop('content')['parts']
                 new_parts = [transform_part(part) for part in parts]
                 body['message'] = {'role': 'assistant', 'content': new_parts}
