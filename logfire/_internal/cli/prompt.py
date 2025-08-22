@@ -14,11 +14,6 @@ from rich.console import Console
 from logfire._internal.client import LogfireClient
 from logfire.exceptions import LogfireConfigError
 
-if sys.version_info >= (3, 11):
-    pass
-else:
-    pass
-
 
 LOGFIRE_MCP_TOML = """
 [mcp_servers.logfire]
