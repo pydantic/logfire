@@ -1787,7 +1787,7 @@ Logfire MCP server not found. Creating a read token...
 Logfire MCP server added to Claude.
 """)
 
-    
+
 def test_base_url_and_logfire_url(
     tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, capsys: pytest.CaptureFixture[str]
 ):
