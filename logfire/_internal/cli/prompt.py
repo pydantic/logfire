@@ -14,7 +14,6 @@ from rich.console import Console
 from logfire._internal.client import LogfireClient
 from logfire.exceptions import LogfireConfigError
 
-
 LOGFIRE_MCP_TOML = """
 [mcp_servers.logfire]
 command = "uvx"
