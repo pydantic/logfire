@@ -423,6 +423,10 @@ def _main(args: list[str] | None = None) -> None:
     cmd_read_tokens_create.set_defaults(func=parse_create_read_token)
 
     cmd_prompt = subparsers.add_parser('prompt', help=parse_prompt.__doc__)
+    agent_code_group = cmd_prompt.add_argument_group(title='code agentic specific options')
+    claude_or_codex_group = agent_code_group.add_mutually_exclusive_group()
+    claude_or_codex_group.add_argument('--claude', action='store_true', help='verify the Claude Code setup')
+    claude_or_codex_group.add_argument('--codex', action='store_true', help='verify the Cursor setup')
     cmd_prompt.add_argument('--project', action=OrgProjectAction, help='project in the format <org>/<project>')
     cmd_prompt.add_argument('issue', nargs='?', help='the issue to get a prompt for')
     cmd_prompt.set_defaults(func=parse_prompt)

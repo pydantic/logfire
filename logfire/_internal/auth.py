@@ -161,7 +161,7 @@ class UserTokenCollection:
             )
             token = tokens_list[int_choice - 1]
         else:  # tokens_list == []
-            raise LogfireConfigError('No user tokens are available. Please run `logfire auth` to authenticate.')
+            raise LogfireConfigError('You are not logged into Logfire. Please run `logfire auth` to authenticate.')
 
         if token.is_expired:
             raise LogfireConfigError(f'User token {token} is expired. Please run `logfire auth` to authenticate.')
