@@ -91,9 +91,7 @@ def instrument_llm_provider(
 
             span_data['async'] = is_async
 
-            stream = kwargs['stream']
-
-            if stream and stream_state_cls:
+            if kwargs.get('stream') and stream_state_cls:
                 stream_cls = kwargs['stream_cls']
                 assert stream_cls is not None, 'Expected `stream_cls` when streaming'
 
@@ -130,10 +128,9 @@ def instrument_llm_provider(
         message_template, span_data, kwargs = _instrumentation_setup(*args, **kwargs)
         if message_template is None:
             return original_request_method(*args, **kwargs)
-        stream = kwargs['stream']
         with logfire_llm.span(message_template, **span_data) as span:
             with maybe_suppress_instrumentation(suppress_otel):
-                if stream:
+                if kwargs.get('stream'):
                     return original_request_method(*args, **kwargs)
                 else:
                     response = on_response_fn(original_request_method(*args, **kwargs), span)
@@ -143,10 +140,9 @@ def instrument_llm_provider(
         message_template, span_data, kwargs = _instrumentation_setup(*args, **kwargs)
         if message_template is None:
             return await original_request_method(*args, **kwargs)
-        stream = kwargs['stream']
         with logfire_llm.span(message_template, **span_data) as span:
             with maybe_suppress_instrumentation(suppress_otel):
-                if stream:
+                if kwargs.get('stream'):
                     return await original_request_method(*args, **kwargs)
                 else:
                     response = on_response_fn(await original_request_method(*args, **kwargs), span)
