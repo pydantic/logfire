@@ -1,5 +1,10 @@
 # Release Notes
 
+## [v4.3.5] (2025-08-22)
+
+* Add `--base-url` to CLI by @Kludex in [#1345](https://github.com/pydantic/logfire/pull/1345)
+* Don't require stream kwarg in OpenAI methods by @alexmojaki in [#1348](https://github.com/pydantic/logfire/pull/1348)
+
 ## [v4.3.4] (2025-08-21)
 
 * `logfire.instrument_google_genai()` fixes for `response_schema` and elided content by @alexmojaki in [#1342](https://github.com/pydantic/logfire/pull/1342)
@@ -863,3 +868,4 @@ First release from new repo!
 [v4.3.2]: https://github.com/pydantic/logfire/compare/v4.3.1...v4.3.2
 [v4.3.3]: https://github.com/pydantic/logfire/compare/v4.3.2...v4.3.3
 [v4.3.4]: https://github.com/pydantic/logfire/compare/v4.3.3...v4.3.4
+[v4.3.5]: https://github.com/pydantic/logfire/compare/v4.3.4...v4.3.5
