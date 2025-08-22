@@ -146,11 +146,11 @@ def test_instrument_func_with_no_params(exporter: TestExporter) -> None:
 
 
 def test_instrument_extract_args_list(exporter: TestExporter) -> None:
-    @logfire.instrument(extract_args=['a', 'b'])
-    def foo(a: int, b: int, c: int):
-        return a + b + c
+    @logfire.instrument(extract_args=['a', 'b', 'optional', 'optional_kw'])
+    def foo(a: int, b: int, c: int, optional: int = 10, *, optional_kw: int = 5) -> int:
+        return a + b + c + optional + optional_kw
 
-    assert foo(1, 2, 3) == 6
+    assert foo(1, 2, 3) == 21
     assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
         [
             {
@@ -168,7 +168,42 @@ def test_instrument_extract_args_list(exporter: TestExporter) -> None:
                     'logfire.msg': 'Calling tests.test_logfire.test_instrument_extract_args_list.<locals>.foo',
                     'a': 1,
                     'b': 2,
-                    'logfire.json_schema': '{"type":"object","properties":{"a":{},"b":{}}}',
+                    'optional': 10,
+                    'optional_kw': 5,
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{},"b":{},"optional":{},"optional_kw":{}}}',
+                },
+            }
+        ]
+    )
+
+
+def test_instrument_optional_args(exporter: TestExporter) -> None:
+    @logfire.instrument('Calling foo {optional=}')
+    def foo(a: int, b: int, c: int, optional: int = 10, *, optional_kw: int = 5) -> int:
+        return a + b + c + optional + optional_kw
+
+    assert foo(1, 2, 3) == 21
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'Calling foo {optional=}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_instrument_optional_args.<locals>.foo',
+                    'logfire.msg_template': 'Calling foo {optional=}',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'Calling foo optional=10',
+                    'a': 1,
+                    'b': 2,
+                    'c': 3,
+                    'optional': 10,
+                    'optional_kw': 5,
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{},"b":{},"c":{},"optional":{},"optional_kw":{}}}',
                 },
             }
         ]
