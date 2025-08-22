@@ -99,7 +99,7 @@ def test_whoami(tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, caps
         with pytest.warns(
             UserWarning, match='Logfire API returned status code 500, you may have trouble sending data.'
         ):
-            main(shlex.split(f'--logfire-url=http://localhost:0 whoami --data-dir {tmp_dir_cwd}'))
+            main(shlex.split(f'--base-url=http://localhost:0 whoami --data-dir {tmp_dir_cwd}'))
 
         assert len(request_mocker.request_history) == 1
         assert capsys.readouterr().err.splitlines() == snapshot(
@@ -117,7 +117,7 @@ def test_whoami_without_data(tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[st
     current_dir = os.getcwd()
     os.chdir(tmp_dir_cwd)
     try:
-        main(['--logfire-url=http://localhost:0', 'whoami'])
+        main(['--base-url=http://localhost:0', 'whoami'])
     except SystemExit as e:
         assert e.code == 1
         assert capsys.readouterr().err.splitlines() == snapshot(
@@ -147,7 +147,7 @@ def test_whoami_logged_in(
 
         m.get('http://localhost/v1/account/me', json={'name': 'test-user'})
 
-        main(shlex.split(f'--logfire-url=http://localhost:0 whoami --data-dir {tmp_dir_cwd}'))
+        main(shlex.split(f'--base-url=http://localhost:0 whoami --data-dir {tmp_dir_cwd}'))
     assert capsys.readouterr().err.splitlines() == snapshot(
         [
             'Logged in as: test-user',
@@ -162,7 +162,7 @@ def test_whoami_default_dir(
     tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, capsys: pytest.CaptureFixture[str]
 ) -> None:
     logfire_credentials.write_creds_file(tmp_dir_cwd / '.logfire')
-    main(['--logfire-url=http://localhost:0', 'whoami'])
+    main(['--base-url=http://localhost:0', 'whoami'])
     assert capsys.readouterr().err.splitlines() == snapshot(
         [
             'Not logged in. Run `logfire auth` to log in.',
@@ -1680,3 +1680,13 @@ def test_parse_run_module(
     assert configure_mock.call_count == 1
     assert capsys.readouterr().out == snapshot('hi from run_script_test.py\n')
     assert instrument_package_mock.call_args_list == [(('openai',),)]
+
+
+def test_base_url_and_logfire_url(
+    tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, capsys: pytest.CaptureFixture[str]
+):
+    logfire_credentials.write_creds_file(tmp_dir_cwd / '.logfire')
+    with pytest.warns(
+        DeprecationWarning, match='The `--logfire-url` argument is deprecated. Use `--base-url` instead.'
+    ):
+        main(['--logfire-url', 'https://logfire-us.pydantic.dev', 'whoami'])
