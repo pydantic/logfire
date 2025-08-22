@@ -44,6 +44,7 @@ from logfire._internal.exporters.test import TestExporter
 from logfire._internal.integrations.openai_agents import LogfireSpanWrapper, LogfireTraceWrapper
 
 os.environ.setdefault('OPENAI_API_KEY', 'foo')
+os.environ['OPENAI_DEFAULT_MODEL'] = 'gpt-4o'
 
 
 def test_openai_agent_tracing(exporter: TestExporter):
