@@ -1,5 +1,12 @@
 # Release Notes
 
+## [v4.3.4] (2025-08-21)
+
+* `logfire.instrument_google_genai()` fixes for `response_schema` and elided content by @alexmojaki in [#1342](https://github.com/pydantic/logfire/pull/1342)
+* Fix `enable_commenter` and `commenter_options` args of `instrument_sqlalchemy` by @alexmojaki in [#1335](https://github.com/pydantic/logfire/pull/1335)
+* Fix LangChain instrumentation by @alexmojaki in [#1319](https://github.com/pydantic/logfire/pull/1319)
+* Suppress `urllib3` logs while checking token by @alexmojaki in [#1341](https://github.com/pydantic/logfire/pull/1341)
+
 ## [v4.3.3] (2025-08-13)
 
 * Ensure `logfire_api.LogfireSpan.context` and other attrs are None by @alexmojaki in [#1317](https://github.com/pydantic/logfire/pull/1317)
@@ -855,3 +862,4 @@ First release from new repo!
 [v4.3.1]: https://github.com/pydantic/logfire/compare/v4.3.0...v4.3.1
 [v4.3.2]: https://github.com/pydantic/logfire/compare/v4.3.1...v4.3.2
 [v4.3.3]: https://github.com/pydantic/logfire/compare/v4.3.2...v4.3.3
+[v4.3.4]: https://github.com/pydantic/logfire/compare/v4.3.3...v4.3.4

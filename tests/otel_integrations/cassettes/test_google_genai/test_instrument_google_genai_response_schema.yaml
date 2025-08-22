@@ -1,0 +1,63 @@
+interactions:
+- request:
+    body: '{"contents": [{"parts": [{"text": "Hi"}], "role": "user"}], "generationConfig":
+      {"responseMimeType": "application/json", "responseSchema": {"properties": {"answer":
+      {"title": "Answer", "type": "STRING"}}, "required": ["answer"], "title": "ResponseData",
+      "type": "OBJECT"}}}'
+    headers:
+      accept:
+      - '*/*'
+      accept-encoding:
+      - gzip, deflate, zstd
+      connection:
+      - keep-alive
+      content-length:
+      - '273'
+      content-type:
+      - application/json
+      host:
+      - generativelanguage.googleapis.com
+      user-agent:
+      - google-genai-sdk/1.31.0 gl-python/3.12.6
+      x-goog-api-client:
+      - google-genai-sdk/1.31.0 gl-python/3.12.6
+    method: POST
+    uri: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAC/1WQT0vDQBDF7/kU65ytaEpp7UWkCq1SLBpEMB6WZppEtzshO6F/Qr67m6RpNzks
+        y7yX93Z+pScErKWO0kgyGpiKbzsRomzOWiPNqNkK3cgOM5nzxdt+pXO3FsZ9/ROUIUhtdpiHMA1h
+        jkrRlZjTTthSsRAJqkwcqBBMkTw8hFCBk1Od7z/Xl/acFNbRW4pQdfaqM8Am1alJ3lEa0rXtI3hb
+        wVlNdYR7O771uoImGgojY1wiS8tBnreFLKdtxgH9oZ5R0XDw2yyHWk++G550JpaqJ407yUk1T7Yz
+        VS5NB7RdUaqUD/UewfNXAA4G7j2qw+A5tIATKuKE+w8cTbwTrpbgJ+YmbVHFuLXwBv7NaLBR0iRN
+        HeRoMtIGF1HtufdnWi5eX2br4+94OVn54+Nw8hiDV3n/hlfsTU0CAAA=
+    headers:
+      Alt-Svc:
+      - h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json; charset=UTF-8
+      Date:
+      - Thu, 21 Aug 2025 18:09:59 GMT
+      Server:
+      - scaffolding on HTTPServer2
+      Server-Timing:
+      - gfet4t7; dur=1722
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Origin
+      - X-Origin
+      - Referer
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - SAMEORIGIN
+      X-XSS-Protection:
+      - '0'
+    status:
+      code: 200
+      message: OK
+version: 1

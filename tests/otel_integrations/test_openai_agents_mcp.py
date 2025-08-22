@@ -35,6 +35,7 @@ except ImportError:
 
 
 os.environ.setdefault('OPENAI_API_KEY', 'foo')
+os.environ['OPENAI_DEFAULT_MODEL'] = 'gpt-4o'
 
 
 @pytest.mark.vcr()
