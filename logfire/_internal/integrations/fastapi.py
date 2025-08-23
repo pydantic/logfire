@@ -50,7 +50,10 @@ def find_mounted_apps(app: FastAPI) -> list[FastAPI]:
 
 def instrument_fastapi(
     logfire_instance: Logfire,
-    app: FastAPI,
+    # Note that `Logfire.instrument_fastapi()` requires this argument. It's only omitted when called via the
+    # `logfire run` CLI. This is because `FastAPIInstrumentor.instrument() has to be called before
+    # `from fastapi import FastAPI` which is easy to get wrong.
+    app: FastAPI | None = None,
     *,
     capture_headers: bool = False,
     request_attributes_mapper: Callable[
@@ -77,44 +80,52 @@ def instrument_fastapi(
 
     maybe_capture_server_headers(capture_headers)
     opentelemetry_kwargs = {
+        'excluded_urls': excluded_urls,
+        'server_request_hook': _server_request_hook(opentelemetry_kwargs.pop('server_request_hook', None)),
         'tracer_provider': tweak_asgi_spans_tracer_provider(logfire_instance, record_send_receive),
         'meter_provider': logfire_instance.config.get_meter_provider(),
         **opentelemetry_kwargs,
     }
-    FastAPIInstrumentor.instrument_app(
-        app,
-        excluded_urls=excluded_urls,
-        server_request_hook=_server_request_hook(opentelemetry_kwargs.pop('server_request_hook', None)),
-        **opentelemetry_kwargs,
-    )
 
-    registry = patch_fastapi()
-    if app in registry:  # pragma: no cover
-        raise ValueError('This app has already been instrumented.')
+    if app is None:
+        FastAPIInstrumentor().instrument(**opentelemetry_kwargs)
 
-    mounted_apps = find_mounted_apps(app)
-    mounted_apps.append(app)
-
-    for _app in mounted_apps:
-        registry[_app] = FastAPIInstrumentation(
-            logfire_instance,
-            request_attributes_mapper or _default_request_attributes_mapper,
-            extra_spans=extra_spans,
-        )
-
-    @contextmanager
-    def uninstrument_context():
-        # The user isn't required (or even expected) to use this context manager,
-        # which is why the instrumenting and patching has already happened before this point.
-        # It exists mostly for tests, and just in case users want it.
-        try:
+        @contextmanager
+        def uninstrument_context():  # pragma: no cover
             yield
-        finally:
-            for _app in mounted_apps:
-                del registry[_app]
-                FastAPIInstrumentor.uninstrument_app(_app)
+            FastAPIInstrumentor().uninstrument()
 
-    return uninstrument_context()
+        return uninstrument_context()
+    else:
+        FastAPIInstrumentor.instrument_app(app, **opentelemetry_kwargs)
+
+        registry = patch_fastapi()
+        if app in registry:  # pragma: no cover
+            raise ValueError('This app has already been instrumented.')
+
+        mounted_apps = find_mounted_apps(app)
+        mounted_apps.append(app)
+
+        for _app in mounted_apps:
+            registry[_app] = FastAPIInstrumentation(
+                logfire_instance,
+                request_attributes_mapper or _default_request_attributes_mapper,
+                extra_spans=extra_spans,
+            )
+
+        @contextmanager
+        def uninstrument_context():
+            # The user isn't required (or even expected) to use this context manager,
+            # which is why the instrumenting and patching has already happened before this point.
+            # It exists mostly for tests, and just in case users want it.
+            try:
+                yield
+            finally:
+                for _app in mounted_apps:
+                    del registry[_app]
+                    FastAPIInstrumentor.uninstrument_app(_app)
+
+        return uninstrument_context()
 
 
 @lru_cache  # only patch once
