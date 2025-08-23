@@ -1759,6 +1759,20 @@ def test_parse_prompt_codex_config_not_found(
     )
 
 
+def test_parse_prompt_codex_logfire_mcp_installed(
+    prompt_http_calls: None, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    codex_path = tmp_path / 'codex'
+    codex_path.mkdir()
+    codex_config_path = codex_path / 'config.toml'
+    codex_config_path.write_text('logfire-mcp is installed')
+
+    with patch.dict(os.environ, {'CODEX_HOME': str(codex_path)}):
+        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--codex'])
+
+    assert capsys.readouterr().out == snapshot('This is the prompt\n')
+
+
 def test_parse_prompt_claude(
     prompt_http_calls: None, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -31,7 +31,7 @@ def parse_prompt(args: argparse.Namespace) -> None:
 
     try:
         client = LogfireClient.from_url(args.logfire_url)
-    except LogfireConfigError as e:
+    except LogfireConfigError as e:  # pragma: no cover
         console.print(e.args[0], style='red')
         return
 
