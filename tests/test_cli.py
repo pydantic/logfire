@@ -6,9 +6,11 @@ import json
 import os
 import re
 import shlex
+import subprocess
 import sys
 import types
 import webbrowser
+from collections.abc import Generator
 from contextlib import ExitStack
 from pathlib import Path
 from unittest.mock import Mock, call, patch
@@ -1680,6 +1682,124 @@ def test_parse_run_module(
     assert configure_mock.call_count == 1
     assert capsys.readouterr().out == snapshot('hi from run_script_test.py\n')
     assert instrument_package_mock.call_args_list == [(('openai',),)]
+
+
+@pytest.fixture()
+def prompt_http_calls() -> Generator[None]:
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects/myproject/prompts',
+            response_list=[
+                {
+                    'json': {'prompt': 'This is the prompt\n'},
+                }
+            ],
+        )
+
+        m.post(
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects/myproject/read-tokens',
+            json={'token': 'fake_token'},
+        )
+
+        yield
+
+
+def test_parse_prompt(prompt_http_calls: None, capsys: pytest.CaptureFixture[str]) -> None:
+    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123'])
+
+    assert capsys.readouterr().out == snapshot('This is the prompt\n')
+
+
+def test_parse_prompt_codex(prompt_http_calls: None, capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
+    codex_path = tmp_path / 'codex'
+    codex_path.mkdir()
+    codex_config_path = codex_path / 'config.toml'
+    codex_config_path.write_text('')
+
+    with patch.dict(os.environ, {'CODEX_HOME': str(codex_path)}):
+        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--codex'])
+
+    assert codex_config_path.read_text() == snapshot("""\
+
+[mcp_servers.logfire]
+command = "uvx"
+args = ["logfire-mcp@latest"]
+env = { "LOGFIRE_READ_TOKEN": "fake_token" }
+""")
+    out, err = capsys.readouterr()
+    assert out == snapshot('This is the prompt\n')
+    assert err == snapshot("""\
+Logfire MCP server not found. Creating a read token...
+Logfire MCP server added to Codex.
+""")
+
+
+def test_parse_prompt_codex_config_not_found(
+    prompt_http_calls: None, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    codex_path = tmp_path / 'codex'
+    codex_path.mkdir()
+
+    with patch.dict(os.environ, {'CODEX_HOME': str(codex_path)}):
+        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--codex'])
+
+    assert capsys.readouterr().err == snapshot(
+        'Codex config file not found. Install `codex`, or remove the `--codex` flag.\n'
+    )
+
+
+def test_parse_prompt_codex_logfire_mcp_installed(
+    prompt_http_calls: None, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    codex_path = tmp_path / 'codex'
+    codex_path.mkdir()
+    codex_config_path = codex_path / 'config.toml'
+    codex_config_path.write_text('logfire-mcp is installed')
+
+    with patch.dict(os.environ, {'CODEX_HOME': str(codex_path)}):
+        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--codex'])
+
+    assert capsys.readouterr().out == snapshot('This is the prompt\n')
+
+
+def test_parse_prompt_claude(
+    prompt_http_calls: None, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def logfire_mcp_installed(_: list[str]) -> bytes:
+        return b'logfire-mcp is installed'
+
+    monkeypatch.setattr(subprocess, 'check_output', logfire_mcp_installed)
+    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--claude'])
+
+    assert capsys.readouterr().out == snapshot('This is the prompt\n')
+
+
+def test_parse_prompt_claude_no_mcp(
+    prompt_http_calls: None, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def logfire_mcp_installed(_: list[str]) -> bytes:
+        return b'not installed'
+
+    monkeypatch.setattr(subprocess, 'check_output', logfire_mcp_installed)
+    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--claude'])
+
+    out, err = capsys.readouterr()
+    assert out == snapshot('This is the prompt\n')
+    assert err == snapshot("""\
+Logfire MCP server not found. Creating a read token...
+Logfire MCP server added to Claude.
+""")
 
 
 def test_base_url_and_logfire_url(
