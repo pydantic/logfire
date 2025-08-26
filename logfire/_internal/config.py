@@ -66,6 +66,7 @@ from logfire.sampling._tail_sampling import TailSamplingProcessor
 from logfire.version import VERSION
 
 from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
+from ..types import ExceptionCallback
 from .client import InvalidProjectName, LogfireClient, ProjectAlreadyExists
 from .config_params import ParamManager, PydanticPluginRecordValues
 from .constants import (
@@ -181,6 +182,11 @@ class AdvancedOptions:
 
     log_record_processors: Sequence[LogRecordProcessor] = ()
     """Configuration for OpenTelemetry logging. This is experimental and may be removed."""
+
+    exception_callback: ExceptionCallback | None = None
+    """Callback function that is called when an exception is recorded on a span.
+
+    This is experimental and may be removed."""
 
     def generate_base_url(self, token: str) -> str:
         if self.base_url is not None:

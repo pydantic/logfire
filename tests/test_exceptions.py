@@ -1,4 +1,5 @@
 import sys
+from typing import Any
 
 import pytest
 from inline_snapshot import snapshot
@@ -7,6 +8,7 @@ import logfire
 from logfire._internal.constants import ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY
 from logfire._internal.exporters.test import TestExporter
 from logfire._internal.utils import canonicalize_exception_traceback, sha256_string
+from logfire.types import ExceptionCallbackHelper
 
 
 def test_canonicalize_exception_func():
@@ -242,3 +244,67 @@ tests.test_canonicalize_exception.test_cyclic_exception_group
 
 </ExceptionGroup>
 """)
+
+
+def test_exception_callback_set_level(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    def exception_callback(helper: ExceptionCallbackHelper) -> None:
+        assert helper.level.name == 'error'
+        assert helper.create_issue
+        helper.level = 'warning'
+        assert helper.level.name == 'warn'
+        assert not helper.create_issue
+        assert helper.parent_span is None
+        assert isinstance(helper.exception, ValueError)
+        assert helper.issue_fingerprint_source == canonicalize_exception_traceback(helper.exception)
+        helper.span.set_attribute('original_fingerprint', helper.issue_fingerprint_source)
+
+    config_kwargs['advanced'].exception_callback = exception_callback
+    logfire.configure(**config_kwargs)
+
+    with pytest.raises(ValueError):
+        with logfire.span('foo'):
+            raise ValueError('test')
+
+    (_pending, span) = exporter.exported_spans
+    assert span.attributes
+    assert ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY not in span.attributes
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'foo',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'code.filepath': 'test_exceptions.py',
+                    'code.function': 'test_exception_callback_set_level',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'foo',
+                    'logfire.msg': 'foo',
+                    'logfire.span_type': 'span',
+                    'logfire.level_num': 13,
+                    'original_fingerprint': """\
+
+builtins.ValueError
+----
+tests.test_exceptions.test_exception_callback_set_level
+   raise ValueError('test')\
+""",
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 2000000000,
+                        'attributes': {
+                            'exception.type': 'ValueError',
+                            'exception.message': 'test',
+                            'exception.stacktrace': 'ValueError: test',
+                            'exception.escaped': 'True',
+                        },
+                    }
+                ],
+            }
+        ]
+    )

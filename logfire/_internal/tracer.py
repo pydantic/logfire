@@ -148,6 +148,7 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
     ns_timestamp_generator: Callable[[], int]
     record_metrics: bool
     metrics: dict[str, SpanMetric] = field(default_factory=lambda: defaultdict(SpanMetric))
+    exception_callback: ExceptionCallback | None = None
 
     def __post_init__(self):
         OPEN_SPANS[self._open_spans_key()] = self
@@ -205,7 +206,14 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
         escaped: bool = False,
     ) -> None:
         timestamp = timestamp or self.ns_timestamp_generator()
-        record_exception(self.span, exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
+        record_exception(
+            self.span,
+            exception,
+            attributes=attributes,
+            timestamp=timestamp,
+            escaped=escaped,
+            callback=self.exception_callback,
+        )
 
     def increment_metric(self, name: str, attributes: Mapping[str, otel_types.AttributeValue], value: float) -> None:
         if not self.is_recording() or not self.record_metrics:
@@ -267,6 +275,7 @@ class _ProxyTracer(Tracer):
         config = self.provider.config
         ns_timestamp_generator = config.advanced.ns_timestamp_generator
         record_metrics: bool = not isinstance(config.metrics, (bool, type(None))) and config.metrics.collect_in_spans
+        exception_callback = config.advanced.exception_callback
 
         start_time = start_time or ns_timestamp_generator()
 
@@ -295,6 +304,7 @@ class _ProxyTracer(Tracer):
             span,
             ns_timestamp_generator=ns_timestamp_generator,
             record_metrics=record_metrics,
+            exception_callback=exception_callback,
         )
 
     # This means that `with start_as_current_span(...):`
