@@ -142,7 +142,7 @@ class ExceptionCallbackHelper:
         Note that setting this property automatically sets `create_issue` to True.
         """
         self._issue_fingerprint_source = value
-        self._create_issue = True
+        self.create_issue = True
 
     @property
     def create_issue(self) -> bool:
