@@ -11,58 +11,11 @@ from opentelemetry.sdk.trace.sampling import Sampler, TraceIdRatioBased
 from typing_extensions import Self
 
 from logfire._internal.constants import (
-    ATTRIBUTES_LOG_LEVEL_NUM_KEY,
-    LEVEL_NUMBERS,
-    NUMBER_TO_LEVEL,
     ONE_SECOND_IN_NANOSECONDS,
     LevelName,
 )
 from logfire._internal.exporters.wrapper import WrapperSpanProcessor
-
-
-@dataclass
-class SpanLevel:
-    """A convenience class for comparing span/log levels.
-
-    Can be compared to log level names (strings) such as 'info' or 'error' using
-    `<`, `>`, `<=`, or `>=`, so e.g. `level >= 'error'` is valid.
-
-    Will raise an exception if compared to a non-string or an invalid level name.
-    """
-
-    number: int
-    """
-    The raw numeric value of the level. Higher values are more severe.
-    """
-
-    @property
-    def name(self) -> LevelName | None:
-        """The human-readable name of the level, or `None` if the number is invalid."""
-        return NUMBER_TO_LEVEL.get(self.number)
-
-    def __eq__(self, other: object):
-        if isinstance(other, int):
-            return self.number == other
-        if isinstance(other, str):
-            return self.name == other
-        if isinstance(other, SpanLevel):
-            return self.number == other.number
-        return NotImplemented
-
-    def __hash__(self):
-        return hash(self.number)
-
-    def __lt__(self, other: LevelName):
-        return self.number < LEVEL_NUMBERS[other]
-
-    def __gt__(self, other: LevelName):
-        return self.number > LEVEL_NUMBERS[other]
-
-    def __ge__(self, other: LevelName):
-        return self.number >= LEVEL_NUMBERS[other]
-
-    def __le__(self, other: LevelName):
-        return self.number <= LEVEL_NUMBERS[other]
+from logfire.types import SpanLevel
 
 
 @dataclass
@@ -111,11 +64,7 @@ class TailSamplingSpanInfo:
     @property
     def level(self) -> SpanLevel:
         """The log level of the span."""
-        attributes = self.span.attributes or {}
-        level = attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY)
-        if not isinstance(level, int):
-            level = LEVEL_NUMBERS['info']
-        return SpanLevel(level)
+        return SpanLevel.from_span(self.span)
 
     @property
     def duration(self) -> float:
