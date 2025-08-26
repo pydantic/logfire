@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v4.3.6] (2025-08-26)
+
+* Add specific code agent options for `logfire prompt` by @Kludex in [#1350](https://github.com/pydantic/logfire/pull/1350)
+
 ## [v4.3.5] (2025-08-22)
 
 * Add `--base-url` to CLI by @Kludex in [#1345](https://github.com/pydantic/logfire/pull/1345)
@@ -32,9 +36,6 @@
 * Fix `test_instrument_google_genai` for specific versions by @alexmojaki in [#1303](https://github.com/pydantic/logfire/pull/1303)
 * Create read tokens via CLI by @Kludex in [#1306](https://github.com/pydantic/logfire/pull/1306)
 * Retrieve the prompt to fix issues via CLI by @Kludex in [#1307](https://github.com/pydantic/logfire/pull/1307)
-
-## New Contributors
-* @RichardMarto made their first contribution in [#1288](https://github.com/pydantic/logfire/pull/1288)
 
 ## [v4.2.0] (2025-08-06)
 
@@ -869,3 +870,4 @@ First release from new repo!
 [v4.3.3]: https://github.com/pydantic/logfire/compare/v4.3.2...v4.3.3
 [v4.3.4]: https://github.com/pydantic/logfire/compare/v4.3.3...v4.3.4
 [v4.3.5]: https://github.com/pydantic/logfire/compare/v4.3.4...v4.3.5
+[v4.3.6]: https://github.com/pydantic/logfire/compare/v4.3.5...v4.3.6
