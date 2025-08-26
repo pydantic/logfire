@@ -308,3 +308,76 @@ tests.test_exceptions.test_exception_callback_set_level
             }
         ]
     )
+
+
+def test_exception_nested_span(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    def exception_callback(helper: ExceptionCallbackHelper) -> None:
+        assert helper.span.name == 'inner'
+        assert helper.parent_span
+        assert helper.parent_span.name == 'outer'
+        assert not helper.create_issue
+        helper.create_issue = True
+        assert helper.create_issue
+
+    config_kwargs['advanced'].exception_callback = exception_callback
+    logfire.configure(**config_kwargs)
+
+    with logfire.span('outer'):
+        with pytest.raises(ValueError):
+            with logfire.span('inner'):
+                raise ValueError('test')
+
+    span = exporter.exported_spans[2]
+    assert span.name == 'inner'
+    assert span.attributes
+    assert span.attributes[ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY] == snapshot(
+        '2d233734d60da1a16e3627ba78180e4f83a9588ab6bd365283331a1339d56072'
+    )
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'inner',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_exceptions.py',
+                    'code.function': 'test_exception_nested_span',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'inner',
+                    'logfire.msg': 'inner',
+                    'logfire.span_type': 'span',
+                    'logfire.level_num': 17,
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 3000000000,
+                        'attributes': {
+                            'exception.type': 'ValueError',
+                            'exception.message': 'test',
+                            'exception.stacktrace': 'ValueError: test',
+                            'exception.escaped': 'True',
+                        },
+                    }
+                ],
+            },
+            {
+                'name': 'outer',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'code.filepath': 'test_exceptions.py',
+                    'code.function': 'test_exception_nested_span',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'outer',
+                    'logfire.msg': 'outer',
+                    'logfire.span_type': 'span',
+                },
+            },
+        ]
+    )
