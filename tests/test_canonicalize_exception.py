@@ -242,3 +242,16 @@ tests.test_canonicalize_exception.test_cyclic_exception_group
 
 </ExceptionGroup>
 """)
+
+
+def test_canonicalize_no_traceback():
+    try:
+        raise ValueError('oops')
+    except Exception as e:
+        e.__traceback__ = None
+        canonicalized = canonicalize_exception_traceback(e)
+        assert canonicalized.replace(__file__, '__file__') == snapshot("""\
+
+builtins.ValueError
+----\
+""")
