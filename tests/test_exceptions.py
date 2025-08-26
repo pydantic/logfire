@@ -251,3 +251,47 @@ def test_set_fingerprint(exporter: TestExporter, config_kwargs: dict[str, Any]):
             }
         ]
     )
+
+
+def test_no_record_exception(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    def exception_callback(helper: ExceptionCallbackHelper) -> None:
+        assert helper.create_issue
+        helper.no_record_exception()
+        assert not helper.create_issue
+        with pytest.raises(ValueError):
+            helper.create_issue = True
+        with pytest.raises(ValueError):
+            helper.issue_fingerprint_source = 'custom fingerprint source'
+        assert not helper.create_issue
+
+    config_kwargs['advanced'].exception_callback = exception_callback
+    logfire.configure(**config_kwargs)
+
+    with pytest.raises(ValueError):
+        with logfire.span('span'):
+            raise ValueError('test')
+
+    (_pending, span) = exporter.exported_spans
+    assert span.attributes
+    assert ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY not in span.attributes
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'span',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'code.filepath': 'test_exceptions.py',
+                    'code.function': 'test_no_record_exception',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'span',
+                    'logfire.msg': 'span',
+                    'logfire.span_type': 'span',
+                    'logfire.level_num': 17,
+                },
+            }
+        ]
+    )
