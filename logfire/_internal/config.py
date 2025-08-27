@@ -186,7 +186,7 @@ class AdvancedOptions:
     exception_callback: ExceptionCallback | None = None
     """Callback function that is called when an exception is recorded on a span.
 
-    This is experimental and may be removed."""
+    This is experimental and may be modified or removed."""
 
     def generate_base_url(self, token: str) -> str:
         if self.base_url is not None:
