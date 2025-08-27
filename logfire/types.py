@@ -76,7 +76,10 @@ class SpanLevel:
 
 @dataclass
 class ExceptionCallbackHelper:
-    """TODO."""
+    """Helper object passed to the exception callback.
+
+    This is experimental and may change significantly in future releases.
+    """
 
     span: Span
     exception: BaseException
@@ -91,8 +94,6 @@ class ExceptionCallbackHelper:
         Usually the level is error.
         FastAPI/Starlette 4xx HTTPExceptions are warnings.
         Will be a different level if this is created by e.g. `logfire.info(..., _exc_info=True)`.
-
-        Returns a https://logfire.pydantic.dev/docs/reference/api/sampling/#logfire.sampling.SpanLevel
         """
         return SpanLevel.from_span(self.span)
 
@@ -188,6 +189,10 @@ class ExceptionCallbackHelper:
 
 ExceptionCallback = Callable[[ExceptionCallbackHelper], None]
 """
+This is experimental and may change significantly in future releases.
+
+Usage:
+
     def my_callback(helper: logfire.ExceptionCallbackHelper):
         ...
 
