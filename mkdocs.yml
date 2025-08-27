@@ -178,6 +178,7 @@ nav:
           - Scaling: reference/self-hosted/scaling.md
           - Troubleshooting: reference/self-hosted/troubleshooting.md
           - Examples: reference/self-hosted/examples.md
+          - Usage Report: reference/self-hosted/usage-report.md
       - SDK CLI: reference/cli.md
       - SDK API:
           - Logfire: reference/api/logfire.md
