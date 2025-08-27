@@ -7,6 +7,7 @@ import functools
 import logging
 import platform
 import sys
+import warnings
 import webbrowser
 from collections.abc import Sequence
 from operator import itemgetter
@@ -369,6 +370,7 @@ def _main(args: list[str] | None = None) -> None:
     global_opts = parser.add_argument_group(title='global options')
     url_or_region_grp = global_opts.add_mutually_exclusive_group()
     url_or_region_grp.add_argument('--logfire-url', help=argparse.SUPPRESS)
+    url_or_region_grp.add_argument('--base-url', help=argparse.SUPPRESS)
     url_or_region_grp.add_argument('--region', choices=REGIONS, help='the region to use')
     parser.set_defaults(func=lambda _: parser.print_help())  # type: ignore
     subparsers = parser.add_subparsers(title='commands', metavar='')
@@ -423,6 +425,10 @@ def _main(args: list[str] | None = None) -> None:
     cmd_read_tokens_create.set_defaults(func=parse_create_read_token)
 
     cmd_prompt = subparsers.add_parser('prompt', help=parse_prompt.__doc__)
+    agent_code_group = cmd_prompt.add_argument_group(title='code agentic specific options')
+    claude_or_codex_group = agent_code_group.add_mutually_exclusive_group()
+    claude_or_codex_group.add_argument('--claude', action='store_true', help='verify the Claude Code setup')
+    claude_or_codex_group.add_argument('--codex', action='store_true', help='verify the Cursor setup')
     cmd_prompt.add_argument('--project', action=OrgProjectAction, help='project in the format <org>/<project>')
     cmd_prompt.add_argument('issue', nargs='?', help='the issue to get a prompt for')
     cmd_prompt.set_defaults(func=parse_prompt)
@@ -446,6 +452,15 @@ def _main(args: list[str] | None = None) -> None:
         namespace.script_and_args = unknown_args + (namespace.script_and_args or [])
     else:
         namespace = parser.parse_args(args)
+
+    if namespace.logfire_url:
+        warnings.warn(
+            'The `--logfire-url` argument is deprecated. Use `--base-url` instead.',
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
+    namespace.logfire_url = namespace.logfire_url or namespace.base_url
     namespace.logfire_url = _get_logfire_url(namespace.logfire_url, namespace.region)
 
     trace.set_tracer_provider(tracer_provider=SDKTracerProvider())

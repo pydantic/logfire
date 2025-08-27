@@ -5,14 +5,18 @@ in many languages to export to the **Logfire** backend, including those outside 
 [first-class supported languages](../languages.md). Depending on your SDK, you may need to set only
 these [environment variables](https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/):
 
-- `OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-api.pydantic.dev` for both traces and metrics, or:
-    - `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://logfire-api.pydantic.dev/v1/traces` for just traces
-    - `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=https://logfire-api.pydantic.dev/v1/metrics` for just metrics
-    - `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=https://logfire-api.pydantic.dev/v1/logs` for just logs
+- `OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-us.pydantic.dev` for both traces and metrics, or:
+    - `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=https://logfire-us.pydantic.dev/v1/traces` for just traces
+    - `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=https://logfire-us.pydantic.dev/v1/metrics` for just metrics
+    - `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=https://logfire-us.pydantic.dev/v1/logs` for just logs
 - `OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'` - see [Create Write Tokens](./create-write-tokens.md)
   to obtain a write token and replace `your-write-token` with it.
 - `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` to export in Protobuf format over HTTP (not gRPC).
   The **Logfire** backend supports both Protobuf and JSON, but only over HTTP for now. Some SDKs (such as Python) already use this value as the default so setting this isn't required, but other SDKs use `grpc` as the default.
+
+!!! note
+    This page shows `https://logfire-us.pydantic.dev` as the base URL which is for the US [region](../reference/data-regions.md).
+    If you are using the EU region, use `https://logfire-eu.pydantic.dev` instead.
 
 ## Example with Python
 
@@ -20,7 +24,7 @@ First, run these commands:
 
 ```sh
 pip install opentelemetry-exporter-otlp
-export OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-api.pydantic.dev
+export OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-us.pydantic.dev
 export OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'
 ```
 
@@ -46,7 +50,7 @@ To configure the exporter without environment variables:
 
 ```python
 exporter = OTLPSpanExporter(
-    endpoint='https://logfire-api.pydantic.dev/v1/traces',
+    endpoint='https://logfire-us.pydantic.dev/v1/traces',
     headers={'Authorization': 'your-write-token'},
 )
 ```
@@ -80,7 +84,7 @@ sdk.shutdown().catch(console.error);
 Then run these commands:
 
 ```sh
-export OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-api.pydantic.dev
+export OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-us.pydantic.dev
 export OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'
 
 npm init es6 -y # creates package.json with type module
@@ -96,7 +100,7 @@ First, set up a new Cargo project:
 
 ```sh
 cargo new --bin otel-example && cd otel-example
-export OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-api.pydantic.dev
+export OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-us.pydantic.dev
 export OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'
 ```
 
@@ -131,7 +135,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // (You'll need to add `use opentelemetry_otlp::WithExportConfig;` to the top of the
         // file to access the `.with_endpoint` method.)
         //
-        // .with_endpoint("https://logfire-api.pydantic.dev/v1/traces")
+        // .with_endpoint("https://logfire-us.pydantic.dev/v1/traces")
         // .with_headers({
         //     let mut headers = std::collections::HashMap::new();
         //     headers.insert(
@@ -187,7 +191,7 @@ func main() {
 Then run these commands:
 
 ```sh
-export OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-api.pydantic.dev
+export OTEL_EXPORTER_OTLP_ENDPOINT=https://logfire-us.pydantic.dev
 export OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'
 
 # Optional, but otherwise you will see the service name set to `unknown_service:otel_example`
