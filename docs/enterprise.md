@@ -49,7 +49,8 @@ When a user logs in, your OIDC provider verifies their identity and securely sha
 
 - Okta - Enterprise identity management
 - Auth0 - Flexible authentication platform
-- Azure AD (Active Directory) - Microsoft's cloud identity service
+- Azure EntraID (formerly Azure Active Directory) - Microsoft's cloud identity service
+
 - Google Workspace - Google's business identity solution
 - AWS Cognito - Amazon's user identity service
 - Keycloak - Open-source identity management
