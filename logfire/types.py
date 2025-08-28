@@ -108,6 +108,14 @@ class ExceptionCallbackHelper:
         self.span.set_attributes(log_level_attributes(value))
 
     @property
+    def level_is_unset(self) -> bool:
+        """Determine if the level has not been explicitly set on the span.
+
+        This generally happens when a span is not marked as escaping.
+        """
+        return ATTRIBUTES_LOG_LEVEL_NUM_KEY not in (self.span.attributes or {})
+
+    @property
     def parent_span(self) -> ReadableSpan | None:
         """The parent span of the span the exception was recorded on.
 
@@ -159,7 +167,9 @@ class ExceptionCallbackHelper:
         if self._create_issue is not None:
             return self._create_issue
 
-        return self._record_exception and self.level >= 'error' and self.parent_span is None
+        # Note: the level might not be set if dealing with a non-escaping exception, but that's expected for e.g.
+        # the root spans of web frameworks.
+        return self._record_exception and (self.level_is_unset or self.level >= 'error') and self.parent_span is None
 
     @create_issue.setter
     def create_issue(self, value: bool):

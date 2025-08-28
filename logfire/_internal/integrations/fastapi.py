@@ -186,7 +186,7 @@ class FastAPIInstrumentation:
                 # Record the end timestamp before recording exceptions.
                 set_timestamp('end_timestamp')
         except Exception as exc:
-            root_span.record_exception(exc, escaped=True)
+            root_span.record_exception(exc)
             raise
 
     async def solve_dependencies(self, request: Request | WebSocket, original: Awaitable[Any]) -> Any:
