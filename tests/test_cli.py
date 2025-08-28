@@ -6,9 +6,11 @@ import json
 import os
 import re
 import shlex
+import subprocess
 import sys
 import types
 import webbrowser
+from collections.abc import Generator
 from contextlib import ExitStack
 from pathlib import Path
 from unittest.mock import Mock, call, patch
@@ -22,7 +24,7 @@ from inline_snapshot import snapshot
 import logfire._internal.cli
 from logfire import VERSION
 from logfire._internal.auth import UserToken
-from logfire._internal.cli import SplitArgs, main
+from logfire._internal.cli import OrgProjectAction, SplitArgs, main
 from logfire._internal.cli.run import (
     find_recommended_instrumentations_to_install,
     get_recommendation_texts,
@@ -99,7 +101,7 @@ def test_whoami(tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, caps
         with pytest.warns(
             UserWarning, match='Logfire API returned status code 500, you may have trouble sending data.'
         ):
-            main(shlex.split(f'--logfire-url=http://localhost:0 whoami --data-dir {tmp_dir_cwd}'))
+            main(shlex.split(f'--base-url=http://localhost:0 whoami --data-dir {tmp_dir_cwd}'))
 
         assert len(request_mocker.request_history) == 1
         assert capsys.readouterr().err.splitlines() == snapshot(
@@ -117,7 +119,7 @@ def test_whoami_without_data(tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[st
     current_dir = os.getcwd()
     os.chdir(tmp_dir_cwd)
     try:
-        main(['--logfire-url=http://localhost:0', 'whoami'])
+        main(['--base-url=http://localhost:0', 'whoami'])
     except SystemExit as e:
         assert e.code == 1
         assert capsys.readouterr().err.splitlines() == snapshot(
@@ -147,7 +149,7 @@ def test_whoami_logged_in(
 
         m.get('http://localhost/v1/account/me', json={'name': 'test-user'})
 
-        main(shlex.split(f'--logfire-url=http://localhost:0 whoami --data-dir {tmp_dir_cwd}'))
+        main(shlex.split(f'--base-url=http://localhost:0 whoami --data-dir {tmp_dir_cwd}'))
     assert capsys.readouterr().err.splitlines() == snapshot(
         [
             'Logged in as: test-user',
@@ -162,7 +164,7 @@ def test_whoami_default_dir(
     tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, capsys: pytest.CaptureFixture[str]
 ) -> None:
     logfire_credentials.write_creds_file(tmp_dir_cwd / '.logfire')
-    main(['--logfire-url=http://localhost:0', 'whoami'])
+    main(['--base-url=http://localhost:0', 'whoami'])
     assert capsys.readouterr().err.splitlines() == snapshot(
         [
             'Not logged in. Run `logfire auth` to log in.',
@@ -1046,6 +1048,54 @@ def test_projects_new_create_project_error(tmp_dir_cwd: Path, default_credential
             main(['projects', 'new', 'myproject', '--org', 'fake_org'])
 
 
+def test_create_read_token(tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.post(
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects/myproject/read-tokens',
+            json={'token': 'fake_token'},
+        )
+
+        main(['read-tokens', '--project', 'fake_org/myproject', 'create'])
+
+        output = capsys.readouterr().out
+        assert output == snapshot('fake_token\n')
+
+
+def test_get_prompt(tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects/myproject/prompts',
+            json={'prompt': 'This is the prompt\n'},
+        )
+
+        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123'])
+
+        output = capsys.readouterr().out
+        assert output == snapshot('This is the prompt\n')
+
+
 def test_projects_use(tmp_dir_cwd: Path, default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
     with ExitStack() as stack:
         stack.enter_context(
@@ -1541,6 +1591,26 @@ def test_split_args_action() -> None:
     assert args.foo == ['a', 'b', 'c']
 
 
+def test_org_project_action() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--project', action=OrgProjectAction)
+    args = parser.parse_args(['--project', 'organization/project'])
+    assert args.project == 'project'
+    assert args.organization == 'organization'
+
+    # Missing `/` separation.
+    with pytest.raises(SystemExit):
+        args = parser.parse_args(['--project', 'organization'])
+
+    # Empty project or organization name.
+    with pytest.raises(SystemExit):
+        args = parser.parse_args(['--project', 'organization/'])
+
+    # Can't split multiple `/`.
+    with pytest.raises(SystemExit):
+        args = parser.parse_args(['--project', 'organization/project/extra'])
+
+
 def test_instrumented_packages_text_filters_starlette_and_urllib3():
     # Both special cases: fastapi/starlette and requests/urllib3
     installed_otel_pkgs = {
@@ -1612,3 +1682,131 @@ def test_parse_run_module(
     assert configure_mock.call_count == 1
     assert capsys.readouterr().out == snapshot('hi from run_script_test.py\n')
     assert instrument_package_mock.call_args_list == [(('openai',),)]
+
+
+@pytest.fixture()
+def prompt_http_calls() -> Generator[None]:
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects/myproject/prompts',
+            response_list=[
+                {
+                    'json': {'prompt': 'This is the prompt\n'},
+                }
+            ],
+        )
+
+        m.post(
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects/myproject/read-tokens',
+            json={'token': 'fake_token'},
+        )
+
+        yield
+
+
+def test_parse_prompt(prompt_http_calls: None, capsys: pytest.CaptureFixture[str]) -> None:
+    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123'])
+
+    assert capsys.readouterr().out == snapshot('This is the prompt\n')
+
+
+def test_parse_prompt_codex(prompt_http_calls: None, capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
+    codex_path = tmp_path / 'codex'
+    codex_path.mkdir()
+    codex_config_path = codex_path / 'config.toml'
+    codex_config_path.write_text('')
+
+    with patch.dict(os.environ, {'CODEX_HOME': str(codex_path)}):
+        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--codex'])
+
+    assert codex_config_path.read_text() == snapshot("""\
+
+[mcp_servers.logfire]
+command = "uvx"
+args = ["logfire-mcp@latest"]
+env = { "LOGFIRE_READ_TOKEN": "fake_token" }
+""")
+    out, err = capsys.readouterr()
+    assert out == snapshot('This is the prompt\n')
+    assert err == snapshot("""\
+Logfire MCP server not found. Creating a read token...
+Logfire MCP server added to Codex.
+""")
+
+
+def test_parse_prompt_codex_config_not_found(
+    prompt_http_calls: None, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    codex_path = tmp_path / 'codex'
+    codex_path.mkdir()
+
+    with patch.dict(os.environ, {'CODEX_HOME': str(codex_path)}):
+        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--codex'])
+
+    assert capsys.readouterr().err == snapshot(
+        'Codex config file not found. Install `codex`, or remove the `--codex` flag.\n'
+    )
+
+
+def test_parse_prompt_codex_logfire_mcp_installed(
+    prompt_http_calls: None, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    codex_path = tmp_path / 'codex'
+    codex_path.mkdir()
+    codex_config_path = codex_path / 'config.toml'
+    codex_config_path.write_text('logfire-mcp is installed')
+
+    with patch.dict(os.environ, {'CODEX_HOME': str(codex_path)}):
+        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--codex'])
+
+    assert capsys.readouterr().out == snapshot('This is the prompt\n')
+
+
+def test_parse_prompt_claude(
+    prompt_http_calls: None, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def logfire_mcp_installed(_: list[str]) -> bytes:
+        return b'logfire-mcp is installed'
+
+    monkeypatch.setattr(subprocess, 'check_output', logfire_mcp_installed)
+    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--claude'])
+
+    assert capsys.readouterr().out == snapshot('This is the prompt\n')
+
+
+def test_parse_prompt_claude_no_mcp(
+    prompt_http_calls: None, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def logfire_mcp_installed(_: list[str]) -> bytes:
+        return b'not installed'
+
+    monkeypatch.setattr(subprocess, 'check_output', logfire_mcp_installed)
+    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--claude'])
+
+    out, err = capsys.readouterr()
+    assert out == snapshot('This is the prompt\n')
+    assert err == snapshot("""\
+Logfire MCP server not found. Creating a read token...
+Logfire MCP server added to Claude.
+""")
+
+
+def test_base_url_and_logfire_url(
+    tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, capsys: pytest.CaptureFixture[str]
+):
+    logfire_credentials.write_creds_file(tmp_dir_cwd / '.logfire')
+    with pytest.warns(
+        DeprecationWarning, match='The `--logfire-url` argument is deprecated. Use `--base-url` instead.'
+    ):
+        main(['--logfire-url', 'https://logfire-us.pydantic.dev', 'whoami'])

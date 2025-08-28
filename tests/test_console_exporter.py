@@ -4,6 +4,8 @@ from __future__ import annotations
 import decimal
 import enum
 import io
+import json
+import re
 import sys
 from datetime import datetime
 from typing import Any
@@ -17,6 +19,7 @@ from opentelemetry._events import Event, get_event_logger
 from opentelemetry._logs import SeverityNumber, get_logger
 from opentelemetry.sdk._logs import LogRecord
 from opentelemetry.sdk.trace import ReadableSpan
+from opentelemetry.trace import get_tracer
 from opentelemetry.version import __version__ as otel_version
 
 import logfire
@@ -993,6 +996,7 @@ def test_other_json_schema_types(capsys: pytest.CaptureFixture[str]) -> None:
         e=MyEnum.ABC,
         se=MyStrEnum.STR,
         ie=MyIntEnum.INT,
+        rp=re.compile(r'^[\w\.-]+@[\w\.-]+\.\w+$'),
     )
 
     assert capsys.readouterr().out.splitlines() == snapshot(
@@ -1005,5 +1009,39 @@ def test_other_json_schema_types(capsys: pytest.CaptureFixture[str]) -> None:
             "│ e=MyEnum('abc')",
             "│ se=MyStrEnum('str_val')",
             '│ ie=MyIntEnum(1)',
+            '│ rp=^[\\w\\.-]+@[\\w\\.-]+\\.\\w+$',
+        ]
+    )
+
+
+def test_console_exporter_list_data_with_object_schema_mismatch(capsys: pytest.CaptureFixture[str]) -> None:
+    logfire.configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(verbose=True, colors='never', include_timestamps=False),
+    )
+
+    get_tracer(__name__).start_span(
+        'test_span',
+        attributes={
+            'foo': json.dumps(['item1', 'item2', 'item3']),
+            'bar': json.dumps({'name': 'Alice', 'age': 30}),
+            'logfire.json_schema': json.dumps(
+                {
+                    'type': 'object',
+                    'properties': {
+                        # These are wrong
+                        'foo': {'type': 'object'},
+                        'bar': {'type': 'array'},
+                    },
+                }
+            ),
+        },
+    ).end()
+
+    assert capsys.readouterr().out.splitlines() == snapshot(
+        [
+            'test_span',
+            "│ foo=['item1', 'item2', 'item3']",
+            "│ bar={'name': 'Alice', 'age': 30}",
         ]
     )

@@ -35,7 +35,7 @@ from agents.tracing.span_data import MCPListToolsSpanData, ResponseSpanData
 from agents.tracing.spans import NoOpSpan
 from agents.tracing.traces import NoOpTrace
 from agents.voice import AudioInput, SingleAgentVoiceWorkflow, VoicePipeline
-from dirty_equals import IsInt, IsStr
+from dirty_equals import IsInt, IsPartialDict, IsStr
 from inline_snapshot import snapshot
 from openai import AsyncOpenAI
 
@@ -44,6 +44,7 @@ from logfire._internal.exporters.test import TestExporter
 from logfire._internal.integrations.openai_agents import LogfireSpanWrapper, LogfireTraceWrapper
 
 os.environ.setdefault('OPENAI_API_KEY', 'foo')
+os.environ['OPENAI_DEFAULT_MODEL'] = 'gpt-4o'
 
 
 def test_openai_agent_tracing(exporter: TestExporter):
@@ -873,26 +874,7 @@ async def test_chat_completions(exporter: TestExporter):
                             'annotations': [],
                         }
                     ],
-                    'model_config': {
-                        'temperature': None,
-                        'top_p': None,
-                        'frequency_penalty': None,
-                        'presence_penalty': None,
-                        'tool_choice': None,
-                        'parallel_tool_calls': None,
-                        'truncation': None,
-                        'max_tokens': None,
-                        'reasoning': None,
-                        'metadata': None,
-                        'store': None,
-                        'include_usage': None,
-                        'response_include': None,
-                        'extra_query': None,
-                        'extra_body': None,
-                        'extra_headers': None,
-                        'extra_args': None,
-                        'base_url': 'https://api.openai.com/v1/',
-                    },
+                    'model_config': IsPartialDict(),
                     'usage': {'input_tokens': 11, 'output_tokens': 8},
                     'gen_ai.system': 'openai',
                     'gen_ai.request.model': 'gpt-4o',

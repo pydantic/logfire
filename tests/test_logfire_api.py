@@ -69,6 +69,19 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     with logfire_api.span('test span') as span:
         assert isinstance(span, logfire_api.LogfireSpan)
         span.set_attribute('foo', 'bar')
+
+        assert span.name == '' if module_name == 'logfire_api.' else 'test span'
+        if module_name == 'logfire_api.':
+            assert span.attributes == {}
+            assert span.context is None
+            assert span.start_time is None
+            assert span.instrumentation_scope is None
+        assert span.events == ()
+        assert span.links == ()
+        assert span.resource.attributes
+        assert span.parent is None
+        assert span.end_time is None
+
     logfire__all__.remove('LogfireSpan')
     logfire__all__.remove('span')
 

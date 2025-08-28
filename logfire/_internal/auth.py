@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import platform
 import re
+import sys
 import warnings
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -10,6 +11,7 @@ from typing import TypedDict, cast
 from urllib.parse import urljoin
 
 import requests
+from rich.console import Console
 from rich.prompt import IntPrompt
 from typing_extensions import Self
 
@@ -155,10 +157,11 @@ class UserTokenCollection:
             int_choice = IntPrompt.ask(
                 f'Multiple user tokens found. Please select one:\n{choices_str}\n',
                 choices=[str(i) for i in range(1, len(tokens_list) + 1)],
+                console=Console(file=sys.stderr),
             )
             token = tokens_list[int_choice - 1]
         else:  # tokens_list == []
-            raise LogfireConfigError('No user tokens are available. Please run `logfire auth` to authenticate.')
+            raise LogfireConfigError('You are not logged into Logfire. Please run `logfire auth` to authenticate.')
 
         if token.is_expired:
             raise LogfireConfigError(f'User token {token} is expired. Please run `logfire auth` to authenticate.')

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import os
 from contextlib import contextmanager
 from typing import Any
 from unittest import mock
@@ -836,6 +837,74 @@ async def test_httpx_client_capture_all(exporter: TestExporter):
                     'logfire.msg_template': 'test span',
                     'logfire.msg': 'test span',
                     'logfire.span_type': 'span',
+                },
+            },
+        ]
+    )
+
+
+async def test_httpx_client_capture_all_environment_variable(exporter: TestExporter):
+    with mock.patch.dict(os.environ, {'LOGFIRE_HTTPX_CAPTURE_ALL': 'true'}):
+        with httpx.Client(transport=create_transport()) as client:
+            logfire.instrument_httpx(client)
+            response = client.get('https://example.org:8080/foo')
+            assert response.json() == {'good': 'response'}
+            assert await response.aread() == b'{"good": "response"}'
+
+    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
+        [
+            {
+                'name': 'GET',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'http.method': 'GET',
+                    'http.request.method': 'GET',
+                    'http.url': 'https://example.org:8080/foo',
+                    'url.full': 'https://example.org:8080/foo',
+                    'http.host': 'example.org',
+                    'server.address': 'example.org',
+                    'network.peer.address': 'example.org',
+                    'net.peer.port': 8080,
+                    'server.port': 8080,
+                    'network.peer.port': 8080,
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET example.org/foo',
+                    'http.request.header.host': ('example.org:8080',),
+                    'http.request.header.accept': ('*/*',),
+                    'http.request.header.accept-encoding': ('gzip, deflate, zstd',),
+                    'http.request.header.connection': ('keep-alive',),
+                    'http.request.header.user-agent': ('python-httpx/0.28.1',),
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                    'http.flavor': '1.1',
+                    'network.protocol.version': '1.1',
+                    'http.response.header.host': ('example.org:8080',),
+                    'http.response.header.accept': ('*/*',),
+                    'http.response.header.accept-encoding': ('gzip, deflate, zstd',),
+                    'http.response.header.connection': ('keep-alive',),
+                    'http.response.header.user-agent': ('python-httpx/0.28.1',),
+                    'http.response.header.traceparent': ('00-00000000000000000000000000000001-0000000000000001-01',),
+                    'http.target': '/foo',
+                },
+            },
+            {
+                'name': 'Reading response body',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_httpx.py',
+                    'code.function': 'test_httpx_client_capture_all_environment_variable',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'Reading response body',
+                    'logfire.msg': 'Reading response body',
+                    'logfire.span_type': 'span',
+                    'http.response.body.text': '{"good": "response"}',
+                    'logfire.json_schema': '{"type":"object","properties":{"http.response.body.text":{"type":"object"}}}',
                 },
             },
         ]

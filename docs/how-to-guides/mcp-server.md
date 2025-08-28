@@ -22,7 +22,7 @@ You'll need a read token to use the MCP server. See
 You can then start the MCP server with the following command:
 
 ```bash
-LOGFIRE_READ_TOKEN=<your-token> uvx logfire-mcp
+LOGFIRE_READ_TOKEN=<your-token> uvx logfire-mcp@latest
 ```
 
 !!! note
@@ -85,6 +85,16 @@ You can configure it to use the MCP server by adding the following configuration
 
 Check out the [MCP quickstart](https://modelcontextprotocol.io/quickstart/user)
 for more information.
+
+#### Claude Code
+
+[Claude Code](https://claude.ai/code) is a coding tool that is used via CLI.
+
+You can run the following command to add the Logfire MCP server to your Claude Code:
+
+```bash
+claude mcp add logfire -e LOGFIRE_READ_TOKEN="your-token" -- uvx logfire-mcp@latest
+```
 
 #### Cline
 

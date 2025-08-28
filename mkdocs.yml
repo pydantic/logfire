@@ -85,6 +85,7 @@ nav:
           - Alerts (Beta): guides/web-ui/alerts.md
           - Saved Searches: guides/web-ui/saved-searches.md
           - SQL Explorer: guides/web-ui/explore.md
+          - Public traces: guides/web-ui/public-traces.md
   - Understanding your Usage: logfire-costs.md
   - How To - Guides:
       - Create Write Tokens: how-to-guides/create-write-tokens.md
@@ -177,6 +178,7 @@ nav:
           - Scaling: reference/self-hosted/scaling.md
           - Troubleshooting: reference/self-hosted/troubleshooting.md
           - Examples: reference/self-hosted/examples.md
+          - Usage Report: reference/self-hosted/usage-report.md
       - SDK CLI: reference/cli.md
       - SDK API:
           - Logfire: reference/api/logfire.md

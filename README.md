@@ -1,4 +1,4 @@
-# Pydantic Logfire — Uncomplicated Observability
+# Pydantic Logfire — Know more. Build faster.
 
 <p align="center">
   <a href="https://github.com/pydantic/logfire/actions?query=event%3Apush+branch%3Amain+workflow%3ACI"><img src="https://github.com/pydantic/logfire/actions/workflows/main.yml/badge.svg?event=push" alt="CI" /></a>
