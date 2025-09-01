@@ -6,8 +6,16 @@ from typing import TYPE_CHECKING, Any
 
 from mcp.client.session import ClientSession
 from mcp.server import Server
-from mcp.shared.session import BaseSession
-from mcp.types import CallToolRequest, LoggingMessageNotification
+from mcp.shared.session import BaseSession, ReceiveRequestT, RequestResponder, SendResultT
+from mcp.types import (
+    CallToolRequest,
+    ClientRequest,
+    ClientResult,
+    ErrorData,
+    LoggingMessageNotification,
+    ServerRequest,
+    ServerResult,
+)
 from pydantic import TypeAdapter
 
 from logfire._internal.utils import handle_internal_errors
@@ -82,10 +90,12 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
     original_handle_client_request = ClientSession._received_request  # type: ignore
 
     @functools.wraps(original_handle_client_request)
-    async def _received_request_client(self: Any, responder: Any) -> None:  # pragma: no cover
+    async def _received_request_client(
+        self: Any, responder: RequestResponder[ServerRequest, ClientResult]
+    ) -> None:  # pragma: no cover
         request = responder.request.root
         span_name = 'MCP client handle request'
-        with _handle_request_with_context(request, span_name):
+        with _handle_request_with_context(request, responder, span_name):
             await original_handle_client_request(self, responder)
 
     ClientSession._received_request = _received_request_client  # type: ignore
@@ -93,29 +103,35 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
     original_handle_server_request = Server._handle_request  # type: ignore
 
     @functools.wraps(original_handle_server_request)
-    async def _handle_request(self: Any, message: Any, request: Any, *args: Any, **kwargs: Any) -> Any:
+    async def _handle_request(
+        self: Any, message: RequestResponder[ClientRequest, ServerResult], request: Any, *args: Any, **kwargs: Any
+    ) -> Any:
         span_name = 'MCP server handle request'
-        with _handle_request_with_context(request, span_name) as span:
-            with handle_internal_errors:
-                original_respond = message.respond
-
-                def _respond_with_logging(response: Any, *respond_args: Any, **respond_kwargs: Any) -> Any:
-                    span.set_attribute('response', response)
-                    return original_respond(response, *respond_args, **respond_kwargs)
-
-                message.respond = _respond_with_logging
-
+        with _handle_request_with_context(request, message, span_name):
             return await original_handle_server_request(self, message, request, *args, **kwargs)
 
     Server._handle_request = _handle_request  # type: ignore
 
     @contextmanager
-    def _handle_request_with_context(request: Any, span_name: str):
+    def _handle_request_with_context(
+        request: Any, responder: RequestResponder[ReceiveRequestT, SendResultT], span_name: str
+    ):
         with _request_context(request):
             if method := getattr(request, 'method', None):  # pragma: no branch
                 span_name += f': {method}'
             with logfire_instance.span(span_name, request=request) as span:
-                yield span
+                with handle_internal_errors:
+                    original_respond = responder.respond
+
+                    def _respond_with_logging(
+                        response: SendResultT | ErrorData, *respond_args: Any, **respond_kwargs: Any
+                    ) -> Any:
+                        span.set_attribute('response', response)
+                        return original_respond(response, *respond_args, **respond_kwargs)
+
+                    responder.respond = _respond_with_logging
+
+                yield
 
     @contextmanager
     def _request_context(request: Any):
