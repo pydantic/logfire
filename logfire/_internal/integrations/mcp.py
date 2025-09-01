@@ -90,9 +90,7 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
     original_handle_client_request = ClientSession._received_request  # type: ignore
 
     @functools.wraps(original_handle_client_request)
-    async def _received_request_client(
-        self: Any, responder: RequestResponder[ServerRequest, ClientResult]
-    ) -> None:  # pragma: no cover
+    async def _received_request_client(self: Any, responder: RequestResponder[ServerRequest, ClientResult]) -> None:
         request = responder.request.root
         span_name = 'MCP client handle request'
         with _handle_request_with_context(request, responder, span_name):
