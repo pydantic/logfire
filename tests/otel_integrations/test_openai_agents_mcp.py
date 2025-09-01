@@ -4,9 +4,8 @@
 import asyncio
 import os
 import sys
-import warnings
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import pydantic
 import pytest
@@ -67,24 +66,17 @@ async def test_mcp(exporter: TestExporter):
         )
 
         class MyMCPServer(_MCPServerWithClientSession):
-            def __init__(self, streams: Any):
-                super().__init__(cache_tools_list=False, client_session_timeout_seconds=1000)
-                self._streams = streams
-
             @asynccontextmanager
-            async def create_streams(self):
-                yield self._streams
+            async def create_streams(self):  # type: ignore
+                yield client_streams
 
             @property
             def name(self):
                 return 'MyMCPServer'
 
-        async with MyMCPServer(client_streams) as openai_mcp_server:
+        async with MyMCPServer(cache_tools_list=False, client_session_timeout_seconds=1000) as openai_mcp_server:
             agent = Agent(name='Assistant', mcp_servers=[openai_mcp_server])
-            with warnings.catch_warnings(), trace('my_trace', trace_id='trace_123'):
-                # OpenAI accesses model_fields on an instance which is deprecated in Pydantic 2.11.
-                # It catches the resulting exception so that nothing bubbles up here that can be tested.
-                warnings.simplefilter('ignore')
+            with trace('my_trace', trace_id='trace_123'):
                 result = await Runner.run(agent, 'Give me a random number')
             assert result.final_output == snapshot("Here's a random number for you: 4")
 
