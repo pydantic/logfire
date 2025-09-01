@@ -1049,6 +1049,7 @@ class Logfire:
         excluded_urls: str | Iterable[str] | None = None,
         record_send_receive: bool = False,
         extra_spans: bool = False,
+        record_handled_exceptions: bool = True,
         **opentelemetry_kwargs: Any,
     ) -> AbstractContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.
@@ -1084,6 +1085,10 @@ class Logfire:
                 since many can be created for a single request, and they are not often useful.
                 If enabled, they will be set to debug level, meaning they will usually still be hidden in the UI.
             extra_spans: Whether to include the extra 'FastAPI arguments' and 'endpoint function' spans.
+            record_handled_exceptions: Set to `False` to prevent recording HTTP exceptions.
+
+                When `False`, StarletteHTTPException (including FastAPI HTTPException) are not recorded as errors.
+                All other exceptions are still recorded.
             opentelemetry_kwargs: Additional keyword arguments to pass to the OpenTelemetry FastAPI instrumentation.
 
         Returns:
@@ -1104,6 +1109,7 @@ class Logfire:
             excluded_urls=excluded_urls,
             record_send_receive=record_send_receive,
             extra_spans=extra_spans,
+            record_handled_exceptions=record_handled_exceptions,
             **opentelemetry_kwargs,
         )
 

@@ -14,6 +14,7 @@ from fastapi import BackgroundTasks, FastAPI
 from fastapi.routing import APIRoute, APIWebSocketRoute, Mount
 from fastapi.security import SecurityScopes
 from opentelemetry.trace import Span
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import Request
 from starlette.responses import Response
 from starlette.websockets import WebSocket
@@ -64,6 +65,7 @@ def instrument_fastapi(
     excluded_urls: str | Iterable[str] | None = None,
     record_send_receive: bool = False,
     extra_spans: bool = False,
+    record_handled_exceptions: bool = True,
     **opentelemetry_kwargs: Any,
 ) -> AbstractContextManager[None]:
     """Instrument a FastAPI app so that spans and logs are automatically created for each request.
@@ -100,6 +102,7 @@ def instrument_fastapi(
             logfire_instance,
             request_attributes_mapper or _default_request_attributes_mapper,
             extra_spans=extra_spans,
+            record_handled_exceptions=record_handled_exceptions,
         )
 
     @contextmanager
@@ -163,11 +166,13 @@ class FastAPIInstrumentation:
             dict[str, Any] | None,
         ],
         extra_spans: bool,
+        record_handled_exceptions: bool = True,
     ):
         self.logfire_instance = logfire_instance.with_settings(custom_scope_suffix='fastapi')
         self.timestamp_generator = self.logfire_instance.config.advanced.ns_timestamp_generator
         self.request_attributes_mapper = request_attributes_mapper
         self.extra_spans = extra_spans
+        self.record_handled_exceptions = record_handled_exceptions
 
     @contextmanager
     def pseudo_span(self, namespace: str, root_span: Span):
@@ -179,6 +184,7 @@ class FastAPIInstrumentation:
             root_span.set_attribute(f'fastapi.{namespace}.{attribute_name}', value)
 
         set_timestamp('start_timestamp')
+        exception_to_check = None
         try:
             try:
                 yield
@@ -186,8 +192,21 @@ class FastAPIInstrumentation:
                 # Record the end timestamp before recording exceptions.
                 set_timestamp('end_timestamp')
         except Exception as exc:
-            root_span.record_exception(exc)
+            exception_to_check = exc
             raise
+        finally:
+            if exception_to_check and self._should_record_exception(exception_to_check):
+                root_span.record_exception(exception_to_check)
+
+    def _should_record_exception(
+        self,
+        exc: Exception,
+    ) -> bool:
+        if self.record_handled_exceptions:
+            return True
+
+        # When record_handled_exceptions=False, skip HTTP exceptions
+        return not isinstance(exc, StarletteHTTPException)
 
     async def solve_dependencies(self, request: Request | WebSocket, original: Awaitable[Any]) -> Any:
         root_span = request.scope.get(LOGFIRE_SPAN_SCOPE_KEY)
