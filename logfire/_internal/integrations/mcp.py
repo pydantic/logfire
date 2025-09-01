@@ -125,8 +125,11 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
             return
         carrier = get_context()
         if params := getattr(root, 'params', None):
-            if meta := getattr(params, 'meta', None):  # pragma: no cover # TODO
-                dumped_meta = meta.model_dump()
+            if meta := getattr(params, 'meta', None):
+                if isinstance(meta, dict):
+                    dumped_meta = meta  # type: ignore
+                else:
+                    dumped_meta = meta.model_dump()
             else:
                 dumped_meta = {}
             # Prioritise existing values in meta over the context carrier.
