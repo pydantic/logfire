@@ -160,6 +160,26 @@ async def test_mcp(exporter: TestExporter):
                     'logfire.msg_template': 'MCP server handle request: tools/list',
                     'logfire.msg': 'MCP server handle request: tools/list',
                     'logfire.span_type': 'span',
+                    'response': {
+                        'meta': None,
+                        'nextCursor': None,
+                        'tools': [
+                            {
+                                'name': 'random_number',
+                                'title': None,
+                                'description': '',
+                                'inputSchema': {'properties': {}, 'title': 'random_numberArguments', 'type': 'object'},
+                                'outputSchema': {
+                                    'properties': {'result': {'title': 'Result', 'type': 'integer'}},
+                                    'required': ['result'],
+                                    'title': 'random_numberOutput',
+                                    'type': 'object',
+                                },
+                                'annotations': None,
+                                'meta': None,
+                            }
+                        ],
+                    },
                 },
             },
             {
@@ -307,6 +327,12 @@ async def test_mcp(exporter: TestExporter):
                     'logfire.msg_template': 'MCP server handle request: tools/call',
                     'logfire.msg': 'MCP server handle request: tools/call',
                     'logfire.span_type': 'span',
+                    'response': {
+                        'meta': None,
+                        'content': [{'type': 'text', 'text': '4', 'annotations': None, 'meta': None}],
+                        'structuredContent': {'result': 4},
+                        'isError': False,
+                    },
                 },
             },
             {
@@ -373,6 +399,26 @@ async def test_mcp(exporter: TestExporter):
                     'logfire.msg_template': 'MCP server handle request: tools/list',
                     'logfire.msg': 'MCP server handle request: tools/list',
                     'logfire.span_type': 'span',
+                    'response': {
+                        'meta': None,
+                        'nextCursor': None,
+                        'tools': [
+                            {
+                                'name': 'random_number',
+                                'title': None,
+                                'description': '',
+                                'inputSchema': {'properties': {}, 'title': 'random_numberArguments', 'type': 'object'},
+                                'outputSchema': {
+                                    'properties': {'result': {'title': 'Result', 'type': 'integer'}},
+                                    'required': ['result'],
+                                    'title': 'random_numberOutput',
+                                    'type': 'object',
+                                },
+                                'annotations': None,
+                                'meta': None,
+                            }
+                        ],
+                    },
                 },
             },
             {
@@ -557,6 +603,7 @@ async def test_mcp(exporter: TestExporter):
                     'logfire.msg_template': 'MCP server handle request: ping',
                     'logfire.msg': 'MCP server handle request: ping',
                     'logfire.span_type': 'span',
+                    'response': {'meta': None},
                 },
             },
             {
@@ -601,6 +648,7 @@ async def test_mcp(exporter: TestExporter):
                     'logfire.msg_template': 'MCP server handle request: ping',
                     'logfire.msg': 'MCP server handle request: ping',
                     'logfire.span_type': 'span',
+                    'response': {'meta': None},
                 },
             },
             {

@@ -95,7 +95,16 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
     @functools.wraps(original_handle_server_request)
     async def _handle_request(self: Any, message: Any, request: Any, *args: Any, **kwargs: Any) -> Any:
         span_name = 'MCP server handle request'
-        with _handle_request_with_context(request, span_name):
+        with _handle_request_with_context(request, span_name) as span:
+            with handle_internal_errors:
+                original_respond = message.respond
+
+                def _respond_with_logging(response: Any, *respond_args: Any, **respond_kwargs: Any) -> Any:
+                    span.set_attribute('response', response)
+                    return original_respond(response, *respond_args, **respond_kwargs)
+
+                message.respond = _respond_with_logging
+
             return await original_handle_server_request(self, message, request, *args, **kwargs)
 
     Server._handle_request = _handle_request  # type: ignore
@@ -105,8 +114,8 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
         with _request_context(request):
             if method := getattr(request, 'method', None):  # pragma: no branch
                 span_name += f': {method}'
-            with logfire_instance.span(span_name, request=request):
-                yield
+            with logfire_instance.span(span_name, request=request) as span:
+                yield span
 
     @contextmanager
     def _request_context(request: Any):
