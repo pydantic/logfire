@@ -4,9 +4,8 @@
 import asyncio
 import os
 import sys
-import warnings
 from contextlib import asynccontextmanager
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import pydantic
 import pytest
@@ -21,6 +20,7 @@ try:
     from agents import Agent, Runner, trace
     from agents.mcp.server import _MCPServerWithClientSession  # type: ignore
     from inline_snapshot import snapshot
+    from mcp import types
     from mcp.server.fastmcp import Context, FastMCP
     from mcp.shared.memory import create_client_server_memory_streams
 except ImportError:
@@ -67,26 +67,28 @@ async def test_mcp(exporter: TestExporter):
         )
 
         class MyMCPServer(_MCPServerWithClientSession):
-            def __init__(self, streams: Any):
-                super().__init__(cache_tools_list=False, client_session_timeout_seconds=1000)
-                self._streams = streams
-
             @asynccontextmanager
-            async def create_streams(self):
-                yield self._streams
+            async def create_streams(self):  # type: ignore
+                yield client_streams
 
             @property
             def name(self):
                 return 'MyMCPServer'
 
-        async with MyMCPServer(client_streams) as openai_mcp_server:
+        async with MyMCPServer(cache_tools_list=False, client_session_timeout_seconds=1000) as openai_mcp_server:
             agent = Agent(name='Assistant', mcp_servers=[openai_mcp_server])
-            with warnings.catch_warnings(), trace('my_trace', trace_id='trace_123'):
-                # OpenAI accesses model_fields on an instance which is deprecated in Pydantic 2.11.
-                # It catches the resulting exception so that nothing bubbles up here that can be tested.
-                warnings.simplefilter('ignore')
+            with trace('my_trace', trace_id='trace_123'):
                 result = await Runner.run(agent, 'Give me a random number')
             assert result.final_output == snapshot("Here's a random number for you: 4")
+
+            assert openai_mcp_server.session
+            params1 = types.RequestParams()
+            params1.meta = {'foo': 'bar1'}  # type: ignore
+            params2 = types.RequestParams(_meta={'foo': 'bar2'})  # type: ignore
+            for params in (params1, params2):
+                await openai_mcp_server.session.send_request(
+                    types.ClientRequest(types.PingRequest(method='ping', params=params)), types.EmptyResult
+                )
 
     assert simplify_spans(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
@@ -531,6 +533,94 @@ async def test_mcp(exporter: TestExporter):
                     'logfire.msg': 'OpenAI Agents trace: my_trace',
                     'logfire.span_type': 'span',
                     'agent_trace_id': 'trace_123',
+                },
+            },
+            {
+                'name': 'MCP server handle request: ping',
+                'context': {'trace_id': 3, 'span_id': 33, 'is_remote': False},
+                'parent': {'trace_id': 3, 'span_id': 31, 'is_remote': True},
+                'start_time': 32000000000,
+                'end_time': 33000000000,
+                'attributes': {
+                    'request': {
+                        'method': 'ping',
+                        'params': {
+                            'meta': {
+                                'progressToken': None,
+                                'traceparent': '00-00000000000000000000000000000003-000000000000001f-01',
+                                'foo': 'bar1',
+                            }
+                        },
+                        'jsonrpc': '2.0',
+                        'id': 4,
+                    },
+                    'logfire.msg_template': 'MCP server handle request: ping',
+                    'logfire.msg': 'MCP server handle request: ping',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'MCP request: ping',
+                'context': {'trace_id': 3, 'span_id': 31, 'is_remote': False},
+                'parent': None,
+                'start_time': 31000000000,
+                'end_time': 34000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai_agents_mcp.py',
+                    'code.function': 'test_mcp',
+                    'code.lineno': 123,
+                    'request': "\"PingRequest(method='ping', params=RequestParams(meta={'foo': 'bar1'}))\"",
+                    'rpc.system': 'jsonrpc',
+                    'rpc.jsonrpc.version': '2.0',
+                    'rpc.method': 'ping',
+                    'logfire.msg_template': 'MCP request: ping',
+                    'logfire.msg': 'MCP request: ping',
+                    'logfire.span_type': 'span',
+                    'response': {'meta': None},
+                },
+            },
+            {
+                'name': 'MCP server handle request: ping',
+                'context': {'trace_id': 4, 'span_id': 37, 'is_remote': False},
+                'parent': {'trace_id': 4, 'span_id': 35, 'is_remote': True},
+                'start_time': 36000000000,
+                'end_time': 37000000000,
+                'attributes': {
+                    'request': {
+                        'method': 'ping',
+                        'params': {
+                            'meta': {
+                                'progressToken': None,
+                                'traceparent': '00-00000000000000000000000000000004-0000000000000023-01',
+                                'foo': 'bar2',
+                            }
+                        },
+                        'jsonrpc': '2.0',
+                        'id': 5,
+                    },
+                    'logfire.msg_template': 'MCP server handle request: ping',
+                    'logfire.msg': 'MCP server handle request: ping',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'MCP request: ping',
+                'context': {'trace_id': 4, 'span_id': 35, 'is_remote': False},
+                'parent': None,
+                'start_time': 35000000000,
+                'end_time': 38000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai_agents_mcp.py',
+                    'code.function': 'test_mcp',
+                    'code.lineno': 123,
+                    'request': {'method': 'ping', 'params': {'meta': {'progressToken': None, 'foo': 'bar2'}}},
+                    'rpc.system': 'jsonrpc',
+                    'rpc.jsonrpc.version': '2.0',
+                    'rpc.method': 'ping',
+                    'logfire.msg_template': 'MCP request: ping',
+                    'logfire.msg': 'MCP request: ping',
+                    'logfire.span_type': 'span',
+                    'response': {'meta': None},
                 },
             },
         ]
