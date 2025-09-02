@@ -42,7 +42,6 @@ os.environ['OPENAI_DEFAULT_MODEL'] = 'gpt-4o'
 @pytest.mark.anyio
 async def test_mcp(exporter: TestExporter):
     logfire.instrument_openai_agents()
-    logfire.instrument_mcp()
 
     fastmcp = FastMCP()
 

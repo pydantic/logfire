@@ -9,11 +9,12 @@ from typing import TYPE_CHECKING
 
 import pydantic
 import pytest
-from dirty_equals import IsPartialDict, IsStr
+from dirty_equals import IsPartialDict
 
 import logfire
 from logfire._internal.exporters.test import TestExporter
 from logfire._internal.utils import get_version
+from tests.otel_integrations.test_openai_agents import simplify_spans
 
 try:
     from inline_snapshot import snapshot
@@ -40,7 +41,6 @@ os.environ.setdefault('OPENAI_API_KEY', 'foo')
 @pytest.mark.anyio
 async def test_pydantic_ai_mcp_sampling(exporter: TestExporter):
     logfire.instrument_pydantic_ai(version=2)
-    logfire.instrument_mcp()
 
     fastmcp = FastMCP()
 
@@ -75,7 +75,7 @@ Why did the sock break up with the shoe?
 Because it found something more "sole-ful!"\
 """)
 
-    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+    assert simplify_spans(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
                 'name': 'MCP request: initialize',
@@ -98,7 +98,6 @@ Because it found something more "sole-ful!"\
                     'logfire.msg': 'MCP request: initialize',
                     'logfire.span_type': 'span',
                     'response': IsPartialDict(),
-                    'logfire.json_schema': IsPartialDict(),
                 },
             },
             {
@@ -108,8 +107,6 @@ Because it found something more "sole-ful!"\
                 'start_time': 5000000000,
                 'end_time': 6000000000,
                 'attributes': {
-                    'code.filepath': IsStr(),
-                    'code.lineno': 123,
                     'request': {
                         'method': 'tools/list',
                         'params': {
@@ -140,7 +137,6 @@ Because it found something more "sole-ful!"\
                             }
                         ],
                     },
-                    'logfire.json_schema': IsPartialDict(),
                 },
             },
             {
@@ -150,8 +146,6 @@ Because it found something more "sole-ful!"\
                 'start_time': 4000000000,
                 'end_time': 7000000000,
                 'attributes': {
-                    'code.filepath': IsStr(),
-                    'code.lineno': 123,
                     'request': {'method': 'tools/list', 'params': None},
                     'rpc.system': 'jsonrpc',
                     'rpc.jsonrpc.version': '2.0',
@@ -174,7 +168,6 @@ Because it found something more "sole-ful!"\
                             }
                         ],
                     },
-                    'logfire.json_schema': IsPartialDict(),
                 },
             },
             {
@@ -223,7 +216,6 @@ Because it found something more "sole-ful!"\
                             ],
                         }
                     ],
-                    'logfire.json_schema': IsPartialDict(),
                     'gen_ai.usage.input_tokens': 45,
                     'gen_ai.usage.output_tokens': 15,
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
@@ -269,7 +261,6 @@ Because it found something more "sole-ful!"\
                             ],
                         }
                     ],
-                    'logfire.json_schema': IsPartialDict(),
                     'gen_ai.usage.input_tokens': 12,
                     'gen_ai.usage.output_tokens': 20,
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
@@ -282,8 +273,6 @@ Because it found something more "sole-ful!"\
                 'start_time': 17000000000,
                 'end_time': 20000000000,
                 'attributes': {
-                    'code.filepath': IsStr(),
-                    'code.lineno': 123,
                     'request': {
                         'method': 'sampling/createMessage',
                         'params': {
@@ -332,8 +321,6 @@ Because it found something more "sole-ful!"\
                         'model': 'gpt-4o',
                         'stopReason': None,
                     },
-                    'logfire.json_schema': IsPartialDict(),
-                    'logfire.metrics': IsPartialDict(),
                 },
             },
             {
@@ -392,8 +379,6 @@ Because it found something more "sole-ful!"\
                         'model': 'gpt-4o',
                         'stopReason': None,
                     },
-                    'logfire.json_schema': IsPartialDict(),
-                    'logfire.metrics': IsPartialDict(),
                 },
             },
             {
@@ -434,16 +419,7 @@ Because it found something more "sole-ful!"\
                             ],
                         }
                     ],
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'gen_ai.input.messages': {'type': 'array'},
-                            'gen_ai.output.messages': {'type': 'array'},
-                            'model_request_parameters': {'type': 'object'},
-                        },
-                    },
                     'gen_ai.response.model': 'gpt-4o',
-                    'logfire.metrics': IsPartialDict(),
                 },
             },
             {
@@ -478,8 +454,6 @@ Because it found something more "sole-ful!"\
                             ],
                         },
                     ],
-                    'logfire.json_schema': IsPartialDict(),
-                    'logfire.metrics': IsPartialDict(),
                 },
             },
             {
@@ -489,8 +463,6 @@ Because it found something more "sole-ful!"\
                 'start_time': 13000000000,
                 'end_time': 24000000000,
                 'attributes': {
-                    'code.filepath': IsStr(),
-                    'code.lineno': 123,
                     'request': {
                         'method': 'tools/call',
                         'params': {
@@ -530,8 +502,6 @@ Because it found something more "sole-ful!"\
                         },
                         'isError': False,
                     },
-                    'logfire.json_schema': IsPartialDict(),
-                    'logfire.metrics': IsPartialDict(),
                 },
             },
             {
@@ -541,8 +511,6 @@ Because it found something more "sole-ful!"\
                 'start_time': 12000000000,
                 'end_time': 25000000000,
                 'attributes': {
-                    'code.filepath': IsStr(),
-                    'code.lineno': 123,
                     'request': {
                         'method': 'tools/call',
                         'params': {'meta': None, 'name': 'joker', 'arguments': {'theme': 'socks'}},
@@ -576,8 +544,6 @@ Because it found something more "sole-ful!"\
                         },
                         'isError': False,
                     },
-                    'logfire.json_schema': IsPartialDict(),
-                    'logfire.metrics': IsPartialDict(),
                 },
             },
             {
@@ -591,22 +557,12 @@ Because it found something more "sole-ful!"\
                     'gen_ai.tool.call.id': 'call_YWeIZ4oGGwEnk9GIb443ZNys',
                     'tool_arguments': {'theme': 'socks'},
                     'logfire.msg': 'running tool: joker',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'tool_arguments': {'type': 'object'},
-                            'tool_response': {'type': 'object'},
-                            'gen_ai.tool.name': {},
-                            'gen_ai.tool.call.id': {},
-                        },
-                    },
                     'logfire.span_type': 'span',
                     'tool_response': """\
 Why did the sock break up with the shoe?
 
 Because it found something more "sole-ful!"\
 """,
-                    'logfire.metrics': IsPartialDict(),
                 },
             },
             {
@@ -615,12 +571,7 @@ Because it found something more "sole-ful!"\
                 'parent': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
                 'start_time': 10000000000,
                 'end_time': 27000000000,
-                'attributes': {
-                    'tools': ('joker',),
-                    'logfire.msg': 'running 1 tool',
-                    'logfire.span_type': 'span',
-                    'logfire.metrics': IsPartialDict(),
-                },
+                'attributes': {'tools': ('joker',), 'logfire.msg': 'running 1 tool', 'logfire.span_type': 'span'},
             },
             {
                 'name': 'MCP server handle request: tools/list',
@@ -629,8 +580,6 @@ Because it found something more "sole-ful!"\
                 'start_time': 29000000000,
                 'end_time': 30000000000,
                 'attributes': {
-                    'code.filepath': IsStr(),
-                    'code.lineno': 123,
                     'request': {
                         'method': 'tools/list',
                         'params': {
@@ -661,7 +610,6 @@ Because it found something more "sole-ful!"\
                             }
                         ],
                     },
-                    'logfire.json_schema': IsPartialDict(),
                 },
             },
             {
@@ -671,8 +619,6 @@ Because it found something more "sole-ful!"\
                 'start_time': 28000000000,
                 'end_time': 31000000000,
                 'attributes': {
-                    'code.filepath': IsStr(),
-                    'code.lineno': 123,
                     'request': {'method': 'tools/list', 'params': None},
                     'rpc.system': 'jsonrpc',
                     'rpc.jsonrpc.version': '2.0',
@@ -695,7 +641,6 @@ Because it found something more "sole-ful!"\
                             }
                         ],
                     },
-                    'logfire.json_schema': IsPartialDict(),
                 },
             },
             {
@@ -777,7 +722,6 @@ Because it found something more "sole-ful!"\
                             ],
                         }
                     ],
-                    'logfire.json_schema': IsPartialDict(),
                     'gen_ai.usage.input_tokens': 87,
                     'gen_ai.usage.output_tokens': 21,
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
@@ -843,8 +787,6 @@ Because it found something more "sole-ful!"\
                             ],
                         },
                     ],
-                    'logfire.json_schema': IsPartialDict(),
-                    'logfire.metrics': IsPartialDict(),
                 },
             },
         ]
