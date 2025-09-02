@@ -1088,11 +1088,6 @@ class Logfire:
             record_handled_exceptions: Set to `False` to prevent recording handled exceptions.
 
                 When `False`, exceptions that have registered exception handlers in FastAPI are not recorded as errors.
-                This includes both HTTP exceptions (StarletteHTTPException, HTTPException) and custom exceptions that
-                have been registered with @app.exception_handler().
-
-                Only truly unhandled exceptions (those without handlers) will be recorded, helping distinguish between
-                expected business logic responses and genuine server errors.
             opentelemetry_kwargs: Additional keyword arguments to pass to the OpenTelemetry FastAPI instrumentation.
 
         Returns:
