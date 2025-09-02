@@ -31,6 +31,15 @@ os.environ['LOGFIRE_TOKEN'] = ''
 get_trace_provider().shutdown()
 get_trace_provider().set_processors([])
 
+logfire.configure(send_to_logfire=False)
+
+try:
+    # This is just a simple way to perform this once.
+    # There are multiple tests that use it and we don't currently have a way to uninstrument.
+    logfire.instrument_mcp()
+except ImportError:
+    pass
+
 
 @pytest.fixture(scope='session', autouse=True)
 def anyio_backend():
