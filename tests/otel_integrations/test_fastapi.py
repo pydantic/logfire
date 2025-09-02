@@ -2415,10 +2415,10 @@ def test_http_exception_default_behavior(exporter: TestExporter):
 
 
 def test_custom_error_with_exception_handler_record_handled_false(exporter: TestExporter):
-    """Test that custom exceptions with handlers are still recorded when record_handled_exceptions=False.
+    """Test that custom exceptions with handlers are NOT recorded when record_handled_exceptions=False.
 
-    Note: Only HTTPException and StarletteHTTPException are filtered out.
-    Custom exceptions are still recorded to avoid missing real errors.
+    With the new handler detection logic, exceptions that have registered handlers
+    are considered "handled" and are filtered out to avoid noise.
     """
     app = FastAPI()
     app.get('/custom_error_unhandled')(custom_error_unhandled)
@@ -2433,7 +2433,34 @@ def test_custom_error_with_exception_handler_record_handled_false(exporter: Test
 
     spans = exporter.exported_spans_as_dict()
 
-    # Custom exceptions are still recorded (only HTTP exceptions are filtered)
+    # Custom exceptions with handlers are now filtered out (handled exceptions)
+    exception_spans = [s for s in spans if 'events' in s and s['events']]
+    assert len(exception_spans) == 0
+
+
+def test_custom_error_without_handler_record_handled_false(exporter: TestExporter):
+    """Test that custom exceptions WITHOUT handlers are still recorded when record_handled_exceptions=False.
+
+    Exceptions without handlers are truly unhandled and should always be logged.
+    """
+    app = FastAPI()
+
+    async def unhandled_custom_error():
+        raise CustomError('This exception has no handler')
+
+    app.get('/unhandled_custom_error')(unhandled_custom_error)
+    # Note: NOT adding the custom error handler
+
+    logfire.instrument_fastapi(app, record_handled_exceptions=False)
+    client = TestClient(app)
+
+    # This will raise the exception because there's no handler for CustomError
+    with pytest.raises(CustomError):
+        client.get('/unhandled_custom_error')
+
+    spans = exporter.exported_spans_as_dict()
+
+    # Unhandled custom exceptions should still be recorded
     exception_spans = [s for s in spans if 'events' in s and s['events']]
     assert len(exception_spans) > 0
 

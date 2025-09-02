@@ -1085,10 +1085,14 @@ class Logfire:
                 since many can be created for a single request, and they are not often useful.
                 If enabled, they will be set to debug level, meaning they will usually still be hidden in the UI.
             extra_spans: Whether to include the extra 'FastAPI arguments' and 'endpoint function' spans.
-            record_handled_exceptions: Set to `False` to prevent recording HTTP exceptions.
+            record_handled_exceptions: Set to `False` to prevent recording handled exceptions.
 
-                When `False`, StarletteHTTPException (including FastAPI HTTPException) are not recorded as errors.
-                All other exceptions are still recorded.
+                When `False`, exceptions that have registered exception handlers in FastAPI are not recorded as errors.
+                This includes both HTTP exceptions (StarletteHTTPException, HTTPException) and custom exceptions that
+                have been registered with @app.exception_handler().
+
+                Only truly unhandled exceptions (those without handlers) will be recorded, helping distinguish between
+                expected business logic responses and genuine server errors.
             opentelemetry_kwargs: Additional keyword arguments to pass to the OpenTelemetry FastAPI instrumentation.
 
         Returns:

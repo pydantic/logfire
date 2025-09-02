@@ -14,7 +14,6 @@ from fastapi import BackgroundTasks, FastAPI
 from fastapi.routing import APIRoute, APIWebSocketRoute, Mount
 from fastapi.security import SecurityScopes
 from opentelemetry.trace import Span
-from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import Request
 from starlette.responses import Response
 from starlette.websockets import WebSocket
@@ -175,7 +174,7 @@ class FastAPIInstrumentation:
         self.record_handled_exceptions = record_handled_exceptions
 
     @contextmanager
-    def pseudo_span(self, namespace: str, root_span: Span):
+    def pseudo_span(self, namespace: str, root_span: Span, request: Request | WebSocket | None = None):
         """Record start and end timestamps in the root span, and possibly exceptions."""
 
         def set_timestamp(attribute_name: str):
@@ -195,18 +194,37 @@ class FastAPIInstrumentation:
             exception_to_check = exc
             raise
         finally:
-            if exception_to_check and self._should_record_exception(exception_to_check):
+            if exception_to_check and self._should_record_exception(exception_to_check, request):
                 root_span.record_exception(exception_to_check)
+
+    def _is_exception_handled(self, exc: Exception, request: Request | WebSocket) -> bool:
+        """Check if the exception will be handled by a FastAPI exception handler."""
+        app = request.app
+        exc_type = type(exc)
+
+        # Check direct type handlers
+        if exc_type in app.exception_handlers:
+            return True
+
+        # Check inheritance chain handlers
+        for handler_type in app.exception_handlers:
+            if isinstance(exc, handler_type):
+                return True
+
+        return False
 
     def _should_record_exception(
         self,
         exc: Exception,
+        request: Request | WebSocket | None = None,
     ) -> bool:
         if self.record_handled_exceptions:
             return True
 
-        # When record_handled_exceptions=False, skip HTTP exceptions
-        return not isinstance(exc, StarletteHTTPException)
+        if request and self._is_exception_handled(exc, request):
+            return False
+
+        return True
 
     async def solve_dependencies(self, request: Request | WebSocket, original: Awaitable[Any]) -> Any:
         root_span = request.scope.get(LOGFIRE_SPAN_SCOPE_KEY)
@@ -226,7 +244,7 @@ class FastAPIInstrumentation:
                     set_user_attributes_on_raw_span(root_span, fastapi_route_attributes)
                     span.set_attributes(fastapi_route_attributes)
 
-            with self.pseudo_span('arguments', root_span):
+            with self.pseudo_span('arguments', root_span, request):
                 result: Any = await original
 
             with handle_internal_errors:
@@ -316,7 +334,7 @@ class FastAPIInstrumentation:
             )
         else:
             extra_span = NoopSpan()
-        with extra_span, self.pseudo_span('endpoint_function', root_span):
+        with extra_span, self.pseudo_span('endpoint_function', root_span, request):
             return await original
 
 
