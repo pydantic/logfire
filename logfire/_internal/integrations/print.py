@@ -71,8 +71,8 @@ def _get_magic_args_dict(call_node: ast.Call, args: tuple[Any, ...]) -> dict[str
             node = ast_args.pop()
             value = runtime_args.pop()
             try:
-                if ast.literal_eval(node) == value:
-                    continue
+                ast.literal_eval(node)
+                continue
             except Exception:
                 pass
             result[ast.unparse(node)] = value
