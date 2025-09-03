@@ -1,7 +1,9 @@
+import executing._position_node_finder
 import pytest
 from inline_snapshot import snapshot
 
 import logfire
+from logfire._internal.ast_utils import InspectArgumentsFailedWarning
 from logfire._internal.exporters.test import TestExporter
 
 
@@ -97,3 +99,67 @@ after uninstrument
             },
         ]
     )
+
+
+def test_executing_failure(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
+    # We're about to 'disable' `executing` which `snapshot` also uses, so make the snapshot first.
+    expected_spans = snapshot(
+        [
+            {
+                'name': 'print',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'print',
+                    'logfire.msg': '3 set()',
+                    'code.filepath': 'test_print.py',
+                    'code.function': 'test_executing_failure',
+                    'code.lineno': 123,
+                    'local_var': 3,
+                    'logfire.json_schema': '{"type":"object","properties":{"local_var":{}}}',
+                },
+            },
+            {
+                'name': """\
+Failed to introspect calling code. Please report this issue to Logfire. Using `logfire.print_args` as the fallback attribute key for all print arguments. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
+`executing` failed to find a node.\
+""",
+                'context': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
+                'parent': None,
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 13,
+                    'logfire.msg_template': """\
+Failed to introspect calling code. Please report this issue to Logfire. Using `logfire.print_args` as the fallback attribute key for all print arguments. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
+`executing` failed to find a node.\
+""",
+                    'logfire.msg': """\
+Failed to introspect calling code. Please report this issue to Logfire. Using `logfire.print_args` as the fallback attribute key for all print arguments. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
+`executing` failed to find a node.\
+""",
+                    'code.filepath': 'test_print.py',
+                    'code.function': 'test_executing_failure',
+                    'code.lineno': 123,
+                },
+            },
+        ]
+    )
+
+    # Test what happens when `executing` fails.
+    monkeypatch.setattr(executing._position_node_finder.PositionNodeFinder, 'find_node', lambda _: None)  # type: ignore  # pragma: no cover  (coverage being weird)
+
+    with logfire.instrument_print():
+        local_var = 3
+        print(local_var, set())  # type: ignore
+
+        with pytest.warns(InspectArgumentsFailedWarning, match='`executing` failed to find a node.$'):
+            # Multiple calls break the heuristic.
+            print(local_var, set([]))  # type: ignore
+
+    assert exporter.exported_spans_as_dict() == expected_spans
