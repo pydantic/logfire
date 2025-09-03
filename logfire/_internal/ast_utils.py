@@ -1,9 +1,16 @@
 from __future__ import annotations
 
 import ast
+import inspect
+import sys
+import types
+import warnings
+from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any, cast
 
+import executing
 from opentelemetry.util import types as otel_types
 
 from .constants import (
@@ -134,3 +141,86 @@ class BaseTransformer(ast.NodeTransformer):
             attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
 
         return span_name, attributes
+
+
+class ArgumentsInspector(ABC):
+    def __init__(self, frame: types.FrameType):
+        self.frame = frame
+        # This is where the magic happens. It has caching.
+        self.ex = executing.Source.executing(frame)
+
+    def get_call_node(self) -> ast.Call | None:
+        if isinstance(self.ex.node, ast.Call):
+            return self.ex.node
+
+        # `executing` failed to find a node.
+        # This shouldn't happen in most cases, but it's best not to rely on it always working.
+
+        if not self.ex.source.text:
+            # This is a very likely cause.
+            # There's nothing we could possibly do to make magic work here,
+            # and it's a clear case where the user should turn the magic off.
+            self.warn_inspect_arguments(
+                'No source code available. '
+                'This happens when running in an interactive shell, '
+                'using exec(), or running .pyc files without the source .py files.',
+            )
+            return None
+
+        msg = '`executing` failed to find a node.'
+        if sys.version_info[:2] < (3, 11):  # pragma: no cover
+            # inspect_arguments is only on by default for 3.11+ for this reason.
+            # The AST modifications made by auto-tracing
+            # mean that the bytecode doesn't match the source code seen by `executing`.
+            # In 3.11+, a different algorithm is used by `executing` which can deal with this.
+            msg += ' This may be caused by a combination of using Python < 3.11 and auto-tracing.'
+
+        call_nodes = [
+            node
+            for main_node in self.heuristic_main_nodes()
+            for node in ast.walk(main_node)
+            if isinstance(node, ast.Call)
+            if self.heuristic_call_node_filter(node)
+        ]
+        if len(call_nodes) != 1:
+            self.warn_inspect_arguments(msg)
+            return None
+
+        return call_nodes[0]
+
+    @abstractmethod
+    def heuristic_main_nodes(self) -> Iterator[ast.AST]: ...
+
+    @abstractmethod
+    def heuristic_call_node_filter(self, node: ast.Call) -> bool: ...
+
+    @abstractmethod
+    def warn_inspect_arguments_middle(self) -> str: ...
+
+    def warn_inspect_arguments(self, msg: str):
+        import logfire
+
+        msg = (
+            f'Failed to introspect calling code. Please report this issue to Logfire. '
+            f'{self.warn_inspect_arguments_middle()} '
+            f'Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:\n'
+            f'{msg}'
+        )
+        warnings.warn(msg, InspectArgumentsFailedWarning, stacklevel=self.get_stacklevel())
+        logfire.warn(msg)
+
+    def get_stacklevel(self):
+        # Get a stacklevel which can be passed to warn_inspect_arguments
+        # which points at the given frame, where the f-string was found.
+        current_frame = inspect.currentframe()
+        stacklevel = 0
+        while current_frame:  # pragma: no branch
+            if current_frame == self.frame:
+                break
+            stacklevel += 1
+            current_frame = current_frame.f_back
+        return stacklevel
+
+
+class InspectArgumentsFailedWarning(Warning):
+    pass

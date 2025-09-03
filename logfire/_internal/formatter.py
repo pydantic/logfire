@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import ast
-import inspect
-import sys
 import types
-import warnings
+from collections.abc import Iterator
 from functools import lru_cache
 from string import Formatter
 from types import CodeType
@@ -15,6 +13,7 @@ from typing_extensions import NotRequired, TypedDict
 
 import logfire
 
+from .ast_utils import ArgumentsInspector
 from .constants import ATTRIBUTES_SCRUBBED_KEY, MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, ScrubbedNote
 from .stack_info import warn_at_user_stacklevel
@@ -73,60 +72,9 @@ class ChunksFormatter(Formatter):
         # Now `frame` is the frame where the user called a logfire method.
         assert frame is not None
 
-        # This is where the magic happens. It has caching.
-        ex = executing.Source.executing(frame)
-
-        call_node = ex.node
-        if call_node is None:  # type: ignore[reportUnnecessaryComparison]
-            # `executing` failed to find a node.
-            # This shouldn't happen in most cases, but it's best not to rely on it always working.
-            if not ex.source.text:
-                # This is a very likely cause.
-                # There's nothing we could possibly do to make magic work here,
-                # and it's a clear case where the user should turn the magic off.
-                warn_inspect_arguments(
-                    'No source code available. '
-                    'This happens when running in an interactive shell, '
-                    'using exec(), or running .pyc files without the source .py files.',
-                    get_stacklevel(frame),
-                )
-                return None
-
-            msg = '`executing` failed to find a node.'
-            if sys.version_info[:2] < (3, 11):  # pragma: no cover
-                # inspect_arguments is only on by default for 3.11+ for this reason.
-                # The AST modifications made by auto-tracing
-                # mean that the bytecode doesn't match the source code seen by `executing`.
-                # In 3.11+, a different algorithm is used by `executing` which can deal with this.
-                msg += ' This may be caused by a combination of using Python < 3.11 and auto-tracing.'
-
-            # Try a simple fallback heuristic to find the node which should work in most cases.
-            main_nodes: list[ast.AST] = []
-            for statement in ex.statements:
-                if isinstance(statement, ast.With):
-                    # Only look at the 'header' of a with statement, not its body.
-                    main_nodes += statement.items
-                else:
-                    main_nodes.append(statement)
-            call_nodes = [
-                node
-                for main_node in main_nodes
-                for node in ast.walk(main_node)
-                if isinstance(node, ast.Call)
-                if node.args or node.keywords
-            ]
-            if len(call_nodes) != 1:
-                warn_inspect_arguments(msg, get_stacklevel(frame))
-                return None
-
-            [call_node] = call_nodes
-
-        if not isinstance(call_node, ast.Call):  # pragma: no cover
-            # Very unlikely.
-            warn_inspect_arguments(
-                '`executing` unexpectedly identified a non-Call node.',
-                get_stacklevel(frame),
-            )
+        inspector = FormattingArgumentsInspector(frame)
+        call_node = inspector.get_call_node()
+        if call_node is None:
             return None
 
         if called_code == logfire.Logfire.log.__code__:
@@ -141,19 +89,13 @@ class ChunksFormatter(Formatter):
                         arg_node = keyword.value
                         break
                 else:
-                    warn_inspect_arguments(
-                        "Couldn't identify the `msg_template` argument in the call.",
-                        get_stacklevel(frame),
-                    )
+                    inspector.warn_inspect_arguments("Couldn't identify the `msg_template` argument in the call.")
                     return None
         elif call_node.args:
             arg_node = call_node.args[0]
         else:
             # Very unlikely.
-            warn_inspect_arguments(
-                "Couldn't identify the `msg_template` argument in the call.",
-                get_stacklevel(frame),
-            )
+            inspector.warn_inspect_arguments("Couldn't identify the `msg_template` argument in the call.")
             return None
 
         if not isinstance(arg_node, ast.JoinedStr):
@@ -187,7 +129,7 @@ class ChunksFormatter(Formatter):
                 assert isinstance(node_value, ast.FormattedValue)
 
                 # This is cached.
-                source, value_code, formatted_code = compile_formatted_value(node_value, ex.source)
+                source, value_code, formatted_code = compile_formatted_value(node_value, inspector.ex.source)
 
                 # Note that this doesn't include:
                 # - The format spec, e.g. `:0.2f`
@@ -404,36 +346,6 @@ def get_node_source_text(node: ast.AST, ex_source: executing.Source):
     return source_segment if source_unparsed == source_segment_unparsed else source_unparsed
 
 
-def get_stacklevel(frame: types.FrameType):
-    # Get a stacklevel which can be passed to warn_inspect_arguments
-    # which points at the given frame, where the f-string was found.
-    current_frame = inspect.currentframe()
-    stacklevel = 0
-    while current_frame:  # pragma: no branch
-        if current_frame == frame:
-            break
-        stacklevel += 1
-        current_frame = current_frame.f_back
-    return stacklevel
-
-
-class InspectArgumentsFailedWarning(Warning):
-    pass
-
-
-def warn_inspect_arguments(msg: str, stacklevel: int):
-    msg = (
-        'Failed to introspect calling code. '
-        'Please report this issue to Logfire. '
-        'Falling back to normal message formatting '
-        'which may result in loss of information if using an f-string. '
-        'Set inspect_arguments=False in logfire.configure() to suppress this warning. '
-        'The problem was:\n'
-    ) + msg
-    warnings.warn(msg, InspectArgumentsFailedWarning, stacklevel=stacklevel)
-    logfire.log('warn', msg)
-
-
 class KnownFormattingError(Exception):
     """An error raised when there's something wrong with a format string or the field values.
 
@@ -478,3 +390,20 @@ def warn_fstring_await(msg: str):
         f'    The problematic f-string value was: {msg}',
         category=FormattingFailedWarning,
     )
+
+
+class FormattingArgumentsInspector(ArgumentsInspector):
+    def heuristic_main_nodes(self) -> Iterator[ast.AST]:
+        # Try a simple fallback heuristic to find the node which should work in most cases.
+        for statement in self.ex.statements:
+            if isinstance(statement, ast.With):
+                # Only look at the 'header' of a with statement, not its body.
+                yield from statement.items
+            else:
+                yield statement
+
+    def heuristic_call_node_filter(self, node: ast.Call) -> bool:
+        return bool(node.args or node.keywords)
+
+    def warn_inspect_arguments_middle(self):
+        return 'Falling back to normal message formatting which may result in loss of information if using an f-string.'
