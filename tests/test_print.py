@@ -91,10 +91,14 @@ after uninstrument
                     'code.lineno': 123,
                     'z': 3,
                     'x': 1,
-                    '*args': [4, 5, 2, 6, 7],
+                    'logfire.print_args': [4, 5, 2, 6, 7],
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {'z': {}, 'x': {}, '*args': {'type': 'array', 'x-python-datatype': 'tuple'}},
+                        'properties': {
+                            'z': {},
+                            'x': {},
+                            'logfire.print_args': {'type': 'array', 'x-python-datatype': 'tuple'},
+                        },
                     },
                 },
             },
@@ -122,7 +126,7 @@ def test_executing_failure(exporter: TestExporter, monkeypatch: pytest.MonkeyPat
                     'code.function': 'test_executing_failure',
                     'code.lineno': 123,
                     'local_var': 3,
-                    'logfire.json_schema': '{"type":"object","properties":{"local_var":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'local_var': {}}},
                 },
             },
             {
@@ -150,6 +154,33 @@ Failed to introspect calling code. Please report this issue to Logfire. Using `l
                     'code.lineno': 123,
                 },
             },
+            {
+                'name': 'print',
+                'context': {'trace_id': 3, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 3000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'print',
+                    'logfire.msg': '3 set()',
+                    'code.filepath': 'test_print.py',
+                    'code.function': 'test_executing_failure',
+                    'code.lineno': 123,
+                    'logfire.print_args': [3, []],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'logfire.print_args': {
+                                'type': 'array',
+                                'x-python-datatype': 'tuple',
+                                'prefixItems': [{}, {'type': 'array', 'x-python-datatype': 'set'}],
+                            }
+                        },
+                    },
+                },
+            },
         ]
     )
 
@@ -166,4 +197,4 @@ Failed to introspect calling code. Please report this issue to Logfire. Using `l
             # Multiple calls break the heuristic.
             print(local_var, set([]))  # type: ignore
 
-    assert exporter.exported_spans_as_dict() == expected_spans
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == expected_spans

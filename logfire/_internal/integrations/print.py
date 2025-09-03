@@ -11,6 +11,8 @@ from logfire import Logfire
 from logfire._internal.ast_utils import ArgumentsInspector
 from logfire._internal.utils import handle_internal_errors
 
+FALLBACK_ATTRIBUTE_KEY = 'logfire.print_args'
+
 
 def instrument_print(logfire_instance: Logfire) -> AbstractContextManager[None]:
     """Instruments the built-in `print` function to send logs to **Logfire**.
@@ -38,10 +40,11 @@ def instrument_print(logfire_instance: Logfire) -> AbstractContextManager[None]:
 
             inspector = PrintArgumentsInspector(frame)
             call_node = inspector.get_call_node()
+            attributes: dict[str, Any]
             if call_node is None:
-                return
-
-            attributes = _get_magic_args_dict(call_node, args)
+                attributes = {FALLBACK_ATTRIBUTE_KEY: args}
+            else:
+                attributes = _get_magic_args_dict(call_node, args)
             attributes['logfire.msg'] = sep.join(str(arg) for arg in args)
             logfire_instance.log('info', 'print', attributes)
 
@@ -92,7 +95,7 @@ def _get_magic_args_dict(call_node: ast.Call, args: tuple[Any, ...]) -> dict[str
         assert isinstance(ast_args[0], ast.Starred)
         key = ast.unparse(ast_args[0].value)
     else:
-        key = '*args'
+        key = FALLBACK_ATTRIBUTE_KEY
 
     result[key] = tuple(runtime_args)
     return result
@@ -106,4 +109,4 @@ class PrintArgumentsInspector(ArgumentsInspector):
         return bool(node.args)
 
     def warn_inspect_arguments_middle(self):
-        return 'Using `logfire.print_args` as the fallback attribute key for all print arguments.'
+        return f'Using `{FALLBACK_ATTRIBUTE_KEY}` as the fallback attribute key for all print arguments.'
