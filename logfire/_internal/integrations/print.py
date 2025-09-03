@@ -4,7 +4,7 @@ import ast
 import builtins
 import inspect
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager
 from typing import Any
 
 from logfire import Logfire
@@ -12,7 +12,7 @@ from logfire._internal.ast_utils import ArgumentsInspector
 from logfire._internal.utils import handle_internal_errors
 
 
-def instrument_print(logfire_instance: Logfire):
+def instrument_print(logfire_instance: Logfire) -> AbstractContextManager[None]:
     """Instruments the built-in `print` function to send logs to **Logfire**.
 
     Args:
@@ -57,7 +57,7 @@ def instrument_print(logfire_instance: Logfire):
         finally:
             builtins.print = original_print
 
-    return uninstrument_context
+    return uninstrument_context()
 
 
 def _get_magic_args_dict(call_node: ast.Call, args: tuple[Any, ...]) -> dict[str, Any]:

@@ -1292,11 +1292,11 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         instrument_litellm(self, **kwargs)
 
-    def instrument_print(self):
+    def instrument_print(self) -> AbstractContextManager[None]:
         from .integrations.print import instrument_print
 
         self._warn_if_not_initialized_for_instrumentation()
-        instrument_print(self)
+        return instrument_print(self)
 
     def instrument_asyncpg(self, **kwargs: Any) -> None:
         """Instrument the `asyncpg` module so that spans are automatically created for each query."""
