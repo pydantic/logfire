@@ -19,6 +19,7 @@ def instrument_print(logfire_instance: Logfire):
         logfire_instance: The Logfire instance to use.
     """
     original_print = builtins.print
+    logfire_instance = logfire_instance.with_settings(custom_scope_suffix='print')
 
     def _instrumented_print(*args: Any, sep: str | None = None, **kwargs: Any) -> None:
         """The wrapper function that will replace builtins.print."""
@@ -42,11 +43,7 @@ def instrument_print(logfire_instance: Logfire):
 
             attributes = _get_magic_args_dict(call_node, args)
             attributes['logfire.msg'] = sep.join(str(arg) for arg in args)
-            logfire_instance.log(
-                'info',
-                'print() called',
-                attributes=attributes,
-            )
+            logfire_instance.log('info', 'print', attributes)
 
     builtins.print = _instrumented_print
 
@@ -73,8 +70,11 @@ def _get_magic_args_dict(call_node: ast.Call, args: tuple[Any, ...]) -> dict[str
         while ast_args and not isinstance(ast_args[-1], ast.Starred):
             node = ast_args.pop()
             value = runtime_args.pop()
-            if isinstance(node, ast.Constant):
-                continue
+            try:
+                if ast.literal_eval(node) == value:
+                    continue
+            except Exception:
+                pass
             result[ast.unparse(node)] = value
 
     _process_end()
