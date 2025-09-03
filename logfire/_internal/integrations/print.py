@@ -71,7 +71,11 @@ def _get_magic_args_dict(call_node: ast.Call, args: tuple[Any, ...]) -> dict[str
     def _process_end():
         """Helper to process non-starred args from the end of the lists."""
         while ast_args and not isinstance(ast_args[-1], ast.Starred):
-            result[ast.unparse(ast_args.pop())] = runtime_args.pop()
+            node = ast_args.pop()
+            value = runtime_args.pop()
+            if isinstance(node, ast.Constant):
+                continue
+            result[ast.unparse(node)] = value
 
     _process_end()
 
