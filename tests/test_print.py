@@ -1,4 +1,5 @@
-import executing._position_node_finder
+import sys
+
 import pytest
 from inline_snapshot import snapshot
 
@@ -101,6 +102,7 @@ after uninstrument
     )
 
 
+@pytest.mark.skipif(sys.version_info < (3, 11), reason='Testing behaviour in Python 3.11+')
 def test_executing_failure(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
     # We're about to 'disable' `executing` which `snapshot` also uses, so make the snapshot first.
     expected_spans = snapshot(
@@ -152,6 +154,8 @@ Failed to introspect calling code. Please report this issue to Logfire. Using `l
     )
 
     # Test what happens when `executing` fails.
+    import executing._position_node_finder
+
     monkeypatch.setattr(executing._position_node_finder.PositionNodeFinder, 'find_node', lambda _: None)  # type: ignore  # pragma: no cover  (coverage being weird)
 
     with logfire.instrument_print():
