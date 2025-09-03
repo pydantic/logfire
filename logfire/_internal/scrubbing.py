@@ -44,6 +44,7 @@ DEFAULT_PATTERNS = [
     'cookie',
     'social[._ -]?security',
     'credit[._ -]?card',
+    'logfire[._ -]?token',
     *[
         # Require these to be surrounded by word boundaries or underscores,
         # to reduce the chance of accidentally matching them in a big blob of random chars, e.g. base64.
