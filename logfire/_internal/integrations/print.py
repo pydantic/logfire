@@ -9,6 +9,7 @@ from typing import Any
 
 from logfire import Logfire
 from logfire._internal.ast_utils import ArgumentsInspector
+from logfire._internal.constants import ATTRIBUTES_MESSAGE_KEY
 from logfire._internal.utils import handle_internal_errors
 
 FALLBACK_ATTRIBUTE_KEY = 'logfire.print_args'
@@ -45,7 +46,7 @@ def instrument_print(logfire_instance: Logfire) -> AbstractContextManager[None]:
                 attributes = {FALLBACK_ATTRIBUTE_KEY: args}
             else:
                 attributes = _get_magic_args_dict(call_node, args)
-            attributes['logfire.msg'] = sep.join(str(arg) for arg in args)
+            attributes[ATTRIBUTES_MESSAGE_KEY] = sep.join(str(arg) for arg in args)
             logfire_instance.log('info', 'print', attributes)
 
     builtins.print = _instrumented_print
