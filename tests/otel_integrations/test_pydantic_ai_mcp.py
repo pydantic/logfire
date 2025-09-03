@@ -24,15 +24,16 @@ try:
     from pydantic_ai.mcp import MCPServer
     from pydantic_ai.models.mcp_sampling import MCPSamplingModel
 except ImportError:
-    pytestmark = [
-        pytest.mark.skipif(sys.version_info < (3, 10), reason='Requires Python 3.10 or higher'),
-        pytest.mark.skipif(
-            get_version(pydantic.__version__) < get_version('2.7'), reason='Requires Pydantic 2.7 or higher'
-        ),
-    ]
     if TYPE_CHECKING:
         assert False
 
+
+pytestmark = [
+    pytest.mark.skipif(sys.version_info < (3, 10), reason='MCP requires Python 3.10 or higher'),
+    pytest.mark.skipif(
+        get_version(pydantic.__version__) < get_version('2.10'), reason='Pydantic AI requires Pydantic 2.10 or higher'
+    ),
+]
 
 os.environ.setdefault('OPENAI_API_KEY', 'foo')
 
