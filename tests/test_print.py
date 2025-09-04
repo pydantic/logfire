@@ -21,6 +21,9 @@ def test_instrument_print(exporter: TestExporter, capsys: pytest.CaptureFixture[
         lst2 = [6, 7]
         print(x, *lst, y)
         print(x, *lst, y, *lst2, z, sep=', ')
+        password = 'hunter2'
+        hunter = 'my api key'
+        print('Secret', password, hunter)
     print('after uninstrument')
 
     assert capsys.readouterr().out == snapshot("""\
@@ -29,6 +32,7 @@ hello world
 
 1 4 5 2
 1, 4, 5, 2, 6, 7, 3
+Secret hunter2 my api key
 after uninstrument
 """)
 
@@ -100,6 +104,31 @@ after uninstrument
                             'logfire.print_args': {'type': 'array'},
                         },
                     },
+                },
+            },
+            {
+                'name': 'print',
+                'context': {'trace_id': 4, 'span_id': 4, 'is_remote': False},
+                'parent': None,
+                'start_time': 4000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'print',
+                    'logfire.msg': "Secret [Scrubbed due to 'password'] [Scrubbed due to 'api key']",
+                    'code.filepath': 'test_print.py',
+                    'code.function': 'test_instrument_print',
+                    'code.lineno': 123,
+                    'password': "[Scrubbed due to 'password']",
+                    'hunter': "[Scrubbed due to 'api key']",
+                    'logfire.json_schema': {'type': 'object', 'properties': {'password': {}, 'hunter': {}}},
+                    'logfire.scrubbed': [
+                        {'path': ['message', 'password'], 'matched_substring': 'password'},
+                        {'path': ['message', 'hunter'], 'matched_substring': 'api key'},
+                        {'path': ['attributes', 'password'], 'matched_substring': 'password'},
+                        {'path': ['attributes', 'hunter'], 'matched_substring': 'api key'},
+                    ],
                 },
             },
         ]

@@ -318,17 +318,22 @@ class SpanScrubber:
 
 
 class MessageValueCleaner:
-    def __init__(self, scrubber: BaseScrubber):
+    def __init__(self, scrubber: BaseScrubber, *, check_keys: bool):
         self.scrubber = scrubber
         self.scrubbed: list[ScrubbedNote] = []
+        self.check_keys = check_keys
 
     def clean_value(self, field_name: str, value: str) -> str:
         # Scrub before truncating so that the scrubber can see the full value.
         # For example, if the value contains 'password=123' and 'password' is replaced by '...'
         # because of truncation, then that leaves '=123' in the message, which is not good.
         if field_name not in self.scrubber.SAFE_KEYS:
-            value, scrubbed = self.scrubber.scrub_value(('message', field_name), value)
-            self.scrubbed.extend(scrubbed)
+            if self.check_keys:
+                scrubbed_value, scrubbed_notes = self.scrubber.scrub_value(('message',), {field_name: value})
+                value = scrubbed_value[field_name]
+            else:
+                value, scrubbed_notes = self.scrubber.scrub_value(('message', field_name), value)
+            self.scrubbed.extend(scrubbed_notes)
         return self.truncate(value)
 
     def truncate(self, value: str) -> str:
@@ -336,5 +341,5 @@ class MessageValueCleaner:
 
     def extra_attrs(self) -> dict[str, Any]:
         if self.scrubbed:
-            return {ATTRIBUTES_SCRUBBED_KEY: self.scrubbed}
+            return {ATTRIBUTES_SCRUBBED_KEY: json.dumps(self.scrubbed)}
         return {}

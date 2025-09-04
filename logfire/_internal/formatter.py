@@ -116,7 +116,7 @@ class ChunksFormatter(Formatter):
         new_template = ''
 
         extra_attrs: dict[str, Any] = {}
-        value_cleaner = MessageValueCleaner(scrubber)
+        value_cleaner = MessageValueCleaner(scrubber, check_keys=False)
         for node_value in arg_node.values:
             if isinstance(node_value, ast.Constant):
                 # These are the parts of the f-string not enclosed by `{}`, e.g. 'foo ' in f'foo {bar}'
@@ -163,7 +163,7 @@ class ChunksFormatter(Formatter):
         result: list[LiteralChunk | ArgChunk] = []
         # We currently don't use positional arguments
         args = ()
-        value_cleaner = MessageValueCleaner(scrubber)
+        value_cleaner = MessageValueCleaner(scrubber, check_keys=False)
         for literal_text, field_name, format_spec, conversion in self.parse(format_string):
             # output the literal text
             if literal_text:

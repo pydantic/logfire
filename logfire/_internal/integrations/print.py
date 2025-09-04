@@ -46,7 +46,7 @@ def instrument_print(logfire_instance: Logfire) -> AbstractContextManager[None]:
 
             inspector = PrintArgumentsInspector(frame)
             call_node = inspector.get_call_node()
-            value_cleaner = MessageValueCleaner(scrubber)
+            value_cleaner = MessageValueCleaner(scrubber, check_keys=True)
             attributes: dict[str, Any]
             if call_node is None:
                 attributes = {FALLBACK_ATTRIBUTE_KEY: args}
@@ -54,6 +54,7 @@ def instrument_print(logfire_instance: Logfire) -> AbstractContextManager[None]:
             else:
                 attributes, message_parts = _get_magic_attributes(call_node, args, inspector.ex.source, value_cleaner)
             attributes[ATTRIBUTES_MESSAGE_KEY] = sep.join(message_parts)
+            attributes.update(value_cleaner.extra_attrs())
             logfire_instance.log('info', 'print', attributes)
 
     builtins.print = _instrumented_print
