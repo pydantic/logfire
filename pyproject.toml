@@ -314,6 +314,8 @@ exclude_lines = [
     'if TYPE_CHECKING:',
     'if typing.TYPE_CHECKING:',
     '@overload',
+    '@abstractmethod',
+    '@abc.abstractmethod',
     '@typing.overload',
     '\(Protocol\):$',
     'typing.assert_never',
