@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import functools
 import inspect
 import sys
 import types
@@ -224,3 +225,22 @@ class ArgumentsInspector(ABC):
 
 class InspectArgumentsFailedWarning(Warning):
     pass
+
+
+@functools.lru_cache(maxsize=1024)
+def get_node_source_text(node: ast.AST, ex_source: executing.Source):
+    """Returns some Python source code representing `node`.
+
+    Preferably the actual original code given by `ast.get_source_segment`,
+    but falling back to `ast.unparse(node)` if the former is incorrect.
+    This happens sometimes due to Python bugs (especially for older Python versions)
+    in the source positions of AST nodes inside f-strings.
+    """
+    source_unparsed = ast.unparse(node)
+    source_segment = ast.get_source_segment(ex_source.text, node) or ''
+    try:
+        # Verify that the source segment is correct by checking that the AST is equivalent to what we have.
+        source_segment_unparsed = ast.unparse(ast.parse(source_segment, mode='eval'))
+    except Exception:  # probably SyntaxError, but ast.parse can raise other exceptions too
+        source_segment_unparsed = ''
+    return source_segment if source_unparsed == source_segment_unparsed else source_unparsed

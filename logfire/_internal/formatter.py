@@ -13,7 +13,7 @@ from typing_extensions import NotRequired, TypedDict
 
 import logfire
 
-from .ast_utils import ArgumentsInspector
+from .ast_utils import ArgumentsInspector, get_node_source_text
 from .constants import ATTRIBUTES_SCRUBBED_KEY, MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, ScrubbedNote
 from .stack_info import warn_at_user_stacklevel
@@ -326,24 +326,6 @@ def compile_formatted_value(node: ast.FormattedValue, ex_source: executing.Sourc
     ast.fix_missing_locations(expr)
     formatted_code = compile(expr, '<fvalue2>', 'eval')
     return source, value_code, formatted_code
-
-
-def get_node_source_text(node: ast.AST, ex_source: executing.Source):
-    """Returns some Python source code representing `node`.
-
-    Preferably the actual original code given by `ast.get_source_segment`,
-    but falling back to `ast.unparse(node)` if the former is incorrect.
-    This happens sometimes due to Python bugs (especially for older Python versions)
-    in the source positions of AST nodes inside f-strings.
-    """
-    source_unparsed = ast.unparse(node)
-    source_segment = ast.get_source_segment(ex_source.text, node) or ''
-    try:
-        # Verify that the source segment is correct by checking that the AST is equivalent to what we have.
-        source_segment_unparsed = ast.unparse(ast.parse(source_segment, mode='eval'))
-    except Exception:  # probably SyntaxError, but ast.parse can raise other exceptions too
-        source_segment_unparsed = ''
-    return source_segment if source_unparsed == source_segment_unparsed else source_unparsed
 
 
 class KnownFormattingError(Exception):

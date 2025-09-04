@@ -8,8 +8,10 @@ from collections.abc import Iterator
 from contextlib import AbstractContextManager, contextmanager
 from typing import Any
 
+import executing
+
 from logfire import Logfire
-from logfire._internal.ast_utils import ArgumentsInspector
+from logfire._internal.ast_utils import ArgumentsInspector, get_node_source_text
 from logfire._internal.constants import ATTRIBUTES_MESSAGE_KEY
 from logfire._internal.utils import handle_internal_errors
 
@@ -46,7 +48,7 @@ def instrument_print(logfire_instance: Logfire) -> AbstractContextManager[None]:
             if call_node is None:
                 attributes = {FALLBACK_ATTRIBUTE_KEY: args}
             else:
-                attributes = _get_magic_args_dict(call_node, args)
+                attributes = _get_magic_args_dict(call_node, args, inspector.ex.source)
             attributes[ATTRIBUTES_MESSAGE_KEY] = sep.join(str(arg) for arg in args)
             logfire_instance.log('info', 'print', attributes)
 
@@ -65,7 +67,7 @@ def instrument_print(logfire_instance: Logfire) -> AbstractContextManager[None]:
     return uninstrument_context()
 
 
-def _get_magic_args_dict(call_node: ast.Call, args: tuple[Any, ...]) -> dict[str, Any]:
+def _get_magic_args_dict(call_node: ast.Call, args: tuple[Any, ...], source: executing.Source) -> dict[str, Any]:
     result: dict[str, Any] = {}
     ast_args = list(call_node.args)
     runtime_args = list(args)
@@ -76,7 +78,7 @@ def _get_magic_args_dict(call_node: ast.Call, args: tuple[Any, ...]) -> dict[str
             node = ast_args.pop()
             value = runtime_args.pop()
             if not _is_literal(node):
-                result[ast.unparse(node)] = value
+                result[get_node_source_text(node, source)] = value
 
     _process_end()
 
@@ -91,7 +93,7 @@ def _get_magic_args_dict(call_node: ast.Call, args: tuple[Any, ...]) -> dict[str
 
     if len(ast_args) == 1:
         assert isinstance(ast_args[0], ast.Starred)
-        key = ast.unparse(ast_args[0].value)
+        key = get_node_source_text(ast_args[0].value, source)
     else:
         key = FALLBACK_ATTRIBUTE_KEY
 
