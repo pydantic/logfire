@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import builtins
+import functools
 import inspect
 from collections.abc import Iterator
 from contextlib import AbstractContextManager, contextmanager
@@ -74,12 +75,8 @@ def _get_magic_args_dict(call_node: ast.Call, args: tuple[Any, ...]) -> dict[str
         while ast_args and not isinstance(ast_args[-1], ast.Starred):
             node = ast_args.pop()
             value = runtime_args.pop()
-            try:
-                ast.literal_eval(node)
-                continue
-            except Exception:
-                pass
-            result[ast.unparse(node)] = value
+            if not _is_literal(node):
+                result[ast.unparse(node)] = value
 
     _process_end()
 
@@ -100,6 +97,15 @@ def _get_magic_args_dict(call_node: ast.Call, args: tuple[Any, ...]) -> dict[str
 
     result[key] = tuple(runtime_args)
     return result
+
+
+@functools.lru_cache(maxsize=1024)
+def _is_literal(node: ast.expr):
+    try:
+        ast.literal_eval(node)
+        return True
+    except Exception:
+        return False
 
 
 class PrintArgumentsInspector(ArgumentsInspector):
