@@ -71,7 +71,7 @@ after uninstrument
                     'lst': [4, 5],
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {'y': {}, 'x': {}, 'lst': {'type': 'array', 'x-python-datatype': 'tuple'}},
+                        'properties': {'y': {}, 'x': {}, 'lst': {'type': 'array'}},
                     },
                 },
             },
@@ -97,7 +97,7 @@ after uninstrument
                         'properties': {
                             'z': {},
                             'x': {},
-                            'logfire.print_args': {'type': 'array', 'x-python-datatype': 'tuple'},
+                            'logfire.print_args': {'type': 'array'},
                         },
                     },
                 },

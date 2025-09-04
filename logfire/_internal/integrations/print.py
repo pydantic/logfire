@@ -49,15 +49,11 @@ def instrument_print(logfire_instance: Logfire) -> AbstractContextManager[None]:
             value_cleaner = MessageValueCleaner(scrubber)
             attributes: dict[str, Any]
             if call_node is None:
-                attributes = {
-                    FALLBACK_ATTRIBUTE_KEY: args,
-                    ATTRIBUTES_MESSAGE_KEY: sep.join(
-                        value_cleaner.clean_value(FALLBACK_ATTRIBUTE_KEY, str(arg)) for arg in args
-                    ),
-                }
+                attributes = {FALLBACK_ATTRIBUTE_KEY: args}
+                message_parts = [value_cleaner.clean_value(FALLBACK_ATTRIBUTE_KEY, str(arg)) for arg in args]
             else:
                 attributes, message_parts = _get_magic_attributes(call_node, args, inspector.ex.source, value_cleaner)
-                attributes[ATTRIBUTES_MESSAGE_KEY] = sep.join(message_parts)
+            attributes[ATTRIBUTES_MESSAGE_KEY] = sep.join(message_parts)
             logfire_instance.log('info', 'print', attributes)
 
     builtins.print = _instrumented_print
@@ -114,7 +110,7 @@ def _get_magic_attributes(
     else:
         middle_key = FALLBACK_ATTRIBUTE_KEY
 
-    result[middle_key] = tuple(runtime_args)
+    result[middle_key] = runtime_args
     message_parts_middle = [value_cleaner.clean_value(middle_key, str(arg)) for arg in runtime_args]
 
     return result, message_parts_start + message_parts_middle + message_parts_end
