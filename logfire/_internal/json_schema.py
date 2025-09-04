@@ -286,6 +286,10 @@ def _pydantic_model_schema(obj: Any, seen: set[int]) -> JsonDict:
     import pydantic
 
     assert isinstance(obj, pydantic.BaseModel)
+
+    if isinstance(obj, pydantic.RootModel):
+        return create_json_schema(obj.root, seen)  # type: ignore
+
     try:
         fields = type(obj).model_fields
         extra = obj.model_extra or {}
@@ -293,6 +297,7 @@ def _pydantic_model_schema(obj: Any, seen: set[int]) -> JsonDict:
         # pydantic v1
         fields = obj.__fields__  # type: ignore
         extra = {}
+
     return _custom_object_schema(obj, 'PydanticModel', [*fields, *extra], seen)
 
 
