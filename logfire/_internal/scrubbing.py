@@ -329,6 +329,9 @@ class MessageValueCleaner:
         if field_name not in self.scrubber.SAFE_KEYS:
             value, scrubbed = self.scrubber.scrub_value(('message', field_name), value)
             self.scrubbed.extend(scrubbed)
+        return self.truncate(value)
+
+    def truncate(self, value: str) -> str:
         return truncate_string(value, max_length=MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT)
 
     def extra_attrs(self) -> dict[str, Any]:

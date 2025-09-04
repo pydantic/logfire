@@ -13,6 +13,7 @@ import executing
 from logfire import Logfire
 from logfire._internal.ast_utils import ArgumentsInspector, get_node_source_text
 from logfire._internal.constants import ATTRIBUTES_MESSAGE_KEY
+from logfire._internal.scrubbing import MessageValueCleaner
 from logfire._internal.utils import handle_internal_errors
 
 FALLBACK_ATTRIBUTE_KEY = 'logfire.print_args'
@@ -26,6 +27,7 @@ def instrument_print(logfire_instance: Logfire) -> AbstractContextManager[None]:
     """
     original_print = builtins.print
     logfire_instance = logfire_instance.with_settings(custom_scope_suffix='print')
+    scrubber = logfire_instance.config.scrubber
 
     def _instrumented_print(*args: Any, sep: str | None = None, **kwargs: Any) -> None:
         """The wrapper function that will replace builtins.print."""
@@ -44,12 +46,18 @@ def instrument_print(logfire_instance: Logfire) -> AbstractContextManager[None]:
 
             inspector = PrintArgumentsInspector(frame)
             call_node = inspector.get_call_node()
+            value_cleaner = MessageValueCleaner(scrubber)
             attributes: dict[str, Any]
             if call_node is None:
-                attributes = {FALLBACK_ATTRIBUTE_KEY: args}
+                attributes = {
+                    FALLBACK_ATTRIBUTE_KEY: args,
+                    ATTRIBUTES_MESSAGE_KEY: sep.join(
+                        value_cleaner.clean_value(FALLBACK_ATTRIBUTE_KEY, str(arg)) for arg in args
+                    ),
+                }
             else:
-                attributes = _get_magic_args_dict(call_node, args, inspector.ex.source)
-            attributes[ATTRIBUTES_MESSAGE_KEY] = sep.join(str(arg) for arg in args)
+                attributes, message_parts = _get_magic_attributes(call_node, args, inspector.ex.source, value_cleaner)
+                attributes[ATTRIBUTES_MESSAGE_KEY] = sep.join(message_parts)
             logfire_instance.log('info', 'print', attributes)
 
     builtins.print = _instrumented_print
@@ -67,38 +75,49 @@ def instrument_print(logfire_instance: Logfire) -> AbstractContextManager[None]:
     return uninstrument_context()
 
 
-def _get_magic_args_dict(call_node: ast.Call, args: tuple[Any, ...], source: executing.Source) -> dict[str, Any]:
+def _get_magic_attributes(
+    call_node: ast.Call, args: tuple[Any, ...], source: executing.Source, value_cleaner: MessageValueCleaner
+):
     result: dict[str, Any] = {}
     ast_args = list(call_node.args)
     runtime_args = list(args)
 
     def _process_end():
         """Helper to process non-starred args from the end of the lists."""
+        message_parts: list[str] = []
         while ast_args and not isinstance(ast_args[-1], ast.Starred):
             node = ast_args.pop()
             value = runtime_args.pop()
-            if not _is_literal(node):
-                result[get_node_source_text(node, source)] = value
-
-    _process_end()
-
-    if not runtime_args:
-        return result
+            if _is_literal(node):
+                message_parts.append(value_cleaner.truncate(str(value)))
+            else:
+                node_source = get_node_source_text(node, source)
+                message_parts.append(value_cleaner.clean_value(node_source, str(value)))
+                result[node_source] = value
+        return message_parts
 
     ast_args.reverse()
     runtime_args.reverse()
-    _process_end()
+    message_parts_start = _process_end()
 
+    if not runtime_args:
+        return result, message_parts_start
+
+    ast_args.reverse()
     runtime_args.reverse()
+    message_parts_end = _process_end()
+    message_parts_end.reverse()
 
     if len(ast_args) == 1:
         assert isinstance(ast_args[0], ast.Starred)
-        key = get_node_source_text(ast_args[0].value, source)
+        middle_key = get_node_source_text(ast_args[0].value, source)
     else:
-        key = FALLBACK_ATTRIBUTE_KEY
+        middle_key = FALLBACK_ATTRIBUTE_KEY
 
-    result[key] = tuple(runtime_args)
-    return result
+    result[middle_key] = tuple(runtime_args)
+    message_parts_middle = [value_cleaner.clean_value(middle_key, str(arg)) for arg in runtime_args]
+
+    return result, message_parts_start + message_parts_middle + message_parts_end
 
 
 @functools.lru_cache(maxsize=1024)
