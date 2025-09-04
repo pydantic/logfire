@@ -14,10 +14,9 @@ from typing_extensions import NotRequired, TypedDict
 import logfire
 
 from .ast_utils import ArgumentsInspector, get_node_source_text
-from .constants import MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT
-from .scrubbing import NOOP_SCRUBBER, BaseScrubber, MessageValueCleaner, ScrubbedNote
+from .scrubbing import NOOP_SCRUBBER, BaseScrubber, MessageValueCleaner
 from .stack_info import warn_at_user_stacklevel
-from .utils import log_internal_error, truncate_string
+from .utils import log_internal_error
 
 
 class LiteralChunk(TypedDict):
@@ -230,15 +229,6 @@ class ChunksFormatter(Formatter):
                 result.append(d)
 
         return result, value_cleaner.extra_attrs()
-
-    def _clean_value(self, field_name: str, value: str, scrubber: BaseScrubber) -> tuple[str, list[ScrubbedNote]]:
-        # Scrub before truncating so that the scrubber can see the full value.
-        # For example, if the value contains 'password=123' and 'password' is replaced by '...'
-        # because of truncation, then that leaves '=123' in the message, which is not good.
-        scrubbed: list[ScrubbedNote] = []
-        if field_name not in scrubber.SAFE_KEYS:
-            value, scrubbed = scrubber.scrub_value(('message', field_name), value)
-        return truncate_string(value, max_length=MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT), scrubbed
 
 
 chunks_formatter = ChunksFormatter()
