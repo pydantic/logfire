@@ -14,8 +14,8 @@ from typing_extensions import NotRequired, TypedDict
 import logfire
 
 from .ast_utils import ArgumentsInspector, get_node_source_text
-from .constants import ATTRIBUTES_SCRUBBED_KEY, MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT
-from .scrubbing import NOOP_SCRUBBER, BaseScrubber, ScrubbedNote
+from .constants import MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT
+from .scrubbing import NOOP_SCRUBBER, BaseScrubber, MessageValueCleaner, ScrubbedNote
 from .stack_info import warn_at_user_stacklevel
 from .utils import log_internal_error, truncate_string
 
@@ -117,7 +117,7 @@ class ChunksFormatter(Formatter):
         new_template = ''
 
         extra_attrs: dict[str, Any] = {}
-        scrubbed: list[ScrubbedNote] = []
+        value_cleaner = MessageValueCleaner(scrubber)
         for node_value in arg_node.values:
             if isinstance(node_value, ast.Constant):
                 # These are the parts of the f-string not enclosed by `{}`, e.g. 'foo ' in f'foo {bar}'
@@ -144,12 +144,10 @@ class ChunksFormatter(Formatter):
 
                 # Format the value according to the format spec, converting to a string.
                 formatted = eval(formatted_code, global_vars, {**local_vars, '@fvalue': value})
-                formatted, value_scrubbed = self._clean_value(source, formatted, scrubber)
-                scrubbed += value_scrubbed
+                formatted = value_cleaner.clean_value(source, formatted)
                 result.append({'v': formatted, 't': 'arg'})
 
-        if scrubbed:
-            extra_attrs[ATTRIBUTES_SCRUBBED_KEY] = scrubbed
+        extra_attrs.update(value_cleaner.extra_attrs())
         return result, extra_attrs, new_template
 
     def _vformat_chunks(
@@ -166,7 +164,7 @@ class ChunksFormatter(Formatter):
         result: list[LiteralChunk | ArgChunk] = []
         # We currently don't use positional arguments
         args = ()
-        scrubbed: list[ScrubbedNote] = []
+        value_cleaner = MessageValueCleaner(scrubber)
         for literal_text, field_name, format_spec, conversion in self.parse(format_string):
             # output the literal text
             if literal_text:
@@ -225,15 +223,13 @@ class ChunksFormatter(Formatter):
                     value = self.format_field(obj, format_spec)
                 except Exception as exc:
                     raise KnownFormattingError(f'Error formatting field {{{field_name}}}: {exc}') from exc
-                value, value_scrubbed = self._clean_value(field_name, value, scrubber)
-                scrubbed += value_scrubbed
+                value = value_cleaner.clean_value(field_name, value)
                 d: ArgChunk = {'v': value, 't': 'arg'}
                 if format_spec:
                     d['spec'] = format_spec
                 result.append(d)
 
-        extra_attrs = {ATTRIBUTES_SCRUBBED_KEY: scrubbed} if scrubbed else {}
-        return result, extra_attrs
+        return result, value_cleaner.extra_attrs()
 
     def _clean_value(self, field_name: str, value: str, scrubber: BaseScrubber) -> tuple[str, list[ScrubbedNote]]:
         # Scrub before truncating so that the scrubber can see the full value.

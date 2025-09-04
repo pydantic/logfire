@@ -26,10 +26,11 @@ from .constants import (
     ATTRIBUTES_SCRUBBED_KEY,
     ATTRIBUTES_SPAN_TYPE_KEY,
     ATTRIBUTES_TAGS_KEY,
+    MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT,
     RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS,
 )
 from .stack_info import STACK_INFO_KEYS
-from .utils import ReadableSpanDict
+from .utils import ReadableSpanDict, truncate_string
 
 DEFAULT_PATTERNS = [
     'password',
@@ -314,3 +315,23 @@ class SpanScrubber:
         matched_substring = match.pattern_match.group(0)
         self.scrubbed.append(ScrubbedNote(path=match.path, matched_substring=matched_substring))
         return f'[Scrubbed due to {matched_substring!r}]'
+
+
+class MessageValueCleaner:
+    def __init__(self, scrubber: BaseScrubber):
+        self.scrubber = scrubber
+        self.scrubbed: list[ScrubbedNote] = []
+
+    def clean_value(self, field_name: str, value: str) -> str:
+        # Scrub before truncating so that the scrubber can see the full value.
+        # For example, if the value contains 'password=123' and 'password' is replaced by '...'
+        # because of truncation, then that leaves '=123' in the message, which is not good.
+        if field_name not in self.scrubber.SAFE_KEYS:
+            value, scrubbed = self.scrubber.scrub_value(('message', field_name), value)
+            self.scrubbed.extend(scrubbed)
+        return truncate_string(value, max_length=MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT)
+
+    def extra_attrs(self) -> dict[str, Any]:
+        if self.scrubbed:
+            return {ATTRIBUTES_SCRUBBED_KEY: self.scrubbed}
+        return {}
