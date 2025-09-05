@@ -247,6 +247,7 @@ Failed to introspect calling code. Please report this issue to Logfire. Using `l
 def test_instrument_print_no_inspect_args(
     exporter: TestExporter, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]
 ) -> None:
+    # Similar to the first test but with magic disabled.
     config_kwargs['inspect_arguments'] = False
     logfire.configure(**config_kwargs)
     with logfire.instrument_print():
@@ -255,9 +256,11 @@ def test_instrument_print_no_inspect_args(
         z = 3
         lst = [4, 5]
         lst2 = [6, 7]
+        # Everything goes into logfire.print_args
         print(x, *lst, y, *lst2, z, sep=', ')
         password = 'hunter2'
         hunter = 'my api key'
+        # Scrubbing still works, but based on argument values only.
         print('Secret', password, hunter)
         print()
 
@@ -283,7 +286,7 @@ Secret hunter2 my api key
                     'code.filepath': 'test_print.py',
                     'code.function': 'test_instrument_print_no_inspect_args',
                     'code.lineno': 123,
-                    'logfire.print_args': [1, 4, 5, 2, 6, 7, 3],
+                    'logfire.print_args': [x] + lst + [y] + lst2 + [z],
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {'logfire.print_args': {'type': 'array', 'x-python-datatype': 'tuple'}},
