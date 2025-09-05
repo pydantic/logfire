@@ -1,3 +1,7 @@
+---
+integration: logfire
+---
+
 # Instrumenting `print()`
 
 [`logfire.instrument_print()`][logfire.Logfire.instrument_print] can be used to capture calls to `print()` and emit them

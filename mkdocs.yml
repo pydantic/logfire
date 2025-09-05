@@ -155,6 +155,7 @@ nav:
           - Celery: integrations/event-streams/celery.md
       - Logging:
           - Logging: integrations/logging.md
+          - Print: integrations/print.md
           - Structlog: integrations/structlog.md
           - Loguru: integrations/loguru.md
       - Pydantic: integrations/pydantic.md
