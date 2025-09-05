@@ -22,8 +22,7 @@ FALLBACK_ATTRIBUTE_KEY = 'logfire.print_args'
 def instrument_print(logfire_instance: Logfire) -> AbstractContextManager[None]:
     """Instruments the built-in `print` function to send logs to **Logfire**.
 
-    Args:
-        logfire_instance: The Logfire instance to use.
+    See Logfire.instrument_print for full documentation.
     """
     original_print = builtins.print
     logfire_instance = logfire_instance.with_settings(custom_scope_suffix='print')

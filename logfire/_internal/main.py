@@ -1293,6 +1293,23 @@ class Logfire:
         instrument_litellm(self, **kwargs)
 
     def instrument_print(self) -> AbstractContextManager[None]:
+        """Instrument the built-in `print` function so that calls to it are logged.
+
+        If Logfire is configured with `inspect_arguments=True`,
+        the names of the arguments passed to `print` will be included in the log attributes
+        and will be used for scrubbing.
+
+        The fallback attribute name `logfire.print_args` will be used if:
+
+         - `inspect_arguments` is `False`
+         - Inspection fails for any reason
+         - Multiple starred arguments are used (e.g. `print(*args1, *args2)`)
+            in which case names can't be unambiguously determined.
+
+        Returns:
+            A context manager that will revert the instrumentation when exited.
+                Use of this context manager is optional.
+        """
         from .integrations.print import instrument_print
 
         self._warn_if_not_initialized_for_instrumentation()
