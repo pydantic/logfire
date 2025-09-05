@@ -190,13 +190,13 @@ class ArgumentsInspector(ABC):
         return call_nodes[0]
 
     @abstractmethod
-    def heuristic_main_nodes(self) -> Iterator[ast.AST]: ...  # pragma: no cover
+    def heuristic_main_nodes(self) -> Iterator[ast.AST]: ...
 
     @abstractmethod
-    def heuristic_call_node_filter(self, node: ast.Call) -> bool: ...  # pragma: no cover
+    def heuristic_call_node_filter(self, node: ast.Call) -> bool: ...
 
     @abstractmethod
-    def warn_inspect_arguments_middle(self) -> str: ...  # pragma: no cover
+    def warn_inspect_arguments_middle(self) -> str: ...
 
     def warn_inspect_arguments(self, msg: str):
         import logfire
