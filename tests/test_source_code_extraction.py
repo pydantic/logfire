@@ -7,7 +7,7 @@ import pytest
 from inline_snapshot import snapshot
 
 import logfire
-from logfire._internal.formatter import InspectArgumentsFailedWarning
+from logfire._internal.ast_utils import InspectArgumentsFailedWarning
 from logfire.testing import TestExporter
 
 

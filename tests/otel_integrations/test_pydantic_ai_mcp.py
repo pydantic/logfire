@@ -220,6 +220,7 @@ Because it found something more "sole-ful!"\
                     'gen_ai.usage.input_tokens': 45,
                     'gen_ai.usage.output_tokens': 15,
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
+                    'operation.cost': 0.0002625,
                 },
             },
             {
@@ -265,6 +266,7 @@ Because it found something more "sole-ful!"\
                     'gen_ai.usage.input_tokens': 12,
                     'gen_ai.usage.output_tokens': 20,
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
+                    'operation.cost': 0.00023,
                 },
             },
             {
@@ -421,6 +423,7 @@ Because it found something more "sole-ful!"\
                         }
                     ],
                     'gen_ai.response.model': 'gpt-4o',
+                    'operation.cost': 0.0,
                 },
             },
             {
@@ -726,6 +729,7 @@ Because it found something more "sole-ful!"\
                     'gen_ai.usage.input_tokens': 87,
                     'gen_ai.usage.output_tokens': 21,
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
+                    'operation.cost': 0.0004275,
                 },
             },
             {
