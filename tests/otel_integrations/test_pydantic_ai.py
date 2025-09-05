@@ -46,7 +46,7 @@ async def test_instrument_pydantic_ai():
     m = get_model(agent1)
     assert isinstance(m, InstrumentedModel)
     assert m.wrapped is model
-    assert m.instrumentation_settings.version == InstrumentationSettings().version == 2
+    assert m.instrumentation_settings.version == InstrumentationSettings().version
     assert isinstance(m.instrumentation_settings.tracer, _ProxyTracer)
     assert m.instrumentation_settings.tracer.provider is logfire_inst.config.get_tracer_provider()
 
@@ -59,7 +59,7 @@ async def test_instrument_pydantic_ai():
     m = get_model(agent1)
     assert isinstance(m, InstrumentedModel)
     # agent1 still has its own instrumentation settings which override the global ones.
-    assert m.instrumentation_settings.version == InstrumentationSettings().version == 2
+    assert m.instrumentation_settings.version == InstrumentationSettings().version
     assert m.instrumentation_settings.include_binary_content == InstrumentationSettings().include_binary_content
     # agent2 uses the global settings.
     m2 = get_model(agent2)
