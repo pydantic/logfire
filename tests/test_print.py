@@ -10,23 +10,40 @@ from logfire._internal.exporters.test import TestExporter
 
 
 def test_instrument_print(exporter: TestExporter, capsys: pytest.CaptureFixture[str]) -> None:
+    # Logs nothing, not instrumented yet
     print('before')
+
     with logfire.instrument_print():
         name = 'world'
+        # Puts 'name': 'world' in the attributes, but 'hello' is literal so only in the message
         print('hello', name)
+
+        # Logs nothing, empty print() calls are ignored
         print()
+
         x = 1
         y = 2
         z = 3
         lst = [4, 5]
-        lst2 = [6, 7]
+        # Puts x, y, lst in attributes
         print(x, *lst, y)
+
+        lst2 = [6, 7]
+        # Multiple *args means we can't tell which args came from which list,
+        # so we have x, z, and logfire.print_args (*lst, y, *lst2) in attributes.
+        # Also test sep in message.
         print(x, *lst, y, *lst2, z, sep=', ')
+
         password = 'hunter2'
         hunter = 'my api key'
+        # Scrubs based on both argument values and variable names,
+        # in both attributes and message.
         print('Secret', password, hunter)
+
+    # Logs nothing since context manager exited
     print('after uninstrument')
 
+    # Actual raw print output, not affected by instrumentation
     assert capsys.readouterr().out == snapshot("""\
 before
 hello world
@@ -71,9 +88,9 @@ after uninstrument
                     'code.filepath': 'test_print.py',
                     'code.function': 'test_instrument_print',
                     'code.lineno': 123,
-                    'y': 2,
-                    'x': 1,
-                    'lst': [4, 5],
+                    'y': y,
+                    'x': x,
+                    'lst': lst,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {'y': {}, 'x': {}, 'lst': {'type': 'array'}},
@@ -94,9 +111,9 @@ after uninstrument
                     'code.filepath': 'test_print.py',
                     'code.function': 'test_instrument_print',
                     'code.lineno': 123,
-                    'z': 3,
-                    'x': 1,
-                    'logfire.print_args': [4, 5, 2, 6, 7],
+                    'z': z,
+                    'x': x,
+                    'logfire.print_args': lst + [y] + lst2,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
