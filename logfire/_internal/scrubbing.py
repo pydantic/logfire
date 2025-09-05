@@ -146,13 +146,13 @@ class BaseScrubber(ABC):
     }
 
     @abstractmethod
-    def scrub_span(self, span: ReadableSpanDict): ...  # pragma: no cover
+    def scrub_span(self, span: ReadableSpanDict): ...
 
     @abstractmethod
-    def scrub_log(self, log: LogRecord) -> LogRecord: ...  # pragma: no cover
+    def scrub_log(self, log: LogRecord) -> LogRecord: ...
 
     @abstractmethod
-    def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]: ...  # pragma: no cover
+    def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]: ...
 
 
 class NoopScrubber(BaseScrubber):
