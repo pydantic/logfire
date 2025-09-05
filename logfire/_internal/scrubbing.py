@@ -318,6 +318,22 @@ class SpanScrubber:
 
 
 class MessageValueCleaner:
+    """Scrubs and truncates formatted field values to be included in the message attribute.
+
+    Use to construct the message for a single span, e.g:
+
+        cleaner = MessageValueCleaner(scrubber, check_keys=...)
+        message_parts = [cleaner.clean_value(field_name, str(value)) for field_name, value in fields]
+        message = <construct from message parts>
+        attributes = {**other_attributes, **cleaner.extra_attrs(), ATTRIBUTES_MESSAGE_KEY: message}
+
+    check_keys determines whether the key should be accounted for in scrubbing.
+    Set to False if the user explicitly provided the key, e.g. `logfire.info(f'... {password} ...')`
+    means that the password is clearly expected to be logged.
+    The password will therefore not be scrubbed here and will appear in the message.
+    However it may still be scrubbed out of the attributes, just because that process is independent.
+    """
+
     def __init__(self, scrubber: BaseScrubber, *, check_keys: bool):
         self.scrubber = scrubber
         self.scrubbed: list[ScrubbedNote] = []
@@ -329,9 +345,12 @@ class MessageValueCleaner:
         # because of truncation, then that leaves '=123' in the message, which is not good.
         if field_name not in self.scrubber.SAFE_KEYS:
             if self.check_keys:
+                # Scrubbing a dict with only one key is a simple way to check that key during the scrubbing.
                 scrubbed_value, scrubbed_notes = self.scrubber.scrub_value(('message',), {field_name: value})
                 value = scrubbed_value[field_name]
             else:
+                # Whereas having the key in the path doesn't affect the scrubbing result,
+                # so this only looks at `value` itself.
                 value, scrubbed_notes = self.scrubber.scrub_value(('message', field_name), value)
             self.scrubbed.extend(scrubbed_notes)
         return self.truncate(value)

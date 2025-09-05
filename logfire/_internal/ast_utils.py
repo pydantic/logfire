@@ -185,6 +185,7 @@ class CallNodeFinder(ABC):
             # In 3.11+, a different algorithm is used by `executing` which can deal with this.
             msg += ' This may be caused by a combination of using Python < 3.11 and auto-tracing.'
 
+        # Simple fallback heuristic: check if there's only one possible call node.
         call_nodes = [
             node
             for main_node in self.heuristic_main_nodes()
