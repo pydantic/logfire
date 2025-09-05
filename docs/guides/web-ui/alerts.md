@@ -44,7 +44,7 @@ After filling in the form, click the **Create alert** button. And... Alert creat
 
 After creating an alert, you'll be redirected to the alerts' list. There you can see the alerts you've created and their status.
 
-If the query was not matched in the last time window, you'll see a 0 in the **Matches** column, and a green circle next to the alert name.
+If the query was not matched in the last time window, you'll see **no matches** next to the alert name, and no results in the histogram table of the selected time period.
 
 ![Alerts list](../../images/guide/browser-alerts-no-error.png)
 
