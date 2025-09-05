@@ -1295,7 +1295,7 @@ class Logfire:
     def instrument_print(self) -> AbstractContextManager[None]:
         """Instrument the built-in `print` function so that calls to it are logged.
 
-        If Logfire is configured with `inspect_arguments=True`,
+        If Logfire is configured with [`inspect_arguments=True`][logfire.configure(inspect_arguments)],
         the names of the arguments passed to `print` will be included in the log attributes
         and will be used for scrubbing.
 
