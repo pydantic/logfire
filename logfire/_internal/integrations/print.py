@@ -153,6 +153,8 @@ class PrintCallNodeFinder(CallNodeFinder):
         runtime_args.reverse()
         message_parts_end = _process_end()
         # This was produced from the end backwards, so reverse it to go forwards.
+        # message_parts_start is already in the correct order,
+        # because _process_end was called on the reversed lists.
         message_parts_end.reverse()
 
         if len(ast_args) == 1:

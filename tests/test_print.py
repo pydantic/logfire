@@ -27,13 +27,13 @@ def test_instrument_print(exporter: TestExporter, capsys: pytest.CaptureFixture[
         z = 3
         lst = [4, 5]
         # Puts x, y, lst in attributes
-        print(x, *lst, y)
+        print('hi', x, x, *lst, y)
 
         lst2 = [6, 7]
         # Multiple *args means we can't tell which args came from which list,
         # so we have x, z, and logfire.print_args (*lst, y, *lst2) in attributes.
         # Also test sep in message.
-        print(x, *lst, y, *lst2, z, sep=', ')
+        print(z, x, *lst, y, *lst2, z, sep=', ')
 
         password = 'hunter2'
         hunter = 'my api key'
@@ -49,8 +49,8 @@ def test_instrument_print(exporter: TestExporter, capsys: pytest.CaptureFixture[
 before
 hello world
 
-1 4 5 2
-1, 4, 5, 2, 6, 7, 3
+hi 1 1 4 5 2
+3, 1, 4, 5, 2, 6, 7, 3
 Secret hunter2 my api key
 after uninstrument
 """)
@@ -85,7 +85,7 @@ after uninstrument
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
                     'logfire.msg_template': 'print',
-                    'logfire.msg': '1 4 5 2',
+                    'logfire.msg': 'hi 1 1 4 5 2',
                     'code.filepath': 'test_print.py',
                     'code.function': 'test_instrument_print',
                     'code.lineno': 123,
@@ -108,7 +108,7 @@ after uninstrument
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
                     'logfire.msg_template': 'print',
-                    'logfire.msg': '1, 4, 5, 2, 6, 7, 3',
+                    'logfire.msg': '3, 1, 4, 5, 2, 6, 7, 3',
                     'code.filepath': 'test_print.py',
                     'code.function': 'test_instrument_print',
                     'code.lineno': 123,
