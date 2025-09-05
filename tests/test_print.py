@@ -1,3 +1,4 @@
+import re
 import sys
 from typing import Any
 
@@ -155,6 +156,10 @@ after uninstrument
 
 @pytest.mark.skipif(sys.version_info < (3, 11), reason='Testing behaviour in Python 3.11+')
 def test_executing_failure(exporter: TestExporter, monkeypatch: pytest.MonkeyPatch):
+    warning_message = """\
+Failed to introspect calling code. Please report this issue to Logfire. Using `logfire.print_args` as the fallback attribute key for all print arguments. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
+`executing` failed to find a node.\
+"""
     # We're about to 'disable' `executing` which `snapshot` also uses, so make the snapshot first.
     expected_spans = snapshot(
         [
@@ -177,10 +182,7 @@ def test_executing_failure(exporter: TestExporter, monkeypatch: pytest.MonkeyPat
                 },
             },
             {
-                'name': """\
-Failed to introspect calling code. Please report this issue to Logfire. Using `logfire.print_args` as the fallback attribute key for all print arguments. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
-`executing` failed to find a node.\
-""",
+                'name': warning_message,
                 'context': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
                 'parent': None,
                 'start_time': 2000000000,
@@ -188,14 +190,8 @@ Failed to introspect calling code. Please report this issue to Logfire. Using `l
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 13,
-                    'logfire.msg_template': """\
-Failed to introspect calling code. Please report this issue to Logfire. Using `logfire.print_args` as the fallback attribute key for all print arguments. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
-`executing` failed to find a node.\
-""",
-                    'logfire.msg': """\
-Failed to introspect calling code. Please report this issue to Logfire. Using `logfire.print_args` as the fallback attribute key for all print arguments. Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:
-`executing` failed to find a node.\
-""",
+                    'logfire.msg_template': warning_message,
+                    'logfire.msg': warning_message,
                     'code.filepath': 'test_print.py',
                     'code.function': 'test_executing_failure',
                     'code.lineno': 123,
@@ -238,10 +234,11 @@ Failed to introspect calling code. Please report this issue to Logfire. Using `l
 
     with logfire.instrument_print():
         local_var = 3
+        # The fallback heuristic works because set() has no arguments and can be ignored.
         print(local_var, set())  # type: ignore
 
-        with pytest.warns(InspectArgumentsFailedWarning, match='`executing` failed to find a node.$'):
-            # Multiple calls break the heuristic.
+        with pytest.warns(InspectArgumentsFailedWarning, match=re.escape(warning_message)):
+            # Multiple calls with arguments break the heuristic.
             print(local_var, set([]))  # type: ignore
 
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == expected_spans
