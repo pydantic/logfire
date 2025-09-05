@@ -135,6 +135,8 @@ def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-
 
             Defaults to `True` if and only if the Python version is at least 3.11.
 
+            Also enables magic argument inspection in [`logfire.instrument_print()`][logfire.Logfire.instrument_print].
+
         min_level:
             Minimum log level for logs and spans to be created. By default, all logs and spans are created.
             For example, set to 'info' to only create logs with level 'info' or higher, thus filtering out debug logs.
