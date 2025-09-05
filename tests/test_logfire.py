@@ -3477,6 +3477,7 @@ def test_min_level(exporter: TestExporter, config_kwargs: dict[str, Any]) -> Non
         ['warning span', 'notice message', 'warn message', 'default span']
     )
 
+
 def test_warn_if_not_initialized():
     """Test that warnings are properly issued when logfire is not initialized."""
     import os
