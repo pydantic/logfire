@@ -41,25 +41,19 @@ Issues you want to permanently ignore. **Ignored issues never reopen** and won't
 
 For each issue, you can:
 
-- **Re-open** - Mark a resolved or ignored issue as active again
 - **Resolve** - Mark as fixed (will reopen if exception occurs again)
 - **Ignore** - Silence permanently (no alerts even if exception recurs)
-- **Delete** - Permanently remove the issue (only available for resolved issues)
+- **Re-open** - Mark a resolved or ignored issue as active again
+- **Delete** - Permanently delete resolved issues
 
 ### Bulk Actions
 
-You can select multiple issues and perform bulk operations:
+To select multiple issues at once, hold down `shift` or `cmd` (macOS) / `cntl` (windows). 
 
-- Change state for multiple issues at once
-- Delete multiple resolved issues
+After selecting more than one issue you can:
 
-### Viewing Issue Details
-
-Click on an issue to see:
-
-- **Full stack trace** - Complete error details for debugging
-- **Related spans** - View all spans associated with this issue
-- **Environment context** - Services, environments, and deployment info affected
+- Ignore all selected issues  
+- Resolve all selected issues 
 
 ## Fix with AI
 
@@ -79,14 +73,19 @@ To use AI debugging:
 2. Install your preferred AI assistant ([Claude Code](https://docs.anthropic.com/en/docs/claude-code/setup))
 3. Run the provided command to analyze the issue
 
-## Filtering and Searching
+## Sorting and Searching
 
-Use the search and filter options to find specific issues:
+Search for exception message text using the Search field. 
 
-- **Filter by state** - View only open, resolved, or ignored issues
-- **Filter by service** - Focus on issues from specific services
-- **Filter by environment** - See issues from particular deployments
-- **Search by exception type** - Find specific error types
+
+Use the sort options to find specific issues:
+_Click twice on any sort to reverse the order_
+
+- **Sort by Last Seen** - most <> least recent issues
+- **Sort by First Seen** - youngest <> oldest issues issues
+- **Sort by Message** - sort exception message alphabetically (A-Z) / (Z-A)
+- **Sort by Hits** - most <> least hits 
+- **Sort by Exception** - sort exception alphabetically (A-Z) / (Z-A)
 
 ## Best Practices
 
@@ -117,19 +116,9 @@ Periodically delete resolved issues that haven't reoccurred to keep your issues 
 
 If you want to stop tracking issues for a project:
 
-1. Go to project settings
-2. Find the **Issues** section
+1. Go to **Alerts** menu for the project
+2. Click **Settings** on the **Issues** page
 3. Click **Disable issues**
 
 !!! warning "Permanent Data Loss"
     Disabling issues will permanently delete all existing issues data, states, and history. You can re-enable issues later, but all previous issue data will be gone and you'll start fresh.
-
-## Troubleshooting
-
-### Issues Not Appearing
-
-If you're not seeing issues for exceptions in your logs:
-
-- Verify that your spans include exception information
-- Check that the `is_exception` field is properly set
-- Ensure your application is generating proper
