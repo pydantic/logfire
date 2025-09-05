@@ -106,9 +106,17 @@ class PrintCallNodeFinder(CallNodeFinder):
     def warn_inspect_arguments_middle(self):
         return f'Using `{FALLBACK_ATTRIBUTE_KEY}` as the fallback attribute key for all print arguments.'
 
-    def get_magic_attributes(self, args: tuple[Any, ...], value_cleaner: MessageValueCleaner):
-        result: dict[str, Any] = {}
+    def get_magic_attributes(
+        self, args: tuple[Any, ...], value_cleaner: MessageValueCleaner
+    ) -> tuple[dict[str, Any], list[str]]:
+        """Inspects argument expression AST nodes.
+
+        Returns:
+            - An attributes dict mapping non-literal argument expressions sources to their runtime values.
+            - A list of strings to construct the log message.
+        """
         assert self.node
+        attributes: dict[str, Any] = {}
         ast_args = list(self.node.args)
         runtime_args = list(args)
 
@@ -119,32 +127,47 @@ class PrintCallNodeFinder(CallNodeFinder):
                 node = ast_args.pop()
                 value = runtime_args.pop()
                 if _is_literal(node):
+                    # Don't scrub this or use it as an attribute.
                     message_parts.append(value_cleaner.truncate(str(value)))
                 else:
                     node_source = get_node_source_text(node, self.source)
+                    attributes[node_source] = value
                     message_parts.append(value_cleaner.clean_value(node_source, str(value)))
-                    result[node_source] = value
             return message_parts
 
+        # Starred args make it tricky to match up AST nodes to runtime values.
+
+        # Ensure that everything is produced in the correct order.
+        # Since _process_end works from the end of the lists backwards, reverse them first.
+        # This is like going forward from the beginning.
         ast_args.reverse()
         runtime_args.reverse()
         message_parts_start = _process_end()
 
         if not runtime_args:
-            return result, message_parts_start
+            # There were no starred args, so everything was processed and we can stop here.
+            return attributes, message_parts_start
 
+        # Process the non-starred args from the end of the original lists, so unreverse them.
         ast_args.reverse()
         runtime_args.reverse()
         message_parts_end = _process_end()
+        # This was produced from the end backwards, so reverse it to go forwards.
         message_parts_end.reverse()
 
         if len(ast_args) == 1:
+            # There was only one starred arg, which both _process_end calls ran into.
+            # Since there's only one, we can use its expression as the attribute key.
             assert isinstance(ast_args[0], ast.Starred)
+            # .value leaves out the * operator.
             middle_key = get_node_source_text(ast_args[0].value, self.source)
         else:
+            # There are multiple starred args, so we can't know what's what.
             middle_key = FALLBACK_ATTRIBUTE_KEY
 
-        result[middle_key] = runtime_args
+        # runtime_args is whatever was left after removing the non-starred args from both ends.
+        attributes[middle_key] = runtime_args
         message_parts_middle = [value_cleaner.clean_value(middle_key, str(arg)) for arg in runtime_args]
 
-        return result, message_parts_start + message_parts_middle + message_parts_end
+        full_message_parts = message_parts_start + message_parts_middle + message_parts_end
+        return attributes, full_message_parts
