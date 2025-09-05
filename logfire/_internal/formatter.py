@@ -13,7 +13,7 @@ from typing_extensions import NotRequired, TypedDict
 
 import logfire
 
-from .ast_utils import ArgumentsInspector, get_node_source_text
+from .ast_utils import CallNodeFinder, get_node_source_text
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, MessageValueCleaner
 from .stack_info import warn_at_user_stacklevel
 from .utils import log_internal_error
@@ -71,8 +71,8 @@ class ChunksFormatter(Formatter):
         # Now `frame` is the frame where the user called a logfire method.
         assert frame is not None
 
-        inspector = FormattingArgumentsInspector(frame)
-        call_node = inspector.get_call_node()
+        node_finder = FormattingCallNodeFinder(frame)
+        call_node = node_finder.get_call_node()
         if call_node is None:
             return None
 
@@ -88,13 +88,13 @@ class ChunksFormatter(Formatter):
                         arg_node = keyword.value
                         break
                 else:
-                    inspector.warn_inspect_arguments("Couldn't identify the `msg_template` argument in the call.")
+                    node_finder.warn_inspect_arguments("Couldn't identify the `msg_template` argument in the call.")
                     return None
         elif call_node.args:
             arg_node = call_node.args[0]
         else:
             # Very unlikely.
-            inspector.warn_inspect_arguments("Couldn't identify the `msg_template` argument in the call.")
+            node_finder.warn_inspect_arguments("Couldn't identify the `msg_template` argument in the call.")
             return None
 
         if not isinstance(arg_node, ast.JoinedStr):
@@ -128,7 +128,7 @@ class ChunksFormatter(Formatter):
                 assert isinstance(node_value, ast.FormattedValue)
 
                 # This is cached.
-                source, value_code, formatted_code = compile_formatted_value(node_value, inspector.ex.source)
+                source, value_code, formatted_code = compile_formatted_value(node_value, node_finder.ex.source)
 
                 # Note that this doesn't include:
                 # - The format spec, e.g. `:0.2f`
@@ -360,9 +360,10 @@ def warn_fstring_await(msg: str):
     )
 
 
-class FormattingArgumentsInspector(ArgumentsInspector):
+class FormattingCallNodeFinder(CallNodeFinder):
+    """Finds the call node corresponding to a call like `logfire.span` or `logfire.info`."""
+
     def heuristic_main_nodes(self) -> Iterator[ast.AST]:
-        # Try a simple fallback heuristic to find the node which should work in most cases.
         for statement in self.ex.statements:
             if isinstance(statement, ast.With):
                 # Only look at the 'header' of a with statement, not its body.
@@ -371,6 +372,7 @@ class FormattingArgumentsInspector(ArgumentsInspector):
                 yield statement
 
     def heuristic_call_node_filter(self, node: ast.Call) -> bool:
+        # The call must have at least some arguments.
         return bool(node.args or node.keywords)
 
     def warn_inspect_arguments_middle(self):

@@ -144,7 +144,16 @@ class BaseTransformer(ast.NodeTransformer):
         return span_name, attributes
 
 
-class ArgumentsInspector(ABC):
+class CallNodeFinder(ABC):
+    """Base class for finding the `ast.Call` node corresponding to a function call in a given frame.
+
+    Uses `executing`, then falls back to a heuristic if that fails.
+    The heuristic is defined by subclasses which depends on what we're looking for,
+    but in general `executing` is expected to work.
+    Warns appropriately when things don't work.
+    Only used when `inspect_arguments=True` in `logfire.configure()`.
+    """
+
     def __init__(self, frame: types.FrameType):
         self.frame = frame
         # This is where the magic happens. It has caching.
@@ -190,13 +199,19 @@ class ArgumentsInspector(ABC):
         return call_nodes[0]
 
     @abstractmethod
-    def heuristic_main_nodes(self) -> Iterator[ast.AST]: ...
+    def heuristic_main_nodes(self) -> Iterator[ast.AST]:
+        """AST nodes (e.g. statements) to search for potential call nodes inside."""
 
     @abstractmethod
-    def heuristic_call_node_filter(self, node: ast.Call) -> bool: ...
+    def heuristic_call_node_filter(self, node: ast.Call) -> bool:
+        """Condition that a potential call node must satisfy to be considered a match."""
 
     @abstractmethod
-    def warn_inspect_arguments_middle(self) -> str: ...
+    def warn_inspect_arguments_middle(self) -> str:
+        """Middle part of the warning message for `warn_inspect_arguments`.
+
+        Should describe the consequences of the failure.
+        """
 
     def warn_inspect_arguments(self, msg: str):
         import logfire

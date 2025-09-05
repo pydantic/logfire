@@ -11,7 +11,7 @@ from typing import Any
 import executing
 
 from logfire import Logfire
-from logfire._internal.ast_utils import ArgumentsInspector, get_node_source_text
+from logfire._internal.ast_utils import CallNodeFinder, get_node_source_text
 from logfire._internal.constants import ATTRIBUTES_MESSAGE_KEY
 from logfire._internal.scrubbing import MessageValueCleaner
 from logfire._internal.utils import handle_internal_errors
@@ -43,22 +43,22 @@ def instrument_print(logfire_instance: Logfire) -> AbstractContextManager[None]:
             value_cleaner = MessageValueCleaner(scrubber, check_keys=True)
             attributes: dict[str, Any]
             call_node = None
-            inspector = None
+            node_finder = None
             if inspect_args:
                 frame = inspect.currentframe()
                 assert frame, 'Could not get current frame'
                 frame = frame.f_back
                 assert frame, 'Could not get caller frame'
 
-                inspector = PrintArgumentsInspector(frame)
-                call_node = inspector.get_call_node()
+                node_finder = PrintCallNodeFinder(frame)
+                call_node = node_finder.get_call_node()
 
             if call_node is None:
                 attributes = {FALLBACK_ATTRIBUTE_KEY: args}
                 message_parts = [value_cleaner.clean_value(FALLBACK_ATTRIBUTE_KEY, str(arg)) for arg in args]
             else:
-                assert inspector
-                attributes, message_parts = _get_magic_attributes(call_node, args, inspector.ex.source, value_cleaner)
+                assert node_finder
+                attributes, message_parts = _get_magic_attributes(call_node, args, node_finder.ex.source, value_cleaner)
             attributes[ATTRIBUTES_MESSAGE_KEY] = sep.join(message_parts)
             attributes.update(value_cleaner.extra_attrs())
             logfire_instance.log('info', 'print', attributes)
@@ -132,11 +132,12 @@ def _is_literal(node: ast.expr):
         return False
 
 
-class PrintArgumentsInspector(ArgumentsInspector):
+class PrintCallNodeFinder(CallNodeFinder):
     def heuristic_main_nodes(self) -> Iterator[ast.AST]:
         yield from self.ex.statements
 
     def heuristic_call_node_filter(self, node: ast.Call) -> bool:
+        # The print call must have some positional arguments, otherwise we don't log anything.
         return bool(node.args)
 
     def warn_inspect_arguments_middle(self):
