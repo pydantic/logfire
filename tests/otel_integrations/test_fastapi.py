@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from inline_snapshot import snapshot
 from opentelemetry.propagate import inject
 from starlette.requests import Request
-from starlette.responses import PlainTextResponse
+from starlette.responses import JSONResponse, PlainTextResponse
 from starlette.testclient import TestClient
 
 import logfire
@@ -25,6 +25,20 @@ import logfire._internal.integrations.fastapi
 from logfire._internal.constants import LEVEL_NUMBERS
 from logfire._internal.main import set_user_attributes_on_raw_span
 from logfire.testing import TestExporter
+
+
+class CustomError(Exception):
+    """Custom exception for testing."""
+
+    pass
+
+
+def add_custom_error_handler(app: FastAPI) -> None:
+    """Add custom error handler to FastAPI app."""
+
+    @app.exception_handler(CustomError)
+    async def custom_error_handler(request: Request, exc: CustomError):  # pyright: ignore[reportUnusedFunction]
+        return JSONResponse(status_code=400, content={'detail': str(exc)})
 
 
 def test_missing_opentelemetry_dependency() -> None:
@@ -78,6 +92,19 @@ async def bad_request_error():
     raise HTTPException(400)
 
 
+async def custom_error_manual():
+    """Endpoint that manually handles custom exceptions."""
+    try:
+        raise CustomError('User not found')
+    except CustomError as exc:
+        return JSONResponse(status_code=404, content={'detail': str(exc)})
+
+
+async def custom_error_unhandled():
+    """Endpoint that raises custom exceptions without handling."""
+    raise CustomError('Unhandled custom error')
+
+
 async def websocket_endpoint(websocket: WebSocket, name: str):
     logfire.info('websocket_endpoint: {name}', name=name)
     await websocket.accept()
@@ -113,7 +140,12 @@ def app():
     app.get('/with_path_param/{param}')(with_path_param)
     app.get('/secret/{path_param}', name='secret')(get_secret)
     app.get('/bad_dependency_route/{good}')(bad_dependency_route)
+    app.get('/custom_error_manual')(custom_error_manual)
+    app.get('/custom_error_unhandled')(custom_error_unhandled)
     app.websocket('/ws/{name}')(websocket_endpoint)
+
+    add_custom_error_handler(app)
+
     first_lvl_app.get('/other', name='other_route_name', operation_id='other_route_operation_id')(other_route)
     second_lvl_app.get('/other', name='other_route_name', operation_id='other_route_operation_id')(other_route)
     return app
@@ -2334,3 +2366,144 @@ def test_sampled_out(client: TestClient, exporter: TestExporter, config_kwargs: 
     make_request_hook_spans(record_send_receive=False)
 
     assert exporter.exported_spans_as_dict() == []
+
+
+def test_custom_error_with_exception_handler_default_behavior(exporter: TestExporter):
+    """Test that custom exceptions handled by FastAPI handlers are recorded by default (backward compatibility)."""
+    app = FastAPI()
+    app.get('/custom_error_unhandled')(custom_error_unhandled)
+
+    add_custom_error_handler(app)
+
+    logfire.instrument_fastapi(app)
+    client = TestClient(app)
+
+    response = client.get('/custom_error_unhandled')
+    assert response.status_code == 400
+
+    spans = exporter.exported_spans_as_dict()
+
+    # Should have recorded the exception (default behavior)
+    exception_spans = [s for s in spans if 'events' in s and s['events']]
+    assert len(exception_spans) > 0
+
+    exception_event = exception_spans[0]['events'][0]
+    assert exception_event['name'] == 'exception'
+    assert 'CustomError' in exception_event['attributes']['exception.type']
+
+
+def test_http_exception_default_behavior(exporter: TestExporter):
+    """Test that HTTPExceptions are recorded by default."""
+    app = FastAPI()
+    app.get('/bad_request_error')(bad_request_error)
+
+    logfire.instrument_fastapi(app)
+    client = TestClient(app)
+
+    response = client.get('/bad_request_error')
+    assert response.status_code == 400
+
+    spans = exporter.exported_spans_as_dict()
+
+    # Should have recorded the exception (default behavior)
+    exception_spans = [s for s in spans if 'events' in s and s['events']]
+    assert len(exception_spans) > 0
+
+    exception_event = exception_spans[0]['events'][0]
+    assert exception_event['name'] == 'exception'
+    assert 'HTTPException' in exception_event['attributes']['exception.type']
+
+
+def test_custom_error_with_exception_handler_record_handled_false(exporter: TestExporter):
+    """Test that custom exceptions with handlers are NOT recorded when record_handled_exceptions=False.
+
+    With the new handler detection logic, exceptions that have registered handlers
+    are considered "handled" and are filtered out to avoid noise.
+    """
+    app = FastAPI()
+    app.get('/custom_error_unhandled')(custom_error_unhandled)
+
+    add_custom_error_handler(app)
+
+    logfire.instrument_fastapi(app, record_handled_exceptions=False)
+    client = TestClient(app)
+
+    response = client.get('/custom_error_unhandled')
+    assert response.status_code == 400
+
+    spans = exporter.exported_spans_as_dict()
+
+    # Custom exceptions with handlers are now filtered out (handled exceptions)
+    exception_spans = [s for s in spans if 'events' in s and s['events']]
+    assert len(exception_spans) == 0
+
+
+def test_custom_error_without_handler_record_handled_false(exporter: TestExporter):
+    """Test that custom exceptions WITHOUT handlers are still recorded when record_handled_exceptions=False.
+
+    Exceptions without handlers are truly unhandled and should always be logged.
+    """
+    app = FastAPI()
+
+    async def unhandled_custom_error():
+        raise CustomError('This exception has no handler')
+
+    app.get('/unhandled_custom_error')(unhandled_custom_error)
+    # Note: NOT adding the custom error handler
+
+    logfire.instrument_fastapi(app, record_handled_exceptions=False)
+    client = TestClient(app)
+
+    # This will raise the exception because there's no handler for CustomError
+    with pytest.raises(CustomError):
+        client.get('/unhandled_custom_error')
+
+    spans = exporter.exported_spans_as_dict()
+
+    # Unhandled custom exceptions should still be recorded
+    exception_spans = [s for s in spans if 'events' in s and s['events']]
+    assert len(exception_spans) > 0
+
+    exception_event = exception_spans[0]['events'][0]
+    assert exception_event['name'] == 'exception'
+    assert 'CustomError' in exception_event['attributes']['exception.type']
+
+
+def test_http_exception_record_handled_false(exporter: TestExporter):
+    """Test that HTTPExceptions are not recorded when record_handled_exceptions=False."""
+    app = FastAPI()
+    app.get('/bad_request_error')(bad_request_error)
+
+    logfire.instrument_fastapi(app, record_handled_exceptions=False)
+    client = TestClient(app)
+
+    response = client.get('/bad_request_error')
+    assert response.status_code == 400
+
+    spans = exporter.exported_spans_as_dict()
+
+    # Should not have recorded the exception
+    exception_spans = [s for s in spans if 'events' in s and s['events']]
+    assert len(exception_spans) == 0
+
+
+def test_unhandled_exception_always_recorded(exporter: TestExporter):
+    """Test that truly unhandled exceptions are always recorded, regardless of record_handled_exceptions setting."""
+    app = FastAPI()
+    app.get('/exception')(exception)
+
+    logfire.instrument_fastapi(app, record_handled_exceptions=False)
+    client = TestClient(app)
+
+    with pytest.raises(ValueError):
+        client.get('/exception')
+
+    spans = exporter.exported_spans_as_dict()
+
+    # Should have recorded the exception (it's unhandled)
+    exception_spans = [s for s in spans if 'events' in s and s['events']]
+    assert len(exception_spans) > 0
+
+    exception_event = exception_spans[0]['events'][0]
+    assert exception_event['name'] == 'exception'
+    assert 'ValueError' in exception_event['attributes']['exception.type']
