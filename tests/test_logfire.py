@@ -3476,3 +3476,79 @@ def test_min_level(exporter: TestExporter, config_kwargs: dict[str, Any]) -> Non
     assert [span['name'] for span in exporter.exported_spans_as_dict()] == snapshot(
         ['warning span', 'notice message', 'warn message', 'default span']
     )
+
+def test_warn_if_not_initialized():
+    """Test that warnings are properly issued when logfire is not initialized."""
+    import os
+    import warnings
+    from unittest.mock import patch
+
+    config = LogfireConfig()
+
+    with pytest.warns(LogfireNotConfiguredWarning) as warnings_list:
+        config.warn_if_not_initialized('Test message')
+
+    assert str(warnings_list[0].message) == (
+        'Test message until `logfire.configure()` has been called. '
+        'Set the environment variable LOGFIRE_IGNORE_NO_CONFIG=1 or add ignore_no_config=true in pyproject.toml to suppress this warning.'
+    )
+
+    with patch.dict(os.environ, {'LOGFIRE_IGNORE_NO_CONFIG': '1'}):
+        with warnings.catch_warnings(record=True) as warning_list:
+            warnings.simplefilter('always')
+            config.warn_if_not_initialized('Should not warn with env var')
+
+        logfire_warnings = [w for w in warning_list if issubclass(w.category, LogfireNotConfiguredWarning)]
+        assert len(logfire_warnings) == 0
+
+    with patch.dict(os.environ, {'LOGFIRE_IGNORE_NO_CONFIG': '0'}):
+        with pytest.warns(LogfireNotConfiguredWarning) as warnings_list:
+            config.warn_if_not_initialized('Should warn with env var 0')
+
+        assert str(warnings_list[0].message) == (
+            'Should warn with env var 0 until `logfire.configure()` has been called. '
+            'Set the environment variable LOGFIRE_IGNORE_NO_CONFIG=1 or add ignore_no_config=true in pyproject.toml to suppress this warning.'
+        )
+
+    with patch.dict(os.environ, {'LOGFIRE_IGNORE_NO_CONFIG': ''}):
+        with pytest.warns(LogfireNotConfiguredWarning) as warnings_list:
+            config.warn_if_not_initialized('Should warn with empty env var')
+
+    config.initialize()
+    with warnings.catch_warnings(record=True) as warning_list:
+        warnings.simplefilter('always')
+
+    logfire_warnings = [w for w in warning_list if issubclass(w.category, LogfireNotConfiguredWarning)]
+    assert len(logfire_warnings) == 0
+
+
+def test_warn_if_not_initialized_with_file_config():
+    """Test that warnings are suppressed when ignore_no_config is set in config file."""
+    import tempfile
+    import warnings
+    from pathlib import Path
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        config_dir = Path(temp_dir)
+        pyproject_toml = config_dir / 'pyproject.toml'
+        pyproject_toml.write_text('[tool.logfire]\nignore_no_config = true\n')
+
+        config = LogfireConfig(config_dir=config_dir)
+
+        with warnings.catch_warnings(record=True) as warning_list:
+            warnings.simplefilter('always')
+            config.warn_if_not_initialized('Should not warn due to config file')
+
+        logfire_warnings = [w for w in warning_list if issubclass(w.category, LogfireNotConfiguredWarning)]
+        assert len(logfire_warnings) == 0
+
+
+def test_warn_if_not_initialized_category():
+    """Test that the warning has the correct category."""
+    config = LogfireConfig()
+
+    with pytest.warns(LogfireNotConfiguredWarning) as warnings_list:
+        config.warn_if_not_initialized('Test message')
+
+    assert warnings_list[0].category == LogfireNotConfiguredWarning
+    assert issubclass(LogfireNotConfiguredWarning, UserWarning)
