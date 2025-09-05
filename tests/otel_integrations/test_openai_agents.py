@@ -408,7 +408,8 @@ def without_code_attrs(spans: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def simplify_spans(spans: list[dict[str, Any]]) -> list[dict[str, Any]]:
     result: list[dict[str, Any]] = []
     for span in spans:
-        assert isinstance(span['attributes'].pop('logfire.json_schema'), dict)
+        span['attributes'].pop('logfire.json_schema', None)
+        span['attributes'].pop('logfire.metrics', None)
         if span['name'] == 'Responses API with {gen_ai.request.model!r}':
             # These are huge and constantly change when OpenAI updates
             assert isinstance(span['attributes'].pop('response'), dict)

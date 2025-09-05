@@ -1297,6 +1297,29 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         instrument_litellm(self, **kwargs)
 
+    def instrument_print(self) -> AbstractContextManager[None]:
+        """Instrument the built-in `print` function so that calls to it are logged.
+
+        If Logfire is configured with [`inspect_arguments=True`][logfire.configure(inspect_arguments)],
+        the names of the arguments passed to `print` will be included in the log attributes
+        and will be used for scrubbing.
+
+        The fallback attribute name `logfire.print_args` will be used if:
+
+         - `inspect_arguments` is `False`
+         - Inspection fails for any reason
+         - Multiple starred arguments are used (e.g. `print(*args1, *args2)`)
+            in which case names can't be unambiguously determined.
+
+        Returns:
+            A context manager that will revert the instrumentation when exited.
+                Use of this context manager is optional.
+        """
+        from .integrations.print import instrument_print
+
+        self._warn_if_not_initialized_for_instrumentation()
+        return instrument_print(self)
+
     def instrument_asyncpg(self, **kwargs: Any) -> None:
         """Instrument the `asyncpg` module so that spans are automatically created for each query."""
         from .integrations.asyncpg import instrument_asyncpg
