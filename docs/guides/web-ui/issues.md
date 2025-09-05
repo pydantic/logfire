@@ -8,7 +8,7 @@
 
 Issues provide automatic exception tracking and grouping. Enable issues to identify, prioritize, and resolve problems in your application.
 
-![Logfire issues screen](../../images/guide/browser-issues-enable-issues.png)
+![Enable issues screen](../../images/guide/browser-issues-enable-issues.png)
 
 ## What are Issues?
 
@@ -21,6 +21,10 @@ Each issue shows:
 - **First and last seen** - When the issue started and was last encountered
 - **Affected services and environments** - Where the problem is happening
 - **Stack trace** - Technical details for debugging
+
+
+![Logfire issues screen](../../images/guide/browser-issues-list.png)
+
 
 ## Issue States
 
@@ -57,21 +61,18 @@ After selecting more than one issue you can:
 
 ## Fix with AI
 
-Issues include integration with AI debugging tools to help resolve problems faster.
+Use this feature to debug your exceptions using your local LLM coding tool plus the Logfire MCP server. 
 
-![Fix with AI button](../../images/guide/browser-issues-ai.png)
+![Fix with AI button](../../images/guide/browser-issues-fix-with-ai.png)
 
-The **Fix with AI** button provides commands to:
+The Fix with AI button uses Logfire's MCP server to give your AI assistant access to your application data for debugging. You can choose between:
 
-- Connect [Claude Code](https://claude.ai/code) to your Logfire data
-- Analyze exceptions with AI assistance
-- Get debugging suggestions based on your application context
+- Claude Code - Debug with Claude Code
+- OpenAI Codex - Debug with OpenAI Codex
 
-To use AI debugging:
+Run the command provided to retrieve the exception information from the Logfire MCP server so your AI assistant can analyze that specific exception and provide debugging suggestions based on your application context.
 
-1. Ensure you have [uv](https://docs.astral.sh/uv/getting-started/installation/) installed
-2. Install your preferred AI assistant ([Claude Code](https://docs.anthropic.com/en/docs/claude-code/setup))
-3. Run the provided command to analyze the issue
+Want us to integrate more AI Code assistants? [Let us know](https://logfire.pydantic.dev/docs/help/)
 
 ## Sorting and Searching
 
