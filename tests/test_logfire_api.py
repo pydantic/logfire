@@ -168,7 +168,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         getattr(logfire_api, member)(app=MagicMock())
         logfire__all__.remove(member)
 
-    for member in [m for m in ('instrument_openai', 'instrument_anthropic')]:
+    for member in [m for m in ('instrument_openai', 'instrument_anthropic', 'instrument_print')]:
         assert hasattr(logfire_api, member), member
         with getattr(logfire_api, member)():
             ...

@@ -179,6 +179,9 @@ except ImportError:
             def instrument_openai(self, *args, **kwargs) -> ContextManager[None]:
                 return nullcontext()
 
+            def instrument_print(self, *args, **kwargs) -> ContextManager[None]:
+                return nullcontext()
+
             def instrument_openai_agents(self, *args, **kwargs) -> None: ...
 
             def instrument_google_genai(self, *args, **kwargs) -> None: ...
@@ -224,6 +227,7 @@ except ImportError:
         instrument_google_genai = DEFAULT_LOGFIRE_INSTANCE.instrument_google_genai
         instrument_litellm = DEFAULT_LOGFIRE_INSTANCE.instrument_litellm
         instrument_asyncpg = DEFAULT_LOGFIRE_INSTANCE.instrument_asyncpg
+        instrument_print = DEFAULT_LOGFIRE_INSTANCE.instrument_print
         instrument_celery = DEFAULT_LOGFIRE_INSTANCE.instrument_celery
         instrument_httpx = DEFAULT_LOGFIRE_INSTANCE.instrument_httpx
         instrument_requests = DEFAULT_LOGFIRE_INSTANCE.instrument_requests
