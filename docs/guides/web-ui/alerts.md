@@ -1,4 +1,4 @@
-With **Logfire**, you can set up alerts to notify you when certain conditions are met.
+With **Logfire**, use Alerts to notify you when certain conditions are met.
 
 ![Logfire alerts screen](../../images/guide/browser-alerts-full.png)
 
@@ -48,7 +48,7 @@ If the query was not matched in the last time window, you'll see a 0 in the **Ma
 
 ![Alerts list](../../images/guide/browser-alerts-no-error.png)
 
-Otherwise, you'll see the number of matches and a red circle.
+Otherwise, you'll see the number of matches highlighted in orange.
 
 ![Alerts list with error](../../images/guide/browser-alerts-error.png)
 
