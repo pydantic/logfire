@@ -72,7 +72,7 @@ class ChunksFormatter(Formatter):
         assert frame is not None
 
         node_finder = FormattingCallNodeFinder(frame)
-        call_node = node_finder.get_call_node()
+        call_node = node_finder.node
         if call_node is None:
             return None
 
@@ -128,7 +128,7 @@ class ChunksFormatter(Formatter):
                 assert isinstance(node_value, ast.FormattedValue)
 
                 # This is cached.
-                source, value_code, formatted_code = compile_formatted_value(node_value, node_finder.ex.source)
+                source, value_code, formatted_code = compile_formatted_value(node_value, node_finder.source)
 
                 # Note that this doesn't include:
                 # - The format spec, e.g. `:0.2f`

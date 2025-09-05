@@ -158,15 +158,17 @@ class CallNodeFinder(ABC):
         self.frame = frame
         # This is where the magic happens. It has caching.
         self.ex = executing.Source.executing(frame)
+        self.source = self.ex.source
+        self.node = self._get_call_node()
 
-    def get_call_node(self) -> ast.Call | None:
+    def _get_call_node(self) -> ast.Call | None:
         if isinstance(self.ex.node, ast.Call):
             return self.ex.node
 
         # `executing` failed to find a node.
         # This shouldn't happen in most cases, but it's best not to rely on it always working.
 
-        if not self.ex.source.text:
+        if not self.source.text:
             # This is a very likely cause.
             # There's nothing we could possibly do to make magic work here,
             # and it's a clear case where the user should turn the magic off.

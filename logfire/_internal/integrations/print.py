@@ -8,8 +8,6 @@ from collections.abc import Iterator
 from contextlib import AbstractContextManager, contextmanager
 from typing import Any
 
-import executing
-
 from logfire import Logfire
 from logfire._internal.ast_utils import CallNodeFinder, get_node_source_text
 from logfire._internal.constants import ATTRIBUTES_MESSAGE_KEY
@@ -51,6 +49,7 @@ def instrument_print(logfire_instance: Logfire) -> AbstractContextManager[None]:
             attributes: dict[str, Any]
             call_node = None
             node_finder = None
+
             if inspect_args:
                 frame = inspect.currentframe()
                 assert frame, 'Could not get current frame'
@@ -58,16 +57,18 @@ def instrument_print(logfire_instance: Logfire) -> AbstractContextManager[None]:
                 assert frame, 'Could not get caller frame'
 
                 node_finder = PrintCallNodeFinder(frame)
-                call_node = node_finder.get_call_node()
+                call_node = node_finder.node
 
             if call_node is None:
                 attributes = {FALLBACK_ATTRIBUTE_KEY: args}
                 message_parts = [value_cleaner.clean_value(FALLBACK_ATTRIBUTE_KEY, str(arg)) for arg in args]
             else:
                 assert node_finder
-                attributes, message_parts = _get_magic_attributes(call_node, args, node_finder.ex.source, value_cleaner)
+                attributes, message_parts = node_finder.get_magic_attributes(args, value_cleaner)
+
             attributes[ATTRIBUTES_MESSAGE_KEY] = sep.join(message_parts)
             attributes.update(value_cleaner.extra_attrs())
+
             logfire_instance.log('info', 'print', attributes)
 
     builtins.print = _instrumented_print
@@ -83,51 +84,6 @@ def instrument_print(logfire_instance: Logfire) -> AbstractContextManager[None]:
             builtins.print = original_print
 
     return uninstrument_context()
-
-
-def _get_magic_attributes(
-    call_node: ast.Call, args: tuple[Any, ...], source: executing.Source, value_cleaner: MessageValueCleaner
-):
-    result: dict[str, Any] = {}
-    ast_args = list(call_node.args)
-    runtime_args = list(args)
-
-    def _process_end():
-        """Helper to process non-starred args from the end of the lists."""
-        message_parts: list[str] = []
-        while ast_args and not isinstance(ast_args[-1], ast.Starred):
-            node = ast_args.pop()
-            value = runtime_args.pop()
-            if _is_literal(node):
-                message_parts.append(value_cleaner.truncate(str(value)))
-            else:
-                node_source = get_node_source_text(node, source)
-                message_parts.append(value_cleaner.clean_value(node_source, str(value)))
-                result[node_source] = value
-        return message_parts
-
-    ast_args.reverse()
-    runtime_args.reverse()
-    message_parts_start = _process_end()
-
-    if not runtime_args:
-        return result, message_parts_start
-
-    ast_args.reverse()
-    runtime_args.reverse()
-    message_parts_end = _process_end()
-    message_parts_end.reverse()
-
-    if len(ast_args) == 1:
-        assert isinstance(ast_args[0], ast.Starred)
-        middle_key = get_node_source_text(ast_args[0].value, source)
-    else:
-        middle_key = FALLBACK_ATTRIBUTE_KEY
-
-    result[middle_key] = runtime_args
-    message_parts_middle = [value_cleaner.clean_value(middle_key, str(arg)) for arg in runtime_args]
-
-    return result, message_parts_start + message_parts_middle + message_parts_end
 
 
 @functools.lru_cache(maxsize=1024)
@@ -149,3 +105,46 @@ class PrintCallNodeFinder(CallNodeFinder):
 
     def warn_inspect_arguments_middle(self):
         return f'Using `{FALLBACK_ATTRIBUTE_KEY}` as the fallback attribute key for all print arguments.'
+
+    def get_magic_attributes(self, args: tuple[Any, ...], value_cleaner: MessageValueCleaner):
+        result: dict[str, Any] = {}
+        assert self.node
+        ast_args = list(self.node.args)
+        runtime_args = list(args)
+
+        def _process_end():
+            """Helper to process non-starred args from the end of the lists."""
+            message_parts: list[str] = []
+            while ast_args and not isinstance(ast_args[-1], ast.Starred):
+                node = ast_args.pop()
+                value = runtime_args.pop()
+                if _is_literal(node):
+                    message_parts.append(value_cleaner.truncate(str(value)))
+                else:
+                    node_source = get_node_source_text(node, self.source)
+                    message_parts.append(value_cleaner.clean_value(node_source, str(value)))
+                    result[node_source] = value
+            return message_parts
+
+        ast_args.reverse()
+        runtime_args.reverse()
+        message_parts_start = _process_end()
+
+        if not runtime_args:
+            return result, message_parts_start
+
+        ast_args.reverse()
+        runtime_args.reverse()
+        message_parts_end = _process_end()
+        message_parts_end.reverse()
+
+        if len(ast_args) == 1:
+            assert isinstance(ast_args[0], ast.Starred)
+            middle_key = get_node_source_text(ast_args[0].value, self.source)
+        else:
+            middle_key = FALLBACK_ATTRIBUTE_KEY
+
+        result[middle_key] = runtime_args
+        message_parts_middle = [value_cleaner.clean_value(middle_key, str(arg)) for arg in runtime_args]
+
+        return result, message_parts_start + message_parts_middle + message_parts_end
