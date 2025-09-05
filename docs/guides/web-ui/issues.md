@@ -56,9 +56,10 @@ By default, Issues are only visible in the Logfire web interface. To be notified
 
 ### Select an Alert Channel
 
-You can:
-1. Create a new channel - Add a webhook URL for services like Slack, Discord, Microsoft Teams, or any service that accepts webhooks
-2. Use an existing channel - Select from previously configured notification channels
+You can:  
+
+1. Create a new channel - Add a webhook URL for services like Slack, Discord, Microsoft Teams, or any service that accepts webhooks  
+2. Use an existing channel - Select from previously configured notification channels. 
 
 ### Create a new channel:
 
