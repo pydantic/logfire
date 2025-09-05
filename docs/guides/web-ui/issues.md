@@ -18,7 +18,7 @@ Each issue shows:
 
 - **Exception type and message** - What went wrong
 - **Hits** - How many times this exception occurred
-- **First and last seen** - When the issue started and was last encountered
+- **Last seen and Age** - When the issue was last seen and how long since it first appeared
 - **Affected services and environments** - Where the problem is happening
 - **Stack trace** - Technical details for debugging
 
@@ -49,6 +49,30 @@ For each issue, you can:
 - **Ignore** - Silence permanently (no alerts even if exception recurs)
 - **Re-open** - Mark a resolved or ignored issue as active again
 - **Delete** - Permanently delete resolved issues
+
+## Turn on Issue Alerts
+
+By default, Issues are only visible in the Logfire web interface. To be notified when Issues occur in your other tools, you can select external channels. 
+
+### Select an Alert Channel
+
+You can:
+1. Create a new channel - Add a webhook URL for services like Slack, Discord, Microsoft Teams, or any service that accepts webhooks
+2. Use an existing channel - Select from previously configured notification channels
+
+### Create a new channel:
+
+1. Go to **Settings*** settings on the **Issues** page 
+2. Click **Add another channel**
+3. Enter a channel name and webhook URL
+4. Test the channel before saving
+
+### Managing Notifications
+
+- Select one or many channels where you want to receive issue notifications
+- Edit existing channels using the edit icon
+
+Notifications are sent when new issues open and when resolved issues reopen. Ignored issues never send notifications.
 
 ### Bulk Actions
 
