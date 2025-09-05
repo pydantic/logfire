@@ -82,6 +82,7 @@ nav:
           - Live View: guides/web-ui/live.md
           - LLM Panels: guides/web-ui/llm-panels.md
           - Dashboards: guides/web-ui/dashboards.md
+          - Evals: guides/web-ui/evals.md
           - Alerts (Beta): guides/web-ui/alerts.md
           - Saved Searches: guides/web-ui/saved-searches.md
           - SQL Explorer: guides/web-ui/explore.md
