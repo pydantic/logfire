@@ -16,6 +16,11 @@ from logfire._internal.constants import ATTRIBUTES_MESSAGE_KEY
 from logfire._internal.scrubbing import MessageValueCleaner
 from logfire._internal.utils import handle_internal_errors
 
+# Attribute name used when we can't determine the actual argument expressions.
+# The value will always be a tuple/list of one or more arguments passed to print().
+# Except in the specific case where there's more than one `*args` passed to print()
+# and at least one non-starred argument outside of them,
+# the value will simply be *all* the arguments.
 FALLBACK_ATTRIBUTE_KEY = 'logfire.print_args'
 
 
@@ -32,9 +37,12 @@ def instrument_print(logfire_instance: Logfire) -> AbstractContextManager[None]:
     def _instrumented_print(*args: Any, sep: str | None = None, **kwargs: Any) -> None:
         """The wrapper function that will replace builtins.print."""
         original_print(*args, sep=sep, **kwargs)
+
         if not args:
+            # Don't log empty print() calls.
             return
 
+        # None and ' ' are equivalent for the real print, but we want an actual string now.
         if sep is None:
             sep = ' '
 
