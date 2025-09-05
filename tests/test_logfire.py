@@ -25,6 +25,7 @@ from pydantic_core import ValidationError
 
 import logfire
 from logfire import Logfire, suppress_instrumentation
+from logfire._internal.ast_utils import InspectArgumentsFailedWarning
 from logfire._internal.config import LogfireConfig, LogfireNotConfiguredWarning, configure
 from logfire._internal.constants import (
     ATTRIBUTES_MESSAGE_KEY,
@@ -34,7 +35,7 @@ from logfire._internal.constants import (
     LEVEL_NUMBERS,
     LevelName,
 )
-from logfire._internal.formatter import FormattingFailedWarning, InspectArgumentsFailedWarning
+from logfire._internal.formatter import FormattingFailedWarning
 from logfire._internal.main import NoopSpan
 from logfire._internal.tracer import record_exception
 from logfire._internal.utils import SeededRandomIdGenerator, is_instrumentation_suppressed
