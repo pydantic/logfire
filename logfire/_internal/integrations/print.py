@@ -28,6 +28,7 @@ def instrument_print(logfire_instance: Logfire) -> AbstractContextManager[None]:
     original_print = builtins.print
     logfire_instance = logfire_instance.with_settings(custom_scope_suffix='print')
     scrubber = logfire_instance.config.scrubber
+    inspect_args = logfire_instance.config.inspect_arguments
 
     def _instrumented_print(*args: Any, sep: str | None = None, **kwargs: Any) -> None:
         """The wrapper function that will replace builtins.print."""
@@ -39,19 +40,24 @@ def instrument_print(logfire_instance: Logfire) -> AbstractContextManager[None]:
             sep = ' '
 
         with handle_internal_errors:
-            frame = inspect.currentframe()
-            assert frame, 'Could not get current frame'
-            frame = frame.f_back
-            assert frame, 'Could not get caller frame'
-
-            inspector = PrintArgumentsInspector(frame)
-            call_node = inspector.get_call_node()
             value_cleaner = MessageValueCleaner(scrubber, check_keys=True)
             attributes: dict[str, Any]
+            call_node = None
+            inspector = None
+            if inspect_args:
+                frame = inspect.currentframe()
+                assert frame, 'Could not get current frame'
+                frame = frame.f_back
+                assert frame, 'Could not get caller frame'
+
+                inspector = PrintArgumentsInspector(frame)
+                call_node = inspector.get_call_node()
+
             if call_node is None:
                 attributes = {FALLBACK_ATTRIBUTE_KEY: args}
                 message_parts = [value_cleaner.clean_value(FALLBACK_ATTRIBUTE_KEY, str(arg)) for arg in args]
             else:
+                assert inspector
                 attributes, message_parts = _get_magic_attributes(call_node, args, inspector.ex.source, value_cleaner)
             attributes[ATTRIBUTES_MESSAGE_KEY] = sep.join(message_parts)
             attributes.update(value_cleaner.extra_attrs())

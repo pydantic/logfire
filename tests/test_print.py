@@ -1,4 +1,5 @@
 import sys
+from typing import Any
 
 import pytest
 from inline_snapshot import snapshot
@@ -227,3 +228,78 @@ Failed to introspect calling code. Please report this issue to Logfire. Using `l
             print(local_var, set([]))  # type: ignore
 
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == expected_spans
+
+
+def test_instrument_print_no_inspect_args(
+    exporter: TestExporter, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]
+) -> None:
+    config_kwargs['inspect_arguments'] = False
+    logfire.configure(**config_kwargs)
+    with logfire.instrument_print():
+        x = 1
+        y = 2
+        z = 3
+        lst = [4, 5]
+        lst2 = [6, 7]
+        print(x, *lst, y, *lst2, z, sep=', ')
+        password = 'hunter2'
+        hunter = 'my api key'
+        print('Secret', password, hunter)
+        print()
+
+    assert capsys.readouterr().out == snapshot("""\
+1, 4, 5, 2, 6, 7, 3
+Secret hunter2 my api key
+
+""")
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'print',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'print',
+                    'logfire.msg': '1, 4, 5, 2, 6, 7, 3',
+                    'code.filepath': 'test_print.py',
+                    'code.function': 'test_instrument_print_no_inspect_args',
+                    'code.lineno': 123,
+                    'logfire.print_args': [1, 4, 5, 2, 6, 7, 3],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'logfire.print_args': {'type': 'array', 'x-python-datatype': 'tuple'}},
+                    },
+                },
+            },
+            {
+                'name': 'print',
+                'context': {'trace_id': 2, 'span_id': 2, 'is_remote': False},
+                'parent': None,
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'print',
+                    'logfire.msg': "Secret hunter2 [Scrubbed due to 'api key']",
+                    'code.filepath': 'test_print.py',
+                    'code.function': 'test_instrument_print_no_inspect_args',
+                    'code.lineno': 123,
+                    'logfire.print_args': ['Secret', 'hunter2', "[Scrubbed due to 'api key']"],
+                    'logfire.scrubbed': [
+                        {'path': ['message', 'logfire.print_args'], 'matched_substring': 'api key'},
+                        {'path': ['attributes', 'logfire.print_args', 2], 'matched_substring': 'api key'},
+                    ],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'logfire.print_args': {'type': 'array', 'x-python-datatype': 'tuple'}},
+                    },
+                },
+            },
+        ]
+    )
