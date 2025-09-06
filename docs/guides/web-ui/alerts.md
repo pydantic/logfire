@@ -1,10 +1,4 @@
-!!! warning "Alerts in Beta"
-    The Alerts feature is still under construction, it could break or behave in unexpected ways.
-
-    Please [create an issue](https://github.com/pydantic/logfire/issues/new/choose){:target="\_blank"}
-    if you find bugs, get frustrated, or have questions.
-
-With **Logfire**, you can set up alerts to notify you when certain conditions are met.
+With **Logfire**, use Alerts to notify you when certain conditions are met.
 
 ![Logfire alerts screen](../../images/guide/browser-alerts-full.png)
 
@@ -50,11 +44,11 @@ After filling in the form, click the **Create alert** button. And... Alert creat
 
 After creating an alert, you'll be redirected to the alerts' list. There you can see the alerts you've created and their status.
 
-If the query was not matched in the last time window, you'll see a 0 in the **Matches** column, and a green circle next to the alert name.
+If the query was not matched in the last time window, you'll see **no matches** next to the alert name, and no results in the histogram table of the selected time period.
 
 ![Alerts list](../../images/guide/browser-alerts-no-error.png)
 
-Otherwise, you'll see the number of matches and a red circle.
+Otherwise, you'll see the number of matches highlighted in orange.
 
 ![Alerts list with error](../../images/guide/browser-alerts-error.png)
 
