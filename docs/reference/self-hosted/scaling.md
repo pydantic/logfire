@@ -51,8 +51,10 @@ Each service can have standard kubernetes replicas, resource limits and autoscal
   autoscaling:
     minReplicas: 2
     maxReplicas: 4
-    memAverage: 65
-    cpuAverage: 20
+    hpa:
+      enabled: true
+      memAverage: 65
+      cpuAverage: 20
   # -- POD Disruption Budget
   pdb:
     maxUnavailable: 1
@@ -78,8 +80,10 @@ logfire-backend:
   autoscaling:
     minReplicas: 2
     maxReplicas: 4
-    memAverage: 65
-    cpuAverage: 20
+    hpa:
+      enabled: true
+      memAverage: 65
+      cpuAverage: 20
 
 logfire-ff-query-api:
   replicas: 2
@@ -89,21 +93,25 @@ logfire-ff-query-api:
   autoscaling:
     minReplicas: 2
     maxReplicas: 8
-    memAverage: 65
-    cpuAverage: 20
+    hpa:
+      enabled: true
+      memAverage: 65
+      cpuAverage: 20
 
-logfire-ff-cache:
-  replicas: 2
-  cacheStorage: "256Gi"
+logfire-ff-cache-byte:
+  replicas: 1
   resources:
     cpu: "4"
     memory: "8Gi"
+  scratchVolume:
+    storageClassName: my-storage-class
+    storage: 256Gi
 
-logfire-ff-conhash-cache:
+logfire-ff-cache-ipc:
   replicas: 2
   resources:
-    cpu: "1"
-    memory: "1Gi"
+    cpu: "4"
+    memory: "8Gi"
 
 logfire-ff-ingest:
   volumeClaimTemplates:
@@ -113,10 +121,24 @@ logfire-ff-ingest:
     cpu: "2"
     memory: "4Gi"
   autoscaling:
-    minReplicas: 6
+    minReplicas: 2
     maxReplicas: 24
-    memAverage: 25
-    cpuAverage: 15
+    hpa:
+      enabled: true
+      memAverage: 25
+      cpuAverage: 40
+
+logfire-ff-ingest-processor:
+  resources:
+    cpu: "2"
+    memory: "4Gi"
+  autoscaling:
+    minReplicas: 2
+    maxReplicas: 24
+    hpa:
+      enabled: true
+      memAverage: 40
+      cpuAverage: 60
 
 logfire-ff-compaction-worker:
   replicas: 2
@@ -126,8 +148,10 @@ logfire-ff-compaction-worker:
   autoscaling:
     minReplicas: 2
     maxReplicas: 4
-    memAverage: 50
-    cpuAverage: 50
+    hpa:
+      enabled: true
+      memAverage: 50
+      cpuAverage: 50
 
 logfire-ff-maintenance-worker:
   replicas: 2
@@ -137,6 +161,8 @@ logfire-ff-maintenance-worker:
   autoscaling:
     minReplicas: 2
     maxReplicas: 4
-    memAverage: 50
-    cpuAverage: 50
+    hpa:
+      enabled: true
+      memAverage: 50
+      cpuAverage: 50
 ```
