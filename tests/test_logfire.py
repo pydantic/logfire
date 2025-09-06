@@ -3514,6 +3514,13 @@ def test_warn_if_not_initialized():
         with pytest.warns(LogfireNotConfiguredWarning) as warnings_list:
             config.warn_if_not_initialized('Should warn with empty env var')
 
+            assert str(warnings_list[0].message) == (
+                'Should warn with empty env var until `logfire.configure()` has been called. '
+                'Set the environment variable LOGFIRE_IGNORE_NO_CONFIG=1 or add ignore_no_config=true in pyproject.toml to suppress this warning.'
+            )
+            logfire_warnings = [w for w in warnings_list if issubclass(w.category, LogfireNotConfiguredWarning)]
+            assert len(logfire_warnings) == 1
+
     config.initialize()
     with warnings.catch_warnings(record=True) as warning_list:
         warnings.simplefilter('always')
