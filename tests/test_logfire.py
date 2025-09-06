@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import inspect
+import os
 import re
 import sys
+import warnings
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
@@ -3480,36 +3482,33 @@ def test_min_level(exporter: TestExporter, config_kwargs: dict[str, Any]) -> Non
 
 def test_warn_if_not_initialized():
     """Test that warnings are properly issued when logfire is not initialized."""
-    import os
-    import warnings
-    from unittest.mock import patch
 
     config = LogfireConfig()
 
     with pytest.warns(LogfireNotConfiguredWarning) as warnings_list:
         config.warn_if_not_initialized('Test message')
 
-    assert str(warnings_list[0].message) == (
-        'Test message until `logfire.configure()` has been called. '
-        'Set the environment variable LOGFIRE_IGNORE_NO_CONFIG=1 or add ignore_no_config=true in pyproject.toml to suppress this warning.'
-    )
+        assert str(warnings_list[0].message) == (
+            'Test message until `logfire.configure()` has been called. '
+            'Set the environment variable LOGFIRE_IGNORE_NO_CONFIG=1 or add ignore_no_config=true in pyproject.toml to suppress this warning.'
+        )
 
     with patch.dict(os.environ, {'LOGFIRE_IGNORE_NO_CONFIG': '1'}):
         with warnings.catch_warnings(record=True) as warning_list:
             warnings.simplefilter('always')
             config.warn_if_not_initialized('Should not warn with env var')
 
-        logfire_warnings = [w for w in warning_list if issubclass(w.category, LogfireNotConfiguredWarning)]
-        assert len(logfire_warnings) == 0
+            logfire_warnings = [w for w in warning_list if issubclass(w.category, LogfireNotConfiguredWarning)]
+            assert len(logfire_warnings) == 0
 
     with patch.dict(os.environ, {'LOGFIRE_IGNORE_NO_CONFIG': '0'}):
         with pytest.warns(LogfireNotConfiguredWarning) as warnings_list:
             config.warn_if_not_initialized('Should warn with env var 0')
 
-        assert str(warnings_list[0].message) == (
-            'Should warn with env var 0 until `logfire.configure()` has been called. '
-            'Set the environment variable LOGFIRE_IGNORE_NO_CONFIG=1 or add ignore_no_config=true in pyproject.toml to suppress this warning.'
-        )
+            assert str(warnings_list[0].message) == (
+                'Should warn with env var 0 until `logfire.configure()` has been called. '
+                'Set the environment variable LOGFIRE_IGNORE_NO_CONFIG=1 or add ignore_no_config=true in pyproject.toml to suppress this warning.'
+            )
 
     with patch.dict(os.environ, {'LOGFIRE_IGNORE_NO_CONFIG': ''}):
         with pytest.warns(LogfireNotConfiguredWarning) as warnings_list:
@@ -3519,14 +3518,13 @@ def test_warn_if_not_initialized():
     with warnings.catch_warnings(record=True) as warning_list:
         warnings.simplefilter('always')
 
-    logfire_warnings = [w for w in warning_list if issubclass(w.category, LogfireNotConfiguredWarning)]
-    assert len(logfire_warnings) == 0
+        logfire_warnings = [w for w in warning_list if issubclass(w.category, LogfireNotConfiguredWarning)]
+        assert len(logfire_warnings) == 0
 
 
 def test_warn_if_not_initialized_with_file_config():
     """Test that warnings are suppressed when ignore_no_config is set in config file."""
     import tempfile
-    import warnings
     from pathlib import Path
 
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -3540,8 +3538,8 @@ def test_warn_if_not_initialized_with_file_config():
             warnings.simplefilter('always')
             config.warn_if_not_initialized('Should not warn due to config file')
 
-        logfire_warnings = [w for w in warning_list if issubclass(w.category, LogfireNotConfiguredWarning)]
-        assert len(logfire_warnings) == 0
+            logfire_warnings = [w for w in warning_list if issubclass(w.category, LogfireNotConfiguredWarning)]
+            assert len(logfire_warnings) == 0
 
 
 def test_warn_if_not_initialized_category():
@@ -3551,5 +3549,5 @@ def test_warn_if_not_initialized_category():
     with pytest.warns(LogfireNotConfiguredWarning) as warnings_list:
         config.warn_if_not_initialized('Test message')
 
-    assert warnings_list[0].category == LogfireNotConfiguredWarning
-    assert issubclass(LogfireNotConfiguredWarning, UserWarning)
+        assert warnings_list[0].category == LogfireNotConfiguredWarning
+        assert issubclass(LogfireNotConfiguredWarning, UserWarning)

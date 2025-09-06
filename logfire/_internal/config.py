@@ -1198,7 +1198,7 @@ class LogfireConfig(_LogfireConfigData):
 
     def warn_if_not_initialized(self, message: str):
         ignore_no_config_env = os.getenv('LOGFIRE_IGNORE_NO_CONFIG')
-        ignore_no_config = (ignore_no_config_env and ignore_no_config_env == '1') or self.ignore_no_config
+        ignore_no_config = (ignore_no_config_env == '1') or self.ignore_no_config
         if not self._initialized and not ignore_no_config:
             warn_at_user_stacklevel(
                 f'{message} until `logfire.configure()` has been called. '
