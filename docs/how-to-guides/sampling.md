@@ -246,10 +246,10 @@ uvicorn.run(app)
 ```
 
 A workaround is to explicitly put the new spans in their own trace using [
-`attach_context`][logfire.propagate.attach_context]:
+`attach_context`][logfire.attach_context]:
 
 ```python
-from logfire.propagate import attach_context
+from logfire import attach_context
 
 
 async def background_task():
@@ -326,7 +326,7 @@ for i in range(5):
 for i in range(270):
     with logfire.span('include me minimally'):
         logfire.info(f'minimal sample {i}')
-        
+
 with logfire.span('exclude me'):
     logfire.info('excluded child')
 ```

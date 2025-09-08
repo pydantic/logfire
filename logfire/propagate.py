@@ -38,7 +38,7 @@ def get_context() -> ContextCarrier:
     Usage:
 
     ```py
-    from logfire.propagate import get_context, attach_context
+    from logfire import get_context, attach_context
 
     logfire_context = get_context()
 
@@ -52,7 +52,7 @@ def get_context() -> ContextCarrier:
     You could also inject context into an existing mapping like headers with:
 
     ```py
-    from logfire.propagate import get_context
+    from logfire import get_context
 
     existing_headers = {'X-Foobar': 'baz'}
     existing_headers.update(get_context())

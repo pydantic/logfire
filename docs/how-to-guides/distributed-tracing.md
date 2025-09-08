@@ -5,7 +5,7 @@
 **Logfire** provides a thin wrapper around the OpenTelemetry context propagation API to make manual distributed tracing easier. You shouldn't usually need to do this yourself, but it demonstrates the concept nicely. Here's an example:
 
 ```python
-from logfire.propagate import attach_context, get_context
+from logfire import attach_context, get_context
 import logfire
 
 logfire.configure()
@@ -78,4 +78,4 @@ By default, **Logfire** warns you when trace context is extracted, e.g. when ser
 - Setting to `False` will prevent trace context from being extracted. This is recommended for web services exposed to the public internet. You can still attach/inject context to propagate to other services and create distributed traces with the web service as the root.
 - Setting to `True` implies that the context propagation is intentional and will silence the warning.
 
-The `distributed_tracing` configuration (including the warning by default) only applies when the raw OpenTelemetry API is used to extract context, as this is typically done by third-party libraries. By default, [`logfire.propagate.attach_context`][logfire.propagate.attach_context] assumes that context propagation is intended by the application. If you are writing a library, use `attach_context(context, third_party=True)` to respect the `distributed_tracing` configuration.
+The `distributed_tracing` configuration (including the warning by default) only applies when the raw OpenTelemetry API is used to extract context, as this is typically done by third-party libraries. By default, [`logfire.attach_context`][logfire.attach_context] assumes that context propagation is intended by the application. If you are writing a library, use `attach_context(context, third_party=True)` to respect the `distributed_tracing` configuration.
