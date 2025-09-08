@@ -23,9 +23,8 @@ try:
     from pydantic_ai import Agent
     from pydantic_ai.mcp import MCPServer
     from pydantic_ai.models.mcp_sampling import MCPSamplingModel
-except ImportError:
-    if TYPE_CHECKING:
-        assert False
+except Exception:
+    assert not TYPE_CHECKING
 
 
 pytestmark = [
