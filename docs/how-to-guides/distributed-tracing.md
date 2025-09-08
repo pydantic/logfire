@@ -5,18 +5,17 @@
 **Logfire** provides a thin wrapper around the OpenTelemetry context propagation API to make manual distributed tracing easier. You shouldn't usually need to do this yourself, but it demonstrates the concept nicely. Here's an example:
 
 ```python
-from logfire import attach_context, get_context
 import logfire
 
 logfire.configure()
 
 with logfire.span('parent'):
-    ctx = get_context()
+    ctx = logfire.get_context()
 
 print(ctx)
 
 # Attach the context in another execution environment
-with attach_context(ctx):
+with logfire.attach_context(ctx):
     logfire.info('child')  # This log will be a child of the parent span.
 ```
 
