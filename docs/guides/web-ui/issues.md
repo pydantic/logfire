@@ -63,7 +63,7 @@ You can:
 
 ### Create a new channel:
 
-1. Go to **Settings*** settings on the **Issues** page 
+1. Go to **Settings** settings on the **Issues** page 
 2. Click **Add another channel**
 3. Enter a channel name and webhook URL
 4. Test the channel before saving
