@@ -249,13 +249,13 @@ A workaround is to explicitly put the new spans in their own trace using [
 `attach_context`][logfire.attach_context]:
 
 ```python
-from logfire import attach_context
+import logfire
 
 
 async def background_task():
    # `attach_context({})` forgets existing context
    # so that spans within start a new trace.
-   with attach_context({}):
+   with logfire.attach_context({}):
       with logfire.span('new trace'):
          await asyncio.sleep(0.2)
          logfire.info('background')
