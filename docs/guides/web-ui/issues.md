@@ -77,7 +77,7 @@ Notifications are sent when new issues open and when resolved issues reopen. Ign
 
 ### Bulk Actions
 
-To select multiple issues at once, hold down `shift` or `cmd` (macOS) / `cntl` (windows). 
+To select multiple issues at once, hold down `shift` or `cmd` (macOS) / `ctrl` (windows). 
 
 After selecting more than one issue you can:
 
