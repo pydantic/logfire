@@ -6,8 +6,6 @@ from contextlib import contextmanager, nullcontext
 from typing import Any, ContextManager, Literal, TYPE_CHECKING, Sequence
 from unittest.mock import MagicMock
 
-from logfire.propagate import ContextCarrier
-
 try:
     logfire_module = importlib.import_module('logfire')
     sys.modules[__name__] = logfire_module
@@ -17,6 +15,7 @@ except ImportError:
         LevelName = Literal['trace', 'debug', 'info', 'notice', 'warn', 'warning', 'error', 'fatal']
         VERSION = '0.0.0'
         METRICS_PREFERRED_TEMPORALITY = {}
+        ContextCarrier = Mapping[str, Any]
 
         def configure(*args, **kwargs): ...
 
