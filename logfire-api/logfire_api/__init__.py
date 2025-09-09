@@ -249,7 +249,8 @@ except ImportError:
         shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
         suppress_scopes = DEFAULT_LOGFIRE_INSTANCE.suppress_scopes
 
-        def loguru_handler() -> dict[str, Any]: ...
+        def loguru_handler() -> dict[str, Any]:
+            return {}
 
         def no_auto_trace(x):
             return x
@@ -297,12 +298,14 @@ except ImportError:
             """Show versions of logfire, OS and related packages."""
             return 'logfire_info() is not implement by logfire-api'
 
-        def get_baggage(*args, **kwargs) -> dict[str, str]:...
+        def get_baggage(*args, **kwargs) -> dict[str, str]:
+            return {}
 
         def set_baggage(*args, **kwargs) -> ContextManager[None]:
             return nullcontext()
 
-        def get_context(*args, **kwargs) -> dict[str, Any]: ...
+        def get_context(*args, **kwargs) -> dict[str, Any]:
+            return {}
 
         def attach_context(*args, **kwargs)-> ContextManager[None]:
             return nullcontext()
