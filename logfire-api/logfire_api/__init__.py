@@ -6,7 +6,6 @@ from contextlib import contextmanager, nullcontext
 from typing import Any, ContextManager, Literal, TYPE_CHECKING, Sequence
 from unittest.mock import MagicMock
 
-from logfire.propagate import ContextCarrier
 
 try:
     logfire_module = importlib.import_module('logfire')
@@ -303,8 +302,7 @@ except ImportError:
         def set_baggage(*args, **kwargs) -> ContextManager[None]:
             return nullcontext()
 
-        def get_context(*args, **kwargs) -> ContextCarrier:
-            return {}
+        def get_context(*args, **kwargs) -> dict[str, Any]: ...
 
         def attach_context(*args, **kwargs)-> ContextManager[None]:
             return nullcontext()
