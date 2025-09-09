@@ -296,11 +296,11 @@ def to_json_value(o: Any, seen: set[int]) -> JsonValue:
 
 def logfire_json_dumps(obj: Any) -> str:
     try:
-        return json.dumps(obj, default=lambda o: to_json_value(o, set()), separators=(',', ':'))
+        return json.dumps(obj, default=lambda o: to_json_value(o, set()), separators=(',', ':'), ensure_ascii=False)
     except Exception:
         # fallback to eagerly calling to_json_value to take care of object keys which are not strings
         # see https://github.com/pydantic/platform/pull/2045
-        return json.dumps(to_json_value(obj, set()), separators=(',', ':'))
+        return json.dumps(to_json_value(obj, set()), separators=(',', ':'), ensure_ascii=False)
 
 
 def is_sqlalchemy(obj: Any) -> bool:
