@@ -3494,12 +3494,7 @@ def test_warn_if_not_initialized():
         )
 
     with patch.dict(os.environ, {'LOGFIRE_IGNORE_NO_CONFIG': '1'}):
-        with warnings.catch_warnings(record=True) as warning_list:
-            warnings.simplefilter('always')
-            config.warn_if_not_initialized('Should not warn with env var')
-
-            logfire_warnings = [w for w in warning_list if issubclass(w.category, LogfireNotConfiguredWarning)]
-            assert len(logfire_warnings) == 0
+        config.warn_if_not_initialized('Should not warn with env var')
 
     with patch.dict(os.environ, {'LOGFIRE_IGNORE_NO_CONFIG': '0'}):
         with pytest.warns(LogfireNotConfiguredWarning) as warnings_list:
@@ -3518,15 +3513,7 @@ def test_warn_if_not_initialized():
                 'Should warn with empty env var until `logfire.configure()` has been called. '
                 'Set the environment variable LOGFIRE_IGNORE_NO_CONFIG=1 or add ignore_no_config=true in pyproject.toml to suppress this warning.'
             )
-            logfire_warnings = [w for w in warnings_list if issubclass(w.category, LogfireNotConfiguredWarning)]
-            assert len(logfire_warnings) == 1
-
-    config.initialize()
-    with warnings.catch_warnings(record=True) as warning_list:
-        warnings.simplefilter('always')
-
-        logfire_warnings = [w for w in warning_list if issubclass(w.category, LogfireNotConfiguredWarning)]
-        assert len(logfire_warnings) == 0
+            assert len(warnings_list) == 1
 
 
 def test_warn_if_not_initialized_with_file_config():
