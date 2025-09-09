@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from logfire.propagate import attach_context, get_context
 from logfire.sampling import SamplingOptions
 
 from ._internal.auto_trace import AutoTraceModule
@@ -169,4 +170,6 @@ __all__ = (
     'logfire_info',
     'get_baggage',
     'set_baggage',
+    'get_context',
+    'attach_context',
 )

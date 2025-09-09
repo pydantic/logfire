@@ -264,6 +264,15 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         pass
     logfire__all__.remove('set_baggage')
 
+    assert hasattr(logfire_api, 'get_context')
+    logfire_api.get_context()
+    logfire__all__.remove('get_context')
+
+    assert hasattr(logfire_api, 'attach_context')
+    with logfire_api.attach_context({'traceparent': '00-d1b9e555b056907ee20b0daebf62282c-7dcd821387246e1c-01'}):
+        pass
+    logfire__all__.remove('attach_context')
+
     # If it's not empty, it means that some of the __all__ members are not tested.
     assert logfire__all__ == set(), logfire__all__
 
