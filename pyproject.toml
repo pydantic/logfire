@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "4.3.6"
+version = "4.4.0"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.9"
 authors = [
@@ -314,6 +314,8 @@ exclude_lines = [
     'if TYPE_CHECKING:',
     'if typing.TYPE_CHECKING:',
     '@overload',
+    '@abstractmethod',
+    '@abc.abstractmethod',
     '@typing.overload',
     '\(Protocol\):$',
     'typing.assert_never',

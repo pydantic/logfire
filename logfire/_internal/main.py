@@ -810,7 +810,6 @@ class Logfire:
         self,
         *,
         tags: Sequence[str] = (),
-        stack_offset: int | None = None,
         console_log: bool | None = None,
         custom_scope_suffix: str | None = None,
     ) -> Logfire:
@@ -818,9 +817,6 @@ class Logfire:
 
         Args:
             tags: Sequence of tags to include in the log.
-            stack_offset: The stack level offset to use when collecting stack info, also affects the warning which
-                message formatting might emit, defaults to `0` which means the stack info will be collected from the
-                position where [`logfire.log`][logfire.Logfire.log] was called.
             console_log: Whether to log to the console, defaults to `True`.
             custom_scope_suffix: A custom suffix to append to `logfire.` e.g. `logfire.loguru`.
 
@@ -1291,6 +1287,29 @@ class Logfire:
 
         self._warn_if_not_initialized_for_instrumentation()
         instrument_litellm(self, **kwargs)
+
+    def instrument_print(self) -> AbstractContextManager[None]:
+        """Instrument the built-in `print` function so that calls to it are logged.
+
+        If Logfire is configured with [`inspect_arguments=True`][logfire.configure(inspect_arguments)],
+        the names of the arguments passed to `print` will be included in the log attributes
+        and will be used for scrubbing.
+
+        The fallback attribute name `logfire.print_args` will be used if:
+
+         - `inspect_arguments` is `False`
+         - Inspection fails for any reason
+         - Multiple starred arguments are used (e.g. `print(*args1, *args2)`)
+            in which case names can't be unambiguously determined.
+
+        Returns:
+            A context manager that will revert the instrumentation when exited.
+                Use of this context manager is optional.
+        """
+        from .integrations.print import instrument_print
+
+        self._warn_if_not_initialized_for_instrumentation()
+        return instrument_print(self)
 
     def instrument_asyncpg(self, **kwargs: Any) -> None:
         """Instrument the `asyncpg` module so that spans are automatically created for each query."""

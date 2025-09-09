@@ -150,6 +150,7 @@ Contrary to the previous section, this _will_ work well in Python 3.11+ because 
 - The values inside f-strings are evaluated and formatted by Logfire a second time. This means you should avoid code like `logfire.info(f'Hello {get_username()}')` if `get_username()` (or the string conversion of whatever it returns) is expensive or has side effects.
 - The first argument must be an actual f-string. `logfire.info(f'Hello {name}')` will work, but `message = f'Hello {name}'; logfire.info(message)` will not, nor will `logfire.info('Hello ' + name)`.
 - Inspecting arguments is cached so that the performance overhead of repeatedly inspecting the same f-string is minimal. However, there is a non-negligible overhead of parsing a large source file the first time arguments need to be inspected inside it. Either way, avoiding this overhead requires disabling inspecting arguments entirely, not merely avoiding f-strings.
+- If inspecting arguments is enabled, this is also used to extract attribute names from the arguments to `print()` when [`logfire.instrument_print()`][logfire.Logfire.instrument_print] is used.
 
 ## Exceptions
 

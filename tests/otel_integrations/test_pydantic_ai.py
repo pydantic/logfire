@@ -1,3 +1,4 @@
+import sys
 from typing import TYPE_CHECKING
 
 import pydantic
@@ -5,19 +6,22 @@ import pytest
 
 import logfire
 from logfire._internal.tracer import _ProxyTracer  # type: ignore
+from logfire._internal.utils import get_version
 
 try:
     from pydantic_ai import Agent
     from pydantic_ai.models.instrumented import InstrumentationSettings, InstrumentedModel
     from pydantic_ai.models.test import TestModel
 
-except (ImportError, AttributeError):
-    pytestmark = pytest.mark.skipif(
-        pydantic.__version__.startswith('2.4'),
-        reason='Requires Python 3.9 or higher and Pydantic 2.5 or higher',
-    )
-    if TYPE_CHECKING:
-        assert False
+except Exception:
+    assert not TYPE_CHECKING
+
+pytestmark = [
+    pytest.mark.skipif(sys.version_info < (3, 10), reason='Pydantic AI requires Python 3.10 or higher'),
+    pytest.mark.skipif(
+        get_version(pydantic.__version__) < get_version('2.10'), reason='Pydantic AI requires Pydantic 2.10 or higher'
+    ),
+]
 
 
 @pytest.mark.anyio
@@ -46,7 +50,7 @@ async def test_instrument_pydantic_ai():
     m = get_model(agent1)
     assert isinstance(m, InstrumentedModel)
     assert m.wrapped is model
-    assert m.instrumentation_settings.event_mode == InstrumentationSettings().event_mode == 'attributes'
+    assert m.instrumentation_settings.version == InstrumentationSettings().version
     assert isinstance(m.instrumentation_settings.tracer, _ProxyTracer)
     assert m.instrumentation_settings.tracer.provider is logfire_inst.config.get_tracer_provider()
 
@@ -54,17 +58,17 @@ async def test_instrument_pydantic_ai():
     m2 = get_model(agent2)
     assert m2 is model
 
-    # Now instrument all agents. Also use the (currently not default) event mode.
-    logfire_inst.instrument_pydantic_ai(event_mode='logs', include_binary_content=False)
+    # Now instrument all agents. Also use the (currently not default) version
+    logfire_inst.instrument_pydantic_ai(version=1, include_binary_content=False)
     m = get_model(agent1)
     assert isinstance(m, InstrumentedModel)
     # agent1 still has its own instrumentation settings which override the global ones.
-    assert m.instrumentation_settings.event_mode == InstrumentationSettings().event_mode == 'attributes'
+    assert m.instrumentation_settings.version == InstrumentationSettings().version
     assert m.instrumentation_settings.include_binary_content == InstrumentationSettings().include_binary_content
     # agent2 uses the global settings.
     m2 = get_model(agent2)
     assert isinstance(m2, InstrumentedModel)
-    assert m2.instrumentation_settings.event_mode == 'logs'
+    assert m2.instrumentation_settings.version == 1
     assert not m2.instrumentation_settings.include_binary_content
 
     # Remove the global instrumentation. agent1 remains instrumented.
