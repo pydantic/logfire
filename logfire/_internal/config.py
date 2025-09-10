@@ -921,23 +921,22 @@ class LogfireConfig(_LogfireConfigData):
                     self.advanced.base_url = self.advanced.base_url or credentials.logfire_api_url
 
                 if self.token:
-                    if credentials and self.token == credentials.token:
-                        if show_project_link:
-                            credentials.print_token_summary()
+                    if credentials and self.token == credentials.token and show_project_link:
+                        show_project_link = False
+                        credentials.print_token_summary()
+
+                    def check_token():
+                        assert self.token is not None
+                        with suppress_instrumentation():
+                            validated_credentials = self._initialize_credentials_from_token(self.token)
+                        if show_project_link and validated_credentials is not None:
+                            validated_credentials.print_token_summary()
+
+                    if emscripten:  # pragma: no cover
+                        check_token()
                     else:
-
-                        def check_token():
-                            assert self.token is not None
-                            with suppress_instrumentation():
-                                validated_credentials = self._initialize_credentials_from_token(self.token)
-                            if show_project_link and validated_credentials is not None:
-                                validated_credentials.print_token_summary()
-
-                        if emscripten:  # pragma: no cover
-                            check_token()
-                        else:
-                            thread = Thread(target=check_token, name='check_logfire_token')
-                            thread.start()
+                        thread = Thread(target=check_token, name='check_logfire_token')
+                        thread.start()
 
                     base_url = self.advanced.generate_base_url(self.token)
                     headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': self.token}
