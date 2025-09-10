@@ -897,14 +897,18 @@ class LogfireConfig(_LogfireConfigData):
                 metric_readers = list(self.metrics.additional_readers)
 
             if self.send_to_logfire:
-                credentials: LogfireCredentials | None = None
                 show_project_link: bool = self.console and self.console.show_project_link or False
 
+                try:
+                    credentials = LogfireCredentials.load_creds_file(self.data_dir)
+                except Exception:
+                    if not self.token:
+                        raise
+                    credentials = None
+                # TODO update comment
                 # try loading credentials (and thus token) from file if a token is not already available
                 # this takes the lowest priority, behind the token passed to `configure` and the environment variable
                 if not self.token:
-                    credentials = LogfireCredentials.load_creds_file(self.data_dir)
-
                     # if we still don't have a token, try initializing a new project and writing a new creds file
                     # note, we only do this if `send_to_logfire` is explicitly `True`, not 'if-token-present'
                     if self.send_to_logfire is True and credentials is None:
@@ -912,24 +916,28 @@ class LogfireConfig(_LogfireConfigData):
                         credentials = LogfireCredentials.initialize_project(client=client)
                         credentials.write_creds_file(self.data_dir)
 
-                    if credentials is not None:
-                        self.token = credentials.token
-                        self.advanced.base_url = self.advanced.base_url or credentials.logfire_api_url
+                if credentials is not None:
+                    self.token = self.token or credentials.token
+                    self.advanced.base_url = self.advanced.base_url or credentials.logfire_api_url
 
                 if self.token:
-
-                    def check_token():
-                        assert self.token is not None
-                        with suppress_instrumentation():
-                            validated_credentials = self._initialize_credentials_from_token(self.token)
-                        if show_project_link and validated_credentials is not None:
-                            validated_credentials.print_token_summary()
-
-                    if emscripten:  # pragma: no cover
-                        check_token()
+                    if credentials and self.token == credentials.token:
+                        if show_project_link:
+                            credentials.print_token_summary()
                     else:
-                        thread = Thread(target=check_token, name='check_logfire_token')
-                        thread.start()
+
+                        def check_token():
+                            assert self.token is not None
+                            with suppress_instrumentation():
+                                validated_credentials = self._initialize_credentials_from_token(self.token)
+                            if show_project_link and validated_credentials is not None:
+                                validated_credentials.print_token_summary()
+
+                        if emscripten:  # pragma: no cover
+                            check_token()
+                        else:
+                            thread = Thread(target=check_token, name='check_logfire_token')
+                            thread.start()
 
                     base_url = self.advanced.generate_base_url(self.token)
                     headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': self.token}

@@ -1114,10 +1114,6 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
             'https://logfire-api.pydantic.dev/v1/organizations/available-for-projects/',
             json=[{'organization_name': 'fake_org'}],
         )
-        request_mocker.get(
-            'https://logfire-api.pydantic.dev/v1/info',
-            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
-        )
 
         create_existing_project_request_json = {
             'project_name': 'existingprojectname',
@@ -1161,13 +1157,10 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
         )
 
         logfire.configure(send_to_logfire=True)
-
-        for request in request_mocker.request_history[:-1]:
-            assert request.headers['Authorization'] == 'fake_user_token'
-
-        # we check that fake_token is valid now when we configure the project
         wait_for_check_token_thread()
-        assert request_mocker.request_history[-1].headers['Authorization'] == 'fake_token'
+
+        for request in request_mocker.request_history:
+            assert request.headers['Authorization'] == 'fake_user_token'
 
         assert request_mocker.request_history[2].json() == create_existing_project_request_json
         assert request_mocker.request_history[3].json() == create_reserved_project_request_json
@@ -1394,13 +1387,9 @@ def test_send_to_logfire_if_token_present_in_logfire_dir(tmp_path: Path, capsys:
         """
     )
     with requests_mock.Mocker() as request_mocker:
-        request_mocker.get(
-            'https://logfire-us.pydantic.dev/v1/info',
-            json={'project_name': 'myproject', 'project_url': 'https://logfire-us.pydantic.dev'},
-        )
         configure(send_to_logfire='if-token-present', data_dir=tmp_path)
         wait_for_check_token_thread()
-        assert len(request_mocker.request_history) == 1
+        assert len(request_mocker.request_history) == 0
         assert capsys.readouterr().err == 'Logfire project URL: https://logfire-us.pydantic.dev\n'
 
 
