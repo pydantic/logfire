@@ -1161,12 +1161,15 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
         )
 
         logfire.configure(send_to_logfire=True)
+        assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
 
-        for request in request_mocker.request_history[:-1]:
+        for request in request_mocker.request_history[:5]:
             assert request.headers['Authorization'] == 'fake_user_token'
+        assert len(request_mocker.request_history) in (5, 6)
 
         # we check that fake_token is valid now when we configure the project
         wait_for_check_token_thread()
+        assert len(request_mocker.request_history) == 6
         assert request_mocker.request_history[-1].headers['Authorization'] == 'fake_token'
 
         assert request_mocker.request_history[2].json() == create_existing_project_request_json
@@ -1203,7 +1206,6 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
                 'Project initialized successfully. You will be able to view it at: fake_project_url\nPress Enter to continue',
             ),
         ]
-        assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
 
         assert json.loads((tmp_dir_cwd / '.logfire/logfire_credentials.json').read_text()) == {
             **create_project_response['json'],
@@ -1399,9 +1401,9 @@ def test_send_to_logfire_if_token_present_in_logfire_dir(tmp_path: Path, capsys:
             json={'project_name': 'myproject', 'project_url': 'https://logfire-us.pydantic.dev'},
         )
         configure(send_to_logfire='if-token-present', data_dir=tmp_path)
+        assert capsys.readouterr().err == 'Logfire project URL: https://logfire-us.pydantic.dev\n'
         wait_for_check_token_thread()
         assert len(request_mocker.request_history) == 1
-        assert capsys.readouterr().err == 'Logfire project URL: https://logfire-us.pydantic.dev\n'
 
 
 def test_configure_unknown_token_region(capsys: pytest.CaptureFixture[str]) -> None:
@@ -1422,7 +1424,51 @@ def test_load_creds_file_invalid_json_content(tmp_path: Path):
     creds_file.write_text('invalid-data')
 
     with pytest.raises(LogfireConfigError, match='Invalid credentials file:'):
-        LogfireCredentials.load_creds_file(creds_dir=tmp_path)
+        logfire.configure(data_dir=tmp_path, send_to_logfire=True)
+
+
+def test_load_creds_file_invalid_json_content_with_token_present(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    creds_file = tmp_path / 'logfire_credentials.json'
+    creds_file.write_text('invalid-data')
+
+    with patch.dict(os.environ, {'LOGFIRE_TOKEN': 'fake_token'}), requests_mock.Mocker() as request_mocker:
+        request_mocker.get(
+            'https://logfire-us.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
+        logfire.configure(data_dir=tmp_path, send_to_logfire=True)
+        wait_for_check_token_thread()
+        assert len(request_mocker.request_history) == 1
+        assert request_mocker.request_history[0].headers['Authorization'] == 'fake_token'
+        assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
+
+
+def test_load_creds_file_with_token_different_from_env(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    creds_file = tmp_path / 'logfire_credentials.json'
+    creds_file.write_text(
+        """
+        {
+            "token": "foobar",
+            "project_name": "myproject",
+            "project_url": "https://logfire-us.pydantic.dev",
+            "logfire_api_url": "https://logfire-us.pydantic.dev"
+        }
+        """
+    )
+
+    with patch.dict(os.environ, {'LOGFIRE_TOKEN': 'fake_token'}), requests_mock.Mocker() as request_mocker:
+        request_mocker.get(
+            'https://logfire-us.pydantic.dev/v1/info',
+            json={'project_name': 'myproject', 'project_url': 'fake_project_url'},
+        )
+        logfire.configure(data_dir=tmp_path, send_to_logfire=True)
+        # not 'foobar' from the creds file. The token in the env var takes precedence.
+        assert logfire.DEFAULT_LOGFIRE_INSTANCE.config.token == 'fake_token'
+
+        wait_for_check_token_thread()
+        assert len(request_mocker.request_history) == 1
+        assert request_mocker.request_history[0].headers['Authorization'] == 'fake_token'
+        assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
 
 
 def test_load_creds_file_legacy_key(tmp_path: Path):
@@ -1447,7 +1493,7 @@ def test_load_creds_file_invalid_key(tmp_path: Path):
     creds_file.write_text('{"test": "test"}')
 
     with pytest.raises(LogfireConfigError, match='Invalid credentials file:'):
-        LogfireCredentials.load_creds_file(creds_dir=tmp_path)
+        logfire.configure(data_dir=tmp_path, send_to_logfire=True)
 
 
 def test_initialize_credentials_from_token_unreachable():
