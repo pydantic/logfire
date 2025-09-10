@@ -21,7 +21,7 @@ import pytest
 from attrs import define
 from dirty_equals import IsJson, IsStr
 from inline_snapshot import snapshot
-from pydantic import AnyUrl, BaseModel, ConfigDict, FilePath, NameEmail, SecretBytes, SecretStr
+from pydantic import AnyUrl, BaseModel, ConfigDict, FilePath, NameEmail, RootModel, SecretBytes, SecretStr
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 from sqlalchemy import String, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
@@ -1378,6 +1378,42 @@ def test_to_dict(exporter: TestExporter):
             }
         ]
     )
+
+
+def test_pydantic_root_model(exporter: TestExporter):
+    class Model(BaseModel):
+        name: str
+
+    RootWithModel = RootModel[Model]
+    RootWithStr = RootModel[str]
+
+    model = Model(name='with_model')
+    root_with_model = RootWithModel(root=model)
+    root_with_str = RootWithStr('with_str')
+
+    logfire.info('hi', r=root_with_model, r2=root_with_str)
+
+    assert exporter.exported_spans_as_dict() == [
+        {
+            'name': 'hi',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1000000000,
+            'end_time': 1000000000,
+            'attributes': {
+                'logfire.span_type': 'log',
+                'logfire.level_num': 9,
+                'logfire.msg_template': 'hi',
+                'logfire.msg': 'hi',
+                'code.filepath': 'test_json_args.py',
+                'code.function': 'test_pydantic_root_model',
+                'code.lineno': 123,
+                'r': '{"name":"with_model"}',
+                'r2': '"with_str"',
+                'logfire.json_schema': '{"type":"object","properties":{"r":{"type":"object","title":"Model","x-python-datatype":"PydanticModel"},"r2":{}}}',
+            },
+        }
+    ]
 
 
 def test_mock(exporter: TestExporter):
