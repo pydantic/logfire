@@ -12,7 +12,7 @@ Evals help you systematically test and evaluate AI systems by running them again
 
 For the data model, examples and full documentation on creating and running Evals, read the [Pydantic Evals docs](https://ai.pydantic.dev/evals/)
 
-![Evals overview](../../images/guide/evals-overview.png)
+![Evals overview](../../images/guide/evals-overview.webp)
 
 ## Viewing Experiments
 
@@ -38,7 +38,7 @@ Individual experiment pages show comprehensive results including:
 - **Performance metrics** - Duration, token usage, and custom scores
 - **Evaluation scores** - Detailed scoring from all evaluators
 
-![Experiment details](../../images/guide/evals-experiment-details.png)
+![Experiment details](../../images/guide/evals-preview1.webp)
 
 ## Comparing Experiments
 
@@ -48,7 +48,7 @@ Use the experiment comparison view to analyze performance across different runs:
 2. Click **Compare selected**
 3. View side-by-side results for the same test cases
 
-![Experiment comparison](../../images/guide/evals-comparison.png)
+![Experiment comparison](../../images/guide/evals-preview2.webp)
 
 The comparison view highlights:
 
