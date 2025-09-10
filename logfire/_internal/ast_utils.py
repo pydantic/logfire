@@ -1,9 +1,17 @@
 from __future__ import annotations
 
 import ast
+import functools
+import inspect
+import sys
+import types
+import warnings
+from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any, cast
 
+import executing
 from opentelemetry.util import types as otel_types
 
 from .constants import (
@@ -134,3 +142,123 @@ class BaseTransformer(ast.NodeTransformer):
             attributes[ATTRIBUTES_SAMPLE_RATE_KEY] = sample_rate
 
         return span_name, attributes
+
+
+class CallNodeFinder(ABC):
+    """Base class for finding the `ast.Call` node corresponding to a function call in a given frame.
+
+    Uses `executing`, then falls back to a heuristic if that fails.
+    The heuristic is defined by subclasses which depends on what we're looking for,
+    but in general `executing` is expected to work.
+    Warns appropriately when things don't work.
+    Only used when `inspect_arguments=True` in `logfire.configure()`.
+    """
+
+    def __init__(self, frame: types.FrameType):
+        self.frame = frame
+        # This is where the magic happens. It has caching.
+        self.ex = executing.Source.executing(frame)
+        self.source = self.ex.source
+        self.node = self._get_call_node()
+
+    def _get_call_node(self) -> ast.Call | None:
+        if isinstance(self.ex.node, ast.Call):
+            return self.ex.node
+
+        # `executing` failed to find a node.
+        # This shouldn't happen in most cases, but it's best not to rely on it always working.
+
+        if not self.source.text:
+            # This is a very likely cause.
+            # There's nothing we could possibly do to make magic work here,
+            # and it's a clear case where the user should turn the magic off.
+            self.warn_inspect_arguments(
+                'No source code available. '
+                'This happens when running in an interactive shell, '
+                'using exec(), or running .pyc files without the source .py files.',
+            )
+            return None
+
+        msg = '`executing` failed to find a node.'
+        if sys.version_info[:2] < (3, 11):  # pragma: no cover
+            # inspect_arguments is only on by default for 3.11+ for this reason.
+            # The AST modifications made by auto-tracing
+            # mean that the bytecode doesn't match the source code seen by `executing`.
+            # In 3.11+, a different algorithm is used by `executing` which can deal with this.
+            msg += ' This may be caused by a combination of using Python < 3.11 and auto-tracing.'
+
+        # Simple fallback heuristic: check if there's only one possible call node.
+        call_nodes = [
+            node
+            for main_node in self.heuristic_main_nodes()
+            for node in ast.walk(main_node)
+            if isinstance(node, ast.Call)
+            if self.heuristic_call_node_filter(node)
+        ]
+        if len(call_nodes) != 1:
+            self.warn_inspect_arguments(msg)
+            return None
+
+        return call_nodes[0]
+
+    @abstractmethod
+    def heuristic_main_nodes(self) -> Iterator[ast.AST]:
+        """AST nodes (e.g. statements) to search for potential call nodes inside."""
+
+    @abstractmethod
+    def heuristic_call_node_filter(self, node: ast.Call) -> bool:
+        """Condition that a potential call node must satisfy to be considered a match."""
+
+    @abstractmethod
+    def warn_inspect_arguments_middle(self) -> str:
+        """Middle part of the warning message for `warn_inspect_arguments`.
+
+        Should describe the consequences of the failure.
+        """
+
+    def warn_inspect_arguments(self, msg: str):
+        import logfire
+
+        msg = (
+            f'Failed to introspect calling code. Please report this issue to Logfire. '
+            f'{self.warn_inspect_arguments_middle()} '
+            f'Set inspect_arguments=False in logfire.configure() to suppress this warning. The problem was:\n'
+            f'{msg}'
+        )
+        warnings.warn(msg, InspectArgumentsFailedWarning, stacklevel=self.get_stacklevel())
+        logfire.warn(msg)
+
+    def get_stacklevel(self):
+        # Get a stacklevel which can be passed to warn_inspect_arguments
+        # which points at the given frame, where the f-string was found.
+        current_frame = inspect.currentframe()
+        stacklevel = 0
+        while current_frame:  # pragma: no branch
+            if current_frame == self.frame:
+                break
+            stacklevel += 1
+            current_frame = current_frame.f_back
+        return stacklevel
+
+
+class InspectArgumentsFailedWarning(Warning):
+    pass
+
+
+@functools.lru_cache(maxsize=1024)
+def get_node_source_text(node: ast.AST, ex_source: executing.Source):
+    """Returns some Python source code representing `node`.
+
+    Preferably the actual original code given by `ast.get_source_segment`,
+    but falling back to `ast.unparse(node)` if the former is incorrect.
+    This happens sometimes due to Python bugs (especially for older Python versions)
+    in the source positions of AST nodes inside f-strings.
+    """
+    source_unparsed = ast.unparse(node)
+    source_segment = ast.get_source_segment(ex_source.text, node) or ''
+    try:
+        # Verify that the source segment is correct by checking that the AST is equivalent to what we have.
+        source_segment_unparsed = ast.unparse(ast.parse(source_segment, mode='eval'))
+    except Exception:  # probably SyntaxError, but ast.parse can raise other exceptions too
+        source_segment_unparsed = ''
+    return source_segment if source_unparsed == source_segment_unparsed else source_unparsed
