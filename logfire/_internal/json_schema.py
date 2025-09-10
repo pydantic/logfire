@@ -286,6 +286,11 @@ def _pydantic_model_schema(obj: Any, seen: set[int]) -> JsonDict:
     import pydantic
 
     assert isinstance(obj, pydantic.BaseModel)
+
+    # generate the schema for the actual wrapped object in the model
+    if isinstance(obj, pydantic.RootModel):
+        return create_json_schema(obj.root, seen)  # type: ignore
+
     try:
         fields = type(obj).model_fields
         extra = obj.model_extra or {}
