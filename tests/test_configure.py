@@ -1163,11 +1163,13 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
         logfire.configure(send_to_logfire=True)
         assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
 
-        for request in request_mocker.request_history:
+        for request in request_mocker.request_history[:5]:
             assert request.headers['Authorization'] == 'fake_user_token'
+        assert len(request_mocker.request_history) in (5, 6)
 
         # we check that fake_token is valid now when we configure the project
         wait_for_check_token_thread()
+        assert len(request_mocker.request_history) == 6
         assert request_mocker.request_history[-1].headers['Authorization'] == 'fake_token'
 
         assert request_mocker.request_history[2].json() == create_existing_project_request_json
