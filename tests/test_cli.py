@@ -545,7 +545,10 @@ def test_projects_new_with_project_name_and_org(
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
-        m.get('https://logfire-us.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
+        )
         create_project_response = {
             'json': {
                 'project_name': 'myproject',
@@ -588,7 +591,10 @@ def test_projects_new_with_project_name_without_org(
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
-        m.get('https://logfire-us.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
+        )
         create_project_response = {
             'json': {
                 'project_name': 'myproject',
@@ -633,7 +639,10 @@ def test_projects_new_with_project_name_and_wrong_org(
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
-        m.get('https://logfire-us.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
+        )
         create_project_response = {
             'json': {
                 'project_name': 'myproject',
@@ -676,7 +685,10 @@ def test_projects_new_with_project_name_and_default_org(
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
-        m.get('https://logfire-us.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
+        )
         create_project_response = {
             'json': {
                 'project_name': 'myproject',
@@ -718,7 +730,7 @@ def test_projects_new_with_project_name_multiple_organizations(
         stack.enter_context(m)
         m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
         m.get(
-            'https://logfire-us.pydantic.dev/v1/organizations/',
+            'https://logfire-us.pydantic.dev/v1/organizations/available-for-projects/',
             json=[{'organization_name': 'fake_org'}, {'organization_name': 'fake_default_org'}],
         )
         m.get(
@@ -774,7 +786,7 @@ def test_projects_new_with_project_name_and_default_org_multiple_organizations(
         stack.enter_context(m)
         m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
         m.get(
-            'https://logfire-us.pydantic.dev/v1/organizations/',
+            'https://logfire-us.pydantic.dev/v1/organizations/available-for-projects/',
             json=[{'organization_name': 'fake_org'}, {'organization_name': 'fake_default_org'}],
         )
         m.get(
@@ -822,7 +834,10 @@ def test_projects_new_without_project_name(
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
-        m.get('https://logfire-us.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
+        )
         create_project_response = {
             'json': {
                 'project_name': 'myproject',
@@ -867,7 +882,10 @@ def test_projects_new_invalid_project_name(
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
-        m.get('https://logfire-us.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
+        )
         create_project_response = {
             'json': {
                 'project_name': 'myproject',
@@ -917,7 +935,10 @@ def test_projects_new_error(tmp_dir_cwd: Path, default_credentials: Path) -> Non
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
-        m.get('https://logfire-us.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
+        )
         create_project_response = {
             'json': {
                 'project_name': 'myproject',
@@ -952,7 +973,10 @@ def test_projects_without_project_name_without_org(
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
-        m.get('https://logfire-us.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
+        )
         create_project_response = {
             'json': {
                 'project_name': 'myproject',
@@ -996,7 +1020,7 @@ def test_projects_new_get_organizations_error(tmp_dir_cwd: Path, default_credent
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        m.get('https://logfire-us.pydantic.dev/v1/organizations/', text='Error', status_code=500)
+        m.get('https://logfire-us.pydantic.dev/v1/organizations/available-for-projects/', text='Error', status_code=500)
 
         with pytest.raises(LogfireConfigError, match='Error retrieving list of organizations'):
             main(['projects', 'new'])
@@ -1017,7 +1041,7 @@ def test_projects_new_get_user_info_error(tmp_dir_cwd: Path, default_credentials
         stack.enter_context(m)
         m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
         m.get(
-            'https://logfire-us.pydantic.dev/v1/organizations/',
+            'https://logfire-us.pydantic.dev/v1/organizations/available-for-projects/',
             json=[{'organization_name': 'fake_org'}, {'organization_name': 'fake_default_org'}],
         )
         m.get('https://logfire-us.pydantic.dev/v1/account/me', text='Error', status_code=500)
@@ -1041,7 +1065,10 @@ def test_projects_new_create_project_error(tmp_dir_cwd: Path, default_credential
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
-        m.get('https://logfire-us.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
+        )
         m.post('https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects', text='Error', status_code=500)
 
         with pytest.raises(LogfireConfigError, match='Error creating new project'):
