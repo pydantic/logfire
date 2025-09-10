@@ -12,9 +12,9 @@ Evals help you systematically test and evaluate AI systems by running them again
 
 For the data model, examples and full documentation on creating and running Evals, read the [Pydantic Evals docs](https://ai.pydantic.dev/evals/)
 
-![Evals overview](../../images/guide/evals-overview.webp)
-
 ## Viewing Experiments
+
+![Evals overview](../../images/guide/evals-overview.webp)
 
 The Evals tab shows all evaluation experiments for your project. Each experiment represents a single run of a dataset against a task function.
 
