@@ -1411,7 +1411,7 @@ def test_load_creds_file_invalid_json_content(tmp_path: Path):
     creds_file.write_text('invalid-data')
 
     with pytest.raises(LogfireConfigError, match='Invalid credentials file:'):
-        LogfireCredentials.load_creds_file(creds_dir=tmp_path)
+        logfire.configure(data_dir=tmp_path, send_to_logfire=True)
 
 
 def test_load_creds_file_legacy_key(tmp_path: Path):
@@ -1436,7 +1436,7 @@ def test_load_creds_file_invalid_key(tmp_path: Path):
     creds_file.write_text('{"test": "test"}')
 
     with pytest.raises(LogfireConfigError, match='Invalid credentials file:'):
-        LogfireCredentials.load_creds_file(creds_dir=tmp_path)
+        logfire.configure(data_dir=tmp_path, send_to_logfire=True)
 
 
 def test_initialize_credentials_from_token_unreachable():
