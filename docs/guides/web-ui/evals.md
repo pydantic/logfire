@@ -68,33 +68,6 @@ Every evaluation experiment generates detailed OpenTelemetry traces that appear 
 
 Navigate from experiment results to full trace details using the span links.
 
-## Running Evaluations
-
-To generate experiments that appear in Logfire, you need to:
-
-1. **Install Pydantic Evals** with Logfire support:
-   ```bash
-   pip install 'pydantic-evals[logfire]'
-   ```
-
-2. **Configure Logfire** in your evaluation code:
-   ```python
-   import logfire
-   
-   logfire.configure(
-       send_to_logfire='if-token-present',
-       environment='development',
-       service_name='evals',
-   )
-   ```
-
-3. **Run your evaluations** using Pydantic Evals:
-   ```python
-   report = dataset.evaluate_sync(my_task_function)
-   ```
-
-For complete implementation details, see the [Pydantic Evals documentation](https://docs.pydantic.dev/pydantic-ai/evals/).
-
 ## Best Practices
 
 ### Organizing Experiments
@@ -114,22 +87,5 @@ For complete implementation details, see the [Pydantic Evals documentation](http
 - Share experiment links with team members for collaborative review
 - Use the trace integration to debug specific test case failures
 - Document significant findings in your evaluation dataset metadata
-
-## Troubleshooting
-
-### Experiments Not Appearing
-
-If your evaluations aren't showing up in Logfire:
-
-- Verify Logfire is configured correctly in your evaluation code
-- Check that `LOGFIRE_TOKEN` is set in your environment
-- Ensure you're running evaluations with `logfire.configure()` called
-- Confirm the project matches your Logfire project settings
-
-### Missing Trace Data
-
-- Verify your task functions are properly instrumented
-- Check that OpenTelemetry integration is working in your application
-- Ensure evaluator code isn't suppressing trace generation
 
 For implementation help, refer to the [Pydantic Evals setup guide](https://docs.pydantic.dev/pydantic-ai/evals/#installation) and [Logfire integration documentation](https://docs.pydantic.dev/pydantic-ai/evals/#integration-with-logfire).
