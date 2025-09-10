@@ -3,6 +3,7 @@
 View and analyze your evaluation results in Pydantic Logfire's web interface. Evals provides observability into how your AI systems perform across different test cases and experiments over time.
 
 !!! note "Code-First Evaluation"
+
     Evals are created and run using the [Pydantic Evals](https://docs.pydantic.dev/pydantic-ai/evals/) a sub-package of Pydantic AI. Logfire serves as a read-only observability layer where you can view and compare results.
 
 ## What are Evals?
