@@ -124,10 +124,10 @@ _Click twice on any sort to reverse the order_
 
 ### When to Resolve vs Ignore
 
-**Resolve** when:
-- You've fixed the underlying problem
-- You want to be notified if the issue returns
-- The exception indicates a real bug or problem
+**Resolve** when:  
+- You've fixed the underlying problem  
+- You want to be notified if the issue returns  
+- The exception indicates a real bug or problem  
 
 **Ignore** when:
 - The exception is expected behavior (e.g., user input validation errors)
