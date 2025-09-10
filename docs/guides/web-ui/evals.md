@@ -4,7 +4,7 @@ View and analyze your evaluation results in Pydantic Logfire's web interface. Ev
 
 !!! note "Code-First Evaluation"
 
-    Evals are created and run using the [Pydantic Evals](https://docs.pydantic.dev/pydantic-ai/evals/) a sub-package of Pydantic AI. Logfire serves as a read-only observability layer where you can view and compare results.
+    Evals are created and run using the [Pydantic Evals](https://ai.pydantic.dev/evals/) a sub-package of Pydantic AI. Logfire serves as a read-only observability layer where you can view and compare results.
 
 ## What are Evals?
 
@@ -88,4 +88,4 @@ Navigate from experiment results to full trace details using the span links.
 - Use the trace integration to debug specific test case failures
 - Document significant findings in your evaluation dataset metadata
 
-For implementation help, refer to the [Pydantic Evals setup guide](https://docs.pydantic.dev/pydantic-ai/evals/#installation) and [Logfire integration documentation](https://docs.pydantic.dev/pydantic-ai/evals/#integration-with-logfire).
+For implementation help, refer to the [Pydantic Evals installation guide](https://ai.pydantic.dev/evals/#installation).
