@@ -66,6 +66,7 @@ celery = ["opentelemetry-instrumentation-celery >= 0.42b0"]
 django = ["opentelemetry-instrumentation-django >= 0.42b0", "opentelemetry-instrumentation-asgi >= 0.42b0"]
 fastapi = ["opentelemetry-instrumentation-fastapi >= 0.42b0"]
 flask = ["opentelemetry-instrumentation-flask >= 0.42b0"]
+grpc = ["opentelemetry-exporter-otlp-proto-grpc >= 1.21.0, < 1.37.0"]
 httpx = ["opentelemetry-instrumentation-httpx >= 0.42b0"]
 starlette = ["opentelemetry-instrumentation-starlette >= 0.42b0"]
 sqlalchemy = ["opentelemetry-instrumentation-sqlalchemy >= 0.42b0"]
@@ -113,6 +114,7 @@ dev = [
     "pandas>=2.1.2",
     "attrs >= 23.1.0",
     "openai >= 1.58.1",
+    "opentelemetry-exporter-otlp-proto-grpc >= 1.21.0, < 1.37.0",
     "opentelemetry-instrumentation-aiohttp-client>=0.42b0",
     "opentelemetry-instrumentation-aiohttp-server>=0.55b0",
     "opentelemetry-instrumentation-asgi>=0.42b0",
