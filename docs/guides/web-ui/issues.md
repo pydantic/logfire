@@ -129,10 +129,10 @@ _Click twice on any sort to reverse the order_
 - You want to be notified if the issue returns  
 - The exception indicates a real bug or problem  
 
-**Ignore** when:
-- The exception is expected behavior (e.g., user input validation errors)
-- Third-party service errors you can't control
-- Legacy code issues you've decided not to fix
+**Ignore** when:  
+- The exception is expected behavior (e.g., user input validation errors)  
+- Third-party service errors you can't control  
+- Legacy code issues you've decided not to fix  
 
 ### Cleanup
 
