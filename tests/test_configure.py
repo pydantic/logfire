@@ -911,7 +911,8 @@ def test_initialize_project_use_existing_project_no_projects(tmp_dir_cwd: Path, 
         stack.enter_context(request_mocker)
         request_mocker.get('https://logfire-api.pydantic.dev/v1/writable-projects/', json=[])
         request_mocker.get(
-            'https://logfire-api.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}]
+            'https://logfire-api.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
         )
         request_mocker.get(
             'https://logfire-api.pydantic.dev/v1/info',
@@ -1007,7 +1008,8 @@ def test_initialize_project_not_using_existing_project(
         request_mocker = requests_mock.Mocker()
         stack.enter_context(request_mocker)
         request_mocker.get(
-            'https://logfire-api.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}]
+            'https://logfire-api.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
         )
         request_mocker.get(
             'https://logfire-api.pydantic.dev/v1/info',
@@ -1065,7 +1067,8 @@ def test_initialize_project_not_confirming_organization(tmp_path: Path) -> None:
         request_mocker = requests_mock.Mocker()
         stack.enter_context(request_mocker)
         request_mocker.get(
-            'https://logfire-api.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}]
+            'https://logfire-api.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
         )
         request_mocker.get(
             'https://logfire-api.pydantic.dev/v1/writable-projects/',
@@ -1108,7 +1111,8 @@ def test_initialize_project_create_project(tmp_dir_cwd: Path, tmp_path: Path, ca
         stack.enter_context(request_mocker)
         request_mocker.get('https://logfire-api.pydantic.dev/v1/writable-projects/', json=[])
         request_mocker.get(
-            'https://logfire-api.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}]
+            'https://logfire-api.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
         )
         request_mocker.get(
             'https://logfire-api.pydantic.dev/v1/info',
@@ -1224,7 +1228,7 @@ def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Pat
         # request_mocker.get('https://logfire-api.pydantic.dev/v1/info', json={'project_name': 'myproject'})
         request_mocker.get('https://logfire-api.pydantic.dev/v1/writable-projects/', json=[])
         request_mocker.get(
-            'https://logfire-api.pydantic.dev/v1/organizations/',
+            'https://logfire-api.pydantic.dev/v1/organizations/available-for-projects/',
             json=[{'organization_name': 'fake_org'}, {'organization_name': 'fake_org1'}],
         )
         request_mocker.get(
