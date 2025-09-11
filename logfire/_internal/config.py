@@ -898,26 +898,47 @@ class LogfireConfig(_LogfireConfigData):
                 metric_readers = list(self.metrics.additional_readers)
 
             if self.send_to_logfire:
-                credentials: LogfireCredentials | None = None
                 show_project_link: bool = self.console and self.console.show_project_link or False
 
-                # try loading credentials (and thus token) from file if a token is not already available
-                # this takes the lowest priority, behind the token passed to `configure` and the environment variable
-                if not self.token:
+                # Try loading credentials from a file.
+                # If that works, we can use it to immediately print the project link.
+                try:
                     credentials = LogfireCredentials.load_creds_file(self.data_dir)
+                except Exception:
+                    # If we have a token configured by other means, e.g. the env, no need to worry about the creds file.
+                    if not self.token:
+                        raise
+                    credentials = None
 
-                    # if we still don't have a token, try initializing a new project and writing a new creds file
+                if not self.token and self.send_to_logfire is True and credentials is None:
+                    # If we don't have a token or credentials from a file,
+                    # try initializing a new project and writing a new creds file.
                     # note, we only do this if `send_to_logfire` is explicitly `True`, not 'if-token-present'
-                    if self.send_to_logfire is True and credentials is None:
-                        client = LogfireClient.from_url(self.advanced.base_url)
-                        credentials = LogfireCredentials.initialize_project(client=client)
-                        credentials.write_creds_file(self.data_dir)
+                    client = LogfireClient.from_url(self.advanced.base_url)
+                    credentials = LogfireCredentials.initialize_project(client=client)
+                    credentials.write_creds_file(self.data_dir)
 
-                    if credentials is not None:
-                        self.token = credentials.token
-                        self.advanced.base_url = self.advanced.base_url or credentials.logfire_api_url
+                if credentials is not None:
+                    # Get token and base_url from credentials if not already set.
+                    # This means that e.g. a token in an env var takes priority over a token in a creds file.
+                    self.token = self.token or credentials.token
+                    self.advanced.base_url = self.advanced.base_url or credentials.logfire_api_url
 
                 if self.token:
+                    if credentials and self.token == credentials.token and show_project_link:
+                        # The creds file contains the project link, so we can display it immediately.
+                        # We do this if the token comes from the creds file or if it was explicitly configured
+                        # and happens to match the creds file anyway.
+                        credentials.print_token_summary()
+                        # Don't print it again in check_token below.
+                        show_project_link = False
+
+                    # Regardless of where the token comes from, check that it's valid.
+                    # Even if it comes from a creds file, it could be revoked or expired.
+                    # If it's valid and we haven't already printed a project link, print it here.
+                    # This may happen some time later in a background thread which can be annoying,
+                    # hence we try to print it eagerly above.
+                    # But we only have the link if we have a creds file, otherwise we only know the token at this point.
 
                     def check_token():
                         assert self.token is not None
