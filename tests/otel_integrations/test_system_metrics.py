@@ -166,6 +166,9 @@ def test_full_base():
         'process.cpu.core_utilization': None,
         'process.thread.count': None,
         'process.context_switches': ['involuntary', 'voluntary'],
+        'cpython.gc.collected_objects': None,
+        'cpython.gc.collections': None,
+        'cpython.gc.uncollectable_objects': None,
     }, 'Docs and the MetricName type need to be updated if this test fails'
 
 
