@@ -248,7 +248,7 @@ def encoder_by_type() -> dict[type[Any], EncoderFunction]:
 
 def to_json_value(o: Any, seen: set[int]) -> JsonValue:
     try:
-        if isinstance(o, (str, int, bool, float, type(None))):
+        if isinstance(o, (int, float, str, bool, type(None))):
             return o
 
         if id(o) in seen:
