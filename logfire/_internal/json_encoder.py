@@ -55,6 +55,13 @@ def _to_str(o: Any, _seen: set[int]) -> str:
     return str(o)
 
 
+# def _str_encoder(o: Any, _seen: set[int]) -> str:
+#     if len(o) > 1 and o[0] == o[-1] == '"':
+#         print('string literal has double quotes! ')
+#         o = o[1:-1]
+#     return o
+
+
 def _to_repr(o: Any, _seen: set[int]) -> str:
     return repr(o)
 
@@ -189,6 +196,7 @@ EncoderFunction = Callable[[Any, 'set[int]'], JsonValue]
 @cache
 def encoder_by_type() -> dict[type[Any], EncoderFunction]:
     lookup: dict[type[Any], EncoderFunction] = {
+        # str: _str_encoder,
         set: _set_encoder,
         frozenset: _set_encoder,
         bytes: _bytes_encoder,
@@ -240,7 +248,7 @@ def encoder_by_type() -> dict[type[Any], EncoderFunction]:
 
 def to_json_value(o: Any, seen: set[int]) -> JsonValue:
     try:
-        if isinstance(o, (int, float, str, bool, type(None))):
+        if isinstance(o, (str, int, bool, float, type(None))):
             return o
 
         if id(o) in seen:

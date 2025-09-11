@@ -111,7 +111,14 @@ def create_json_schema(obj: Any, seen: set[int]) -> JsonDict:
     try:
         # cover common types first before calling `type_to_schema` to avoid the overhead of imports if not necessary
         obj_type = obj.__class__
-        if obj_type in {str, int, bool, float}:
+
+        # create a non-trivial string schema, to ensure its parsed by the formatter to remove any
+        # potential " characters surrounding the actual string value
+        if obj_type is str:
+            # print('obj_type is str!!', obj_type, obj)
+            return {'type': 'string', 'x-python-datatype': 'string'}
+
+        if obj_type in {int, bool, float}:
             return {}
 
         if id(obj) in seen:
