@@ -39,6 +39,9 @@ def test_all_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> 
     logfire.instrument_system_metrics(base='full')
     assert get_collected_metric_names(metrics_reader) == snapshot(
         [
+            'cpython.gc.collected_objects',
+            'cpython.gc.collections',
+            'cpython.gc.uncollectable_objects',
             'process.context_switches',
             'process.cpu.core_utilization',
             'process.cpu.time',

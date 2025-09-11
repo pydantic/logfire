@@ -186,8 +186,8 @@ def test_bad_dependency_route(client: TestClient, exporter: TestExporter) -> Non
                 'name': 'GET /bad_dependency_route/{good} http send response.start',
                 'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 8000000000,
-                'end_time': 9000000000,
+                'start_time': 9000000000,
+                'end_time': 10000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET /bad_dependency_route/{good} http send response.start',
@@ -202,8 +202,8 @@ def test_bad_dependency_route(client: TestClient, exporter: TestExporter) -> Non
                 'name': 'GET /bad_dependency_route/{good} http send response.body',
                 'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 10000000000,
-                'end_time': 11000000000,
+                'start_time': 11000000000,
+                'end_time': 12000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET /bad_dependency_route/{good} http send response.body',
@@ -216,7 +216,7 @@ def test_bad_dependency_route(client: TestClient, exporter: TestExporter) -> Non
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
-                'end_time': 12000000000,
+                'end_time': 13000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET /bad_dependency_route/good_value',
@@ -257,7 +257,7 @@ def test_bad_dependency_route(client: TestClient, exporter: TestExporter) -> Non
                 'events': [
                     {
                         'name': 'exception',
-                        'timestamp': 5000000000,
+                        'timestamp': 8000000000,
                         'attributes': {
                             'exception.type': 'ValueError',
                             'exception.message': 'bad dependency',
@@ -1491,8 +1491,8 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
                 'name': 'GET /exception http send response.start',
                 'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 12000000000,
-                'end_time': 13000000000,
+                'start_time': 13000000000,
+                'end_time': 14000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET /exception http send response.start',
@@ -1507,8 +1507,8 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
                 'name': 'GET /exception http send response.body',
                 'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 14000000000,
-                'end_time': 15000000000,
+                'start_time': 15000000000,
+                'end_time': 16000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET /exception http send response.body',
@@ -1521,7 +1521,7 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
-                'end_time': 16000000000,
+                'end_time': 17000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET /exception',
@@ -1561,7 +1561,7 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
                 'events': [
                     {
                         'name': 'exception',
-                        'timestamp': 9000000000,
+                        'timestamp': 12000000000,
                         'attributes': {
                             'exception.type': 'ValueError',
                             'exception.message': 'test exception',

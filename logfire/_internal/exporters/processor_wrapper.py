@@ -79,6 +79,7 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
             _tweak_asgi_send_receive_spans(span_dict)
             _tweak_sqlalchemy_connect_spans(span_dict)
             _tweak_http_spans(span_dict)
+            _tweak_fastapi_span(span_dict)
             _summarize_db_statement(span_dict)
             _set_error_level_and_status(span_dict)
             _transform_langchain_span(span_dict)
@@ -297,6 +298,28 @@ def _summarize_db_statement(span: ReadableSpanDict):
     summary = message_from_db_statement(attributes, message, span['name'])
     if summary is not None:
         span['attributes'] = {**attributes, ATTRIBUTES_MESSAGE_KEY: summary}
+
+
+def _tweak_fastapi_span(span: ReadableSpanDict):
+    scope = span['instrumentation_scope']
+
+    if not (scope and scope.name == 'opentelemetry.instrumentation.fastapi'):
+        return
+
+    events = span['events']
+    new_events: list[Event] = []
+    seen_exceptions: set[tuple[Any, Any]] = set()
+    for event in events[::-1]:
+        attrs = event.attributes
+        if event.name != 'exception' or not attrs:
+            new_events.append(event)
+            continue
+        key = (attrs.get('exception.type'), attrs.get('exception.message'))
+        if key in seen_exceptions:
+            continue
+        seen_exceptions.add(key)
+        new_events.append(event)
+    span['events'] = new_events[::-1]
 
 
 def _transform_langchain_span(span: ReadableSpanDict):
