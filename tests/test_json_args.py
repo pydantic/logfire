@@ -920,7 +920,7 @@ def test_log_sqlalchemy_class(exporter: TestExporter) -> None:
                     'code.lineno': 123,
                     'var': '{"models2":"<deferred>","id":1,"name":"test name"}',
                     'var2': '{"model":"<deferred>","id":1,"model_id":1}',
-                    'logfire.json_schema': '{"type":"object","properties":{"var":{"type":"object","title":"SAModel","x-python-datatype":"sqlalchemy"},"var2":{"type":"object","title":"SAModel2","x-python-datatype":"sqlalchemy"}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"var":{"type":"object","title":"SAModel","x-python-datatype":"sqlalchemy","properties":{"name":{"type":"string","x-python-datatype":"string"}}},"var2":{"type":"object","title":"SAModel2","x-python-datatype":"sqlalchemy"}}}',
                 },
             }
         ]
@@ -969,7 +969,7 @@ def test_log_non_scalar_complex_args(exporter: TestExporter) -> None:
                 '...'
                 'og_non_scalar_complex_args.<locals>.MyPydanticDataclass(p=20)}'
             ),
-            'logfire.json_schema': '{"type":"object","properties":{"a":{},"complex_list":{"type":"array","prefixItems":[{},{},{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel","properties":{"y":{"type":"string","format":"date-time","x-python-datatype":"datetime"}}},{"type":"object","title":"MyDataclass","x-python-datatype":"dataclass"},{"type":"object","title":"MyPydanticDataclass","x-python-datatype":"dataclass"}]},"complex_dict":{"type":"object","properties":{"model":{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel","properties":{"y":{"type":"string","format":"date-time","x-python-datatype":"datetime"}}},"dataclass":{"type":"object","title":"MyDataclass","x-python-datatype":"dataclass"},"pydantic_dataclass":{"type":"object","title":"MyPydanticDataclass","x-python-datatype":"dataclass"}}}}}',
+            'logfire.json_schema': '{"type":"object","properties":{"a":{},"complex_list":{"type":"array","prefixItems":[{"type":"string","x-python-datatype":"string"},{},{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel","properties":{"x":{"type":"string","x-python-datatype":"string"},"y":{"type":"string","format":"date-time","x-python-datatype":"datetime"}}},{"type":"object","title":"MyDataclass","x-python-datatype":"dataclass"},{"type":"object","title":"MyPydanticDataclass","x-python-datatype":"dataclass"}]},"complex_dict":{"type":"object","properties":{"k1":{"type":"string","x-python-datatype":"string"},"model":{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel","properties":{"x":{"type":"string","x-python-datatype":"string"},"y":{"type":"string","format":"date-time","x-python-datatype":"datetime"}}},"dataclass":{"type":"object","title":"MyDataclass","x-python-datatype":"dataclass"},"pydantic_dataclass":{"type":"object","title":"MyPydanticDataclass","x-python-datatype":"dataclass"}}}}}',
             'code.filepath': 'test_json_args.py',
             'code.lineno': 123,
             'code.function': 'test_log_non_scalar_complex_args',
@@ -1391,7 +1391,7 @@ def test_pydantic_root_model(exporter: TestExporter):
     root_with_model = RootWithModel(root=model)
     root_with_str = RootWithStr('with_str')
 
-    logfire.info('hi', r=root_with_model, r2=root_with_str)
+    logfire.info('hi', r=root_with_model, r2=root_with_str, r2_inner=root_with_str.root)
 
     assert exporter.exported_spans_as_dict() == [
         {
@@ -1410,7 +1410,8 @@ def test_pydantic_root_model(exporter: TestExporter):
                 'code.lineno': 123,
                 'r': '{"name":"with_model"}',
                 'r2': '"with_str"',
-                'logfire.json_schema': '{"type":"object","properties":{"r":{"type":"object","title":"Model","x-python-datatype":"PydanticModel"},"r2":{}}}',
+                'r2_inner': 'with_str',
+                'logfire.json_schema': '{"type":"object","properties":{"r":{"type":"object","title":"Model","x-python-datatype":"PydanticModel","properties":{"name":{"type":"string","x-python-datatype":"string"}}},"r2":{"type":"string","x-python-datatype":"string"},"r2_inner":{"type":"string","x-python-datatype":"string"}}}',
             },
         }
     ]
