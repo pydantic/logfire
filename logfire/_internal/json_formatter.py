@@ -82,7 +82,6 @@ class JsonArgsValueFormatter:
                     assert func is not None, f'Unknown data type {data_type}'
                     func(indent_current, value, schema)
             else:
-                # within else statement
                 self._write('', '', False, 0, safe_repr(value), None)
         else:
             if use_repr:
@@ -202,7 +201,6 @@ class JsonArgsValueFormatter:
             >>> _format_string(0, value, schema)
             MyStr("hello")
         """
-        print('formatting string value!', value, schema)
         self._stream.write(str(value))
 
     def _format_bytes(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
