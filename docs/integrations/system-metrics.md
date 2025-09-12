@@ -78,6 +78,9 @@ logfire.instrument_system_metrics({
     'process.memory.usage': None,
     'process.memory.virtual': None,
     'process.thread.count': None,
+    'cpython.gc.collected_objects': None,
+    'cpython.gc.collections': None,
+    'cpython.gc.uncollectable_objects': None,
 })
 ```
 

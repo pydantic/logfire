@@ -25,20 +25,10 @@ pytestmark = [
 ]
 
 
-def check_otel_semconv():
-    try:
-        from opentelemetry.semconv._incubating.attributes.gen_ai_attributes import (
-            GEN_AI_REQUEST_CHOICE_COUNT,  # type: ignore  # noqa
-        )
-    except ImportError:
-        pytest.skip('Requires newer opentelemetry semconv package')
-
-
 @pytest.mark.vcr()
 def test_instrument_google_genai(exporter: TestExporter) -> None:
     from google.genai import Client, types
 
-    check_otel_semconv()
     logfire.instrument_google_genai()
 
     client = Client()
@@ -135,7 +125,6 @@ def test_instrument_google_genai(exporter: TestExporter) -> None:
 def test_instrument_google_genai_no_content(exporter: TestExporter) -> None:
     from google.genai import Client, types
 
-    check_otel_semconv()
     with patch.dict(os.environ, {'OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT': 'false'}):
         logfire.instrument_google_genai()
 
@@ -221,7 +210,6 @@ def test_instrument_google_genai_no_content(exporter: TestExporter) -> None:
 def test_instrument_google_genai_response_schema(exporter: TestExporter) -> None:
     from google.genai import Client, types
 
-    check_otel_semconv()
     logfire.instrument_google_genai()
 
     client = Client()

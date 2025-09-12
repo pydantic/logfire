@@ -79,6 +79,7 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
             _tweak_asgi_send_receive_spans(span_dict)
             _tweak_sqlalchemy_connect_spans(span_dict)
             _tweak_http_spans(span_dict)
+            _tweak_fastapi_span(span_dict)
             _summarize_db_statement(span_dict)
             _set_error_level_and_status(span_dict)
             _transform_langchain_span(span_dict)
@@ -297,6 +298,34 @@ def _summarize_db_statement(span: ReadableSpanDict):
     summary = message_from_db_statement(attributes, message, span['name'])
     if summary is not None:
         span['attributes'] = {**attributes, ATTRIBUTES_MESSAGE_KEY: summary}
+
+
+def _tweak_fastapi_span(span: ReadableSpanDict):
+    scope = span['instrumentation_scope']
+
+    if not (scope and scope.name == 'opentelemetry.instrumentation.fastapi'):
+        return
+
+    # Our fastapi instrumentation records some exceptions directly on the request span.
+    # These might be handled and not seen again, or they may bubble through and be recorded by the OTel middleware,
+    # thus appearing twice on the same span.
+    # We dedupe them here, keeping the latter event which has a fuller traceback.
+    events = span['events']
+    new_events: list[Event] = []
+    # (type, message) keys of exceptions we've seen.
+    seen_exceptions: set[tuple[Any, Any]] = set()
+    # Go in reverse order to give the latter events precedence.
+    for event in events[::-1]:
+        attrs = event.attributes
+        if not (event.name == 'exception' and attrs and 'exception.type' in attrs and 'exception.message' in attrs):
+            new_events.append(event)
+            continue
+        key = (attrs['exception.type'], attrs['exception.message'])
+        if key in seen_exceptions and attrs.get('recorded_by_logfire_fastapi'):
+            continue
+        seen_exceptions.add(key)
+        new_events.append(event)
+    span['events'] = new_events[::-1]
 
 
 def _transform_langchain_span(span: ReadableSpanDict):
