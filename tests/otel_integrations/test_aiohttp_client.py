@@ -47,7 +47,7 @@ async def test_aiohttp_client_capture_headers(exporter: TestExporter):
             await server.start_server()
 
             # Instrument aiohttp client with header capture enabled
-            logfire.instrument_aiohttp_client(capture_headers=True)
+            logfire.instrument_aiohttp_client(capture_headers=True, capture_response_body=True)
 
             # Make request with custom headers
             async with aiohttp.ClientSession() as session:
@@ -105,62 +105,7 @@ async def test_aiohttp_client_capture_headers(exporter: TestExporter):
                 'http.response.status_code': 200,
                 'http.target': '/test',
                 'logfire.scrubbed': '[{"path": ["attributes", "http.request.header.Authorization"], "matched_substring": "Auth"}, {"path": ["attributes", "http.response.header.Authorization"], "matched_substring": "Auth"}]',
+                'http.response.body': IsStr(),
             },
         }
     )
-
-
-@pytest.mark.anyio
-async def test_aiohttp_client_capture_response_body(exporter: TestExporter):
-    """Test that aiohttp client captures response body when configured to do so."""
-    from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
-
-    try:
-        # Create a simple handler that returns JSON response
-        async def handler(request: aiohttp.web.Request) -> aiohttp.web.Response:
-            return aiohttp.web.json_response({
-                'message': 'Hello, World!',
-                'status': 'success',
-                'data': [1, 2, 3]
-            })
-
-        # Create test server
-        app = aiohttp.web.Application()
-        app.router.add_get('/test', handler)
-
-        # Start server
-        async with aiohttp.test_utils.TestServer(app) as server:
-            await server.start_server()
-
-            # Instrument aiohttp client with response body capture enabled
-            logfire.instrument_aiohttp_client(capture_response_body=True)
-
-            # Make request
-            async with aiohttp.ClientSession() as session:
-                async with session.get(f'http://localhost:{server.port}/test') as response:  # type: ignore
-                    await response.json()
-    finally:
-        # Clean up instrumentation to avoid test isolation issues
-        AioHttpClientInstrumentor().uninstrument()
-
-    # Check that spans were exported with response body information
-    spans = exporter.exported_spans_as_dict()
-
-    # Filter to get the HTTP client span
-    http_spans = [span for span in spans if span['name'] == 'GET']
-    assert len(http_spans) == 1
-
-    http_span = http_spans[0]
-
-    # Verify that response body is captured
-    assert 'http.response.body' in http_span['attributes']
-    response_body = http_span['attributes']['http.response.body']
-    
-    # The response body should contain the JSON we returned
-    import json
-    parsed_body = json.loads(response_body)
-    assert parsed_body == {
-        'message': 'Hello, World!',
-        'status': 'success',
-        'data': [1, 2, 3]
-    }

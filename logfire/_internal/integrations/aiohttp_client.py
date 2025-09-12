@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Any, Literal, Callable, cast
-
+import asyncio
 from aiohttp import ClientResponse
 
 try:
@@ -86,9 +86,15 @@ def capture_request_or_response_headers(
         }
     )
 
-def capture_response_body(span: Span, response: ClientResponse) -> None:
-    span.set_attribute('http.response.body', response.text())
 
+def capture_response_body(span: Span, response: ClientResponse) -> None:
+    asyncio.create_task(_capture_response_body_async(span, response))
+
+
+async def _capture_response_body_async(span: Span, response: ClientResponse) -> None:
+    body = await response.text()
+    print(f'capture_response_body: {body}')
+    span.set_attribute('http.response.body', body)
 
 def make_request_hook(hook: RequestHook | None, capture_headers: bool, capture_body: bool) -> InternalRequestHook | None:
     if not (capture_headers or capture_body or hook):
