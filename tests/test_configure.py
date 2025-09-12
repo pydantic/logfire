@@ -583,11 +583,7 @@ def get_batch_span_exporter(processor: SpanProcessor) -> SpanExporter:
 
 def get_batch_log_exporter(processor: LogRecordProcessor) -> LogExporter:
     assert isinstance(processor, BatchLogRecordProcessor)
-    try:
-        exporter = processor._batch_processor._exporter  # type: ignore
-    except AttributeError:
-        exporter = processor._exporter  # type: ignore
-    return exporter  # type: ignore
+    return processor._batch_processor._exporter  # type: ignore
 
 
 def test_configure_export_delay() -> None:
