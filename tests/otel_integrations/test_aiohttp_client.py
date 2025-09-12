@@ -47,7 +47,7 @@ async def test_aiohttp_client_capture_headers(exporter: TestExporter):
             await server.start_server()
 
             # Instrument aiohttp client with header capture enabled
-            logfire.instrument_aiohttp_client(capture_headers=True, capture_response_body=True)
+            logfire.instrument_aiohttp_client(capture_all=True)
 
             # Make request with custom headers
             async with aiohttp.ClientSession() as session:
@@ -105,7 +105,6 @@ async def test_aiohttp_client_capture_headers(exporter: TestExporter):
                 'http.response.status_code': 200,
                 'http.target': '/test',
                 'logfire.scrubbed': '[{"path": ["attributes", "http.request.header.Authorization"], "matched_substring": "Auth"}, {"path": ["attributes", "http.response.header.Authorization"], "matched_substring": "Auth"}]',
-                'http.response.body': IsStr(),
             },
         }
     )
