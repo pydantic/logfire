@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v4.7.0] (2025-09-12)
+
+* Update to OpenTelemetry SDK 1.37.0, drop support for <1.35.0 by @alexmojaki in [#1398](https://github.com/pydantic/logfire/pull/1398)
+
 ## [v4.6.0] (2025-09-10)
 
 * Fix: check `LOGFIRE_IGNORE_NO_CONFIG` from environment when needed by @Lftobs in [#1379](https://github.com/pydantic/logfire/pull/1379)
@@ -896,3 +900,4 @@ First release from new repo!
 [v4.4.0]: https://github.com/pydantic/logfire/compare/v4.3.6...v4.4.0
 [v4.5.0]: https://github.com/pydantic/logfire/compare/v4.4.0...v4.5.0
 [v4.6.0]: https://github.com/pydantic/logfire/compare/v4.5.0...v4.6.0
+[v4.7.0]: https://github.com/pydantic/logfire/compare/v4.6.0...v4.7.0
