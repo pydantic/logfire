@@ -169,7 +169,7 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             ['a', 1, True],
             "['a', 1, True]",
             '["a",1,true]',
-            {'type': 'array', 'prefixItems': [{'type': 'string', 'x-python-datatype': 'string'}, {}, {}]},
+            {'type': 'array'},
             id='list',
         ),
         pytest.param(
@@ -196,7 +196,7 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             {
                 'type': 'array',
                 'prefixItems': [
-                    {'type': 'string', 'x-python-datatype': 'string'},
+                    {},
                     {},
                     {},
                     {'type': 'object', 'title': 'MyDataclass', 'x-python-datatype': 'dataclass'},
@@ -208,7 +208,7 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             {'k1': 'v1', 'k2': 2},
             "{'k1': 'v1', 'k2': 2}",
             '{"k1":"v1","k2":2}',
-            {'type': 'object', 'properties': {'k1': {'type': 'string', 'x-python-datatype': 'string'}}},
+            {'type': 'object'},
             id='dict',
         ),
         pytest.param(
@@ -243,11 +243,7 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             (1, 2, 'b'),
             "(1, 2, 'b')",
             '[1,2,"b"]',
-            {
-                'type': 'array',
-                'x-python-datatype': 'tuple',
-                'prefixItems': [{}, {}, {'type': 'string', 'x-python-datatype': 'string'}],
-            },
+            {'type': 'array', 'x-python-datatype': 'tuple'},
             id='tuple',
         ),
         pytest.param(
@@ -289,7 +285,7 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             set(['s']),
             "{'s'}",
             '["s"]',
-            {'type': 'array', 'x-python-datatype': 'set', 'items': {'type': 'string', 'x-python-datatype': 'string'}},
+            {'type': 'array', 'x-python-datatype': 'set'},
             id='set',
         ),
         pytest.param(
@@ -303,11 +299,7 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             frozenset(['f']),
             "frozenset({'f'})",
             '["f"]',
-            {
-                'type': 'array',
-                'x-python-datatype': 'frozenset',
-                'items': {'type': 'string', 'x-python-datatype': 'string'},
-            },
+            {'type': 'array', 'x-python-datatype': 'frozenset'},
             id='frozenset',
         ),
         pytest.param(
@@ -509,10 +501,7 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
                 'type': 'object',
                 'title': 'MyModel',
                 'x-python-datatype': 'PydanticModel',
-                'properties': {
-                    'u': {'type': 'string', 'x-python-datatype': ANYURL_REPR_CLASSNAME},
-                    'x': {'type': 'string', 'x-python-datatype': 'string'},
-                },
+                'properties': {'u': {'type': 'string', 'x-python-datatype': ANYURL_REPR_CLASSNAME}},
             },
             id='pydantic_model',
         ),
@@ -525,7 +514,6 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
                 'title': 'MyModel',
                 'x-python-datatype': 'PydanticModel',
                 'properties': {
-                    'x': {'type': 'string', 'x-python-datatype': 'string'},
                     'u': {'type': 'string', 'x-python-datatype': ANYURL_REPR_CLASSNAME},
                     'extra_key': {
                         'type': 'object',
@@ -624,12 +612,7 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             MyMapping({'foo': 'bar'}),
             '<tests.test_json_args.MyMapping object at',
             '{"foo":"bar"}',
-            {
-                'type': 'object',
-                'properties': {'foo': {'type': 'string', 'x-python-datatype': 'string'}},
-                'x-python-datatype': 'Mapping',
-                'title': 'MyMapping',
-            },
+            {'type': 'object', 'title': 'MyMapping', 'x-python-datatype': 'Mapping'},
             id='mapping',
         ),
         pytest.param(
