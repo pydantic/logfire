@@ -28,7 +28,6 @@ class JsonArgsValueFormatter:
             'frozenset': partial(self._format_list_like, 'frozenset({', '})'),
             'deque': partial(self._format_list_like, 'deque([', '])'),
             'generator': partial(self._format_list_like, 'generator((', '))'),
-            'string': self._format_string,
             'bytes': self._format_bytes,
             'Decimal': partial(self._write, 'Decimal(', ')', True),
             'date': self._format_date,
@@ -188,20 +187,6 @@ class JsonArgsValueFormatter:
         if self._newlines and not first:
             self._stream.write(',\n')
         self._stream.write(indent_current * ' ' + close_)
-
-    def _format_string(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
-        """Format string value.
-
-        Examples:
-            >>> value = 'hello'
-            >>> schema = {'type': 'string', 'x-python-datatype': 'str'}
-            >>> _format_string(0, value, schema)
-            "hello"
-            >>> schema = {'type': 'string', 'x-python-datatype': 'str', 'title': 'MyStr'}
-            >>> _format_string(0, value, schema)
-            MyStr("hello")
-        """
-        self._stream.write(str(value))
 
     def _format_bytes(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
         """Format bytes value.
