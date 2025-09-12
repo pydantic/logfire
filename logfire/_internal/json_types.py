@@ -11,8 +11,6 @@ DataType = Literal[
     'Decimal',
     'UUID',
     'Enum',
-    # string
-    'string',
     # bytes
     'bytes',
     # temporal types
