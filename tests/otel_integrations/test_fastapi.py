@@ -1709,6 +1709,7 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                             'exception.message': '[]',
                             'exception.stacktrace': 'fastapi.exceptions.RequestValidationError: []',
                             'exception.escaped': 'False',
+                            'recorded_by_logfire_fastapi': True,
                         },
                     }
                 ],

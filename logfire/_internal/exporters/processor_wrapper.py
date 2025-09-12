@@ -306,16 +306,22 @@ def _tweak_fastapi_span(span: ReadableSpanDict):
     if not (scope and scope.name == 'opentelemetry.instrumentation.fastapi'):
         return
 
+    # Our fastapi instrumentation records some exceptions directly on the request span.
+    # These might be handled and not seen again, or they may bubble through and be recorded by the OTel middleware,
+    # thus appearing twice on the same span.
+    # We dedupe them here, keeping the latter event which has a fuller traceback.
     events = span['events']
     new_events: list[Event] = []
+    # (type, message) keys of exceptions we've seen.
     seen_exceptions: set[tuple[Any, Any]] = set()
+    # Go in reverse order to give the latter events precedence.
     for event in events[::-1]:
         attrs = event.attributes
-        if event.name != 'exception' or not attrs:
+        if not (event.name == 'exception' and attrs and 'exception.type' in attrs and 'exception.message' in attrs):
             new_events.append(event)
             continue
-        key = (attrs.get('exception.type'), attrs.get('exception.message'))
-        if key in seen_exceptions:
+        key = (attrs['exception.type'], attrs['exception.message'])
+        if key in seen_exceptions and attrs.get('recorded_by_logfire_fastapi'):
             continue
         seen_exceptions.add(key)
         new_events.append(event)
