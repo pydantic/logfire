@@ -1,5 +1,19 @@
 # Release Notes
 
+## [v4.6.0] (2025-09-10)
+
+* Fix: check `LOGFIRE_IGNORE_NO_CONFIG` from environment when needed by @Lftobs in [#1379](https://github.com/pydantic/logfire/pull/1379)
+* Expand scrubbing whitelist, especially for `gen_ai` messages by @alexmojaki in [#1392](https://github.com/pydantic/logfire/pull/1392)
+* Print project link eagerly from credentials file if possible by @alexmojaki in [#1393](https://github.com/pydantic/logfire/pull/1393)
+* Fix: Only list orgs in CLI where projects can be created by @alexmojaki in [#1391](https://github.com/pydantic/logfire/pull/1391)
+
+## [v4.5.0] (2025-09-09)
+
+* Export `attach_context` and `get_context` directly from `logfire` module, not just `logfire.propagate` by @dhruv-ahuja in [#1385](https://github.com/pydantic/logfire/pull/1385)
+* Only list writeable projects from CLI by @alexmojaki in [#1386](https://github.com/pydantic/logfire/pull/1386)
+* Add `ensure_ascii=False` to `json.dumps` calls by @qiangxinglin in [#1381](https://github.com/pydantic/logfire/pull/1381)
+* Remove unused `stack_offset` from `with_settings()` by @LucasSantos27 in [#1380](https://github.com/pydantic/logfire/pull/1380)
+
 ## [v4.4.0] (2025-09-05)
 
 * Add `logfire.instrument_print()` by @alexmojaki in [#1368](https://github.com/pydantic/logfire/pull/1368)
@@ -880,3 +894,5 @@ First release from new repo!
 [v4.3.5]: https://github.com/pydantic/logfire/compare/v4.3.4...v4.3.5
 [v4.3.6]: https://github.com/pydantic/logfire/compare/v4.3.5...v4.3.6
 [v4.4.0]: https://github.com/pydantic/logfire/compare/v4.3.6...v4.4.0
+[v4.5.0]: https://github.com/pydantic/logfire/compare/v4.4.0...v4.5.0
+[v4.6.0]: https://github.com/pydantic/logfire/compare/v4.5.0...v4.6.0

@@ -23,9 +23,8 @@ try:
     from pydantic_ai import Agent
     from pydantic_ai.mcp import MCPServer
     from pydantic_ai.models.mcp_sampling import MCPSamplingModel
-except ImportError:
-    if TYPE_CHECKING:
-        assert False
+except Exception:
+    assert not TYPE_CHECKING
 
 
 pytestmark = [
@@ -190,6 +189,7 @@ Because it found something more "sole-ful!"\
                                 'description': 'Poem generator',
                                 'outer_typed_dict_key': None,
                                 'strict': True,
+                                'sequential': False,
                                 'kind': 'function',
                             }
                         ],
@@ -215,12 +215,15 @@ Because it found something more "sole-ful!"\
                                     'arguments': '{"theme":"socks"}',
                                 }
                             ],
+                            'finish_reason': 'tool_call',
                         }
                     ],
                     'gen_ai.usage.input_tokens': 45,
                     'gen_ai.usage.output_tokens': 15,
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'operation.cost': 0.0002625,
+                    'gen_ai.response.id': 'chatcmpl-CB4UKZ6j6biTXLnSyuCu15BPxKHT8',
+                    'gen_ai.response.finish_reasons': ('tool_call',),
                 },
             },
             {
@@ -261,12 +264,15 @@ Because it found something more "sole-ful!"\
 """,
                                 }
                             ],
+                            'finish_reason': 'stop',
                         }
                     ],
                     'gen_ai.usage.input_tokens': 12,
                     'gen_ai.usage.output_tokens': 20,
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'operation.cost': 0.00023,
+                    'gen_ai.response.id': 'chatcmpl-CB4UMeutkPM3KsHUypidgbENPki0v',
+                    'gen_ai.response.finish_reasons': ('stop',),
                 },
             },
             {
@@ -671,6 +677,7 @@ Because it found something more "sole-ful!"\
                                 'description': 'Poem generator',
                                 'outer_typed_dict_key': None,
                                 'strict': True,
+                                'sequential': False,
                                 'kind': 'function',
                             }
                         ],
@@ -694,6 +701,7 @@ Because it found something more "sole-ful!"\
                                     'arguments': '{"theme":"socks"}',
                                 }
                             ],
+                            'finish_reason': 'tool_call',
                         },
                         {
                             'role': 'user',
@@ -724,12 +732,15 @@ Because it found something more "sole-ful!"\
 """,
                                 }
                             ],
+                            'finish_reason': 'stop',
                         }
                     ],
                     'gen_ai.usage.input_tokens': 87,
                     'gen_ai.usage.output_tokens': 21,
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'operation.cost': 0.0004275,
+                    'gen_ai.response.id': 'chatcmpl-CB4UNlU07HRfa3dlbjeCwGhyUxFxV',
+                    'gen_ai.response.finish_reasons': ('stop',),
                 },
             },
             {
@@ -762,6 +773,7 @@ Because it found something more "sole-ful!"\
                                     'arguments': '{"theme":"socks"}',
                                 }
                             ],
+                            'finish_reason': 'tool_call',
                         },
                         {
                             'role': 'user',
@@ -790,6 +802,7 @@ Because it found something more "sole-ful!"\
 """,
                                 }
                             ],
+                            'finish_reason': 'stop',
                         },
                     ],
                 },
