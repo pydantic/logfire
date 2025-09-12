@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Callable
-from aiohttp.tracing import TraceRequestStartParams, TraceRequestEndParams, TraceRequestExceptionParams
+from aiohttp.tracing import TraceRequestStartParams, TraceRequestEndParams
 from opentelemetry.trace import Span
 from multidict import CIMultiDict
 from yarl import URL
@@ -46,4 +46,4 @@ def content_type_header_from_string(content_type: str) -> ContentTypeHeader:
 RequestHook = Callable[[Span, LogfireAiohttpRequestInfo], None]
 # Internal type used by OpenTelemetry
 InternalRequestHook = Callable[[Span, TraceRequestStartParams], None]
-ResponseHook = Callable[[Span, TraceRequestStartParams, TraceRequestEndParams | TraceRequestExceptionParams], None]
+ResponseHook = Callable[[Span, TraceRequestEndParams], None]
