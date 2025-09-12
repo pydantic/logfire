@@ -14,7 +14,7 @@ from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 from threading import RLock, Thread
-from typing import TYPE_CHECKING, Any, Callable, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, Callable, Literal, TextIO, TypedDict
 from urllib.parse import urljoin
 from uuid import uuid4
 
@@ -141,6 +141,7 @@ which send to the Logfire backend.
 class ConsoleOptions:
     """Options for controlling console output."""
 
+    output: TextIO | None = None
     colors: ConsoleColorsValues = 'auto'
     span_style: Literal['simple', 'indented', 'show-parents'] = 'show-parents'
     """How spans are shown in the console."""

@@ -118,7 +118,15 @@ class SimpleConsoleSpanExporter(SpanExporter):
         verbose: bool = False,
         min_log_level: LevelName = 'info',
     ) -> None:
-        self._output = output or sys.stdout
+        if isinstance(output, str):
+            if output.lower() == 'stderr':
+                self._output = sys.stderr
+            elif output.lower() == 'stdout':
+                self._output = sys.stdout
+            else:
+                self._output = output or sys.stdout
+        else:
+            self._output = output or sys.stdout
         if colors == 'auto':
             force_terminal = None
         else:
