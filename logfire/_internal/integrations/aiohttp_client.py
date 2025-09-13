@@ -1,7 +1,5 @@
 from __future__ import annotations
 from typing import Any, Literal, Callable, cast
-import asyncio
-from aiohttp import ClientResponse
 
 try:
     from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
@@ -47,8 +45,6 @@ def capture_request(
 
     if should_capture_headers:
         request_info.capture_headers()
-    # if should_capture_body:
-    #     request_info.capture_body()
 
     return request_info
 
@@ -59,7 +55,6 @@ def capture_response(
     capture_headers: bool,
     capture_body: bool,
 ) -> LogfireAiohttpResponseInfo:
-    # Get response headers from the response object
     response_info = LogfireAiohttpResponseInfo(
         span=span,
         method=response.method,
@@ -70,8 +65,6 @@ def capture_response(
 
     if capture_headers:
         response_info.capture_headers()
-    if capture_body:
-        response_info.capture_body()
 
     return response_info
 
@@ -86,15 +79,6 @@ def capture_request_or_response_headers(
         }
     )
 
-
-def capture_response_body(span: Span, response: ClientResponse) -> None:
-    asyncio.create_task(_capture_response_body_async(span, response))
-
-
-async def _capture_response_body_async(span: Span, response: ClientResponse) -> None:
-    body = await response.text()
-    print(f'capture_response_body: {body}')
-    span.set_attribute('http.response.body', body)
 
 def make_request_hook(hook: RequestHook | None, capture_headers: bool, capture_body: bool) -> InternalRequestHook | None:
     if not (capture_headers or capture_body or hook):
@@ -187,9 +171,6 @@ class LogfireAiohttpResponseInfo(LogfireAiohttpClientInfoMixin, TraceRequestEndP
 
     def capture_headers(self):
         capture_request_or_response_headers(self.span, self.headers, 'response')
-
-    def capture_body(self):
-        capture_response_body(self.span, self.response)
 
 @lru_cache
 def content_type_header_from_string(content_type: str) -> ContentTypeHeader:
