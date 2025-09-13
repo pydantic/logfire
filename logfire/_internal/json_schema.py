@@ -111,6 +111,7 @@ def create_json_schema(obj: Any, seen: set[int]) -> JsonDict:
     try:
         # cover common types first before calling `type_to_schema` to avoid the overhead of imports if not necessary
         obj_type = obj.__class__
+
         if obj_type in {str, int, bool, float}:
             return {}
 
@@ -286,6 +287,16 @@ def _pydantic_model_schema(obj: Any, seen: set[int]) -> JsonDict:
     import pydantic
 
     assert isinstance(obj, pydantic.BaseModel)
+
+    # generate the schema for the actual wrapped object in the model
+    if isinstance(obj, pydantic.RootModel):
+        # return a complex schema to ensure JSON parsing for strings inside RootModel since they get an
+        # extra layer of JSON encoding
+        if obj.root.__class__ is str:  # type: ignore
+            return {'type': 'string', 'x-python-datatype': 'string'}
+
+        return create_json_schema(obj.root, seen)  # type: ignore
+
     try:
         fields = type(obj).model_fields
         extra = obj.model_extra or {}
