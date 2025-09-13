@@ -19,6 +19,7 @@ class JsonArgsValueFormatter:
         self._indent_step = indent
         self._newlines = indent != 0
         self._data_type_map: dict[DataType, Callable[[int, Any, JSONSchema | None], None]] = {
+            'string': self._format_string,
             'PydanticModel': partial(self._format_items, '(', '=', ')', False),
             'dataclass': partial(self._format_items, '(', '=', ')', False),
             'Mapping': partial(self._format_items, '({', ': ', '})', True),
@@ -199,6 +200,22 @@ class JsonArgsValueFormatter:
             >>> schema = {'type': 'string', 'x-python-datatype': 'bytes', 'title': 'MyBytes'}
             >>> _format_bytes(0, value, schema)
             MyBytes("hello")
+        """
+        cls = schema and schema.get('title')
+        output = f'{cls}({value})' if cls else value
+        self._stream.write(output)
+
+    def _format_string(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
+        """Format string value.
+
+        Examples:
+            >>> value = 'hello'
+            >>> schema = {'type': 'string', 'x-python-datatype': 'string'}
+            >>> _format_string(0, value, schema)
+            "hello"
+            >>> schema = {'type': 'string', 'x-python-datatype': 'string', 'title': 'MyString'}
+            >>> _format_string(0, value, schema)
+            MyString("hello")
         """
         cls = schema and schema.get('title')
         output = f'{cls}({value})' if cls else value
