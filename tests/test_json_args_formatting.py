@@ -86,9 +86,9 @@ from logfire._internal.json_types import ArraySchema, DataType, JSONSchema
             id='complex_key_types',
         ),
         pytest.param(
-            '"test string"',
+            'test string',
             {'type': 'string', 'x-python-datatype': 'string'},
-            '"test string"',
+            'test string',
             id='string',
         ),
         pytest.param(
