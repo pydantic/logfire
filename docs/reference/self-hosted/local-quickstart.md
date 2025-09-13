@@ -11,7 +11,7 @@ For a production setup, including detailed configuration and prerequisites, plea
 
 Before deploying, you will need the following:
 
-- A Logfire Access Key, you'll need to get in contact with [sales@pydantic.dev](mailto:sales@pydantic.dev) to get one. **Remember you need to be on a trail for self-hosted enterprise Logfire to run logfire locally.**
+- A Logfire Access Key, you'll need to get in contact with [sales@pydantic.dev](mailto:sales@pydantic.dev) to get one. **Remember you need to be on a trial for self-hosted enterprise Logfire to run logfire locally.**
 - A local Kubernetes cluster, we will be using [Kind](https://kind.sigs.k8s.io/) in this example.
 - [Helm](https://helm.sh) CLI installed.
 - (Optional) [Tilt](https://tilt.dev/), as we will provide an optional convenience `Tiltfile` to automate the setup.
