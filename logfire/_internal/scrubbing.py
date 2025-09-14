@@ -127,6 +127,7 @@ class BaseScrubber(ABC):
         'exception.stacktrace',
         'exception.type',
         'exception.message',
+        'error.type',
         'http.method',
         'http.status_code',
         'http.scheme',
@@ -135,6 +136,8 @@ class BaseScrubber(ABC):
         'http.route',
         'db.statement',
         'db.plan',
+        'fastapi.route.name',
+        'fastapi.route.operation_id',
         # Newer semantic conventions
         'url.full',
         'url.path',
@@ -143,6 +146,15 @@ class BaseScrubber(ABC):
         'agent_session_id',
         'do_not_scrub',
         'binary_content',
+        'gen_ai.input.messages',
+        'gen_ai.output.messages',
+        'gen_ai.system_instructions',
+        'pydantic_ai.all_messages',
+        'gen_ai.tool.name',
+        'gen_ai.tool.call.id',
+        'rpc.method',
+        'gen_ai.system',
+        'model_request_parameters',
     }
 
     @abstractmethod

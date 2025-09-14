@@ -75,7 +75,9 @@ class LogfireClient:
 
     def get_user_organizations(self) -> list[dict[str, Any]]:
         """Get the organizations of the logged-in user."""
-        return self._get('/v1/organizations/', error_message='Error retrieving list of organizations')
+        return self._get(
+            '/v1/organizations/available-for-projects/', error_message='Error retrieving list of organizations'
+        )
 
     def get_user_information(self) -> dict[str, Any]:
         """Get information about the logged-in user."""
