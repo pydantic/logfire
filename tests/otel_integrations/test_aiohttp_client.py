@@ -251,12 +251,30 @@ async def test_aiohttp_client_basic_instrumentation(exporter: TestExporter):
 
     http_span = http_spans[0]
 
-    # Should have basic attributes but no headers/body capture
-    assert 'http.request.header.User-Agent' not in http_span['attributes']
-    assert 'http.response.header.Content-Type' not in http_span['attributes']
-    assert http_span['attributes']['http.method'] == 'GET'
-    assert http_span['attributes']['http.response.status_code'] == 200
-    assert http_span['attributes']['logfire.msg'] == 'GET localhost/basic'
+    assert http_span == snapshot(
+        {
+            'name': 'GET',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1000000000,
+            'end_time': 2000000000,
+            'attributes': {
+                'http.method': 'GET',
+                'http.request.method': 'GET',
+                'http.url': IsStr(),
+                'url.full': IsStr(),
+                'http.host': 'localhost',
+                'server.address': 'localhost',
+                'net.peer.port': IsInt(),
+                'server.port': IsInt(),
+                'logfire.span_type': 'span',
+                'logfire.msg': IsStr(regex=r'GET localhost/basic'),
+                'http.status_code': 200,
+                'http.response.status_code': 200,
+                'http.target': '/basic',
+            },
+        }
+    )
 
 
 @pytest.mark.anyio
@@ -496,8 +514,8 @@ async def test_aiohttp_client_instrumentation_with_capture_headers(
     [
         ({'capture_response_body': True}, True),
         ({'capture_response_body': False}, False),
-        ({'capture_all': True}, True),  # capture_all should enable response body capture
-        ({}, False),  # default should not capture response body
+        ({'capture_all': True}, True),
+        ({}, False),
     ],
 )
 @pytest.mark.anyio
