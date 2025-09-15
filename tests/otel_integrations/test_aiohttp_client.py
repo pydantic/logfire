@@ -1,9 +1,16 @@
+from __future__ import annotations
+
+from typing import Any
+
 import aiohttp
 import aiohttp.test_utils
 import aiohttp.web
 import pytest
+from aiohttp.tracing import TraceRequestEndParams, TraceRequestExceptionParams, TraceRequestStartParams
 from dirty_equals import IsInt, IsStr
 from inline_snapshot import snapshot
+from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
+from opentelemetry.trace import Span
 
 import logfire
 from logfire.testing import TestExporter
@@ -12,7 +19,6 @@ from logfire.testing import TestExporter
 @pytest.mark.anyio
 async def test_instrument_aiohttp():
     """Test that aiohttp client instrumentation modifies the ClientSession class."""
-    from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
 
     try:
         cls = aiohttp.ClientSession
@@ -28,7 +34,6 @@ async def test_instrument_aiohttp():
 @pytest.mark.anyio
 async def test_aiohttp_client_capture_headers(exporter: TestExporter):
     """Test that aiohttp client captures headers when configured to do so."""
-    from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
 
     try:
         # Create a simple handler that echoes back the request headers
@@ -113,7 +118,6 @@ async def test_aiohttp_client_capture_headers(exporter: TestExporter):
 @pytest.mark.anyio
 async def test_aiohttp_client_capture_response_body(exporter: TestExporter):
     """Test that aiohttp client captures response body when configured to do so."""
-    from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
 
     try:
         async def handler(request: aiohttp.web.Request) -> aiohttp.web.Response:
@@ -137,3 +141,72 @@ async def test_aiohttp_client_capture_response_body(exporter: TestExporter):
     body_spans = [span for span in spans if span['name'] == 'Reading response body']
     assert len(body_spans) == 1 # Only reading the body once
     assert body_spans[0]['attributes']['http.response.body.text'] == '{"good": "response"}'
+
+
+@pytest.mark.anyio
+async def test_aiohttp_client_hooks(exporter: TestExporter):
+    """Test that aiohttp client hooks receive the correct parameters."""
+
+    # Track what parameters the hooks receive
+    request_hook_calls: list[dict[str, Any]] = []
+    response_hook_calls: list[dict[str, Any]] = []
+
+    def test_request_hook(span: Span, params: TraceRequestStartParams):
+        request_hook_calls.append({
+            'span': span,
+            'params_type': type(params).__name__,
+            'method': params.method,
+            'url': str(params.url),
+            'has_headers': hasattr(params, 'headers')
+        })
+
+    def test_response_hook(span: Span, params: TraceRequestEndParams | TraceRequestExceptionParams):
+        response_hook_calls.append({
+            'span': span,
+            'params_type': type(params).__name__,
+            'method': params.method,
+            'url': str(params.url),
+            'has_response': hasattr(params, 'response'),
+            'has_exception': hasattr(params, 'exception')
+        })
+
+    try:
+        async def handler(request: aiohttp.web.Request) -> aiohttp.web.Response:
+            return aiohttp.web.json_response({'status': 'ok'})
+
+        app = aiohttp.web.Application()
+        app.router.add_get('/test-hooks', handler)
+
+        async with aiohttp.test_utils.TestServer(app) as server:
+            await server.start_server()
+
+            logfire.instrument_aiohttp_client(
+                request_hook=test_request_hook,
+                response_hook=test_response_hook
+            )
+
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f'http://localhost:{server.port}/test-hooks') as response:  # type: ignore
+                    await response.json()
+
+    finally:
+        AioHttpClientInstrumentor().uninstrument()
+
+    # Verify hooks were called with correct parameters
+    assert len(request_hook_calls) == 1
+    assert len(response_hook_calls) == 1
+    
+    # Verify request hook received TraceRequestStartParams
+    request_call = request_hook_calls[0]
+    assert request_call['params_type'] == 'TraceRequestStartParams'
+    assert request_call['method'] == 'GET'
+    assert '/test-hooks' in request_call['url']
+    assert request_call['has_headers'] is True
+
+    # Verify response hook received TraceRequestEndParams
+    response_call = response_hook_calls[0]
+    assert response_call['params_type'] == 'TraceRequestEndParams'
+    assert response_call['method'] == 'GET'
+    assert '/test-hooks' in response_call['url']
+    assert response_call['has_response'] is True
+    assert response_call['has_exception'] is False
