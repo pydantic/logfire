@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 
 def instrument_aiohttp_client(
     logfire_instance: Logfire,
-    capture_all: bool,
+    capture_all: bool | None,
     capture_headers: bool,
     capture_request_body: bool,
     capture_response_body: bool,

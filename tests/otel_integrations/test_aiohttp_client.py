@@ -328,7 +328,7 @@ async def test_aiohttp_client_capture_all_environment_variable(exporter: TestExp
                 await server.start_server()
 
                 # Pass capture_all=None so environment variable takes effect
-                logfire.instrument_aiohttp_client(capture_all=None)
+                logfire.instrument_aiohttp_client()
 
                 async with aiohttp.ClientSession() as session:
                     async with session.post(
