@@ -230,10 +230,7 @@ class LogfireAioHttpResponseInfo(LogfireClientInfoMixin):
         params: TraceRequestEndParams | TraceRequestExceptionParams,
         logfire_instance: Logfire,
     ) -> LogfireAioHttpResponseInfo:
-        """Build a LogfireAioHttpResponseInfo from either TraceRequestEndParams or TraceRequestExceptionParams.
 
-        We use getattr so the factory works regardless of which concrete trace object is passed.
-        """
         return cls(
             span=span,
             method=params.method,
