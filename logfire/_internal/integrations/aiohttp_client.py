@@ -194,7 +194,7 @@ def capture_request(
     span: Span,
     request: TraceRequestStartParams,
     should_capture_headers: bool,
-    _should_capture_body: bool, # TODO: Implement Request Capture Body
+    _should_capture_body: bool, # TODO: Implement Request Body Capture
 ) -> LogfireAioHttpRequestInfo:
     request_info = LogfireAioHttpRequestInfo(
         method=request.method,
