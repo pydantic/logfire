@@ -22,18 +22,15 @@ except ImportError:
     )
 
 from logfire import Logfire, LogfireSpan
-from logfire.integrations.aiohttp_client import AioHttpHeaders, RequestHook, ResponseHook
 from logfire._internal.config import GLOBAL_CONFIG
 from logfire._internal.stack_info import warn_at_user_stacklevel
 from logfire._internal.utils import handle_internal_errors
+from logfire.integrations.aiohttp_client import AioHttpHeaders, RequestHook, ResponseHook
 
 if TYPE_CHECKING:
     from typing import ParamSpec
 
     P = ParamSpec('P')
-
-
-
 
 def run_hook(hook: Callable[P, Any] | None, *args: P.args, **kwargs: P.kwargs) -> None:
     if hook:

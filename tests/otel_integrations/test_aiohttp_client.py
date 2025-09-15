@@ -1,6 +1,6 @@
 import aiohttp
-import aiohttp.web
 import aiohttp.test_utils
+import aiohttp.web
 import pytest
 from dirty_equals import IsInt, IsStr
 from inline_snapshot import snapshot

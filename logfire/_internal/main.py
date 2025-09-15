@@ -85,6 +85,10 @@ if TYPE_CHECKING:
     from starlette.websockets import WebSocket
     from typing_extensions import Unpack
 
+    from ..integrations.aiohttp_client import (
+        RequestHook as AiohttpClientRequestHook,
+        ResponseHook as AiohttpClientResponseHook,
+    )
     from ..integrations.flask import (
         CommenterOptions as FlaskCommenterOptions,
         RequestHook as FlaskRequestHook,
@@ -96,7 +100,6 @@ if TYPE_CHECKING:
         RequestHook as HttpxRequestHook,
         ResponseHook as HttpxResponseHook,
     )
-    from ..integrations.aiohttp_client import RequestHook as AiohttpClientRequestHook, ResponseHook as AiohttpClientResponseHook
     from ..integrations.psycopg import CommenterOptions as PsycopgCommenterOptions
     from ..integrations.redis import RequestHook as RedisRequestHook, ResponseHook as RedisResponseHook
     from ..integrations.sqlalchemy import CommenterOptions as SQLAlchemyCommenterOptions
