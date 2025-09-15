@@ -10,6 +10,7 @@ from aiohttp.client_reqrep import ClientResponse
 from aiohttp.tracing import TraceRequestEndParams, TraceRequestExceptionParams, TraceRequestStartParams
 from multidict import CIMultiDict
 from opentelemetry.trace import Span
+from yarl import URL
 
 try:
     from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
@@ -31,7 +32,6 @@ if TYPE_CHECKING:
     P = ParamSpec('P')
 
 AioHttpHeaders = CIMultiDict[str]
-
 RequestHook = Callable[[Span, TraceRequestStartParams], None]
 ResponseHook = Callable[[Span, TraceRequestEndParams | TraceRequestExceptionParams], None]
 
@@ -105,7 +105,7 @@ def make_response_hook(
     if not (capture_headers or capture_body or hook):
         return None
 
-    # Accept either end OR exception params here
+
     def new_hook(span: Span, response: TraceRequestEndParams | TraceRequestExceptionParams) -> None:
         with handle_internal_errors:
             capture_response(
@@ -176,7 +176,7 @@ class LogfireAiohttpRequestInfo(TraceRequestStartParams, LogfireAiohttpClientInf
 class LogfireAiohttpResponseInfo(LogfireAiohttpClientInfoMixin):
     span: Span
     method: str
-    url: Any
+    url: URL
     headers: AioHttpHeaders
     response: ClientResponse | None
     exception: BaseException | None
@@ -190,8 +190,8 @@ class LogfireAiohttpResponseInfo(LogfireAiohttpClientInfoMixin):
         span: Span,
         params: TraceRequestEndParams | TraceRequestExceptionParams,
     ) -> LogfireAiohttpResponseInfo:
-        """
-        Build a LogfireAiohttpResponseInfo from either TraceRequestEndParams or TraceRequestExceptionParams.
+        """Build a LogfireAiohttpResponseInfo from either TraceRequestEndParams or TraceRequestExceptionParams.
+
         We use getattr so the factory works regardless of which concrete trace object is passed.
         """
         return cls(
