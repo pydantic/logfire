@@ -148,14 +148,12 @@ async def test_aiohttp_client_capture_response_body(exporter: TestExporter):
 async def test_aiohttp_client_hooks(exporter: TestExporter):
     """Test that aiohttp client hooks receive the correct parameters."""
 
-    # Track what parameters the hooks receive
     request_hook_calls: list[dict[str, Any]] = []
     response_hook_calls: list[dict[str, Any]] = []
 
     def test_request_hook(span: Span, params: TraceRequestStartParams):
         request_hook_calls.append(
             {
-                'span': span,
                 'params_type': type(params).__name__,
                 'method': params.method,
                 'url': str(params.url),
@@ -166,7 +164,6 @@ async def test_aiohttp_client_hooks(exporter: TestExporter):
     def test_response_hook(span: Span, params: TraceRequestEndParams | TraceRequestExceptionParams):
         response_hook_calls.append(
             {
-                'span': span,
                 'params_type': type(params).__name__,
                 'method': params.method,
                 'url': str(params.url),
@@ -195,21 +192,26 @@ async def test_aiohttp_client_hooks(exporter: TestExporter):
     finally:
         AioHttpClientInstrumentor().uninstrument()
 
-    # Verify hooks were called with correct parameters
-    assert len(request_hook_calls) == 1
-    assert len(response_hook_calls) == 1
+    # Verify hooks were called with correct parameters using snapshots
+    assert request_hook_calls == snapshot(
+        [
+            {
+                'params_type': 'TraceRequestStartParams',
+                'method': 'GET',
+                'url': IsStr(regex=r'.*\/test-hooks'),  # URL contains dynamic port
+                'has_headers': True,
+            }
+        ]
+    )
 
-    # Verify request hook received TraceRequestStartParams
-    request_call = request_hook_calls[0]
-    assert request_call['params_type'] == 'TraceRequestStartParams'
-    assert request_call['method'] == 'GET'
-    assert '/test-hooks' in request_call['url']
-    assert request_call['has_headers'] is True
-
-    # Verify response hook received TraceRequestEndParams
-    response_call = response_hook_calls[0]
-    assert response_call['params_type'] == 'TraceRequestEndParams'
-    assert response_call['method'] == 'GET'
-    assert '/test-hooks' in response_call['url']
-    assert response_call['has_response'] is True
-    assert response_call['has_exception'] is False
+    assert response_hook_calls == snapshot(
+        [
+            {
+                'params_type': 'TraceRequestEndParams',
+                'method': 'GET',
+                'url': IsStr(regex=r'.*\/test-hooks'),  # URL contains dynamic port
+                'has_response': True,
+                'has_exception': False,
+            }
+        ]
+    )
