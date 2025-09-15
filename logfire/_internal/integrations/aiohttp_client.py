@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import attr
 from email.headerregistry import ContentTypeHeader
 from email.policy import EmailPolicy
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Callable, Literal, cast
 
+import attr
 from aiohttp.client_reqrep import ClientResponse
 from aiohttp.tracing import TraceRequestEndParams, TraceRequestExceptionParams, TraceRequestStartParams
 from multidict import CIMultiDict
