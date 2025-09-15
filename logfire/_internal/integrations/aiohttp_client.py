@@ -10,8 +10,9 @@ except ImportError:
         "    pip install 'logfire[aiohttp-client]'"
     )
 from logfire import Logfire
-from logfire.integrations.aiohttp_client import RequestHook, ResponseHook, AioHttpHeaders, LogfireAiohttpRequestInfo as PublicLogfireAiohttpRequestInfo, InternalRequestHook
-from aiohttp.tracing import TraceRequestStartParams, TraceRequestEndParams
+# from logfire.integrations.aiohttp_client import RequestHook, ResponseHook, AioHttpHeaders, LogfireAiohttpRequestInfo as PublicLogfireAiohttpRequestInfo, InternalRequestHook
+from aiohttp.tracing import TraceRequestStartParams, TraceRequestEndParams, TraceRequestExceptionParams
+from aiohttp.client_reqrep import ClientResponse
 from email.headerregistry import ContentTypeHeader
 from opentelemetry.trace import Span
 from logfire._internal.utils import handle_internal_errors
@@ -21,8 +22,14 @@ from logfire._internal.stack_info import warn_at_user_stacklevel
 from functools import lru_cache
 from email.policy import EmailPolicy
 import attr
+from multidict import CIMultiDict
 
 P = ParamSpec('P')
+
+AioHttpHeaders = CIMultiDict[str]
+
+RequestHook = Callable[[Span, TraceRequestStartParams], None]
+ResponseHook = Callable[[Span, TraceRequestEndParams | TraceRequestExceptionParams], None]
 
 
 def run_hook(hook: Callable[P, Any] | None, *args: P.args, **kwargs: P.kwargs) -> None:
@@ -35,8 +42,8 @@ def capture_request(
     request: TraceRequestStartParams,
     should_capture_headers: bool,
     should_capture_body: bool,
-) -> PublicLogfireAiohttpRequestInfo:
-    request_info = PublicLogfireAiohttpRequestInfo(
+) -> LogfireAiohttpRequestInfo:
+    request_info = LogfireAiohttpRequestInfo(
         method=request.method,
         url=request.url,
         headers=request.headers,
@@ -51,17 +58,11 @@ def capture_request(
 
 def capture_response(
     span: Span,
-    response: TraceRequestEndParams,
+    response: TraceRequestEndParams | TraceRequestExceptionParams,
     capture_headers: bool,
     capture_body: bool,
 ) -> LogfireAiohttpResponseInfo:
-    response_info = LogfireAiohttpResponseInfo(
-        span=span,
-        method=response.method,
-        url=response.url,
-        headers=response.headers,
-        response=response.response
-    )
+    response_info = LogfireAiohttpResponseInfo.from_trace(span=span, params=response)
 
     if capture_headers:
         response_info.capture_headers()
@@ -80,7 +81,7 @@ def capture_request_or_response_headers(
     )
 
 
-def make_request_hook(hook: RequestHook | None, capture_headers: bool, capture_body: bool) -> InternalRequestHook | None:
+def make_request_hook(hook: RequestHook | None, capture_headers: bool, capture_body: bool) -> RequestHook | None:
     if not (capture_headers or capture_body or hook):
         return None
 
@@ -100,15 +101,16 @@ def make_response_hook(
     if not (capture_headers or capture_body or hook):
         return None
 
-    def new_hook(span: Span, response: TraceRequestEndParams) -> None:
+    # Accept either end OR exception params here
+    def new_hook(span: Span, response: TraceRequestEndParams | TraceRequestExceptionParams) -> None:
         with handle_internal_errors:
-            response_info = capture_response(
+            capture_response(
                 span,
                 response,
                 capture_headers,
                 capture_body,
             )
-            run_hook(hook, span, response_info)
+            run_hook(hook, span, response)
 
     return new_hook
 
@@ -157,20 +159,46 @@ class LogfireAiohttpClientInfoMixin:
     def content_type_header_string(self) -> str:
         return self.headers.get('content-type', '')
 
-
+@attr.s(auto_attribs=True, frozen=True, slots=True)
 class LogfireAiohttpRequestInfo(TraceRequestStartParams, LogfireAiohttpClientInfoMixin):
     span: Span
 
     def capture_headers(self):
         capture_request_or_response_headers(self.span, self.headers, 'request')
 
-# TODO: Add TraceRequestExceptionParams support
+
+
 @attr.s(auto_attribs=True, frozen=True, slots=True)
-class LogfireAiohttpResponseInfo(LogfireAiohttpClientInfoMixin, TraceRequestEndParams):
+class LogfireAiohttpResponseInfo(LogfireAiohttpClientInfoMixin):
     span: Span
+    method: str
+    url: Any
+    headers: AioHttpHeaders
+    response: ClientResponse | None
+    exception: BaseException | None
 
     def capture_headers(self):
         capture_request_or_response_headers(self.span, self.headers, 'response')
+
+    @classmethod
+    def from_trace(
+        cls,
+        span: Span,
+        params: TraceRequestEndParams | TraceRequestExceptionParams,
+    ) -> LogfireAiohttpResponseInfo:
+        """
+        Build a LogfireAiohttpResponseInfo from either TraceRequestEndParams or TraceRequestExceptionParams.
+        We use getattr so the factory works regardless of which concrete trace object is passed.
+        """
+        return cls(
+            span=span,
+            method=params.method,
+            url=params.url,
+            headers=params.headers,
+            response=getattr(params, 'response', None),
+            exception=getattr(params, 'exception', None),
+        )
+
 
 @lru_cache
 def content_type_header_from_string(content_type: str) -> ContentTypeHeader:
