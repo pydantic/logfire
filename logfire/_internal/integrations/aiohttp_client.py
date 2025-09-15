@@ -104,7 +104,7 @@ class LogfireAioHttpResponseInfo(LogfireClientInfoMixin):
     logfire_instance: Logfire
 
     def capture_headers(self):
-        capture_request_or_response_headers(self.span, self.headers, 'response')
+        capture_request_or_response_headers(self.span, self.response.headers if self.response else {}, 'response')
 
     def capture_body_if_text(self, attr_name: str = 'http.response.body.text') -> None:
         response = self.response
@@ -229,7 +229,7 @@ def run_hook(hook: Callable[P, Any] | None, *args: P.args, **kwargs: P.kwargs) -
 
 
 def capture_request_or_response_headers(
-    span: Span, headers: AioHttpHeaders, request_or_response: Literal['request', 'response']
+    span: Span, headers: AioHttpHeaders | Any, request_or_response: Literal['request', 'response']
 ) -> None:
     span.set_attributes(
         {
