@@ -7,7 +7,7 @@ import aiohttp.test_utils
 import aiohttp.web
 import pytest
 from aiohttp.tracing import TraceRequestEndParams, TraceRequestExceptionParams, TraceRequestStartParams
-from dirty_equals import IsTuple, IsInt, IsStr
+from dirty_equals import IsInt, IsStr, IsTuple
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
 from opentelemetry.trace import Span
