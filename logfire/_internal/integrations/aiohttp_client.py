@@ -104,8 +104,8 @@ class LogfireAioHttpResponseInfo(LogfireClientInfoMixin):
     logfire_instance: Logfire
 
     def capture_headers(self):
+        capture_request_or_response_headers(self.span, self.headers, 'request') # Capture headers are complete with traceparent in TraceRequestEndParams which is why capturing it here
         capture_request_or_response_headers(self.span, self.response.headers if self.response else {}, 'response')
-        capture_request_or_response_headers(self.span, self.headers, 'request')
 
     def capture_body_if_text(self, attr_name: str = 'http.response.body.text') -> None:
         response = self.response
@@ -197,11 +197,10 @@ def make_response_hook(
 def capture_request(
     span: Span,
     request: TraceRequestStartParams,
-    _should_capture_body: bool,  # TODO: Implement Request Body Capture
+    _should_capture_body: bool,  
 ) -> LogfireAioHttpRequestInfo:
     request_info = LogfireAioHttpRequestInfo(method=request.method, url=request.url, headers=request.headers, span=span)
-
-
+    # TODO: Implement Request Body Capture, not implemented yet so capture request is not doing anything right now
     return request_info
 
 
