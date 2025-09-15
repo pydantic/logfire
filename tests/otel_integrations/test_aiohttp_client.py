@@ -35,6 +35,7 @@ async def test_aiohttp_client_capture_headers(exporter: TestExporter):
     """Test that aiohttp client captures headers when configured to do so."""
 
     try:
+
         async def handler(request: aiohttp.web.Request) -> aiohttp.web.Response:
             return aiohttp.web.json_response(
                 {'received_headers': dict(request.headers), 'status': 'ok'},
