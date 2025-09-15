@@ -41,9 +41,9 @@ def capture_request(
     span: Span,
     request: TraceRequestStartParams,
     should_capture_headers: bool,
-    should_capture_body: bool,
-) -> LogfireAiohttpRequestInfo:
-    request_info = LogfireAiohttpRequestInfo(
+    _should_capture_body: bool, # TODO: Implement Request Capture Body
+) -> LogfireAioHttpRequestInfo:
+    request_info = LogfireAioHttpRequestInfo(
         method=request.method,
         url=request.url,
         headers=request.headers,
@@ -62,8 +62,8 @@ def capture_response(
     logfire_instance: Logfire,
     capture_headers: bool,
     capture_body: bool,
-) -> LogfireAiohttpResponseInfo:
-    response_info = LogfireAiohttpResponseInfo.from_trace(span=span, params=response, logfire_instance=logfire_instance)
+) -> LogfireAioHttpResponseInfo:
+    response_info = LogfireAioHttpResponseInfo.from_trace(span=span, params=response, logfire_instance=logfire_instance)
 
     if capture_headers:
         response_info.capture_headers()
@@ -157,7 +157,7 @@ def instrument_aiohttp_client(
     )
 
 
-class LogfireAiohttpClientInfoMixin:
+class LogfireClientInfoMixin:
     headers: AioHttpHeaders
 
     @property
@@ -169,7 +169,7 @@ class LogfireAiohttpClientInfoMixin:
         return self.headers.get('content-type', '')
 
 @attr.s(auto_attribs=True, frozen=True, slots=True)
-class LogfireAiohttpRequestInfo(TraceRequestStartParams, LogfireAiohttpClientInfoMixin):
+class LogfireAioHttpRequestInfo(TraceRequestStartParams, LogfireClientInfoMixin):
     span: Span
 
     def capture_headers(self):
@@ -178,7 +178,7 @@ class LogfireAiohttpRequestInfo(TraceRequestStartParams, LogfireAiohttpClientInf
 
 
 @attr.s(auto_attribs=True, frozen=True, slots=True)
-class LogfireAiohttpResponseInfo(LogfireAiohttpClientInfoMixin):
+class LogfireAioHttpResponseInfo(LogfireClientInfoMixin):
     span: Span
     method: str
     url: URL
@@ -229,8 +229,8 @@ class LogfireAiohttpResponseInfo(LogfireAiohttpClientInfoMixin):
         span: Span,
         params: TraceRequestEndParams | TraceRequestExceptionParams,
         logfire_instance: Logfire,
-    ) -> LogfireAiohttpResponseInfo:
-        """Build a LogfireAiohttpResponseInfo from either TraceRequestEndParams or TraceRequestExceptionParams.
+    ) -> LogfireAioHttpResponseInfo:
+        """Build a LogfireAioHttpResponseInfo from either TraceRequestEndParams or TraceRequestExceptionParams.
 
         We use getattr so the factory works regardless of which concrete trace object is passed.
         """
