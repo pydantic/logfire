@@ -491,6 +491,61 @@ async def test_aiohttp_client_instrumentation_with_capture_headers(
     assert all(key in span['attributes'] for key in expected_attributes), list(span['attributes'])
 
 
+@pytest.mark.parametrize(
+    ('instrument_kwargs', 'should_have_response_body'),
+    [
+        ({'capture_response_body': True}, True),
+        ({'capture_response_body': False}, False),
+        ({'capture_all': True}, True),  # capture_all should enable response body capture
+        ({}, False),  # default should not capture response body
+    ],
+)
+@pytest.mark.anyio
+async def test_aiohttp_client_capture_response_body_flag(
+    exporter: TestExporter, instrument_kwargs: dict[str, Any], should_have_response_body: bool
+):
+    """Test aiohttp client instrumentation with capture_response_body flag."""
+
+    try:
+
+        async def handler(request: aiohttp.web.Request) -> aiohttp.web.Response:
+            return aiohttp.web.json_response({'response': 'data'})
+
+        app = aiohttp.web.Application()
+        app.router.add_post('/response-body-test', handler)
+
+        async with aiohttp.test_utils.TestServer(app) as server:
+            await server.start_server()
+
+            logfire.instrument_aiohttp_client(**instrument_kwargs)
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f'http://localhost:{server.port}/response-body-test',  # type: ignore
+                    json={'test': 'data'},
+                ) as response:
+                    await response.json()  # This triggers response body reading
+                    await response.read()  # Read again to ensure body capture works
+
+    finally:
+        AioHttpClientInstrumentor().uninstrument()
+
+    spans = exporter.exported_spans_as_dict()
+
+    # Check if we have response body spans
+    body_spans = [span for span in spans if span['name'] == 'Reading response body']
+
+    if should_have_response_body:
+        assert len(body_spans) >= 1, f'Expected response body spans but got {len(body_spans)}'
+        # Check that at least one span has the response body text
+        body_texts = [span['attributes'].get('http.response.body.text') for span in body_spans]
+        assert any('response' in str(text) and 'data' in str(text) for text in body_texts if text), (
+            f'Expected response body content but got: {body_texts}'
+        )
+    else:
+        assert len(body_spans) == 0, f'Expected no response body spans but got {len(body_spans)}'
+
+
 @pytest.mark.anyio
 async def test_aiohttp_client_no_capture_empty_body(exporter: TestExporter):
     """Test that empty request/response bodies are captured as empty strings."""
