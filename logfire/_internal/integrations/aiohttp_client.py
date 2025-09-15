@@ -141,7 +141,7 @@ class LogfireAioHttpResponseInfo(LogfireClientInfoMixin):
         span._span.set_attribute(attr_name, text)  # type: ignore
 
     @classmethod
-    def from_trace(
+    def create_from_trace_params(
         cls,
         span: Span,
         params: TraceRequestEndParams | TraceRequestExceptionParams,
@@ -214,7 +214,7 @@ def capture_response(
     capture_headers: bool,
     capture_body: bool,
 ) -> LogfireAioHttpResponseInfo:
-    response_info = LogfireAioHttpResponseInfo.from_trace(span=span, params=response, logfire_instance=logfire_instance)
+    response_info = LogfireAioHttpResponseInfo.create_from_trace_params(span=span, params=response, logfire_instance=logfire_instance)
 
     if capture_headers:
         response_info.capture_headers()
