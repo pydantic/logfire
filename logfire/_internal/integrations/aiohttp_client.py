@@ -115,7 +115,7 @@ class LogfireAioHttpResponseInfo(LogfireClientInfoMixin):
                 try:
                     encoding = response.get_encoding()
                     text = body.decode(encoding)
-                except (UnicodeDecodeError, LookupError, RuntimeError):
+                except (UnicodeDecodeError, LookupError):
                     setattr(response, '__logfire_body_captured', True)
                     return body
                 self.capture_text_as_json(span, text=text, attr_name=attr_name)
