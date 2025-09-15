@@ -108,3 +108,32 @@ async def test_aiohttp_client_capture_headers(exporter: TestExporter):
             },
         }
     )
+
+
+@pytest.mark.anyio
+async def test_aiohttp_client_capture_response_body(exporter: TestExporter):
+    """Test that aiohttp client captures response body when configured to do so."""
+    from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
+
+    try:
+        async def handler(request: aiohttp.web.Request) -> aiohttp.web.Response:
+            return aiohttp.web.json_response({'good': 'response'})
+
+        app = aiohttp.web.Application()
+        app.router.add_get('/body', handler)
+
+        async with aiohttp.test_utils.TestServer(app) as server:
+            await server.start_server()
+
+            logfire.instrument_aiohttp_client(capture_all=True)
+
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f'http://localhost:{server.port}/body') as response:  # type: ignore
+                    await response.json()
+    finally:
+        AioHttpClientInstrumentor().uninstrument()
+
+    spans = exporter.exported_spans_as_dict()
+    body_spans = [span for span in spans if span['name'] == 'Reading response body']
+    assert len(body_spans) == 1 # Only reading the body once
+    assert body_spans[0]['attributes']['http.response.body.text'] == '{"good": "response"}'
