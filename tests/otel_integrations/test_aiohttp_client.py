@@ -97,7 +97,7 @@ async def test_aiohttp_client_capture_headers(exporter: TestExporter):
                 'http.response.header.Content-Type': ('application/json; charset=utf-8',),
                 'http.response.header.Content-Length': ('298',),
                 'http.response.header.Date': IsTuple(IsStr()),
-                'http.response.header.Server': ('Python/3.13 aiohttp/3.12.15',),
+                'http.response.header.Server': IsTuple(IsStr()),
                 'http.status_code': 200,
                 'http.response.status_code': 200,
                 'http.target': '/test',
