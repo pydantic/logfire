@@ -27,7 +27,6 @@ async def test_instrument_aiohttp():
         logfire.instrument_aiohttp_client()
         assert cls.__init__ is not original_init
     finally:
-        # Clean up instrumentation to avoid test isolation issues
         AioHttpClientInstrumentor().uninstrument()
 
 
@@ -36,25 +35,20 @@ async def test_aiohttp_client_capture_headers(exporter: TestExporter):
     """Test that aiohttp client captures headers when configured to do so."""
 
     try:
-        # Create a simple handler that echoes back the request headers
         async def handler(request: aiohttp.web.Request) -> aiohttp.web.Response:
             return aiohttp.web.json_response(
                 {'received_headers': dict(request.headers), 'status': 'ok'},
                 headers={'Server-Custom-Header': 'server-value'},
             )
 
-        # Create test server
         app = aiohttp.web.Application()
         app.router.add_get('/test', handler)
 
-        # Start server
         async with aiohttp.test_utils.TestServer(app) as server:
             await server.start_server()
 
-            # Instrument aiohttp client with header capture enabled
             logfire.instrument_aiohttp_client(capture_all=True)
 
-            # Make request with custom headers
             async with aiohttp.ClientSession() as session:
                 custom_headers = {
                     'User-Agent': 'test-client/1.0',
@@ -68,19 +62,15 @@ async def test_aiohttp_client_capture_headers(exporter: TestExporter):
                 ) as response:
                     await response.json()
     finally:
-        # Clean up instrumentation to avoid test isolation issues
         AioHttpClientInstrumentor().uninstrument()
 
-    # Check that spans were exported with header information
     spans = exporter.exported_spans_as_dict()
 
-    # Filter to get the HTTP client span
     http_spans = [span for span in spans if span['name'] == 'GET']
     assert len(http_spans) == 1
 
     http_span = http_spans[0]
 
-    # Verify that request and response headers are captured
     assert http_span == snapshot(
         {
             'name': 'GET',
@@ -192,13 +182,12 @@ async def test_aiohttp_client_hooks(exporter: TestExporter):
     finally:
         AioHttpClientInstrumentor().uninstrument()
 
-    # Verify hooks were called with correct parameters using snapshots
     assert request_hook_calls == snapshot(
         [
             {
                 'params_type': 'TraceRequestStartParams',
                 'method': 'GET',
-                'url': IsStr(regex=r'.*\/test-hooks'),  # URL contains dynamic port
+                'url': IsStr(regex=r'.*\/test-hooks'),
                 'has_headers': True,
             }
         ]
@@ -209,7 +198,7 @@ async def test_aiohttp_client_hooks(exporter: TestExporter):
             {
                 'params_type': 'TraceRequestEndParams',
                 'method': 'GET',
-                'url': IsStr(regex=r'.*\/test-hooks'),  # URL contains dynamic port
+                'url': IsStr(regex=r'.*\/test-hooks'),
                 'has_response': True,
                 'has_exception': False,
             }
