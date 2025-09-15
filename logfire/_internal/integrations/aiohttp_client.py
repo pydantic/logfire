@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 from email.headerregistry import ContentTypeHeader
 from email.policy import EmailPolicy
 from functools import lru_cache
@@ -8,8 +9,7 @@ from typing import TYPE_CHECKING, Any, Callable, Literal, cast
 import attr
 from aiohttp.client_reqrep import ClientResponse
 from aiohttp.tracing import TraceRequestEndParams, TraceRequestExceptionParams, TraceRequestStartParams
-from multidict import CIMultiDict
-from opentelemetry.trace import Span
+from opentelemetry.trace import NonRecordingSpan, Span, use_span
 from yarl import URL
 
 try:
@@ -21,7 +21,8 @@ except ImportError:
         "    pip install 'logfire[aiohttp-client]'"
     )
 
-from logfire import Logfire
+from logfire import Logfire, LogfireSpan
+from logfire.integrations.aiohttp_client import AioHttpHeaders, RequestHook, ResponseHook
 from logfire._internal.config import GLOBAL_CONFIG
 from logfire._internal.stack_info import warn_at_user_stacklevel
 from logfire._internal.utils import handle_internal_errors
@@ -31,9 +32,7 @@ if TYPE_CHECKING:
 
     P = ParamSpec('P')
 
-AioHttpHeaders = CIMultiDict[str]
-RequestHook = Callable[[Span, TraceRequestStartParams], None]
-ResponseHook = Callable[[Span, TraceRequestEndParams | TraceRequestExceptionParams], None]
+
 
 
 def run_hook(hook: Callable[P, Any] | None, *args: P.args, **kwargs: P.kwargs) -> None:
@@ -63,14 +62,16 @@ def capture_request(
 def capture_response(
     span: Span,
     response: TraceRequestEndParams | TraceRequestExceptionParams,
+    logfire_instance: Logfire,
     capture_headers: bool,
     capture_body: bool,
 ) -> LogfireAiohttpResponseInfo:
-    response_info = LogfireAiohttpResponseInfo.from_trace(span=span, params=response)
+    response_info = LogfireAiohttpResponseInfo.from_trace(span=span, params=response, logfire_instance=logfire_instance)
 
     if capture_headers:
         response_info.capture_headers()
-
+    if capture_body:
+        response_info.capture_body_if_text()
     return response_info
 
 
@@ -101,6 +102,7 @@ def make_response_hook(
     hook: ResponseHook | None,
     capture_headers: bool,
     capture_body: bool,
+    logfire_instance: Logfire,
 ) -> ResponseHook | None:
     if not (capture_headers or capture_body or hook):
         return None
@@ -111,6 +113,7 @@ def make_response_hook(
             capture_response(
                 span,
                 response,
+                logfire_instance,
                 capture_headers,
                 capture_body,
             )
@@ -145,7 +148,12 @@ def instrument_aiohttp_client(
         **{
             'tracer_provider': logfire_instance.config.get_tracer_provider(),
             'request_hook': make_request_hook(request_hook, capture_headers | capture_all, capture_request_body | capture_all),
-            'response_hook': make_response_hook(response_hook, capture_headers | capture_all, capture_response_body | capture_all),
+            'response_hook': make_response_hook(
+                response_hook,
+                capture_headers | capture_all,
+                capture_response_body | capture_all,
+                logfire_instance,
+            ),
             'meter_provider': logfire_instance.config.get_meter_provider(),
             **kwargs,
         },
@@ -180,15 +188,50 @@ class LogfireAiohttpResponseInfo(LogfireAiohttpClientInfoMixin):
     headers: AioHttpHeaders
     response: ClientResponse | None
     exception: BaseException | None
+    logfire_instance: Logfire
 
     def capture_headers(self):
         capture_request_or_response_headers(self.span, self.headers, 'response')
+
+
+    def capture_body_if_text(self, attr_name: str = 'http.response.body.text') -> None:
+        response = self.response
+        if response is None:
+            return
+
+        if getattr(response, '__logfire_response_read_wrapped', False):
+            return
+
+        original_read = response.read
+
+        @functools.wraps(original_read)
+        async def read() -> bytes:
+            with use_span(NonRecordingSpan(self.span.get_span_context())), self.logfire_instance.span('Reading response body') as span:
+                body = await original_read()
+                try:
+                    encoding = response.get_encoding()
+                    text = body.decode(encoding)
+                except (UnicodeDecodeError, LookupError, RuntimeError):
+                    setattr(response, '__logfire_body_captured', True)
+                    return body
+                self.capture_text_as_json(span, text=text, attr_name=attr_name)
+                setattr(response, '__logfire_body_captured', True)
+                return body
+
+        response.read = read
+        setattr(response, '__logfire_response_read_wrapped', True)
+
+    def capture_text_as_json(self, span: LogfireSpan, *, text: str, attr_name: str) -> None:
+        span.set_attribute(attr_name, {})
+        span._span.set_attribute(attr_name, text)  # type: ignore[attr-defined]
+
 
     @classmethod
     def from_trace(
         cls,
         span: Span,
         params: TraceRequestEndParams | TraceRequestExceptionParams,
+        logfire_instance: Logfire,
     ) -> LogfireAiohttpResponseInfo:
         """Build a LogfireAiohttpResponseInfo from either TraceRequestEndParams or TraceRequestExceptionParams.
 
@@ -201,6 +244,7 @@ class LogfireAiohttpResponseInfo(LogfireAiohttpClientInfoMixin):
             headers=params.headers,
             response=getattr(params, 'response', None),
             exception=getattr(params, 'exception', None),
+            logfire_instance=logfire_instance,
         )
 
 
