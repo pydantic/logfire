@@ -1,9 +1,6 @@
 from __future__ import annotations
 
 import functools
-from email.headerregistry import ContentTypeHeader
-from email.policy import EmailPolicy
-from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Callable, Literal, cast
 
 import attr
@@ -76,21 +73,10 @@ def instrument_aiohttp_client(
 class LogfireClientInfoMixin:
     headers: AioHttpRequestHeaders
 
-    @property
-    def content_type_header_object(self) -> ContentTypeHeader:
-        return content_type_header_from_string(self.content_type_header_string)
-
-    @property
-    def content_type_header_string(self) -> str:
-        return self.headers.get('content-type', '')
-
 
 @attr.s(auto_attribs=True, frozen=True, slots=True)
 class LogfireAioHttpRequestInfo(TraceRequestStartParams, LogfireClientInfoMixin):
     span: Span
-
-    def capture_headers(self):
-        capture_request_or_response_headers(self.span, self.headers, 'request')
 
 
 @attr.s(auto_attribs=True, frozen=True, slots=True)
@@ -244,6 +230,3 @@ def capture_request_or_response_headers(
     )
 
 
-@lru_cache
-def content_type_header_from_string(content_type: str) -> ContentTypeHeader:
-    return EmailPolicy.header_factory('content-type', content_type)
