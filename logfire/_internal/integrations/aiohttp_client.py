@@ -1,5 +1,15 @@
 from __future__ import annotations
-from typing import Any, Literal, Callable, cast
+
+import attr
+from email.headerregistry import ContentTypeHeader
+from email.policy import EmailPolicy
+from functools import lru_cache
+from typing import TYPE_CHECKING, Any, Callable, Literal, cast
+
+from aiohttp.client_reqrep import ClientResponse
+from aiohttp.tracing import TraceRequestEndParams, TraceRequestExceptionParams, TraceRequestStartParams
+from multidict import CIMultiDict
+from opentelemetry.trace import Span
 
 try:
     from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
@@ -9,22 +19,16 @@ except ImportError:
         'You can install this with:\n'
         "    pip install 'logfire[aiohttp-client]'"
     )
+
 from logfire import Logfire
-# from logfire.integrations.aiohttp_client import RequestHook, ResponseHook, AioHttpHeaders, LogfireAiohttpRequestInfo as PublicLogfireAiohttpRequestInfo, InternalRequestHook
-from aiohttp.tracing import TraceRequestStartParams, TraceRequestEndParams, TraceRequestExceptionParams
-from aiohttp.client_reqrep import ClientResponse
-from email.headerregistry import ContentTypeHeader
-from opentelemetry.trace import Span
-from logfire._internal.utils import handle_internal_errors
-from typing import ParamSpec
 from logfire._internal.config import GLOBAL_CONFIG
 from logfire._internal.stack_info import warn_at_user_stacklevel
-from functools import lru_cache
-from email.policy import EmailPolicy
-import attr
-from multidict import CIMultiDict
+from logfire._internal.utils import handle_internal_errors
 
-P = ParamSpec('P')
+if TYPE_CHECKING:
+    from typing import ParamSpec
+
+    P = ParamSpec('P')
 
 AioHttpHeaders = CIMultiDict[str]
 
