@@ -228,5 +228,3 @@ def capture_request_or_response_headers(
             for header_name in headers.keys()
         }
     )
-
-
