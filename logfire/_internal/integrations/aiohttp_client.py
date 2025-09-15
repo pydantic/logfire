@@ -104,7 +104,9 @@ class LogfireAioHttpResponseInfo(LogfireClientInfoMixin):
     logfire_instance: Logfire
 
     def capture_headers(self):
-        capture_request_or_response_headers(self.span, self.headers, 'request') # Capture headers are complete with traceparent in TraceRequestEndParams which is why capturing it here
+        capture_request_or_response_headers(
+            self.span, self.headers, 'request'
+        )  # Capture headers are complete with traceparent in TraceRequestEndParams which is why capturing it here
         capture_request_or_response_headers(self.span, self.response.headers if self.response else None, 'response')
 
     def capture_body_if_text(self, attr_name: str = 'http.response.body.text') -> None:
@@ -197,7 +199,7 @@ def make_response_hook(
 def capture_request(
     span: Span,
     request: TraceRequestStartParams,
-    _should_capture_body: bool,  
+    _should_capture_body: bool,
 ) -> LogfireAioHttpRequestInfo:
     request_info = LogfireAioHttpRequestInfo(method=request.method, url=request.url, headers=request.headers, span=span)
     # TODO: Implement Request Body Capture, not implemented yet so capture request is not doing anything right now
@@ -211,7 +213,9 @@ def capture_response(
     capture_headers: bool,
     capture_body: bool,
 ) -> LogfireAioHttpResponseInfo:
-    response_info = LogfireAioHttpResponseInfo.create_from_trace_params(span=span, params=response, logfire_instance=logfire_instance)
+    response_info = LogfireAioHttpResponseInfo.create_from_trace_params(
+        span=span, params=response, logfire_instance=logfire_instance
+    )
 
     if capture_headers:
         response_info.capture_headers()
@@ -226,7 +230,9 @@ def run_hook(hook: Callable[P, Any] | None, *args: P.args, **kwargs: P.kwargs) -
 
 
 def capture_request_or_response_headers(
-    span: Span, headers: AioHttpRequestHeaders | AioHttpResponseHeaders | None, request_or_response: Literal['request', 'response']
+    span: Span,
+    headers: AioHttpRequestHeaders | AioHttpResponseHeaders | None,
+    request_or_response: Literal['request', 'response'],
 ) -> None:
     if not headers:
         return
