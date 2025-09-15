@@ -7,7 +7,7 @@ import aiohttp.test_utils
 import aiohttp.web
 import pytest
 from aiohttp.tracing import TraceRequestEndParams, TraceRequestExceptionParams, TraceRequestStartParams
-from dirty_equals import IsInt, IsStr
+from dirty_equals import IsTuple, IsInt, IsStr
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
 from opentelemetry.trace import Span
@@ -92,14 +92,16 @@ async def test_aiohttp_client_capture_headers(exporter: TestExporter):
                 'http.request.header.User-Agent': ('test-client/1.0',),
                 'http.request.header.X-Custom-Header': ('custom-value',),
                 'http.request.header.Authorization': ("[Scrubbed due to 'Auth']",),
-                'http.response.header.User-Agent': ('test-client/1.0',),
-                'http.response.header.X-Custom-Header': ('custom-value',),
-                'http.response.header.Authorization': ("[Scrubbed due to 'Auth']",),
-                'http.response.header.traceparent': ('00-00000000000000000000000000000001-0000000000000001-01',),
+                'http.request.header.traceparent': ('00-00000000000000000000000000000001-0000000000000001-01',),
+                'http.response.header.Server-Custom-Header': ('server-value',),
+                'http.response.header.Content-Type': ('application/json; charset=utf-8',),
+                'http.response.header.Content-Length': ('298',),
+                'http.response.header.Date': IsTuple(IsStr()),
+                'http.response.header.Server': ('Python/3.13 aiohttp/3.12.15',),
                 'http.status_code': 200,
                 'http.response.status_code': 200,
                 'http.target': '/test',
-                'logfire.scrubbed': '[{"path": ["attributes", "http.request.header.Authorization"], "matched_substring": "Auth"}, {"path": ["attributes", "http.response.header.Authorization"], "matched_substring": "Auth"}]',
+                'logfire.scrubbed': '[{"path": ["attributes", "http.request.header.Authorization"], "matched_substring": "Auth"}]',
             },
         }
     )

@@ -105,6 +105,7 @@ class LogfireAioHttpResponseInfo(LogfireClientInfoMixin):
 
     def capture_headers(self):
         capture_request_or_response_headers(self.span, self.response.headers if self.response else {}, 'response')
+        capture_request_or_response_headers(self.span, self.headers, 'request')
 
     def capture_body_if_text(self, attr_name: str = 'http.response.body.text') -> None:
         response = self.response
@@ -164,7 +165,7 @@ def make_request_hook(hook: RequestHook | None, capture_headers: bool, capture_b
 
     def new_hook(span: Span, request: TraceRequestStartParams) -> None:
         with handle_internal_errors:
-            capture_request(span, request, capture_headers, capture_body)
+            capture_request(span, request, capture_body)
             run_hook(hook, span, request)
 
     return new_hook
@@ -196,13 +197,10 @@ def make_response_hook(
 def capture_request(
     span: Span,
     request: TraceRequestStartParams,
-    should_capture_headers: bool,
     _should_capture_body: bool,  # TODO: Implement Request Body Capture
 ) -> LogfireAioHttpRequestInfo:
     request_info = LogfireAioHttpRequestInfo(method=request.method, url=request.url, headers=request.headers, span=span)
 
-    if should_capture_headers:
-        request_info.capture_headers()
 
     return request_info
 
