@@ -25,7 +25,7 @@ from logfire import Logfire, LogfireSpan
 from logfire._internal.config import GLOBAL_CONFIG
 from logfire._internal.stack_info import warn_at_user_stacklevel
 from logfire._internal.utils import handle_internal_errors
-from logfire.integrations.aiohttp_client import AioHttpHeaders, RequestHook, ResponseHook
+from logfire.integrations.aiohttp_client import AioHttpRequestHeaders, AioHttpResponseHeaders, RequestHook, ResponseHook
 
 if TYPE_CHECKING:
     from typing import ParamSpec
@@ -74,7 +74,7 @@ def instrument_aiohttp_client(
 
 
 class LogfireClientInfoMixin:
-    headers: AioHttpHeaders
+    headers: AioHttpRequestHeaders
 
     @property
     def content_type_header_object(self) -> ContentTypeHeader:
@@ -98,14 +98,14 @@ class LogfireAioHttpResponseInfo(LogfireClientInfoMixin):
     span: Span
     method: str
     url: URL
-    headers: AioHttpHeaders
+    headers: AioHttpRequestHeaders
     response: ClientResponse | None
     exception: BaseException | None
     logfire_instance: Logfire
 
     def capture_headers(self):
         capture_request_or_response_headers(self.span, self.headers, 'request') # Capture headers are complete with traceparent in TraceRequestEndParams which is why capturing it here
-        capture_request_or_response_headers(self.span, self.response.headers if self.response else {}, 'response')
+        capture_request_or_response_headers(self.span, self.response.headers if self.response else None, 'response')
 
     def capture_body_if_text(self, attr_name: str = 'http.response.body.text') -> None:
         response = self.response
@@ -226,8 +226,10 @@ def run_hook(hook: Callable[P, Any] | None, *args: P.args, **kwargs: P.kwargs) -
 
 
 def capture_request_or_response_headers(
-    span: Span, headers: AioHttpHeaders | Any, request_or_response: Literal['request', 'response']
+    span: Span, headers: AioHttpRequestHeaders | AioHttpResponseHeaders | None, request_or_response: Literal['request', 'response']
 ) -> None:
+    if not headers:
+        return
     span.set_attributes(
         {
             f'http.{request_or_response}.header.{header_name}': headers.getall(header_name)

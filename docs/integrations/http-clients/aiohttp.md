@@ -147,7 +147,7 @@ from opentelemetry.trace import Span
 
 def capture_response_headers(span: Span, params: TraceRequestEndParams | TraceRequestExceptionParams):
     if hasattr(params, 'response') and params.response:
-        headers = params.headers
+        headers = params.response.headers
         span.set_attributes(
             {f'http.response.header.{header_name}': headers.getall(header_name)
             for header_name in headers.keys()}
