@@ -120,6 +120,7 @@ async def test_aiohttp_client_capture_response_body(exporter: TestExporter):
     """Test that aiohttp client captures response body when configured to do so."""
 
     try:
+
         async def handler(request: aiohttp.web.Request) -> aiohttp.web.Response:
             return aiohttp.web.json_response({'good': 'response'})
 
@@ -139,7 +140,7 @@ async def test_aiohttp_client_capture_response_body(exporter: TestExporter):
 
     spans = exporter.exported_spans_as_dict()
     body_spans = [span for span in spans if span['name'] == 'Reading response body']
-    assert len(body_spans) == 1 # Only reading the body once
+    assert len(body_spans) == 1  # Only reading the body once
     assert body_spans[0]['attributes']['http.response.body.text'] == '{"good": "response"}'
 
 
@@ -152,25 +153,30 @@ async def test_aiohttp_client_hooks(exporter: TestExporter):
     response_hook_calls: list[dict[str, Any]] = []
 
     def test_request_hook(span: Span, params: TraceRequestStartParams):
-        request_hook_calls.append({
-            'span': span,
-            'params_type': type(params).__name__,
-            'method': params.method,
-            'url': str(params.url),
-            'has_headers': hasattr(params, 'headers')
-        })
+        request_hook_calls.append(
+            {
+                'span': span,
+                'params_type': type(params).__name__,
+                'method': params.method,
+                'url': str(params.url),
+                'has_headers': hasattr(params, 'headers'),
+            }
+        )
 
     def test_response_hook(span: Span, params: TraceRequestEndParams | TraceRequestExceptionParams):
-        response_hook_calls.append({
-            'span': span,
-            'params_type': type(params).__name__,
-            'method': params.method,
-            'url': str(params.url),
-            'has_response': hasattr(params, 'response'),
-            'has_exception': hasattr(params, 'exception')
-        })
+        response_hook_calls.append(
+            {
+                'span': span,
+                'params_type': type(params).__name__,
+                'method': params.method,
+                'url': str(params.url),
+                'has_response': hasattr(params, 'response'),
+                'has_exception': hasattr(params, 'exception'),
+            }
+        )
 
     try:
+
         async def handler(request: aiohttp.web.Request) -> aiohttp.web.Response:
             return aiohttp.web.json_response({'status': 'ok'})
 
@@ -180,10 +186,7 @@ async def test_aiohttp_client_hooks(exporter: TestExporter):
         async with aiohttp.test_utils.TestServer(app) as server:
             await server.start_server()
 
-            logfire.instrument_aiohttp_client(
-                request_hook=test_request_hook,
-                response_hook=test_response_hook
-            )
+            logfire.instrument_aiohttp_client(request_hook=test_request_hook, response_hook=test_response_hook)
 
             async with aiohttp.ClientSession() as session:
                 async with session.get(f'http://localhost:{server.port}/test-hooks') as response:  # type: ignore
@@ -195,7 +198,7 @@ async def test_aiohttp_client_hooks(exporter: TestExporter):
     # Verify hooks were called with correct parameters
     assert len(request_hook_calls) == 1
     assert len(response_hook_calls) == 1
-    
+
     # Verify request hook received TraceRequestStartParams
     request_call = request_hook_calls[0]
     assert request_call['params_type'] == 'TraceRequestStartParams'

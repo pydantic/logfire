@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 
     P = ParamSpec('P')
 
+
 def instrument_aiohttp_client(
     logfire_instance: Logfire,
     capture_all: bool,
@@ -57,7 +58,9 @@ def instrument_aiohttp_client(
     AioHttpClientInstrumentor().instrument(
         **{
             'tracer_provider': logfire_instance.config.get_tracer_provider(),
-            'request_hook': make_request_hook(request_hook, capture_headers | capture_all, capture_request_body | capture_all),
+            'request_hook': make_request_hook(
+                request_hook, capture_headers | capture_all, capture_request_body | capture_all
+            ),
             'response_hook': make_response_hook(
                 response_hook,
                 capture_headers | capture_all,
@@ -81,13 +84,13 @@ class LogfireClientInfoMixin:
     def content_type_header_string(self) -> str:
         return self.headers.get('content-type', '')
 
+
 @attr.s(auto_attribs=True, frozen=True, slots=True)
 class LogfireAioHttpRequestInfo(TraceRequestStartParams, LogfireClientInfoMixin):
     span: Span
 
     def capture_headers(self):
         capture_request_or_response_headers(self.span, self.headers, 'request')
-
 
 
 @attr.s(auto_attribs=True, frozen=True, slots=True)
@@ -103,7 +106,6 @@ class LogfireAioHttpResponseInfo(LogfireClientInfoMixin):
     def capture_headers(self):
         capture_request_or_response_headers(self.span, self.headers, 'response')
 
-
     def capture_body_if_text(self, attr_name: str = 'http.response.body.text') -> None:
         response = self.response
         if response is None:
@@ -116,7 +118,10 @@ class LogfireAioHttpResponseInfo(LogfireClientInfoMixin):
 
         @functools.wraps(original_read)
         async def read() -> bytes:
-            with use_span(NonRecordingSpan(self.span.get_span_context())), self.logfire_instance.span('Reading response body') as span:
+            with (
+                use_span(NonRecordingSpan(self.span.get_span_context())),
+                self.logfire_instance.span('Reading response body') as span,
+            ):
                 body = await original_read()
                 try:
                     encoding = response.get_encoding()
@@ -133,8 +138,7 @@ class LogfireAioHttpResponseInfo(LogfireClientInfoMixin):
 
     def capture_text_as_json(self, span: LogfireSpan, *, text: str, attr_name: str) -> None:
         span.set_attribute(attr_name, {})
-        span._span.set_attribute(attr_name, text)  # type: ignore[attr-defined]
-
+        span._span.set_attribute(attr_name, text)  # type: ignore
 
     @classmethod
     def from_trace(
@@ -143,7 +147,6 @@ class LogfireAioHttpResponseInfo(LogfireClientInfoMixin):
         params: TraceRequestEndParams | TraceRequestExceptionParams,
         logfire_instance: Logfire,
     ) -> LogfireAioHttpResponseInfo:
-
         return cls(
             span=span,
             method=params.method,
@@ -153,6 +156,7 @@ class LogfireAioHttpResponseInfo(LogfireClientInfoMixin):
             exception=getattr(params, 'exception', None),
             logfire_instance=logfire_instance,
         )
+
 
 def make_request_hook(hook: RequestHook | None, capture_headers: bool, capture_body: bool) -> RequestHook | None:
     if not (capture_headers or capture_body or hook):
@@ -175,7 +179,6 @@ def make_response_hook(
     if not (capture_headers or capture_body or hook):
         return None
 
-
     def new_hook(span: Span, response: TraceRequestEndParams | TraceRequestExceptionParams) -> None:
         with handle_internal_errors:
             capture_response(
@@ -194,14 +197,9 @@ def capture_request(
     span: Span,
     request: TraceRequestStartParams,
     should_capture_headers: bool,
-    _should_capture_body: bool, # TODO: Implement Request Body Capture
+    _should_capture_body: bool,  # TODO: Implement Request Body Capture
 ) -> LogfireAioHttpRequestInfo:
-    request_info = LogfireAioHttpRequestInfo(
-        method=request.method,
-        url=request.url,
-        headers=request.headers,
-        span=span
-    )
+    request_info = LogfireAioHttpRequestInfo(method=request.method, url=request.url, headers=request.headers, span=span)
 
     if should_capture_headers:
         request_info.capture_headers()
@@ -229,6 +227,7 @@ def run_hook(hook: Callable[P, Any] | None, *args: P.args, **kwargs: P.kwargs) -
     if hook:
         hook(*args, **kwargs)
 
+
 def capture_request_or_response_headers(
     span: Span, headers: AioHttpHeaders, request_or_response: Literal['request', 'response']
 ) -> None:
@@ -238,6 +237,7 @@ def capture_request_or_response_headers(
             for header_name in headers.keys()
         }
     )
+
 
 @lru_cache
 def content_type_header_from_string(content_type: str) -> ContentTypeHeader:
