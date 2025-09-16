@@ -179,7 +179,7 @@ async def test_run_hook_via_response_hook(exporter: TestExporter) -> None:
 
     try:
 
-        async def handler(request: aiohttp.web.Request) -> aiohttp.web.Response:
+        async def handler(_request: aiohttp.web.Request) -> aiohttp.web.Response:
             return aiohttp.web.json_response({'status': 'ok'})
 
         app = aiohttp.web.Application()
@@ -203,12 +203,12 @@ async def test_run_hook_via_response_hook(exporter: TestExporter) -> None:
 
 
 @pytest.mark.anyio
-async def test_run_hook_via_request_hook(exporter: TestExporter) -> None:
+async def test_run_hook_via_request_hook() -> None:
     """Test that run_hook is called when a request hook is provided."""
 
     try:
 
-        async def handler(request: aiohttp.web.Request) -> aiohttp.web.Response:
+        async def handler(_request: aiohttp.web.Request) -> aiohttp.web.Response:
             return aiohttp.web.json_response({'status': 'ok'})
 
         app = aiohttp.web.Application()
