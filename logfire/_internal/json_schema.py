@@ -292,7 +292,7 @@ def _pydantic_root_model_schema(obj: Any, seen: set[int]) -> JsonDict:
     root_class = obj.root.__class__  # type: ignore
 
     # handle None separately as it has dedicated type
-    if root_class is None:
+    if root_class is type(None):
         return {'type': 'null'}
     # return a complex schema to ensure JSON parsing for strings inside RootModel since they get an
     # extra layer of JSON encoding
