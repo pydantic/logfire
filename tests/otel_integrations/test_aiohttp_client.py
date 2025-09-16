@@ -84,31 +84,33 @@ async def test_aiohttp_client_no_capture_headers_with_hooks(exporter: TestExport
     finally:
         AioHttpClientInstrumentor().uninstrument()
 
-    assert exporter.exported_spans_as_dict()[0] == snapshot(
-        {
-            'name': 'GET',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 2000000000,
-            'attributes': {
-                'http.method': 'GET',
-                'http.request.method': 'GET',
-                'http.url': IsStr(),
-                'url.full': IsStr(),
-                'http.host': 'localhost',
-                'server.address': 'localhost',
-                'net.peer.port': IsInt(),
-                'server.port': IsInt(),
-                'logfire.span_type': 'span',
-                'logfire.msg': 'GET localhost/test',
-                'custom.request.name': 'Custom Request',
-                'custom.response.content': 'Custom Content',
-                'http.status_code': 200,
-                'http.response.status_code': 200,
-                'http.target': '/test',
-            },
-        }
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'GET',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'http.method': 'GET',
+                    'http.request.method': 'GET',
+                    'http.url': IsStr(),
+                    'url.full': IsStr(),
+                    'http.host': 'localhost',
+                    'server.address': 'localhost',
+                    'net.peer.port': IsInt(),
+                    'server.port': IsInt(),
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET localhost/test',
+                    'custom.request.name': 'Custom Request',
+                    'custom.response.content': 'Custom Content',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                    'http.target': '/test',
+                },
+            }
+        ]
     )
 
 
@@ -139,40 +141,42 @@ async def test_aiohttp_client_capture_headers(exporter: TestExporter, test_app: 
     finally:
         AioHttpClientInstrumentor().uninstrument()
 
-    assert exporter.exported_spans_as_dict()[0] == snapshot(
-        {
-            'name': 'GET',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 2000000000,
-            'attributes': {
-                'http.method': 'GET',
-                'http.request.method': 'GET',
-                'http.url': IsStr(),
-                'url.full': IsStr(),
-                'http.host': 'localhost',
-                'server.address': 'localhost',
-                'net.peer.port': IsInt(),
-                'server.port': IsInt(),
-                'logfire.span_type': 'span',
-                'logfire.msg': 'GET localhost/test',
-                'http.request.header.User-Agent': ('test-client/1.0',),
-                'http.request.header.X-Custom-Header': ('custom-value',),
-                'http.request.header.Authorization': ("[Scrubbed due to 'Auth']",),
-                'custom.request.name': 'Custom Request',
-                'http.response.header.Server-Custom-Header': ('server-value',),
-                'http.response.header.Content-Type': ('application/json; charset=utf-8',),
-                'http.response.header.Content-Length': ('298',),
-                'http.response.header.Date': IsTuple(IsStr()),
-                'http.response.header.Server': IsTuple(IsStr()),
-                'custom.response.content': 'Custom Content',
-                'http.status_code': 200,
-                'http.response.status_code': 200,
-                'http.target': '/test',
-                'logfire.scrubbed': '[{"path": ["attributes", "http.request.header.Authorization"], "matched_substring": "Auth"}]',
-            },
-        }
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'GET',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'http.method': 'GET',
+                    'http.request.method': 'GET',
+                    'http.url': IsStr(),
+                    'url.full': IsStr(),
+                    'http.host': 'localhost',
+                    'server.address': 'localhost',
+                    'net.peer.port': IsInt(),
+                    'server.port': IsInt(),
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET localhost/test',
+                    'http.request.header.User-Agent': ('test-client/1.0',),
+                    'http.request.header.X-Custom-Header': ('custom-value',),
+                    'http.request.header.Authorization': ("[Scrubbed due to 'Auth']",),
+                    'custom.request.name': 'Custom Request',
+                    'http.response.header.Server-Custom-Header': ('server-value',),
+                    'http.response.header.Content-Type': ('application/json; charset=utf-8',),
+                    'http.response.header.Content-Length': ('298',),
+                    'http.response.header.Date': IsTuple(IsStr()),
+                    'http.response.header.Server': ('Python/3.13 aiohttp/3.12.15',),
+                    'custom.response.content': 'Custom Content',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                    'http.target': '/test',
+                    'logfire.scrubbed': '[{"path": ["attributes", "http.request.header.Authorization"], "matched_substring": "Auth"}]',
+                },
+            }
+        ]
     )
 
 
@@ -191,39 +195,41 @@ async def test_aiohttp_client_exception_handling(exporter: TestExporter):
     finally:
         AioHttpClientInstrumentor().uninstrument()
 
-    assert exporter.exported_spans_as_dict()[0] == snapshot(
-        {
-            'name': 'GET',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 3000000000,
-            'attributes': {
-                'http.method': 'GET',
-                'http.request.method': 'GET',
-                'http.url': 'http://non-existent-host-12345.example.com/test',
-                'url.full': 'http://non-existent-host-12345.example.com/test',
-                'http.host': 'non-existent-host-12345.example.com',
-                'server.address': 'non-existent-host-12345.example.com',
-                'logfire.span_type': 'span',
-                'error.type': 'ClientConnectorDNSError',
-                'logfire.msg': 'GET non-existent-host-12345.example.com/test',
-                'http.target': '/test',
-                'logfire.level_num': 17,
-            },
-            'events': [
-                {
-                    'name': 'exception',
-                    'timestamp': 2000000000,
-                    'attributes': {
-                        'exception.type': 'aiohttp.client_exceptions.ClientConnectorDNSError',
-                        'exception.message': 'Cannot connect to host non-existent-host-12345.example.com:80 ssl:default [nodename nor servname provided, or not known]',
-                        'exception.stacktrace': 'aiohttp.client_exceptions.ClientConnectorDNSError: Cannot connect to host non-existent-host-12345.example.com:80 ssl:default [nodename nor servname provided, or not known]',
-                        'exception.escaped': 'False',
-                    },
-                }
-            ],
-        }
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'GET',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'http.method': 'GET',
+                    'http.request.method': 'GET',
+                    'http.url': 'http://non-existent-host-12345.example.com/test',
+                    'url.full': 'http://non-existent-host-12345.example.com/test',
+                    'http.host': 'non-existent-host-12345.example.com',
+                    'server.address': 'non-existent-host-12345.example.com',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET non-existent-host-12345.example.com/test',
+                    'error.type': 'ClientConnectorDNSError',
+                    'http.target': '/test',
+                    'logfire.level_num': 17,
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 2000000000,
+                        'attributes': {
+                            'exception.type': 'aiohttp.client_exceptions.ClientConnectorDNSError',
+                            'exception.message': 'Cannot connect to host non-existent-host-12345.example.com:80 ssl:default [nodename nor servname provided, or not known]',
+                            'exception.stacktrace': 'aiohttp.client_exceptions.ClientConnectorDNSError: Cannot connect to host non-existent-host-12345.example.com:80 ssl:default [nodename nor servname provided, or not known]',
+                            'exception.escaped': 'False',
+                        },
+                    }
+                ],
+            }
+        ]
     )
 
 
@@ -242,41 +248,43 @@ async def test_aiohttp_client_exception_handling_with_hooks(exporter: TestExport
     finally:
         AioHttpClientInstrumentor().uninstrument()
 
-    assert exporter.exported_spans_as_dict()[0] == snapshot(
-        {
-            'name': 'GET',
-            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-            'parent': None,
-            'start_time': 1000000000,
-            'end_time': 3000000000,
-            'attributes': {
-                'http.method': 'GET',
-                'http.request.method': 'GET',
-                'http.url': 'http://non-existent-host-12345.example.com/test',
-                'url.full': 'http://non-existent-host-12345.example.com/test',
-                'http.host': 'non-existent-host-12345.example.com',
-                'server.address': 'non-existent-host-12345.example.com',
-                'logfire.span_type': 'span',
-                'error.type': 'ClientConnectorDNSError',
-                'custom.request.name': 'Custom Request',
-                'custom.response.exception': 'Custom Exception',
-                'logfire.msg': 'GET non-existent-host-12345.example.com/test',
-                'http.target': '/test',
-                'logfire.level_num': 17,
-            },
-            'events': [
-                {
-                    'name': 'exception',
-                    'timestamp': 2000000000,
-                    'attributes': {
-                        'exception.type': 'aiohttp.client_exceptions.ClientConnectorDNSError',
-                        'exception.message': 'Cannot connect to host non-existent-host-12345.example.com:80 ssl:default [nodename nor servname provided, or not known]',
-                        'exception.stacktrace': 'aiohttp.client_exceptions.ClientConnectorDNSError: Cannot connect to host non-existent-host-12345.example.com:80 ssl:default [nodename nor servname provided, or not known]',
-                        'exception.escaped': 'False',
-                    },
-                }
-            ],
-        }
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'GET',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'http.method': 'GET',
+                    'http.request.method': 'GET',
+                    'http.url': 'http://non-existent-host-12345.example.com/test',
+                    'url.full': 'http://non-existent-host-12345.example.com/test',
+                    'http.host': 'non-existent-host-12345.example.com',
+                    'server.address': 'non-existent-host-12345.example.com',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET non-existent-host-12345.example.com/test',
+                    'custom.request.name': 'Custom Request',
+                    'error.type': 'ClientConnectorDNSError',
+                    'custom.response.exception': 'Custom Exception',
+                    'http.target': '/test',
+                    'logfire.level_num': 17,
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 2000000000,
+                        'attributes': {
+                            'exception.type': 'aiohttp.client_exceptions.ClientConnectorDNSError',
+                            'exception.message': 'Cannot connect to host non-existent-host-12345.example.com:80 ssl:default [nodename nor servname provided, or not known]',
+                            'exception.stacktrace': 'aiohttp.client_exceptions.ClientConnectorDNSError: Cannot connect to host non-existent-host-12345.example.com:80 ssl:default [nodename nor servname provided, or not known]',
+                            'exception.escaped': 'False',
+                        },
+                    }
+                ],
+            }
+        ]
     )
 
 
