@@ -62,14 +62,7 @@ async def test_aiohttp_client_capture_headers(exporter: TestExporter):
     finally:
         AioHttpClientInstrumentor().uninstrument()
 
-    spans = exporter.exported_spans_as_dict()
-
-    http_spans = [span for span in spans if span['name'] == 'GET']
-    assert len(http_spans) == 1
-
-    http_span = http_spans[0]
-
-    assert http_span == snapshot(
+    assert exporter.exported_spans_as_dict()[0] == snapshot(
         {
             'name': 'GET',
             'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
@@ -119,14 +112,7 @@ async def test_aiohttp_client_exception_handling(exporter: TestExporter):
     finally:
         AioHttpClientInstrumentor().uninstrument()
 
-    spans = exporter.exported_spans_as_dict()
-
-    http_spans = [span for span in spans if span['name'] == 'GET']
-    assert len(http_spans) == 1
-
-    http_span = http_spans[0]
-
-    assert http_span == snapshot(
+    assert exporter.exported_spans_as_dict()[0] == snapshot(
         {
             'name': 'GET',
             'context': {'trace_id': IsInt(), 'span_id': IsInt(), 'is_remote': False},
