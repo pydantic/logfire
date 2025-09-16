@@ -266,7 +266,6 @@ async def test_run_hook_via_response_hook(exporter: TestExporter) -> None:
         async with aiohttp.test_utils.TestServer(app) as server:
             await server.start_server()
 
-            # Create a mock response hook
             response_hook = mock.Mock()
             
             logfire.instrument_aiohttp_client(response_hook=response_hook)
@@ -275,7 +274,6 @@ async def test_run_hook_via_response_hook(exporter: TestExporter) -> None:
                 async with session.get(f'http://localhost:{server.port}/test'):  # type: ignore
                     pass
 
-            # Verify the response hook was called
             response_hook.assert_called_once()
             
     finally:
