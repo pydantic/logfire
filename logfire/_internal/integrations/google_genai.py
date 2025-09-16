@@ -5,12 +5,21 @@ import json
 from typing import Any
 
 from opentelemetry._events import Event, EventLogger, EventLoggerProvider
-from opentelemetry.instrumentation.google_genai import GoogleGenAiSdkInstrumentor
 from opentelemetry.trace import get_current_span
 from typing_extensions import TypeAlias
 
 import logfire
 from logfire._internal.utils import handle_internal_errors, safe_repr
+
+try:
+    from opentelemetry.instrumentation.google_genai import GoogleGenAiSdkInstrumentor
+except ImportError:
+    raise RuntimeError(
+        'The `logfire.instrument_google_genai()` method '
+        'requires the `opentelemetry-instrumentation-google-genai` package.\n'
+        'You can install this with:\n'
+        "    pip install 'logfire[google-genai]'"
+    )
 
 try:
     from opentelemetry.instrumentation.google_genai import dict_util
@@ -67,9 +76,10 @@ class SpanEventLoggerProvider(EventLoggerProvider):
         return SpanEventLogger(*args, **kwargs)
 
 
-def instrument_google_genai(logfire_instance: logfire.Logfire):
+def instrument_google_genai(logfire_instance: logfire.Logfire, **kwargs: Any):
     GoogleGenAiSdkInstrumentor().instrument(
         event_logger_provider=SpanEventLoggerProvider(),
         tracer_provider=logfire_instance.config.get_tracer_provider(),
         meter_provider=logfire_instance.config.get_meter_provider(),
+        **kwargs,
     )

@@ -1276,11 +1276,11 @@ class Logfire:
             is_async_client,
         )
 
-    def instrument_google_genai(self):
+    def instrument_google_genai(self, **kwargs: Any):
         from .integrations.google_genai import instrument_google_genai
 
         self._warn_if_not_initialized_for_instrumentation()
-        instrument_google_genai(self)
+        instrument_google_genai(self, **kwargs)
 
     def instrument_litellm(self, **kwargs: Any):
         from .integrations.litellm import instrument_litellm
