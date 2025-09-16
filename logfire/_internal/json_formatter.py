@@ -218,21 +218,7 @@ class JsonArgsValueFormatter:
             MyString("hello")
         """
         cls = schema and schema.get('title')
-        output = f'{cls}({value})' if cls else value
-
-        # check whether the given value is bool or number (as is case when handling primitives in RootModel)
-        try:
-            float(output)
-            is_valid_string = False
-        except ValueError:
-            is_valid_string = output.lower() not in ('true', 'false')
-
-        # add '' characters around the string literal to ensure its rendered properly by consumers upon parsing
-        if is_valid_string:
-            output = f"'{output}'"
-        else:
-            output = safe_repr(value)
-
+        output = f'{cls}({value})' if cls else repr(value)
         self._stream.write(output)
 
     def _format_table(

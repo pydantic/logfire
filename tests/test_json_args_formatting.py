@@ -92,6 +92,18 @@ from logfire._internal.json_types import ArraySchema, DataType, JSONSchema
             id='string',
         ),
         pytest.param(
+            -999,
+            {'type': 'integer'},
+            '-999',
+            id='integer',
+        ),
+        pytest.param(
+            -999.125,
+            {'type': 'number'},
+            '-999.125',
+            id='number',
+        ),
+        pytest.param(
             '"test bytes"',
             {'type': 'string', 'x-python-datatype': 'bytes'},
             '"test bytes"',
