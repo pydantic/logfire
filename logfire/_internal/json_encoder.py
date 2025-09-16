@@ -155,6 +155,17 @@ def _pydantic_model_encoder(o: Any, seen: set[int]) -> JsonValue:
     import pydantic
 
     assert isinstance(o, pydantic.BaseModel)
+
+    if isinstance(o, pydantic.RootModel):
+        root = o.root  # type: ignore
+        if isinstance(root, (str, int, bool, float, type(None))):
+            if root is None:
+                return root
+            elif isinstance(root, (int, bool, float)):
+                return str(root)
+            # add '' characters around the raw string literal to ensure its rendered properly by consumers upon parsing
+            return f"'{root}'"
+
     try:
         dump = o.model_dump()
     except AttributeError:  # pragma: no cover

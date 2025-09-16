@@ -1386,12 +1386,29 @@ def test_pydantic_root_model(exporter: TestExporter):
 
     RootWithModel = RootModel[Model]
     RootWithStr = RootModel[str]
+    RootWithFloat = RootModel[float]
+    RootWithBool = RootModel[bool]
+    RootWithNone = RootModel[None]
 
     model = Model(name='with_model')
     root_with_model = RootWithModel(root=model)
     root_with_str = RootWithStr('with_str')
+    root_with_float = RootWithFloat(2.0)
+    root_with_bool = RootWithBool(False)
+    root_with_none = RootWithNone(None)
 
-    logfire.info('hi', r=root_with_model, r2=root_with_str, r2_inner=root_with_str.root)
+    logfire.info(
+        'hi',
+        with_model=root_with_model,
+        with_str=root_with_str,
+        with_str_inner=root_with_str.root,
+        with_float=root_with_float,
+        with_float_inner=root_with_float.root,
+        with_bool=root_with_bool,
+        with_bool_inner=root_with_bool.root,
+        with_none=root_with_none,
+        with_none_inner=root_with_none.root,
+    )
 
     assert exporter.exported_spans_as_dict() == [
         {
@@ -1408,10 +1425,19 @@ def test_pydantic_root_model(exporter: TestExporter):
                 'code.filepath': 'test_json_args.py',
                 'code.function': 'test_pydantic_root_model',
                 'code.lineno': 123,
-                'r': '{"name":"with_model"}',
-                'r2': '"with_str"',
-                'r2_inner': 'with_str',
-                'logfire.json_schema': '{"type":"object","properties":{"r":{"type":"object","title":"Model","x-python-datatype":"PydanticModel"},"r2":{"type":"string","x-python-datatype":"string"},"r2_inner":{}}}',
+                'with_model': '{"name":"with_model"}',
+                # the model's string literal will be wrapped in single quotes to ensure it's represented properly
+                # upon being parsed, '"\'with_str\'"' -> 'with_str'
+                'with_str': '"\'with_str\'"',
+                'with_str_inner': 'with_str',
+                # int, float and bool in string format with non-trivial schema are aptly parsed by dashboard
+                'with_float': '"2.0"',
+                'with_float_inner': 2.0,
+                'with_bool': '"False"',
+                'with_bool_inner': False,
+                'with_none': 'null',
+                'with_none_inner': 'null',
+                'logfire.json_schema': '{"type":"object","properties":{"with_model":{"type":"object","title":"Model","x-python-datatype":"PydanticModel"},"with_str":{"type":"string","x-python-datatype":"string"},"with_str_inner":{},"with_float":{"type":"string","x-python-datatype":"string"},"with_float_inner":{},"with_bool":{"type":"string","x-python-datatype":"string"},"with_bool_inner":{},"with_none":{"type":"null"},"with_none_inner":{"type":"null"}}}',
             },
         }
     ]

@@ -72,6 +72,7 @@ def type_to_schema() -> dict[type[Any], JsonDict | Callable[[Any, set[int]], Jso
                 pydantic.SecretBytes: {'type': 'string', 'x-python-datatype': 'SecretBytes'},
                 pydantic.AnyUrl: {'type': 'string', 'x-python-datatype': 'AnyUrl'},
                 pydantic.BaseModel: _pydantic_model_schema,
+                pydantic.RootModel: _pydantic_root_model_schema,
             }
         )
 
@@ -283,19 +284,28 @@ def _exception_schema(obj: Exception, _seen: set[int]) -> JsonDict:
     return {'type': 'object', 'title': obj.__class__.__name__, 'x-python-datatype': 'Exception'}
 
 
+def _pydantic_root_model_schema(obj: Any, seen: set[int]) -> JsonDict:
+    import pydantic
+
+    assert isinstance(obj, pydantic.RootModel)
+
+    root_class = obj.root.__class__  # type: ignore
+
+    # handle None separately as it has dedicated type
+    if root_class is None:
+        return {'type': 'null'}
+    # return a complex schema to ensure JSON parsing for strings inside RootModel since they get an
+    # extra layer of JSON encoding
+    elif root_class in (str, float, bool, int):
+        return {'type': 'string', 'x-python-datatype': 'string'}
+
+    return create_json_schema(obj.root, seen)  # type: ignore
+
+
 def _pydantic_model_schema(obj: Any, seen: set[int]) -> JsonDict:
     import pydantic
 
     assert isinstance(obj, pydantic.BaseModel)
-
-    # generate the schema for the actual wrapped object in the model
-    if isinstance(obj, pydantic.RootModel):
-        # return a complex schema to ensure JSON parsing for strings inside RootModel since they get an
-        # extra layer of JSON encoding
-        if obj.root.__class__ is str:  # type: ignore
-            return {'type': 'string', 'x-python-datatype': 'string'}
-
-        return create_json_schema(obj.root, seen)  # type: ignore
 
     try:
         fields = type(obj).model_fields
