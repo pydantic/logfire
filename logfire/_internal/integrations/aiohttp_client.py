@@ -154,7 +154,6 @@ def capture_request(
     _capture_body: bool,
 ) -> LogfireAioHttpRequestInfo:
     request_info = LogfireAioHttpRequestInfo(method=request.method, url=request.url, headers=request.headers, span=span)
-    # TODO: Implement Request Body Capture, not implemented yet so capture request is not doing anything right now
 
     if capture_headers:
         request_info.capture_headers()
