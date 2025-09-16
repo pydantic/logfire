@@ -231,14 +231,12 @@ async def test_aiohttp_client_exception_header_capture(exporter: TestExporter):
 
 def test_capture_all_with_specific_parameters_warning() -> None:
     """Test that a warning is issued when using capture_all with specific capture parameters."""
-    
+
     try:
-        with pytest.warns(UserWarning, match='You should use either `capture_all` or the specific capture parameters, not both.'):
-            logfire.instrument_aiohttp_client(
-                capture_all=True,
-                capture_headers=True,
-                capture_request_body=True
-            )
+        with pytest.warns(
+            UserWarning, match='You should use either `capture_all` or the specific capture parameters, not both.'
+        ):
+            logfire.instrument_aiohttp_client(capture_all=True, capture_headers=True, capture_request_body=True)
     finally:
         AioHttpClientInstrumentor().uninstrument()
 
