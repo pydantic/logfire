@@ -104,6 +104,131 @@ async def test_aiohttp_client_capture_headers(exporter: TestExporter):
     )
 
 
+@pytest.mark.anyio
+async def test_aiohttp_client_exception_handling(exporter: TestExporter):
+    """Test that aiohttp client handles exceptions and creates appropriate spans."""
+
+    try:
+        logfire.instrument_aiohttp_client(capture_all=True)
+
+        async with aiohttp.ClientSession() as session:
+            # Test connection error by trying to connect to a non-existent host
+            with pytest.raises(aiohttp.ClientConnectorError):
+                async with session.get('http://non-existent-host-12345.example.com/test'):
+                    pass
+    finally:
+        AioHttpClientInstrumentor().uninstrument()
+
+    spans = exporter.exported_spans_as_dict()
+
+    http_spans = [span for span in spans if span['name'] == 'GET']
+    assert len(http_spans) == 1
+
+    http_span = http_spans[0]
+
+    assert http_span == snapshot(
+        {
+            'name': 'GET',
+            'context': {'trace_id': IsInt(), 'span_id': IsInt(), 'is_remote': False},
+            'parent': None,
+            'start_time': IsInt(),
+            'end_time': IsInt(),
+            'attributes': {
+                'http.method': 'GET',
+                'http.request.method': 'GET',
+                'http.url': 'http://non-existent-host-12345.example.com/test',
+                'url.full': 'http://non-existent-host-12345.example.com/test',
+                'http.host': 'non-existent-host-12345.example.com',
+                'server.address': 'non-existent-host-12345.example.com',
+                'logfire.span_type': 'span',
+                'error.type': 'ClientConnectorDNSError',
+                'logfire.msg': 'GET non-existent-host-12345.example.com/test',
+                'http.target': '/test',
+                'logfire.level_num': 17,
+            },
+            'events': [
+                {
+                    'name': 'exception',
+                    'timestamp': IsInt(),
+                    'attributes': {
+                        'exception.type': 'aiohttp.client_exceptions.ClientConnectorDNSError',
+                        'exception.message': IsStr(),
+                        'exception.stacktrace': IsStr(),
+                        'exception.escaped': 'False',
+                    },
+                }
+            ],
+        }
+    )
+
+
+@pytest.mark.anyio
+async def test_aiohttp_client_exception_header_capture(exporter: TestExporter):
+    """Test that request headers are captured even when exceptions occur."""
+
+    try:
+        logfire.instrument_aiohttp_client(capture_headers=True)
+
+        async with aiohttp.ClientSession() as session:
+            custom_headers = {
+                'User-Agent': 'test-client/1.0',
+                'X-Custom-Header': 'custom-value',
+                'Authorization': 'Bearer test-token',
+            }
+
+            with pytest.raises(aiohttp.ClientConnectorError):
+                async with session.get('http://non-existent-host-12345.example.com/test', headers=custom_headers):
+                    pass
+    finally:
+        AioHttpClientInstrumentor().uninstrument()
+
+    spans = exporter.exported_spans_as_dict()
+
+    http_spans = [span for span in spans if span['name'] == 'GET']
+    assert len(http_spans) == 1
+
+    http_span = http_spans[0]
+
+    assert http_span == snapshot(
+        {
+            'name': 'GET',
+            'context': {'trace_id': IsInt(), 'span_id': IsInt(), 'is_remote': False},
+            'parent': None,
+            'start_time': IsInt(),
+            'end_time': IsInt(),
+            'attributes': {
+                'http.method': 'GET',
+                'http.request.method': 'GET',
+                'http.url': 'http://non-existent-host-12345.example.com/test',
+                'url.full': 'http://non-existent-host-12345.example.com/test',
+                'http.host': 'non-existent-host-12345.example.com',
+                'server.address': 'non-existent-host-12345.example.com',
+                'logfire.span_type': 'span',
+                'logfire.msg': 'GET non-existent-host-12345.example.com/test',
+                'http.request.header.User-Agent': ('test-client/1.0',),
+                'http.request.header.X-Custom-Header': ('custom-value',),
+                'error.type': 'ClientConnectorDNSError',
+                'http.request.header.Authorization': ("[Scrubbed due to 'Auth']",),
+                'logfire.level_num': 17,
+                'http.target': '/test',
+                'logfire.scrubbed': '[{"path": ["attributes", "http.request.header.Authorization"], "matched_substring": "Auth"}]',
+            },
+            'events': [
+                {
+                    'name': 'exception',
+                    'timestamp': IsInt(),
+                    'attributes': {
+                        'exception.type': 'aiohttp.client_exceptions.ClientConnectorDNSError',
+                        'exception.message': IsStr(),
+                        'exception.stacktrace': IsStr(),
+                        'exception.escaped': 'False',
+                    },
+                }
+            ],
+        }
+    )
+
+
 def test_missing_opentelemetry_dependency() -> None:
     with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.aiohttp_client': None}):
         with pytest.raises(RuntimeError) as exc_info:
