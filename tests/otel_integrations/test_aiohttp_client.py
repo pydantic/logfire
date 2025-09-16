@@ -254,10 +254,10 @@ async def test_aiohttp_client_exception_handling(exporter: TestExporter):
     assert exporter.exported_spans_as_dict()[0] == snapshot(
         {
             'name': 'GET',
-            'context': {'trace_id': IsInt(), 'span_id': IsInt(), 'is_remote': False},
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'parent': None,
-            'start_time': IsInt(),
-            'end_time': IsInt(),
+            'start_time': 1000000000,
+            'end_time': 3000000000,
             'attributes': {
                 'http.method': 'GET',
                 'http.request.method': 'GET',
@@ -305,10 +305,10 @@ async def test_aiohttp_client_exception_handling_custom_hook(exporter: TestExpor
     assert exporter.exported_spans_as_dict()[0] == snapshot(
         {
             'name': 'GET',
-            'context': {'trace_id': IsInt(), 'span_id': IsInt(), 'is_remote': False},
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
             'parent': None,
-            'start_time': IsInt(),
-            'end_time': IsInt(),
+            'start_time': 1000000000,
+            'end_time': 3000000000,
             'attributes': {
                 'http.method': 'GET',
                 'http.request.method': 'GET',
