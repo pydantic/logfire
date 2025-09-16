@@ -182,17 +182,7 @@ Because it found something more "sole-ful!"\
                     'gen_ai.request.model': 'gpt-4o',
                     'server.address': 'api.openai.com',
                     'model_request_parameters': {
-                        'function_tools': [
-                            {
-                                'name': 'joker',
-                                'parameters_json_schema': IsPartialDict(),
-                                'description': 'Poem generator',
-                                'outer_typed_dict_key': None,
-                                'strict': True,
-                                'sequential': False,
-                                'kind': 'function',
-                            }
-                        ],
+                        'function_tools': [IsPartialDict()],
                         'builtin_tools': [],
                         'output_mode': 'text',
                         'output_object': None,
@@ -665,22 +655,7 @@ Because it found something more "sole-ful!"\
                     'gen_ai.request.model': 'gpt-4o',
                     'server.address': 'api.openai.com',
                     'model_request_parameters': {
-                        'function_tools': [
-                            {
-                                'name': 'joker',
-                                'parameters_json_schema': {
-                                    'properties': {'theme': {'type': 'string'}},
-                                    'required': ['theme'],
-                                    'type': 'object',
-                                    'additionalProperties': False,
-                                },
-                                'description': 'Poem generator',
-                                'outer_typed_dict_key': None,
-                                'strict': True,
-                                'sequential': False,
-                                'kind': 'function',
-                            }
-                        ],
+                        'function_tools': [IsPartialDict()],
                         'builtin_tools': [],
                         'output_mode': 'text',
                         'output_object': None,
