@@ -227,6 +227,59 @@ async def test_aiohttp_client_exception_handling(exporter: TestExporter):
     )
 
 
+@pytest.mark.anyio
+async def test_aiohttp_client_exception_handling_with_hooks(exporter: TestExporter):
+    """Test that aiohttp client handles exceptions and creates appropriate spans."""
+
+    try:
+        logfire.instrument_aiohttp_client(capture_headers=True, request_hook=request_hook, response_hook=response_hook)
+
+        async with aiohttp.ClientSession() as session:
+            # Test connection error by trying to connect to a non-existent host
+            with pytest.raises(aiohttp.ClientConnectorError):
+                async with session.get('http://non-existent-host-12345.example.com/test'):
+                    pass
+    finally:
+        AioHttpClientInstrumentor().uninstrument()
+
+    assert exporter.exported_spans_as_dict()[0] == snapshot(
+        {
+            'name': 'GET',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1000000000,
+            'end_time': 3000000000,
+            'attributes': {
+                'http.method': 'GET',
+                'http.request.method': 'GET',
+                'http.url': 'http://non-existent-host-12345.example.com/test',
+                'url.full': 'http://non-existent-host-12345.example.com/test',
+                'http.host': 'non-existent-host-12345.example.com',
+                'server.address': 'non-existent-host-12345.example.com',
+                'logfire.span_type': 'span',
+                'error.type': 'ClientConnectorDNSError',
+                'custom.request.name': 'Custom Request',
+                'custom.response.exception': 'Custom Exception',
+                'logfire.msg': 'GET non-existent-host-12345.example.com/test',
+                'http.target': '/test',
+                'logfire.level_num': 17,
+            },
+            'events': [
+                {
+                    'name': 'exception',
+                    'timestamp': IsInt(),
+                    'attributes': {
+                        'exception.type': 'aiohttp.client_exceptions.ClientConnectorDNSError',
+                        'exception.message': IsStr(),
+                        'exception.stacktrace': IsStr(),
+                        'exception.escaped': 'False',
+                    },
+                }
+            ],
+        }
+    )
+
+
 def test_missing_opentelemetry_dependency() -> None:
     with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.aiohttp_client': None}):
         with pytest.raises(RuntimeError) as exc_info:
