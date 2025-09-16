@@ -1752,10 +1752,8 @@ class Logfire:
 
     def instrument_aiohttp_client(
         self,
-        capture_all: bool | None = None,
+        *,
         capture_headers: bool = False,
-        capture_request_body: bool = False,
-        capture_response_body: bool = False,
         request_hook: AiohttpClientRequestHook | None = None,
         response_hook: AiohttpClientResponseHook | None = None,
         **kwargs: Any,
@@ -1771,10 +1769,7 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_aiohttp_client(
             self,
-            capture_all=capture_all,
             capture_headers=capture_headers,
-            capture_request_body=capture_request_body,
-            capture_response_body=capture_response_body,
             request_hook=request_hook,
             response_hook=response_hook,
             **kwargs,

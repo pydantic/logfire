@@ -45,7 +45,7 @@ async def test_aiohttp_client_capture_headers(exporter: TestExporter):
         async with aiohttp.test_utils.TestServer(app) as server:
             await server.start_server()
 
-            logfire.instrument_aiohttp_client(capture_all=True)
+            logfire.instrument_aiohttp_client(capture_headers=True)
 
             async with aiohttp.ClientSession() as session:
                 custom_headers = {
@@ -109,7 +109,7 @@ async def test_aiohttp_client_exception_handling(exporter: TestExporter):
     """Test that aiohttp client handles exceptions and creates appropriate spans."""
 
     try:
-        logfire.instrument_aiohttp_client(capture_all=True)
+        logfire.instrument_aiohttp_client(capture_headers=True)
 
         async with aiohttp.ClientSession() as session:
             # Test connection error by trying to connect to a non-existent host
@@ -227,18 +227,6 @@ async def test_aiohttp_client_exception_header_capture(exporter: TestExporter):
             ],
         }
     )
-
-
-def test_capture_all_with_specific_parameters_warning() -> None:
-    """Test that a warning is issued when using capture_all with specific capture parameters."""
-
-    try:
-        with pytest.warns(
-            UserWarning, match='You should use either `capture_all` or the specific capture parameters, not both.'
-        ):
-            logfire.instrument_aiohttp_client(capture_all=True, capture_headers=True, capture_request_body=True)
-    finally:
-        AioHttpClientInstrumentor().uninstrument()
 
 
 def test_missing_opentelemetry_dependency() -> None:
