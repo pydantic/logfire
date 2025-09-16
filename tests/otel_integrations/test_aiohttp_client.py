@@ -18,6 +18,22 @@ import logfire._internal.integrations.aiohttp_client
 from logfire.testing import TestExporter
 
 
+async def mock_handler(request: aiohttp.web.Request) -> aiohttp.web.Response:
+    """Standard mock handler that returns received headers and a custom server header."""
+    return aiohttp.web.json_response(
+        {'received_headers': dict(request.headers), 'status': 'ok'},
+        headers={'Server-Custom-Header': 'server-value'},
+    )
+
+
+@pytest.fixture
+def test_app() -> aiohttp.web.Application:
+    """Pytest fixture that creates a test aiohttp application with standard routes."""
+    app = aiohttp.web.Application()
+    app.router.add_get('/test', mock_handler)
+    return app
+
+
 def request_hook(span: Span, params: TraceRequestStartParams) -> None:
     """Custom request hook that adds custom attributes and logs request details."""
     span.set_attribute('custom.request.name', 'Custom Request')
@@ -45,21 +61,63 @@ async def test_instrument_aiohttp():
 
 
 @pytest.mark.anyio
-async def test_aiohttp_client_capture_headers(exporter: TestExporter):
+async def test_aiohttp_client_no_capture_headers_with_hooks(exporter: TestExporter, test_app: aiohttp.web.Application):
+    """Test that aiohttp client works when capture_headers=False but hooks are provided."""
+
+    try:
+        async with aiohttp.test_utils.TestServer(test_app) as server:
+            await server.start_server()
+
+            logfire.instrument_aiohttp_client(request_hook=request_hook, response_hook=response_hook)
+
+            async with aiohttp.ClientSession() as session:
+                custom_headers = {
+                    'User-Agent': 'test-client/1.0',
+                    'X-Custom-Header': 'custom-value',
+                }
+
+                async with session.get(
+                    f'http://localhost:{server.port}/test',  # type: ignore
+                    headers=custom_headers,
+                ) as response:
+                    await response.json()
+    finally:
+        AioHttpClientInstrumentor().uninstrument()
+
+    assert exporter.exported_spans_as_dict()[0] == snapshot(
+        {
+            'name': 'GET',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1000000000,
+            'end_time': 2000000000,
+            'attributes': {
+                'http.method': 'GET',
+                'http.request.method': 'GET',
+                'http.url': IsStr(),
+                'url.full': IsStr(),
+                'http.host': 'localhost',
+                'server.address': 'localhost',
+                'net.peer.port': IsInt(),
+                'server.port': IsInt(),
+                'logfire.span_type': 'span',
+                'logfire.msg': 'GET localhost/test',
+                'custom.request.name': 'Custom Request',
+                'custom.response.content': 'Custom Content',
+                'http.status_code': 200,
+                'http.response.status_code': 200,
+                'http.target': '/test',
+            },
+        }
+    )
+
+
+@pytest.mark.anyio
+async def test_aiohttp_client_capture_headers(exporter: TestExporter, test_app: aiohttp.web.Application):
     """Test that aiohttp client captures headers when configured to do so."""
 
     try:
-
-        async def handler(request: aiohttp.web.Request) -> aiohttp.web.Response:
-            return aiohttp.web.json_response(
-                {'received_headers': dict(request.headers), 'status': 'ok'},
-                headers={'Server-Custom-Header': 'server-value'},
-            )
-
-        app = aiohttp.web.Application()
-        app.router.add_get('/test', handler)
-
-        async with aiohttp.test_utils.TestServer(app) as server:
+        async with aiohttp.test_utils.TestServer(test_app) as server:
             await server.start_server()
 
             logfire.instrument_aiohttp_client(capture_headers=True)
@@ -115,21 +173,11 @@ async def test_aiohttp_client_capture_headers(exporter: TestExporter):
 
 
 @pytest.mark.anyio
-async def test_aiohttp_client_capture_headers_with_hooks(exporter: TestExporter):
+async def test_aiohttp_client_capture_headers_with_hooks(exporter: TestExporter, test_app: aiohttp.web.Application):
     """Test that aiohttp client captures headers when configured to do so."""
 
     try:
-
-        async def handler(request: aiohttp.web.Request) -> aiohttp.web.Response:
-            return aiohttp.web.json_response(
-                {'received_headers': dict(request.headers), 'status': 'ok'},
-                headers={'Server-Custom-Header': 'server-value'},
-            )
-
-        app = aiohttp.web.Application()
-        app.router.add_get('/test', handler)
-
-        async with aiohttp.test_utils.TestServer(app) as server:
+        async with aiohttp.test_utils.TestServer(test_app) as server:
             await server.start_server()
 
             logfire.instrument_aiohttp_client(
@@ -301,61 +349,3 @@ def test_missing_opentelemetry_dependency() -> None:
 You can install this with:
     pip install 'logfire[aiohttp-client]'\
 """)
-
-
-@pytest.mark.anyio
-async def test_run_hook_via_response_hook(exporter: TestExporter) -> None:
-    """Test that run_hook is called when a response hook is provided."""
-
-    try:
-
-        async def handler(_request: aiohttp.web.Request) -> aiohttp.web.Response:
-            return aiohttp.web.json_response({'status': 'ok'})
-
-        app = aiohttp.web.Application()
-        app.router.add_get('/test', handler)
-
-        async with aiohttp.test_utils.TestServer(app) as server:
-            await server.start_server()
-
-            response_hook = mock.Mock()
-
-            logfire.instrument_aiohttp_client(response_hook=response_hook)
-
-            async with aiohttp.ClientSession() as session:
-                async with session.get(f'http://localhost:{server.port}/test'):  # type: ignore
-                    pass
-
-            response_hook.assert_called_once()
-
-    finally:
-        AioHttpClientInstrumentor().uninstrument()
-
-
-@pytest.mark.anyio
-async def test_run_hook_via_request_hook() -> None:
-    """Test that run_hook is called when a request hook is provided."""
-
-    try:
-
-        async def handler(_request: aiohttp.web.Request) -> aiohttp.web.Response:
-            return aiohttp.web.json_response({'status': 'ok'})
-
-        app = aiohttp.web.Application()
-        app.router.add_get('/test', handler)
-
-        async with aiohttp.test_utils.TestServer(app) as server:
-            await server.start_server()
-
-            request_hook = mock.Mock()
-
-            logfire.instrument_aiohttp_client(request_hook=request_hook)
-
-            async with aiohttp.ClientSession() as session:
-                async with session.get(f'http://localhost:{server.port}/test'):  # type: ignore
-                    pass
-
-            request_hook.assert_called_once()
-
-    finally:
-        AioHttpClientInstrumentor().uninstrument()
