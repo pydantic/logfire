@@ -168,7 +168,7 @@ async def test_aiohttp_client_capture_headers(exporter: TestExporter, test_app: 
                     'http.response.header.Content-Type': ('application/json; charset=utf-8',),
                     'http.response.header.Content-Length': ('298',),
                     'http.response.header.Date': IsTuple(IsStr()),
-                    'http.response.header.Server': ('Python/3.13 aiohttp/3.12.15',),
+                    'http.response.header.Server': IsTuple(IsStr()),
                     'custom.response.content': 'Custom Content',
                     'http.status_code': 200,
                     'http.response.status_code': 200,
@@ -222,8 +222,8 @@ async def test_aiohttp_client_exception_handling(exporter: TestExporter):
                         'timestamp': 2000000000,
                         'attributes': {
                             'exception.type': 'aiohttp.client_exceptions.ClientConnectorDNSError',
-                            'exception.message': 'Cannot connect to host non-existent-host-12345.example.com:80 ssl:default [nodename nor servname provided, or not known]',
-                            'exception.stacktrace': 'aiohttp.client_exceptions.ClientConnectorDNSError: Cannot connect to host non-existent-host-12345.example.com:80 ssl:default [nodename nor servname provided, or not known]',
+                            'exception.message': IsStr(),
+                            'exception.stacktrace': IsStr(),
                             'exception.escaped': 'False',
                         },
                     }
@@ -277,8 +277,8 @@ async def test_aiohttp_client_exception_handling_with_hooks(exporter: TestExport
                         'timestamp': 2000000000,
                         'attributes': {
                             'exception.type': 'aiohttp.client_exceptions.ClientConnectorDNSError',
-                            'exception.message': 'Cannot connect to host non-existent-host-12345.example.com:80 ssl:default [nodename nor servname provided, or not known]',
-                            'exception.stacktrace': 'aiohttp.client_exceptions.ClientConnectorDNSError: Cannot connect to host non-existent-host-12345.example.com:80 ssl:default [nodename nor servname provided, or not known]',
+                            'exception.message': IsStr(),
+                            'exception.stacktrace': IsStr(),
                             'exception.escaped': 'False',
                         },
                     }
