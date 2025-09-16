@@ -104,6 +104,12 @@ from logfire._internal.json_types import ArraySchema, DataType, JSONSchema
             id='number',
         ),
         pytest.param(
+            False,
+            {'type': 'boolean'},
+            'False',
+            id='boolean',
+        ),
+        pytest.param(
             '"test bytes"',
             {'type': 'string', 'x-python-datatype': 'bytes'},
             '"test bytes"',

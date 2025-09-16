@@ -1442,7 +1442,7 @@ def test_pydantic_root_model(exporter: TestExporter):
                 'with_bool_inner': False,
                 'with_none': 'null',
                 'with_none_inner': 'null',
-                'logfire.json_schema': '{"type":"object","properties":{"with_model":{"type":"object","title":"Model","x-python-datatype":"PydanticModel"},"with_str":{"type":"string","x-python-datatype":"string"},"with_str_inner":{},"with_int":{"type":"integer"},"with_int_inner":{},"with_float":{"type":"number"},"with_float_inner":{},"with_bool":{"type":"string","x-python-datatype":"string"},"with_bool_inner":{},"with_none":{"type":"null"},"with_none_inner":{"type":"null"}}}',
+                'logfire.json_schema': '{"type":"object","properties":{"with_model":{"type":"object","title":"Model","x-python-datatype":"PydanticModel"},"with_str":{"type":"string","x-python-datatype":"string"},"with_str_inner":{},"with_int":{"type":"integer","x-python-datatype":null},"with_int_inner":{},"with_float":{"type":"number","x-python-datatype":null},"with_float_inner":{},"with_bool":{"type":"boolean","x-python-datatype":null},"with_bool_inner":{},"with_none":{"type":"null"},"with_none_inner":{"type":"null"}}}',
             },
         }
     ]
