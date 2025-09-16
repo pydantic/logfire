@@ -250,3 +250,33 @@ def test_missing_opentelemetry_dependency() -> None:
 You can install this with:
     pip install 'logfire[aiohttp-client]'\
 """)
+
+
+@pytest.mark.anyio
+async def test_run_hook_via_response_hook(exporter: TestExporter) -> None:
+    """Test that run_hook is called when a response hook is provided."""
+    
+    try:
+        async def handler(request: aiohttp.web.Request) -> aiohttp.web.Response:
+            return aiohttp.web.json_response({'status': 'ok'})
+
+        app = aiohttp.web.Application()
+        app.router.add_get('/test', handler)
+
+        async with aiohttp.test_utils.TestServer(app) as server:
+            await server.start_server()
+
+            # Create a mock response hook
+            response_hook = mock.Mock()
+            
+            logfire.instrument_aiohttp_client(response_hook=response_hook)
+
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f'http://localhost:{server.port}/test'):  # type: ignore
+                    pass
+
+            # Verify the response hook was called
+            response_hook.assert_called_once()
+            
+    finally:
+        AioHttpClientInstrumentor().uninstrument()
