@@ -380,7 +380,7 @@ def _transform_langchain_span(span: ReadableSpanDict):
     guessed_system = guess_system(request_model)
     actual_system = attributes.get('gen_ai.system')
     if guessed_system:
-        if actual_system in (None, 'langchain'):  # pragma: no branch
+        if actual_system in (None, 'langchain'):  # pragma: no cover
             new_attributes['gen_ai.system'] = guessed_system
     elif actual_system == 'langchain':
         # Remove gen_ai.system=langchain as this also interferes with costs in the UI.
