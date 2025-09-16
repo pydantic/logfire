@@ -1428,12 +1428,12 @@ def test_pydantic_root_model(exporter: TestExporter):
                 'with_model': '{"name":"with_model"}',
                 # the model's string literal will be wrapped in single quotes to ensure it's represented properly
                 # upon being parsed, '"\'with_str\'"' -> 'with_str'
-                'with_str': '"\'with_str\'"',
+                'with_str': '"with_str"',
                 'with_str_inner': 'with_str',
                 # int, float and bool in string format with non-trivial schema are aptly parsed by dashboard
-                'with_float': '"2.0"',
+                'with_float': '2.0',
                 'with_float_inner': 2.0,
-                'with_bool': '"False"',
+                'with_bool': 'false',
                 'with_bool_inner': False,
                 'with_none': 'null',
                 'with_none_inner': 'null',
