@@ -85,6 +85,10 @@ if TYPE_CHECKING:
     from starlette.websockets import WebSocket
     from typing_extensions import Unpack
 
+    from ..integrations.aiohttp_client import (
+        RequestHook as AiohttpClientRequestHook,
+        ResponseHook as AiohttpClientResponseHook,
+    )
     from ..integrations.flask import (
         CommenterOptions as FlaskCommenterOptions,
         RequestHook as FlaskRequestHook,
@@ -1746,7 +1750,16 @@ class Logfire:
             },
         )
 
-    def instrument_aiohttp_client(self, **kwargs: Any) -> None:
+    def instrument_aiohttp_client(
+        self,
+        capture_all: bool | None = None,
+        capture_headers: bool = False,
+        capture_request_body: bool = False,
+        capture_response_body: bool = False,
+        request_hook: AiohttpClientRequestHook | None = None,
+        response_hook: AiohttpClientResponseHook | None = None,
+        **kwargs: Any,
+    ) -> None:
         """Instrument the `aiohttp` module so that spans are automatically created for each client request.
 
         Uses the
@@ -1756,7 +1769,16 @@ class Logfire:
         from .integrations.aiohttp_client import instrument_aiohttp_client
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_aiohttp_client(self, **kwargs)
+        return instrument_aiohttp_client(
+            self,
+            capture_all=capture_all,
+            capture_headers=capture_headers,
+            capture_request_body=capture_request_body,
+            capture_response_body=capture_response_body,
+            request_hook=request_hook,
+            response_hook=response_hook,
+            **kwargs,
+        )
 
     def instrument_aiohttp_server(self, **kwargs: Any) -> None:
         """Instrument the `aiohttp` module so that spans are automatically created for each server request.
