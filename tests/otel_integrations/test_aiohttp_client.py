@@ -255,8 +255,9 @@ You can install this with:
 @pytest.mark.anyio
 async def test_run_hook_via_response_hook(exporter: TestExporter) -> None:
     """Test that run_hook is called when a response hook is provided."""
-    
+
     try:
+
         async def handler(request: aiohttp.web.Request) -> aiohttp.web.Response:
             return aiohttp.web.json_response({'status': 'ok'})
 
@@ -267,7 +268,7 @@ async def test_run_hook_via_response_hook(exporter: TestExporter) -> None:
             await server.start_server()
 
             response_hook = mock.Mock()
-            
+
             logfire.instrument_aiohttp_client(response_hook=response_hook)
 
             async with aiohttp.ClientSession() as session:
@@ -275,6 +276,6 @@ async def test_run_hook_via_response_hook(exporter: TestExporter) -> None:
                     pass
 
             response_hook.assert_called_once()
-            
+
     finally:
         AioHttpClientInstrumentor().uninstrument()
