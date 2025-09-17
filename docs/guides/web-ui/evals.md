@@ -68,24 +68,4 @@ Every evaluation experiment generates detailed OpenTelemetry traces that appear 
 
 Navigate from experiment results to full trace details using the span links.
 
-## Best Practices
-
-### Organizing Experiments
-
-- Use descriptive dataset names that will appear in experiment metadata
-- Add commit messages or version information to track code changes
-- Run evaluations consistently as part of your development workflow
-
-### Monitoring Performance
-
-- Set up regular evaluation runs to track performance over time
-- Use the comparison view to identify regressions
-- Monitor both accuracy metrics and performance characteristics
-
-### Collaborative Analysis
-
-- Share experiment links with team members for collaborative review
-- Use the trace integration to debug specific test case failures
-- Document significant findings in your evaluation dataset metadata
-
 For implementation help, refer to the [Pydantic Evals installation guide](https://ai.pydantic.dev/evals/#installation).
