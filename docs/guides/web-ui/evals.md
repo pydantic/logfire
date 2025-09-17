@@ -8,7 +8,7 @@ View and analyze your evaluation results in Pydantic Logfire's web interface. Ev
 
 ## What are Evals?
 
-Evals help you systematically test and evaluate AI systems by running them against predefined test cases. Each evaluation experiment appears in Logfire automatically when you run the Pydantic Evals package with Logfire integration enabled.
+Evals help you systematically test and evaluate AI systems by running them against predefined test cases. Each evaluation experiment appears in Logfire automatically when you run the `pydantic_evals.Dataset.evaluate` method with Logfire integration enabled.
 
 For the data model, examples and full documentation on creating and running Evals, read the [Pydantic Evals docs](https://ai.pydantic.dev/evals/)
 
