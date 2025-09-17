@@ -290,7 +290,7 @@ async def test_aiohttp_client_exception_handling_with_hooks(exporter: TestExport
 
 @pytest.mark.anyio
 async def test_aiohttp_client_capture_response_body(exporter: TestExporter, test_app: aiohttp.web.Application):
-    """Test that aiohttp client captures response body when configured to do so."""
+    """Test that aiohttp client captures response body and headers when configured to do so."""
 
     try:
 
@@ -302,7 +302,7 @@ async def test_aiohttp_client_capture_response_body(exporter: TestExporter, test
         async with aiohttp.test_utils.TestServer(test_app) as server:
             await server.start_server()
 
-            logfire.instrument_aiohttp_client(capture_all=True)
+            logfire.instrument_aiohttp_client(capture_headers=True, capture_response_body=True)
 
             async with aiohttp.ClientSession() as session:
                 async with session.get(f'http://localhost:{server.port}/body') as response:  # type: ignore
@@ -365,7 +365,7 @@ async def test_aiohttp_client_capture_response_body_exception(exporter: TestExpo
     """Test that aiohttp client captures response body when configured to do so."""
 
     try:
-        logfire.instrument_aiohttp_client(capture_all=True)
+        logfire.instrument_aiohttp_client(capture_response_body=True)
 
         async with aiohttp.ClientSession() as session:
             with pytest.raises(aiohttp.ClientConnectorError):
@@ -477,16 +477,6 @@ async def test_aiohttp_client_encoding_error_handling(exporter: TestExporter, te
             },
         ]
     )
-
-
-@pytest.mark.anyio
-async def test_aiohttp_client_capture_all_and_other_flags_should_warn(exporter: TestExporter):
-    with pytest.warns(
-        UserWarning, match='You should use either `capture_all` or the specific capture parameters, not both.'
-    ):
-        logfire.instrument_aiohttp_client(capture_all=True, capture_headers=True, capture_response_body=True)
-
-    assert exporter.exported_spans_as_dict() == snapshot([])
 
 
 def test_missing_opentelemetry_dependency() -> None:

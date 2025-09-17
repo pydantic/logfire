@@ -49,25 +49,6 @@ The `logfire.instrument_aiohttp_client()` method accepts various parameters to c
 !!! note
     The aiohttp client instrumentation captures request and response headers, and response bodies. Request bodies are not captured.
 
-### Capture Everything
-
-You can capture all available information (request and response headers, and response bodies) by setting the `capture_all` parameter to `True`.
-
-```py
-import aiohttp
-import logfire
-
-logfire.configure()
-logfire.instrument_aiohttp_client(capture_all=True)
-
-async def main():
-    async with aiohttp.ClientSession() as session:
-        await session.post("https://httpbin.org/post", json={"key": "value"})
-
-if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
-```
 
 ### Capture HTTP Headers
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import functools
-from typing import TYPE_CHECKING, Any, Callable, Literal, cast
+from typing import TYPE_CHECKING, Any, Callable, Literal
 
 import attr
 from aiohttp.client_reqrep import ClientResponse
@@ -19,8 +19,6 @@ except ImportError:
     )
 
 from logfire import Logfire, LogfireSpan
-from logfire._internal.config import GLOBAL_CONFIG
-from logfire._internal.stack_info import warn_at_user_stacklevel
 from logfire._internal.utils import handle_internal_errors
 from logfire.integrations.aiohttp_client import AioHttpRequestHeaders, AioHttpResponseHeaders, RequestHook, ResponseHook
 
@@ -32,7 +30,6 @@ if TYPE_CHECKING:
 
 def instrument_aiohttp_client(
     logfire_instance: Logfire,
-    capture_all: bool | None,
     capture_response_body: bool,
     capture_headers: bool,
     request_hook: RequestHook | None,
@@ -43,24 +40,17 @@ def instrument_aiohttp_client(
 
     See the `Logfire.instrument_aiohttp_client` method for details.
     """
-    capture_all = cast(bool, GLOBAL_CONFIG.param_manager.load_param('aiohttp_client_capture_all', capture_all))
-
-    if capture_all and (capture_headers or capture_response_body):
-        warn_at_user_stacklevel(
-            'You should use either `capture_all` or the specific capture parameters, not both.', UserWarning
-        )
-
     logfire_instance = logfire_instance.with_settings(custom_scope_suffix='aiohttp_client')
 
     AioHttpClientInstrumentor().instrument(
         **{
             'tracer_provider': logfire_instance.config.get_tracer_provider(),
-            'request_hook': make_request_hook(request_hook, capture_headers or capture_all),
+            'request_hook': make_request_hook(request_hook, capture_headers),
             'response_hook': make_response_hook(
                 response_hook,
                 logfire_instance,
-                capture_headers or capture_all,
-                capture_response_body or capture_all,
+                capture_headers,
+                capture_response_body,
             ),
             'meter_provider': logfire_instance.config.get_meter_provider(),
             **kwargs,
