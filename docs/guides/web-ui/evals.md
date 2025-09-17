@@ -6,6 +6,8 @@ View and analyze your evaluation results in Pydantic Logfire's web interface. Ev
 
     Evals are created and run using the [Pydantic Evals](https://ai.pydantic.dev/evals/) package, which is developed in tandem with Pydantic AI. Logfire serves as an observability layer where you can view and compare results.
 
+To get started, read to the [Pydantic Evals installation guide](https://ai.pydantic.dev/evals/#installation).
+
 ## What are Evals?
 
 Evals help you systematically test and evaluate AI systems by running them against predefined test cases. Each evaluation experiment appears in Logfire automatically when you run the `pydantic_evals.Dataset.evaluate` method with Logfire integration enabled.
@@ -67,5 +69,3 @@ Every evaluation experiment generates detailed OpenTelemetry traces that appear 
 - **Evaluator spans** - Scoring and assessment execution details
 
 Navigate from experiment results to full trace details using the span links.
-
-For implementation help, refer to the [Pydantic Evals installation guide](https://ai.pydantic.dev/evals/#installation).
