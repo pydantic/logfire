@@ -16,7 +16,7 @@ For the data model, examples and full documentation on creating and running Eval
 
 ![Evals overview](../../images/guide/evals-overview.webp)
 
-The Evals tab shows all evaluation experiments for your project. Each experiment represents a single run of a dataset against a task function.
+The Evals tab shows all experiments for your project available within your data retention period. Each experiment represents a single run of a dataset against a task function.
 
 ### Experiment List
 
