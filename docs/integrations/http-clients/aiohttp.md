@@ -40,9 +40,7 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-[`logfire.instrument_aiohttp_client()`][logfire.Logfire.instrument_aiohttp_client] uses the
-**OpenTelemetry AIOHTTP Client Instrumentation** package,
-which you can find more information about [here][opentelemetry-aiohttp].
+The keyword arguments of `logfire.instrument_aiohttp_client()` are passed to the `AioHttpClientInstrumentor().instrument()` method of the OpenTelemetry aiohttp client Instrumentation package, read more about it [here][opentelemetry-aiohttp].
 
 ## Configuration
 
