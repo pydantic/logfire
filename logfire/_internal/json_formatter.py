@@ -20,6 +20,7 @@ class JsonArgsValueFormatter:
         self._newlines = indent != 0
         self._data_type_map: dict[DataType, Callable[[int, Any, JSONSchema | None], None]] = {
             'string': self._format_string,
+            'number': self._format_number,
             'PydanticModel': partial(self._format_items, '(', '=', ')', False),
             'dataclass': partial(self._format_items, '(', '=', ')', False),
             'Mapping': partial(self._format_items, '({', ': ', '})', True),
@@ -218,7 +219,23 @@ class JsonArgsValueFormatter:
             MyString("hello")
         """
         cls = schema and schema.get('title')
-        output = f'{cls}({value})' if cls else repr(value)
+        output = f'{cls}({repr(value)})' if cls else repr(value)
+        self._stream.write(output)
+
+    def _format_number(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
+        """Format number value.
+
+        Examples:
+            >>> value = 42
+            >>> schema = {'type': 'number', 'x-python-datatype': 'number'}
+            >>> _format_number(0, value, schema)
+            42
+            >>> schema = {'type': 'number', 'x-python-datatype': 'number', 'title': 'MyNumber'}
+            >>> _format_number(0, value, schema)
+            MyNumber(42)
+        """
+        cls = schema and schema.get('title')
+        output = f'{cls}({value})' if cls else str(value)
         self._stream.write(output)
 
     def _format_table(

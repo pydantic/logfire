@@ -93,13 +93,13 @@ from logfire._internal.json_types import ArraySchema, DataType, JSONSchema
         ),
         pytest.param(
             -999,
-            {'type': 'integer'},
+            {'type': 'integer', 'x-python-datatype': 'number'},
             '-999',
             id='integer',
         ),
         pytest.param(
             -999.125,
-            {'type': 'number'},
+            {'type': 'number', 'x-python-datatype': 'number'},
             '-999.125',
             id='number',
         ),

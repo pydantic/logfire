@@ -13,6 +13,8 @@ DataType = Literal[
     'Enum',
     # string
     'string',
+    # number
+    'number',
     # bytes
     'bytes',
     # temporal types

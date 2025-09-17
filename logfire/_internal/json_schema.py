@@ -294,12 +294,25 @@ def _pydantic_root_model_schema(obj: Any, seen: set[int]) -> JsonDict:
     if isinstance(root, type(None)):
         return {'type': 'null'}
     # return a complex schema to ensure JSON parsing for simple objects inside RootModel since they get an
-    # extra layer of JSON encoding
+    # extra layer of JSON encoding and to handle subclass representations correctly
     elif isinstance(root, (str, bool, int, float)):
-        type_ = {'str': 'string', 'int': 'integer', 'bool': 'boolean', 'float': 'number'}[root.__class__.__name__]
+        datatype = None
+        if isinstance(root, str):
+            type_ = 'string'
+            datatype = 'string'
+        elif isinstance(root, bool):
+            type_ = 'boolean'
+        elif isinstance(root, int):
+            type_ = 'integer'
+            datatype = 'number'
+        else:
+            type_ = 'number'
+            datatype = 'number'
+
         return {
             'type': type_,
-            'x-python-datatype': 'string' if type_ == 'string' else None,
+            'x-python-datatype': datatype,
+            'title': root.__class__.__name__,
         }
 
     return create_json_schema(obj.root, seen)  # type: ignore
