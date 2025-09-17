@@ -1,6 +1,6 @@
 # Evals (beta)
 
-View and analyze your evaluation results in Pydantic Logfire's web interface. Evals provides observability into how your AI systems perform across different test cases and experiments over time.
+View and analyze your evaluation results in Pydantic Logfire's web interface. Evals provide observability into how your AI systems perform across different test cases and experiments over time.
 
 !!! note "Code-First Evaluation"
 
