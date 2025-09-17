@@ -288,6 +288,207 @@ async def test_aiohttp_client_exception_handling_with_hooks(exporter: TestExport
     )
 
 
+@pytest.mark.anyio
+async def test_aiohttp_client_capture_response_body(exporter: TestExporter, test_app: aiohttp.web.Application):
+    """Test that aiohttp client captures response body when configured to do so."""
+
+    try:
+
+        async def handler(request: aiohttp.web.Request) -> aiohttp.web.Response:
+            return aiohttp.web.json_response({'good': 'response'})
+
+        test_app.router.add_get('/body', handler)
+
+        async with aiohttp.test_utils.TestServer(test_app) as server:
+            await server.start_server()
+
+            logfire.instrument_aiohttp_client(capture_all=True)
+
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f'http://localhost:{server.port}/body') as response:  # type: ignore
+                    await response.json()
+                    await response.read()
+    finally:
+        AioHttpClientInstrumentor().uninstrument()
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'GET',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'http.method': 'GET',
+                    'http.request.method': 'GET',
+                    'http.url': IsStr(),
+                    'url.full': IsStr(),
+                    'http.host': 'localhost',
+                    'server.address': 'localhost',
+                    'net.peer.port': IsInt(),
+                    'server.port': IsInt(),
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET localhost/body',
+                    'http.response.header.Content-Type': ('application/json; charset=utf-8',),
+                    'http.response.header.Content-Length': ('20',),
+                    'http.response.header.Date': IsTuple(IsStr()),
+                    'http.response.header.Server': IsTuple(IsStr()),
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                    'http.target': '/body',
+                },
+            },
+            {
+                'name': 'Reading response body',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_aiohttp_client.py',
+                    'code.function': 'test_aiohttp_client_capture_response_body',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'Reading response body',
+                    'logfire.msg': 'Reading response body',
+                    'logfire.span_type': 'span',
+                    'http.response.body.text': '{"good": "response"}',
+                    'logfire.json_schema': '{"type":"object","properties":{"http.response.body.text":{"type":"object"}}}',
+                },
+            },
+        ]
+    )
+
+
+@pytest.mark.anyio
+async def test_aiohttp_client_capture_response_body_exception(exporter: TestExporter):
+    """Test that aiohttp client captures response body when configured to do so."""
+
+    try:
+        logfire.instrument_aiohttp_client(capture_all=True)
+
+        async with aiohttp.ClientSession() as session:
+            with pytest.raises(aiohttp.ClientConnectorError):
+                async with session.get('http://non-existent-host-12345.example.com/test'):
+                    pass
+
+    finally:
+        AioHttpClientInstrumentor().uninstrument()
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'GET',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'http.method': 'GET',
+                    'http.request.method': 'GET',
+                    'http.url': 'http://non-existent-host-12345.example.com/test',
+                    'url.full': 'http://non-existent-host-12345.example.com/test',
+                    'http.host': 'non-existent-host-12345.example.com',
+                    'server.address': 'non-existent-host-12345.example.com',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET non-existent-host-12345.example.com/test',
+                    'error.type': 'ClientConnectorDNSError',
+                    'http.target': '/test',
+                    'logfire.level_num': 17,
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 2000000000,
+                        'attributes': {
+                            'exception.type': 'aiohttp.client_exceptions.ClientConnectorDNSError',
+                            'exception.message': IsStr(),
+                            'exception.stacktrace': IsStr(),
+                            'exception.escaped': 'False',
+                        },
+                    }
+                ],
+            }
+        ]
+    )
+
+
+@pytest.mark.anyio
+async def test_aiohttp_client_encoding_error_handling(exporter: TestExporter, test_app: aiohttp.web.Application):
+    """Test that capture_body_if_text handles encoding errors gracefully."""
+
+    try:
+
+        async def handler_with_invalid_encoding(_request: aiohttp.web.Request) -> aiohttp.web.Response:
+            invalid_bytes = b'\xff\xfe\x00\x00invalid utf-8 \x80\x81\x82'
+            return aiohttp.web.Response(body=invalid_bytes, content_type='text/plain')
+
+        test_app.router.add_get('/encoding-error', handler_with_invalid_encoding)
+
+        async with aiohttp.test_utils.TestServer(test_app) as server:
+            await server.start_server()
+
+            logfire.instrument_aiohttp_client(capture_response_body=True)
+
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f'http://localhost:{server.port}/encoding-error') as response:  # type: ignore
+                    await response.read()
+    finally:
+        AioHttpClientInstrumentor().uninstrument()
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'GET',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'http.method': 'GET',
+                    'http.request.method': 'GET',
+                    'http.url': IsStr(),
+                    'url.full': IsStr(),
+                    'http.host': 'localhost',
+                    'server.address': 'localhost',
+                    'net.peer.port': IsInt(),
+                    'server.port': IsInt(),
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET localhost/encoding-error',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                    'http.target': '/encoding-error',
+                },
+            },
+            {
+                'name': 'Reading response body',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_aiohttp_client.py',
+                    'code.function': 'test_aiohttp_client_encoding_error_handling',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'Reading response body',
+                    'logfire.msg': 'Reading response body',
+                    'logfire.span_type': 'span',
+                },
+            },
+        ]
+    )
+
+
+@pytest.mark.anyio
+async def test_aiohttp_client_capture_all_and_other_flags_should_warn(exporter: TestExporter):
+    with pytest.warns(
+        UserWarning, match='You should use either `capture_all` or the specific capture parameters, not both.'
+    ):
+        logfire.instrument_aiohttp_client(capture_all=True, capture_headers=True, capture_response_body=True)
+
+    assert exporter.exported_spans_as_dict() == snapshot([])
+
+
 def test_missing_opentelemetry_dependency() -> None:
     with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.aiohttp_client': None}):
         with pytest.raises(RuntimeError) as exc_info:
