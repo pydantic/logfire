@@ -78,8 +78,10 @@ class SpanEventLoggerProvider(EventLoggerProvider):
 
 def instrument_google_genai(logfire_instance: logfire.Logfire, **kwargs: Any):
     GoogleGenAiSdkInstrumentor().instrument(
-        event_logger_provider=SpanEventLoggerProvider(),
-        tracer_provider=logfire_instance.config.get_tracer_provider(),
-        meter_provider=logfire_instance.config.get_meter_provider(),
-        **kwargs,
+        **{
+            'event_logger_provider': SpanEventLoggerProvider(),
+            'tracer_provider': logfire_instance.config.get_tracer_provider(),
+            'meter_provider': logfire_instance.config.get_meter_provider(),
+            **kwargs,
+        }
     )
