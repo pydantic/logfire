@@ -4,11 +4,17 @@ integration: logfire
 # Model Context Protocol (MCP)
 
 
-**Logfire** supports instrumenting [MCP](https://modelcontextprotocol.io/) requests such as tool calls with the [`logfire.instrument_mcp()`][logfire.Logfire.instrument_mcp] method. This works on both the client and server side. If possible, calling this in both the client and server processes is recommended for nice distributed traces.
+**Logfire** supports instrumenting the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) with the [`logfire.instrument_mcp()`][logfire.Logfire.instrument_mcp] method. This works on both the client and server side. If possible, calling this in both the client and server processes is recommended for nice distributed traces.
 
-Below is an example using the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk), [Pydantic AI](https://ai.pydantic.dev/mcp/client/), and OpenAI. Run `pip install fastmcp pydantic-ai-slim[openai]` to install the required dependencies. You can replace `openai:gpt-4o` with a different model name supported by Pydantic AI to use a different LLM provider. You can also use other MCP client libraries, as long as they use the `mcp` package.
+Below is a simple example. For the client, we use [Pydantic AI](https://ai.pydantic.dev/mcp/client/) (though any MCP client will work) and OpenAI. To use a different LLM provider instead of OpenAI, replace `openai:gpt-4o` in the client script with a different model name supported by Pydantic AI.
 
-First, run the server script below:
+First, install the required dependencies:
+
+```bash
+pip install mcp 'pydantic-ai-slim[openai]'
+```
+
+Next, run the server script below:
 
 ```python title="server.py"
 from mcp.server.fastmcp import FastMCP
