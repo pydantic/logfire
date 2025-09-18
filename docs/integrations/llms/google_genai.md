@@ -24,6 +24,10 @@ print(response.text)
 # Hello! How can I help you today?
 ```
 
+This creates a span which shows the conversation in the Logfire UI:
+
+![Logfire Google Gen AI conversation](../../images/logfire-screenshot-google-genai-llm-panel.png)
+
 !!! note
     If you don't set the environment variable `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT`
     to `true`, the spans will simply contain `<elided>` where the prompts and completions would be.
