@@ -1280,11 +1280,21 @@ class Logfire:
             is_async_client,
         )
 
-    def instrument_google_genai(self):
+    def instrument_google_genai(self, **kwargs: Any):
+        """Instrument the [Google Gen AI SDK (`google-genai`)](https://googleapis.github.io/python-genai/).
+
+        !!! note
+            To capture message contents (i.e. prompts and completions), set the environment variable
+            `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` to `true`.
+
+        Uses the `GoogleGenAiSdkInstrumentor().instrument()` method of the
+        [`opentelemetry-instrumentation-google-genai`](https://pypi.org/project/opentelemetry-instrumentation-google-genai/)
+        package, to which it passes `**kwargs`.
+        """
         from .integrations.google_genai import instrument_google_genai
 
         self._warn_if_not_initialized_for_instrumentation()
-        instrument_google_genai(self)
+        instrument_google_genai(self, **kwargs)
 
     def instrument_litellm(self, **kwargs: Any):
         from .integrations.litellm import instrument_litellm

@@ -114,6 +114,7 @@ nav:
       - LLMs:
           - Pydantic AI: integrations/llms/pydanticai.md
           - OpenAI: integrations/llms/openai.md
+          - Google Gen AI: integrations/llms/google-genai.md
           - Anthropic: integrations/llms/anthropic.md
           - LangChain: integrations/llms/langchain.md
           - LLamaIndex: integrations/llms/llamaindex.md

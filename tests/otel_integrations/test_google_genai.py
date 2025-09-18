@@ -1,6 +1,7 @@
 import os
 import sys
 import warnings
+from unittest import mock
 from unittest.mock import patch
 
 import pydantic
@@ -23,6 +24,17 @@ pytestmark = [
         sys.version_info < (3, 10), reason='Python 3.9 produces ResourceWarnings unrelated to the instrumentation'
     ),
 ]
+
+
+def test_missing_opentelemetry_dependency() -> None:
+    with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.google_genai': None}):
+        with pytest.raises(RuntimeError) as exc_info:
+            logfire.instrument_google_genai()
+        assert str(exc_info.value) == snapshot("""\
+The `logfire.instrument_google_genai()` method requires the `opentelemetry-instrumentation-google-genai` package.
+You can install this with:
+    pip install 'logfire[google-genai]'\
+""")
 
 
 @pytest.mark.vcr()
