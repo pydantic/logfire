@@ -1,12 +1,45 @@
 ---
-integration: third-party
+integration: logfire
 ---
+# LiteLLM
 
-LiteLLM allows you to call over 100 Large Language Models (LLMs) using the same input/output format. It also supports Logfire for logging and monitoring.
+**Logfire** supports instrumenting calls to the [LiteLLM](https://docs.litellm.ai/) Python SDK with the [`logfire.instrument_litellm()`][logfire.Logfire.instrument_litellm] method.
 
-To integrate Logfire with LiteLLM:
+## Installation
 
-1. Set the `LOGFIRE_TOKEN` environment variable.
-2. Add `logfire` to the callbacks of LiteLLM.
+Install `logfire` with the `litellm` extra:
 
-For more details, [check the official LiteLLM documentation.](https://docs.litellm.ai/docs/observability/logfire_integration)
+{{ install_logfire(extras=['litellm']) }}
+
+## Usage
+
+```python
+import litellm
+
+import logfire
+
+logfire.configure()
+logfire.instrument_litellm()
+
+response = litellm.completion(
+    model='gpt-4o-mini',
+    messages=[{'role': 'user', 'content': 'Hi'}],
+)
+print(response.choices[0].message.content)
+# > Hello! How can I assist you today?
+```
+
+!!! warning
+    This currently works best if all arguments of instrumented methods are passed as keyword arguments,
+    e.g. `litellm.completion(model=model, messages=messages)`.
+
+This creates a span which shows the conversation in the Logfire UI:
+
+<figure markdown="span">
+![Logfire LiteLLM conversation](../../images/logfire-screenshot-litellm-llm-panel.png){ width="259" }
+</figure>
+
+[`logfire.instrument_litellm()`][logfire.Logfire.instrument_litellm] uses the `LiteLLMInstrumentor().instrument()` method of the [`openinference-instrumentation-litellm`](https://pypi.org/project/openinference-instrumentation-litellm/) package.
+
+!!! note
+    [LiteLLM has its own integration with Logfire](https://docs.litellm.ai/docs/observability/logfire_integration), but we recommend using `logfire.instrument_litellm()` instead.

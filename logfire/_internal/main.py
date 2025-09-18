@@ -1303,6 +1303,10 @@ class Logfire:
     def instrument_litellm(self, **kwargs: Any):
         """Instrument the [LiteLLM](https://docs.litellm.ai/) Python SDK.
 
+        !!! warning
+            This currently works best if all arguments of instrumented methods are passed as keyword arguments,
+            e.g. `litellm.completion(model=model, messages=messages)`.
+
         Uses the `LiteLLMInstrumentor().instrument()` method of the
         [`openinference-instrumentation-litellm`](https://pypi.org/project/openinference-instrumentation-litellm/)
         package, to which it passes `**kwargs`.
