@@ -8,6 +8,7 @@ import json
 import re
 import sys
 from datetime import datetime
+from enum import Enum
 from typing import Any
 from unittest import mock
 
@@ -30,6 +31,15 @@ from logfire._internal.exporters.console import (
 )
 from logfire.testing import TestExporter
 from tests.utils import ReadableSpanModel, SpanContextModel, exported_spans_as_models
+
+if sys.version_info >= (3, 11):  # pragma: no branch
+    from enum import IntEnum, StrEnum
+else:  # pragma: no cover
+
+    class StrEnum(str, Enum): ...
+
+    class IntEnum(int, Enum): ...
+
 
 tracer = trace.get_tracer('test')
 
@@ -1032,12 +1042,21 @@ def test_console_exporter_log_pydantic_root_model(capsys: pytest.CaptureFixture[
     class Model(BaseModel):
         name: str
 
+    class Color(StrEnum):
+        red = 'RED'
+
+    class Order(IntEnum):
+        one = 1
+
     RootWithModel = RootModel[Model]
     RootWithStr = RootModel[str]
     RootWithInt = RootModel[int]
     RootWithFloat = RootModel[float]
     RootWithBool = RootModel[bool]
     RootWithNone = RootModel[None]
+    # enums (which are subclasses of their base types)
+    RootWithColor = RootModel[Color]
+    RootWithOrder = RootModel[Order]
 
     model = Model(name='with_model')
     root_with_model = RootWithModel(root=model)
@@ -1046,6 +1065,8 @@ def test_console_exporter_log_pydantic_root_model(capsys: pytest.CaptureFixture[
     root_with_float = RootWithFloat(2.0)
     root_with_bool = RootWithBool(False)
     root_with_none = RootWithNone(None)
+    root_with_color = RootWithColor(Color.red)
+    root_with_order = RootWithOrder(Order.one)
 
     logfire.info(
         'hi',
@@ -1060,6 +1081,10 @@ def test_console_exporter_log_pydantic_root_model(capsys: pytest.CaptureFixture[
         with_bool_inner=root_with_bool.root,
         with_none=root_with_none,
         with_none_inner=root_with_none.root,
+        with_color=root_with_color,
+        with_color_inner=root_with_color.root,
+        with_order=root_with_order,
+        with_order_inner=root_with_order.root,
     )
 
     assert capsys.readouterr().out.splitlines() == snapshot(
@@ -1079,5 +1104,9 @@ def test_console_exporter_log_pydantic_root_model(capsys: pytest.CaptureFixture[
             '│ with_bool_inner=False',
             '│ with_none=None',
             '│ with_none_inner=None',
+            "│ with_color=Color('RED')",
+            "│ with_color_inner=Color('RED')",
+            '│ with_order=Order(1)',
+            '│ with_order_inner=Order(1)',
         ]
     )

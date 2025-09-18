@@ -33,10 +33,12 @@ import logfire
 from logfire.testing import TestExporter
 
 if sys.version_info >= (3, 11):  # pragma: no branch
-    from enum import StrEnum
+    from enum import IntEnum, StrEnum
 else:  # pragma: no cover
 
     class StrEnum(str, Enum): ...
+
+    class IntEnum(int, Enum): ...
 
 
 pandas.set_option('display.max_columns', 10)
@@ -1384,12 +1386,21 @@ def test_pydantic_root_model(exporter: TestExporter):
     class Model(BaseModel):
         name: str
 
+    class Color(StrEnum):
+        red = 'RED'
+
+    class Order(IntEnum):
+        one = 1
+
     RootWithModel = RootModel[Model]
     RootWithStr = RootModel[str]
     RootWithInt = RootModel[int]
     RootWithFloat = RootModel[float]
     RootWithBool = RootModel[bool]
     RootWithNone = RootModel[None]
+    # enums (which are subclasses of their base types)
+    RootWithColor = RootModel[Color]
+    RootWithOrder = RootModel[Order]
 
     model = Model(name='with_model')
     root_with_model = RootWithModel(root=model)
@@ -1398,6 +1409,8 @@ def test_pydantic_root_model(exporter: TestExporter):
     root_with_float = RootWithFloat(2.0)
     root_with_bool = RootWithBool(False)
     root_with_none = RootWithNone(None)
+    root_with_color = RootWithColor(Color.red)
+    root_with_order = RootWithOrder(Order.one)
 
     logfire.info(
         'hi',
@@ -1412,6 +1425,10 @@ def test_pydantic_root_model(exporter: TestExporter):
         with_bool_inner=root_with_bool.root,
         with_none=root_with_none,
         with_none_inner=root_with_none.root,
+        with_color=root_with_color,
+        with_color_inner=root_with_color.root,
+        with_order=root_with_order,
+        with_order_inner=root_with_order.root,
     )
 
     assert exporter.exported_spans_as_dict() == [
@@ -1442,7 +1459,11 @@ def test_pydantic_root_model(exporter: TestExporter):
                 'with_bool_inner': False,
                 'with_none': 'null',
                 'with_none_inner': 'null',
-                'logfire.json_schema': '{"type":"object","properties":{"with_model":{"type":"object","title":"Model","x-python-datatype":"PydanticModel"},"with_str":{"type":"string","x-python-datatype":"string","title":"str"},"with_str_inner":{},"with_int":{"type":"integer","x-python-datatype":"number","title":"int"},"with_int_inner":{},"with_float":{"type":"number","x-python-datatype":"number","title":"float"},"with_float_inner":{},"with_bool":{"type":"boolean","x-python-datatype":null,"title":"bool"},"with_bool_inner":{},"with_none":{"type":"null"},"with_none_inner":{"type":"null"}}}',
+                'with_color': '"RED"',
+                'with_color_inner': '"RED"',
+                'with_order': '1',
+                'with_order_inner': '1',
+                'logfire.json_schema': '{"type":"object","properties":{"with_model":{"type":"object","title":"Model","x-python-datatype":"PydanticModel"},"with_str":{"type":"string","x-python-datatype":"string","title":"str"},"with_str_inner":{},"with_int":{"type":"integer","x-python-datatype":"number","title":"int"},"with_int_inner":{},"with_float":{"type":"number","x-python-datatype":"number","title":"float"},"with_float_inner":{},"with_bool":{"type":"boolean","x-python-datatype":null,"title":"bool"},"with_bool_inner":{},"with_none":{"type":"null"},"with_none_inner":{"type":"null"},"with_color":{"type":"string","x-python-datatype":"string","title":"Color"},"with_color_inner":{"type":"string","title":"Color","x-python-datatype":"Enum","enum":["RED"]},"with_order":{"type":"integer","x-python-datatype":"number","title":"Order"},"with_order_inner":{"type":"integer","title":"Order","x-python-datatype":"Enum","enum":[1]}}}',
             },
         }
     ]
