@@ -1301,6 +1301,12 @@ class Logfire:
         instrument_google_genai(self, **kwargs)
 
     def instrument_litellm(self, **kwargs: Any):
+        """Instrument the [LiteLLM](https://docs.litellm.ai/) Python SDK.
+
+        Uses the `LiteLLMInstrumentor().instrument()` method of the
+        [`openinference-instrumentation-litellm`](https://pypi.org/project/openinference-instrumentation-litellm/)
+        package, to which it passes `**kwargs`.
+        """
         from .integrations.litellm import instrument_litellm
 
         self._warn_if_not_initialized_for_instrumentation()

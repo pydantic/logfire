@@ -2,6 +2,7 @@ import json
 import logging
 import warnings
 from typing import Any
+from unittest import mock
 
 import pydantic
 import pytest
@@ -12,6 +13,17 @@ import logfire
 from logfire._internal.exporters.processor_wrapper import guess_system
 from logfire._internal.utils import get_version
 from logfire.testing import TestExporter
+
+
+def test_missing_opentelemetry_dependency() -> None:
+    with mock.patch.dict('sys.modules', {'openinference.instrumentation.litellm': None}):
+        with pytest.raises(RuntimeError) as exc_info:
+            logfire.instrument_litellm()
+        assert str(exc_info.value) == snapshot("""\
+The `logfire.instrument_litellm()` method requires the `openinference-instrumentation-litellm` package.
+You can install this with:
+    pip install 'logfire[litellm]'\
+""")
 
 
 @pytest.mark.vcr()
