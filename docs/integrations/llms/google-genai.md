@@ -13,7 +13,7 @@ Install `logfire` with the `google-genai` extra:
 
 ## Usage
 
-```python
+```python hl_lines="8 11"
 import os
 
 from google.genai import Client

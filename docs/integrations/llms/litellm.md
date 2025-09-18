@@ -13,7 +13,7 @@ Install `logfire` with the `litellm` extra:
 
 ## Usage
 
-```python
+```python hl_lines="6"
 import litellm
 
 import logfire
@@ -36,7 +36,7 @@ print(response.choices[0].message.content)
 This creates a span which shows the conversation in the Logfire UI:
 
 <figure markdown="span">
-![Logfire LiteLLM conversation](../../images/logfire-screenshot-litellm-llm-panel.png){ width="259" }
+![Logfire LiteLLM conversation](../../images/logfire-screenshot-litellm-llm-panel.png){ width="697" }
 </figure>
 
 [`logfire.instrument_litellm()`][logfire.Logfire.instrument_litellm] uses the `LiteLLMInstrumentor().instrument()` method of the [`openinference-instrumentation-litellm`](https://pypi.org/project/openinference-instrumentation-litellm/) package.
