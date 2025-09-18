@@ -1768,6 +1768,7 @@ class Logfire:
         self,
         *,
         capture_headers: bool = False,
+        capture_response_body: bool = False,
         request_hook: AiohttpClientRequestHook | None = None,
         response_hook: AiohttpClientResponseHook | None = None,
         **kwargs: Any,
@@ -1783,6 +1784,7 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_aiohttp_client(
             self,
+            capture_response_body=capture_response_body,
             capture_headers=capture_headers,
             request_hook=request_hook,
             response_hook=response_hook,
