@@ -3,7 +3,15 @@ integration: logfire
 ---
 # Google Gen AI SDK
 
-**Logfire** supports instrumenting calls to the [Google Gen AI SDK (`google-genai`)](https://googleapis.github.io/python-genai/) with the [`logfire.instrument_google_genai()`][logfire.Logfire.instrument_google_genai] method, for example:
+**Logfire** supports instrumenting calls to the [Google Gen AI SDK (`google-genai`)](https://googleapis.github.io/python-genai/) with the [`logfire.instrument_google_genai()`][logfire.Logfire.instrument_google_genai] method.
+
+## Installation
+
+Install `logfire` with the `google-genai` extra:
+
+{{ install_logfire(extras=['google-genai']) }}
+
+## Usage
 
 ```python
 import os
