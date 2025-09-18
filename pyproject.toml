@@ -78,6 +78,7 @@ requests = ["opentelemetry-instrumentation-requests >= 0.42b0"]
 mysql = ["opentelemetry-instrumentation-mysql >= 0.42b0"]
 sqlite3 = ["opentelemetry-instrumentation-sqlite3 >= 0.42b0"]
 aws-lambda = ["opentelemetry-instrumentation-aws-lambda >= 0.42b0"]
+google-genai = ["opentelemetry-instrumentation-google-genai >= 0"]
 
 [project.urls]
 Homepage = "https://logfire.pydantic.dev/"

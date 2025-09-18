@@ -30,7 +30,7 @@ try:
     from .asgi import tweak_asgi_spans_tracer_provider
 except ImportError:
     raise RuntimeError(
-        'The `logfire.instrument_fastapi()` requires the `opentelemetry-instrumentation-fastapi` package.\n'
+        'The `logfire.instrument_fastapi()` method requires the `opentelemetry-instrumentation-fastapi` package.\n'
         'You can install this with:\n'
         "    pip install 'logfire[fastapi]'"
     )

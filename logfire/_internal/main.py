@@ -913,10 +913,14 @@ class Logfire:
         self.config.warn_if_not_initialized('Instrumentation will have no effect')
 
     def instrument_mcp(self, *, propagate_otel_context: bool = True) -> None:
-        """Instrument [MCP](https://modelcontextprotocol.io/) requests such as tool calls.
+        """Instrument the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk).
+
+        Instruments both the client and server side. If possible, calling this in both the client and server
+        processes is recommended for nice distributed traces.
 
         Args:
-            propagate_otel_context: Whether to enable propagation of the OpenTelemetry context.
+            propagate_otel_context: Whether to enable propagation of the OpenTelemetry context
+                for distributed tracing.
                 Set to False to prevent setting extra fields like `traceparent` on the metadata of requests.
         """
         from .integrations.mcp import instrument_mcp
@@ -1280,11 +1284,21 @@ class Logfire:
             is_async_client,
         )
 
-    def instrument_google_genai(self):
+    def instrument_google_genai(self, **kwargs: Any):
+        """Instrument the [Google Gen AI SDK (`google-genai`)](https://googleapis.github.io/python-genai/).
+
+        !!! note
+            To capture message contents (i.e. prompts and completions), set the environment variable
+            `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` to `true`.
+
+        Uses the `GoogleGenAiSdkInstrumentor().instrument()` method of the
+        [`opentelemetry-instrumentation-google-genai`](https://pypi.org/project/opentelemetry-instrumentation-google-genai/)
+        package, to which it passes `**kwargs`.
+        """
         from .integrations.google_genai import instrument_google_genai
 
         self._warn_if_not_initialized_for_instrumentation()
-        instrument_google_genai(self)
+        instrument_google_genai(self, **kwargs)
 
     def instrument_litellm(self, **kwargs: Any):
         from .integrations.litellm import instrument_litellm
