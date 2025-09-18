@@ -913,10 +913,14 @@ class Logfire:
         self.config.warn_if_not_initialized('Instrumentation will have no effect')
 
     def instrument_mcp(self, *, propagate_otel_context: bool = True) -> None:
-        """Instrument [MCP](https://modelcontextprotocol.io/) requests such as tool calls.
+        """Instrument the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk).
+
+        Instruments both the client and server side. If possible, calling this in both the client and server
+        processes is recommended for nice distributed traces.
 
         Args:
-            propagate_otel_context: Whether to enable propagation of the OpenTelemetry context.
+            propagate_otel_context: Whether to enable propagation of the OpenTelemetry context
+                for distributed tracing.
                 Set to False to prevent setting extra fields like `traceparent` on the metadata of requests.
         """
         from .integrations.mcp import instrument_mcp
