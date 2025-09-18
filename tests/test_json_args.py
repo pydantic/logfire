@@ -1431,7 +1431,7 @@ def test_pydantic_root_model(exporter: TestExporter):
         with_order_inner=root_with_order.root,
     )
 
-    assert exporter.exported_spans_as_dict() == [
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == [
         {
             'name': 'hi',
             'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
@@ -1446,7 +1446,7 @@ def test_pydantic_root_model(exporter: TestExporter):
                 'code.filepath': 'test_json_args.py',
                 'code.function': 'test_pydantic_root_model',
                 'code.lineno': 123,
-                'with_model': '{"name":"with_model"}',
+                'with_model': {'name': 'with_model'},
                 # the model's string literal will be wrapped in single quotes to ensure it's logged properly on parsing
                 'with_str': '"with_str"',
                 'with_str_inner': 'with_str',
@@ -1463,7 +1463,40 @@ def test_pydantic_root_model(exporter: TestExporter):
                 'with_color_inner': '"RED"',
                 'with_order': '1',
                 'with_order_inner': '1',
-                'logfire.json_schema': '{"type":"object","properties":{"with_model":{"type":"object","title":"Model","x-python-datatype":"PydanticModel"},"with_str":{"type":"string","x-python-datatype":"string"},"with_str_inner":{},"with_int":{"type":"integer","x-python-datatype":"number"},"with_int_inner":{},"with_float":{"type":"number","x-python-datatype":"number"},"with_float_inner":{},"with_bool":{"type":"boolean","x-python-datatype":null},"with_bool_inner":{},"with_none":{"type":"null"},"with_none_inner":{"type":"null"},"with_color":{"type":"string","x-python-datatype":"string","title":"Color"},"with_color_inner":{"type":"string","title":"Color","x-python-datatype":"Enum","enum":["RED"]},"with_order":{"type":"integer","x-python-datatype":"number","title":"Order"},"with_order_inner":{"type":"integer","title":"Order","x-python-datatype":"Enum","enum":[1]}}}',
+                'logfire.json_schema': {
+                    'type': 'object',
+                    'properties': {
+                        'with_model': {
+                            'type': 'object',
+                            'title': 'Model',
+                            'x-python-datatype': 'PydanticModel',
+                        },
+                        'with_str': {'type': 'string', 'x-python-datatype': 'string'},
+                        'with_str_inner': {},
+                        'with_int': {'type': 'integer', 'x-python-datatype': 'number'},
+                        'with_int_inner': {},
+                        'with_float': {'type': 'number', 'x-python-datatype': 'number'},
+                        'with_float_inner': {},
+                        'with_bool': {'type': 'boolean', 'x-python-datatype': None},
+                        'with_bool_inner': {},
+                        'with_none': {'type': 'null'},
+                        'with_none_inner': {'type': 'null'},
+                        'with_color': {'type': 'string', 'x-python-datatype': 'string', 'title': 'Color'},
+                        'with_color_inner': {
+                            'type': 'string',
+                            'title': 'Color',
+                            'x-python-datatype': 'Enum',
+                            'enum': ['RED'],
+                        },
+                        'with_order': {'type': 'integer', 'x-python-datatype': 'number', 'title': 'Order'},
+                        'with_order_inner': {
+                            'type': 'integer',
+                            'title': 'Order',
+                            'x-python-datatype': 'Enum',
+                            'enum': [1],
+                        },
+                    },
+                },
             },
         }
     ]
