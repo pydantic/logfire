@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v4.8.0] (2025-09-18)
+
+* Allow capturing headers and response body with `logfire.instrument_aiohttp_client()` by @adtyavrdhn in [#1405](https://github.com/pydantic/logfire/pull/1405) and [#1409](https://github.com/pydantic/logfire/pull/1409)
+
 ## [v4.7.0] (2025-09-12)
 
 * Update to OpenTelemetry SDK 1.37.0, drop support for <1.35.0 by @alexmojaki in [#1398](https://github.com/pydantic/logfire/pull/1398)
@@ -901,3 +905,4 @@ First release from new repo!
 [v4.5.0]: https://github.com/pydantic/logfire/compare/v4.4.0...v4.5.0
 [v4.6.0]: https://github.com/pydantic/logfire/compare/v4.5.0...v4.6.0
 [v4.7.0]: https://github.com/pydantic/logfire/compare/v4.6.0...v4.7.0
+[v4.8.0]: https://github.com/pydantic/logfire/compare/v4.7.0...v4.8.0
