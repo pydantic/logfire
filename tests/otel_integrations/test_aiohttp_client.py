@@ -307,9 +307,8 @@ async def test_aiohttp_client_capture_response_body(exporter: TestExporter, test
             async with aiohttp.ClientSession() as session:
                 async with session.get(f'http://localhost:{server.port}/body') as response:  # type: ignore
                     assert await response.json() == {'good': 'response'}
-                    assert await response.json() == {
-                        'good': 'response'
-                    }  # Triggering twice to ensure the body is captured only once
+                    assert await response.read() == b'{"good": "response"}'
+
     finally:
         AioHttpClientInstrumentor().uninstrument()
 
