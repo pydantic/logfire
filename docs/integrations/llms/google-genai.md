@@ -26,13 +26,12 @@ print(response.text)
 
 This creates a span which shows the conversation in the Logfire UI:
 
-![Logfire Google Gen AI conversation](../../images/logfire-screenshot-google-genai-llm-panel.png)
+<figure markdown="span">
+![Logfire Google Gen AI conversation](../../images/logfire-screenshot-google-genai-llm-panel.png){ width="259" }
+</figure>
 
 !!! note
     If you don't set the environment variable `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT`
     to `true`, the spans will simply contain `<elided>` where the prompts and completions would be.
 
-[`logfire.instrument_google_genai()`][logfire.Logfire.instrument_google_genai]
-uses the `GoogleGenAiSdkInstrumentor().instrument()` method of the
-[`opentelemetry-instrumentation-google-genai`](https://pypi.org/project/opentelemetry-instrumentation-google-genai/)
-package.
+[`logfire.instrument_google_genai()`][logfire.Logfire.instrument_google_genai] uses the `GoogleGenAiSdkInstrumentor().instrument()` method of the [`opentelemetry-instrumentation-google-genai`](https://pypi.org/project/opentelemetry-instrumentation-google-genai/) package.
