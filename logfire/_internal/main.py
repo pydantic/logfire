@@ -913,7 +913,7 @@ class Logfire:
         self.config.warn_if_not_initialized('Instrumentation will have no effect')
 
     def instrument_mcp(self, *, propagate_otel_context: bool = True) -> None:
-        """Instrument [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) requests such as tool calls.
+        """Instrument the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk).
 
         Instruments both the client and server side. If possible, calling this in both the client and server
         processes is recommended for nice distributed traces.
