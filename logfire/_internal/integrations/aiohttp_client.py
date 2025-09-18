@@ -70,7 +70,7 @@ class LogfireAioHttpRequestInfo(TraceRequestStartParams, LogfireClientInfoMixin)
         capture_request_or_response_headers(self.span, self.headers, 'request')
 
 
-@attr.s(auto_attribs=True, frozen=True, slots=True)
+@attr.s(auto_attribs=True, slots=True)
 class LogfireAioHttpResponseInfo(LogfireClientInfoMixin):
     span: Span
     method: str
@@ -79,6 +79,7 @@ class LogfireAioHttpResponseInfo(LogfireClientInfoMixin):
     response: ClientResponse | None
     exception: BaseException | None
     logfire_instance: Logfire
+    body_captured: bool = False
 
     def capture_headers(self):
         if self.response:
@@ -93,7 +94,7 @@ class LogfireAioHttpResponseInfo(LogfireClientInfoMixin):
 
         @functools.wraps(original_read)
         async def read() -> bytes:
-            if getattr(response, '__logfire_body_captured', False):
+            if self.body_captured:
                 return await original_read()
 
             with (
@@ -105,10 +106,10 @@ class LogfireAioHttpResponseInfo(LogfireClientInfoMixin):
                     encoding = response.get_encoding()
                     text = body.decode(encoding)
                 except (UnicodeDecodeError, LookupError):
-                    setattr(response, '__logfire_body_captured', True)
+                    self.body_captured = True
                     return body
                 self.capture_text_as_json(span, text=text, attr_name=attr_name)
-                setattr(response, '__logfire_body_captured', True)
+                self.body_captured = True
                 return body
 
         response.read = read
