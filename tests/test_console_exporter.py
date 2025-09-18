@@ -1019,3 +1019,65 @@ def test_console_exporter_list_data_with_object_schema_mismatch(capsys: pytest.C
             "│ bar={'name': 'Alice', 'age': 30}",
         ]
     )
+
+
+def test_console_exporter_log_pydantic_root_model(capsys: pytest.CaptureFixture[str]) -> None:
+    from pydantic import BaseModel, RootModel
+
+    logfire.configure(
+        send_to_logfire=False,
+        console=ConsoleOptions(verbose=True, colors='never', include_timestamps=False),
+    )
+
+    class Model(BaseModel):
+        name: str
+
+    RootWithModel = RootModel[Model]
+    RootWithStr = RootModel[str]
+    RootWithInt = RootModel[int]
+    RootWithFloat = RootModel[float]
+    RootWithBool = RootModel[bool]
+    RootWithNone = RootModel[None]
+
+    model = Model(name='with_model')
+    root_with_model = RootWithModel(root=model)
+    root_with_str = RootWithStr('with_str')
+    root_with_int = RootWithInt(-150)
+    root_with_float = RootWithFloat(2.0)
+    root_with_bool = RootWithBool(False)
+    root_with_none = RootWithNone(None)
+
+    logfire.info(
+        'hi',
+        with_model=root_with_model,
+        with_str=root_with_str,
+        with_str_inner=root_with_str.root,
+        with_int=root_with_int,
+        with_int_inner=root_with_int.root,
+        with_float=root_with_float,
+        with_float_inner=root_with_float.root,
+        with_bool=root_with_bool,
+        with_bool_inner=root_with_bool.root,
+        with_none=root_with_none,
+        with_none_inner=root_with_none.root,
+    )
+
+    assert capsys.readouterr().out.splitlines() == snapshot(
+        [
+            'hi',
+            IsStr(),
+            '│ with_model=Model(',
+            "│                name='with_model',",
+            '│            )',
+            "│ with_str=str('with_str')",
+            "│ with_str_inner='with_str'",
+            '│ with_int=int(-150)',
+            '│ with_int_inner=-150',
+            '│ with_float=float(2.0)',
+            '│ with_float_inner=2.0',
+            '│ with_bool=False',
+            '│ with_bool_inner=False',
+            '│ with_none=None',
+            '│ with_none_inner=None',
+        ]
+    )
