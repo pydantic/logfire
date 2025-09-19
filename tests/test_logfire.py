@@ -1273,6 +1273,66 @@ def test_validation_error_on_instrument(exporter: TestExporter):
     )
 
 
+def test_instrument_with_logfire_span_parameter(exporter: TestExporter):
+    @logfire.instrument('Calling foo with {x=}')
+    def foo(x: int, logfire_span: logfire.LogfireSpan | None = None) -> int:
+        # Test that we can access the span and modify its message
+        assert logfire_span is not None
+        logfire_span.message = f'Modified message for x={x}'
+        return x * 2
+
+    result = foo(5)
+    assert result == 10
+
+    spans = exporter.exported_spans_as_dict(_strip_function_qualname=False)
+    assert len(spans) == 1
+    span = spans[0]
+    assert span['attributes']['logfire.msg'] == 'Modified message for x=5'
+    assert span['attributes']['x'] == 5
+
+
+def test_instrument_with_logfire_span_parameter_async(exporter: TestExporter):
+    @logfire.instrument('Calling async foo with {x=}')
+    async def foo(x: int, logfire_span: logfire.LogfireSpan | None = None) -> int:
+        # Test that we can access the span and modify its message
+        assert logfire_span is not None
+        logfire_span.message = f'Async modified message for x={x}'
+        return x * 3
+
+    async def run_test():
+        return await foo(7)
+
+    import asyncio
+
+    result = asyncio.run(run_test())
+    assert result == 21
+
+    spans = exporter.exported_spans_as_dict(_strip_function_qualname=False)
+    assert len(spans) == 1
+    span = spans[0]
+    assert span['attributes']['logfire.msg'] == 'Async modified message for x=7'
+    assert span['attributes']['x'] == 7
+
+
+def test_instrument_with_logfire_span_parameter_extract_args_false(exporter: TestExporter):
+    @logfire.instrument('Calling foo', extract_args=False)
+    def foo(x: int, logfire_span: logfire.LogfireSpan | None = None) -> int:
+        # Test that we can access the span and modify its message
+        assert logfire_span is not None
+        logfire_span.message = f'Extract args false message for x={x}'
+        return x * 4
+
+    result = foo(3)
+    assert result == 12
+
+    spans = exporter.exported_spans_as_dict(_strip_function_qualname=False)
+    assert len(spans) == 1
+    span = spans[0]
+    assert span['attributes']['logfire.msg'] == 'Extract args false message for x=3'
+    # x should not be in attributes since extract_args=False
+    assert 'x' not in span['attributes']
+
+
 def test_validation_error_on_span(exporter: TestExporter) -> None:
     class Model(BaseModel, plugin_settings={'logfire': {'record': 'off'}}):
         a: int

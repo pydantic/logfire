@@ -234,6 +234,17 @@ my_function(3, 4)
 # Logs: Applying my_function to x=3 and y=4
 ```
 
+You can also access the span directly within your instrumented function by adding a `logfire_span` parameter:
+
+```python
+@logfire.instrument('Processing {x=}')
+def process_data(x: int, logfire_span: logfire.LogfireSpan | None = None) -> int:
+    # Access and modify the span directly
+    if logfire_span:
+        logfire_span.message = f'Custom message for x={x}'
+    return x * 2
+```
+
 !!! note
 
     - The [`@logfire.instrument`][logfire.Logfire.instrument] decorator MUST be applied first, i.e., UNDER any other decorators.
