@@ -63,27 +63,19 @@ def instrument(
         attributes = get_attributes(func, msg_template, tags)
         open_span = get_open_span(logfire, attributes, span_name, extract_args, func)
 
-        # Check if function has logfire_span parameter
-        sig = inspect.signature(func)
-        has_logfire_span_param = 'logfire_span' in sig.parameters
-
         if inspect.isgeneratorfunction(func):
             if not allow_generator:
                 warnings.warn(GENERATOR_WARNING_MESSAGE, stacklevel=2)
 
             def wrapper(*func_args: P.args, **func_kwargs: P.kwargs):  # type: ignore
-                with open_span(*func_args, **func_kwargs) as span:
-                    if has_logfire_span_param:
-                        func_kwargs['logfire_span'] = span
+                with open_span(*func_args, **func_kwargs):
                     yield from func(*func_args, **func_kwargs)
         elif inspect.isasyncgenfunction(func):
             if not allow_generator:
                 warnings.warn(GENERATOR_WARNING_MESSAGE, stacklevel=2)
 
             async def wrapper(*func_args: P.args, **func_kwargs: P.kwargs):  # type: ignore
-                with open_span(*func_args, **func_kwargs) as span:
-                    if has_logfire_span_param:
-                        func_kwargs['logfire_span'] = span
+                with open_span(*func_args, **func_kwargs):
                     # `yield from` is invalid syntax in an async function.
                     # This loop is not quite equivalent, because `yield from` also handles things like
                     # sending values to the subgenerator.
@@ -98,8 +90,6 @@ def instrument(
 
             async def wrapper(*func_args: P.args, **func_kwargs: P.kwargs) -> R:  # type: ignore
                 with open_span(*func_args, **func_kwargs) as span:
-                    if has_logfire_span_param:
-                        func_kwargs['logfire_span'] = span
                     result = await func(*func_args, **func_kwargs)
                     if record_return:
                         # open_span returns a FastLogfireSpan, so we can't use span.set_attribute for complex types.
@@ -112,8 +102,6 @@ def instrument(
             # Same as the above, but without the async/await
             def wrapper(*func_args: P.args, **func_kwargs: P.kwargs) -> R:
                 with open_span(*func_args, **func_kwargs) as span:
-                    if has_logfire_span_param:
-                        func_kwargs['logfire_span'] = span
                     result = func(*func_args, **func_kwargs)
                     if record_return:
                         set_user_attributes_on_raw_span(span._span, {'return': result})
@@ -134,25 +122,18 @@ def get_open_span(
 ) -> Callable[P, AbstractContextManager[Any]]:
     final_span_name: str = span_name or attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
 
-    # Check if function has logfire_span parameter
-    sig = inspect.signature(func)
-    has_logfire_span_param = 'logfire_span' in sig.parameters
-
     # This is the fast case for when there are no arguments to extract
     def open_span(*_: P.args, **__: P.kwargs):  # type: ignore
-        if has_logfire_span_param:
-            return logfire._span(final_span_name, attributes)  # type: ignore
         return logfire._fast_span(final_span_name, attributes)  # type: ignore
 
     if extract_args is True:
+        sig = inspect.signature(func)
         if sig.parameters:  # only extract args if there are any
 
             def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
                 bound = sig.bind(*func_args, **func_kwargs)
                 bound.apply_defaults()
                 args_dict = bound.arguments
-                if has_logfire_span_param:
-                    return logfire._span(final_span_name, {**attributes, **args_dict})  # type: ignore
                 return logfire._instrument_span_with_args(  # type: ignore
                     final_span_name, attributes, args_dict
                 )
@@ -160,6 +141,8 @@ def get_open_span(
         return open_span
 
     if extract_args:  # i.e. extract_args should be an iterable of argument names
+        sig = inspect.signature(func)
+
         if isinstance(extract_args, str):
             extract_args = [extract_args]
 
@@ -182,8 +165,6 @@ def get_open_span(
                 # This line is the only difference from the extract_args=True case
                 args_dict = {k: args_dict[k] for k in extract_args_final}
 
-                if has_logfire_span_param:
-                    return logfire._span(final_span_name, {**attributes, **args_dict})  # type: ignore
                 return logfire._instrument_span_with_args(  # type: ignore
                     final_span_name, attributes, args_dict
                 )
