@@ -12,9 +12,10 @@ DataType = Literal[
     'UUID',
     'Enum',
     # string
-    'string',
+    'str',
     # number
-    'number',
+    'int',
+    'float',
     # bytes
     'bytes',
     # temporal types

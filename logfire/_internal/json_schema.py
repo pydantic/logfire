@@ -303,15 +303,15 @@ def _pydantic_root_model_schema(obj: Any, seen: set[int]) -> JsonDict:
         datatype = None
         if isinstance(root, str):
             type_ = 'string'
-            datatype = 'string'
+            datatype = 'str'
         elif isinstance(root, bool):
             type_ = 'boolean'
         elif isinstance(root, int):
             type_ = 'integer'
-            datatype = 'number'
+            datatype = 'int'
         else:
             type_ = 'number'
-            datatype = 'number'
+            datatype = 'float'
 
         schema = {'type': type_, 'x-python-datatype': datatype}
         if root.__class__ not in primitive_types:
