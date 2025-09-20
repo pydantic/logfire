@@ -41,8 +41,9 @@ Let's see a minimal example below. You can run it with `python main.py`:
 
 The keyword arguments of `logfire.instrument_sqlalchemy()` are passed to the `SQLAlchemyInstrumentor().instrument()` method of the OpenTelemetry SQLAlchemy Instrumentation package, read more about it [here][opentelemetry-sqlalchemy].
 
-!!! info
-    To ensure instrumentation captures all emitted events, avoid using `None` value for `engine` keyword argument.
+!!! warning
+    It's best to use the `engine` or `engines` arguments. If no engine is specified, then `instrument_sqlalchemy` may
+    only work if it's called before `sqlalchemy` is imported, in which case all engines are instrumented.
 
 !!! tip
     If you use [SQLModel][sqlmodel], you can use the same `SQLAlchemyInstrumentor` to instrument it.
