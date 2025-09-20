@@ -45,7 +45,9 @@ Click an LLM span to open the details panel.
 |---------------------------------------------------------------------------------------|--------------|-------|-------------------|
 | [Pydantic AI](../../integrations/llms/pydanticai.md)                                  | ✅            | ✅     | ✅                 |
 | [OpenAI](../../integrations/llms/openai.md)                                           | ✅            | ✅     | ✅                 |
+| [Google Gen AI](../../integrations/llms/google-genai.md)                              | ✅            | ✅     | ✅                 |
 | [LangChain](../../integrations/llms/langchain.md)                                     | ✅            | ✅     | ✅                 |
+| [LiteLLM](../../integrations/llms/litellm.md)                                         | ✅            | ✅     | ✅                 |
 | [Anthropic](../../integrations/llms/anthropic.md)                                     |              |       | ✅                 |
 | [Google ADK](https://github.com/pydantic/logfire/issues/1201#issuecomment-3012423974) | ✅            |       |                   |
 
