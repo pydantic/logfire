@@ -18,7 +18,7 @@ LOGFIRE_MCP_TOML = """
 [mcp_servers.logfire]
 command = "uvx"
 args = ["logfire-mcp@latest"]
-env = {{ "LOGFIRE_READ_TOKEN": "{token}" }}
+env = {{ "LOGFIRE_READ_TOKEN" = "{token}" }}
 """
 
 
