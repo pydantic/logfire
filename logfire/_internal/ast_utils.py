@@ -4,6 +4,7 @@ import ast
 import functools
 import inspect
 import sys
+import textwrap
 import types
 import warnings
 from abc import ABC, abstractmethod
@@ -243,6 +244,25 @@ class CallNodeFinder(ABC):
 
 class InspectArgumentsFailedWarning(Warning):
     pass
+
+
+@functools.lru_cache(maxsize=1024)
+def has_current_span_call(func: Any) -> bool:
+    """Check if a function contains calls to logfire.current_span()."""
+    try:
+        tree = ast.parse(textwrap.dedent(inspect.getsource(func)))
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and isinstance(node.func.value, ast.Name)
+                and node.func.attr == 'current_span'
+                and node.func.value.id == 'logfire'
+            ):
+                return True
+        return False
+    except (OSError, SyntaxError, TypeError, AttributeError):
+        return False
 
 
 @functools.lru_cache(maxsize=1024)

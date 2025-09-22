@@ -7,7 +7,7 @@ import sys
 import warnings
 from collections.abc import Iterable, Sequence
 from contextlib import AbstractContextManager
-from contextvars import Token
+from contextvars import ContextVar, Token
 from enum import Enum
 from functools import cached_property
 from time import time
@@ -138,6 +138,7 @@ class Logfire:
         self._sample_rate = sample_rate
         self._console_log = console_log
         self._otel_scope = otel_scope
+        self._current_span_var = ContextVar('logfire_current_span', default=NoopSpan())
 
     @property
     def config(self) -> LogfireConfig:
@@ -170,6 +171,9 @@ class Logfire:
             VERSION,
             is_span_tracer=is_span_tracer,
         )
+
+    def current_span(self) -> LogfireSpan:
+        return self._current_span_var.get()  # type: ignore[return-value]
 
     # If any changes are made to this method, they may need to be reflected in `_fast_span` as well.
     def _span(
