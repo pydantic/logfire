@@ -1749,7 +1749,11 @@ def test_parse_prompt(prompt_http_calls: None, capsys: pytest.CaptureFixture[str
     assert capsys.readouterr().out == snapshot('This is the prompt\n')
 
 
-def test_parse_prompt_codex(prompt_http_calls: None, capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
+def test_parse_prompt_codex(
+    prompt_http_calls: None, capsys: pytest.CaptureFixture[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+
     codex_path = tmp_path / 'codex'
     codex_path.mkdir()
     codex_config_path = codex_path / 'config.toml'
@@ -1774,8 +1778,10 @@ Logfire MCP server added to Codex.
 
 
 def test_parse_prompt_codex_config_not_found(
-    prompt_http_calls: None, capsys: pytest.CaptureFixture[str], tmp_path: Path
+    prompt_http_calls: None, capsys: pytest.CaptureFixture[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+
     codex_path = tmp_path / 'codex'
     codex_path.mkdir()
 
@@ -1788,8 +1794,10 @@ def test_parse_prompt_codex_config_not_found(
 
 
 def test_parse_prompt_codex_logfire_mcp_installed(
-    prompt_http_calls: None, capsys: pytest.CaptureFixture[str], tmp_path: Path
+    prompt_http_calls: None, capsys: pytest.CaptureFixture[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+
     codex_path = tmp_path / 'codex'
     codex_path.mkdir()
     codex_config_path = codex_path / 'config.toml'
@@ -1804,6 +1812,8 @@ def test_parse_prompt_codex_logfire_mcp_installed(
 def test_parse_prompt_claude(
     prompt_http_calls: None, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+
     def logfire_mcp_installed(_: list[str]) -> bytes:
         return b'logfire-mcp is installed'
 
@@ -1816,6 +1826,8 @@ def test_parse_prompt_claude(
 def test_parse_prompt_claude_no_mcp(
     prompt_http_calls: None, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+
     def logfire_mcp_installed(_: list[str]) -> bytes:
         return b'not installed'
 
