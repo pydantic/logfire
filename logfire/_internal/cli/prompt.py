@@ -113,7 +113,8 @@ def configure_opencode(client: LogfireClient, organization: str, project: str, c
             opencode_config.write_text(json.dumps(opencode_mcp_json(token), indent=2))
         else:
             opencode_config_json = json.loads(opencode_config_content)
-            opencode_config_json['mcp']['logfire-mcp'] = opencode_mcp_json(token)
+            opencode_config_json.setdefault('mcp', {})
+            opencode_config_json['mcp'] = {'logfire-mcp': opencode_mcp_json(token)}
             opencode_config.write_text(json.dumps(opencode_config_json, indent=2))
         console.print('Logfire MCP server added to OpenCode.', style='green')
 

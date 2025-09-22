@@ -1777,6 +1777,19 @@ Logfire MCP server added to Codex.
 """)
 
 
+def test_parse_prompt_codex_not_installed(
+    prompt_http_calls: None, capsys: pytest.CaptureFixture[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: False)  # type: ignore
+
+    with pytest.raises(SystemExit):
+        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--codex'])
+
+    assert capsys.readouterr().err == snapshot("""\
+codex is not installed. Install `codex`, or remove the `--codex` flag.
+""")
+
+
 def test_parse_prompt_codex_config_not_found(
     prompt_http_calls: None, capsys: pytest.CaptureFixture[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1821,6 +1834,19 @@ def test_parse_prompt_claude(
     main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--claude'])
 
     assert capsys.readouterr().out == snapshot('This is the prompt\n')
+
+
+def test_parse_prompt_claude_not_installed(
+    prompt_http_calls: None, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: False)  # type: ignore
+
+    with pytest.raises(SystemExit):
+        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--claude'])
+
+    assert capsys.readouterr().err == snapshot("""\
+claude is not installed. Install `claude`, or remove the `--claude` flag.
+""")
 
 
 def test_parse_prompt_claude_no_mcp(
@@ -1913,7 +1939,7 @@ opencode is not installed. Install `opencode`, or remove the `--opencode` flag.
 """)
 
 
-def test_parse_prompt_opencode_codex_logfire_mcp_installed(
+def test_parse_prompt_opencode_logfire_mcp_installed(
     prompt_http_calls: None,
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
@@ -1944,6 +1970,32 @@ def test_parse_prompt_opencode_codex_logfire_mcp_installed(
     out, err = capsys.readouterr()
     assert out == snapshot('This is the prompt\n')
     assert err == snapshot('')
+
+
+def test_parse_opencode_logfire_mcp_not_installed_with_existing_config(
+    prompt_http_calls: None,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
+
+    (tmp_path / 'opencode.jsonc').write_text('{}')
+
+    def check_output(x: list[str]) -> bytes:
+        return tmp_path.as_posix().encode('utf-8')
+
+    monkeypatch.setattr(subprocess, 'check_output', check_output)
+
+    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--opencode'])
+
+    out, err = capsys.readouterr()
+    assert out == snapshot('This is the prompt\n')
+    assert err == snapshot("""\
+Logfire MCP server not found. Creating a read token...
+Logfire MCP server added to OpenCode.
+""")
 
 
 def test_base_url_and_logfire_url(
