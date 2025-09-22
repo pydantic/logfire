@@ -6,6 +6,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import types
@@ -1778,7 +1779,7 @@ def test_parse_prompt_codex_config_not_found(
     codex_path = tmp_path / 'codex'
     codex_path.mkdir()
 
-    with patch.dict(os.environ, {'CODEX_HOME': str(codex_path)}):
+    with patch.dict(os.environ, {'CODEX_HOME': str(codex_path)}), pytest.raises(SystemExit):
         main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--codex'])
 
     assert capsys.readouterr().err == snapshot(
@@ -1827,6 +1828,110 @@ def test_parse_prompt_claude_no_mcp(
 Logfire MCP server not found. Creating a read token...
 Logfire MCP server added to Claude.
 """)
+
+
+def test_parse_prompt_opencode(
+    prompt_http_calls: None,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
+
+    def check_output(x: list[str]) -> bytes:
+        return tmp_path.as_posix().encode('utf-8')
+
+    monkeypatch.setattr(subprocess, 'check_output', check_output)
+
+    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--opencode'])
+
+    out, err = capsys.readouterr()
+    assert out == snapshot("""\
+This is the prompt
+""")
+    assert err == snapshot("""\
+Logfire MCP server not found. Creating a read token...
+Logfire MCP server added to OpenCode.
+""")
+
+
+def test_parse_prompt_opencode_no_git(
+    prompt_http_calls: None,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
+
+    def check_output(x: list[str]) -> bytes:
+        raise subprocess.CalledProcessError(1, x)
+
+    monkeypatch.setattr(subprocess, 'check_output', check_output)
+
+    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--opencode'])
+
+    out, err = capsys.readouterr()
+    assert out == snapshot("""\
+This is the prompt
+""")
+    assert err == snapshot("""\
+Logfire MCP server not found. Creating a read token...
+Logfire MCP server added to OpenCode.
+""")
+
+
+def test_parse_prompt_opencode_not_installed(
+    prompt_http_calls: None,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: False)  # type: ignore
+    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
+
+    with pytest.raises(SystemExit):
+        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--opencode'])
+
+    out, err = capsys.readouterr()
+    assert out == snapshot('')
+    assert err == snapshot("""\
+opencode is not installed. Install `opencode`, or remove the `--opencode` flag.
+""")
+
+
+def test_parse_prompt_opencode_codex_logfire_mcp_installed(
+    prompt_http_calls: None,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
+
+    (tmp_path / 'opencode.jsonc').write_text("""
+{
+    "mcp": {
+        "logfire-mcp": {
+            "command": "uvx",
+            "args": ["logfire-mcp@latest"],
+            "env": {"LOGFIRE_READ_TOKEN": "fake_token"}
+        }
+    }
+}
+""")
+
+    def check_output(x: list[str]) -> bytes:
+        return tmp_path.as_posix().encode('utf-8')
+
+    monkeypatch.setattr(subprocess, 'check_output', check_output)
+
+    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--opencode'])
+
+    out, err = capsys.readouterr()
+    assert out == snapshot('This is the prompt\n')
+    assert err == snapshot('')
 
 
 def test_base_url_and_logfire_url(
