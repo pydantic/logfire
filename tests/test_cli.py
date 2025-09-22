@@ -1762,7 +1762,7 @@ def test_parse_prompt_codex(prompt_http_calls: None, capsys: pytest.CaptureFixtu
 [mcp_servers.logfire]
 command = "uvx"
 args = ["logfire-mcp@latest"]
-env = { "LOGFIRE_READ_TOKEN": "fake_token" }
+env = { "LOGFIRE_READ_TOKEN" = "fake_token" }
 """)
     out, err = capsys.readouterr()
     assert out == snapshot('This is the prompt\n')
