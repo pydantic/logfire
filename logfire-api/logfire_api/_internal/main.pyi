@@ -6,6 +6,7 @@ import pydantic_ai
 import pydantic_ai.models
 import requests
 from . import async_ as async_
+from ..integrations.aiohttp_client import RequestHook as AiohttpClientRequestHook, ResponseHook as AiohttpClientResponseHook
 from ..integrations.flask import CommenterOptions as FlaskCommenterOptions, RequestHook as FlaskRequestHook, ResponseHook as FlaskResponseHook
 from ..integrations.httpx import AsyncRequestHook as HttpxAsyncRequestHook, AsyncResponseHook as HttpxAsyncResponseHook, RequestHook as HttpxRequestHook, ResponseHook as HttpxResponseHook
 from ..integrations.psycopg import CommenterOptions as PsycopgCommenterOptions
@@ -328,14 +329,11 @@ class Logfire:
         Returns:
             A new Logfire instance with the sampling ratio applied.
         """
-    def with_settings(self, *, tags: Sequence[str] = (), stack_offset: int | None = None, console_log: bool | None = None, custom_scope_suffix: str | None = None) -> Logfire:
+    def with_settings(self, *, tags: Sequence[str] = (), console_log: bool | None = None, custom_scope_suffix: str | None = None) -> Logfire:
         """A new Logfire instance which uses the given settings.
 
         Args:
             tags: Sequence of tags to include in the log.
-            stack_offset: The stack level offset to use when collecting stack info, also affects the warning which
-                message formatting might emit, defaults to `0` which means the stack info will be collected from the
-                position where [`logfire.log`][logfire.Logfire.log] was called.
             console_log: Whether to log to the console, defaults to `True`.
             custom_scope_suffix: A custom suffix to append to `logfire.` e.g. `logfire.loguru`.
 
@@ -404,10 +402,14 @@ class Logfire:
                 Set to `'warn'` to issue a warning instead, or `'ignore'` to skip the check.
         """
     def instrument_mcp(self, *, propagate_otel_context: bool = True) -> None:
-        """Instrument [MCP](https://modelcontextprotocol.io/) requests such as tool calls.
+        """Instrument the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk).
+
+        Instruments both the client and server side. If possible, calling this in both the client and server
+        processes is recommended for nice distributed traces.
 
         Args:
-            propagate_otel_context: Whether to enable propagation of the OpenTelemetry context.
+            propagate_otel_context: Whether to enable propagation of the OpenTelemetry context
+                for distributed tracing.
                 Set to False to prevent setting extra fields like `traceparent` on the metadata of requests.
         """
     def instrument_pydantic(self, record: PydanticPluginRecordValues = 'all', include: Iterable[str] = (), exclude: Iterable[str] = ()) -> None:
@@ -580,8 +582,36 @@ class Logfire:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
         """
-    def instrument_google_genai(self) -> None: ...
+    def instrument_google_genai(self, **kwargs: Any):
+        """Instrument the [Google Gen AI SDK (`google-genai`)](https://googleapis.github.io/python-genai/).
+
+        !!! note
+            To capture message contents (i.e. prompts and completions), set the environment variable
+            `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` to `true`.
+
+        Uses the `GoogleGenAiSdkInstrumentor().instrument()` method of the
+        [`opentelemetry-instrumentation-google-genai`](https://pypi.org/project/opentelemetry-instrumentation-google-genai/)
+        package, to which it passes `**kwargs`.
+        """
     def instrument_litellm(self, **kwargs: Any): ...
+    def instrument_print(self) -> AbstractContextManager[None]:
+        """Instrument the built-in `print` function so that calls to it are logged.
+
+        If Logfire is configured with [`inspect_arguments=True`][logfire.configure(inspect_arguments)],
+        the names of the arguments passed to `print` will be included in the log attributes
+        and will be used for scrubbing.
+
+        The fallback attribute name `logfire.print_args` will be used if:
+
+         - `inspect_arguments` is `False`
+         - Inspection fails for any reason
+         - Multiple starred arguments are used (e.g. `print(*args1, *args2)`)
+            in which case names can't be unambiguously determined.
+
+        Returns:
+            A context manager that will revert the instrumentation when exited.
+                Use of this context manager is optional.
+        """
     def instrument_asyncpg(self, **kwargs: Any) -> None:
         """Instrument the `asyncpg` module so that spans are automatically created for each query."""
     @overload
@@ -723,7 +753,7 @@ class Logfire:
         Returns:
             The instrumented WSGI application.
         """
-    def instrument_aiohttp_client(self, **kwargs: Any) -> None:
+    def instrument_aiohttp_client(self, *, capture_headers: bool = False, capture_response_body: bool = False, request_hook: AiohttpClientRequestHook | None = None, response_hook: AiohttpClientResponseHook | None = None, **kwargs: Any) -> None:
         """Instrument the `aiohttp` module so that spans are automatically created for each client request.
 
         Uses the

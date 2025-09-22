@@ -38,6 +38,29 @@ Organizations requiring:
 - Works out-of-the-box with Okta, Azure AD, Auth0, Google Workspace, LDAP/AD, and any generic OIDC or SAML IdP.
 - The same Dex config runs in both Enterprise Cloud and Self-Hosted, giving seamless SSO across deployments.
 
+#### Single Sign-on (SSO) with OIDC Providers
+
+Logfire supports SSO authentication with [OIDC (OpenID Connect)](https://openid.net/developers/how-connect-works/) Providers, allowing your team to access the platform using their existing corporate credentials. 
+
+
+When a user logs in, your OIDC provider verifies their identity and securely shares authorized user information with our platform—eliminating the need for separate passwords while maintaining enterprise-grade security.
+
+**Popular OIDC Providers**
+
+- Okta - Enterprise identity management
+- Auth0 - Flexible authentication platform
+- Azure EntraID (formerly Azure Active Directory) - Microsoft's cloud identity service
+
+- Google Workspace - Google's business identity solution
+- AWS Cognito - Amazon's user identity service
+- Keycloak - Open-source identity management
+
+**Key Benefits**
+
+- Enhanced Security: Centralized authentication with multi-factor authentication support
+- Simplified Access: One login for all your enterprise applications
+- Automated Provisioning: Sync user roles and permissions automatically
+- Compliance Ready: Meet enterprise security and audit requirements
 
 ## Enterprise Self-Hosted
 

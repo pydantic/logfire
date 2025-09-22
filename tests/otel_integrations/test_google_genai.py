@@ -1,6 +1,7 @@
 import os
 import sys
 import warnings
+from unittest import mock
 from unittest.mock import patch
 
 import pydantic
@@ -25,20 +26,21 @@ pytestmark = [
 ]
 
 
-def check_otel_semconv():
-    try:
-        from opentelemetry.semconv._incubating.attributes.gen_ai_attributes import (
-            GEN_AI_REQUEST_CHOICE_COUNT,  # type: ignore  # noqa
-        )
-    except ImportError:
-        pytest.skip('Requires newer opentelemetry semconv package')
+def test_missing_opentelemetry_dependency() -> None:
+    with mock.patch.dict('sys.modules', {'opentelemetry.instrumentation.google_genai': None}):
+        with pytest.raises(RuntimeError) as exc_info:
+            logfire.instrument_google_genai()
+        assert str(exc_info.value) == snapshot("""\
+The `logfire.instrument_google_genai()` method requires the `opentelemetry-instrumentation-google-genai` package.
+You can install this with:
+    pip install 'logfire[google-genai]'\
+""")
 
 
 @pytest.mark.vcr()
 def test_instrument_google_genai(exporter: TestExporter) -> None:
     from google.genai import Client, types
 
-    check_otel_semconv()
     logfire.instrument_google_genai()
 
     client = Client()
@@ -135,7 +137,6 @@ def test_instrument_google_genai(exporter: TestExporter) -> None:
 def test_instrument_google_genai_no_content(exporter: TestExporter) -> None:
     from google.genai import Client, types
 
-    check_otel_semconv()
     with patch.dict(os.environ, {'OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT': 'false'}):
         logfire.instrument_google_genai()
 
@@ -221,7 +222,6 @@ def test_instrument_google_genai_no_content(exporter: TestExporter) -> None:
 def test_instrument_google_genai_response_schema(exporter: TestExporter) -> None:
     from google.genai import Client, types
 
-    check_otel_semconv()
     logfire.instrument_google_genai()
 
     client = Client()

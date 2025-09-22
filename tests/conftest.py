@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import os
+import sys
+import unittest.mock
 from pathlib import Path
 from typing import Any
 
@@ -27,9 +29,20 @@ os.environ['OTEL_SEMCONV_STABILITY_OPT_IN'] = 'http/dup'
 # Ensure that LOGFIRE_TOKEN in the environment doesn't interfere
 os.environ['LOGFIRE_TOKEN'] = ''
 
+# https://github.com/openai/openai-python/issues/2644
+sys.modules['openai.resources.evals'] = unittest.mock.MagicMock()
 
 get_trace_provider().shutdown()
 get_trace_provider().set_processors([])
+
+logfire.configure(send_to_logfire=False)
+
+try:
+    # This is just a simple way to perform this once.
+    # There are multiple tests that use it and we don't currently have a way to uninstrument.
+    logfire.instrument_mcp()
+except ImportError:
+    pass
 
 
 @pytest.fixture(scope='session', autouse=True)

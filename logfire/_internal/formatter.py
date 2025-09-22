@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import ast
-import inspect
-import sys
 import types
-import warnings
+from collections.abc import Iterator
 from functools import lru_cache
 from string import Formatter
 from types import CodeType
@@ -15,10 +13,10 @@ from typing_extensions import NotRequired, TypedDict
 
 import logfire
 
-from .constants import ATTRIBUTES_SCRUBBED_KEY, MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT
-from .scrubbing import NOOP_SCRUBBER, BaseScrubber, ScrubbedNote
+from .ast_utils import CallNodeFinder, get_node_source_text
+from .scrubbing import NOOP_SCRUBBER, BaseScrubber, MessageValueCleaner
 from .stack_info import warn_at_user_stacklevel
-from .utils import log_internal_error, truncate_string
+from .utils import log_internal_error
 
 
 class LiteralChunk(TypedDict):
@@ -73,60 +71,9 @@ class ChunksFormatter(Formatter):
         # Now `frame` is the frame where the user called a logfire method.
         assert frame is not None
 
-        # This is where the magic happens. It has caching.
-        ex = executing.Source.executing(frame)
-
-        call_node = ex.node
-        if call_node is None:  # type: ignore[reportUnnecessaryComparison]
-            # `executing` failed to find a node.
-            # This shouldn't happen in most cases, but it's best not to rely on it always working.
-            if not ex.source.text:
-                # This is a very likely cause.
-                # There's nothing we could possibly do to make magic work here,
-                # and it's a clear case where the user should turn the magic off.
-                warn_inspect_arguments(
-                    'No source code available. '
-                    'This happens when running in an interactive shell, '
-                    'using exec(), or running .pyc files without the source .py files.',
-                    get_stacklevel(frame),
-                )
-                return None
-
-            msg = '`executing` failed to find a node.'
-            if sys.version_info[:2] < (3, 11):  # pragma: no cover
-                # inspect_arguments is only on by default for 3.11+ for this reason.
-                # The AST modifications made by auto-tracing
-                # mean that the bytecode doesn't match the source code seen by `executing`.
-                # In 3.11+, a different algorithm is used by `executing` which can deal with this.
-                msg += ' This may be caused by a combination of using Python < 3.11 and auto-tracing.'
-
-            # Try a simple fallback heuristic to find the node which should work in most cases.
-            main_nodes: list[ast.AST] = []
-            for statement in ex.statements:
-                if isinstance(statement, ast.With):
-                    # Only look at the 'header' of a with statement, not its body.
-                    main_nodes += statement.items
-                else:
-                    main_nodes.append(statement)
-            call_nodes = [
-                node
-                for main_node in main_nodes
-                for node in ast.walk(main_node)
-                if isinstance(node, ast.Call)
-                if node.args or node.keywords
-            ]
-            if len(call_nodes) != 1:
-                warn_inspect_arguments(msg, get_stacklevel(frame))
-                return None
-
-            [call_node] = call_nodes
-
-        if not isinstance(call_node, ast.Call):  # pragma: no cover
-            # Very unlikely.
-            warn_inspect_arguments(
-                '`executing` unexpectedly identified a non-Call node.',
-                get_stacklevel(frame),
-            )
+        node_finder = FormattingCallNodeFinder(frame)
+        call_node = node_finder.node
+        if call_node is None:
             return None
 
         if called_code == logfire.Logfire.log.__code__:
@@ -141,19 +88,13 @@ class ChunksFormatter(Formatter):
                         arg_node = keyword.value
                         break
                 else:
-                    warn_inspect_arguments(
-                        "Couldn't identify the `msg_template` argument in the call.",
-                        get_stacklevel(frame),
-                    )
+                    node_finder.warn_inspect_arguments("Couldn't identify the `msg_template` argument in the call.")
                     return None
         elif call_node.args:
             arg_node = call_node.args[0]
         else:
             # Very unlikely.
-            warn_inspect_arguments(
-                "Couldn't identify the `msg_template` argument in the call.",
-                get_stacklevel(frame),
-            )
+            node_finder.warn_inspect_arguments("Couldn't identify the `msg_template` argument in the call.")
             return None
 
         if not isinstance(arg_node, ast.JoinedStr):
@@ -175,7 +116,7 @@ class ChunksFormatter(Formatter):
         new_template = ''
 
         extra_attrs: dict[str, Any] = {}
-        scrubbed: list[ScrubbedNote] = []
+        value_cleaner = MessageValueCleaner(scrubber, check_keys=False)
         for node_value in arg_node.values:
             if isinstance(node_value, ast.Constant):
                 # These are the parts of the f-string not enclosed by `{}`, e.g. 'foo ' in f'foo {bar}'
@@ -187,7 +128,7 @@ class ChunksFormatter(Formatter):
                 assert isinstance(node_value, ast.FormattedValue)
 
                 # This is cached.
-                source, value_code, formatted_code = compile_formatted_value(node_value, ex.source)
+                source, value_code, formatted_code = compile_formatted_value(node_value, node_finder.source)
 
                 # Note that this doesn't include:
                 # - The format spec, e.g. `:0.2f`
@@ -202,12 +143,10 @@ class ChunksFormatter(Formatter):
 
                 # Format the value according to the format spec, converting to a string.
                 formatted = eval(formatted_code, global_vars, {**local_vars, '@fvalue': value})
-                formatted, value_scrubbed = self._clean_value(source, formatted, scrubber)
-                scrubbed += value_scrubbed
+                formatted = value_cleaner.clean_value(source, formatted)
                 result.append({'v': formatted, 't': 'arg'})
 
-        if scrubbed:
-            extra_attrs[ATTRIBUTES_SCRUBBED_KEY] = scrubbed
+        extra_attrs.update(value_cleaner.extra_attrs())
         return result, extra_attrs, new_template
 
     def _vformat_chunks(
@@ -224,7 +163,7 @@ class ChunksFormatter(Formatter):
         result: list[LiteralChunk | ArgChunk] = []
         # We currently don't use positional arguments
         args = ()
-        scrubbed: list[ScrubbedNote] = []
+        value_cleaner = MessageValueCleaner(scrubber, check_keys=False)
         for literal_text, field_name, format_spec, conversion in self.parse(format_string):
             # output the literal text
             if literal_text:
@@ -283,24 +222,13 @@ class ChunksFormatter(Formatter):
                     value = self.format_field(obj, format_spec)
                 except Exception as exc:
                     raise KnownFormattingError(f'Error formatting field {{{field_name}}}: {exc}') from exc
-                value, value_scrubbed = self._clean_value(field_name, value, scrubber)
-                scrubbed += value_scrubbed
+                value = value_cleaner.clean_value(field_name, value)
                 d: ArgChunk = {'v': value, 't': 'arg'}
                 if format_spec:
                     d['spec'] = format_spec
                 result.append(d)
 
-        extra_attrs = {ATTRIBUTES_SCRUBBED_KEY: scrubbed} if scrubbed else {}
-        return result, extra_attrs
-
-    def _clean_value(self, field_name: str, value: str, scrubber: BaseScrubber) -> tuple[str, list[ScrubbedNote]]:
-        # Scrub before truncating so that the scrubber can see the full value.
-        # For example, if the value contains 'password=123' and 'password' is replaced by '...'
-        # because of truncation, then that leaves '=123' in the message, which is not good.
-        scrubbed: list[ScrubbedNote] = []
-        if field_name not in scrubber.SAFE_KEYS:
-            value, scrubbed = scrubber.scrub_value(('message', field_name), value)
-        return truncate_string(value, max_length=MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT), scrubbed
+        return result, value_cleaner.extra_attrs()
 
 
 chunks_formatter = ChunksFormatter()
@@ -386,54 +314,6 @@ def compile_formatted_value(node: ast.FormattedValue, ex_source: executing.Sourc
     return source, value_code, formatted_code
 
 
-def get_node_source_text(node: ast.AST, ex_source: executing.Source):
-    """Returns some Python source code representing `node`.
-
-    Preferably the actual original code given by `ast.get_source_segment`,
-    but falling back to `ast.unparse(node)` if the former is incorrect.
-    This happens sometimes due to Python bugs (especially for older Python versions)
-    in the source positions of AST nodes inside f-strings.
-    """
-    source_unparsed = ast.unparse(node)
-    source_segment = ast.get_source_segment(ex_source.text, node) or ''
-    try:
-        # Verify that the source segment is correct by checking that the AST is equivalent to what we have.
-        source_segment_unparsed = ast.unparse(ast.parse(source_segment, mode='eval'))
-    except Exception:  # probably SyntaxError, but ast.parse can raise other exceptions too
-        source_segment_unparsed = ''
-    return source_segment if source_unparsed == source_segment_unparsed else source_unparsed
-
-
-def get_stacklevel(frame: types.FrameType):
-    # Get a stacklevel which can be passed to warn_inspect_arguments
-    # which points at the given frame, where the f-string was found.
-    current_frame = inspect.currentframe()
-    stacklevel = 0
-    while current_frame:  # pragma: no branch
-        if current_frame == frame:
-            break
-        stacklevel += 1
-        current_frame = current_frame.f_back
-    return stacklevel
-
-
-class InspectArgumentsFailedWarning(Warning):
-    pass
-
-
-def warn_inspect_arguments(msg: str, stacklevel: int):
-    msg = (
-        'Failed to introspect calling code. '
-        'Please report this issue to Logfire. '
-        'Falling back to normal message formatting '
-        'which may result in loss of information if using an f-string. '
-        'Set inspect_arguments=False in logfire.configure() to suppress this warning. '
-        'The problem was:\n'
-    ) + msg
-    warnings.warn(msg, InspectArgumentsFailedWarning, stacklevel=stacklevel)
-    logfire.log('warn', msg)
-
-
 class KnownFormattingError(Exception):
     """An error raised when there's something wrong with a format string or the field values.
 
@@ -478,3 +358,22 @@ def warn_fstring_await(msg: str):
         f'    The problematic f-string value was: {msg}',
         category=FormattingFailedWarning,
     )
+
+
+class FormattingCallNodeFinder(CallNodeFinder):
+    """Finds the call node corresponding to a call like `logfire.span` or `logfire.info`."""
+
+    def heuristic_main_nodes(self) -> Iterator[ast.AST]:
+        for statement in self.ex.statements:
+            if isinstance(statement, ast.With):
+                # Only look at the 'header' of a with statement, not its body.
+                yield from statement.items
+            else:
+                yield statement
+
+    def heuristic_call_node_filter(self, node: ast.Call) -> bool:
+        # The call must have at least some arguments.
+        return bool(node.args or node.keywords)
+
+    def warn_inspect_arguments_middle(self):
+        return 'Falling back to normal message formatting which may result in loss of information if using an f-string.'

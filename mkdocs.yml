@@ -82,7 +82,9 @@ nav:
           - Live View: guides/web-ui/live.md
           - LLM Panels: guides/web-ui/llm-panels.md
           - Dashboards: guides/web-ui/dashboards.md
-          - Alerts (Beta): guides/web-ui/alerts.md
+          - Evals (Beta): guides/web-ui/evals.md
+          - Issues (Beta): guides/web-ui/issues.md
+          - Alerts: guides/web-ui/alerts.md
           - Saved Searches: guides/web-ui/saved-searches.md
           - SQL Explorer: guides/web-ui/explore.md
           - Public traces: guides/web-ui/public-traces.md
@@ -112,11 +114,13 @@ nav:
       - LLMs:
           - Pydantic AI: integrations/llms/pydanticai.md
           - OpenAI: integrations/llms/openai.md
+          - Google Gen AI: integrations/llms/google-genai.md
           - Anthropic: integrations/llms/anthropic.md
           - LangChain: integrations/llms/langchain.md
+          - LiteLLM: integrations/llms/litellm.md
+          - MCP: integrations/llms/mcp.md
           - LLamaIndex: integrations/llms/llamaindex.md
           - Mirascope: integrations/llms/mirascope.md
-          - LiteLLM: integrations/llms/litellm.md
           - Magentic: integrations/llms/magentic.md
       - Web Frameworks:
           - Web Frameworks: integrations/web-frameworks/index.md
@@ -155,6 +159,7 @@ nav:
           - Celery: integrations/event-streams/celery.md
       - Logging:
           - Logging: integrations/logging.md
+          - Print: integrations/print.md
           - Structlog: integrations/structlog.md
           - Loguru: integrations/loguru.md
       - Pydantic: integrations/pydantic.md
@@ -178,6 +183,7 @@ nav:
           - Scaling: reference/self-hosted/scaling.md
           - Troubleshooting: reference/self-hosted/troubleshooting.md
           - Examples: reference/self-hosted/examples.md
+          - Usage Report: reference/self-hosted/usage-report.md
       - SDK CLI: reference/cli.md
       - SDK API:
           - Logfire: reference/api/logfire.md
