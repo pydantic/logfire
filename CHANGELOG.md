@@ -1,5 +1,11 @@
 # Release Notes
 
+## [v4.9.0] (2025-09-22)
+
+* Fix Root Model Not Rendering As Expected by @dhruv-ahuja in [#1396](https://github.com/pydantic/logfire/pull/1396)
+* Use `=` instead of `:` in codex setup by @Kludex in [#1420](https://github.com/pydantic/logfire/pull/1420)
+* Add support for OpenCode on the `prompt` command by @Kludex in [#1421](https://github.com/pydantic/logfire/pull/1421)
+
 ## [v4.8.0] (2025-09-18)
 
 * Allow capturing headers and response body with `logfire.instrument_aiohttp_client()` by @adtyavrdhn in [#1405](https://github.com/pydantic/logfire/pull/1405) and [#1409](https://github.com/pydantic/logfire/pull/1409)
@@ -906,3 +912,4 @@ First release from new repo!
 [v4.6.0]: https://github.com/pydantic/logfire/compare/v4.5.0...v4.6.0
 [v4.7.0]: https://github.com/pydantic/logfire/compare/v4.6.0...v4.7.0
 [v4.8.0]: https://github.com/pydantic/logfire/compare/v4.7.0...v4.8.0
+[v4.9.0]: https://github.com/pydantic/logfire/compare/v4.8.0...v4.9.0
