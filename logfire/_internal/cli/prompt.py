@@ -14,6 +14,7 @@ from typing import Any
 
 from rich.console import Console
 
+from logfire._internal.cli.auth import parse_auth
 from logfire._internal.client import LogfireClient
 from logfire.exceptions import LogfireConfigError
 
@@ -34,9 +35,9 @@ def parse_prompt(args: argparse.Namespace) -> None:
 
     try:
         client = LogfireClient.from_url(args.logfire_url)
-    except LogfireConfigError as e:  # pragma: no cover
-        console.print(e.args[0], style='red')
-        return
+    except LogfireConfigError:  # pragma: no cover
+        parse_auth(args)
+        client = LogfireClient.from_url(args.logfire_url)
 
     if args.claude:
         configure_claude(client, args.organization, args.project, console)
