@@ -46,6 +46,11 @@ def sqlite_engine(path: Path) -> Iterator[Engine]:
         path.unlink()
 
 
+def test_sqlalchemy_invalid_engines_parameter():
+    with pytest.raises(ValueError, match='`engines` must be passed as a list'):
+        logfire.instrument_sqlalchemy(engines='invalid')
+
+
 def test_sqlalchemy_instrumentation(exporter: TestExporter):
     with sqlite_engine(Path('example1.db')) as engine:
         logfire.instrument_sqlalchemy(engine=engine)
