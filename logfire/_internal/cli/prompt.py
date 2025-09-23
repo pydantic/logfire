@@ -37,7 +37,7 @@ def parse_prompt(args: argparse.Namespace) -> None:
         client = LogfireClient.from_url(args.logfire_url)
     except LogfireConfigError:  # pragma: no cover
         parse_auth(args)
-        return
+        client = LogfireClient.from_url(args.logfire_url)
 
     if args.claude:
         configure_claude(client, args.organization, args.project, console)
