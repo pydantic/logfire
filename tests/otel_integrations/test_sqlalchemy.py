@@ -4,6 +4,7 @@ import importlib
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 from unittest import mock
 
 import pytest
@@ -210,9 +211,19 @@ CREATE TABLE auth_records ( id INTEGER … t VARCHAR NOT NULL, PRIMARY KEY (id)
     SQLAlchemyInstrumentor().uninstrument()
 
 
-def test_sqlalchemy_instrumentation_commenter(exporter: TestExporter):
+@pytest.mark.parametrize('parameter', ['engine', 'engines'])
+def test_sqlalchemy_instrumentation_commenter(parameter: str, exporter: TestExporter):
     with sqlite_engine(Path('example3.db')) as engine:
-        logfire.instrument_sqlalchemy(engine=engine, enable_commenter=True, commenter_options={'db_framework': False})
+        instrumentation_parameters: dict[str, Any] = {
+            'enable_commenter': True,
+            'commenter_options': {'db_framework': False},
+        }
+        if parameter == 'engine':
+            instrumentation_parameters['engine'] = engine
+        else:
+            instrumentation_parameters['engines'] = [engine]
+
+        logfire.instrument_sqlalchemy(**instrumentation_parameters)
         logfire.instrument_sqlite3()
 
         Base.metadata.create_all(engine)
@@ -377,9 +388,19 @@ def sqlite_async_engine(path: Path) -> Iterator[AsyncEngine]:
 
 
 @pytest.mark.anyio
-async def test_sqlalchemy_async_instrumentation(exporter: TestExporter):
+@pytest.mark.parametrize('parameter', ['engine', 'engines'])
+async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestExporter):
     with sqlite_async_engine(Path('example2.db')) as engine:
-        logfire.instrument_sqlalchemy(engine=engine)
+        instrumentation_parameters: dict[str, Any] = {
+            'enable_commenter': True,
+            'commenter_options': {'db_framework': False},
+        }
+        if parameter == 'engine':
+            instrumentation_parameters['engine'] = engine
+        else:
+            instrumentation_parameters['engines'] = [engine]
+
+        logfire.instrument_sqlalchemy(**instrumentation_parameters)
 
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)

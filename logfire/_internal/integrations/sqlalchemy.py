@@ -29,11 +29,25 @@ def instrument_sqlalchemy(
 
     See the `Logfire.instrument_sqlalchemy` method for details.
     """
+
+    def _convert_to_sync_engine(engine: AsyncEngine | Engine | None) -> Any | None:
+        if isinstance(engine, AsyncEngine):
+            return engine.sync_engine
+        return engine
+
     with contextlib.suppress(ImportError):
         from sqlalchemy.ext.asyncio import AsyncEngine
 
-        if isinstance(engine, AsyncEngine):
-            engine = engine.sync_engine
+        engine = _convert_to_sync_engine(engine)
+
+        engines = kwargs.get('engines')
+        if engines is not None:
+            if not isinstance(engines, list):
+                raise ValueError('`engines` must be passed as a list')
+
+            engines = [_convert_to_sync_engine(e) for e in engines]  # type: ignore
+            kwargs['engines'] = engines
+
     return SQLAlchemyInstrumentor().instrument(
         engine=engine, enable_commenter=enable_commenter, commenter_options=commenter_options, **kwargs
     )
