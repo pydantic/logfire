@@ -125,24 +125,32 @@ You can configure it to use the MCP server by adding the following configuration
 
 There are four tools available in the MCP server:
 
-1. `find_exceptions(age: int)` - Get exception counts from traces grouped by file.
+#### `find_exceptions_in_file`
 
-    Required arguments:
+Get the details about the 10 most recent exceptions on the file.
 
-    - `age`: Number of minutes to look back (e.g., 30 for last 30 minutes, max 7 days)
+Arguments:
 
-2. `find_exceptions_in_file(filepath: str, age: int)` - Get detailed trace information about exceptions in a specific file.
+- `filepath` (string) - The path to the file to find exceptions in.
+- `age` (integer) - Number of minutes to look back, e.g. 30 for last 30 minutes. Maximum allowed value is 7 days.
 
-    Required arguments:
+#### `arbitrary_query`
 
-    - `filepath`: Path to the file to analyze
-    - `age`: Number of minutes to look back (max 7 days)
+Run an arbitrary query on the Pydantic Logfire database.
 
-3. `arbitrary_query(query: str, age: int)` - Run custom SQL queries on your OpenTelemetry traces and metrics.
+Arguments:
 
-    Required arguments:
+- `query` (string) - The query to run, as a SQL string.
+- `age` (integer) - Number of minutes to look back, e.g. 30 for last 30 minutes. Maximum allowed value is 7 days.
 
-    - `query`: SQL query to execute
-    - `age`: Number of minutes to look back (max 7 days)
+#### `logfire_link`
 
-4. `get_logfire_records_schema()` - Get the OpenTelemetry schema to help with custom queries.
+Creates a link to help the user to view the trace in the Logfire UI.
+
+Arguments:
+
+- `trace_id` (string) - The trace ID to link to.
+
+#### `schema_reference`
+
+The database schema for the Logfire DataFusion database.
