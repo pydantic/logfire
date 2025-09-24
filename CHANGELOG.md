@@ -1,5 +1,10 @@
 # Release Notes
 
+## [v4.10.0] (2025-09-24)
+
+* Trigger `auth` command from `prompt` by @Kludex in [#1423](https://github.com/pydantic/logfire/pull/1423)
+* Remove conditional check on OTEL version for `Gauge` import by @Viicos in [#1426](https://github.com/pydantic/logfire/pull/1426)
+
 ## [v4.9.0] (2025-09-22)
 
 * Fix Root Model Not Rendering As Expected by @dhruv-ahuja in [#1396](https://github.com/pydantic/logfire/pull/1396)
@@ -913,3 +918,4 @@ First release from new repo!
 [v4.7.0]: https://github.com/pydantic/logfire/compare/v4.6.0...v4.7.0
 [v4.8.0]: https://github.com/pydantic/logfire/compare/v4.7.0...v4.8.0
 [v4.9.0]: https://github.com/pydantic/logfire/compare/v4.8.0...v4.9.0
+[v4.10.0]: https://github.com/pydantic/logfire/compare/v4.9.0...v4.10.0

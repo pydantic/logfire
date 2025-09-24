@@ -1,15 +1,12 @@
 import dataclasses
 from .utils import handle_internal_errors as handle_internal_errors
-from _typeshed import Incomplete
 from abc import ABC
 from collections.abc import Sequence
-from opentelemetry.metrics import CallbackT as CallbackT, Counter, Histogram, Instrument, Meter, MeterProvider, ObservableCounter, ObservableGauge, ObservableUpDownCounter, UpDownCounter, _Gauge
+from opentelemetry.metrics import CallbackT as CallbackT, Counter, Histogram, Instrument, Meter, MeterProvider, ObservableCounter, ObservableGauge, ObservableUpDownCounter, UpDownCounter, _Gauge as Gauge
 from opentelemetry.util.types import Attributes
 from threading import Lock
 from typing import Any, Generic, TypeVar
 from weakref import WeakSet
-
-Gauge: Incomplete
 
 @dataclasses.dataclass
 class ProxyMeterProvider(MeterProvider):
@@ -35,7 +32,7 @@ class _ProxyMeter(Meter):
     def create_up_down_counter(self, name: str, unit: str = '', description: str = '') -> UpDownCounter: ...
     def create_observable_counter(self, name: str, callbacks: Sequence[CallbackT] | None = None, unit: str = '', description: str = '') -> ObservableCounter: ...
     def create_histogram(self, name: str, unit: str = '', description: str = '', **kwargs: Any) -> Histogram: ...
-    def create_gauge(self, name: str, unit: str = '', description: str = '') -> _Gauge: ...
+    def create_gauge(self, name: str, unit: str = '', description: str = '') -> Gauge: ...
     def create_observable_gauge(self, name: str, callbacks: Sequence[CallbackT] | None = None, unit: str = '', description: str = '') -> ObservableGauge: ...
     def create_observable_up_down_counter(self, name: str, callbacks: Sequence[CallbackT] | None = None, unit: str = '', description: str = '') -> ObservableUpDownCounter: ...
 InstrumentT = TypeVar('InstrumentT', bound=Instrument)
