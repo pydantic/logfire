@@ -1818,6 +1818,7 @@ class Logfire:
         engine: AsyncEngine | Engine | None = None,
         enable_commenter: bool = False,
         commenter_options: SQLAlchemyCommenterOptions | None = None,
+        engines: Iterable[AsyncEngine | Engine] | None = None,
         **kwargs: Any,
     ) -> None:
         """Instrument the `sqlalchemy` module so that spans are automatically created for each query.
@@ -1828,6 +1829,7 @@ class Logfire:
 
         Args:
             engine: The `sqlalchemy` engine to instrument, or `None` to instrument all engines.
+            engines: The `sqlalchemy` engines to instrument, or `None` to instrument all engines.
             enable_commenter: Adds comments to SQL queries performed by SQLAlchemy, so that database logs have additional context.
             commenter_options: Configure the tags to be added to the SQL comments.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods.
@@ -1837,6 +1839,7 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_sqlalchemy(
             engine=engine,
+            engines=engines,
             enable_commenter=enable_commenter,
             commenter_options=commenter_options or {},
             **{

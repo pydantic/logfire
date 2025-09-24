@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any
 
 try:
@@ -19,35 +20,31 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
 
 
+def _convert_to_sync_engine(engine: AsyncEngine | Engine | None) -> Engine | None:
+    from sqlalchemy.ext.asyncio import AsyncEngine
+
+    if isinstance(engine, AsyncEngine):
+        return engine.sync_engine
+    return engine
+
+
 def instrument_sqlalchemy(
     engine: AsyncEngine | Engine | None,
     enable_commenter: bool,
     commenter_options: CommenterOptions,
+    engines: Iterable[AsyncEngine | Engine] | None,
     **kwargs: Any,
 ) -> None:
     """Instrument the `sqlalchemy` module so that spans are automatically created for each query.
 
     See the `Logfire.instrument_sqlalchemy` method for details.
     """
-
-    def _convert_to_sync_engine(engine: AsyncEngine | Engine | None) -> Any | None:
-        if isinstance(engine, AsyncEngine):
-            return engine.sync_engine
-        return engine
-
     with contextlib.suppress(ImportError):
-        from sqlalchemy.ext.asyncio import AsyncEngine
-
         engine = _convert_to_sync_engine(engine)
 
-        engines = kwargs.get('engines')
         if engines is not None:
-            if not isinstance(engines, list):
-                raise ValueError('`engines` must be passed as a list')
-
-            engines = [_convert_to_sync_engine(e) for e in engines]  # type: ignore
-            kwargs['engines'] = engines
+            engines = [_convert_to_sync_engine(engine_entry) for engine_entry in engines]  # type: ignore
 
     return SQLAlchemyInstrumentor().instrument(
-        engine=engine, enable_commenter=enable_commenter, commenter_options=commenter_options, **kwargs
+        engine=engine, engines=engines, enable_commenter=enable_commenter, commenter_options=commenter_options, **kwargs
     )

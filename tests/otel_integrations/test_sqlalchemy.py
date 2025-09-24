@@ -46,11 +46,6 @@ def sqlite_engine(path: Path) -> Iterator[Engine]:
         path.unlink()
 
 
-def test_sqlalchemy_invalid_engines_parameter():
-    with pytest.raises(ValueError, match='`engines` must be passed as a list'):
-        logfire.instrument_sqlalchemy(engines='invalid')
-
-
 def test_sqlalchemy_instrumentation(exporter: TestExporter):
     with sqlite_engine(Path('example1.db')) as engine:
         logfire.instrument_sqlalchemy(engine=engine)
@@ -396,16 +391,10 @@ def sqlite_async_engine(path: Path) -> Iterator[AsyncEngine]:
 @pytest.mark.parametrize('parameter', ['engine', 'engines'])
 async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestExporter):
     with sqlite_async_engine(Path('example2.db')) as engine:
-        instrumentation_parameters: dict[str, Any] = {
-            'enable_commenter': True,
-            'commenter_options': {'db_framework': False},
-        }
         if parameter == 'engine':
-            instrumentation_parameters['engine'] = engine
+            logfire.instrument_sqlalchemy(engine=engine)
         else:
-            instrumentation_parameters['engines'] = [engine]
-
-        logfire.instrument_sqlalchemy(**instrumentation_parameters)
+            logfire.instrument_sqlalchemy(engines=[engine])
 
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
