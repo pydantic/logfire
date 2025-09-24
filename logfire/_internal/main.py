@@ -1816,9 +1816,9 @@ class Logfire:
     def instrument_sqlalchemy(
         self,
         engine: AsyncEngine | Engine | None = None,
+        engines: Iterable[AsyncEngine | Engine] | None = None,
         enable_commenter: bool = False,
         commenter_options: SQLAlchemyCommenterOptions | None = None,
-        engines: Iterable[AsyncEngine | Engine] | None = None,
         **kwargs: Any,
     ) -> None:
         """Instrument the `sqlalchemy` module so that spans are automatically created for each query.

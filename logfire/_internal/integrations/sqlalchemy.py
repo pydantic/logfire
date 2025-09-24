@@ -30,9 +30,9 @@ def _convert_to_sync_engine(engine: AsyncEngine | Engine | None) -> Engine | Non
 
 def instrument_sqlalchemy(
     engine: AsyncEngine | Engine | None,
+    engines: Iterable[AsyncEngine | Engine] | None,
     enable_commenter: bool,
     commenter_options: CommenterOptions,
-    engines: Iterable[AsyncEngine | Engine] | None,
     **kwargs: Any,
 ) -> None:
     """Instrument the `sqlalchemy` module so that spans are automatically created for each query.
