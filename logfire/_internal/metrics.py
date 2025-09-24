@@ -19,6 +19,7 @@ from opentelemetry.metrics import (
     ObservableGauge,
     ObservableUpDownCounter,
     UpDownCounter,
+    _Gauge as Gauge,
 )
 from opentelemetry.sdk.metrics import MeterProvider as SDKMeterProvider
 from opentelemetry.trace import get_current_span
@@ -26,14 +27,6 @@ from opentelemetry.util.types import Attributes
 
 from .tracer import _LogfireWrappedSpan  # type: ignore
 from .utils import handle_internal_errors
-
-try:
-    # This only exists in opentelemetry-sdk>=1.23.0
-    from opentelemetry.metrics import _Gauge
-
-    Gauge = _Gauge
-except ImportError:  # pragma: no cover
-    Gauge = None
 
 
 # The following proxy classes are adapted from OTEL's SDK
@@ -160,14 +153,7 @@ class _ProxyMeter(Meter):
         name: str,
         unit: str = '',
         description: str = '',
-    ) -> _Gauge:
-        if Gauge is None:
-            # This only exists in opentelemetry-sdk>=1.23.0
-            raise RuntimeError(
-                'Gauge is not available in this version of OpenTelemetry SDK.\n'
-                'You should upgrade to 1.23.0 or newer:\n'
-                '   pip install opentelemetry-sdk>=1.23.0'
-            )
+    ) -> Gauge:
         return self._add_proxy_instrument(_ProxyGauge, name=name, unit=unit, description=description)
 
     def create_observable_gauge(
@@ -280,19 +266,15 @@ class _ProxyUpDownCounter(_ProxyInstrument[UpDownCounter], UpDownCounter):
         return meter.create_up_down_counter(**self._kwargs)
 
 
-if Gauge is not None:  # pragma: no branch
+class _ProxyGauge(_ProxyInstrument[Gauge], Gauge):
+    def set(
+        self,
+        amount: int | float,
+        attributes: Attributes | None = None,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
+        self._instrument.set(amount, attributes, *args, **kwargs)
 
-    class _ProxyGauge(_ProxyInstrument[Gauge], Gauge):
-        def set(
-            self,
-            amount: int | float,
-            attributes: Attributes | None = None,
-            *args: Any,
-            **kwargs: Any,
-        ) -> None:
-            self._instrument.set(amount, attributes, *args, **kwargs)
-
-        def _create_real_instrument(self, meter: Meter):
-            return meter.create_gauge(**self._kwargs)
-else:  # pragma: no cover
-    _ProxyGauge = None  # type: ignore
+    def _create_real_instrument(self, meter: Meter):
+        return meter.create_gauge(**self._kwargs)
