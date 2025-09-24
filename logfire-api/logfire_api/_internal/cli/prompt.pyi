@@ -1,4 +1,5 @@
 import argparse
+from logfire._internal.cli.auth import parse_auth as parse_auth
 from logfire._internal.client import LogfireClient as LogfireClient
 from logfire.exceptions import LogfireConfigError as LogfireConfigError
 from rich.console import Console
