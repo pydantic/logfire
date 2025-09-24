@@ -1828,8 +1828,8 @@ class Logfire:
         library, specifically `SQLAlchemyInstrumentor().instrument()`, to which it passes `**kwargs`.
 
         Args:
-            engine: The `sqlalchemy` engine to instrument, or `None` to instrument all engines.
-            engines: The `sqlalchemy` engines to instrument, or `None` to instrument all engines.
+            engine: The `sqlalchemy` engine to instrument.
+            engines: An iterable of `sqlalchemy` engines to instrument.
             enable_commenter: Adds comments to SQL queries performed by SQLAlchemy, so that database logs have additional context.
             commenter_options: Configure the tags to be added to the SQL comments.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods.
