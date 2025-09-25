@@ -125,17 +125,7 @@ Because it found something more "sole-ful!"\
                     'response': {
                         'meta': None,
                         'nextCursor': None,
-                        'tools': [
-                            {
-                                'name': 'joker',
-                                'title': None,
-                                'description': 'Poem generator',
-                                'inputSchema': IsPartialDict(),
-                                'outputSchema': IsPartialDict(),
-                                'annotations': None,
-                                'meta': None,
-                            }
-                        ],
+                        'tools': [IsPartialDict()],
                     },
                 },
             },
@@ -156,17 +146,7 @@ Because it found something more "sole-ful!"\
                     'response': {
                         'meta': None,
                         'nextCursor': None,
-                        'tools': [
-                            {
-                                'name': 'joker',
-                                'title': None,
-                                'description': 'Poem generator',
-                                'inputSchema': IsPartialDict(),
-                                'outputSchema': IsPartialDict(),
-                                'annotations': None,
-                                'meta': None,
-                            }
-                        ],
+                        'tools': [IsPartialDict()],
                     },
                 },
             },
@@ -598,17 +578,7 @@ Because it found something more "sole-ful!"\
                     'response': {
                         'meta': None,
                         'nextCursor': None,
-                        'tools': [
-                            {
-                                'name': 'joker',
-                                'title': None,
-                                'description': 'Poem generator',
-                                'inputSchema': IsPartialDict(),
-                                'outputSchema': IsPartialDict(),
-                                'annotations': None,
-                                'meta': None,
-                            }
-                        ],
+                        'tools': [IsPartialDict()],
                     },
                 },
             },
@@ -629,17 +599,7 @@ Because it found something more "sole-ful!"\
                     'response': {
                         'meta': None,
                         'nextCursor': None,
-                        'tools': [
-                            {
-                                'name': 'joker',
-                                'title': None,
-                                'description': 'Poem generator',
-                                'inputSchema': IsPartialDict(),
-                                'outputSchema': IsPartialDict(),
-                                'annotations': None,
-                                'meta': None,
-                            }
-                        ],
+                        'tools': [IsPartialDict()],
                     },
                 },
             },
