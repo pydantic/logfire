@@ -125,12 +125,7 @@ try:
 
     class OpenaiChatCompletionStreamState(StreamState):
         def __init__(self):
-            self._stream_state = ChatCompletionStreamState(
-                # We do not need the response to be parsed into Python objects so can skip
-                # providing the `response_format` and `input_tools` arguments.
-                input_tools=openai.NOT_GIVEN,
-                response_format=openai.NOT_GIVEN,
-            )
+            self._stream_state = ChatCompletionStreamState()
 
         def record_chunk(self, chunk: ChatCompletionChunk) -> None:
             try:
