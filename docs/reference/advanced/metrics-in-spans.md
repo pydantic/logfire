@@ -1,15 +1,21 @@
 # Aggregating Metrics in Spans
 
-!!! note
-    This is an experimental feature. The API and data format may change in future releases. We welcome your feedback to help us prioritize improvements and stability.
-
 Logfire lets you aggregate counter and histogram metrics within the current active span and its ancestors. This is particularly useful for calculating totals for things like LLM token usage or costs on higher-level operations, making it easier and more efficient to query this data without processing individual child spans.
 
 This guide will walk you through how to enable this feature and use it with both custom metrics and automated instrumentation.
 
+!!! note
+    This is an experimental feature. The API and data format may change in future releases. We welcome your feedback to help us prioritize improvements and stability.
+
+    This only works for metrics recorded within the same process. It does not aggregate metrics across distributed traces.
+
 ## Enabling Metric Aggregation
 
-To enable this feature, you need to configure Logfire with the `collect_in_spans` option in [`MetricsOptions`][logfire.MetricsOptions]. This should be done once when your application starts.
+<!-- TODO add pydantic-ai version -->
+
+This feature is _always_ enabled for any metric named `operation.cost`, which in particular is recorded by [Pydantic AI](https://ai.pydantic.dev/) when [instrumented](../../integrations/llms/pydanticai.md) for LLM costs.
+
+To enable this feature for all metrics, you need to configure Logfire with the `collect_in_spans` option in [`MetricsOptions`][logfire.MetricsOptions]. This should be done once when your application starts.
 
 ```py
 import logfire
@@ -19,9 +25,9 @@ logfire.configure(metrics=logfire.MetricsOptions(collect_in_spans=True))
 
 Once enabled, any counters or histograms recorded within a span will be aggregated into a `logfire.metrics` attribute on that span.
 
-## Simple Example: A Custom Cost Counter
+## Example: A Custom Counter
 
-Let's start with a simple example of tracking a cumulative cost.
+Let's start with a simple example of tracking some cumulative amount.
 
 First, we define a metric counter. Then, within a span, we add to it multiple times.
 
@@ -30,27 +36,27 @@ import logfire
 
 logfire.configure(metrics=logfire.MetricsOptions(collect_in_spans=True))
 
-counter = logfire.metric_counter('cost')
+counter = logfire.metric_counter('my_amount')
 
-with logfire.span('spending'):
+with logfire.span('doing stuff'):
     counter.add(1)
     counter.add(2)
 ```
 
-The `spending` span will now contain a `logfire.metrics` attribute that holds the aggregated total of the `cost` counter, i.e. `3`.
+The `doing stuff` span will now contain a `logfire.metrics` attribute that holds the aggregated total of the `my_amount` counter, i.e. `3`.
 Running the following query in the Explore view:
 
 ```sql
-SELECT attributes->>'logfire.metrics'->>'cost'->>'total' AS total_cost
+SELECT attributes->>'logfire.metrics'->>'my_amount'->>'total' AS total_amount
 FROM records
-WHERE span_name = 'spending'
+WHERE span_name = 'doing stuff'
 ```
 
-will return one row with `total_cost` equal to `3`.
+will return one row with `total_amount` equal to `3`.
 
-## Advanced Example: LLM Token Usage with Pydantic AI
+## Example: LLM Token Usage and Costs with Pydantic AI
 
-Generative AI instrumentations like Pydantic AI that follow OpenTelemetry conventions will record a metric called `gen_ai.client.token.usage`. You can use metric aggregation to get a total of tokens used in a higher-level operation that may involve multiple LLM calls.
+Generative AI instrumentations like [Pydantic AI](../../integrations/llms/pydanticai.md) or [OpenAI](../../integrations/llms/openai.md) that follow OpenTelemetry conventions will record a metric called `gen_ai.client.token.usage`. You can use metric aggregation to get a total of tokens used in a higher-level operation that may involve multiple LLM calls. Pydantic AI specifically also records an `operation.cost` metric, which is always aggregated.
 
 Here’s an example:
 
@@ -74,8 +80,7 @@ with logfire.span('span'):
 
 The calls to `agent.run_sync` create child spans named `agent run`. The outer `span` aggregates the token metrics from these children, as shown in the Live View:
 
-
-
+![Token and cost aggregation in live view](../../images/logfire-screenshot-metrics-in-spans-live-view.png)
 
 ### Understanding the Span Data
 
@@ -107,11 +112,57 @@ The outer `'span'` now has a `logfire.metrics` attribute containing the aggregat
       }
     ],
     "total": 297
+  },
+  "operation.cost": {
+    "details": [
+      {
+        "attributes": {
+          "gen_ai.operation.name": "chat",
+          "gen_ai.request.model": "gpt-4o",
+          "gen_ai.response.model": "gpt-4o-2024-08-06",
+          "gen_ai.system": "openai",
+          "gen_ai.token.type": "input"
+        },
+        "total": 0.00056
+      },
+      {
+        "attributes": {
+          "gen_ai.operation.name": "chat",
+          "gen_ai.request.model": "gpt-4o",
+          "gen_ai.response.model": "gpt-4o-2024-08-06",
+          "gen_ai.system": "openai",
+          "gen_ai.token.type": "output"
+        },
+        "total": 0.00073
+      }
+    ],
+    "total": 0.00129
   }
 }
 ```
 
-As you can see, the `details` array contains separate entries for `input` and `output` tokens, each with its own total.
+Note:
+
+1. Each `total` value (both at the top level and inside `details`) in the JSON matches a value in the token badge in the UI.
+2. Each of these metrics (but not metrics in general) has separate entries for `input` and `output` in the `details`, each with its own total. In general, each combination of values of `attributes` has its own entry in `details`. Here, the only differing attribute is `gen_ai.token.type`.
+
+The general structure of `logfire.metrics` is:
+
+```json
+{
+  "<metric_name>": {
+    "details": [
+      {
+        "attributes": { ... },
+        "total": <number>
+      },
+      ...
+    ],
+    "total": <number>
+  },
+  ...
+}
+```
 
 ### Querying Nested Token Data
 
