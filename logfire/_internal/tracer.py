@@ -206,7 +206,7 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
         record_exception(self.span, exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
 
     def increment_metric(self, name: str, attributes: Mapping[str, otel_types.AttributeValue], value: float) -> None:
-        if not self.is_recording() or not self.record_metrics:
+        if not (self.is_recording() and (self.record_metrics or name == 'operation.cost')):
             return
 
         self.metrics[name].increment(attributes, value)
