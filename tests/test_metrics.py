@@ -438,6 +438,48 @@ def test_metrics_in_spans(exporter: TestExporter):
     )
 
 
+def test_metrics_in_spans_disabled(exporter: TestExporter):
+    # This method of setting collect_in_spans is a hack because using logfire.configure for this is annoying,
+    # this way of doing it isn't guaranteed to work forever.
+    metrics_options = logfire.DEFAULT_LOGFIRE_INSTANCE.config.metrics
+    assert isinstance(metrics_options, logfire.MetricsOptions)
+    metrics_options.collect_in_spans = False
+
+    # operation.cost is special cased to always be collected regardless of config
+    cost = logfire.metric_counter('operation.cost')
+    tokens = logfire.metric_counter('tokens')  # not collected
+
+    with logfire.span('span'):
+        tokens.add(100)
+        cost.add(200)
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'span',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_metrics.py',
+                    'code.function': 'test_metrics_in_spans_disabled',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'span',
+                    'logfire.msg': 'span',
+                    'logfire.span_type': 'span',
+                    'logfire.metrics': {
+                        'operation.cost': {
+                            'details': [{'attributes': {}, 'total': 200}],
+                            'total': 200,
+                        }
+                    },
+                },
+            }
+        ]
+    )
+
+
 def test_metrics_in_non_recording_spans(exporter: TestExporter, config_kwargs: dict[str, Any]):
     metrics_reader = InMemoryMetricReader(preferred_temporality=METRICS_PREFERRED_TEMPORALITY)
     logfire.configure(
