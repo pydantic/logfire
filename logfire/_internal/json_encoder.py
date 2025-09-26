@@ -155,6 +155,10 @@ def _pydantic_model_encoder(o: Any, seen: set[int]) -> JsonValue:
     import pydantic
 
     assert isinstance(o, pydantic.BaseModel)
+
+    if isinstance(o, pydantic.RootModel):
+        return to_json_value(o.root, seen)  # type: ignore
+
     try:
         dump = o.model_dump()
     except AttributeError:  # pragma: no cover

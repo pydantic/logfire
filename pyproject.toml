@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "4.6.0"
+version = "4.10.0"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.9"
 authors = [
@@ -18,6 +18,7 @@ authors = [
     { name = "Alex Hall", email = "alex@pydantic.dev" },
 ]
 license = "MIT"
+license-files = ["LICENSE"]
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -32,7 +33,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "Intended Audience :: Information Technology",
     "Intended Audience :: System Administrators",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: Unix",
     "Operating System :: POSIX :: Linux",
     "Environment :: Console",
@@ -45,8 +45,8 @@ classifiers = [
     "Framework :: OpenTelemetry :: Instrumentations",
 ]
 dependencies = [
-    "opentelemetry-sdk >= 1.21.0, < 1.37.0",
-    "opentelemetry-exporter-otlp-proto-http >= 1.21.0, < 1.37.0",
+    "opentelemetry-sdk >= 1.35.0, < 1.38.0",
+    "opentelemetry-exporter-otlp-proto-http >= 1.35.0, < 1.38.0",
     "opentelemetry-instrumentation >= 0.41b0",
     "rich >= 13.4.2",
     "protobuf >= 4.23.4",
@@ -78,6 +78,8 @@ requests = ["opentelemetry-instrumentation-requests >= 0.42b0"]
 mysql = ["opentelemetry-instrumentation-mysql >= 0.42b0"]
 sqlite3 = ["opentelemetry-instrumentation-sqlite3 >= 0.42b0"]
 aws-lambda = ["opentelemetry-instrumentation-aws-lambda >= 0.42b0"]
+google-genai = ["opentelemetry-instrumentation-google-genai >= 0"]
+litellm = ["openinference-instrumentation-litellm >= 0"]
 
 [project.urls]
 Homepage = "https://logfire.pydantic.dev/"
@@ -153,7 +155,8 @@ dev = [
     "sqlmodel>=0.0.15",
     "mypy>=1.10.0",
     "celery>=5.4.0",
-    "testcontainers!=4.13.0",
+    # https://github.com/testcontainers/testcontainers-python/issues/874
+    "testcontainers!=4.13.*",
     "mysql-connector-python~=8.0",
     "pyarrow>=17.0.0; python_version < '3.13'",
     "pyarrow>=18.1.0; python_version >= '3.13'",

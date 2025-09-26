@@ -1,5 +1,24 @@
 # Release Notes
 
+## [v4.10.0] (2025-09-24)
+
+* Trigger `auth` command from `prompt` by @Kludex in [#1423](https://github.com/pydantic/logfire/pull/1423)
+* Remove conditional check on OTEL version for `Gauge` import by @Viicos in [#1426](https://github.com/pydantic/logfire/pull/1426)
+
+## [v4.9.0] (2025-09-22)
+
+* Fix Root Model Not Rendering As Expected by @dhruv-ahuja in [#1396](https://github.com/pydantic/logfire/pull/1396)
+* Use `=` instead of `:` in codex setup by @Kludex in [#1420](https://github.com/pydantic/logfire/pull/1420)
+* Add support for OpenCode on the `prompt` command by @Kludex in [#1421](https://github.com/pydantic/logfire/pull/1421)
+
+## [v4.8.0] (2025-09-18)
+
+* Allow capturing headers and response body with `logfire.instrument_aiohttp_client()` by @adtyavrdhn in [#1405](https://github.com/pydantic/logfire/pull/1405) and [#1409](https://github.com/pydantic/logfire/pull/1409)
+
+## [v4.7.0] (2025-09-12)
+
+* Update to OpenTelemetry SDK 1.37.0, drop support for <1.35.0 by @alexmojaki in [#1398](https://github.com/pydantic/logfire/pull/1398)
+
 ## [v4.6.0] (2025-09-10)
 
 * Fix: check `LOGFIRE_IGNORE_NO_CONFIG` from environment when needed by @Lftobs in [#1379](https://github.com/pydantic/logfire/pull/1379)
@@ -896,3 +915,7 @@ First release from new repo!
 [v4.4.0]: https://github.com/pydantic/logfire/compare/v4.3.6...v4.4.0
 [v4.5.0]: https://github.com/pydantic/logfire/compare/v4.4.0...v4.5.0
 [v4.6.0]: https://github.com/pydantic/logfire/compare/v4.5.0...v4.6.0
+[v4.7.0]: https://github.com/pydantic/logfire/compare/v4.6.0...v4.7.0
+[v4.8.0]: https://github.com/pydantic/logfire/compare/v4.7.0...v4.8.0
+[v4.9.0]: https://github.com/pydantic/logfire/compare/v4.8.0...v4.9.0
+[v4.10.0]: https://github.com/pydantic/logfire/compare/v4.9.0...v4.10.0

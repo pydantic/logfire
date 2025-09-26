@@ -70,7 +70,7 @@ jobs:
               otel-version: '1'  # i.e. the latest
             - python-version: '3.13'
               pydantic-version: '2'  # i.e. the latest
-              otel-version: '1.30'
+              otel-version: '1.35'
     env:
       PYTHON: ${{ matrix.python-version }}
     steps:

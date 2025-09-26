@@ -76,28 +76,6 @@ def open_pull_request(version: str):
     return response.json()['html_url']
 
 
-def create_github_release(new_version: str, notes: str):
-    """Create a new release on GitHub."""
-    url = f'https://api.github.com/repos/{REPO}/releases'
-
-    data = {
-        'tag_name': f'v{new_version}',
-        'name': f'v{new_version}',
-        'body': notes,
-        'draft': True,
-    }
-
-    response = requests.post(
-        url,
-        headers={
-            'Authorization': f'Bearer {GITHUB_TOKEN}',
-            'Accept': 'application/vnd.github+json',
-        },
-        json=data,
-    )
-    response.raise_for_status()
-
-
 if __name__ == '__main__':
     """Automate the release draft + PR creation process."""
 

@@ -9,7 +9,8 @@ from typing import TYPE_CHECKING
 
 import pydantic
 import pytest
-from dirty_equals import IsStr
+from dirty_equals import IsPartialDict
+from inline_snapshot import snapshot
 
 import logfire
 from logfire._internal.exporters.test import TestExporter
@@ -19,7 +20,6 @@ from tests.otel_integrations.test_openai_agents import simplify_spans
 try:
     from agents import Agent, Runner, trace
     from agents.mcp.server import _MCPServerWithClientSession  # type: ignore
-    from inline_snapshot import snapshot
     from mcp import types
     from mcp.server.fastmcp import Context, FastMCP
     from mcp.shared.memory import create_client_server_memory_streams
@@ -103,17 +103,7 @@ async def test_mcp(exporter: TestExporter):
                     'code.lineno': 123,
                     'request': {
                         'method': 'initialize',
-                        'params': {
-                            'meta': None,
-                            'protocolVersion': IsStr(),
-                            'capabilities': {
-                                'experimental': None,
-                                'sampling': None,
-                                'elicitation': None,
-                                'roots': None,
-                            },
-                            'clientInfo': {'name': 'mcp', 'title': None, 'version': '0.1.0'},
-                        },
+                        'params': IsPartialDict(),
                     },
                     'rpc.system': 'jsonrpc',
                     'rpc.jsonrpc.version': '2.0',
@@ -121,20 +111,7 @@ async def test_mcp(exporter: TestExporter):
                     'logfire.msg_template': 'MCP request: initialize',
                     'logfire.msg': 'MCP request: initialize',
                     'logfire.span_type': 'span',
-                    'response': {
-                        'meta': None,
-                        'protocolVersion': IsStr(),
-                        'capabilities': {
-                            'experimental': {},
-                            'logging': None,
-                            'prompts': {'listChanged': False},
-                            'resources': {'subscribe': False, 'listChanged': False},
-                            'tools': {'listChanged': False},
-                            'completions': None,
-                        },
-                        'serverInfo': {'name': 'FastMCP', 'title': None, 'version': IsStr()},
-                        'instructions': None,
-                    },
+                    'response': IsPartialDict(),
                 },
             },
             {
@@ -162,22 +139,7 @@ async def test_mcp(exporter: TestExporter):
                     'response': {
                         'meta': None,
                         'nextCursor': None,
-                        'tools': [
-                            {
-                                'name': 'random_number',
-                                'title': None,
-                                'description': '',
-                                'inputSchema': {'properties': {}, 'title': 'random_numberArguments', 'type': 'object'},
-                                'outputSchema': {
-                                    'properties': {'result': {'title': 'Result', 'type': 'integer'}},
-                                    'required': ['result'],
-                                    'title': 'random_numberOutput',
-                                    'type': 'object',
-                                },
-                                'annotations': None,
-                                'meta': None,
-                            }
-                        ],
+                        'tools': [IsPartialDict()],
                     },
                 },
             },
@@ -204,22 +166,7 @@ async def test_mcp(exporter: TestExporter):
                     'response': {
                         'meta': None,
                         'nextCursor': None,
-                        'tools': [
-                            {
-                                'name': 'random_number',
-                                'title': None,
-                                'description': '',
-                                'inputSchema': {'properties': {}, 'title': 'random_numberArguments', 'type': 'object'},
-                                'outputSchema': {
-                                    'properties': {'result': {'title': 'Result', 'type': 'integer'}},
-                                    'required': ['result'],
-                                    'title': 'random_numberOutput',
-                                    'type': 'object',
-                                },
-                                'annotations': None,
-                                'meta': None,
-                            }
-                        ],
+                        'tools': [IsPartialDict()],
                     },
                 },
             },
@@ -401,22 +348,7 @@ async def test_mcp(exporter: TestExporter):
                     'response': {
                         'meta': None,
                         'nextCursor': None,
-                        'tools': [
-                            {
-                                'name': 'random_number',
-                                'title': None,
-                                'description': '',
-                                'inputSchema': {'properties': {}, 'title': 'random_numberArguments', 'type': 'object'},
-                                'outputSchema': {
-                                    'properties': {'result': {'title': 'Result', 'type': 'integer'}},
-                                    'required': ['result'],
-                                    'title': 'random_numberOutput',
-                                    'type': 'object',
-                                },
-                                'annotations': None,
-                                'meta': None,
-                            }
-                        ],
+                        'tools': [IsPartialDict()],
                     },
                 },
             },
@@ -440,22 +372,7 @@ async def test_mcp(exporter: TestExporter):
                     'response': {
                         'meta': None,
                         'nextCursor': None,
-                        'tools': [
-                            {
-                                'name': 'random_number',
-                                'title': None,
-                                'description': '',
-                                'inputSchema': {'properties': {}, 'title': 'random_numberArguments', 'type': 'object'},
-                                'outputSchema': {
-                                    'properties': {'result': {'title': 'Result', 'type': 'integer'}},
-                                    'required': ['result'],
-                                    'title': 'random_numberOutput',
-                                    'type': 'object',
-                                },
-                                'annotations': None,
-                                'meta': None,
-                            }
-                        ],
+                        'tools': [IsPartialDict()],
                     },
                 },
             },
