@@ -175,6 +175,7 @@ WITH
     with_span_metric_detail AS (SELECT span_metric->>'details'->>unnest(generate_series((json_length(span_metric->>'details') - 1)::int)) AS span_metric_detail, * FROM with_span_metric)
 SELECT
     span_name,
+    span_metric_name,
     span_metric_detail->>'total' AS total,
     span_metric_detail->>'attributes'->>'gen_ai.token.type' AS token_type
 FROM with_span_metric_detail
@@ -184,22 +185,25 @@ WHERE span_metric_name = 'gen_ai.client.token.usage'
 **How this query works:**
 
 *   The `WITH` clauses progressively expand the nested JSON in the `logfire.metrics` attribute.
-*   `with_span_metric_name` unnests the metric names (e.g., `'gen_ai.client.token.usage'`).
+*   `with_span_metric_name` unnests the metric names (e.g. `gen_ai.client.token.usage` and `operation.cost`).
 *   `with_span_metric` extracts the JSON object for each metric.
 *   `with_span_metric_detail` unnests the `details` array, creating a separate row for each item (one for `input` and one for `output` in our example).
 
-You can copy the `WITH` clauses as a reusable prefix for any query that needs to analyze aggregated metrics. The final `SELECT` statement then easily extracts the total tokens for each type.
+You can copy the `WITH` clauses as a reusable prefix for any query that needs to analyze aggregated metrics. The final `SELECT` statement then easily extracts the totals.
 
-The result of this query will look like this, showing token counts broken down by span and type:
+The result of this query will look like this, showing token counts and costs broken down by span and type:
 
-
-
-## Limitations and Caveats
-
-Please keep the following points in mind when using this experimental feature:
-
-*   **API Instability**: As an experimental feature, the API and the underlying data format may change.
-*   **Complex Queries**: Querying nested metrics currently requires complex SQL, as shown above. We plan to simplify this in the future.
-*   **No Special UI Support**: The Logfire UI does not yet have special features for visualizing these aggregated metrics beyond the token badge. They are primarily accessible via the `attributes` field and SQL queries.
-*   **Process-Scoped**: Aggregation only occurs for metrics collected within the same process. It does not work across distributed traces that span multiple services or processes.
-*   **No Automatic Cost Calculation**: The feature aggregates token counts but does not automatically calculate the associated monetary cost.
+| span_name | span_metric_name               | total | token_type |
+|-----------|--------------------------------|-------|------------|
+| span      | gen_ai.client.token.usage      | 224   | input      |
+| span      | gen_ai.client.token.usage      | 73    | output     |
+| span      | operation.cost                 | 0.00056 | input      |
+| span      | operation.cost                 | 0.00073 | output     |
+| agent run | gen_ai.client.token.usage      | 95    | input      |
+| agent run | gen_ai.client.token.usage      | 19    | output     |
+| agent run | operation.cost                 | 0.0002375 | input      |
+| agent run | operation.cost                 | 0.00019 | output     |
+| agent run | gen_ai.client.token.usage      | 129   | input      |
+| agent run | gen_ai.client.token.usage      | 54    | output     |
+| agent run | operation.cost                 | 0.0003225 | input      |
+| agent run | operation.cost                 | 0.00054 | output     |
