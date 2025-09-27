@@ -24,6 +24,7 @@ from .version import VERSION
 DEFAULT_LOGFIRE_INSTANCE: Logfire = Logfire()
 span = DEFAULT_LOGFIRE_INSTANCE.span
 instrument = DEFAULT_LOGFIRE_INSTANCE.instrument
+current_span = DEFAULT_LOGFIRE_INSTANCE.current_span
 force_flush = DEFAULT_LOGFIRE_INSTANCE.force_flush
 log_slow_async_callbacks = DEFAULT_LOGFIRE_INSTANCE.log_slow_async_callbacks
 install_auto_tracing = DEFAULT_LOGFIRE_INSTANCE.install_auto_tracing
@@ -108,6 +109,7 @@ __all__ = (
     'configure',
     'span',
     'instrument',
+    'current_span',
     'log',
     'trace',
     'debug',

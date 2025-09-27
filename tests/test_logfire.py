@@ -38,7 +38,7 @@ from logfire._internal.constants import (
     LevelName,
 )
 from logfire._internal.formatter import FormattingFailedWarning
-from logfire._internal.main import NoopSpan
+from logfire._internal.main import LogfireSpan, NoopSpan
 from logfire._internal.tracer import record_exception
 from logfire._internal.utils import SeededRandomIdGenerator, is_instrumentation_suppressed
 from logfire.integrations.logging import LogfireLoggingHandler
@@ -1342,6 +1342,111 @@ def test_validation_error_on_span(exporter: TestExporter) -> None:
             }
         ]
     )
+
+
+def test_current_span_default_is_noop():
+    span = logfire.DEFAULT_LOGFIRE_INSTANCE.current_span()
+    assert isinstance(span, NoopSpan)
+
+
+def test_current_span_nested(exporter: TestExporter):
+    @logfire.instrument('outer')
+    def outer():
+        s = logfire.current_span()
+        s.message = 'Starting outer operation'
+        inner()
+        assert logfire.current_span() == s
+        s = logfire.current_span()
+        s.message = 'Completing outer operation'
+
+    @logfire.instrument('inner')
+    def inner():
+        s = logfire.current_span()
+        s.message = 'Processing inner operation'
+
+    outer()
+    assert isinstance(logfire.current_span(), NoopSpan)
+
+    spans = exporter.exported_spans_as_dict(_strip_function_qualname=False)
+
+    assert len(spans) == 2
+    assert spans[0]['name'] == 'inner'
+    assert spans[0]['attributes']['logfire.msg'] == 'Processing inner operation'
+    assert spans[1]['name'] == 'outer'
+    assert spans[1]['attributes']['logfire.msg'] == 'Completing outer operation'
+
+
+@pytest.mark.anyio
+async def test_current_span_async(exporter: TestExporter):
+    print('Testing current_span_async - functions should auto-detect current_span usage')
+
+    @logfire.instrument('async outer')
+    async def outer():
+        s = logfire.current_span()
+        assert isinstance(s, LogfireSpan)
+        s.message = 'Starting async outer operation'
+        await inner()
+        s = logfire.current_span()
+        assert isinstance(s, LogfireSpan)
+        s.message = 'Completing async outer operation'
+
+    @logfire.instrument('async inner')
+    async def inner():
+        s = logfire.current_span()
+        assert isinstance(s, LogfireSpan)
+        s.message = 'Processing async inner operation'
+
+    await outer()
+    assert isinstance(logfire.current_span(), NoopSpan)
+
+    spans = exporter.exported_spans_as_dict(_strip_function_qualname=False)
+
+    assert len(spans) == 2
+    assert spans[0]['name'] == 'async inner'
+    assert spans[0]['attributes']['logfire.msg'] == 'Processing async inner operation'
+    assert spans[1]['name'] == 'async outer'
+    assert spans[1]['attributes']['logfire.msg'] == 'Completing async outer operation'
+
+
+def test_fast_span_when_current_span_not_called(exporter: TestExporter):
+    """Test that when current_span() is not called, the exported span is a fast span"""
+
+    @logfire.instrument
+    def fast_operation(): ...
+
+    fast_operation()
+    spans = exporter.exported_spans_as_dict(_strip_function_qualname=False)
+
+    # pending_span would be a LogfireSpan, just span is FastLogfireSpan
+    assert spans[0]['attributes']['logfire.span_type'] == 'span'
+
+
+def test_instrument_extract_args_true_with_current_span(exporter: TestExporter):
+    """Test instrument with extract_args=True and current_span() usage."""
+
+    @logfire.instrument(extract_args=True, record_return=True)
+    def foo(a: int, b: str) -> None:
+        logfire.current_span()
+
+    foo(42, 'test')
+    spans = exporter.exported_spans_as_dict(_strip_function_qualname=False)
+    assert len(spans) == 1
+    assert spans[0]['attributes']['a'] == 42
+    assert spans[0]['attributes']['b'] == 'test'
+
+
+def test_instrument_extract_args_list_with_current_span(exporter: TestExporter):
+    """Test instrument with extract_args list and current_span() usage."""
+
+    @logfire.instrument(extract_args=['a', 'c'])
+    def foo(a: int, b: str, c: float) -> None:
+        logfire.current_span()
+
+    foo(42, 'test', 3.14)
+    spans = exporter.exported_spans_as_dict(_strip_function_qualname=False)
+    assert len(spans) == 1
+    assert spans[0]['attributes']['a'] == 42
+    assert spans[0]['attributes']['c'] == 3.14
 
 
 @dataclass

@@ -276,6 +276,10 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         pass
     logfire__all__.remove('attach_context')
 
+    assert hasattr(logfire_api, 'current_span')
+    logfire_api.current_span()
+    logfire__all__.remove('current_span')
+
     # If it's not empty, it means that some of the __all__ members are not tested.
     assert logfire__all__ == set(), logfire__all__
 
