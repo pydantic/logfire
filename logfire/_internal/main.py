@@ -181,6 +181,7 @@ class Logfire:
         _span_name: str | None = None,
         _level: LevelName | int | None = None,
         _links: Sequence[tuple[SpanContext, otel_types.Attributes]] = (),
+        _warn_if_inside_generator: bool = True,
     ) -> LogfireSpan:
         try:
             if _level is not None:
@@ -190,6 +191,20 @@ class Logfire:
                     return NoopSpan()  # type: ignore
             else:
                 level_attributes = None
+
+            # we go two levels back to find the caller frame, as this method is called by logfire.span() method
+            caller_frame = inspect.currentframe().f_back.f_back  # type: ignore
+            # check if the caller is a generator function by checking the co_flags attribute of the code object
+            # and doing bit-wise AND checking for CO_GENERATOR or CO_ASYNC_GENERATOR value match
+            caller_is_generator = bool(
+                caller_frame and caller_frame.f_code.co_flags & (inspect.CO_GENERATOR | inspect.CO_ASYNC_GENERATOR)
+            )
+
+            if caller_is_generator and _warn_if_inside_generator:
+                warnings.warn(
+                    'Span is inside a generator function. See https://logfire.pydantic.dev/docs/reference/advanced/generators/#move-the-span-outside-the-generator.',
+                    RuntimeWarning,
+                )
 
             stack_info = get_user_stack_info()
             merged_attributes = {**stack_info, **attributes}
@@ -533,6 +548,7 @@ class Logfire:
         _span_name: str | None = None,
         _level: LevelName | None = None,
         _links: Sequence[tuple[SpanContext, otel_types.Attributes]] = (),
+        _warn_if_inside_generator: bool = True,
         **attributes: Any,
     ) -> LogfireSpan:
         """Context manager for creating a span.
@@ -552,11 +568,13 @@ class Logfire:
             _tags: An optional sequence of tags to include in the span.
             _level: An optional log level name.
             _links: An optional sequence of links to other spans. Each link is a tuple of a span context and attributes.
+            _warn_if_inside_generator: Set to `False` to prevent a warning when instrumenting a generator function.
             attributes: The arguments to include in the span and format the message template with.
                 Attributes starting with an underscore are not allowed.
         """
         if any(k.startswith('_') for k in attributes):
             raise ValueError('Attribute keys cannot start with an underscore.')
+
         return self._span(
             msg_template,
             attributes,
@@ -564,6 +582,7 @@ class Logfire:
             _span_name=_span_name,
             _level=_level,
             _links=_links,
+            _warn_if_inside_generator=_warn_if_inside_generator,
         )
 
     @overload

@@ -3545,3 +3545,71 @@ def test_warn_if_not_initialized_category():
 
         assert warnings_list[0].category == LogfireNotConfiguredWarning
         assert issubclass(LogfireNotConfiguredWarning, UserWarning)
+
+
+def test_warn_if_span_inside_generator():
+    """Test that warning is issued when a span is created inside a generator."""
+
+    def generator():
+        with logfire.span('span inside generator'):
+            yield
+
+    with pytest.warns(RuntimeWarning) as warnings_list:
+        next(generator())
+
+        assert warnings_list[0].category is RuntimeWarning
+        assert (
+            str(warnings_list[0].message)
+            == 'Span is inside a generator function. See https://logfire.pydantic.dev/docs/reference/advanced/generators/#move-the-span-outside-the-generator.'
+        )
+
+
+def test_no_warn_if_span_inside_generator():
+    """Test that warning is not issued when a span is created inside a generator with the
+    _warn_if_inside_generator option disabled."""
+
+    def generator():
+        with logfire.span('span inside generator', _warn_if_inside_generator=False):
+            yield
+
+    with warnings.catch_warnings(record=True) as warnings_list:
+        warnings.simplefilter('always')
+        next(generator())
+
+        assert len(warnings_list) == 0
+
+
+@pytest.mark.anyio
+async def test_warn_if_span_inside_async_generator():
+    """Test that warning is issued when a span is created inside an async generator."""
+
+    async def async_generator():
+        with logfire.span('span inside async generator'):
+            yield
+
+    with pytest.warns(RuntimeWarning) as warnings_list:
+        # we can replace this with global anext() when 3.9 is deprecated
+        await async_generator().__anext__()
+
+        assert warnings_list[0].category is RuntimeWarning
+        assert (
+            str(warnings_list[0].message)
+            == 'Span is inside a generator function. See https://logfire.pydantic.dev/docs/reference/advanced/generators/#move-the-span-outside-the-generator.'
+        )
+
+
+@pytest.mark.anyio
+async def test_no_warn_if_span_inside_async_generator():
+    """Test that warning is not issued when a span is created inside an async generator with the
+    _warn_if_inside_generator option disabled."""
+
+    async def async_generator():
+        with logfire.span('span inside async generator', _warn_if_inside_generator=False):
+            yield
+
+    with warnings.catch_warnings(record=True) as warnings_list:
+        warnings.simplefilter('always')
+        # we can replace this with global anext() when 3.9 is deprecated
+        await async_generator().__anext__()
+
+        assert len(warnings_list) == 0
