@@ -54,6 +54,8 @@ from opentelemetry.sdk.trace import SpanProcessor, SynchronousMultiSpanProcessor
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio, Sampler
+from prompt_toolkit import HTML, choice
+from prompt_toolkit.styles import Style
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
 from typing_extensions import Self, Unpack
@@ -1457,22 +1459,48 @@ class LogfireCredentials:
             project_name = None
 
         if organization is None or project_name is None:
-            project_choices = {
-                str(index + 1): (item['organization_name'], item['project_name'])
-                for index, item in enumerate(filtered_projects)
-            }
-            project_choices_str = '\n'.join(
-                [f'{index}. {item[0]}/{item[1]}' for index, item in project_choices.items()]
-            )
-            selected_project_key = Prompt.ask(
-                f'Please select one of the following projects by number:\n{project_choices_str}\n',
-                choices=list(project_choices.keys()),
-                default='1',
-            )
-            project_info_tuple: tuple[str, str] = project_choices[selected_project_key]
-            organization = project_info_tuple[0]
-            project_name = project_info_tuple[1]
+            default_org = 'samuelcolvin'
+            # if possible, it would be better to sort orgs by when they were created, not alphabetically
+            org_options = sorted({project['organization_name'] for project in projects})
 
+            def select_project(organization: str) -> str | None:
+                projects_in_organization = [
+                    project for project in projects if project['organization_name'] == organization
+                ]
+                project_options = sorted({project['project_name'] for project in projects_in_organization})
+                return choice(
+                    message='Select the project to use',
+                    options=[(project, project) for project in project_options],
+                    style=Style.from_dict({'frame.border': '#884444', 'selected-option': 'bold'}),
+                )
+
+            if len(org_options) > 1:
+                default_org_projects = [
+                    project['project_name'] for project in projects if project['organization_name'] == default_org
+                ]
+                project_choice = choice(
+                    message=HTML(
+                        f'Select a project from the <b>{default_org}</b> organization, or select another organization.'
+                    ),
+                    options=[(project, project) for project in default_org_projects]
+                    + [('__other_org__', 'Select project from another organization')],
+                    style=Style.from_dict({'frame.border': '#884444', 'selected-option': 'bold'}),
+                )
+                if project_choice == '__other_org__':
+                    organization = choice(
+                        message='Select the organization to use', options=[(org, org) for org in org_options]
+                    )
+                    assert organization is not None
+                    project_name = select_project(organization)
+                else:
+                    organization = default_org
+                    project_name = project_choice
+            else:
+                organization = org_options[0]
+                project_name = select_project(organization)
+
+            assert organization is not None
+            assert project_name is not None
         return client.create_write_token(organization, project_name)
 
     @classmethod

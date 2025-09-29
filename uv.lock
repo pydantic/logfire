@@ -479,7 +479,7 @@ name = "cffi"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pycparser", marker = "implementation_name != 'PyPy'" },
+    { name = "pycparser", marker = "implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/eb/56/b1ba7935a17738ae8453301356628e8147c79dbb825bcbc73dc7401f9846/cffi-2.0.0.tar.gz", hash = "sha256:44d1b5909021139fe36001ae048dbdde8214afa20200eda0f64c068cac5d5529", size = 523588, upload-time = "2025-09-08T23:24:04.541Z" }
 wheels = [
@@ -1110,6 +1110,7 @@ wheels = [
 name = "fastuuid"
 version = "0.13.3"
 source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/22/00/5ab21d121752b4efe57b0c4ae0b84161261779631bc4c76132c77cce97bb/fastuuid-0.13.3.tar.gz", hash = "sha256:d755dc132addb369877429622535dfb52d79c8968a8a98f15a84c3da1db013c7", size = 18249, upload-time = "2025-09-26T08:50:50.782Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/87/85/08371c62cd86a4826f4bf90b885784475b232ac2512d45f0193592fbae46/fastuuid-0.13.3-cp310-cp310-macosx_10_12_x86_64.macosx_11_0_arm64.macosx_10_12_universal2.whl", hash = "sha256:a445d61106c0bbca80630d00de3d17025da6542da7f95adfa90fd5ac7641d1f8", size = 494073, upload-time = "2025-09-25T17:13:53.822Z" },
     { url = "https://files.pythonhosted.org/packages/e1/b0/0be84b80bd1e9febf4cd06358b46ce536ffc3e426ba2a4d7da04d6b66ca2/fastuuid-0.13.3-cp310-cp310-macosx_10_12_x86_64.whl", hash = "sha256:3ce1a5f3cfec829f326dd9278d90448e62fa531802349f64fe159ab17cedda1d", size = 252783, upload-time = "2025-09-25T17:12:30.108Z" },
@@ -1944,6 +1945,7 @@ dependencies = [
     { name = "opentelemetry-exporter-otlp-proto-http" },
     { name = "opentelemetry-instrumentation" },
     { name = "opentelemetry-sdk" },
+    { name = "prompt-toolkit" },
     { name = "protobuf" },
     { name = "rich" },
     { name = "tomli", marker = "python_full_version < '3.11'" },
@@ -2160,6 +2162,7 @@ requires-dist = [
     { name = "opentelemetry-sdk", specifier = ">=1.35.0,<1.38.0" },
     { name = "packaging", marker = "extra == 'psycopg'" },
     { name = "packaging", marker = "extra == 'psycopg2'" },
+    { name = "prompt-toolkit", specifier = ">=3.0.52" },
     { name = "protobuf", specifier = ">=4.23.4" },
     { name = "rich", specifier = ">=13.4.2" },
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0.1" },
