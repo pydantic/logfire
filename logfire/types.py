@@ -15,6 +15,7 @@ from logfire._internal.utils import canonicalize_exception_traceback
 
 if TYPE_CHECKING:
     from opentelemetry.sdk.trace import ReadableSpan, Span
+    from opentelemetry.util import types as otel_types
 
 
 @dataclass
@@ -83,6 +84,7 @@ class ExceptionCallbackHelper:
 
     span: Span
     exception: BaseException
+    event_attributes: otel_types.Attributes = None
     _issue_fingerprint_source: str | None = None
     _create_issue: bool | None = None
     _record_exception: bool = True

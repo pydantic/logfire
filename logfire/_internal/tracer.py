@@ -431,7 +431,7 @@ def record_exception(
         set_exception_status(span, exception)
         span.set_attributes(log_level_attributes('error'))
 
-    helper = ExceptionCallbackHelper(span=cast(SDKSpan, span), exception=exception)
+    helper = ExceptionCallbackHelper(span=cast(SDKSpan, span), exception=exception, event_attributes=attributes)
 
     if callback is not None:
         with handle_internal_errors:
@@ -440,7 +440,7 @@ def record_exception(
     if not helper._record_exception:  # type: ignore
         return
 
-    attributes = {**(attributes or {})}
+    attributes = {**(helper.event_attributes or {})}
     if ValidationError is not None and isinstance(exception, ValidationError):
         # insert a more detailed breakdown of pydantic errors
         try:
