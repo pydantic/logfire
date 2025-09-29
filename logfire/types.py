@@ -84,7 +84,7 @@ class ExceptionCallbackHelper:
 
     span: Span
     exception: BaseException
-    event_attributes: otel_types.Attributes = None
+    event_attributes: dict[str, otel_types.AttributeValue]
     _issue_fingerprint_source: str | None = None
     _create_issue: bool | None = None
     _record_exception: bool = True
@@ -171,7 +171,12 @@ class ExceptionCallbackHelper:
 
         # Note: the level might not be set if dealing with a non-escaping exception, but that's expected for e.g.
         # the root spans of web frameworks.
-        return self._record_exception and (self.level_is_unset or self.level >= 'error') and self.parent_span is None
+        return (
+            self._record_exception
+            and (self.level_is_unset or self.level >= 'error')
+            and self.parent_span is None
+            and 'recorded_by_logfire_fastapi' not in self.event_attributes
+        )
 
     @create_issue.setter
     def create_issue(self, value: bool):

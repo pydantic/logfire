@@ -1699,7 +1699,6 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                     'fastapi.arguments.end_timestamp': '1970-01-01T00:00:04.000000Z',
                     'fastapi.endpoint_function.start_timestamp': '1970-01-01T00:00:07.000000Z',
                     'fastapi.endpoint_function.end_timestamp': '1970-01-01T00:00:08.000000Z',
-                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                     'http.status_code': 422,
                     'http.response.status_code': 422,
                 },
