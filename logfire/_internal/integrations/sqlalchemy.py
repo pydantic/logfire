@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any
 
 try:
@@ -19,8 +20,17 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
 
 
+def _convert_to_sync_engine(engine: AsyncEngine | Engine | None) -> Engine | None:
+    from sqlalchemy.ext.asyncio import AsyncEngine
+
+    if isinstance(engine, AsyncEngine):
+        return engine.sync_engine
+    return engine
+
+
 def instrument_sqlalchemy(
     engine: AsyncEngine | Engine | None,
+    engines: Iterable[AsyncEngine | Engine] | None,
     enable_commenter: bool,
     commenter_options: CommenterOptions,
     **kwargs: Any,
@@ -30,10 +40,11 @@ def instrument_sqlalchemy(
     See the `Logfire.instrument_sqlalchemy` method for details.
     """
     with contextlib.suppress(ImportError):
-        from sqlalchemy.ext.asyncio import AsyncEngine
+        engine = _convert_to_sync_engine(engine)
 
-        if isinstance(engine, AsyncEngine):
-            engine = engine.sync_engine
+        if engines is not None:
+            engines = [_convert_to_sync_engine(engine_entry) for engine_entry in engines]  # type: ignore
+
     return SQLAlchemyInstrumentor().instrument(
-        engine=engine, enable_commenter=enable_commenter, commenter_options=commenter_options, **kwargs
+        engine=engine, engines=engines, enable_commenter=enable_commenter, commenter_options=commenter_options, **kwargs
     )

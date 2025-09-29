@@ -17,7 +17,6 @@ from opentelemetry.sdk.metrics.export import (
 )
 
 import logfire
-import logfire._internal.metrics
 from logfire._internal.config import METRICS_PREFERRED_TEMPORALITY
 from logfire._internal.exporters.quiet_metrics import QuietMetricExporter
 from logfire._internal.exporters.test import TestExporter
@@ -203,17 +202,6 @@ def test_create_metric_gauge(metrics_reader: InMemoryMetricReader) -> None:
             }
         ]
     )
-
-
-def test_create_metric_gauge_old_opentelemetry_sdk(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(logfire._internal.metrics, 'Gauge', None)
-    with pytest.raises(RuntimeError) as exc_info:
-        logfire.metric_gauge('gauge')
-    assert str(exc_info.value) == snapshot("""\
-Gauge is not available in this version of OpenTelemetry SDK.
-You should upgrade to 1.23.0 or newer:
-   pip install opentelemetry-sdk>=1.23.0\
-""")
 
 
 def test_create_metric_up_down_counter(metrics_reader: InMemoryMetricReader) -> None:
@@ -446,6 +434,48 @@ def test_metrics_in_spans(exporter: TestExporter):
                     },
                 },
             },
+        ]
+    )
+
+
+def test_metrics_in_spans_disabled(exporter: TestExporter):
+    # This method of setting collect_in_spans is a hack because using logfire.configure for this is annoying,
+    # this way of doing it isn't guaranteed to work forever.
+    metrics_options = logfire.DEFAULT_LOGFIRE_INSTANCE.config.metrics
+    assert isinstance(metrics_options, logfire.MetricsOptions)
+    metrics_options.collect_in_spans = False
+
+    # operation.cost is special cased to always be collected regardless of config
+    cost = logfire.metric_counter('operation.cost')
+    tokens = logfire.metric_counter('tokens')  # not collected
+
+    with logfire.span('span'):
+        tokens.add(100)
+        cost.add(200)
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'span',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_metrics.py',
+                    'code.function': 'test_metrics_in_spans_disabled',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'span',
+                    'logfire.msg': 'span',
+                    'logfire.span_type': 'span',
+                    'logfire.metrics': {
+                        'operation.cost': {
+                            'details': [{'attributes': {}, 'total': 200}],
+                            'total': 200,
+                        }
+                    },
+                },
+            }
         ]
     )
 

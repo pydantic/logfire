@@ -1,0 +1,314 @@
+interactions:
+- request:
+    body: '{"messages":[{"role":"user","content":"tell a joke about socks"}],"model":"gpt-4o","stream":false,"tool_choice":"auto","tools":[{"type":"function","function":{"name":"joker","description":"Poem
+      generator","parameters":{"properties":{"theme":{"type":"string"}},"required":["theme"],"type":"object","additionalProperties":false},"strict":true}}]}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate, zstd
+      connection:
+      - keep-alive
+      content-length:
+      - '344'
+      content-type:
+      - application/json
+      host:
+      - api.openai.com
+      user-agent:
+      - pydantic-ai/0.8.1
+      x-stainless-arch:
+      - arm64
+      x-stainless-async:
+      - async:asyncio
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - MacOS
+      x-stainless-package-version:
+      - 1.102.0
+      x-stainless-read-timeout:
+      - '600'
+      x-stainless-retry-count:
+      - '0'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.12.6
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAAA4xTUWvbMBB+968Q95wMp3Hc1I8tJSsdY7CObVmKUeSzrUSWhCRvDSH/vVhObCft
+        oH4w4j59d999d9oHhADPICHASupYpcX47jb68biMN/GaP/36Ir/v6rt6Mrv99vL4+WkOo4ah1htk
+        7sT6xFSlBTquZAszg9Rhk3VyPYuvZ9H8JvZApTIUDa3Qbhyp8VV4FY3D+TiMj8RScYYWEvInIISQ
+        vf83EmWGL5CQcHSKVGgtLRCS7hIhYJRoIkCt5dZR6WDUg0xJh7JRLWshBoBTSqSMCtEXbr/94Nz7
+        RIVIf//Eh2WkFot/93J7s3hYR9F0+XVnB/Xa1DvtBeW1ZJ0/A7yLJxfFCAFJK8/dqC2aCyIhQE1R
+        VyhdIxr2K3AlVriCZAVWsa1dwQHOKIfgvfPzwAeDeW2peGsQlVI52uj0Dj0fkUM3DKEKbdTaXlAh
+        55LbMjVIre9xaHVwEuIlQH02TdBGVdqlTm3RF41mbVLod60HJyfQKUdFH4+P63KeLc3QUe6H3e0X
+        o6zErGf2e0brjKsBEAw6fyvmvdxt91wWH0nfA4yhdpil2mDG2XnD/TWDzUv837XOYy8YLJq/nGHq
+        OJpmGhnmtBbtIwG7sw6rNOeyQKMN9y8Fcp3m02kchTQKQwgOwSsAAAD//wMArHw7xjIEAAA=
+    headers:
+      CF-RAY:
+      - 97872b752cdb1640-CPT
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Mon, 01 Sep 2025 19:28:17 GMT
+      Server:
+      - cloudflare
+      Set-Cookie:
+      - __cf_bm=ikLn46wWh3hyPqkJSpicpYZ8adRTWI4K1u4peEEnmrU-1756754897-1.0.1.1-psW7h2lh9A2T4Jxzn40z3OZ98IIGEoX3Rtw3NQSvS76FFNo2LlRVsm.yJLgQr6BgoF4_7Px3tkplvBB6c40SWemYZph5BCQ7dj6hJ0hH3ao;
+        path=/; expires=Mon, 01-Sep-25 19:58:17 GMT; domain=.api.openai.com; HttpOnly;
+        Secure; SameSite=None
+      - _cfuvid=besdx4kPLOzFKsqa20F61pQui64n_yquedCQK5Joi2A-1756754897266-0.0.1.1-604800000;
+        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      access-control-expose-headers:
+      - X-Request-ID
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      openai-organization:
+      - pydantic-28gund
+      openai-processing-ms:
+      - '458'
+      openai-project:
+      - proj_wlzE3wrTAwGKSsoZUKNhfDgz
+      openai-version:
+      - '2020-10-01'
+      x-envoy-upstream-service-time:
+      - '461'
+      x-ratelimit-limit-requests:
+      - '10000'
+      x-ratelimit-limit-tokens:
+      - '2000000'
+      x-ratelimit-remaining-requests:
+      - '9999'
+      x-ratelimit-remaining-tokens:
+      - '1999992'
+      x-ratelimit-reset-requests:
+      - 6ms
+      x-ratelimit-reset-tokens:
+      - 0s
+      x-request-id:
+      - req_13b0999a343a48fdbd8b614e66a3cd32
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"messages":[{"role":"user","content":"tell a joke about socks"}],"model":"gpt-4o","max_completion_tokens":16384,"stream":false}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate, zstd
+      connection:
+      - keep-alive
+      content-length:
+      - '128'
+      content-type:
+      - application/json
+      host:
+      - api.openai.com
+      user-agent:
+      - pydantic-ai/0.8.1
+      x-stainless-arch:
+      - arm64
+      x-stainless-async:
+      - async:asyncio
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - MacOS
+      x-stainless-package-version:
+      - 1.102.0
+      x-stainless-read-timeout:
+      - '600'
+      x-stainless-retry-count:
+      - '0'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.12.6
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAAA4xSTW/bMAy9+1dwOseDm+aruQzoMGDA0KGXYoelMBSJtjXLoiDR3YIi/32wncRO
+        twG76MDH98T3yNcEQBgttiBUJVk13qYf7xdPD9hy/fhw+yV+fjp4o8v9p6+PtclexKxj0P4HKj6z
+        3itqvEU25AZYBZSMnerNerlaLxebu00PNKTRdrTSc7qgdJ7NF2m2SbPViViRURjFFr4nAACv/duN
+        6DT+ElvIZudKgzHKEsX20gQgAtmuImSMJrJ0LGYjqMgxun7qb9UBtNHAFUIkVcM+oKyh9fDTcDWU
+        K8IPO7dz96hkGxEMQ0Gt0xCpQa6MK6GhgLATkSymRWvf7cT0v4BFG2Vn17XWTgDpHLHs4uqdPp+Q
+        48WbpdIH2sc3VFEYZ2KVB5SRXOcjMnnRo8cE4LnPsL2KRfhAjeecqcb+u5v5ICfGpY3g/JSvYGJp
+        x/rtmXSllmtkaWyc7EAoqSrUI3NcmGy1oQmQTDz/OczftAffxpX/Iz8CSqFn1LkPqI26Njy2BexO
+        +l9tl4z7gUXE8GIU5mwwdHvQWMjWDtcm4iEyNnlhXInBBzOcXOFzXWTFen+3XCmRHJPfAAAA//8D
+        AOelIGp7AwAA
+    headers:
+      CF-RAY:
+      - 97872b7c39a61640-CPT
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Mon, 01 Sep 2025 19:28:18 GMT
+      Server:
+      - cloudflare
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      access-control-expose-headers:
+      - X-Request-ID
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      openai-organization:
+      - pydantic-28gund
+      openai-processing-ms:
+      - '476'
+      openai-project:
+      - proj_wlzE3wrTAwGKSsoZUKNhfDgz
+      openai-version:
+      - '2020-10-01'
+      x-envoy-upstream-service-time:
+      - '925'
+      x-ratelimit-limit-requests:
+      - '10000'
+      x-ratelimit-limit-tokens:
+      - '2000000'
+      x-ratelimit-remaining-requests:
+      - '9999'
+      x-ratelimit-remaining-tokens:
+      - '1999992'
+      x-ratelimit-reset-requests:
+      - 6ms
+      x-ratelimit-reset-tokens:
+      - 0s
+      x-request-id:
+      - req_bf9d3c1e834244b68d635290a9c4950a
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"messages":[{"role":"user","content":"tell a joke about socks"},{"role":"assistant","content":null,"tool_calls":[{"id":"call_YWeIZ4oGGwEnk9GIb443ZNys","type":"function","function":{"name":"joker","arguments":"{\"theme\":\"socks\"}"}}]},{"role":"tool","tool_call_id":"call_YWeIZ4oGGwEnk9GIb443ZNys","content":"Why
+      did the sock break up with the shoe?\n\nBecause it found something more \"sole-ful!\""}],"model":"gpt-4o","stream":false,"tool_choice":"auto","tools":[{"type":"function","function":{"name":"joker","description":"Poem
+      generator","parameters":{"properties":{"theme":{"type":"string"}},"required":["theme"],"type":"object","additionalProperties":false},"strict":true}}]}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate, zstd
+      connection:
+      - keep-alive
+      content-length:
+      - '681'
+      content-type:
+      - application/json
+      host:
+      - api.openai.com
+      user-agent:
+      - pydantic-ai/0.8.1
+      x-stainless-arch:
+      - arm64
+      x-stainless-async:
+      - async:asyncio
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - MacOS
+      x-stainless-package-version:
+      - 1.102.0
+      x-stainless-read-timeout:
+      - '600'
+      x-stainless-retry-count:
+      - '0'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.12.6
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAAAwAAAP//jJLBbtswDIbvfgpO53hwEjdJcxnQAttOOwzIdlgKQ5FoW40sChK9Jijy
+        7oPtNE67DthFB378Kf4knxMAYbRYg1C1ZNV4m97f5ZtvdpMtv34v5Vzb3SPeP32pj5vD58MPMekU
+        tHtExS+qj4oab5ENuQGrgJKxqzpd3iyWN/nq9rYHDWm0nazynOaUzrJZnmarNFuchTUZhVGs4VcC
+        APDcv12LTuNBrCGbvEQajFFWKNaXJAARyHYRIWM0kaVjMRmhIsfo+q5/1kfQRgPXCJHUHnYB5R5a
+        D0+G6yFcE37auq27QyXbiGAYSmqdhkgNcm1cBQ0FhK2IZDEtW/thK67/C1i2UXZ2XWvtFZDOEctu
+        XL3ThzM5XbxZqnygXXwjFaVxJtZFQBnJdT4ikxc9PSUAD/0M21djET5Q47lg2mP/3Wo5lBPj0kY4
+        m54hE0s7xqfZavJOuUIjS2Pj1RKEkqpGPUrHjclWG7oCyZXpv7t5r/Zg3Ljqf8qPQCn0jLrwAbVR
+        rx2PaQG7m/5X2mXIfcMiYvhtFBZsMHSL0FjK1g7nJuIxMjZFaVyFwQcz3Fzpi3I+X+SZzLNMJKfk
+        DwAAAP//AwA3QllrfAMAAA==
+    headers:
+      CF-RAY:
+      - 97872b844a901640-CPT
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Mon, 01 Sep 2025 19:28:20 GMT
+      Server:
+      - cloudflare
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      access-control-expose-headers:
+      - X-Request-ID
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      openai-organization:
+      - pydantic-28gund
+      openai-processing-ms:
+      - '668'
+      openai-project:
+      - proj_wlzE3wrTAwGKSsoZUKNhfDgz
+      openai-version:
+      - '2020-10-01'
+      x-envoy-upstream-service-time:
+      - '673'
+      x-ratelimit-limit-requests:
+      - '10000'
+      x-ratelimit-limit-tokens:
+      - '2000000'
+      x-ratelimit-remaining-requests:
+      - '9999'
+      x-ratelimit-remaining-tokens:
+      - '1999969'
+      x-ratelimit-reset-requests:
+      - 6ms
+      x-ratelimit-reset-tokens:
+      - 0s
+      x-request-id:
+      - req_9955f01541234a1aab7f2cc6e28091b6
+    status:
+      code: 200
+      message: OK
+version: 1

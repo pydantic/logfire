@@ -16,7 +16,7 @@ def instrument_pydantic_ai(
     event_mode: Literal['attributes', 'logs'] | None,
     **kwargs: Any,
 ) -> None | InstrumentedModel:
-    if event_mode is None:
+    if event_mode is None:  # pragma: no branch
         event_mode = InstrumentationSettings.event_mode
     kwargs = dict(
         tracer_provider=logfire_instance.config.get_tracer_provider(),

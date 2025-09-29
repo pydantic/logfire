@@ -1,5 +1,46 @@
 # Release Notes
 
+## [v4.10.0] (2025-09-24)
+
+* Trigger `auth` command from `prompt` by @Kludex in [#1423](https://github.com/pydantic/logfire/pull/1423)
+* Remove conditional check on OTEL version for `Gauge` import by @Viicos in [#1426](https://github.com/pydantic/logfire/pull/1426)
+
+## [v4.9.0] (2025-09-22)
+
+* Fix Root Model Not Rendering As Expected by @dhruv-ahuja in [#1396](https://github.com/pydantic/logfire/pull/1396)
+* Use `=` instead of `:` in codex setup by @Kludex in [#1420](https://github.com/pydantic/logfire/pull/1420)
+* Add support for OpenCode on the `prompt` command by @Kludex in [#1421](https://github.com/pydantic/logfire/pull/1421)
+
+## [v4.8.0] (2025-09-18)
+
+* Allow capturing headers and response body with `logfire.instrument_aiohttp_client()` by @adtyavrdhn in [#1405](https://github.com/pydantic/logfire/pull/1405) and [#1409](https://github.com/pydantic/logfire/pull/1409)
+
+## [v4.7.0] (2025-09-12)
+
+* Update to OpenTelemetry SDK 1.37.0, drop support for <1.35.0 by @alexmojaki in [#1398](https://github.com/pydantic/logfire/pull/1398)
+
+## [v4.6.0] (2025-09-10)
+
+* Fix: check `LOGFIRE_IGNORE_NO_CONFIG` from environment when needed by @Lftobs in [#1379](https://github.com/pydantic/logfire/pull/1379)
+* Expand scrubbing whitelist, especially for `gen_ai` messages by @alexmojaki in [#1392](https://github.com/pydantic/logfire/pull/1392)
+* Print project link eagerly from credentials file if possible by @alexmojaki in [#1393](https://github.com/pydantic/logfire/pull/1393)
+* Fix: Only list orgs in CLI where projects can be created by @alexmojaki in [#1391](https://github.com/pydantic/logfire/pull/1391)
+
+## [v4.5.0] (2025-09-09)
+
+* Export `attach_context` and `get_context` directly from `logfire` module, not just `logfire.propagate` by @dhruv-ahuja in [#1385](https://github.com/pydantic/logfire/pull/1385)
+* Only list writeable projects from CLI by @alexmojaki in [#1386](https://github.com/pydantic/logfire/pull/1386)
+* Add `ensure_ascii=False` to `json.dumps` calls by @qiangxinglin in [#1381](https://github.com/pydantic/logfire/pull/1381)
+* Remove unused `stack_offset` from `with_settings()` by @LucasSantos27 in [#1380](https://github.com/pydantic/logfire/pull/1380)
+
+## [v4.4.0] (2025-09-05)
+
+* Add `logfire.instrument_print()` by @alexmojaki in [#1368](https://github.com/pydantic/logfire/pull/1368)
+* Record response on 'MCP server handle request' span by @alexmojaki in [#1362](https://github.com/pydantic/logfire/pull/1362)
+* Handle MCP request metadata being a dict by @alexmojaki in [#1360](https://github.com/pydantic/logfire/pull/1360)
+* fix: handle optional args in `logfire.instrument` by @stevenh in [#1337](https://github.com/pydantic/logfire/pull/1337)
+* Add `logfire_token` to scrubbing patterns by @alexmojaki in [#1367](https://github.com/pydantic/logfire/pull/1367)
+
 ## [v4.3.6] (2025-08-26)
 
 * Add specific code agent options for `logfire prompt` by @Kludex in [#1350](https://github.com/pydantic/logfire/pull/1350)
@@ -871,3 +912,10 @@ First release from new repo!
 [v4.3.4]: https://github.com/pydantic/logfire/compare/v4.3.3...v4.3.4
 [v4.3.5]: https://github.com/pydantic/logfire/compare/v4.3.4...v4.3.5
 [v4.3.6]: https://github.com/pydantic/logfire/compare/v4.3.5...v4.3.6
+[v4.4.0]: https://github.com/pydantic/logfire/compare/v4.3.6...v4.4.0
+[v4.5.0]: https://github.com/pydantic/logfire/compare/v4.4.0...v4.5.0
+[v4.6.0]: https://github.com/pydantic/logfire/compare/v4.5.0...v4.6.0
+[v4.7.0]: https://github.com/pydantic/logfire/compare/v4.6.0...v4.7.0
+[v4.8.0]: https://github.com/pydantic/logfire/compare/v4.7.0...v4.8.0
+[v4.9.0]: https://github.com/pydantic/logfire/compare/v4.8.0...v4.9.0
+[v4.10.0]: https://github.com/pydantic/logfire/compare/v4.9.0...v4.10.0

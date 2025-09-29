@@ -18,24 +18,24 @@ def get_context() -> ContextCarrier:
     Usage:
 
     ```py
-    from logfire.propagate import get_context, attach_context
+    import logfire
 
-    logfire_context = get_context()
+    logfire_context = logfire.get_context()
 
     ...
 
     # later on in another thread, process or service
-    with attach_context(logfire_context):
+    with logfire.attach_context(logfire_context):
         ...
     ```
 
     You could also inject context into an existing mapping like headers with:
 
     ```py
-    from logfire.propagate import get_context
+    import logfire
 
     existing_headers = {'X-Foobar': 'baz'}
-    existing_headers.update(get_context())
+    existing_headers.update(logfire.get_context())
     ...
     ```
     """

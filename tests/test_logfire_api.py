@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import sys
+import warnings
 from pathlib import Path
 from types import ModuleType
 from typing import Callable
@@ -168,7 +169,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         getattr(logfire_api, member)(app=MagicMock())
         logfire__all__.remove(member)
 
-    for member in [m for m in ('instrument_openai', 'instrument_anthropic')]:
+    for member in [m for m in ('instrument_openai', 'instrument_anthropic', 'instrument_print')]:
         assert hasattr(logfire_api, member), member
         with getattr(logfire_api, member)():
             ...
@@ -179,7 +180,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('instrument_openai_agents')
 
     assert hasattr(logfire_api, 'instrument_pydantic_ai')
-    if not pydantic_pre_2_5:
+    if sys.version_info >= (3, 10) and get_version(pydantic_version) >= get_version('2.10.0'):
         logfire_api.instrument_pydantic_ai()
     logfire__all__.remove('instrument_pydantic_ai')
 
@@ -195,12 +196,14 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
 
     assert hasattr(logfire_api, 'instrument_litellm')
     if not pydantic_pre_2_5:
-        try:
-            importlib.import_module('litellm')
-        except AttributeError:  # pragma: no cover  # TODO figure this out
-            pass
-        else:
-            logfire_api.instrument_litellm()
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', category=DeprecationWarning)
+            try:
+                importlib.import_module('litellm')
+            except AttributeError:  # pragma: no cover  # TODO figure this out
+                pass
+            else:
+                logfire_api.instrument_litellm()
     logfire__all__.remove('instrument_litellm')
 
     for member in [m for m in logfire__all__ if m.startswith('instrument_')]:
@@ -263,6 +266,15 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     with logfire_api.set_baggage(a='1'):
         pass
     logfire__all__.remove('set_baggage')
+
+    assert hasattr(logfire_api, 'get_context')
+    logfire_api.get_context()
+    logfire__all__.remove('get_context')
+
+    assert hasattr(logfire_api, 'attach_context')
+    with logfire_api.attach_context({'traceparent': '00-d1b9e555b056907ee20b0daebf62282c-7dcd821387246e1c-01'}):
+        pass
+    logfire__all__.remove('attach_context')
 
     # If it's not empty, it means that some of the __all__ members are not tested.
     assert logfire__all__ == set(), logfire__all__

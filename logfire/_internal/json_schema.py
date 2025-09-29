@@ -72,6 +72,7 @@ def type_to_schema() -> dict[type[Any], JsonDict | Callable[[Any, set[int]], Jso
                 pydantic.SecretBytes: {'type': 'string', 'x-python-datatype': 'SecretBytes'},
                 pydantic.AnyUrl: {'type': 'string', 'x-python-datatype': 'AnyUrl'},
                 pydantic.BaseModel: _pydantic_model_schema,
+                pydantic.RootModel: _pydantic_root_model_schema,
             }
         )
 
@@ -111,6 +112,7 @@ def create_json_schema(obj: Any, seen: set[int]) -> JsonDict:
     try:
         # cover common types first before calling `type_to_schema` to avoid the overhead of imports if not necessary
         obj_type = obj.__class__
+
         if obj_type in {str, int, bool, float}:
             return {}
 
@@ -282,10 +284,49 @@ def _exception_schema(obj: Exception, _seen: set[int]) -> JsonDict:
     return {'type': 'object', 'title': obj.__class__.__name__, 'x-python-datatype': 'Exception'}
 
 
+def _pydantic_root_model_schema(obj: Any, seen: set[int]) -> JsonDict:
+    import pydantic
+
+    assert isinstance(obj, pydantic.RootModel)
+
+    root = obj.root  # type: ignore
+
+    if isinstance(root, type(None)):
+        return {'type': 'null'}
+
+    schema: JsonDict = {}
+
+    # return a complex schema to ensure JSON parsing for simple objects inside RootModel since they get an
+    # extra layer of JSON encoding and to handle subclass representations correctly
+    primitive_types = (str, bool, int, float)
+    if isinstance(root, primitive_types):
+        datatype = None
+        if isinstance(root, str):
+            type_ = 'string'
+            datatype = 'str'
+        elif isinstance(root, bool):
+            type_ = 'boolean'
+        elif isinstance(root, int):
+            type_ = 'integer'
+            datatype = 'int'
+        else:
+            type_ = 'number'
+            datatype = 'float'
+
+        schema = {'type': type_, 'x-python-datatype': datatype}
+        if root.__class__ not in primitive_types:
+            schema['title'] = root.__class__.__name__
+
+        return schema
+
+    return create_json_schema(obj.root, seen)  # type: ignore
+
+
 def _pydantic_model_schema(obj: Any, seen: set[int]) -> JsonDict:
     import pydantic
 
     assert isinstance(obj, pydantic.BaseModel)
+
     try:
         fields = type(obj).model_fields
         extra = obj.model_extra or {}

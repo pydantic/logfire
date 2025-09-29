@@ -222,13 +222,13 @@ class LogfireWrapperBase(Generic[T]):
             self.detach()
 
     @abstractmethod
-    def on_ending(self): ...  # pragma: no cover
+    def on_ending(self): ...
 
     @abstractmethod
-    def attach(self): ...  # pragma: no cover
+    def attach(self): ...
 
     @abstractmethod
-    def detach(self): ...  # pragma: no cover
+    def detach(self): ...
 
     def __getattr__(self, item: str):
         return getattr(self.wrapped, item)

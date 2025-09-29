@@ -101,10 +101,6 @@ def install_logfire(markdown: str, page: Page) -> str:
             '    ```bash',
             f'    uv add {package}',
             '    ```',
-            '=== "poetry"',
-            '    ```bash',
-            f'    poetry add {package}',
-            '    ```',
         ]
 
         if not extras:

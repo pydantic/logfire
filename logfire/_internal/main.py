@@ -90,6 +90,10 @@ if TYPE_CHECKING:
     from starlette.websockets import WebSocket
     from typing_extensions import Unpack
 
+    from ..integrations.aiohttp_client import (
+        RequestHook as AiohttpClientRequestHook,
+        ResponseHook as AiohttpClientResponseHook,
+    )
     from ..integrations.flask import (
         CommenterOptions as FlaskCommenterOptions,
         RequestHook as FlaskRequestHook,
@@ -815,7 +819,6 @@ class Logfire:
         self,
         *,
         tags: Sequence[str] = (),
-        stack_offset: int | None = None,
         console_log: bool | None = None,
         custom_scope_suffix: str | None = None,
     ) -> Logfire:
@@ -823,9 +826,6 @@ class Logfire:
 
         Args:
             tags: Sequence of tags to include in the log.
-            stack_offset: The stack level offset to use when collecting stack info, also affects the warning which
-                message formatting might emit, defaults to `0` which means the stack info will be collected from the
-                position where [`logfire.log`][logfire.Logfire.log] was called.
             console_log: Whether to log to the console, defaults to `True`.
             custom_scope_suffix: A custom suffix to append to `logfire.` e.g. `logfire.loguru`.
 
@@ -918,10 +918,14 @@ class Logfire:
         self.config.warn_if_not_initialized('Instrumentation will have no effect')
 
     def instrument_mcp(self, *, propagate_otel_context: bool = True) -> None:
-        """Instrument [MCP](https://modelcontextprotocol.io/) requests such as tool calls.
+        """Instrument the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk).
+
+        Instruments both the client and server side. If possible, calling this in both the client and server
+        processes is recommended for nice distributed traces.
 
         Args:
-            propagate_otel_context: Whether to enable propagation of the OpenTelemetry context.
+            propagate_otel_context: Whether to enable propagation of the OpenTelemetry context
+                for distributed tracing.
                 Set to False to prevent setting extra fields like `traceparent` on the metadata of requests.
         """
         from .integrations.mcp import instrument_mcp
@@ -1285,17 +1289,60 @@ class Logfire:
             is_async_client,
         )
 
-    def instrument_google_genai(self):
+    def instrument_google_genai(self, **kwargs: Any):
+        """Instrument the [Google Gen AI SDK (`google-genai`)](https://googleapis.github.io/python-genai/).
+
+        !!! note
+            To capture message contents (i.e. prompts and completions), set the environment variable
+            `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` to `true`.
+
+        Uses the `GoogleGenAiSdkInstrumentor().instrument()` method of the
+        [`opentelemetry-instrumentation-google-genai`](https://pypi.org/project/opentelemetry-instrumentation-google-genai/)
+        package, to which it passes `**kwargs`.
+        """
         from .integrations.google_genai import instrument_google_genai
 
         self._warn_if_not_initialized_for_instrumentation()
-        instrument_google_genai(self)
+        instrument_google_genai(self, **kwargs)
 
     def instrument_litellm(self, **kwargs: Any):
+        """Instrument the [LiteLLM](https://docs.litellm.ai/) Python SDK.
+
+        !!! warning
+            This currently works best if all arguments of instrumented methods are passed as keyword arguments,
+            e.g. `litellm.completion(model=model, messages=messages)`.
+
+        Uses the `LiteLLMInstrumentor().instrument()` method of the
+        [`openinference-instrumentation-litellm`](https://pypi.org/project/openinference-instrumentation-litellm/)
+        package, to which it passes `**kwargs`.
+        """
         from .integrations.litellm import instrument_litellm
 
         self._warn_if_not_initialized_for_instrumentation()
         instrument_litellm(self, **kwargs)
+
+    def instrument_print(self) -> AbstractContextManager[None]:
+        """Instrument the built-in `print` function so that calls to it are logged.
+
+        If Logfire is configured with [`inspect_arguments=True`][logfire.configure(inspect_arguments)],
+        the names of the arguments passed to `print` will be included in the log attributes
+        and will be used for scrubbing.
+
+        The fallback attribute name `logfire.print_args` will be used if:
+
+         - `inspect_arguments` is `False`
+         - Inspection fails for any reason
+         - Multiple starred arguments are used (e.g. `print(*args1, *args2)`)
+            in which case names can't be unambiguously determined.
+
+        Returns:
+            A context manager that will revert the instrumentation when exited.
+                Use of this context manager is optional.
+        """
+        from .integrations.print import instrument_print
+
+        self._warn_if_not_initialized_for_instrumentation()
+        return instrument_print(self)
 
     def instrument_asyncpg(self, **kwargs: Any) -> None:
         """Instrument the `asyncpg` module so that spans are automatically created for each query."""
@@ -1732,7 +1779,15 @@ class Logfire:
             },
         )
 
-    def instrument_aiohttp_client(self, **kwargs: Any) -> None:
+    def instrument_aiohttp_client(
+        self,
+        *,
+        capture_headers: bool = False,
+        capture_response_body: bool = False,
+        request_hook: AiohttpClientRequestHook | None = None,
+        response_hook: AiohttpClientResponseHook | None = None,
+        **kwargs: Any,
+    ) -> None:
         """Instrument the `aiohttp` module so that spans are automatically created for each client request.
 
         Uses the
@@ -1742,7 +1797,14 @@ class Logfire:
         from .integrations.aiohttp_client import instrument_aiohttp_client
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_aiohttp_client(self, **kwargs)
+        return instrument_aiohttp_client(
+            self,
+            capture_response_body=capture_response_body,
+            capture_headers=capture_headers,
+            request_hook=request_hook,
+            response_hook=response_hook,
+            **kwargs,
+        )
 
     def instrument_aiohttp_server(self, **kwargs: Any) -> None:
         """Instrument the `aiohttp` module so that spans are automatically created for each server request.
@@ -1759,6 +1821,7 @@ class Logfire:
     def instrument_sqlalchemy(
         self,
         engine: AsyncEngine | Engine | None = None,
+        engines: Iterable[AsyncEngine | Engine] | None = None,
         enable_commenter: bool = False,
         commenter_options: SQLAlchemyCommenterOptions | None = None,
         **kwargs: Any,
@@ -1770,7 +1833,8 @@ class Logfire:
         library, specifically `SQLAlchemyInstrumentor().instrument()`, to which it passes `**kwargs`.
 
         Args:
-            engine: The `sqlalchemy` engine to instrument, or `None` to instrument all engines.
+            engine: The `sqlalchemy` engine to instrument.
+            engines: An iterable of `sqlalchemy` engines to instrument.
             enable_commenter: Adds comments to SQL queries performed by SQLAlchemy, so that database logs have additional context.
             commenter_options: Configure the tags to be added to the SQL comments.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods.
@@ -1780,6 +1844,7 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_sqlalchemy(
             engine=engine,
+            engines=engines,
             enable_commenter=enable_commenter,
             commenter_options=commenter_options or {},
             **{
