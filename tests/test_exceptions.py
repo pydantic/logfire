@@ -114,6 +114,7 @@ def test_exception_nested_span(exporter: TestExporter, config_kwargs: dict[str, 
                     'logfire.msg': 'inner',
                     'logfire.span_type': 'span',
                     'logfire.level_num': 17,
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                 },
                 'events': [
                     {
@@ -235,6 +236,7 @@ def test_set_fingerprint(exporter: TestExporter, config_kwargs: dict[str, Any]):
                     'logfire.msg': 'caught error',
                     'logfire.span_type': 'log',
                     'logfire.level_num': 10,
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                 },
                 'events': [
                     {

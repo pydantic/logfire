@@ -214,6 +214,7 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                     'client.port': 50000,
                     'http.route': '/secret/{path_param}',
                     'logfire.level_num': 17,
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                     'http.request.header.testauthorization': ("[Scrubbed due to 'auth']",),
                     'logfire.scrubbed': IsJson(
                         [{'path': ['attributes', 'http.request.header.testauthorization'], 'matched_substring': 'auth'}]

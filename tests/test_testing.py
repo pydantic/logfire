@@ -63,6 +63,7 @@ def test_capfire_fixture(capfire: CaptureLogfire) -> None:
                     'logfire.msg': 'a span!',
                     'logfire.span_type': 'span',
                     'logfire.level_num': 17,
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                 },
                 'events': [
                     {

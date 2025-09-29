@@ -1239,6 +1239,7 @@ def test_validation_error_on_instrument(exporter: TestExporter):
                             }
                         ]
                     ),
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                 },
                 'events': [
                     {
@@ -1310,6 +1311,7 @@ def test_validation_error_on_span(exporter: TestExporter) -> None:
                             }
                         ]
                     ),
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                 },
                 'events': [
                     {
@@ -3262,6 +3264,7 @@ def test_logfire_span_records_exceptions_once(exporter: TestExporter):
                     'logfire.msg': 'foo',
                     'logfire.span_type': 'span',
                     'logfire.level_num': 17,
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                 },
                 'events': [
                     {
@@ -3309,6 +3312,7 @@ def test_logfire_span_records_exceptions_manually_once(exporter: TestExporter):
                     'logfire.msg_template': 'foo',
                     'logfire.msg': 'foo',
                     'logfire.span_type': 'span',
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                 },
                 'events': [
                     {
