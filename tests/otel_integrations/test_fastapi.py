@@ -22,7 +22,6 @@ import logfire
 import logfire._internal
 import logfire._internal.integrations
 import logfire._internal.integrations.fastapi
-from logfire._internal.constants import LEVEL_NUMBERS
 from logfire._internal.main import set_user_attributes_on_raw_span
 from logfire.testing import TestExporter
 
@@ -74,8 +73,8 @@ async def echo_body(request: Request):
     return await request.body()
 
 
-async def bad_request_error():
-    raise HTTPException(400)
+async def http_exception(code: int):
+    raise HTTPException(code)
 
 
 async def websocket_endpoint(websocket: WebSocket, name: str):
@@ -109,7 +108,7 @@ def app():
     app.get('/other', name='other_route_name', operation_id='other_route_operation_id')(other_route)
     app.get('/exception')(exception)
     app.get('/validation_error')(validation_error)
-    app.get('/bad_request_error')(bad_request_error)
+    app.get('/http_exception/{code}')(http_exception)
     app.get('/with_path_param/{param}')(with_path_param)
     app.get('/secret/{path_param}', name='secret')(get_secret)
     app.get('/bad_dependency_route/{good}')(bad_dependency_route)
@@ -343,13 +342,182 @@ def test_404(client: TestClient, exporter: TestExporter) -> None:
     )
 
 
-def test_400(client: TestClient, exporter: TestExporter) -> None:
-    response = client.get('/bad_request_error')
-    assert response.status_code == 400
+def test_http_exceptions(client: TestClient, exporter: TestExporter) -> None:
+    assert client.get('/http_exception/200').status_code == 200
+    assert client.get('/http_exception/400').status_code == 400
+    assert client.get('/http_exception/500').status_code == 500
 
-    for span in exporter.exported_spans:
-        if span.events:
-            assert span.attributes and span.attributes['logfire.level_num'] == LEVEL_NUMBERS['warn']
+    assert [
+        span for span in exporter.exported_spans_as_dict() if span['name'] == 'GET /http_exception/{code}'
+    ] == snapshot(
+        [
+            {
+                'name': 'GET /http_exception/{code}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 16000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /http_exception/200',
+                    'http.scheme': 'http',
+                    'url.scheme': 'http',
+                    'http.host': 'testserver',
+                    'server.address': 'testserver',
+                    'net.host.port': 80,
+                    'server.port': 80,
+                    'http.flavor': '1.1',
+                    'network.protocol.version': '1.1',
+                    'http.target': '/http_exception/200',
+                    'url.path': '/http_exception/200',
+                    'http.url': 'http://testserver/http_exception/200',
+                    'http.method': 'GET',
+                    'http.request.method': 'GET',
+                    'http.server_name': 'testserver',
+                    'http.user_agent': 'testclient',
+                    'user_agent.original': 'testclient',
+                    'net.peer.ip': 'testclient',
+                    'client.address': 'testclient',
+                    'net.peer.port': 50000,
+                    'client.port': 50000,
+                    'http.route': '/http_exception/{code}',
+                    'fastapi.route.name': 'http_exception',
+                    'fastapi.route.operation_id': 'null',
+                    'logfire.json_schema': '{"type":"object","properties":{"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"}}}',
+                    'fastapi.arguments.start_timestamp': '1970-01-01T00:00:03.000000Z',
+                    'fastapi.arguments.end_timestamp': '1970-01-01T00:00:04.000000Z',
+                    'fastapi.endpoint_function.start_timestamp': '1970-01-01T00:00:07.000000Z',
+                    'fastapi.endpoint_function.end_timestamp': '1970-01-01T00:00:08.000000Z',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 9000000000,
+                        'attributes': {
+                            'exception.type': 'fastapi.exceptions.HTTPException',
+                            'exception.message': '200: OK',
+                            'exception.stacktrace': 'fastapi.exceptions.HTTPException: 200: OK',
+                            'exception.escaped': 'False',
+                            'recorded_by_logfire_fastapi': True,
+                        },
+                    }
+                ],
+            },
+            {
+                'name': 'GET /http_exception/{code}',
+                'context': {'trace_id': 2, 'span_id': 11, 'is_remote': False},
+                'parent': None,
+                'start_time': 17000000000,
+                'end_time': 32000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /http_exception/400',
+                    'http.scheme': 'http',
+                    'url.scheme': 'http',
+                    'http.host': 'testserver',
+                    'server.address': 'testserver',
+                    'net.host.port': 80,
+                    'server.port': 80,
+                    'http.flavor': '1.1',
+                    'network.protocol.version': '1.1',
+                    'http.target': '/http_exception/400',
+                    'url.path': '/http_exception/400',
+                    'http.url': 'http://testserver/http_exception/400',
+                    'http.method': 'GET',
+                    'http.request.method': 'GET',
+                    'http.server_name': 'testserver',
+                    'http.user_agent': 'testclient',
+                    'user_agent.original': 'testclient',
+                    'net.peer.ip': 'testclient',
+                    'client.address': 'testclient',
+                    'net.peer.port': 50000,
+                    'client.port': 50000,
+                    'http.route': '/http_exception/{code}',
+                    'fastapi.route.name': 'http_exception',
+                    'fastapi.route.operation_id': 'null',
+                    'logfire.json_schema': '{"type":"object","properties":{"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"}}}',
+                    'fastapi.arguments.start_timestamp': '1970-01-01T00:00:19.000000Z',
+                    'fastapi.arguments.end_timestamp': '1970-01-01T00:00:20.000000Z',
+                    'fastapi.endpoint_function.start_timestamp': '1970-01-01T00:00:23.000000Z',
+                    'fastapi.endpoint_function.end_timestamp': '1970-01-01T00:00:24.000000Z',
+                    'logfire.level_num': 13,
+                    'http.status_code': 400,
+                    'http.response.status_code': 400,
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 25000000000,
+                        'attributes': {
+                            'exception.type': 'fastapi.exceptions.HTTPException',
+                            'exception.message': '400: Bad Request',
+                            'exception.stacktrace': 'fastapi.exceptions.HTTPException: 400: Bad Request',
+                            'exception.escaped': 'False',
+                            'recorded_by_logfire_fastapi': True,
+                        },
+                    }
+                ],
+            },
+            {
+                'name': 'GET /http_exception/{code}',
+                'context': {'trace_id': 3, 'span_id': 21, 'is_remote': False},
+                'parent': None,
+                'start_time': 33000000000,
+                'end_time': 48000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /http_exception/500',
+                    'http.scheme': 'http',
+                    'url.scheme': 'http',
+                    'http.host': 'testserver',
+                    'server.address': 'testserver',
+                    'net.host.port': 80,
+                    'server.port': 80,
+                    'http.flavor': '1.1',
+                    'network.protocol.version': '1.1',
+                    'http.target': '/http_exception/500',
+                    'url.path': '/http_exception/500',
+                    'http.url': 'http://testserver/http_exception/500',
+                    'http.method': 'GET',
+                    'http.request.method': 'GET',
+                    'http.server_name': 'testserver',
+                    'http.user_agent': 'testclient',
+                    'user_agent.original': 'testclient',
+                    'net.peer.ip': 'testclient',
+                    'client.address': 'testclient',
+                    'net.peer.port': 50000,
+                    'client.port': 50000,
+                    'http.route': '/http_exception/{code}',
+                    'fastapi.route.name': 'http_exception',
+                    'fastapi.route.operation_id': 'null',
+                    'logfire.json_schema': '{"type":"object","properties":{"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"}}}',
+                    'fastapi.arguments.start_timestamp': '1970-01-01T00:00:35.000000Z',
+                    'fastapi.arguments.end_timestamp': '1970-01-01T00:00:36.000000Z',
+                    'fastapi.endpoint_function.start_timestamp': '1970-01-01T00:00:39.000000Z',
+                    'fastapi.endpoint_function.end_timestamp': '1970-01-01T00:00:40.000000Z',
+                    'http.status_code': 500,
+                    'http.response.status_code': 500,
+                    'error.type': '500',
+                    'logfire.level_num': 17,
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 41000000000,
+                        'attributes': {
+                            'exception.type': 'fastapi.exceptions.HTTPException',
+                            'exception.message': '500: Internal Server Error',
+                            'exception.stacktrace': 'fastapi.exceptions.HTTPException: 500: Internal Server Error',
+                            'exception.escaped': 'False',
+                            'recorded_by_logfire_fastapi': True,
+                        },
+                    }
+                ],
+            },
+        ]
+    )
 
 
 def test_path_param(client: TestClient, exporter: TestExporter) -> None:
