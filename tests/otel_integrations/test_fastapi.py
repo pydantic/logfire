@@ -498,6 +498,7 @@ def test_http_exceptions(client: TestClient, exporter: TestExporter) -> None:
                     'fastapi.endpoint_function.start_timestamp': '1970-01-01T00:00:39.000000Z',
                     'fastapi.endpoint_function.end_timestamp': '1970-01-01T00:00:40.000000Z',
                     'http.status_code': 500,
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                     'http.response.status_code': 500,
                     'error.type': '500',
                     'logfire.level_num': 17,

@@ -175,7 +175,7 @@ class ExceptionCallbackHelper:
             self._record_exception
             and (self.level_is_unset or self.level >= 'error')
             and self.parent_span is None
-            and 'recorded_by_logfire_fastapi' not in self.event_attributes
+            and not (self.event_attributes.get('recorded_by_logfire_fastapi') and self.level < 'error')
         )
 
     @create_issue.setter
