@@ -429,6 +429,10 @@ def record_exception(
             # But do record them as warnings.
             span.set_attributes(log_level_attributes('warn'))
         elif exception.status_code >= 500:
+            # Set this as an error now for ExceptionCallbackHelper.create_issue to see,
+            # particularly so that if this is raised in a FastAPI pseudo_span and the event is marked with
+            # the recorded_by_logfire_fastapi it will still create an issue in this case.
+            # FastAPI will 'handle' this exception meaning it won't get recorded again by OTel.
             set_exception_status(span, exception)
             span.set_attributes(log_level_attributes('error'))
 
