@@ -876,6 +876,7 @@ def test_pydantic_plugin_python_exception(exporter: TestExporter) -> None:
                     'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{"type":"object"},"success":{}}}',
                     'validation_method': 'validate_python',
                     'input_data': '{"x":1}',
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                     'success': False,
                 },
                 'events': [
@@ -925,6 +926,7 @@ def test_pydantic_plugin_python_exception_record_failure(exporter: TestExporter)
                     'schema_name': 'MyModel',
                     'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"exception_type":{}}}',
                     'exception_type': 'TypeError',
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                 },
                 'events': [
                     {
@@ -1035,6 +1037,7 @@ def test_old_plugin_style(exporter: TestExporter) -> None:
                         'success': False,
                         'logfire.msg': 'Pydantic MyModel validate_python raised TypeError',
                         'logfire.level_num': 17,
+                        'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                         'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{"type":"object"},"success":{}}}',
                     },
                     'events': [

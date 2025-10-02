@@ -209,6 +209,7 @@ def test_scrub_events(exporter: TestExporter):
                     'logfire.msg': 'get_password',
                     'logfire.span_type': 'span',
                     'logfire.level_num': 17,
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                     'logfire.scrubbed': IsJson(
                         [
                             {

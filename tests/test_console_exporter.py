@@ -738,6 +738,7 @@ def test_exception(exporter: TestExporter) -> None:
                     'code.lineno': 123,
                     'a': 'test',
                     'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                 },
                 events=[
                     {
