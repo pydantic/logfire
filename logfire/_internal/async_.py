@@ -38,7 +38,7 @@ def log_slow_callbacks(logfire: Logfire, slow_duration: float) -> AbstractContex
         if duration >= slow_duration:
             try:
                 duration /= ONE_SECOND_IN_NANOSECONDS
-                callback: Any = self._callback  # type: ignore
+                callback: Any = self._callback
                 logfire.warn(
                     'Async {name} blocked for {duration:.3f} seconds',
                     duration=duration,
