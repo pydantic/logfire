@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import sys
-import traceback
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -467,13 +466,6 @@ def record_exception(
             err_json = exception.json()
         span.set_attribute(ATTRIBUTES_VALIDATION_ERROR_KEY, err_json)
         attributes[ATTRIBUTES_VALIDATION_ERROR_KEY] = err_json
-
-    if exception is not sys.exc_info()[1]:
-        # OTEL's record_exception uses `traceback.format_exc()` which is for the current exception,
-        # ignoring the passed exception.
-        # So we override the stacktrace attribute with the correct one.
-        stacktrace = ''.join(traceback.format_exception(type(exception), exception, exception.__traceback__))
-        attributes['exception.stacktrace'] = stacktrace
 
     if helper.create_issue:
         span.set_attribute(ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY, sha256_string(helper.issue_fingerprint_source))
