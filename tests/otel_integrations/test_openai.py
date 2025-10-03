@@ -240,7 +240,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
     elif request.url == 'https://api.openai.com/v1/completions':
         json_body = json.loads(request.content)
         if json_body.get('stream'):
-            chunks = [
+            completion_chunks = [
                 completion.Completion(
                     id='1',
                     # finish_reason is wrong, should be None
@@ -265,7 +265,9 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                     object='text_completion',
                 ),
             ]
-            return httpx.Response(200, text=''.join(f'data: {chunk.model_dump_json()}\n\n' for chunk in chunks))
+            return httpx.Response(
+                200, text=''.join(f'data: {chunk.model_dump_json()}\n\n' for chunk in completion_chunks)
+            )
         else:
             return httpx.Response(
                 200,
@@ -1419,6 +1421,208 @@ def test_completions(instrumented_client: openai.Client, exporter: TestExporter)
     )
 
 
+@pytest.mark.vcr()
+def test_responses_stream(exporter: TestExporter) -> None:
+    client = openai.Client()
+    logfire.instrument_openai(client)
+    with client.responses.stream(
+        model='gpt-4.1',
+        input='What is four plus five?',
+    ) as stream:
+        for event in stream:
+            if event.type == 'response.output_text.delta':
+                print(event.delta, end='', flush=True)
+
+        final_response = stream.get_final_response()
+
+    assert final_response.output_text == snapshot('Four plus five equals nine.')
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Responses API with {gen_ai.request.model!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_responses_stream',
+                    'code.lineno': 123,
+                    'request_data': {'input': 'What is four plus five?', 'model': 'gpt-4.1', 'stream': True},
+                    'gen_ai.request.model': 'gpt-4.1',
+                    'events': [
+                        {'event.name': 'gen_ai.user.message', 'content': 'What is four plus five?', 'role': 'user'}
+                    ],
+                    'async': False,
+                    'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
+                    'logfire.msg': "Responses API with 'gpt-4.1'",
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.request.model': {},
+                            'events': {'type': 'array'},
+                            'async': {},
+                        },
+                    },
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.response.model': 'gpt-4.1',
+                },
+            },
+            {
+                'name': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 5000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                    'logfire.msg': "streaming response from 'gpt-4.1' took 1.00s",
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_responses_stream',
+                    'code.lineno': 123,
+                    'request_data': {'input': 'What is four plus five?', 'model': 'gpt-4.1', 'stream': True},
+                    'gen_ai.request.model': 'gpt-4.1',
+                    'events': [
+                        {'event.name': 'gen_ai.user.message', 'content': 'What is four plus five?', 'role': 'user'}
+                    ],
+                    'async': False,
+                    'duration': 1.0,
+                    'response_data': {
+                        'id': 'resp_00b667be642c664f0068dfe12b312881a2826291cdc12b5e59',
+                        'created_at': 1759502635.0,
+                        'error': None,
+                        'incomplete_details': None,
+                        'instructions': None,
+                        'metadata': {},
+                        'model': 'gpt-4.1-2025-04-14',
+                        'object': 'response',
+                        'output': [
+                            {
+                                'id': 'msg_00b667be642c664f0068dfe12c297481a2a1ff289b26be8672',
+                                'content': [
+                                    {
+                                        'annotations': [],
+                                        'text': 'Four plus five equals nine.',
+                                        'type': 'output_text',
+                                        'logprobs': [],
+                                        'parsed': None,
+                                    }
+                                ],
+                                'role': 'assistant',
+                                'status': 'completed',
+                                'type': 'message',
+                            }
+                        ],
+                        'parallel_tool_calls': True,
+                        'temperature': 1.0,
+                        'tool_choice': 'auto',
+                        'tools': [],
+                        'top_p': 1.0,
+                        'background': False,
+                        'conversation': None,
+                        'max_output_tokens': None,
+                        'max_tool_calls': None,
+                        'previous_response_id': None,
+                        'prompt': None,
+                        'prompt_cache_key': None,
+                        'reasoning': {'effort': None, 'generate_summary': None, 'summary': None},
+                        'safety_identifier': None,
+                        'service_tier': 'default',
+                        'status': 'completed',
+                        'text': {'format': {'type': 'text'}, 'verbosity': 'medium'},
+                        'top_logprobs': 0,
+                        'truncation': 'disabled',
+                        'usage': {
+                            'input_tokens': 13,
+                            'input_tokens_details': {'cached_tokens': 0},
+                            'output_tokens': 7,
+                            'output_tokens_details': {'reasoning_tokens': 0},
+                            'total_tokens': 20,
+                        },
+                        'user': None,
+                        'store': True,
+                    },
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.request.model': {},
+                            'events': {'type': 'array'},
+                            'async': {},
+                            'duration': {},
+                            'response_data': {
+                                'type': 'object',
+                                'title': 'ParsedResponse[NoneType]',
+                                'x-python-datatype': 'PydanticModel',
+                                'properties': {
+                                    'output': {
+                                        'type': 'array',
+                                        'items': {
+                                            'type': 'object',
+                                            'title': 'ParsedResponseOutputMessage[NoneType]',
+                                            'x-python-datatype': 'PydanticModel',
+                                            'properties': {
+                                                'content': {
+                                                    'type': 'array',
+                                                    'items': {
+                                                        'type': 'object',
+                                                        'title': 'ParsedResponseOutputText[NoneType]',
+                                                        'x-python-datatype': 'PydanticModel',
+                                                    },
+                                                }
+                                            },
+                                        },
+                                    },
+                                    'reasoning': {
+                                        'type': 'object',
+                                        'title': 'Reasoning',
+                                        'x-python-datatype': 'PydanticModel',
+                                    },
+                                    'text': {
+                                        'type': 'object',
+                                        'title': 'ResponseTextConfig',
+                                        'x-python-datatype': 'PydanticModel',
+                                        'properties': {
+                                            'format': {
+                                                'type': 'object',
+                                                'title': 'ResponseFormatText',
+                                                'x-python-datatype': 'PydanticModel',
+                                            }
+                                        },
+                                    },
+                                    'usage': {
+                                        'type': 'object',
+                                        'title': 'ResponseUsage',
+                                        'x-python-datatype': 'PydanticModel',
+                                        'properties': {
+                                            'input_tokens_details': {
+                                                'type': 'object',
+                                                'title': 'InputTokensDetails',
+                                                'x-python-datatype': 'PydanticModel',
+                                            },
+                                            'output_tokens_details': {
+                                                'type': 'object',
+                                                'title': 'OutputTokensDetails',
+                                                'x-python-datatype': 'PydanticModel',
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    'logfire.tags': ('LLM',),
+                    'gen_ai.response.model': 'gpt-4.1',
+                },
+            },
+        ]
+    )
+
+
 def test_completions_stream(instrumented_client: openai.Client, exporter: TestExporter) -> None:
     response = instrumented_client.completions.create(
         model='gpt-3.5-turbo-instruct',
@@ -2013,8 +2217,7 @@ def test_responses_api(exporter: TestExporter) -> None:
     input_messages.append({'type': 'function_call_output', 'call_id': tool_call.call_id, 'output': 'Rainy'})
     response2: Any = client.responses.create(model='gpt-4.1', input=input_messages)
     assert response2.output[0].content[0].text == snapshot(
-        'The weather in Paris today is rainy. If you’re planning to go out, '
-        'don’t forget your umbrella! Let me know if you need more details or the forecast for the next few days.'
+        "The weather in Paris today is rainy. If you're planning to go out, don't forget an umbrella!"
     )
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
@@ -2028,6 +2231,29 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_responses_api',
                     'code.lineno': 123,
+                    'request_data': {
+                        'input': 'What is the weather like in Paris today?',
+                        'instructions': 'Be nice',
+                        'model': 'gpt-4.1',
+                        'tools': [
+                            {
+                                'type': 'function',
+                                'name': 'get_weather',
+                                'description': 'Get current temperature for a given location.',
+                                'parameters': {
+                                    'type': 'object',
+                                    'properties': {
+                                        'location': {
+                                            'type': 'string',
+                                            'description': 'City and country e.g. Bogotá, Colombia',
+                                        }
+                                    },
+                                    'required': ['location'],
+                                    'additionalProperties': False,
+                                },
+                            }
+                        ],
+                    },
                     'async': False,
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.msg': "Responses API with 'gpt-4.1'",
@@ -2050,7 +2276,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                             'role': 'assistant',
                             'tool_calls': [
                                 {
-                                    'id': 'call_92k1J8QkHaqVZFGoZU1aLvR7',
+                                    'id': 'call_uilZSE2qAuMA2NWct72DBwd6',
                                     'type': 'function',
                                     'function': {'name': 'get_weather', 'arguments': '{"location":"Paris, France"}'},
                                 }
@@ -2060,6 +2286,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
+                            'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
                             'events': {'type': 'array'},
                             'async': {},
@@ -2081,6 +2308,25 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_responses_api',
                     'code.lineno': 123,
+                    'request_data': {
+                        'input': [
+                            {'role': 'user', 'content': 'What is the weather like in Paris today?'},
+                            {
+                                'arguments': '{"location":"Paris, France"}',
+                                'call_id': 'call_uilZSE2qAuMA2NWct72DBwd6',
+                                'name': 'get_weather',
+                                'type': 'function_call',
+                                'id': 'fc_039e74dd66b112920068dfe105cbf4819c8d5eb84dab55a8f9',
+                                'status': 'completed',
+                            },
+                            {
+                                'type': 'function_call_output',
+                                'call_id': 'call_uilZSE2qAuMA2NWct72DBwd6',
+                                'output': 'Rainy',
+                            },
+                        ],
+                        'model': 'gpt-4.1',
+                    },
                     'async': False,
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.msg': "Responses API with 'gpt-4.1'",
@@ -2090,7 +2336,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'gen_ai.request.model': 'gpt-4.1',
                     'gen_ai.response.model': 'gpt-4.1-2025-04-14',
                     'gen_ai.usage.input_tokens': 43,
-                    'gen_ai.usage.output_tokens': 40,
+                    'gen_ai.usage.output_tokens': 21,
                     'events': [
                         {
                             'event.name': 'gen_ai.user.message',
@@ -2102,7 +2348,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                             'role': 'assistant',
                             'tool_calls': [
                                 {
-                                    'id': 'call_92k1J8QkHaqVZFGoZU1aLvR7',
+                                    'id': 'call_uilZSE2qAuMA2NWct72DBwd6',
                                     'type': 'function',
                                     'function': {'name': 'get_weather', 'arguments': '{"location":"Paris, France"}'},
                                 }
@@ -2111,19 +2357,20 @@ def test_responses_api(exporter: TestExporter) -> None:
                         {
                             'event.name': 'gen_ai.tool.message',
                             'role': 'tool',
-                            'id': 'call_92k1J8QkHaqVZFGoZU1aLvR7',
+                            'id': 'call_uilZSE2qAuMA2NWct72DBwd6',
                             'content': 'Rainy',
                             'name': 'get_weather',
                         },
                         {
                             'event.name': 'gen_ai.assistant.message',
-                            'content': 'The weather in Paris today is rainy. If you’re planning to go out, don’t forget your umbrella! Let me know if you need more details or the forecast for the next few days.',
+                            'content': "The weather in Paris today is rainy. If you're planning to go out, don't forget an umbrella!",
                             'role': 'assistant',
                         },
                     ],
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
+                            'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
                             'events': {'type': 'array'},
                             'async': {},
