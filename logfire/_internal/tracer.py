@@ -16,6 +16,7 @@ from opentelemetry.context import Context
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import (
     ReadableSpan,
+    Span as SDKSpan,
     SpanProcessor,
     Tracer as SDKTracer,
     TracerProvider as SDKTracerProvider,
@@ -35,9 +36,13 @@ from .constants import (
     ATTRIBUTES_VALIDATION_ERROR_KEY,
     log_level_attributes,
 )
-from .utils import canonicalize_exception_traceback, handle_internal_errors, sha256_string
+from .utils import handle_internal_errors, sha256_string
 
 if TYPE_CHECKING:
+    from starlette.exceptions import HTTPException
+    from typing_extensions import TypeIs
+
+    from ..types import ExceptionCallback
     from .config import LogfireConfig
 
 try:
@@ -146,6 +151,7 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
     ns_timestamp_generator: Callable[[], int]
     record_metrics: bool
     metrics: dict[str, SpanMetric] = field(default_factory=lambda: defaultdict(SpanMetric))
+    exception_callback: ExceptionCallback | None = None
 
     def __post_init__(self):
         OPEN_SPANS[self._open_spans_key()] = self
@@ -203,14 +209,21 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
         escaped: bool = False,
     ) -> None:
         timestamp = timestamp or self.ns_timestamp_generator()
-        record_exception(self.span, exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
+        record_exception(
+            self.span,
+            exception,
+            attributes=attributes,
+            timestamp=timestamp,
+            escaped=escaped,
+            callback=self.exception_callback,
+        )
 
     def increment_metric(self, name: str, attributes: Mapping[str, otel_types.AttributeValue], value: float) -> None:
         if not (self.is_recording() and (self.record_metrics or name == 'operation.cost')):
             return
 
         self.metrics[name].increment(attributes, value)
-        if self.parent and (parent := OPEN_SPANS.get(_open_spans_key(self.parent))):
+        if parent := get_parent_span(self):
             parent.increment_metric(name, attributes, value)
 
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None:
@@ -223,6 +236,10 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
         # for ReadableSpan
         def __getattr__(self, name: str) -> Any:
             return getattr(self.span, name)
+
+
+def get_parent_span(span: ReadableSpan) -> _LogfireWrappedSpan | None:
+    return span.parent and OPEN_SPANS.get(_open_spans_key(span.parent))
 
 
 def _open_spans_key(ctx: SpanContext) -> tuple[int, int]:
@@ -257,10 +274,11 @@ class _ProxyTracer(Tracer):
         start_time: int | None = None,
         record_exception: bool = True,
         set_status_on_exception: bool = True,
-    ) -> Span:
+    ) -> _LogfireWrappedSpan:
         config = self.provider.config
         ns_timestamp_generator = config.advanced.ns_timestamp_generator
         record_metrics: bool = not isinstance(config.metrics, (bool, type(None))) and config.metrics.collect_in_spans
+        exception_callback = config.advanced.exception_callback
 
         start_time = start_time or ns_timestamp_generator()
 
@@ -289,6 +307,7 @@ class _ProxyTracer(Tracer):
             span,
             ns_timestamp_generator=ns_timestamp_generator,
             record_metrics=record_metrics,
+            exception_callback=exception_callback,
         )
 
     # This means that `with start_as_current_span(...):`
@@ -399,10 +418,23 @@ def record_exception(
     attributes: otel_types.Attributes = None,
     timestamp: int | None = None,
     escaped: bool = False,
+    callback: ExceptionCallback | None = None,
 ) -> None:
     """Similar to the OTEL SDK Span.record_exception method, with our own additions."""
-    if is_starlette_http_exception_400(exception):
-        span.set_attributes(log_level_attributes('warn'))
+    from ..types import ExceptionCallbackHelper
+
+    if is_starlette_http_exception(exception):
+        if 400 <= exception.status_code < 500:
+            # Don't mark 4xx HTTP exceptions as errors, they are expected to happen in normal operation.
+            # But do record them as warnings.
+            span.set_attributes(log_level_attributes('warn'))
+        elif exception.status_code >= 500:
+            # Set this as an error now for ExceptionCallbackHelper.create_issue to see,
+            # particularly so that if this is raised in a FastAPI pseudo_span and the event is marked with
+            # the recorded_by_logfire_fastapi it will still create an issue in this case.
+            # FastAPI will 'handle' this exception meaning it won't get recorded again by OTel.
+            set_exception_status(span, exception)
+            span.set_attributes(log_level_attributes('error'))
 
     # From https://opentelemetry.io/docs/specs/semconv/attributes-registry/exception/
     # `escaped=True` means that the exception is escaping the scope of the span.
@@ -412,7 +444,20 @@ def record_exception(
         set_exception_status(span, exception)
         span.set_attributes(log_level_attributes('error'))
 
-    attributes = {**(attributes or {})}
+    helper = ExceptionCallbackHelper(
+        span=cast(SDKSpan, span),
+        exception=exception,
+        event_attributes={**(attributes or {})},
+    )
+
+    if callback is not None:
+        with handle_internal_errors:
+            callback(helper)
+
+    if not helper._record_exception:  # type: ignore
+        return
+
+    attributes = helper.event_attributes
     if ValidationError is not None and isinstance(exception, ValidationError):
         # insert a more detailed breakdown of pydantic errors
         try:
@@ -430,7 +475,9 @@ def record_exception(
         stacktrace = ''.join(traceback.format_exception(type(exception), exception, exception.__traceback__))
         attributes['exception.stacktrace'] = stacktrace
 
-    span.set_attribute(ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY, sha256_string(canonicalize_exception_traceback(exception)))
+    if helper.create_issue:
+        span.set_attribute(ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY, sha256_string(helper.issue_fingerprint_source))
+
     span.record_exception(exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
 
 
@@ -443,10 +490,10 @@ def set_exception_status(span: trace_api.Span, exception: BaseException):
     )
 
 
-def is_starlette_http_exception_400(exception: BaseException) -> bool:
+def is_starlette_http_exception(exception: BaseException) -> TypeIs[HTTPException]:
     if 'starlette.exceptions' not in sys.modules:  # pragma: no cover
         return False
 
     from starlette.exceptions import HTTPException
 
-    return isinstance(exception, HTTPException) and 400 <= exception.status_code < 500
+    return isinstance(exception, HTTPException)
