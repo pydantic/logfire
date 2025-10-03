@@ -171,7 +171,8 @@ def build_attributes(
         k: process_attribute(k, v, strip_filepaths, fixed_line_number, strip_function_qualname, parse_json_attributes)
         for k, v in attributes.items()
     }
-    attributes.pop(ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY, None)
+    if ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY in attributes:
+        attributes[ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY] = '0' * 64
     if 'telemetry.sdk.version' in attributes:
         attributes['telemetry.sdk.version'] = '0.0.0'
     return attributes

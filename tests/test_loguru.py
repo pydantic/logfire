@@ -84,6 +84,7 @@ def test_loguru(exporter: TestExporter) -> None:
                     'logfire.logger_name': 'tests.test_loguru',
                     'foo': 'bar',
                     'logfire.json_schema': '{"type":"object","properties":{"logfire.logger_name":{},"foo":{}}}',
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                 },
                 'events': [
                     {

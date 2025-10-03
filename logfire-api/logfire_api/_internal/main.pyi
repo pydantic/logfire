@@ -30,7 +30,7 @@ from .json_encoder import logfire_json_dumps as logfire_json_dumps
 from .json_schema import JsonSchemaProperties as JsonSchemaProperties, attributes_json_schema as attributes_json_schema, attributes_json_schema_properties as attributes_json_schema_properties, create_json_schema as create_json_schema
 from .metrics import ProxyMeterProvider as ProxyMeterProvider
 from .stack_info import get_user_stack_info as get_user_stack_info
-from .tracer import ProxyTracerProvider as ProxyTracerProvider, record_exception as record_exception, set_exception_status as set_exception_status
+from .tracer import ProxyTracerProvider as ProxyTracerProvider, _ProxyTracer, set_exception_status as set_exception_status
 from .utils import SysExcInfo as SysExcInfo, get_version as get_version, handle_internal_errors as handle_internal_errors, log_internal_error as log_internal_error, uniquify_sequence as uniquify_sequence
 from collections.abc import Iterable, Sequence
 from contextlib import AbstractContextManager
@@ -41,7 +41,7 @@ from opentelemetry.context import Context as Context
 from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
 from opentelemetry.metrics import CallbackT as CallbackT, Counter, Histogram, UpDownCounter, _Gauge as Gauge
 from opentelemetry.sdk.trace import ReadableSpan, Span
-from opentelemetry.trace import SpanContext, Tracer
+from opentelemetry.trace import SpanContext
 from opentelemetry.util import types as otel_types
 from pymongo.monitoring import CommandFailedEvent as CommandFailedEvent, CommandStartedEvent as CommandStartedEvent, CommandSucceededEvent as CommandSucceededEvent
 from sqlalchemy import Engine
@@ -785,7 +785,8 @@ class Logfire:
         library, specifically `SQLAlchemyInstrumentor().instrument()`, to which it passes `**kwargs`.
 
         Args:
-            engine: The `sqlalchemy` engine to instrument, or `None` to instrument all engines.
+            engine: The `sqlalchemy` engine to instrument.
+            engines: An iterable of `sqlalchemy` engines to instrument.
             enable_commenter: Adds comments to SQL queries performed by SQLAlchemy, so that database logs have additional context.
             commenter_options: Configure the tags to be added to the SQL comments.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods.
@@ -1123,7 +1124,7 @@ class FastLogfireSpan:
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None: ...
 
 class LogfireSpan(ReadableSpan):
-    def __init__(self, span_name: str, otlp_attributes: dict[str, otel_types.AttributeValue], tracer: Tracer, json_schema_properties: JsonSchemaProperties, links: Sequence[tuple[SpanContext, otel_types.Attributes]]) -> None: ...
+    def __init__(self, span_name: str, otlp_attributes: dict[str, otel_types.AttributeValue], tracer: _ProxyTracer, json_schema_properties: JsonSchemaProperties, links: Sequence[tuple[SpanContext, otel_types.Attributes]]) -> None: ...
     def __getattr__(self, name: str) -> Any: ...
     def __enter__(self) -> LogfireSpan: ...
     @handle_internal_errors

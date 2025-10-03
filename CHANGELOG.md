@@ -1,5 +1,13 @@
 # Release Notes
 
+## [v4.11.0] (2025-10-03)
+
+* Add experimental `exception_callback` configuration by @alexmojaki in [#1355](https://github.com/pydantic/logfire/pull/1355)
+* Support Instrumenting Async SqlAlchemy Engines by @dhruv-ahuja in [#1425](https://github.com/pydantic/logfire/pull/1425)
+* Always collect `operation.cost` metric in spans by @alexmojaki in [#1435](https://github.com/pydantic/logfire/pull/1435)
+* Update `pyproject.toml` to be PEP639 compliant by @Kludex in [#1429](https://github.com/pydantic/logfire/pull/1429)
+* Improve `canonicalize_exception_traceback` for `RecursionError` by @alexmojaki in [#1455](https://github.com/pydantic/logfire/pull/1455)
+
 ## [v4.10.0] (2025-09-24)
 
 * Trigger `auth` command from `prompt` by @Kludex in [#1423](https://github.com/pydantic/logfire/pull/1423)
@@ -919,3 +927,4 @@ First release from new repo!
 [v4.8.0]: https://github.com/pydantic/logfire/compare/v4.7.0...v4.8.0
 [v4.9.0]: https://github.com/pydantic/logfire/compare/v4.8.0...v4.9.0
 [v4.10.0]: https://github.com/pydantic/logfire/compare/v4.9.0...v4.10.0
+[v4.11.0]: https://github.com/pydantic/logfire/compare/v4.10.0...v4.11.0

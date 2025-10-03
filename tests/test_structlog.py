@@ -86,6 +86,7 @@ def test_structlog(exporter: TestExporter, logger: structlog.BoundLogger) -> Non
                     'code.function': 'test_structlog',
                     'code.lineno': 36,
                     'logfire.disable_console_log': True,
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                 },
                 'events': [
                     {
