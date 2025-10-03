@@ -93,9 +93,12 @@ class ExceptionCallbackHelper:
     def level(self) -> SpanLevel:
         """Convenient way to see and compare the level of the span.
 
-        Usually the level is error.
-        FastAPI/Starlette 4xx HTTPExceptions are warnings.
-        Will be a different level if this is created by e.g. `logfire.info(..., _exc_info=True)`.
+        - When using `logfire.span` or `logfire.exception`, this is usually `error`.
+        - Spans created directly by an OpenTelemetry tracer (e.g. from any `logfire.instrument_*()` method)
+            typically don't have a level set, so this will return the default of `info`,
+            but `level_is_unset` will be `True`.
+        - FastAPI/Starlette 4xx HTTPExceptions are warnings.
+        - Will be a different level if this is created by e.g. `logfire.info(..., _exc_info=True)`.
         """
         return SpanLevel.from_span(self.span)
 
@@ -111,9 +114,17 @@ class ExceptionCallbackHelper:
 
     @property
     def level_is_unset(self) -> bool:
-        """Determine if the level has not been explicitly set on the span.
+        """Determine if the level has not been explicitly set on the span (yet).
 
-        This generally happens when a span is not marked as escaping.
+        For messy technical reasons, this is typically `True` for spans created directly by an OpenTelemetry tracer
+        (e.g. from any `logfire.instrument_*()` method)
+        although the level will usually still eventually be `error` by the time it's exported.
+
+        Spans created by `logfire.span()` get the level set to `error` immediately when an exception passes through,
+        so this will be `False` in that case.
+
+        This is also typically `True` when calling `span.record_exception()` directly on any span
+        instead of letting an exception bubble through.
         """
         return ATTRIBUTES_LOG_LEVEL_NUM_KEY not in (self.span.attributes or {})
 
@@ -129,7 +140,14 @@ class ExceptionCallbackHelper:
     def issue_fingerprint_source(self) -> str:
         """Returns a string that will be hashed to create the issue fingerprint.
 
-        By default this is a canonical representation of the exception traceback.
+        By default this is a canonical representation of the exception traceback:
+
+        - The source line is used, but not the line number, so that changes elsewhere in a file are irrelevant.
+        - The module is used instead of the filename.
+        - The same line appearing multiple times in a stack is ignored.
+        - Exception group sub-exceptions are sorted and deduplicated.
+        - If the exception has a cause or (not suppressed) context, it is included in the representation.
+        - Cause and context are treated as different.
         """
         if self._issue_fingerprint_source is not None:
             return self._issue_fingerprint_source
@@ -159,8 +177,11 @@ class ExceptionCallbackHelper:
     def create_issue(self) -> bool:
         """Whether to create an issue for this exception.
 
-        By default, issues are only created for exceptions on spans with level 'error' or higher,
-        and for which no parent span exists in the current process.
+        By default, issues are only created for exceptions on spans where:
+
+        - The level is 'error' or higher or is unset (see `level_is_unset` for details),
+        - No parent span exists in the current process,
+        - The exception isn't handled by FastAPI, except if it's a 5xx HTTPException.
 
         Example:
             if helper.create_issue:
@@ -169,8 +190,6 @@ class ExceptionCallbackHelper:
         if self._create_issue is not None:
             return self._create_issue
 
-        # Note: the level might not be set if dealing with a non-escaping exception, but that's expected for e.g.
-        # the root spans of web frameworks.
         return (
             self._record_exception
             and (self.level_is_unset or self.level >= 'error')
@@ -199,6 +218,9 @@ class ExceptionCallbackHelper:
         This will also prevent creating an issue for this exception.
         The span itself will still be recorded, just without the exception information.
         This doesn't affect the level of the span, it will still be 'error' by default.
+        To still record exception info without creating an issue, use `helper.create_issue = False` instead.
+        To still record the exception info but at a different level, use `helper.level = 'warning'`
+        or some other level instead.
         """
         self._record_exception = False
         self._create_issue = False
@@ -210,7 +232,8 @@ This is experimental and may change significantly in future releases.
 
 Usage:
 
-    def my_callback(helper: logfire.ExceptionCallbackHelper):
+    def my_callback(helper: logfire.types.ExceptionCallbackHelper):
+        # Use `helper` here to customize how an exception is recorded on a span.
         ...
 
     logfire.configure(advanced=logfire.AdvancedOptions(exception_callback=my_callback))
