@@ -1,33 +1,14 @@
 from _typeshed import Incomplete
 from dataclasses import dataclass
 from functools import cached_property
-from logfire._internal.constants import ATTRIBUTES_LOG_LEVEL_NUM_KEY as ATTRIBUTES_LOG_LEVEL_NUM_KEY, LEVEL_NUMBERS as LEVEL_NUMBERS, LevelName as LevelName, NUMBER_TO_LEVEL as NUMBER_TO_LEVEL, ONE_SECOND_IN_NANOSECONDS as ONE_SECOND_IN_NANOSECONDS
+from logfire._internal.constants import LevelName as LevelName, ONE_SECOND_IN_NANOSECONDS as ONE_SECOND_IN_NANOSECONDS
 from logfire._internal.exporters.wrapper import WrapperSpanProcessor as WrapperSpanProcessor
+from logfire.types import SpanLevel as SpanLevel
 from opentelemetry import context
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
 from opentelemetry.sdk.trace.sampling import Sampler
 from typing import Callable, Literal
 from typing_extensions import Self
-
-@dataclass
-class SpanLevel:
-    """A convenience class for comparing span/log levels.
-
-    Can be compared to log level names (strings) such as 'info' or 'error' using
-    `<`, `>`, `<=`, or `>=`, so e.g. `level >= 'error'` is valid.
-
-    Will raise an exception if compared to a non-string or an invalid level name.
-    """
-    number: int
-    @property
-    def name(self) -> LevelName | None:
-        """The human-readable name of the level, or `None` if the number is invalid."""
-    def __eq__(self, other: object): ...
-    def __hash__(self): ...
-    def __lt__(self, other: LevelName): ...
-    def __gt__(self, other: LevelName): ...
-    def __ge__(self, other: LevelName): ...
-    def __le__(self, other: LevelName): ...
 
 @dataclass
 class TraceBuffer:
