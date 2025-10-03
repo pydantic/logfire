@@ -11,9 +11,7 @@ This guide will walk you through how to enable this feature and use it with both
 
 ## Enabling Metric Aggregation
 
-<!-- TODO add pydantic-ai version -->
-
-This feature is _always_ enabled for any metric named `operation.cost`, which in particular is recorded by [Pydantic AI](https://ai.pydantic.dev/) when [instrumented](../../integrations/llms/pydanticai.md) for LLM costs.
+This feature is _always_ enabled for any metric named `operation.cost`, which in particular is recorded by [Pydantic AI](https://ai.pydantic.dev/) (since [v1.0.11](https://github.com/pydantic/pydantic-ai/releases/tag/v1.0.11)) when [instrumented](../../integrations/llms/pydanticai.md) for LLM costs.
 
 To enable this feature for all metrics, you need to configure Logfire with the `collect_in_spans` option in [`MetricsOptions`][logfire.MetricsOptions]. This should be done once when your application starts.
 
