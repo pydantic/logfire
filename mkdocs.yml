@@ -101,6 +101,7 @@ nav:
       - Export your Logfire Data: how-to-guides/query-api.md
       - Scrub Sensitive Data: how-to-guides/scrubbing.md
       - Trace across Multiple Services: how-to-guides/distributed-tracing.md
+      - Combine Multiple Configurations: how-to-guides/different-configurations.md
       - Detect Service is Down: how-to-guides/detect-service-is-down.md
       - Suppress Spans and Metrics: how-to-guides/suppress.md
       - OpenTelemetry Collector:
