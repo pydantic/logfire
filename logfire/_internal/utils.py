@@ -449,6 +449,7 @@ def canonicalize_exception_traceback(exc: BaseException, seen: set[int] | None =
     try:
         exc_type = type(exc)
         parts = [f'\n{exc_type.__module__}.{exc_type.__qualname__}\n----']
+        num_repeats = 0
         if exc.__traceback__:
             visited: set[str] = set()
             for frame, lineno in traceback.walk_tb(exc.__traceback__):
@@ -456,7 +457,17 @@ def canonicalize_exception_traceback(exc: BaseException, seen: set[int] | None =
                 source_line = linecache.getline(filename, lineno, frame.f_globals).strip()
                 module = frame.f_globals.get('__name__', filename)
                 frame_summary = f'{module}.{frame.f_code.co_name}\n   {source_line}'
-                if frame_summary not in visited:  # ignore repeated frames
+                if frame_summary in visited:
+                    num_repeats += 1
+                    if num_repeats >= 100 and isinstance(exc, RecursionError):
+                        # The last few frames of a RecursionError traceback are often *not* the recursive function(s)
+                        # being called repeatedly (which are already deduped here) but instead some other function(s)
+                        # called normally which happen to use up the last bit of the recursion limit.
+                        # These can easily vary between runs and we don't want to pay attention to them,
+                        # the real problem is the recursion itself.
+                        parts.append('\n<recursion detected>')
+                        break
+                else:  # skip repeated frames
                     visited.add(frame_summary)
                     parts.append(frame_summary)
         seen = seen or set()
