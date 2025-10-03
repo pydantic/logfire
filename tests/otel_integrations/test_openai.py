@@ -1429,9 +1429,8 @@ def test_responses_stream(exporter: TestExporter) -> None:
         model='gpt-4.1',
         input='What is four plus five?',
     ) as stream:
-        for event in stream:
-            if event.type == 'response.output_text.delta':
-                print(event.delta, end='', flush=True)
+        for _ in stream:
+            pass
 
         final_response = stream.get_final_response()
 

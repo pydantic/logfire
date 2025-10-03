@@ -209,13 +209,7 @@ def scrub_headers(response: dict[str, Any]) -> dict[str, Any]:
     Returns:
         The scrubbed response dictionary with sensitive headers removed.
     """
-    headers: dict[str, list[str]] = response.get('headers', {})
-    new_headers: dict[str, list[str]] = {}
-    for k, v in headers.items():
-        if k.lower() not in SENSITIVE_HEADERS:
-            new_headers[k] = v
-
-    response['headers'] = new_headers
+    response['headers'] = {k: v for k, v in response.get('headers', {}).items() if k.lower() not in SENSITIVE_HEADERS}
 
     return response
 
