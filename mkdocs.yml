@@ -193,6 +193,7 @@ nav:
           - Propagate: reference/api/propagate.md
           - Exceptions: reference/api/exceptions.md
           - Pydantic: reference/api/pydantic.md
+          - Types: reference/api/types.md
   - Roadmap: roadmap.md
   - Languages: languages.md
   - Enterprise: enterprise.md
