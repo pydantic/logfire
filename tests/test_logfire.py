@@ -1239,6 +1239,7 @@ def test_validation_error_on_instrument(exporter: TestExporter):
                             }
                         ]
                     ),
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                 },
                 'events': [
                     {
@@ -1310,6 +1311,7 @@ def test_validation_error_on_span(exporter: TestExporter) -> None:
                             }
                         ]
                     ),
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                 },
                 'events': [
                     {
@@ -3240,10 +3242,7 @@ def test_logfire_span_records_exceptions_once(exporter: TestExporter):
 
         return record_exception(*args, **kwargs)
 
-    with (
-        patch('logfire._internal.tracer.record_exception', patched_record_exception),
-        patch('logfire._internal.main.record_exception', patched_record_exception),
-    ):
+    with patch('logfire._internal.tracer.record_exception', patched_record_exception):
         with pytest.raises(RuntimeError):
             with logfire.span('foo'):
                 raise RuntimeError('error')
@@ -3265,6 +3264,7 @@ def test_logfire_span_records_exceptions_once(exporter: TestExporter):
                     'logfire.msg': 'foo',
                     'logfire.span_type': 'span',
                     'logfire.level_num': 17,
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                 },
                 'events': [
                     {
@@ -3292,10 +3292,7 @@ def test_logfire_span_records_exceptions_manually_once(exporter: TestExporter):
 
         return record_exception(*args, **kwargs)
 
-    with (
-        patch('logfire._internal.tracer.record_exception', patched_record_exception),
-        patch('logfire._internal.main.record_exception', patched_record_exception),
-    ):
+    with patch('logfire._internal.tracer.record_exception', patched_record_exception):
         with logfire.span('foo') as span:
             span.record_exception(RuntimeError('error'))
 
@@ -3307,7 +3304,7 @@ def test_logfire_span_records_exceptions_manually_once(exporter: TestExporter):
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
-                'end_time': 2000000000,
+                'end_time': 3000000000,
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.function': 'test_logfire_span_records_exceptions_manually_once',
@@ -3315,11 +3312,12 @@ def test_logfire_span_records_exceptions_manually_once(exporter: TestExporter):
                     'logfire.msg_template': 'foo',
                     'logfire.msg': 'foo',
                     'logfire.span_type': 'span',
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                 },
                 'events': [
                     {
                         'name': 'exception',
-                        'timestamp': IsInt(),
+                        'timestamp': 2000000000,
                         'attributes': {
                             'exception.type': 'RuntimeError',
                             'exception.message': 'error',

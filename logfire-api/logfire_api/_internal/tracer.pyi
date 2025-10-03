@@ -1,7 +1,8 @@
 import opentelemetry.trace as trace_api
+from ..types import ExceptionCallback as ExceptionCallback
 from .config import LogfireConfig as LogfireConfig
 from .constants import ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY as ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY as ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_VALIDATION_ERROR_KEY as ATTRIBUTES_VALIDATION_ERROR_KEY, log_level_attributes as log_level_attributes
-from .utils import canonicalize_exception_traceback as canonicalize_exception_traceback, handle_internal_errors as handle_internal_errors, sha256_string as sha256_string
+from .utils import handle_internal_errors as handle_internal_errors, sha256_string as sha256_string
 from _typeshed import Incomplete
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -13,8 +14,10 @@ from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.trace import Link as Link, Span, SpanContext, SpanKind, Tracer, TracerProvider
 from opentelemetry.trace.status import Status, StatusCode
 from opentelemetry.util import types as otel_types
+from starlette.exceptions import HTTPException
 from threading import Lock
 from typing import Any, Callable
+from typing_extensions import TypeIs
 from weakref import WeakKeyDictionary, WeakValueDictionary
 
 OPEN_SPANS: WeakValueDictionary[tuple[int, int], _LogfireWrappedSpan]
@@ -55,6 +58,7 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
     ns_timestamp_generator: Callable[[], int]
     record_metrics: bool
     metrics: dict[str, SpanMetric] = field(default_factory=Incomplete)
+    exception_callback: ExceptionCallback | None = ...
     def __post_init__(self) -> None: ...
     def end(self, end_time: int | None = None) -> None: ...
     def get_span_context(self) -> SpanContext: ...
@@ -70,6 +74,8 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None: ...
     def __getattr__(self, name: str) -> Any: ...
 
+def get_parent_span(span: ReadableSpan) -> _LogfireWrappedSpan | None: ...
+
 @dataclass
 class _ProxyTracer(Tracer):
     """A tracer that wraps another internal tracer allowing it to be re-assigned."""
@@ -80,7 +86,7 @@ class _ProxyTracer(Tracer):
     def __hash__(self) -> int: ...
     def __eq__(self, other: object) -> bool: ...
     def set_tracer(self, tracer: Tracer) -> None: ...
-    def start_span(self, name: str, context: Context | None = None, kind: SpanKind = ..., attributes: otel_types.Attributes = None, links: Sequence[Link] | None = None, start_time: int | None = None, record_exception: bool = True, set_status_on_exception: bool = True) -> Span: ...
+    def start_span(self, name: str, context: Context | None = None, kind: SpanKind = ..., attributes: otel_types.Attributes = None, links: Sequence[Link] | None = None, start_time: int | None = None, record_exception: bool = True, set_status_on_exception: bool = True) -> _LogfireWrappedSpan: ...
     start_as_current_span = ...
 
 class SuppressedTracer(Tracer):
@@ -107,7 +113,7 @@ def should_sample(span_context: SpanContext, attributes: Mapping[str, otel_types
     """
 def get_sample_rate_from_attributes(attributes: otel_types.Attributes) -> float | None: ...
 @handle_internal_errors
-def record_exception(span: trace_api.Span, exception: BaseException, *, attributes: otel_types.Attributes = None, timestamp: int | None = None, escaped: bool = False) -> None:
+def record_exception(span: trace_api.Span, exception: BaseException, *, attributes: otel_types.Attributes = None, timestamp: int | None = None, escaped: bool = False, callback: ExceptionCallback | None = None) -> None:
     """Similar to the OTEL SDK Span.record_exception method, with our own additions."""
 def set_exception_status(span: trace_api.Span, exception: BaseException): ...
-def is_starlette_http_exception_400(exception: BaseException) -> bool: ...
+def is_starlette_http_exception(exception: BaseException) -> TypeIs[HTTPException]: ...
