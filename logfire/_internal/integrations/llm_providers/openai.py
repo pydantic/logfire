@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import openai
 from openai._legacy_response import LegacyAPIResponse
+from openai.lib.streaming.responses import ResponseStreamState
 from openai.types.chat.chat_completion import ChatCompletion
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.completion import Completion
@@ -54,15 +55,21 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         if is_current_agent_span('Responses API', 'Responses API with {gen_ai.request.model!r}'):
             return EndpointConfig(message_template='', span_data={})
 
+        span_data: dict[str, Any] = {
+            'gen_ai.request.model': json_data['model'],
+        }
+        if json_data.get('stream'):  # type: ignore
+            span_data['request_data'] = json_data
+        else:
+            span_data['events'] = inputs_to_events(
+                json_data['input'],  # type: ignore
+                json_data.get('instructions'),  # type: ignore
+            )
+
         return EndpointConfig(
             message_template='Responses API with {gen_ai.request.model!r}',
-            span_data={
-                'gen_ai.request.model': json_data['model'],
-                'events': inputs_to_events(
-                    json_data['input'],  # type: ignore
-                    json_data.get('instructions'),  # type: ignore
-                ),
-            },
+            span_data=span_data,
+            stream_state_cls=OpenaiResponsesStreamState,
         )
     elif url == '/completions':
         return EndpointConfig(
@@ -81,7 +88,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             span_data={'request_data': json_data, 'gen_ai.request.model': json_data['model']},
         )
     else:
-        span_data: dict[str, Any] = {'request_data': json_data, 'url': url}
+        span_data = {'request_data': json_data, 'url': url}
         if 'model' in json_data:
             span_data['gen_ai.request.model'] = json_data['model']
         return EndpointConfig(
@@ -117,6 +124,21 @@ class OpenaiCompletionStreamState(StreamState):
 
     def get_response_data(self) -> Any:
         return {'combined_chunk_content': ''.join(self._content), 'chunk_count': len(self._content)}
+
+
+class OpenaiResponsesStreamState(StreamState):
+    def __init__(self):
+        self._state = ResponseStreamState(input_tools=openai.omit, text_format=openai.omit)
+
+    def record_chunk(self, chunk: Any) -> None:
+        self._state.handle_event(chunk)
+
+    def get_response_data(self) -> Any:
+        response = self._state._completed_response  # pyright: ignore[reportPrivateUsage]
+        if not response:  # pragma: no cover
+            raise RuntimeError("Didn't receive a `response.completed` event.")
+
+        return response
 
 
 try:
