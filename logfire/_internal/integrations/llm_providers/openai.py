@@ -55,16 +55,20 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         if is_current_agent_span('Responses API', 'Responses API with {gen_ai.request.model!r}'):
             return EndpointConfig(message_template='', span_data={})
 
+        span_data: dict[str, Any] = {
+            'gen_ai.request.model': json_data['model'],
+        }
+        if json_data.get('stream'):  # type: ignore
+            span_data['request_data'] = json_data
+        else:
+            span_data['events'] = inputs_to_events(
+                json_data['input'],  # type: ignore
+                json_data.get('instructions'),  # type: ignore
+            )
+
         return EndpointConfig(
             message_template='Responses API with {gen_ai.request.model!r}',
-            span_data={
-                'request_data': json_data,
-                'gen_ai.request.model': json_data['model'],
-                'events': inputs_to_events(
-                    json_data['input'],  # type: ignore
-                    json_data.get('instructions'),  # type: ignore
-                ),
-            },
+            span_data=span_data,
             stream_state_cls=OpenaiResponsesStreamState,
         )
     elif url == '/completions':
@@ -84,7 +88,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             span_data={'request_data': json_data, 'gen_ai.request.model': json_data['model']},
         )
     else:
-        span_data: dict[str, Any] = {'request_data': json_data, 'url': url}
+        span_data = {'request_data': json_data, 'url': url}
         if 'model' in json_data:
             span_data['gen_ai.request.model'] = json_data['model']
         return EndpointConfig(

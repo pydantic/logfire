@@ -1434,7 +1434,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
 
         final_response = stream.get_final_response()
 
-    assert final_response.output_text == snapshot('Four plus five equals nine.')
+    assert final_response.output_text == snapshot('Four plus five equals **nine**.')
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
@@ -1449,9 +1449,6 @@ def test_responses_stream(exporter: TestExporter) -> None:
                     'code.lineno': 123,
                     'request_data': {'input': 'What is four plus five?', 'model': 'gpt-4.1', 'stream': True},
                     'gen_ai.request.model': 'gpt-4.1',
-                    'events': [
-                        {'event.name': 'gen_ai.user.message', 'content': 'What is four plus five?', 'role': 'user'}
-                    ],
                     'async': False,
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.msg': "Responses API with 'gpt-4.1'",
@@ -1460,7 +1457,6 @@ def test_responses_stream(exporter: TestExporter) -> None:
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
-                            'events': {'type': 'array'},
                             'async': {},
                         },
                     },
@@ -1485,14 +1481,11 @@ def test_responses_stream(exporter: TestExporter) -> None:
                     'code.lineno': 123,
                     'request_data': {'input': 'What is four plus five?', 'model': 'gpt-4.1', 'stream': True},
                     'gen_ai.request.model': 'gpt-4.1',
-                    'events': [
-                        {'event.name': 'gen_ai.user.message', 'content': 'What is four plus five?', 'role': 'user'}
-                    ],
                     'async': False,
                     'duration': 1.0,
                     'response_data': {
-                        'id': 'resp_00b667be642c664f0068dfe12b312881a2826291cdc12b5e59',
-                        'created_at': 1759502635.0,
+                        'id': 'resp_079fceed100a827c0068e011e9cefc81969ea6a843546705e6',
+                        'created_at': 1759515113.0,
                         'error': None,
                         'incomplete_details': None,
                         'instructions': None,
@@ -1501,11 +1494,11 @@ def test_responses_stream(exporter: TestExporter) -> None:
                         'object': 'response',
                         'output': [
                             {
-                                'id': 'msg_00b667be642c664f0068dfe12c297481a2a1ff289b26be8672',
+                                'id': 'msg_079fceed100a827c0068e011ea7d388196a588ec8cf09b1364',
                                 'content': [
                                     {
                                         'annotations': [],
-                                        'text': 'Four plus five equals nine.',
+                                        'text': 'Four plus five equals **nine**.',
                                         'type': 'output_text',
                                         'logprobs': [],
                                         'parsed': None,
@@ -1538,9 +1531,9 @@ def test_responses_stream(exporter: TestExporter) -> None:
                         'usage': {
                             'input_tokens': 13,
                             'input_tokens_details': {'cached_tokens': 0},
-                            'output_tokens': 7,
+                            'output_tokens': 9,
                             'output_tokens_details': {'reasoning_tokens': 0},
-                            'total_tokens': 20,
+                            'total_tokens': 22,
                         },
                         'user': None,
                         'store': True,
@@ -1550,7 +1543,6 @@ def test_responses_stream(exporter: TestExporter) -> None:
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
-                            'events': {'type': 'array'},
                             'async': {},
                             'duration': {},
                             'response_data': {
@@ -2230,29 +2222,6 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_responses_api',
                     'code.lineno': 123,
-                    'request_data': {
-                        'input': 'What is the weather like in Paris today?',
-                        'instructions': 'Be nice',
-                        'model': 'gpt-4.1',
-                        'tools': [
-                            {
-                                'type': 'function',
-                                'name': 'get_weather',
-                                'description': 'Get current temperature for a given location.',
-                                'parameters': {
-                                    'type': 'object',
-                                    'properties': {
-                                        'location': {
-                                            'type': 'string',
-                                            'description': 'City and country e.g. Bogotá, Colombia',
-                                        }
-                                    },
-                                    'required': ['location'],
-                                    'additionalProperties': False,
-                                },
-                            }
-                        ],
-                    },
                     'async': False,
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.msg': "Responses API with 'gpt-4.1'",
@@ -2285,7 +2254,6 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
-                            'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
                             'events': {'type': 'array'},
                             'async': {},
@@ -2307,25 +2275,6 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_responses_api',
                     'code.lineno': 123,
-                    'request_data': {
-                        'input': [
-                            {'role': 'user', 'content': 'What is the weather like in Paris today?'},
-                            {
-                                'arguments': '{"location":"Paris, France"}',
-                                'call_id': 'call_uilZSE2qAuMA2NWct72DBwd6',
-                                'name': 'get_weather',
-                                'type': 'function_call',
-                                'id': 'fc_039e74dd66b112920068dfe105cbf4819c8d5eb84dab55a8f9',
-                                'status': 'completed',
-                            },
-                            {
-                                'type': 'function_call_output',
-                                'call_id': 'call_uilZSE2qAuMA2NWct72DBwd6',
-                                'output': 'Rainy',
-                            },
-                        ],
-                        'model': 'gpt-4.1',
-                    },
                     'async': False,
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.msg': "Responses API with 'gpt-4.1'",
@@ -2369,7 +2318,6 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
-                            'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
                             'events': {'type': 'array'},
                             'async': {},
