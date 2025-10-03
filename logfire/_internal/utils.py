@@ -465,7 +465,7 @@ def canonicalize_exception_traceback(exc: BaseException, seen: set[int] | None =
                         # called normally which happen to use up the last bit of the recursion limit.
                         # These can easily vary between runs and we don't want to pay attention to them,
                         # the real problem is the recursion itself.
-                        parts.append('\n<recursion detected>\n')
+                        parts.append('\n<recursion detected>')
                         break
                 else:  # skip repeated frames
                     visited.add(frame_summary)

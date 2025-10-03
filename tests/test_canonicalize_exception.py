@@ -284,7 +284,7 @@ tests.test_canonicalize_exception.test_recursion
 tests.test_canonicalize_exception.foo
    foo(b)
 
-<recursion detected>
+<recursion detected>\
 """)
 
     try:
@@ -299,7 +299,7 @@ tests.test_canonicalize_exception.test_recursion
 tests.test_canonicalize_exception.foo
    foo(b)
 
-<recursion detected>
+<recursion detected>\
 """)
 
     try:
@@ -316,5 +316,5 @@ tests.test_canonicalize_exception.foo2
 tests.test_canonicalize_exception.foo
    b()
 
-<recursion detected>
+<recursion detected>\
 """)
