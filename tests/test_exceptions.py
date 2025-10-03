@@ -13,6 +13,7 @@ from logfire.types import ExceptionCallbackHelper
 def test_exception_callback_set_level(exporter: TestExporter, config_kwargs: dict[str, Any]):
     def exception_callback(helper: ExceptionCallbackHelper) -> None:
         assert helper.level.name == 'error'
+        assert not helper.level_is_unset
         assert helper.create_issue
         helper.level = 'warning'
         assert helper.level.name == 'warn'
@@ -294,6 +295,57 @@ def test_no_record_exception(exporter: TestExporter, config_kwargs: dict[str, An
                     'logfire.span_type': 'span',
                     'logfire.level_num': 17,
                 },
+            }
+        ]
+    )
+
+
+def test_record_exception_directly(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    def exception_callback(helper: ExceptionCallbackHelper) -> None:
+        assert helper.level_is_unset
+        assert helper.create_issue
+
+    config_kwargs['advanced'].exception_callback = exception_callback
+    logfire.configure(**config_kwargs)
+
+    with logfire.span('span') as span:
+        try:
+            raise ValueError('test')
+        except ValueError as e:
+            span.record_exception(e)
+
+    (_pending, span) = exporter.exported_spans
+    assert span.attributes
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'span',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'code.filepath': 'test_exceptions.py',
+                    'code.function': 'test_record_exception_directly',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'span',
+                    'logfire.msg': 'span',
+                    'logfire.span_type': 'span',
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 2000000000,
+                        'attributes': {
+                            'exception.type': 'ValueError',
+                            'exception.message': 'test',
+                            'exception.stacktrace': 'ValueError: test',
+                            'exception.escaped': 'False',
+                        },
+                    }
+                ],
             }
         ]
     )
