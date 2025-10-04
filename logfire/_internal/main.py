@@ -210,14 +210,10 @@ class Logfire:
 
             # Check if this call is coming from inside a context manager generator by inspecting call stack frames
             if caller_is_generator:
-                previous_frame = inspect.currentframe().f_back  # type: ignore
-                origin_frame = caller_frame.f_back if caller_frame else None
+                previous_frame, origin_frame = inspect.currentframe().f_back, caller_frame.f_back  # type: ignore
 
                 for frame in [previous_frame, caller_frame, origin_frame]:
-                    if not frame:
-                        continue
-
-                    code_name = frame.f_code.co_name
+                    code_name = frame.f_code.co_name  # type: ignore
                     if code_name in ['__enter__', '__aenter__']:
                         is_from_context_manager = True
                         break
