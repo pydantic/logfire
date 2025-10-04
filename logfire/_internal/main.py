@@ -199,13 +199,32 @@ class Logfire:
 
             # we go two levels back to find the caller frame, as this method is called by logfire.span() method
             caller_frame = inspect.currentframe().f_back.f_back  # type: ignore
+
             # check if the caller is a generator function by checking the co_flags attribute of the code object
             # and doing bit-wise AND checking for CO_GENERATOR or CO_ASYNC_GENERATOR value match
             caller_is_generator = bool(
                 caller_frame and caller_frame.f_code.co_flags & (inspect.CO_GENERATOR | inspect.CO_ASYNC_GENERATOR)
             )
 
-            if caller_is_generator and _warn_if_inside_generator:
+            is_from_context_manager = False
+
+            # Check if this call is coming from inside a context manager generator by inspecting call stack frames
+            if caller_is_generator:
+                previous_frame = inspect.currentframe().f_back  # type: ignore
+                origin_frame = caller_frame.f_back if caller_frame else None
+
+                for frame in [previous_frame, caller_frame, origin_frame]:
+                    if not frame:
+                        continue
+
+                    code_name = frame.f_code.co_name
+                    if code_name in ['__enter__', '__aenter__']:
+                        is_from_context_manager = True
+                        break
+
+            # usage within the context manager lifespan is legitimate, since the context manager controls the span's
+            # lifespan, and will ensure proper separation of concerns
+            if caller_is_generator and _warn_if_inside_generator and not is_from_context_manager:
                 warnings.warn(
                     'Span is inside a generator function. See https://logfire.pydantic.dev/docs/reference/advanced/generators/#move-the-span-outside-the-generator.',
                     RuntimeWarning,
