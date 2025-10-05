@@ -40,7 +40,7 @@ os.environ.setdefault('OPENAI_API_KEY', 'foo')
 @pytest.mark.vcr()
 @pytest.mark.anyio
 async def test_pydantic_ai_mcp_sampling(exporter: TestExporter):
-    logfire.instrument_pydantic_ai(version=2)
+    logfire.instrument_pydantic_ai(version=3)
 
     fastmcp = FastMCP()
 
@@ -125,17 +125,7 @@ Because it found something more "sole-ful!"\
                     'response': {
                         'meta': None,
                         'nextCursor': None,
-                        'tools': [
-                            {
-                                'name': 'joker',
-                                'title': None,
-                                'description': 'Poem generator',
-                                'inputSchema': IsPartialDict(),
-                                'outputSchema': IsPartialDict(),
-                                'annotations': None,
-                                'meta': None,
-                            }
-                        ],
+                        'tools': [IsPartialDict()],
                     },
                 },
             },
@@ -156,17 +146,7 @@ Because it found something more "sole-ful!"\
                     'response': {
                         'meta': None,
                         'nextCursor': None,
-                        'tools': [
-                            {
-                                'name': 'joker',
-                                'title': None,
-                                'description': 'Poem generator',
-                                'inputSchema': IsPartialDict(),
-                                'outputSchema': IsPartialDict(),
-                                'annotations': None,
-                                'meta': None,
-                            }
-                        ],
+                        'tools': [IsPartialDict()],
                     },
                 },
             },
@@ -423,7 +403,7 @@ Because it found something more "sole-ful!"\
                 },
             },
             {
-                'name': 'agent run',
+                'name': 'invoke_agent agent',
                 'context': {'trace_id': 2, 'span_id': 19, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 17, 'is_remote': False},
                 'start_time': 14000000000,
@@ -431,6 +411,7 @@ Because it found something more "sole-ful!"\
                 'attributes': {
                     'model_name': 'mcp-sampling',
                     'agent_name': 'agent',
+                    'gen_ai.agent.name': 'agent',
                     'logfire.msg': 'agent run',
                     'logfire.span_type': 'span',
                     'final_result': """\
@@ -547,7 +528,7 @@ Because it found something more "sole-ful!"\
                 },
             },
             {
-                'name': 'running tool',
+                'name': 'execute_tool joker',
                 'context': {'trace_id': 2, 'span_id': 13, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 11, 'is_remote': False},
                 'start_time': 11000000000,
@@ -555,10 +536,10 @@ Because it found something more "sole-ful!"\
                 'attributes': {
                     'gen_ai.tool.name': 'joker',
                     'gen_ai.tool.call.id': 'call_YWeIZ4oGGwEnk9GIb443ZNys',
-                    'tool_arguments': {'theme': 'socks'},
+                    'gen_ai.tool.call.arguments': {'theme': 'socks'},
                     'logfire.msg': 'running tool: joker',
                     'logfire.span_type': 'span',
-                    'tool_response': """\
+                    'gen_ai.tool.call.result': """\
 Why did the sock break up with the shoe?
 
 Because it found something more "sole-ful!"\
@@ -598,17 +579,7 @@ Because it found something more "sole-ful!"\
                     'response': {
                         'meta': None,
                         'nextCursor': None,
-                        'tools': [
-                            {
-                                'name': 'joker',
-                                'title': None,
-                                'description': 'Poem generator',
-                                'inputSchema': IsPartialDict(),
-                                'outputSchema': IsPartialDict(),
-                                'annotations': None,
-                                'meta': None,
-                            }
-                        ],
+                        'tools': [IsPartialDict()],
                     },
                 },
             },
@@ -629,17 +600,7 @@ Because it found something more "sole-ful!"\
                     'response': {
                         'meta': None,
                         'nextCursor': None,
-                        'tools': [
-                            {
-                                'name': 'joker',
-                                'title': None,
-                                'description': 'Poem generator',
-                                'inputSchema': IsPartialDict(),
-                                'outputSchema': IsPartialDict(),
-                                'annotations': None,
-                                'meta': None,
-                            }
-                        ],
+                        'tools': [IsPartialDict()],
                     },
                 },
             },
@@ -719,7 +680,7 @@ Because it found something more "sole-ful!"\
                 },
             },
             {
-                'name': 'agent run',
+                'name': 'invoke_agent agent',
                 'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
                 'parent': None,
                 'start_time': 3000000000,
@@ -727,6 +688,7 @@ Because it found something more "sole-ful!"\
                 'attributes': {
                     'model_name': 'gpt-4o',
                     'agent_name': 'agent',
+                    'gen_ai.agent.name': 'agent',
                     'logfire.msg': 'agent run',
                     'logfire.span_type': 'span',
                     'final_result': """\

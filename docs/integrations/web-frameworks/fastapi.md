@@ -23,7 +23,7 @@ pip install uvicorn
 
 You can run it with `python main.py`:
 
-```py title="main.py"
+```py title="main.py" hl_lines="6-7"
 import logfire
 from fastapi import FastAPI
 

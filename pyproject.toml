@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "4.10.0"
+version = "4.11.0"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.9"
 authors = [
@@ -155,7 +155,8 @@ dev = [
     "sqlmodel>=0.0.15",
     "mypy>=1.10.0",
     "celery>=5.4.0",
-    "testcontainers!=4.13.0",
+    # https://github.com/testcontainers/testcontainers-python/issues/874
+    "testcontainers!=4.13.*",
     "mysql-connector-python~=8.0",
     "pyarrow>=17.0.0; python_version < '3.13'",
     "pyarrow>=18.1.0; python_version >= '3.13'",

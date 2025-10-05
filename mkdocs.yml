@@ -101,6 +101,7 @@ nav:
       - Export your Logfire Data: how-to-guides/query-api.md
       - Scrub Sensitive Data: how-to-guides/scrubbing.md
       - Trace across Multiple Services: how-to-guides/distributed-tracing.md
+      - Combine Multiple Configurations: how-to-guides/different-configurations.md
       - Detect Service is Down: how-to-guides/detect-service-is-down.md
       - Suppress Spans and Metrics: how-to-guides/suppress.md
       - OpenTelemetry Collector:
@@ -172,6 +173,7 @@ nav:
           - Baggage: reference/advanced/baggage.md
           - Generators: reference/advanced/generators.md
           - Testing: reference/advanced/testing.md
+          - Aggregating Metrics in Spans: reference/advanced/metrics-in-spans.md
       - Examples: reference/examples.md
       - Configuration: reference/configuration.md
       - Data Regions: reference/data-regions.md
@@ -192,6 +194,7 @@ nav:
           - Propagate: reference/api/propagate.md
           - Exceptions: reference/api/exceptions.md
           - Pydantic: reference/api/pydantic.md
+          - Types: reference/api/types.md
   - Roadmap: roadmap.md
   - Languages: languages.md
   - Enterprise: enterprise.md

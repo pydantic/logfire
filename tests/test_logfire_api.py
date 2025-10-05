@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import sys
+import warnings
 from pathlib import Path
 from types import ModuleType
 from typing import Callable
@@ -195,12 +196,14 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
 
     assert hasattr(logfire_api, 'instrument_litellm')
     if not pydantic_pre_2_5:
-        try:
-            importlib.import_module('litellm')
-        except AttributeError:  # pragma: no cover  # TODO figure this out
-            pass
-        else:
-            logfire_api.instrument_litellm()
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', category=DeprecationWarning)
+            try:
+                importlib.import_module('litellm')
+            except AttributeError:  # pragma: no cover  # TODO figure this out
+                pass
+            else:
+                logfire_api.instrument_litellm()
     logfire__all__.remove('instrument_litellm')
 
     for member in [m for m in logfire__all__ if m.startswith('instrument_')]:
