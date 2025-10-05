@@ -237,6 +237,10 @@ class Logfire:
             attributes: The arguments to include in the span and format the message template with.
                 Attributes starting with an underscore are not allowed.
         """
+    def current_span(self) -> LogfireSpan:
+        """Get the current span.
+        Useful for accessing spans created by @logfire.instrument.
+        """
     @overload
     def instrument(self, msg_template: LiteralString | None = None, *, span_name: str | None = None, extract_args: bool | Iterable[str] = True, record_return: bool = False, allow_generator: bool = False) -> Callable[[Callable[P, R]], Callable[P, R]]:
         """Decorator for instrumenting a function as a span.

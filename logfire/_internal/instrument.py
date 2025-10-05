@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, Callable, TypeVar
 from opentelemetry.util import types as otel_types
 from typing_extensions import LiteralString, ParamSpec
 
+from .ast_utils import has_current_span_call
 from .constants import ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_TAGS_KEY
 from .stack_info import get_filepath_attribute
 from .utils import safe_repr, uniquify_sequence
@@ -61,7 +62,8 @@ def instrument(
             )
 
         attributes = get_attributes(func, msg_template, tags)
-        open_span = get_open_span(logfire, attributes, span_name, extract_args, func)
+        uses_current_span = has_current_span_call(func)
+        open_span = get_open_span(logfire, attributes, span_name, extract_args, uses_current_span, func)
 
         if inspect.isgeneratorfunction(func):
             if not allow_generator:
@@ -90,6 +92,9 @@ def instrument(
 
             async def wrapper(*func_args: P.args, **func_kwargs: P.kwargs) -> R:  # type: ignore
                 with open_span(*func_args, **func_kwargs) as span:
+                    token = None
+                    if uses_current_span:
+                        token = logfire._current_span_var.set(span)  # type: ignore[protected-access]
                     result = await func(*func_args, **func_kwargs)
                     if record_return:
                         # open_span returns a FastLogfireSpan, so we can't use span.set_attribute for complex types.
@@ -97,14 +102,21 @@ def instrument(
                         # Not sure if making get_open_span return a LogfireSpan when record_return is True
                         # would be faster overall or if it would be worth the added complexity.
                         set_user_attributes_on_raw_span(span._span, {'return': result})
+                    if token:
+                        logfire._current_span_var.reset(token)  # type: ignore[protected-access]
                     return result
         else:
             # Same as the above, but without the async/await
             def wrapper(*func_args: P.args, **func_kwargs: P.kwargs) -> R:
                 with open_span(*func_args, **func_kwargs) as span:
+                    token = None
+                    if uses_current_span:
+                        token = logfire._current_span_var.set(span)  # type: ignore[protected-access]
                     result = func(*func_args, **func_kwargs)
                     if record_return:
                         set_user_attributes_on_raw_span(span._span, {'return': result})
+                    if token:
+                        logfire._current_span_var.reset(token)  # type: ignore[protected-access]
                     return result
 
         wrapper = functools.wraps(func)(wrapper)  # type: ignore
@@ -118,12 +130,15 @@ def get_open_span(
     attributes: dict[str, otel_types.AttributeValue],
     span_name: str | None,
     extract_args: bool | Iterable[str],
+    uses_current_span: bool,
     func: Callable[P, R],
 ) -> Callable[P, AbstractContextManager[Any]]:
     final_span_name: str = span_name or attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
 
     # This is the fast case for when there are no arguments to extract
     def open_span(*_: P.args, **__: P.kwargs):  # type: ignore
+        if uses_current_span:
+            return logfire._span(final_span_name, attributes)  # type: ignore[protected-access]
         return logfire._fast_span(final_span_name, attributes)  # type: ignore
 
     if extract_args is True:
@@ -134,6 +149,9 @@ def get_open_span(
                 bound = sig.bind(*func_args, **func_kwargs)
                 bound.apply_defaults()
                 args_dict = bound.arguments
+                if uses_current_span:
+                    return logfire._span(final_span_name, {**attributes, **args_dict})  # type: ignore[protected-access]
+
                 return logfire._instrument_span_with_args(  # type: ignore
                     final_span_name, attributes, args_dict
                 )
@@ -164,6 +182,9 @@ def get_open_span(
 
                 # This line is the only difference from the extract_args=True case
                 args_dict = {k: args_dict[k] for k in extract_args_final}
+
+                if uses_current_span:
+                    return logfire._span(final_span_name, {**attributes, **args_dict})  # type: ignore[protected-access]
 
                 return logfire._instrument_span_with_args(  # type: ignore
                     final_span_name, attributes, args_dict

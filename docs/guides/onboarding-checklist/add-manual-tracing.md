@@ -234,6 +234,15 @@ my_function(3, 4)
 # Logs: Applying my_function to x=3 and y=4
 ```
 
+Access the created span inside the function using `logfire.current_span()`:
+
+```python
+@logfire.instrument('Processing')
+def process_data(user_dict: dict):
+    user_id = user_dict.get("id")
+    logfire.current_span().message = f'Processing User: {user_id}'
+```
+
 !!! note
 
     - The [`@logfire.instrument`][logfire.Logfire.instrument] decorator MUST be applied first, i.e., UNDER any other decorators.
