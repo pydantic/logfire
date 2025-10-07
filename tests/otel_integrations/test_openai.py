@@ -277,6 +277,11 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                     created=123,
                     model='gpt-3.5-turbo-instruct',
                     object='text_completion',
+                    usage=completion_usage.CompletionUsage(
+                        completion_tokens=1,
+                        prompt_tokens=2,
+                        total_tokens=3,
+                    ),
                 ).model_dump(mode='json'),
             )
     elif request.url == 'https://api.openai.com/v1/embeddings':
@@ -418,6 +423,7 @@ def test_sync_chat_completions(instrumented_client: openai.Client, exporter: Tes
                     'gen_ai.response.model': 'gpt-4',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 1,
+                    'operation.cost': 0.00012,
                     'response_data': (
                         {
                             'message': {
@@ -449,6 +455,7 @@ def test_sync_chat_completions(instrumented_client: openai.Client, exporter: Tes
                                 'gen_ai.response.model': {},
                                 'gen_ai.usage.input_tokens': {},
                                 'gen_ai.usage.output_tokens': {},
+                                'operation.cost': {},
                                 'response_data': {
                                     'type': 'object',
                                     'properties': {
@@ -513,6 +520,7 @@ async def test_async_chat_completions(instrumented_async_client: openai.AsyncCli
                     'gen_ai.response.model': 'gpt-4',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 1,
+                    'operation.cost': 0.00012,
                     'response_data': (
                         {
                             'message': {
@@ -544,6 +552,7 @@ async def test_async_chat_completions(instrumented_async_client: openai.AsyncCli
                                 'gen_ai.response.model': {},
                                 'gen_ai.usage.input_tokens': {},
                                 'gen_ai.usage.output_tokens': {},
+                                'operation.cost': {},
                                 'response_data': {
                                     'type': 'object',
                                     'properties': {
@@ -1403,7 +1412,20 @@ def test_completions(instrumented_client: openai.Client, exporter: TestExporter)
                     'gen_ai.system': 'openai',
                     'gen_ai.request.model': 'gpt-3.5-turbo-instruct',
                     'gen_ai.response.model': 'gpt-3.5-turbo-instruct',
-                    'response_data': {'finish_reason': 'stop', 'text': 'Nine', 'usage': None},
+                    'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.usage.output_tokens': 1,
+                    'operation.cost': 5e-06,
+                    'response_data': {
+                        'finish_reason': 'stop',
+                        'text': 'Nine',
+                        'usage': {
+                            'completion_tokens': 1,
+                            'prompt_tokens': 2,
+                            'total_tokens': 3,
+                            'completion_tokens_details': None,
+                            'prompt_tokens_details': None,
+                        },
+                    },
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -1412,7 +1434,19 @@ def test_completions(instrumented_client: openai.Client, exporter: TestExporter)
                             'gen_ai.system': {},
                             'gen_ai.request.model': {},
                             'gen_ai.response.model': {},
-                            'response_data': {'type': 'object'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'operation.cost': {},
+                            'response_data': {
+                                'type': 'object',
+                                'properties': {
+                                    'usage': {
+                                        'type': 'object',
+                                        'title': 'CompletionUsage',
+                                        'x-python-datatype': 'PydanticModel',
+                                    }
+                                },
+                            },
                         },
                     },
                 },
@@ -1903,7 +1937,20 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                     'gen_ai.system': 'openai',
                     'gen_ai.request.model': 'gpt-3.5-turbo-instruct',
                     'gen_ai.response.model': 'gpt-3.5-turbo-instruct',
-                    'response_data': {'finish_reason': 'stop', 'text': 'Nine', 'usage': None},
+                    'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.usage.output_tokens': 1,
+                    'operation.cost': 5e-06,
+                    'response_data': {
+                        'finish_reason': 'stop',
+                        'text': 'Nine',
+                        'usage': {
+                            'completion_tokens': 1,
+                            'prompt_tokens': 2,
+                            'total_tokens': 3,
+                            'completion_tokens_details': None,
+                            'prompt_tokens_details': None,
+                        },
+                    },
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -1912,7 +1959,19 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                             'gen_ai.system': {},
                             'gen_ai.request.model': {},
                             'gen_ai.response.model': {},
-                            'response_data': {'type': 'object'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'operation.cost': {},
+                            'response_data': {
+                                'type': 'object',
+                                'properties': {
+                                    'usage': {
+                                        'type': 'object',
+                                        'title': 'CompletionUsage',
+                                        'x-python-datatype': 'PydanticModel',
+                                    }
+                                },
+                            },
                         },
                     },
                     'logfire.metrics': {
@@ -1985,7 +2044,20 @@ def test_suppress_httpx(exporter: TestExporter) -> None:
                     'gen_ai.system': 'openai',
                     'gen_ai.request.model': 'gpt-3.5-turbo-instruct',
                     'gen_ai.response.model': 'gpt-3.5-turbo-instruct',
-                    'response_data': {'finish_reason': 'stop', 'text': 'Nine', 'usage': None},
+                    'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.usage.output_tokens': 1,
+                    'operation.cost': 5e-06,
+                    'response_data': {
+                        'finish_reason': 'stop',
+                        'text': 'Nine',
+                        'usage': {
+                            'completion_tokens': 1,
+                            'prompt_tokens': 2,
+                            'total_tokens': 3,
+                            'completion_tokens_details': None,
+                            'prompt_tokens_details': None,
+                        },
+                    },
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -1994,7 +2066,19 @@ def test_suppress_httpx(exporter: TestExporter) -> None:
                             'gen_ai.system': {},
                             'gen_ai.request.model': {},
                             'gen_ai.response.model': {},
-                            'response_data': {'type': 'object'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'operation.cost': {},
+                            'response_data': {
+                                'type': 'object',
+                                'properties': {
+                                    'usage': {
+                                        'type': 'object',
+                                        'title': 'CompletionUsage',
+                                        'x-python-datatype': 'PydanticModel',
+                                    }
+                                },
+                            },
                         },
                     },
                 },
@@ -2232,6 +2316,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'gen_ai.response.model': 'gpt-4.1-2025-04-14',
                     'gen_ai.usage.input_tokens': 65,
                     'gen_ai.usage.output_tokens': 17,
+                    'operation.cost': 0.000266,
                     'events': [
                         {'event.name': 'gen_ai.system.message', 'content': 'Be nice', 'role': 'system'},
                         {
@@ -2261,6 +2346,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'operation.cost': {},
                         },
                     },
                 },
@@ -2285,6 +2371,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'gen_ai.response.model': 'gpt-4.1-2025-04-14',
                     'gen_ai.usage.input_tokens': 43,
                     'gen_ai.usage.output_tokens': 21,
+                    'operation.cost': 0.000254,
                     'events': [
                         {
                             'event.name': 'gen_ai.user.message',
@@ -2325,6 +2412,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'operation.cost': {},
                         },
                     },
                 },
