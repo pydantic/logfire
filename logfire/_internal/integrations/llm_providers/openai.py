@@ -185,18 +185,20 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         span.set_attribute('gen_ai.response.model', response_model)
 
         response_data = response.model_dump()  # type: ignore
-        for api_flavor in ('chat', 'responses'):
-            try:
-                from genai_prices import calc_price, extract_usage
+        try:
+            from genai_prices import calc_price, extract_usage
 
-                usage_data = extract_usage(response_data, provider_id='openai', api_flavor=api_flavor)
-                span.set_attribute(
-                    'operation.cost',
-                    float(calc_price(usage_data.usage, model_ref=response_model, provider_id='openai').total_price),
-                )
-                break
-            except Exception:
-                continue
+            usage_data = extract_usage(
+                response_data,
+                provider_id='openai',
+                api_flavor='responses' if isinstance(response, Response) else 'chat',
+            )
+            span.set_attribute(
+                'operation.cost',
+                float(calc_price(usage_data.usage, model_ref=response_model, provider_id='openai').total_price),
+            )
+        except Exception:
+            pass
 
     usage = getattr(response, 'usage', None)
     input_tokens = getattr(usage, 'prompt_tokens', getattr(usage, 'input_tokens', None))
