@@ -184,10 +184,10 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
     if isinstance(response_model := getattr(response, 'model', None), str):
         span.set_attribute('gen_ai.response.model', response_model)
 
-        response_data = response.model_dump()  # type: ignore
         try:
             from genai_prices import calc_price, extract_usage
 
+            response_data = response.model_dump()  # type: ignore
             usage_data = extract_usage(
                 response_data,
                 provider_id='openai',
