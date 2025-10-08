@@ -7,6 +7,7 @@ from typing import Any
 
 import httpx
 import openai
+import pydantic
 import pytest
 from dirty_equals import IsNumeric
 from httpx._transports.mock import MockTransport
@@ -25,8 +26,15 @@ from openai.types.chat import chat_completion, chat_completion_chunk as cc_chunk
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
 import logfire
-from logfire._internal.utils import suppress_instrumentation
+from logfire._internal.utils import get_version, suppress_instrumentation
 from logfire.testing import TestExporter
+
+pytestmark = [
+    pytest.mark.skipif(
+        get_version(pydantic.__version__) < get_version('2.5'),
+        reason='Requires Pydantic 2.5 or higher to import genai-prices and set operation.cost attribute',
+    ),
+]
 
 
 def request_handler(request: httpx.Request) -> httpx.Response:
