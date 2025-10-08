@@ -7,6 +7,7 @@ from typing import Any
 
 import httpx
 import openai
+import pydantic
 import pytest
 from dirty_equals import IsNumeric
 from httpx._transports.mock import MockTransport
@@ -25,8 +26,15 @@ from openai.types.chat import chat_completion, chat_completion_chunk as cc_chunk
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
 import logfire
-from logfire._internal.utils import suppress_instrumentation
+from logfire._internal.utils import get_version, suppress_instrumentation
 from logfire.testing import TestExporter
+
+pytestmark = [
+    pytest.mark.skipif(
+        get_version(pydantic.__version__) < get_version('2.5'),
+        reason='Requires Pydantic 2.5 or higher to import genai-prices and set operation.cost attribute',
+    ),
+]
 
 
 def request_handler(request: httpx.Request) -> httpx.Response:
@@ -423,6 +431,7 @@ def test_sync_chat_completions(instrumented_client: openai.Client, exporter: Tes
                     'gen_ai.response.model': 'gpt-4',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 1,
+                    'operation.cost': 0.00012,
                     'response_data': (
                         {
                             'message': {
@@ -454,6 +463,7 @@ def test_sync_chat_completions(instrumented_client: openai.Client, exporter: Tes
                                 'gen_ai.response.model': {},
                                 'gen_ai.usage.input_tokens': {},
                                 'gen_ai.usage.output_tokens': {},
+                                'operation.cost': {},
                                 'response_data': {
                                     'type': 'object',
                                     'properties': {
@@ -518,6 +528,7 @@ async def test_async_chat_completions(instrumented_async_client: openai.AsyncCli
                     'gen_ai.response.model': 'gpt-4',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 1,
+                    'operation.cost': 0.00012,
                     'response_data': (
                         {
                             'message': {
@@ -549,6 +560,7 @@ async def test_async_chat_completions(instrumented_async_client: openai.AsyncCli
                                 'gen_ai.response.model': {},
                                 'gen_ai.usage.input_tokens': {},
                                 'gen_ai.usage.output_tokens': {},
+                                'operation.cost': {},
                                 'response_data': {
                                     'type': 'object',
                                     'properties': {
@@ -1410,6 +1422,7 @@ def test_completions(instrumented_client: openai.Client, exporter: TestExporter)
                     'gen_ai.response.model': 'gpt-3.5-turbo-instruct',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 1,
+                    'operation.cost': 5e-06,
                     'response_data': {
                         'finish_reason': 'stop',
                         'text': 'Nine',
@@ -1431,6 +1444,7 @@ def test_completions(instrumented_client: openai.Client, exporter: TestExporter)
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'operation.cost': {},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
@@ -1933,6 +1947,7 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                     'gen_ai.response.model': 'gpt-3.5-turbo-instruct',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 1,
+                    'operation.cost': 5e-06,
                     'response_data': {
                         'finish_reason': 'stop',
                         'text': 'Nine',
@@ -1954,6 +1969,7 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'operation.cost': {},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
@@ -2038,6 +2054,7 @@ def test_suppress_httpx(exporter: TestExporter) -> None:
                     'gen_ai.response.model': 'gpt-3.5-turbo-instruct',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 1,
+                    'operation.cost': 5e-06,
                     'response_data': {
                         'finish_reason': 'stop',
                         'text': 'Nine',
@@ -2059,6 +2076,7 @@ def test_suppress_httpx(exporter: TestExporter) -> None:
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'operation.cost': {},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
@@ -2306,6 +2324,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'gen_ai.response.model': 'gpt-4.1-2025-04-14',
                     'gen_ai.usage.input_tokens': 65,
                     'gen_ai.usage.output_tokens': 17,
+                    'operation.cost': 0.000266,
                     'events': [
                         {'event.name': 'gen_ai.system.message', 'content': 'Be nice', 'role': 'system'},
                         {
@@ -2335,6 +2354,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'operation.cost': {},
                         },
                     },
                 },
@@ -2359,6 +2379,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'gen_ai.response.model': 'gpt-4.1-2025-04-14',
                     'gen_ai.usage.input_tokens': 43,
                     'gen_ai.usage.output_tokens': 21,
+                    'operation.cost': 0.000254,
                     'events': [
                         {
                             'event.name': 'gen_ai.user.message',
@@ -2399,6 +2420,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'operation.cost': {},
                         },
                     },
                 },

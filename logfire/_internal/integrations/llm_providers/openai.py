@@ -184,6 +184,22 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
     if isinstance(response_model := getattr(response, 'model', None), str):
         span.set_attribute('gen_ai.response.model', response_model)
 
+        try:
+            from genai_prices import calc_price, extract_usage
+
+            response_data = response.model_dump()  # type: ignore
+            usage_data = extract_usage(
+                response_data,
+                provider_id='openai',
+                api_flavor='responses' if isinstance(response, Response) else 'chat',
+            )
+            span.set_attribute(
+                'operation.cost',
+                float(calc_price(usage_data.usage, model_ref=response_model, provider_id='openai').total_price),
+            )
+        except Exception:
+            pass
+
     usage = getattr(response, 'usage', None)
     input_tokens = getattr(usage, 'prompt_tokens', getattr(usage, 'input_tokens', None))
     output_tokens = getattr(usage, 'completion_tokens', getattr(usage, 'output_tokens', None))
