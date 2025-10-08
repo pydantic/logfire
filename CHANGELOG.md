@@ -1,5 +1,10 @@
 # Release Notes
 
+## [v4.12.0] (2025-10-08)
+
+* Record response when streaming OpenAI Responses API by @stevenh in [#1457](https://github.com/pydantic/logfire/pull/1457)
+* Record `operation.cost` span attribute on OpenAI spans by @alexmojaki in [#1468](https://github.com/pydantic/logfire/pull/1468)
+
 ## [v4.11.0] (2025-10-03)
 
 * Add experimental `exception_callback` configuration by @alexmojaki in [#1355](https://github.com/pydantic/logfire/pull/1355)
@@ -928,3 +933,4 @@ First release from new repo!
 [v4.9.0]: https://github.com/pydantic/logfire/compare/v4.8.0...v4.9.0
 [v4.10.0]: https://github.com/pydantic/logfire/compare/v4.9.0...v4.10.0
 [v4.11.0]: https://github.com/pydantic/logfire/compare/v4.10.0...v4.11.0
+[v4.12.0]: https://github.com/pydantic/logfire/compare/v4.11.0...v4.12.0
