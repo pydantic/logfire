@@ -113,6 +113,8 @@ from .utils import (
 )
 
 if TYPE_CHECKING:
+    from typing import TextIO
+
     from opentelemetry._events import EventLoggerProvider
 
     from .main import Logfire
@@ -159,6 +161,8 @@ class ConsoleOptions:
 
     show_project_link: bool = True
     """Whether to print the URL of the Logfire project after initialization."""
+    output: TextIO | None = None
+    """The output stream to write console output to (default: stdout)."""
 
 
 @dataclass
@@ -894,6 +898,7 @@ class LogfireConfig(_LogfireConfigData):
                     include_tags=self.console.include_tags,
                     verbose=self.console.verbose,
                     min_log_level=self.console.min_log_level,
+                    output=self.console.output,
                 )
                 add_span_processor(SimpleSpanProcessor(console_span_exporter))
                 log_record_processors.append(SimpleLogRecordProcessor(ConsoleLogExporter(console_span_exporter)))
