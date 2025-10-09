@@ -23,10 +23,12 @@ requires-python = ">= 3.8"
 
 [tool.uv]
 managed = true
-dev-dependencies = []
 
 [tool.hatch.metadata]
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["logfire_api"]
+
+[dependency-groups]
+dev = []
