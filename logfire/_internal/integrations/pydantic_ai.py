@@ -20,16 +20,23 @@ def instrument_pydantic_ai(
     event_mode: Literal['attributes', 'logs'] | None,
     **kwargs: Any,
 ) -> None | InstrumentedModel:
+    # Correctly handling all past and future versions is tricky.
+    # Since we provide these rather than the user, only include them if
+    # InstrumentationSettings has such parameters to prevent errors/warnings.
     expected_kwarg_names = inspect.signature(InstrumentationSettings.__init__).parameters
     final_kwargs: dict[str, Any] = {
         k: v
         for k, v in dict(
             tracer_provider=logfire_instance.config.get_tracer_provider(),
-            meter_provider=logfire_instance.config.get_meter_provider(),
-            event_logger_provider=logfire_instance.config.get_event_logger_provider(),
+            meter_provider=logfire_instance.config.get_meter_provider(),  # not in old versions
+            event_logger_provider=logfire_instance.config.get_event_logger_provider(),  # may be removed in the future
         ).items()
         if k in expected_kwarg_names
     }
+
+    # Now add known parameters that the user provided explicitly.
+    # None of these have `None` as a valid value, so we assume the user didn't pass that.
+    # Include even if not in expected_kwarg_names, to let Pydantic AI produce an error or warning.
     final_kwargs.update(
         {
             k: v
@@ -42,7 +49,11 @@ def instrument_pydantic_ai(
             if v is not None
         }
     )
+
+    # Finally, add any other kwargs the user provided. These are mainly for future compatibility.
+    # They also provide an escape hatch to override the tracer/meter/event_logger providers.
     final_kwargs.update(kwargs)
+
     settings = InstrumentationSettings(**final_kwargs)
     if isinstance(obj, Agent):
         obj.instrument = settings
