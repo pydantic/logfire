@@ -1009,8 +1009,10 @@ class Logfire:
         obj: pydantic_ai.Agent | pydantic_ai.models.Model | None = None,
         /,
         *,
-        event_mode: Literal['attributes', 'logs'] | None = None,
         include_binary_content: bool | None = None,
+        include_content: bool | None = None,
+        version: Literal[1, 2, 3] | None = None,
+        event_mode: Literal['attributes', 'logs'] | None = None,
         **kwargs: Any,
     ) -> pydantic_ai.models.Model | None:
         """Instrument Pydantic AI.
@@ -1020,10 +1022,24 @@ class Logfire:
                 By default, all agents are instrumented.
                 You can also pass a specific model or agent.
                 If you pass a model, a new instrumented model will be returned.
-            event_mode: See the [Pydantic AI docs](https://ai.pydantic.dev/logfire/#data-format).
-                The default is whatever the default is in your version of Pydantic AI.
-            include_binary_content: Whether to include base64 encoded binary content (e.g. images) in the events.
+            include_binary_content: Whether to include base64 encoded binary content (e.g. images) in the telemetry.
                 On by default. Requires Pydantic AI 0.2.5 or newer.
+            include_content: Whether to include prompts, completions, and tool call arguments and responses
+                in the telemetry. On by default. Requires Pydantic AI 0.3.4 or newer.
+            version: Version of the data format. This is unrelated to the Pydantic AI package version.
+                Requires Pydantic AI 0.7.5 or newer.
+                Version 1 is based on the legacy event-based OpenTelemetry GenAI spec
+                    and will be removed in a future release.
+                    The parameter `event_mode` is only relevant for version 1.
+                Version 2 uses the newer OpenTelemetry GenAI spec and stores messages in the following attributes:
+                    - `gen_ai.system_instructions` for instructions passed to the agent.
+                    - `gen_ai.input.messages` and `gen_ai.output.messages` on model request spans.
+                    - `pydantic_ai.all_messages` on agent run spans.
+                Version 3 changes the names of some attributes and spans but not the shape of the data.
+                The default version depends on Pydantic AI.
+            event_mode: The mode for emitting events in version 1.
+                If `'attributes'`, events are attached to the span as attributes.
+                If `'logs'`, events are emitted as OpenTelemetry log-based events.
             kwargs: Additional keyword arguments to pass to
                 [`InstrumentationSettings`](https://ai.pydantic.dev/api/models/instrumented/#pydantic_ai.models.instrumented.InstrumentationSettings)
                 for future compatibility.
@@ -1032,13 +1048,13 @@ class Logfire:
 
         self._warn_if_not_initialized_for_instrumentation()
 
-        if include_binary_content is not None:
-            kwargs['include_binary_content'] = include_binary_content
-
         return instrument_pydantic_ai(
             self,
             obj=obj,
             event_mode=event_mode,
+            version=version,
+            include_content=include_content,
+            include_binary_content=include_binary_content,
             **kwargs,
         )
 
