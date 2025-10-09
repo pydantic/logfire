@@ -1489,8 +1489,11 @@ def test_responses_stream(exporter: TestExporter) -> None:
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_responses_stream',
                     'code.lineno': 123,
-                    'request_data': {'input': 'What is four plus five?', 'model': 'gpt-4.1', 'stream': True},
+                    'request_data': {'model': 'gpt-4.1', 'stream': True},
                     'gen_ai.request.model': 'gpt-4.1',
+                    'events': [
+                        {'event.name': 'gen_ai.user.message', 'content': 'What is four plus five?', 'role': 'user'}
+                    ],
                     'async': False,
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.msg': "Responses API with 'gpt-4.1'",
@@ -1499,6 +1502,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
+                            'events': {'type': 'array'},
                             'async': {},
                         },
                     },
@@ -1521,131 +1525,30 @@ def test_responses_stream(exporter: TestExporter) -> None:
                     'code.filepath': 'test_openai.py',
                     'code.function': 'test_responses_stream',
                     'code.lineno': 123,
-                    'request_data': {'input': 'What is four plus five?', 'model': 'gpt-4.1', 'stream': True},
+                    'request_data': {'model': 'gpt-4.1', 'stream': True},
                     'gen_ai.request.model': 'gpt-4.1',
                     'async': False,
                     'duration': 1.0,
-                    'response_data': {
-                        'id': 'resp_079fceed100a827c0068e011e9cefc81969ea6a843546705e6',
-                        'created_at': 1759515113.0,
-                        'error': None,
-                        'incomplete_details': None,
-                        'instructions': None,
-                        'metadata': {},
-                        'model': 'gpt-4.1-2025-04-14',
-                        'object': 'response',
-                        'output': [
-                            {
-                                'id': 'msg_079fceed100a827c0068e011ea7d388196a588ec8cf09b1364',
-                                'content': [
-                                    {
-                                        'annotations': [],
-                                        'text': 'Four plus five equals **nine**.',
-                                        'type': 'output_text',
-                                        'logprobs': [],
-                                        'parsed': None,
-                                    }
-                                ],
-                                'role': 'assistant',
-                                'status': 'completed',
-                                'type': 'message',
-                            }
-                        ],
-                        'parallel_tool_calls': True,
-                        'temperature': 1.0,
-                        'tool_choice': 'auto',
-                        'tools': [],
-                        'top_p': 1.0,
-                        'background': False,
-                        'conversation': None,
-                        'max_output_tokens': None,
-                        'max_tool_calls': None,
-                        'previous_response_id': None,
-                        'prompt': None,
-                        'prompt_cache_key': None,
-                        'reasoning': {'effort': None, 'generate_summary': None, 'summary': None},
-                        'safety_identifier': None,
-                        'service_tier': 'default',
-                        'status': 'completed',
-                        'text': {'format': {'type': 'text'}, 'verbosity': 'medium'},
-                        'top_logprobs': 0,
-                        'truncation': 'disabled',
-                        'usage': {
-                            'input_tokens': 13,
-                            'input_tokens_details': {'cached_tokens': 0},
-                            'output_tokens': 9,
-                            'output_tokens_details': {'reasoning_tokens': 0},
-                            'total_tokens': 22,
+                    'events': [
+                        {
+                            'event.name': 'gen_ai.user.message',
+                            'content': 'What is four plus five?',
+                            'role': 'user',
                         },
-                        'user': None,
-                        'store': True,
-                    },
+                        {
+                            'event.name': 'gen_ai.assistant.message',
+                            'content': 'Four plus five equals **nine**.',
+                            'role': 'assistant',
+                        },
+                    ],
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
                             'async': {},
+                            'events': {'type': 'array'},
                             'duration': {},
-                            'response_data': {
-                                'type': 'object',
-                                'title': 'ParsedResponse[NoneType]',
-                                'x-python-datatype': 'PydanticModel',
-                                'properties': {
-                                    'output': {
-                                        'type': 'array',
-                                        'items': {
-                                            'type': 'object',
-                                            'title': 'ParsedResponseOutputMessage[NoneType]',
-                                            'x-python-datatype': 'PydanticModel',
-                                            'properties': {
-                                                'content': {
-                                                    'type': 'array',
-                                                    'items': {
-                                                        'type': 'object',
-                                                        'title': 'ParsedResponseOutputText[NoneType]',
-                                                        'x-python-datatype': 'PydanticModel',
-                                                    },
-                                                }
-                                            },
-                                        },
-                                    },
-                                    'reasoning': {
-                                        'type': 'object',
-                                        'title': 'Reasoning',
-                                        'x-python-datatype': 'PydanticModel',
-                                    },
-                                    'text': {
-                                        'type': 'object',
-                                        'title': 'ResponseTextConfig',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'format': {
-                                                'type': 'object',
-                                                'title': 'ResponseFormatText',
-                                                'x-python-datatype': 'PydanticModel',
-                                            }
-                                        },
-                                    },
-                                    'usage': {
-                                        'type': 'object',
-                                        'title': 'ResponseUsage',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'input_tokens_details': {
-                                                'type': 'object',
-                                                'title': 'InputTokensDetails',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                            'output_tokens_details': {
-                                                'type': 'object',
-                                                'title': 'OutputTokensDetails',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                        },
-                                    },
-                                },
-                            },
                         },
                     },
                     'logfire.tags': ('LLM',),
@@ -2315,6 +2218,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'code.function': 'test_responses_api',
                     'code.lineno': 123,
                     'async': False,
+                    'request_data': {'model': 'gpt-4.1', 'stream': False},
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.msg': "Responses API with 'gpt-4.1'",
                     'logfire.tags': ('LLM',),
@@ -2348,6 +2252,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                         'type': 'object',
                         'properties': {
                             'gen_ai.request.model': {},
+                            'request_data': {'type': 'object'},
                             'events': {'type': 'array'},
                             'async': {},
                             'gen_ai.system': {},
@@ -2370,6 +2275,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'code.function': 'test_responses_api',
                     'code.lineno': 123,
                     'async': False,
+                    'request_data': {'model': 'gpt-4.1', 'stream': False},
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.msg': "Responses API with 'gpt-4.1'",
                     'logfire.tags': ('LLM',),
@@ -2414,6 +2320,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                         'type': 'object',
                         'properties': {
                             'gen_ai.request.model': {},
+                            'request_data': {'type': 'object'},
                             'events': {'type': 'array'},
                             'async': {},
                             'gen_ai.system': {},

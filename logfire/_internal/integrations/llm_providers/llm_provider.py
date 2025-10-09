@@ -201,7 +201,6 @@ def record_streaming(
         duration = (timer() - start) / ONE_SECOND_IN_NANOSECONDS
         logire_llm.info(
             'streaming response from {request_data[model]!r} took {duration:.2f}s',
-            **span_data,
             duration=duration,
-            response_data=stream_state.get_response_data(),
+            **stream_state.get_attributes(span_data),
         )

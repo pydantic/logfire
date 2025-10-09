@@ -17,6 +17,10 @@ class StreamState(ABC):
     def get_response_data(self) -> Any:
         """Returns the response data for including in the log."""
 
+    def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
+        """Attributes to include in the log."""
+        return dict(**span_data, response_data=self.get_response_data())
+
 
 class EndpointConfig(NamedTuple):
     """The configuration for the endpoint of a provider based on request url."""
