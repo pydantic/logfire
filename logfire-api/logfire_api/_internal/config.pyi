@@ -36,7 +36,7 @@ from opentelemetry.sdk.metrics.export import MetricReader as MetricReader
 from opentelemetry.sdk.trace import SpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from pathlib import Path
-from typing import Any, Callable, Literal, TypedDict
+from typing import Any, Callable, Literal, TextIO, TypedDict
 from typing_extensions import Self, Unpack
 
 CREDENTIALS_FILENAME: str
@@ -54,6 +54,7 @@ class ConsoleOptions:
     verbose: bool = ...
     min_log_level: LevelName = ...
     show_project_link: bool = ...
+    output: TextIO | None = ...
 
 @dataclass
 class AdvancedOptions:
