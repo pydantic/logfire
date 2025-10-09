@@ -7,6 +7,7 @@ import sys
 import threading
 from collections.abc import Iterable, Sequence
 from contextlib import ExitStack
+from io import StringIO
 from pathlib import Path
 from time import sleep, time
 from typing import Any
@@ -879,6 +880,19 @@ def test_config_serializable_console_false():
 
     deserialize_config(serialize_config())
     assert GLOBAL_CONFIG.console is False
+
+
+def test_config_console_output_set():
+    output = StringIO()
+    logfire.configure(send_to_logfire=False, console=logfire.ConsoleOptions(output=output))
+    assert isinstance(GLOBAL_CONFIG.console, logfire.ConsoleOptions)
+    assert GLOBAL_CONFIG.console.output is output
+
+    deserialize_config(serialize_config())
+    assert isinstance(GLOBAL_CONFIG.console, logfire.ConsoleOptions)
+    assert GLOBAL_CONFIG.console.output is output
+    logfire.info('test')
+    assert 'test' in output.getvalue()
 
 
 def test_sanitize_project_name():
