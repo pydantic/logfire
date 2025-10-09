@@ -55,16 +55,15 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         if is_current_agent_span('Responses API', 'Responses API with {gen_ai.request.model!r}'):
             return EndpointConfig(message_template='', span_data={})
 
+        stream = json_data.get('stream', False)  # type: ignore
         span_data: dict[str, Any] = {
             'gen_ai.request.model': json_data['model'],
-        }
-        if json_data.get('stream'):  # type: ignore
-            span_data['request_data'] = json_data
-        else:
-            span_data['events'] = inputs_to_events(
+            'request_data': {'model': json_data['model'], 'stream': stream},
+            'events': inputs_to_events(
                 json_data['input'],  # type: ignore
                 json_data.get('instructions'),  # type: ignore
-            )
+            ),
+        }
 
         return EndpointConfig(
             message_template='Responses API with {gen_ai.request.model!r}',
@@ -139,6 +138,11 @@ class OpenaiResponsesStreamState(StreamState):
             raise RuntimeError("Didn't receive a `response.completed` event.")
 
         return response
+
+    def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
+        response = self.get_response_data()
+        span_data['events'] = span_data['events'] + responses_output_events(response)
+        return span_data
 
 
 try:
