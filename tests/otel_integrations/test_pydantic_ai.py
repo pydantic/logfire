@@ -78,6 +78,21 @@ async def test_instrument_pydantic_ai():
     m2 = get_model(agent2)
     assert m2 is model
 
+    # Test all known parameters
+    logfire_inst.instrument_pydantic_ai(
+        include_binary_content=False,
+        include_content=False,
+        version=1,
+        event_mode='logs',
+    )
+    m = get_model(agent2)
+    assert isinstance(m, InstrumentedModel)
+    assert m.instrumentation_settings.version == 1
+    assert not m.instrumentation_settings.include_binary_content
+    assert not m.instrumentation_settings.include_content
+    assert m.instrumentation_settings.event_mode == 'logs'
+    Agent.instrument_all(False)
+
 
 def test_invalid_instrument_pydantic_ai():
     with pytest.raises(TypeError):

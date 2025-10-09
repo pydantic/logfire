@@ -988,8 +988,10 @@ class Logfire:
         obj: pydantic_ai.Agent | None = None,
         /,
         *,
-        event_mode: Literal['attributes', 'logs'] = 'attributes',
         include_binary_content: bool | None = None,
+        include_content: bool | None = None,
+        version: Literal[1, 2, 3] | None = None,
+        event_mode: Literal['attributes', 'logs'] | None = None,
         **kwargs: Any,
     ) -> None: ...
 
@@ -999,8 +1001,10 @@ class Logfire:
         obj: pydantic_ai.models.Model,
         /,
         *,
-        event_mode: Literal['attributes', 'logs'] = 'attributes',
         include_binary_content: bool | None = None,
+        include_content: bool | None = None,
+        version: Literal[1, 2, 3] | None = None,
+        event_mode: Literal['attributes', 'logs'] | None = None,
         **kwargs: Any,
     ) -> pydantic_ai.models.Model: ...
 
