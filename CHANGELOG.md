@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v4.13.1] (2025-10-13)
+
+* Add "type" keyword on opencode MCP settings by @Kludex in [#1486](https://github.com/pydantic/logfire/pull/1486)
+
 ## [v4.13.0] (2025-10-09)
 
 * Store OpenAI Responses streaming response in events format understood by UI by @alexmojaki in [#1479](https://github.com/pydantic/logfire/pull/1479)
@@ -941,3 +945,4 @@ First release from new repo!
 [v4.11.0]: https://github.com/pydantic/logfire/compare/v4.10.0...v4.11.0
 [v4.12.0]: https://github.com/pydantic/logfire/compare/v4.11.0...v4.12.0
 [v4.13.0]: https://github.com/pydantic/logfire/compare/v4.12.0...v4.13.0
+[v4.13.1]: https://github.com/pydantic/logfire/compare/v4.13.0...v4.13.1
