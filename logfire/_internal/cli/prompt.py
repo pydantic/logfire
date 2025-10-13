@@ -121,7 +121,13 @@ def configure_opencode(client: LogfireClient, organization: str, project: str, c
 
 
 def logfire_mcp_json(token: str) -> dict[str, Any]:
-    return {'command': 'uvx', 'args': ['logfire-mcp@latest'], 'env': {'LOGFIRE_READ_TOKEN': token}}
+    return {
+        'command': 'uvx',
+        'args': ['logfire-mcp@latest'],
+        'env': {'LOGFIRE_READ_TOKEN': token},
+        # https://opencode.ai/docs/mcp-servers/#local
+        'type': 'local',
+    }
 
 
 def opencode_mcp_json(token: str) -> dict[str, Any]:
