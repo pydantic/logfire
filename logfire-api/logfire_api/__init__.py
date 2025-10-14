@@ -96,6 +96,9 @@ except ImportError:
             def span(self, *args, **kwargs) -> LogfireSpan:
                 return LogfireSpan()
 
+            def current_span(self) -> LogfireSpan:
+                return LogfireSpan()
+
             def log(self, *args, **kwargs) -> None: ...
 
             def trace(self, *args, **kwargs) -> None: ...
@@ -201,6 +204,7 @@ except ImportError:
 
         DEFAULT_LOGFIRE_INSTANCE = Logfire()
         span = DEFAULT_LOGFIRE_INSTANCE.span
+        current_span = DEFAULT_LOGFIRE_INSTANCE.current_span
         log = DEFAULT_LOGFIRE_INSTANCE.log
         trace = DEFAULT_LOGFIRE_INSTANCE.trace
         debug = DEFAULT_LOGFIRE_INSTANCE.debug
