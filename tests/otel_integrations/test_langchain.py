@@ -1,4 +1,5 @@
 import os
+import sys
 
 import pydantic
 import pytest
@@ -11,10 +12,16 @@ from logfire._internal.utils import get_version
 os.environ['LANGSMITH_OTEL_ENABLED'] = 'true'
 os.environ['LANGSMITH_TRACING'] = 'true'
 
-pytestmark = pytest.mark.skipif(
-    get_version(pydantic.__version__) < get_version('2.11.0'),
-    reason='Langgraph does not support older Pydantic versions',
-)
+pytestmark = [
+    pytest.mark.skipif(
+        get_version(pydantic.__version__) < get_version('2.11.0'),
+        reason='Langgraph does not support older Pydantic versions',
+    ),
+    pytest.mark.skipif(
+        sys.version_info < (3, 10),
+        reason='langchain.agents.create_agent requires Python 3.10+',
+    ),
+]
 
 
 @pytest.mark.vcr()
