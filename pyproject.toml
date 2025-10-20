@@ -296,7 +296,7 @@ filterwarnings = [
     # kombu using deprecated redis API
     "ignore:Call to 'get_connection' function with deprecated usage of input argument/s.*:DeprecationWarning",
     # OTel logs going through weird deprecation process
-    "ignore::opentelemetry.sdk._logs._internal.LogDeprecatedInitWarning"
+    "ignore::opentelemetry.sdk._logs._internal.LogDeprecatedInitWarning",
 ]
 DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_test_site.settings"
 
