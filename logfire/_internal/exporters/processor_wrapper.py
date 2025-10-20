@@ -435,7 +435,7 @@ def _transform_langchain_message(old_message: dict[str, Any]) -> dict[str, Any]:
         kwargs = old_message
 
     role = kwargs.get('role') or {'human': 'user', 'ai': 'assistant'}.get(kwargs['type'], kwargs['type'])
-    result = {
+    result: dict[str, Any] = {
         **{
             k: v
             for k, v in kwargs.items()
@@ -444,8 +444,25 @@ def _transform_langchain_message(old_message: dict[str, Any]) -> dict[str, Any]:
         **kwargs.get('additional_kwargs', {}),
         'role': role,
     }
-    if not result.get('tool_calls'):
+
+    if tool_calls := result.get('tool_calls'):
+        for tool_call in tool_calls:
+            if (
+                'function' not in tool_call
+                and 'name' in tool_call
+                and 'args' in tool_call
+                and tool_call.get('type') == 'tool_call'
+            ):
+                tool_call.update(
+                    function=dict(
+                        name=tool_call.pop('name'),
+                        arguments=tool_call.pop('args'),
+                    ),
+                    type='function',
+                )
+    else:
         result.pop('tool_calls', None)
+
     if 'tool_call_id' in result:
         result['id'] = result.pop('tool_call_id')
     return result
