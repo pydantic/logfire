@@ -45,8 +45,8 @@ classifiers = [
     "Framework :: OpenTelemetry :: Instrumentations",
 ]
 dependencies = [
-    "opentelemetry-sdk >= 1.35.0, < 1.38.0",
-    "opentelemetry-exporter-otlp-proto-http >= 1.35.0, < 1.38.0",
+    "opentelemetry-sdk >= 1.35.0, < 1.39.0",
+    "opentelemetry-exporter-otlp-proto-http >= 1.35.0, < 1.39.0",
     "opentelemetry-instrumentation >= 0.41b0",
     "rich >= 13.4.2",
     "protobuf >= 4.23.4",
@@ -78,7 +78,7 @@ requests = ["opentelemetry-instrumentation-requests >= 0.42b0"]
 mysql = ["opentelemetry-instrumentation-mysql >= 0.42b0"]
 sqlite3 = ["opentelemetry-instrumentation-sqlite3 >= 0.42b0"]
 aws-lambda = ["opentelemetry-instrumentation-aws-lambda >= 0.42b0"]
-google-genai = ["opentelemetry-instrumentation-google-genai >= 0"]
+google-genai = ["opentelemetry-instrumentation-google-genai >= 0.4b0"]
 litellm = ["openinference-instrumentation-litellm >= 0"]
 
 [project.urls]
@@ -177,7 +177,7 @@ dev = [
     "langchain>=0.0.27",
     "langchain-openai>=0.3.17",
     "langgraph >= 0",
-    "opentelemetry-instrumentation-google-genai >= 0",
+    "opentelemetry-instrumentation-google-genai >= 0.4b0",
     "google-genai >= 0",
     "openinference-instrumentation-litellm >= 0",
     "litellm >= 0",
@@ -295,6 +295,8 @@ filterwarnings = [
     "ignore:The `capture_response_headers` parameter is deprecated. Use `capture_headers` instead.:DeprecationWarning",
     # kombu using deprecated redis API
     "ignore:Call to 'get_connection' function with deprecated usage of input argument/s.*:DeprecationWarning",
+    # OTel logs going through weird deprecation process
+    "ignore::opentelemetry.sdk._logs._internal.LogDeprecatedInitWarning",
 ]
 DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_test_site.settings"
 

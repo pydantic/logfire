@@ -372,9 +372,10 @@ def _transform_langchain_span(span: ReadableSpanDict):
 
     request_model: str = attributes.get('gen_ai.request.model') or new_attributes.get('gen_ai.request.model', '')  # type: ignore
 
-    if not request_model and 'gen_ai.usage.input_tokens' in attributes:
+    if not request_model and 'gen_ai.usage.input_tokens' in attributes:  # pragma: no cover
         # Only keep usage attributes on spans with actual token usage, i.e. model requests,
         # to prevent double counting costs in the UI.
+        # This applies to older langsmith versions
         attributes = {k: v for k, v in attributes.items() if not k.startswith('gen_ai.usage.')}
 
     guessed_system = guess_system(request_model)
@@ -435,7 +436,7 @@ def _transform_langchain_message(old_message: dict[str, Any]) -> dict[str, Any]:
         kwargs = old_message
 
     role = kwargs.get('role') or {'human': 'user', 'ai': 'assistant'}.get(kwargs['type'], kwargs['type'])
-    result = {
+    result: dict[str, Any] = {
         **{
             k: v
             for k, v in kwargs.items()
@@ -444,8 +445,25 @@ def _transform_langchain_message(old_message: dict[str, Any]) -> dict[str, Any]:
         **kwargs.get('additional_kwargs', {}),
         'role': role,
     }
-    if not result.get('tool_calls'):
+
+    if tool_calls := result.get('tool_calls'):
+        for tool_call in tool_calls:
+            if (
+                'function' not in tool_call
+                and 'name' in tool_call
+                and 'args' in tool_call
+                and tool_call.get('type') == 'tool_call'
+            ):  # pragma: no branch
+                tool_call.update(
+                    function=dict(
+                        name=tool_call.pop('name'),
+                        arguments=tool_call.pop('args'),
+                    ),
+                    type='function',
+                )
+    else:
         result.pop('tool_calls', None)
+
     if 'tool_call_id' in result:
         result['id'] = result.pop('tool_call_id')
     return result

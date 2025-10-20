@@ -1,4 +1,5 @@
 import os
+import sys
 
 import pydantic
 import pytest
@@ -11,22 +12,28 @@ from logfire._internal.utils import get_version
 os.environ['LANGSMITH_OTEL_ENABLED'] = 'true'
 os.environ['LANGSMITH_TRACING'] = 'true'
 
-pytestmark = pytest.mark.skipif(
-    get_version(pydantic.__version__) < get_version('2.11.0'),
-    reason='Langgraph does not support older Pydantic versions',
-)
+pytestmark = [
+    pytest.mark.skipif(
+        get_version(pydantic.__version__) < get_version('2.11.0'),
+        reason='Langgraph does not support older Pydantic versions',
+    ),
+    pytest.mark.skipif(
+        sys.version_info < (3, 10),
+        reason='langchain.agents.create_agent requires Python 3.10+',
+    ),
+]
 
 
 @pytest.mark.vcr()
 def test_instrument_langchain(exporter: TestExporter):
+    from langchain.agents import create_agent  # pyright: ignore[reportUnknownVariableType]
     from langchain_core.tracers.langchain import wait_for_all_tracers
-    from langgraph.prebuilt import create_react_agent  # pyright: ignore [reportUnknownVariableType]
 
     def add(a: float, b: float) -> float:
         """Add two numbers."""
         return a + b
 
-    math_agent = create_react_agent(model='gpt-4o', tools=[add])  # pyright: ignore [reportUnknownVariableType]
+    math_agent = create_agent(model='gpt-4o', tools=[add])  # pyright: ignore [reportUnknownVariableType]
 
     result = math_agent.invoke({'messages': [{'role': 'user', 'content': "what's 123 + 456?"}]})  # pyright: ignore
 
@@ -46,7 +53,7 @@ def test_instrument_langchain(exporter: TestExporter):
             'tool_calls': [
                 {
                     'id': 'call_My0goQVU64UVqhJrtCnLPmnQ',
-                    'function': {'arguments': '{"a":123,"b":456}', 'name': 'add'},
+                    'function': {'arguments': {'a': 123, 'b': 456}, 'name': 'add'},
                     'type': 'function',
                 }
             ],
@@ -88,22 +95,18 @@ def test_instrument_langchain(exporter: TestExporter):
         [
             ('LangGraph', 4),  # Full conversation in outermost span
             # First request and response
-            ('agent', 2),
-            ('call_model', 2),
-            ('RunnableSequence', 2),
-            ('Prompt', 1),  # prompt spans miss the output
+            ('model', 2),
             ('ChatOpenAI', 2),
-            ('should_continue', 2),
-            # Tools don't have message events
+            ('model_to_tools', 2),
+            # These have no message events
             ('tools', 0),
             ('add', 0),
+            # Here the tool response only gets added
+            ('tools_to_model', 3),
             # Second request and response included, thus the whole conversation
-            ('agent', 4),
-            ('call_model', 4),
-            ('RunnableSequence', 4),
-            ('Prompt', 3),  # prompt spans miss the output
+            ('model', 4),
             ('ChatOpenAI', 4),
-            ('should_continue', 4),
+            ('model_to_tools', 4),
         ]
     )
 
@@ -117,7 +120,7 @@ def test_instrument_langchain(exporter: TestExporter):
                 'tool_calls': [
                     {
                         'id': 'call_My0goQVU64UVqhJrtCnLPmnQ',
-                        'function': {'arguments': '{"a":123,"b":456}', 'name': 'add'},
+                        'function': {'arguments': {'a': 123, 'b': 456}, 'name': 'add'},
                         'type': 'function',
                     }
                 ],

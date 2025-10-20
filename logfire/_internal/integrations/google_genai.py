@@ -4,7 +4,7 @@ import base64
 import json
 from typing import Any
 
-from opentelemetry._events import Event, EventLogger, EventLoggerProvider
+from opentelemetry._logs import Logger, LoggerProvider, LogRecord
 from opentelemetry.trace import get_current_span
 from typing_extensions import TypeAlias
 
@@ -43,13 +43,14 @@ def default_json(x: Any) -> str:
     return base64.b64encode(x).decode('utf-8') if isinstance(x, bytes) else x
 
 
-class SpanEventLogger(EventLogger):
+class SpanEventLogger(Logger):
     @handle_internal_errors
-    def emit(self, event: Event) -> None:
+    def emit(self, record: LogRecord) -> None:  # type: ignore
         span = get_current_span()
-        assert isinstance(event.body, dict)
-        body: dict[str, Any] = {**event.body}
-        if event.name == 'gen_ai.choice':
+        assert isinstance(record.body, dict)
+        assert record.event_name
+        body: dict[str, Any] = {**record.body}
+        if record.event_name == 'gen_ai.choice':
             if 'content' in body and isinstance(body['content'], dict):
                 parts = body.pop('content')['parts']
                 new_parts = [transform_part(part) for part in parts]
@@ -57,9 +58,9 @@ class SpanEventLogger(EventLogger):
         else:
             if 'content' in body:  # pragma: no branch
                 body['content'] = transform_part(body['content'])
-            body['role'] = body.get('role', event.name.split('.')[1])
+            body['role'] = body.get('role', record.event_name.split('.')[1])
 
-        span.add_event(event.name, attributes={'event_body': json.dumps(body, default=default_json)})
+        span.add_event(record.event_name, attributes={'event_body': json.dumps(body, default=default_json)})
 
 
 def transform_part(part: Part) -> Part:
@@ -71,15 +72,15 @@ def transform_part(part: Part) -> Part:
     return new_part
 
 
-class SpanEventLoggerProvider(EventLoggerProvider):
-    def get_event_logger(self, *args: Any, **kwargs: Any) -> SpanEventLogger:
+class SpanEventLoggerProvider(LoggerProvider):
+    def get_logger(self, *args: Any, **kwargs: Any) -> SpanEventLogger:
         return SpanEventLogger(*args, **kwargs)
 
 
 def instrument_google_genai(logfire_instance: logfire.Logfire, **kwargs: Any):
     GoogleGenAiSdkInstrumentor().instrument(
         **{
-            'event_logger_provider': SpanEventLoggerProvider(),
+            'logger_provider': SpanEventLoggerProvider(),
             'tracer_provider': logfire_instance.config.get_tracer_provider(),
             'meter_provider': logfire_instance.config.get_meter_provider(),
             **kwargs,
