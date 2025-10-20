@@ -47,6 +47,9 @@ jobs:
           # OpenTelemetry versions
           - python-version: '3.13'
             pydantic-version: 'main'
+            otel-version: '1.37'
+          - python-version: '3.13'
+            pydantic-version: 'main'
             otel-version: '1.36'
           - python-version: '3.13'
             pydantic-version: 'main'
