@@ -93,7 +93,7 @@ class ProxyLogger(Logger):
     schema_url: str | None = None
     attributes: _ExtendedAttributes | None = None
 
-    def emit(self, record: LogRecord) -> None:
+    def emit(self, record: LogRecord) -> None:  # type: ignore
         if record.severity_number is not None:
             if record.severity_number.value < self.min_level:
                 return

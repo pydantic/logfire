@@ -45,7 +45,7 @@ def default_json(x: Any) -> str:
 
 class SpanEventLogger(Logger):
     @handle_internal_errors
-    def emit(self, record: LogRecord) -> None:
+    def emit(self, record: LogRecord) -> None:  # type: ignore
         span = get_current_span()
         assert isinstance(record.body, dict)
         assert record.event_name
