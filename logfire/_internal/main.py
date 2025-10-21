@@ -2482,10 +2482,6 @@ class LogfireSpan(ReadableSpan):
         if self._span is None:
             raise RuntimeError('Span has not been started')
 
-        # Check if the span has been sampled out first, since _record_exception is somewhat expensive.
-        if not self._span.is_recording():
-            return
-
         self._span.record_exception(
             exception,
             attributes=attributes,
