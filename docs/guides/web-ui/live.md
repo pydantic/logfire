@@ -23,58 +23,7 @@ keyboard shortcut `cmd+enter` (or `ctrl+enter` on Windows/Linux).
 
 Note: you can run more complex queries on the [explore screen](explore.md)
 
-The schema for the records table is:
-
-```sql
-CREATE TABLE records (
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    start_timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
-    end_timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
-    duration DOUBLE PRECISION,
-    trace_id TEXT NOT NULL,
-    span_id TEXT NOT NULL,
-    kind TEXT NOT NULL,
-    level SMALLINT NOT NULL,
-    parent_span_id TEXT,
-    span_name TEXT NOT NULL,
-    message TEXT NOT NULL,
-    log_body TEXT,
-    otel_status_code TEXT,
-    otel_status_message TEXT,
-    otel_links TEXT,
-    otel_events TEXT,
-    is_exception BOOLEAN,
-    tags TEXT[],
-    exception_message TEXT,
-    exception_type TEXT,
-    exception_stacktrace TEXT,
-    attributes_json_schema TEXT,
-    attributes JSONB,
-    otel_scope_name TEXT,
-    otel_scope_version TEXT,
-    otel_scope_attributes JSONB,
-    service_namespace TEXT,
-    service_name TEXT NOT NULL,
-    service_version TEXT,
-    service_instance_id TEXT,
-    process_pid INTEGER,
-    otel_resource_attributes TEXT,
-    telemetry_sdk_name TEXT,
-    telemetry_sdk_language TEXT,
-    telemetry_sdk_version TEXT,
-    deployment_environment TEXT,
-    http_response_status_code SMALLINT,
-    url_path TEXT,
-    url_query TEXT,
-    url_full TEXT,
-    http_route TEXT,
-    http_method TEXT,
-    attributes_reduced TEXT,
-    otel_resource_attributes_reduced TEXT,
-    project_id TEXT NOT NULL,
-    day DATE NOT NULL
-);
-```
+The records table fields are documented in the [SQL reference](../../reference/sql.md)
 
 You can search for any of these in the `Reference` list:
 
