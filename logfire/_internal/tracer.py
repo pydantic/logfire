@@ -422,6 +422,9 @@ def record_exception(
     """Similar to the OTEL SDK Span.record_exception method, with our own additions."""
     from ..types import ExceptionCallbackHelper
 
+    if not span.is_recording():
+        return
+
     if is_starlette_http_exception(exception):
         if 400 <= exception.status_code < 500:
             # Don't mark 4xx HTTP exceptions as errors, they are expected to happen in normal operation.

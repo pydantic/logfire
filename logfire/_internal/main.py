@@ -758,6 +758,9 @@ class Logfire:
                 start_time=start_time,
             )
 
+            if not span.is_recording():
+                return
+
             if exc_info:
                 if exc_info is True:
                     exc_info = sys.exc_info()
