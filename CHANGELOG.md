@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v4.14.0] (2025-10-21)
+
+* Support OpenTelemetry 1.38, fix `instrument_google_genai` and `instrument_langchain` by @alexmojaki in [#1495](https://github.com/pydantic/logfire/pull/1495)
+
 ## [v4.13.2] (2025-10-13)
 
 * Comply with opencode MCP format by @Kludex in [#1488](https://github.com/pydantic/logfire/pull/1488)
@@ -951,3 +955,4 @@ First release from new repo!
 [v4.13.0]: https://github.com/pydantic/logfire/compare/v4.12.0...v4.13.0
 [v4.13.1]: https://github.com/pydantic/logfire/compare/v4.13.0...v4.13.1
 [v4.13.2]: https://github.com/pydantic/logfire/compare/v4.13.1...v4.13.2
+[v4.14.0]: https://github.com/pydantic/logfire/compare/v4.13.2...v4.14.0
