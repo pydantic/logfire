@@ -23,7 +23,7 @@ keyboard shortcut `cmd+enter` (or `ctrl+enter` on Windows/Linux).
 
 Note: you can run more complex queries on the [explore screen](explore.md)
 
-The records table fields are documented in the [SQL reference](../../reference/sql.md)
+The records table fields are documented in the [SQL reference](../../reference/sql.md).
 
 You can search for any of these in the `Reference` list:
 
