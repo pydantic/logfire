@@ -349,3 +349,19 @@ def test_record_exception_directly(exporter: TestExporter, config_kwargs: dict[s
             }
         ]
     )
+
+
+def test_nonrecording_span(exporter: TestExporter, config_kwargs: dict[str, Any]):
+    config_kwargs['sampling'] = logfire.SamplingOptions(head=0)
+    logfire.configure(**config_kwargs)
+
+    with pytest.raises(ValueError):
+        with logfire.span('span') as span:
+            try:
+                raise ValueError('test')
+            except ValueError as e:
+                span.record_exception(e)
+                logfire.exception('span exception')
+                raise
+
+    assert exporter.exported_spans_as_dict() == snapshot([])
