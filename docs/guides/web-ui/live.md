@@ -25,7 +25,7 @@ Note: you can run more complex queries on the [explore screen](explore.md)
 
 The records table fields are documented in the [SQL reference](../../reference/sql.md).
 
-You can search for any of these in the `Reference` list:
+You can search for any of them in the `Reference` list:
 
 ![Search box reference](../../images/guide/live-view-reference.png)
 
