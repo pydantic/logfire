@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v4.14.1] (2025-10-22)
+
+* Skip recording exceptions on `NonRecordingSpan` by @alexmojaki in [#1497](https://github.com/pydantic/logfire/pull/1497)
+
 ## [v4.14.0] (2025-10-21)
 
 * Support OpenTelemetry 1.38, fix `instrument_google_genai` and `instrument_langchain` by @alexmojaki in [#1495](https://github.com/pydantic/logfire/pull/1495)
@@ -956,3 +960,4 @@ First release from new repo!
 [v4.13.1]: https://github.com/pydantic/logfire/compare/v4.13.0...v4.13.1
 [v4.13.2]: https://github.com/pydantic/logfire/compare/v4.13.1...v4.13.2
 [v4.14.0]: https://github.com/pydantic/logfire/compare/v4.13.2...v4.14.0
+[v4.14.1]: https://github.com/pydantic/logfire/compare/v4.14.0...v4.14.1
