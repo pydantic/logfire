@@ -761,7 +761,7 @@ def test_instrument_with_parent(exporter: TestExporter) -> None:
 
     assert parent() == 'hello 5'
 
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True, _strip_function_qualname=False) == snapshot(
         [
             {
                 'name': 'parent',
@@ -772,7 +772,7 @@ def test_instrument_with_parent(exporter: TestExporter) -> None:
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.lineno': 123,
-                    'code.function': 'parent',
+                    'code.function': 'test_instrument_with_parent.<locals>.parent',
                     'logfire.msg': 'parent',
                     'logfire.msg_template': 'parent',
                     'logfire.span_type': 'pending_span',
@@ -789,7 +789,7 @@ def test_instrument_with_parent(exporter: TestExporter) -> None:
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.lineno': 123,
-                    'code.function': 'hello_world',
+                    'code.function': 'test_instrument_with_parent.<locals>.hello_world',
                     'a': 5,
                     'logfire.msg_template': 'hello-world {a=}',
                     'logfire.msg': 'hello-world a=5',
@@ -803,7 +803,7 @@ def test_instrument_with_parent(exporter: TestExporter) -> None:
                 'attributes': {
                     'a': 5,
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'hello_world',
+                    'code.function': 'test_instrument_with_parent.<locals>.hello_world',
                     'code.lineno': 123,
                     'logfire.json_schema': '{"type":"object","properties":{"a":{},"return":{}}}',
                     'logfire.msg': 'hello-world a=5',
@@ -829,7 +829,7 @@ def test_instrument_with_parent(exporter: TestExporter) -> None:
             {
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'parent',
+                    'code.function': 'test_instrument_with_parent.<locals>.parent',
                     'code.lineno': 123,
                     'logfire.json_schema': '{"type":"object","properties":{"return":{}}}',
                     'logfire.msg': 'parent',
@@ -868,7 +868,7 @@ def test_instrument_new_context(exporter: TestExporter) -> None:
 
     assert parent() == 'hello 5'
 
-    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True, _strip_function_qualname=False) == snapshot(
         [
             {
                 'name': 'parent',
@@ -879,7 +879,7 @@ def test_instrument_new_context(exporter: TestExporter) -> None:
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.lineno': 123,
-                    'code.function': 'parent',
+                    'code.function': 'test_instrument_new_context.<locals>.parent',
                     'logfire.msg': 'parent',
                     'logfire.msg_template': 'parent',
                     'logfire.span_type': 'pending_span',
@@ -896,7 +896,7 @@ def test_instrument_new_context(exporter: TestExporter) -> None:
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.lineno': 123,
-                    'code.function': 'hello_world',
+                    'code.function': 'test_instrument_new_context.<locals>.hello_world',
                     'a': 5,
                     'logfire.msg_template': 'hello-world {a=}',
                     'logfire.msg': 'hello-world a=5',
@@ -910,7 +910,7 @@ def test_instrument_new_context(exporter: TestExporter) -> None:
                 'attributes': {
                     'a': 5,
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'hello_world',
+                    'code.function': 'test_instrument_new_context.<locals>.hello_world',
                     'code.lineno': 123,
                     'logfire.json_schema': '{"type":"object","properties":{"a":{},"return":{}}}',
                     'logfire.msg': 'hello-world a=5',
@@ -932,7 +932,7 @@ def test_instrument_new_context(exporter: TestExporter) -> None:
             {
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'parent',
+                    'code.function': 'test_instrument_new_context.<locals>.parent',
                     'code.lineno': 123,
                     'logfire.json_schema': '{"type":"object","properties":{"return":{}}}',
                     'logfire.msg': 'parent',
