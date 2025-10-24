@@ -966,11 +966,11 @@ class LogfireConfig(_LogfireConfigData):
                     base_url = self.advanced.generate_base_url(self.token)
                     headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': self.token}
                     session = OTLPExporterHttpSession()
-                    session.headers.update(headers)
                     span_exporter = BodySizeCheckingOTLPSpanExporter(
                         endpoint=urljoin(base_url, '/v1/traces'),
                         session=session,
                         compression=Compression.Gzip,
+                        headers=headers,
                     )
                     span_exporter = QuietSpanExporter(span_exporter)
                     span_exporter = RetryFewerSpansSpanExporter(span_exporter)
@@ -1006,6 +1006,7 @@ class LogfireConfig(_LogfireConfigData):
                     log_exporter = OTLPLogExporter(
                         endpoint=urljoin(base_url, '/v1/logs'),
                         session=session,
+                        headers=headers,
                         compression=Compression.Gzip,
                     )
                     log_exporter = QuietLogExporter(log_exporter)
@@ -1016,6 +1017,11 @@ class LogfireConfig(_LogfireConfigData):
                     else:
                         logfire_log_processor = BatchLogRecordProcessor(log_exporter)
                     log_record_processors.append(logfire_log_processor)
+
+                    # Forgetting to include `headers=headers` in all exporters previously allowed
+                    # env vars like OTEL_EXPORTER_OTLP_HEADERS to override ours since one session is shared.
+                    # This line is just to make sure.
+                    session.headers.update(headers)
 
             if processors_with_pending_spans:
                 pending_multiprocessor = SynchronousMultiSpanProcessor()
