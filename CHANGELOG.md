@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v4.14.2] (2025-10-24)
+
+* Ensure `OTEL_EXPORTER_OTLP_HEADERS` doesn't override logfire token by @alexmojaki in [#1500](https://github.com/pydantic/logfire/pull/1500)
+
 ## [v4.14.1] (2025-10-22)
 
 * Skip recording exceptions on `NonRecordingSpan` by @alexmojaki in [#1497](https://github.com/pydantic/logfire/pull/1497)
@@ -961,3 +965,4 @@ First release from new repo!
 [v4.13.2]: https://github.com/pydantic/logfire/compare/v4.13.1...v4.13.2
 [v4.14.0]: https://github.com/pydantic/logfire/compare/v4.13.2...v4.14.0
 [v4.14.1]: https://github.com/pydantic/logfire/compare/v4.14.0...v4.14.1
+[v4.14.2]: https://github.com/pydantic/logfire/compare/v4.14.1...v4.14.2
