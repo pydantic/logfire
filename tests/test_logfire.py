@@ -748,6 +748,213 @@ def test_instrument(exporter: TestExporter):
     )
 
 
+def test_instrument_with_parent(exporter: TestExporter) -> None:
+    tagged = logfire.with_tags('test_instrument')
+
+    @tagged.instrument('hello-world {a=}', record_return=True)
+    def hello_world(a: int) -> str:
+        return f'hello {a}'
+
+    @tagged.instrument('parent', record_return=True)
+    def parent() -> str:
+        return hello_world(5)
+
+    assert parent() == 'hello 5'
+
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+        [
+            {
+                'name': 'parent',
+                'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'parent',
+                    'logfire.msg': 'parent',
+                    'logfire.msg_template': 'parent',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                    'logfire.tags': ('test_instrument',),
+                },
+            },
+            {
+                'name': 'hello-world {a=}',
+                'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'hello_world',
+                    'a': 5,
+                    'logfire.msg_template': 'hello-world {a=}',
+                    'logfire.msg': 'hello-world a=5',
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000001',
+                    'logfire.tags': ('test_instrument',),
+                },
+            },
+            {
+                'attributes': {
+                    'a': 5,
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'hello_world',
+                    'code.lineno': 123,
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{},"return":{}}}',
+                    'logfire.msg': 'hello-world a=5',
+                    'logfire.msg_template': 'hello-world {a=}',
+                    'logfire.span_type': 'span',
+                    'logfire.tags': ('test_instrument',),
+                    'return': 'hello 5',
+                },
+                'context': {
+                    'is_remote': False,
+                    'span_id': 3,
+                    'trace_id': 1,
+                },
+                'end_time': 3000000000,
+                'name': 'hello-world {a=}',
+                'parent': {
+                    'is_remote': False,
+                    'span_id': 1,
+                    'trace_id': 1,
+                },
+                'start_time': 2000000000,
+            },
+            {
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'parent',
+                    'code.lineno': 123,
+                    'logfire.json_schema': '{"type":"object","properties":{"return":{}}}',
+                    'logfire.msg': 'parent',
+                    'logfire.msg_template': 'parent',
+                    'logfire.span_type': 'span',
+                    'logfire.tags': ('test_instrument',),
+                    'return': 'hello 5',
+                },
+                'context': {
+                    'is_remote': False,
+                    'span_id': 1,
+                    'trace_id': 1,
+                },
+                'end_time': 4000000000,
+                'name': 'parent',
+                'parent': None,
+                'start_time': 1000000000,
+            },
+        ]
+    )
+
+
+def test_instrument_new_context(exporter: TestExporter) -> None:
+    tagged = logfire.with_tags('test_instrument')
+
+    def context_factory():
+        return {'new_contex': 123}
+
+    @tagged.instrument('hello-world {a=}', record_return=True, new_context=context_factory)
+    def hello_world(a: int) -> str:
+        return f'hello {a}'
+
+    @tagged.instrument('parent', record_return=True)
+    def parent() -> str:
+        return hello_world(5)
+
+    assert parent() == 'hello 5'
+
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
+        [
+            {
+                'name': 'parent',
+                'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'parent',
+                    'logfire.msg': 'parent',
+                    'logfire.msg_template': 'parent',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                    'logfire.tags': ('test_instrument',),
+                },
+            },
+            {
+                'name': 'hello-world {a=}',
+                'context': {'trace_id': 2, 'span_id': 4, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'hello_world',
+                    'a': 5,
+                    'logfire.msg_template': 'hello-world {a=}',
+                    'logfire.msg': 'hello-world a=5',
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                    'logfire.tags': ('test_instrument',),
+                },
+            },
+            {
+                'attributes': {
+                    'a': 5,
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'hello_world',
+                    'code.lineno': 123,
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{},"return":{}}}',
+                    'logfire.msg': 'hello-world a=5',
+                    'logfire.msg_template': 'hello-world {a=}',
+                    'logfire.span_type': 'span',
+                    'logfire.tags': ('test_instrument',),
+                    'return': 'hello 5',
+                },
+                'context': {
+                    'is_remote': False,
+                    'span_id': 3,
+                    'trace_id': 2,
+                },
+                'end_time': 3000000000,
+                'name': 'hello-world {a=}',
+                'parent': None,
+                'start_time': 2000000000,
+            },
+            {
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'parent',
+                    'code.lineno': 123,
+                    'logfire.json_schema': '{"type":"object","properties":{"return":{}}}',
+                    'logfire.msg': 'parent',
+                    'logfire.msg_template': 'parent',
+                    'logfire.span_type': 'span',
+                    'logfire.tags': ('test_instrument',),
+                    'return': 'hello 5',
+                },
+                'context': {
+                    'is_remote': False,
+                    'span_id': 1,
+                    'trace_id': 1,
+                },
+                'end_time': 4000000000,
+                'name': 'parent',
+                'parent': None,
+                'start_time': 1000000000,
+            },
+        ]
+    )
+
+
 def test_instrument_other_callable(exporter: TestExporter):
     class Instrumented:
         def __call__(self, a: int) -> str:

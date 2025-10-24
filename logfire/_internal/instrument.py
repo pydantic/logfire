@@ -16,6 +16,8 @@ from .stack_info import get_filepath_attribute
 from .utils import safe_repr, uniquify_sequence
 
 if TYPE_CHECKING:
+    from logfire.propagate import ContextCarrier
+
     from .main import Logfire
 
 
@@ -50,6 +52,7 @@ def instrument(
     extract_args: bool | Iterable[str],
     record_return: bool,
     allow_generator: bool,
+    new_context: bool | Callable[[], ContextCarrier],
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     from .main import set_user_attributes_on_raw_span
 
@@ -61,7 +64,7 @@ def instrument(
             )
 
         attributes = get_attributes(func, msg_template, tags)
-        open_span = get_open_span(logfire, attributes, span_name, extract_args, func)
+        open_span = get_open_span(logfire, attributes, span_name, extract_args, func, new_context)
 
         if inspect.isgeneratorfunction(func):
             if not allow_generator:
@@ -119,7 +122,10 @@ def get_open_span(
     span_name: str | None,
     extract_args: bool | Iterable[str],
     func: Callable[P, R],
+    new_context: bool | Callable[[], ContextCarrier],
 ) -> Callable[P, AbstractContextManager[Any]]:
+    from logfire.propagate import attach_context
+
     final_span_name: str = span_name or attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
 
     # This is the fast case for when there are no arguments to extract
@@ -138,9 +144,7 @@ def get_open_span(
                     final_span_name, attributes, args_dict
                 )
 
-        return open_span
-
-    if extract_args:  # i.e. extract_args should be an iterable of argument names
+    elif extract_args:  # i.e. extract_args should be an iterable of argument names
         sig = inspect.signature(func)
 
         if isinstance(extract_args, str):
@@ -168,6 +172,13 @@ def get_open_span(
                 return logfire._instrument_span_with_args(  # type: ignore
                     final_span_name, attributes, args_dict
                 )
+
+    if new_context is not False:
+        _open_span = open_span
+
+        def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
+            with attach_context({} if new_context is True else new_context()):
+                return _open_span(*func_args, **func_kwargs)
 
     return open_span
 
