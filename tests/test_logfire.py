@@ -855,10 +855,7 @@ def test_instrument_with_parent(exporter: TestExporter) -> None:
 def test_instrument_new_context(exporter: TestExporter) -> None:
     tagged = logfire.with_tags('test_instrument')
 
-    def context_factory():
-        return {'new_contex': 123}
-
-    @tagged.instrument('hello-world {a=}', record_return=True, new_context=context_factory)
+    @tagged.instrument('hello-world {a=}', record_return=True, new_context=True)
     def hello_world(a: int) -> str:
         return f'hello {a}'
 
@@ -925,6 +922,16 @@ def test_instrument_new_context(exporter: TestExporter) -> None:
                     'trace_id': 2,
                 },
                 'end_time': 3000000000,
+                'links': [
+                    {
+                        'attributes': {},
+                        'context': {
+                            'is_remote': False,
+                            'span_id': 1,
+                            'trace_id': 1,
+                        },
+                    },
+                ],
                 'name': 'hello-world {a=}',
                 'parent': None,
                 'start_time': 2000000000,

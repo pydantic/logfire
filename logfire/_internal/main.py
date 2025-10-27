@@ -90,8 +90,6 @@ if TYPE_CHECKING:
     from starlette.websockets import WebSocket
     from typing_extensions import Unpack
 
-    from logfire.propagate import ContextCarrier
-
     from ..integrations.aiohttp_client import (
         RequestHook as AiohttpClientRequestHook,
         ResponseHook as AiohttpClientResponseHook,
@@ -582,7 +580,7 @@ class Logfire:
         extract_args: bool | Iterable[str] = True,
         record_return: bool = False,
         allow_generator: bool = False,
-        new_context: bool | Callable[[], ContextCarrier] = False,
+        new_context: bool = False,
     ) -> Callable[[Callable[P, R]], Callable[P, R]]:
         """Decorator for instrumenting a function as a span.
 
@@ -606,8 +604,7 @@ class Logfire:
                 Ignored for generators.
             allow_generator: Set to `True` to prevent a warning when instrumenting a generator function.
                 Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
-            new_context: Set to `True` to clear context before starting instrumentation.
-                A callable can instead be used to provide starting context. `new_context=True` is the same as `new_context=dict`.
+            new_context: Set to `True` to clear context before starting instrumentation, and link back to the previous span.
         """
 
     @overload
@@ -634,7 +631,7 @@ class Logfire:
         extract_args: bool | Iterable[str] = True,
         record_return: bool = False,
         allow_generator: bool = False,
-        new_context: bool | Callable[[], ContextCarrier] = False,
+        new_context: bool = False,
     ) -> Callable[[Callable[P, R]], Callable[P, R]] | Callable[P, R]:
         """Decorator for instrumenting a function as a span.
 
@@ -658,8 +655,7 @@ class Logfire:
                 Ignored for generators.
             allow_generator: Set to `True` to prevent a warning when instrumenting a generator function.
                 Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
-            new_context: Set to `True` to clear context before starting instrumentation.
-                A callable can instead be used to provide starting context. `new_context=True` is the same as `new_context=dict`.
+            new_context: Set to `True` to clear context before starting instrumentation, and link back to the previous span.
         """
         if callable(msg_template):
             return self.instrument()(msg_template)
