@@ -295,9 +295,6 @@ Because it found something more "sole-ful!"\
                 'start_time': 16000000000,
                 'end_time': 21000000000,
                 'attributes': {
-                    'code.filepath': 'test_pydantic_ai_mcp.py',
-                    'code.function': 'joker',
-                    'code.lineno': 123,
                     'request': {
                         'method': 'sampling/createMessage',
                         'params': {
