@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import base64
 import json
 from contextlib import suppress
 from dataclasses import dataclass
+from io import BytesIO
 from typing import Any, cast
 from urllib.parse import parse_qs, urlparse
 
@@ -30,6 +32,7 @@ from ..utils import (
     handle_internal_errors,
     is_asgi_send_receive_span_name,
     is_instrumentation_suppressed,
+    sha256_bytes,
     span_to_dict,
     truncate_string,
 )
@@ -86,9 +89,44 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
             _transform_google_genai_span(span_dict)
             _transform_litellm_span(span_dict)
             _default_gen_ai_response_model(span_dict)
+            _upload_gen_ai_blobs(span_dict)
             self.scrubber.scrub_span(span_dict)
             span = ReadableSpan(**span_dict)
         super().on_end(span)
+
+
+def _upload_gen_ai_blobs(span: ReadableSpanDict) -> None:
+    # TODO:
+    # other attributes
+    # error handling
+    if 'pydantic_ai.all_messages' not in span['attributes']:
+        return
+    messages = json.loads(span['attributes']['pydantic_ai.all_messages'])
+    for message in messages:
+        parts = message.get('parts', [])
+        for i, part in enumerate(parts):
+            # TODO otel semantic type
+            if part.get('type') != 'binary' or 'content' not in part:
+                continue
+            data = part['content']
+            if not isinstance(data, str):
+                continue
+
+            value = base64.b64decode(data)  # TODO handle errors
+            # TODO date
+            key = sha256_bytes(value)
+
+            # todo move to config
+            from google.cloud import storage
+
+            storage_client = storage.Client()
+            bucket = storage_client.bucket('alexmojaki-test')
+            blob = bucket.blob(key)
+            # TODO media type in hash
+            blob.upload_from_file(BytesIO(value), content_type=part.get('media_type', 'application/octet-stream'))
+            # TODO keep part, remove content, add new key, make frontend work
+            parts[i] = dict(type='image-url', url=f'https://storage.cloud.google.com/alexmojaki-test/{key}')
+    span['attributes'] = {**span['attributes'], 'pydantic_ai.all_messages': json.dumps(messages)}
 
 
 def _set_error_level_and_status(span: ReadableSpanDict) -> None:
