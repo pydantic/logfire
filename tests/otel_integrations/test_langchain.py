@@ -1,5 +1,6 @@
 import os
 import sys
+import warnings
 
 import pydantic
 import pytest
@@ -26,7 +27,13 @@ pytestmark = [
 
 @pytest.mark.vcr()
 def test_instrument_langchain(exporter: TestExporter):
-    from langchain.agents import create_agent  # pyright: ignore[reportUnknownVariableType]
+    from langgraph.warnings import LangGraphDeprecatedSinceV10
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', category=LangGraphDeprecatedSinceV10)
+
+        from langchain.agents import create_agent  # pyright: ignore[reportUnknownVariableType]
+
     from langchain_core.tracers.langchain import wait_for_all_tracers
 
     def add(a: float, b: float) -> float:
