@@ -18,7 +18,7 @@ When you create a public trace link, anyone with access to the link can view the
 
 ![Private button](../../images/public-traces/private-button.png)
 
-4. Configure the link expiration 
+4. Configure the link expiration
 5. If you want the link to navigate to the inner span you've selected, use **This span selected**, otherwise uncheck this and the public link will point to root span of the trace.
 6. Click **Create** to generate the shareable link
 

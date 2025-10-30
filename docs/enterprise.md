@@ -40,7 +40,7 @@ Organizations requiring:
 
 #### Single Sign-on (SSO) with OIDC Providers
 
-Logfire supports SSO authentication with [OIDC (OpenID Connect)](https://openid.net/developers/how-connect-works/) Providers, allowing your team to access the platform using their existing corporate credentials. 
+Logfire supports SSO authentication with [OIDC (OpenID Connect)](https://openid.net/developers/how-connect-works/) Providers, allowing your team to access the platform using their existing corporate credentials.
 
 
 When a user logs in, your OIDC provider verifies their identity and securely shares authorized user information with our platform—eliminating the need for separate passwords while maintaining enterprise-grade security.

@@ -222,8 +222,8 @@ def logfire_info() -> str:
 
     for dist in importlib_metadata.distributions():
         metadata = dist.metadata
-        name = metadata.get('Name', '')
-        version = metadata.get('Version', 'UNKNOWN')
+        name = getattr(metadata, 'Name', '') or ''
+        version = getattr(metadata, 'Version', 'UNKNOWN') or 'UNKNOWN'
         index = package_names.get(name)
         if index is not None:
             related_packages.append((index, name, version))
