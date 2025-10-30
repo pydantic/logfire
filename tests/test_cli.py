@@ -249,24 +249,24 @@ def test_inspect(
     assert capsys.readouterr().err == snapshot("""\
 
 
-╭───────────────────────────────────────────────────────────────── Logfire Summary ──────────────────────────────────────────────────────────────────╮
-│                                                                                                                                                    │
-│  ☐ botocore (need to install opentelemetry-instrumentation-botocore)                                                                               │
-│  ☐ jinja2 (need to install opentelemetry-instrumentation-jinja2)                                                                                   │
-│  ☐ pymysql (need to install opentelemetry-instrumentation-pymysql)                                                                                 │
-│  ☐ urllib (need to install opentelemetry-instrumentation-urllib)                                                                                   │
-│                                                                                                                                                    │
-│                                                                                                                                                    │
-│  To install all recommended packages at once, run:                                                                                                 │
-│                                                                                                                                                    │
-│  uv add opentelemetry-instrumentation-botocore opentelemetry-instrumentation-jinja2 opentelemetry-instrumentation-pymysql                          │
-│  opentelemetry-instrumentation-urllib                                                                                                              │
-│                                                                                                                                                    │
-│  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────  │
-│                                                                                                                                                    │
-│  To hide this summary box, use: logfire run --no-summary.                                                                                          │
-│                                                                                                                                                    │
-╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭────────────────────────────── Logfire Summary ───────────────────────────────╮
+│                                                                              │
+│  ☐ urllib (need to install logfire[urllib])                                  │
+│  ☐ botocore (need to install opentelemetry-instrumentation-botocore)         │
+│  ☐ jinja2 (need to install opentelemetry-instrumentation-jinja2)             │
+│  ☐ pymysql (need to install opentelemetry-instrumentation-pymysql)           │
+│                                                                              │
+│                                                                              │
+│  To install all recommended packages at once, run:                           │
+│                                                                              │
+│  pip install 'logfire[urllib]' opentelemetry-instrumentation-botocore        │
+│  opentelemetry-instrumentation-jinja2 opentelemetry-instrumentation-pymysql  │
+│                                                                              │
+│  ──────────────────────────────────────────────────────────────────────────  │
+│                                                                              │
+│  To hide this summary box, use: logfire run --no-summary.                    │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
 
 """)
 
@@ -284,8 +284,8 @@ def test_inspect(
             snapshot(
                 {
                     ('opentelemetry-instrumentation-fastapi', 'fastapi'),
-                    ('opentelemetry-instrumentation-urllib', 'urllib'),
                     ('opentelemetry-instrumentation-sqlite3', 'sqlite3'),
+                    ('opentelemetry-instrumentation-urllib', 'urllib'),
                 }
             ),
         ),
