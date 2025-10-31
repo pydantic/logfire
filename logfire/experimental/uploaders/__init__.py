@@ -4,6 +4,7 @@ import datetime
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
+from logfire._internal.constants import ONE_SECOND_IN_NANOSECONDS
 from logfire._internal.utils import JsonValue, sha256_bytes
 
 
@@ -29,7 +30,7 @@ class UploadItem:
         if timestamp is None:
             date = datetime.date.today()
         else:
-            date = datetime.datetime.fromtimestamp(timestamp).date()
+            date = datetime.datetime.fromtimestamp(timestamp / ONE_SECOND_IN_NANOSECONDS).date()
         parts.append(date.isoformat())
 
         key = '/'.join(parts[::-1])
