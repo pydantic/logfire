@@ -15,7 +15,7 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 
 import logfire
 
-from ...experimental.uploaders import UploadItem
+from ...experimental.uploaders import BaseUploader, UploadItem
 from ..constants import (
     ATTRIBUTES_JSON_SCHEMA_KEY,
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,
@@ -67,6 +67,7 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
     """
 
     scrubber: BaseScrubber
+    uploader: BaseUploader | None
 
     def on_start(
         self,
@@ -89,48 +90,46 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
             _transform_google_genai_span(span_dict)
             _transform_litellm_span(span_dict)
             _default_gen_ai_response_model(span_dict)
-            _upload_gen_ai_blobs(span_dict)
+            self._upload_gen_ai_blobs(span_dict)
             self.scrubber.scrub_span(span_dict)
             span = ReadableSpan(**span_dict)
         super().on_end(span)
 
+    def _upload_gen_ai_blobs(self, span: ReadableSpanDict) -> None:
+        if not self.uploader:
+            return
 
-def _upload_gen_ai_blobs(span: ReadableSpanDict) -> None:
-    for attr_name in ['pydantic_ai.all_messages', 'gen_ai.input.messages', 'gen_ai.output.messages']:
-        attr_value = span['attributes'].get(attr_name)
-        if not (attr_value and isinstance(attr_value, str)):
-            continue
-        try:
-            messages = json.loads(attr_value)
-        except json.JSONDecodeError:
-            continue
-        for message in messages:
-            parts = message.get('parts', [])
-            for i, part in enumerate(parts):
-                # TODO otel semantic type
-                if part.get('type') != 'binary' or 'content' not in part:
-                    continue
-                data = part['content']
-                if not isinstance(data, str):
-                    continue
+        for attr_name in ['pydantic_ai.all_messages', 'gen_ai.input.messages', 'gen_ai.output.messages']:
+            attr_value = span['attributes'].get(attr_name)
+            if not (attr_value and isinstance(attr_value, str)):
+                continue
+            try:
+                messages = json.loads(attr_value)
+            except json.JSONDecodeError:
+                continue
+            for message in messages:
+                parts = message.get('parts', [])
+                for i, part in enumerate(parts):
+                    # TODO otel semantic type
+                    if part.get('type') != 'binary' or 'content' not in part:
+                        continue
+                    data = part['content']
+                    if not isinstance(data, str):
+                        continue
 
-                try:
-                    value = base64.b64decode(data, validate=True)
-                except binascii.Error:
-                    value = data.encode()
+                    try:
+                        value = base64.b64decode(data, validate=True)
+                    except binascii.Error:
+                        value = data.encode()
 
-                media_type = part.get('media_type')
-                upload_item = UploadItem.create(value, timestamp=span['start_time'], media_type=media_type)
+                    media_type = part.get('media_type')
+                    upload_item = UploadItem.create(value, timestamp=span['start_time'], media_type=media_type)
 
-                # todo move to config
-                from logfire.experimental.uploaders.gcs import GcsUploader
+                    self.uploader.upload(upload_item)
 
-                uploader = GcsUploader('alexmojaki-test')
-                uploader.upload(upload_item)
-
-                # TODO keep part, remove content, add new key, make frontend work
-                parts[i] = dict(type='image-url', url=uploader.get_attribute_value(upload_item))
-        span['attributes'] = {**span['attributes'], attr_name: json.dumps(messages)}
+                    # TODO keep part, remove content, add new key, make frontend work
+                    parts[i] = dict(type='image-url', url=self.uploader.get_attribute_value(upload_item))
+            span['attributes'] = {**span['attributes'], attr_name: json.dumps(messages)}
 
 
 def _set_error_level_and_status(span: ReadableSpanDict) -> None:
