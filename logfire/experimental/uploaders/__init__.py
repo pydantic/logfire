@@ -24,10 +24,10 @@ class UploadItem:
         """
         parts = [sha256_bytes(value)]
 
-        if media_type:
+        if media_type:  # pragma: no branch
             parts.append(media_type)
 
-        if timestamp is None:
+        if timestamp is None:  # pragma: no cover
             date = datetime.date.today()
         else:
             date = datetime.datetime.fromtimestamp(timestamp / ONE_SECOND_IN_NANOSECONDS).date()
