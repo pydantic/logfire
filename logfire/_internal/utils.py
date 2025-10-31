@@ -499,6 +499,10 @@ def canonicalize_exception_traceback(exc: BaseException, seen: set[int] | None =
 
 
 def sha256_string(s: str) -> str:
+    return sha256_bytes(s.encode('utf-8'))
+
+
+def sha256_bytes(b: bytes) -> str:
     hasher = hashlib.sha256()
-    hasher.update(s.encode('utf-8'))
+    hasher.update(b)
     return hasher.hexdigest()

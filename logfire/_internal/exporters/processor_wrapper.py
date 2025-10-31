@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import binascii
 import json
 from contextlib import suppress
 from dataclasses import dataclass
@@ -13,6 +15,7 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 
 import logfire
 
+from ...experimental.uploaders import BaseUploader, UploadItem
 from ..constants import (
     ATTRIBUTES_JSON_SCHEMA_KEY,
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,
@@ -64,6 +67,7 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
     """
 
     scrubber: BaseScrubber
+    uploader: BaseUploader | None
 
     def on_start(
         self,
@@ -86,9 +90,46 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
             _transform_google_genai_span(span_dict)
             _transform_litellm_span(span_dict)
             _default_gen_ai_response_model(span_dict)
+            self._upload_gen_ai_blobs(span_dict)
             self.scrubber.scrub_span(span_dict)
             span = ReadableSpan(**span_dict)
         super().on_end(span)
+
+    def _upload_gen_ai_blobs(self, span: ReadableSpanDict) -> None:
+        if not self.uploader:
+            return
+
+        for attr_name in ['pydantic_ai.all_messages', 'gen_ai.input.messages', 'gen_ai.output.messages']:
+            attr_value = span['attributes'].get(attr_name)
+            if not (attr_value and isinstance(attr_value, str)):
+                continue
+            try:
+                messages = json.loads(attr_value)
+            except json.JSONDecodeError:  # pragma: no cover
+                continue
+            for message in messages:
+                parts = message.get('parts', [])
+                for i, part in enumerate(parts):
+                    # TODO otel semantic type
+                    if part.get('type') != 'binary' or 'content' not in part:
+                        continue
+                    data = part['content']
+                    if not isinstance(data, str):  # pragma: no cover
+                        continue
+
+                    try:
+                        value = base64.b64decode(data, validate=True)
+                    except binascii.Error:  # pragma: no cover
+                        value = data.encode()
+
+                    media_type = part.get('media_type')
+                    upload_item = UploadItem.create(value, timestamp=span['start_time'], media_type=media_type)
+
+                    self.uploader.upload(upload_item)
+
+                    # TODO keep part, remove content, add new key, make frontend work
+                    parts[i] = dict(type='image-url', url=self.uploader.get_attribute_value(upload_item))
+            span['attributes'] = {**span['attributes'], attr_name: json.dumps(messages)}
 
 
 def _set_error_level_and_status(span: ReadableSpanDict) -> None:
