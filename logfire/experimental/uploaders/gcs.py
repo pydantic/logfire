@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from io import BytesIO
 
 from google.cloud import storage
@@ -8,10 +10,10 @@ from logfire.experimental.uploaders import BaseUploader, UploadItem
 class GcsUploader(BaseUploader):
     """Google Cloud Storage uploader."""
 
-    def __init__(self, bucket_name: str):
+    def __init__(self, bucket_name: str, client: storage.Client | None = None):
         self.bucket_name = bucket_name
-        self.storage_client = storage.Client()
-        self.bucket: storage.Bucket = self.storage_client.bucket(bucket_name)  # pyright: ignore [reportUnknownMemberType]
+        self.client = client or storage.Client()
+        self.bucket: storage.Bucket = self.client.bucket(bucket_name)  # pyright: ignore [reportUnknownMemberType]
 
     def upload(self, item: UploadItem):
         """Upload the given item to GCS."""
