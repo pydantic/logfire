@@ -4,7 +4,6 @@ import base64
 import json
 from contextlib import suppress
 from dataclasses import dataclass
-from io import BytesIO
 from typing import Any, cast
 from urllib.parse import parse_qs, urlparse
 
@@ -33,6 +32,7 @@ from ..utils import (
     is_asgi_send_receive_span_name,
     is_instrumentation_suppressed,
     sha256_bytes,
+    sha256_string,
     span_to_dict,
     truncate_string,
 )
@@ -99,9 +99,14 @@ def _upload_gen_ai_blobs(span: ReadableSpanDict) -> None:
     # TODO:
     # other attributes
     # error handling
-    if 'pydantic_ai.all_messages' not in span['attributes']:
+    attr_name = 'pydantic_ai.all_messages'
+    attr_value = span['attributes'].get(attr_name)
+    if not (attr_value and isinstance(attr_value, str)):
         return
-    messages = json.loads(span['attributes']['pydantic_ai.all_messages'])
+    try:
+        messages = json.loads(attr_value)
+    except json.JSONDecodeError:
+        return
     for message in messages:
         parts = message.get('parts', [])
         for i, part in enumerate(parts):
@@ -114,19 +119,18 @@ def _upload_gen_ai_blobs(span: ReadableSpanDict) -> None:
 
             value = base64.b64decode(data)  # TODO handle errors
             # TODO date
-            key = sha256_bytes(value)
+            media_type = part.get('media_type', 'application/octet-stream')
+            key = sha256_string(sha256_bytes(value) + media_type)
 
             # todo move to config
-            from google.cloud import storage
+            from logfire.experimental.uploaders.gcs import GcsUploader
 
-            storage_client = storage.Client()
-            bucket = storage_client.bucket('alexmojaki-test')
-            blob = bucket.blob(key)
-            # TODO media type in hash
-            blob.upload_from_file(BytesIO(value), content_type=part.get('media_type', 'application/octet-stream'))
+            uploader = GcsUploader('alexmojaki-test')
+            uploader.upload(key, value, media_type)
+
             # TODO keep part, remove content, add new key, make frontend work
-            parts[i] = dict(type='image-url', url=f'https://storage.cloud.google.com/alexmojaki-test/{key}')
-    span['attributes'] = {**span['attributes'], 'pydantic_ai.all_messages': json.dumps(messages)}
+            parts[i] = dict(type='image-url', url=uploader.get_attribute_value(key))
+    span['attributes'] = {**span['attributes'], attr_name: json.dumps(messages)}
 
 
 def _set_error_level_and_status(span: ReadableSpanDict) -> None:
