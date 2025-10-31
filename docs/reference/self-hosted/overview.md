@@ -40,6 +40,16 @@ logfire.configure(
 )
 ```
 
+### CLI Authentication
+
+You can also authenticate with your self-hosted instance using the CLI:
+
+```bash
+logfire --base-url="https://<your_logfire_hostname>" auth
+```
+
+This will authenticate you against your self-hosted domain and store the credentials locally.
+
 ## Service Architecture
 
 The Self-hosted deployment has a number of interdependent services that work to run logfire.  Each component can be scaled independently of others depending on the utilisation of the system.

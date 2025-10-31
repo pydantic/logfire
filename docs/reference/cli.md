@@ -21,7 +21,15 @@ logfire auth
 ```
 
 You will be prompted to select a [data region](./data-regions.md) (EU or US). To specify this
-via the cli instead of interactively, use `logfire --region eu auth` or `logfire --region eu auth`
+via the cli instead of interactively, use `logfire --region eu auth` or `logfire --region us auth`
+
+### Authenticating with Self-Hosted Instances
+
+If you're using a [self-hosted Logfire instance](./self-hosted/overview.md), you can authenticate by specifying your instance's URL using the `--base-url` flag:
+
+```bash
+logfire --base-url="https://<your_logfire_hostname>" auth
+```
 
 Then you will be given the option to open logfire in your browser:
 ![Terminal screenshot with Logfire auth command](../images/cli/terminal-screenshot-auth-1.png)
