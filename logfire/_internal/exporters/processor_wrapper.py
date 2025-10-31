@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import json
 from contextlib import suppress
 from dataclasses import dataclass
@@ -116,10 +117,13 @@ def _upload_gen_ai_blobs(span: ReadableSpanDict) -> None:
             if not isinstance(data, str):
                 continue
 
-            value = base64.b64decode(data)  # TODO handle errors
-            # TODO date
+            try:
+                value = base64.b64decode(data, validate=True)
+            except binascii.Error:
+                value = data.encode()
+
             media_type = part.get('media_type')
-            upload_item = UploadItem.create(value, media_type)
+            upload_item = UploadItem.create(value, timestamp=span['start_time'], media_type=media_type)
 
             # todo move to config
             from logfire.experimental.uploaders.gcs import GcsUploader
