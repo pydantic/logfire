@@ -14,6 +14,7 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 
 import logfire
 
+from ...experimental.uploaders import UploadItem
 from ..constants import (
     ATTRIBUTES_JSON_SCHEMA_KEY,
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,
@@ -119,14 +120,15 @@ def _upload_gen_ai_blobs(span: ReadableSpanDict) -> None:
 
             value = base64.b64decode(data)  # TODO handle errors
             # TODO date
-            media_type = part.get('media_type', 'application/octet-stream')
-            key = sha256_string(sha256_bytes(value) + media_type)
+            media_type = part.get('media_type')
+            key = sha256_string(sha256_bytes(value) + str(media_type))
+            upload_item = UploadItem(key=key, value=value, media_type=media_type)
 
             # todo move to config
             from logfire.experimental.uploaders.gcs import GcsUploader
 
             uploader = GcsUploader('alexmojaki-test')
-            uploader.upload(key, value, media_type)
+            uploader.upload(upload_item)
 
             # TODO keep part, remove content, add new key, make frontend work
             parts[i] = dict(type='image-url', url=uploader.get_attribute_value(key))
