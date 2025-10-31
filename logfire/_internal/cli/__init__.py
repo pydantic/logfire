@@ -307,7 +307,9 @@ def _main(args: list[str] | None = None) -> None:
     global_opts = parser.add_argument_group(title='global options')
     url_or_region_grp = global_opts.add_mutually_exclusive_group()
     url_or_region_grp.add_argument('--logfire-url', help=argparse.SUPPRESS)
-    url_or_region_grp.add_argument('--base-url', help=argparse.SUPPRESS)
+    url_or_region_grp.add_argument(
+        '--base-url', help='the base URL for self-hosted Logfire instances (e.g., http://localhost:8080)'
+    )
     url_or_region_grp.add_argument('--region', choices=REGIONS, help='the region to use')
     parser.set_defaults(func=lambda _: parser.print_help())  # type: ignore
     subparsers = parser.add_subparsers(title='commands', metavar='')
