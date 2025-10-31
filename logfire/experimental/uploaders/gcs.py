@@ -18,6 +18,6 @@ class GcsUploader(BaseUploader):
         blob: storage.Blob = self.bucket.blob(item.key)  # pyright: ignore [reportUnknownMemberType]
         blob.upload_from_file(BytesIO(item.value), content_type=item.media_type)  # pyright: ignore [reportUnknownMemberType]
 
-    def get_attribute_value(self, key: str):
+    def get_attribute_value(self, item: UploadItem):
         """Return the GCS authenticated URL for the uploaded item."""
-        return f'https://storage.cloud.google.com/{self.bucket_name}/{key}'
+        return f'https://storage.cloud.google.com/{self.bucket_name}/{item.key}'

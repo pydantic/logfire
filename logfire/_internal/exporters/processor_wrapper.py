@@ -32,8 +32,6 @@ from ..utils import (
     handle_internal_errors,
     is_asgi_send_receive_span_name,
     is_instrumentation_suppressed,
-    sha256_bytes,
-    sha256_string,
     span_to_dict,
     truncate_string,
 )
@@ -121,8 +119,7 @@ def _upload_gen_ai_blobs(span: ReadableSpanDict) -> None:
             value = base64.b64decode(data)  # TODO handle errors
             # TODO date
             media_type = part.get('media_type')
-            key = sha256_string(sha256_bytes(value) + str(media_type))
-            upload_item = UploadItem(key=key, value=value, media_type=media_type)
+            upload_item = UploadItem.create(value, media_type)
 
             # todo move to config
             from logfire.experimental.uploaders.gcs import GcsUploader
@@ -131,7 +128,7 @@ def _upload_gen_ai_blobs(span: ReadableSpanDict) -> None:
             uploader.upload(upload_item)
 
             # TODO keep part, remove content, add new key, make frontend work
-            parts[i] = dict(type='image-url', url=uploader.get_attribute_value(key))
+            parts[i] = dict(type='image-url', url=uploader.get_attribute_value(upload_item))
     span['attributes'] = {**span['attributes'], attr_name: json.dumps(messages)}
 
 
