@@ -109,6 +109,7 @@ def test_invalid_instrument_pydantic_ai():
 async def test_pydantic_ai_gcs_upload(exporter: TestExporter, config_kwargs: dict[str, Any]):
     with warnings.catch_warnings():
         warnings.filterwarnings('ignore', category=ImportWarning)
+        warnings.filterwarnings('ignore', category=FutureWarning)
 
         from logfire.experimental.uploaders.gcs import GcsUploader
 
