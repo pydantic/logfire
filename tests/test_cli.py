@@ -49,7 +49,7 @@ def logfire_credentials() -> LogfireCredentials:
 
 def test_no_args(capsys: pytest.CaptureFixture[str]) -> None:
     main([])
-    assert 'usage: logfire [-h] [--version] [--region {us,eu}]  ...' in capsys.readouterr().out
+    assert 'usage: logfire [-h] [--version] [--base-url BASE_URL | --region {us,eu}]  ...' in capsys.readouterr().out
 
 
 def test_version(capsys: pytest.CaptureFixture[str]) -> None:
