@@ -3,9 +3,8 @@ from __future__ import annotations
 import datetime
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any
 
-from logfire._internal.utils import sha256_bytes
+from logfire._internal.utils import JsonValue, sha256_bytes
 
 
 @dataclass
@@ -45,5 +44,5 @@ class BaseUploader(ABC):
         """Upload the given item."""
 
     @abstractmethod
-    def get_attribute_value(self, item: UploadItem) -> Any:
+    def get_attribute_value(self, item: UploadItem) -> JsonValue:
         """Return a reference to the uploaded item, e.g. a URL or path."""
