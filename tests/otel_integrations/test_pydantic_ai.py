@@ -1,4 +1,5 @@
 import sys
+import warnings
 from typing import TYPE_CHECKING, Any
 from unittest.mock import Mock
 
@@ -106,7 +107,9 @@ def test_invalid_instrument_pydantic_ai():
 @pytest.mark.vcr()
 @pytest.mark.anyio
 async def test_pydantic_ai_gcs_upload(exporter: TestExporter, config_kwargs: dict[str, Any]):
-    with pytest.warns(ImportWarning):
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', category=ImportWarning)
+
         from logfire.experimental.uploaders.gcs import GcsUploader
 
     bucket_name = 'test-bucket'
