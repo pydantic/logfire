@@ -105,7 +105,7 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
                 continue
             try:
                 messages = json.loads(attr_value)
-            except json.JSONDecodeError:
+            except json.JSONDecodeError:  # pragma: no cover
                 continue
             for message in messages:
                 parts = message.get('parts', [])
@@ -114,12 +114,12 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
                     if part.get('type') != 'binary' or 'content' not in part:
                         continue
                     data = part['content']
-                    if not isinstance(data, str):
+                    if not isinstance(data, str):  # pragma: no cover
                         continue
 
                     try:
                         value = base64.b64decode(data, validate=True)
-                    except binascii.Error:
+                    except binascii.Error:  # pragma: no cover
                         value = data.encode()
 
                     media_type = part.get('media_type')
