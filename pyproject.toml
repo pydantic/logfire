@@ -182,6 +182,7 @@ dev = [
     "openinference-instrumentation-litellm >= 0",
     "litellm >= 0",
     "pip >= 0",
+    "google-cloud-storage>=3.4.1",
 ]
 docs = [
     "black>=23.12.0",

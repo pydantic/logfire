@@ -65,6 +65,7 @@ from logfire.sampling import SamplingOptions
 from logfire.sampling._tail_sampling import TailSamplingProcessor
 from logfire.version import VERSION
 
+from ..experimental.uploaders import BaseUploader
 from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
 from ..types import ExceptionCallback
 from .client import InvalidProjectName, LogfireClient, ProjectAlreadyExists
@@ -191,6 +192,9 @@ class AdvancedOptions:
     """Callback function that is called when an exception is recorded on a span.
 
     This is experimental and may be modified or removed."""
+
+    uploader: BaseUploader | None = None
+    """Very experimental blob storage uploader."""
 
     def generate_base_url(self, token: str) -> str:
         if self.base_url is not None:
@@ -862,7 +866,7 @@ class LogfireConfig(_LogfireConfigData):
                 root_processor = TailSamplingProcessor(root_processor, self.sampling.tail)
             tracer_provider.add_span_processor(
                 CheckSuppressInstrumentationProcessorWrapper(
-                    MainSpanProcessorWrapper(root_processor, self.scrubber),
+                    MainSpanProcessorWrapper(root_processor, self.scrubber, self.advanced.uploader),
                 )
             )
 
@@ -1030,7 +1034,8 @@ class LogfireConfig(_LogfireConfigData):
 
                 main_multiprocessor.add_span_processor(
                     PendingSpanProcessor(
-                        self.advanced.id_generator, MainSpanProcessorWrapper(pending_multiprocessor, self.scrubber)
+                        self.advanced.id_generator,
+                        MainSpanProcessorWrapper(pending_multiprocessor, self.scrubber, self.advanced.uploader),
                     )
                 )
 
