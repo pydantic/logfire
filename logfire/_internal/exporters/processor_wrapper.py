@@ -416,7 +416,7 @@ def _transform_langchain_span(span: ReadableSpanDict):
                         message_events = output_message_events
                     else:
                         message_events += output_message_events
-                except Exception:
+                except Exception:  # pragma: no cover
                     message_events += [_transform_langchain_message(output_value['output'])]
 
         new_attributes['all_messages_events'] = json.dumps(message_events)
