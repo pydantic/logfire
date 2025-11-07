@@ -104,16 +104,11 @@ def test_instrument_langchain(exporter: TestExporter):
             # First request and response
             ('model', 2),
             ('ChatOpenAI', 2),
-            ('model_to_tools', 2),
-            # These have no message events
             ('tools', 0),
             ('add', 0),
-            # Here the tool response only gets added
-            ('tools_to_model', 3),
             # Second request and response included, thus the whole conversation
             ('model', 4),
             ('ChatOpenAI', 4),
-            ('model_to_tools', 4),
         ]
     )
 
