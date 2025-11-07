@@ -23,6 +23,32 @@ import logfire
 
 STANDARD_LIBRARY_PACKAGES = {'urllib', 'sqlite3'}
 
+OTEL_TO_LOGFIRE_GROUPS = {
+    'opentelemetry-instrumentation-requests': 'requests',
+    'opentelemetry-instrumentation-sqlite3': 'sqlite3',
+    'opentelemetry-instrumentation-urllib': 'urllib',
+    'opentelemetry-instrumentation-fastapi': 'fastapi',
+    'opentelemetry-instrumentation-flask': 'flask',
+    'opentelemetry-instrumentation-django': 'django',
+    'opentelemetry-instrumentation-starlette': 'starlette',
+    'opentelemetry-instrumentation-httpx': 'httpx',
+    'opentelemetry-instrumentation-sqlalchemy': 'sqlalchemy',
+    'opentelemetry-instrumentation-asyncpg': 'asyncpg',
+    'opentelemetry-instrumentation-psycopg': 'psycopg',
+    'opentelemetry-instrumentation-psycopg2': 'psycopg2',
+    'opentelemetry-instrumentation-pymongo': 'pymongo',
+    'opentelemetry-instrumentation-redis': 'redis',
+    'opentelemetry-instrumentation-celery': 'celery',
+    'opentelemetry-instrumentation-mysql': 'mysql',
+    'opentelemetry-instrumentation-aws-lambda': 'aws-lambda',
+    'opentelemetry-instrumentation-google-genai': 'google-genai',
+    'opentelemetry-instrumentation-aiohttp-client': 'aiohttp-client',
+    'opentelemetry-instrumentation-aiohttp-server': 'aiohttp-server',
+    'opentelemetry-instrumentation-asgi': 'asgi',
+    'opentelemetry-instrumentation-wsgi': 'wsgi',
+    'opentelemetry-instrumentation-system-metrics': 'system-metrics',
+}
+
 # Map of instrumentation packages to the packages they instrument
 OTEL_INSTRUMENTATION_MAP = {
     'opentelemetry-instrumentation-aio_pika': 'aio_pika',
@@ -145,6 +171,26 @@ def is_uv_installed() -> bool:
     return shutil.which('uv') is not None
 
 
+def detect_execution_context() -> str:
+    """Detect how logfire was executed."""
+    if 'UVX' in os.environ or 'UVX_PACKAGE' in os.environ:
+        return 'uvx'
+    if 'UV_RUN' in os.environ or 'UV_PROJECT' in os.environ:
+        return 'uv_run'
+
+    pyproject_path = os.path.join(os.getcwd(), 'pyproject.toml')
+    if os.path.exists(pyproject_path):
+        try:
+            with open(pyproject_path) as f:
+                content = f.read()
+            if '[tool.uv]' in content or '[dependency-groups]' in content:
+                return 'uv_project'
+        except OSError:
+            pass
+
+    return 'regular'
+
+
 def instrument_packages(installed_otel_packages: set[str], instrument_pkg_map: dict[str, str]) -> list[str]:
     """Call every `logfire.instrument_x()` we can based on what's installed.
 
@@ -236,12 +282,27 @@ def get_recommendation_texts(recommendations: set[tuple[str, str]]) -> tuple[Tex
     """Return (recommended_packages_text, install_all_text) as Text objects."""
     sorted_recommendations = sorted(recommendations)
     recommended_text = Text()
+
+    groups: set[str] = set()
+    remaining: list[tuple[str, str]] = []
+
     for pkg_name, instrumented_pkg in sorted_recommendations:
+        group = OTEL_TO_LOGFIRE_GROUPS.get(pkg_name)
+        if group:
+            groups.add(group)
+        else:
+            remaining.append((pkg_name, instrumented_pkg))
+
+    for group in sorted(groups):
+        recommended_text.append(f'☐ {group} (need to install logfire[{group}])\n', style='grey50')
+
+    for pkg_name, instrumented_pkg in remaining:
         recommended_text.append(f'☐ {instrumented_pkg} (need to install {pkg_name})\n', style='grey50')
+
     recommended_text.append('\n')
 
     install_text = Text()
-    if recommendations:  # pragma: no branch
+    if recommendations:
         install_text.append('To install all recommended packages at once, run:\n\n')
         install_text.append(_full_install_command(sorted_recommendations), style='bold')
         install_text.append('\n')
@@ -308,18 +369,44 @@ def installed_packages() -> set[str]:
 
 
 def _full_install_command(recommendations: list[tuple[str, str]]) -> str:
-    """Generate a command to install all recommended packages at once."""
+    """Build an install command for all recommended packages."""
     if not recommendations:
-        return ''  # pragma: no cover
+        return ''
 
-    package_names = [pkg_name for pkg_name, _ in recommendations]
+    logfire_groups: set[str] = set()
+    extra_packages: list[str] = []
 
-    # TODO(Marcelo): We should customize this. If the user uses poetry, they'd use `poetry add`.
-    # Something like `--install-format` with options like `requirements`, `poetry`, `uv`, `pip`.
-    if is_uv_installed():
-        return f'uv add {" ".join(package_names)}'
-    else:
-        return f'pip install {" ".join(package_names)}'  # pragma: no cover
+    for pkg_name, _ in recommendations:
+        group = OTEL_TO_LOGFIRE_GROUPS.get(pkg_name)
+        if group:
+            logfire_groups.add(group)
+        else:
+            extra_packages.append(pkg_name)
+
+    context = detect_execution_context()
+    groups_str = ','.join(sorted(logfire_groups)) if logfire_groups else None
+    extras_str = ' '.join(extra_packages) if extra_packages else None
+
+    if context == 'uvx':
+        return f"uvx --from 'logfire[{groups_str}]' logfire run" if groups_str else "uvx --from 'logfire' logfire run"
+
+    if context == 'uv_run':
+        return (
+            f"uv run --with 'logfire[{groups_str}]' logfire run" if groups_str else 'uv run --with logfire logfire run'
+        )
+
+    if context == 'uv_project' and is_uv_installed():
+        if groups_str and extras_str:
+            return f"uv add 'logfire[{groups_str}]' {extras_str}"
+        if groups_str:
+            return f"uv add 'logfire[{groups_str}]'"
+        return f'uv add logfire {extras_str}'
+
+    if groups_str and extras_str:
+        return f"pip install 'logfire[{groups_str}]' {extras_str}"
+    if groups_str:
+        return f"pip install 'logfire[{groups_str}]'"
+    return f'pip install logfire {extras_str}'
 
 
 def collect_instrumentation_context(exclude: set[str]) -> InstrumentationContext:
