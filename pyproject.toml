@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "4.14.1"
+version = "4.14.2"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.9"
 authors = [
@@ -114,7 +114,7 @@ dev = [
     "sqlalchemy >= 1.4.54",
     "pandas>=2.1.2",
     "attrs >= 23.1.0",
-    "openai >= 1.58.1",
+    "openai >= 1.108.1",
     "opentelemetry-instrumentation-aiohttp-client>=0.42b0",
     "opentelemetry-instrumentation-aiohttp-server>=0.55b0",
     "opentelemetry-instrumentation-asgi>=0.42b0",
@@ -142,7 +142,7 @@ dev = [
     "structlog >= 24.4.0",
     "loguru >= 0.7.3",
     "ruff >= 0.8.3",
-    "pyright != 1.1.401",
+    "pyright != 1.1.407",
     "pre-commit>=3.5.0",
     "coverage[toml]>=7.5.0",
     "psycopg[binary] >= 3.2.3",
