@@ -13,7 +13,7 @@ our [concepts page](concepts.md)
 ## Where to see usage & cost in Logfire
 
 * Navigate to your organization settings (not your project settings)
-* In the left nav panel go to `Plan & Usage` (note you must be an [org admin](reference/organization-structure.md) to see this)
+* In the left nav panel go to `Plan & Usage` (you must have the [necessary permissions](./guides/web-ui/organizations-and-projects.md) to see this)
 
 The month summary section will show you both your current spend and your estimated
 spend for the rest of the month based on your current usage.
