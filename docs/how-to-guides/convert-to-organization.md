@@ -73,4 +73,4 @@ Click **Confirm & convert**. The conversion process will complete, and you'll be
 
 ---
 
-**See also:** [Organization Structure Reference](../reference/organization-structure.md)
+**See also:** [Organization Structure Reference](../guides/web-ui/organizations-and-projects.md)
