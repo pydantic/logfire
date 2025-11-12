@@ -23,7 +23,7 @@ to share your personal org's projects (which you may wish to keep private) with 
 
 ## Roles
 
-Logfire provides a fixed set of _organization_ and _project_ roles, that can be managed at in the organization settings. Roles contain a set of permissions,
+Logfire provides a fixed set of _organization_ and _project_ roles, that can be managed in the organization settings. Roles contain a set of permissions,
 and are assigned to team members either at the organization or project level.
 
 ### Organization roles
