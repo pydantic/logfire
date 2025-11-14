@@ -117,4 +117,4 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytes
     # This will always be the first message in case of failures.
     # After that the number of failed exports is unpredictable because the main thread is adding to it
     # at the same time as the retryer thread removes from it.
-    assert caplog.messages[0] == 'Currently retrying 1 failed export(s)'
+    assert caplog.messages[0] == snapshot('Currently retrying 1 failed export(s) (3 bytes)')
