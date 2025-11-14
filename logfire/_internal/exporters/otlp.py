@@ -132,13 +132,18 @@ class DiskRetryer:
                             self.total_size,
                         )
                     return
+                self.total_size += len(data)
 
             # TODO consider keeping the first few tasks in memory to avoid disk I/O and possible errors.
-            path = self.dir / uuid.uuid4().hex
-            path.write_bytes(data)
+            try:
+                path = self.dir / uuid.uuid4().hex
+                path.write_bytes(data)
+            except Exception:  # pragma: no cover
+                with self.lock:
+                    self.total_size -= len(data)
+                raise
 
             with self.lock:
-                self.total_size += len(data)
                 self.tasks.append((path, kwargs))
                 if not (self.thread and self.thread.is_alive()):
                     # daemon=True to avoid hanging the program on exit, since this might never finish.
