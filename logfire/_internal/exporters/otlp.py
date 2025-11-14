@@ -96,6 +96,8 @@ class DiskRetryer:
     # The maximum delay between retries, in seconds
     MAX_DELAY = 128
 
+    # Maximum number of bytes of failed exports to keep on disk before dropping new ones.
+    # For most users this should be plenty, and for very high volume users it should last about 20 minutes.
     MAX_TASK_SIZE = 512 * 1024 * 1024  # 512MB
 
     # Log about problems at most once a minute.
