@@ -96,22 +96,17 @@ class DiskRetryer:
     # The maximum delay between retries, in seconds
     MAX_DELAY = 128
 
-    # The maximum number of exports to retry. Each export is a file on disk.
-    # This amount should allow comfortably handling a few minutes of backend downtime
-    # while the BatchSpanProcessor produces a batch every half a second.
-    # If the number of failed exports exceeds this limit, new exports will be dropped.
-    # TODO ideally we should be measuring the total size of exports instead of the number of files,
-    #   and compare it to a limit based on disk space.
-    MAX_TASKS = 1000
+    MAX_TASK_SIZE = 512 * 1024 * 1024  # 512MB
 
     # Log about problems at most once a minute.
     LOG_INTERVAL = 60
 
     def __init__(self, headers: Mapping[str, str | bytes]):
-        # Reading/writing `thread` and `tasks` should generally be protected by `lock`.
+        # Reading/writing `thread`, `tasks`, and `total_size` should generally be protected by `lock`.
         self.lock = Lock()
         self.thread: Thread | None = None
         self.tasks: deque[tuple[Path, dict[str, Any]]] = deque()
+        self.total_size = 0
 
         # Make a new session rather than using the OTLPExporterHttpSession directly
         # because thread safety of Session is questionable.
@@ -126,16 +121,22 @@ class DiskRetryer:
 
     def add_task(self, data: bytes, kwargs: dict[str, Any]):
         try:
-            if len(self.tasks) >= self.MAX_TASKS:  # pragma: no cover
-                if self._should_log():
-                    logger.error('Already retrying %s failed exports, dropping an export', len(self.tasks))
-                return
+            with self.lock:
+                if self.total_size >= self.MAX_TASK_SIZE:  # pragma: no cover
+                    if self._should_log():
+                        logger.error(
+                            'Already retrying %s failed exports (%s bytes), dropping an export',
+                            len(self.tasks),
+                            self.total_size,
+                        )
+                    return
 
             # TODO consider keeping the first few tasks in memory to avoid disk I/O and possible errors.
             path = self.dir / uuid.uuid4().hex
             path.write_bytes(data)
 
             with self.lock:
+                self.total_size += len(data)
                 self.tasks.append((path, kwargs))
                 if not (self.thread and self.thread.is_alive()):
                     # daemon=True to avoid hanging the program on exit, since this might never finish.
@@ -143,9 +144,10 @@ class DiskRetryer:
                     self.thread = Thread(target=self._run, daemon=True)
                     self.thread.start()
                 num_tasks = len(self.tasks)
+                num_bytes = self.total_size
 
             if self._should_log():
-                logger.warning('Currently retrying %s failed export(s)', num_tasks)
+                logger.warning('Currently retrying %s failed export(s) (%s bytes)', num_tasks, num_bytes)
         except Exception as e:  # pragma: no cover
             if self._should_log():
                 logger.error('Export and retry failed: %s', e)
@@ -189,6 +191,8 @@ class DiskRetryer:
                         # remove the file, and move on to the next task.
                         delay = 1
                         path.unlink()
+                        with self.lock:
+                            self.total_size -= len(data)
                         break
 
             except Exception:  # pragma: no cover
