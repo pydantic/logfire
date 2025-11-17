@@ -22,7 +22,7 @@ import logfire
 os.environ['LANGSMITH_OTEL_ENABLED'] = 'true'
 os.environ['LANGSMITH_TRACING'] = 'true'
 
-from langgraph.prebuilt import create_react_agent
+from langchain.agents import create_agent
 
 logfire.configure()
 
@@ -32,7 +32,7 @@ def add(a: float, b: float) -> float:
     return a + b
 
 
-math_agent = create_react_agent('openai:gpt-4o', tools=[add], name='math_agent')
+math_agent = create_agent('openai:gpt-4o', tools=[add], name='math_agent')
 
 result = math_agent.invoke({'messages': [{'role': 'user', 'content': "what's 123 + 456?"}]})
 print(result['messages'][-1].content)
