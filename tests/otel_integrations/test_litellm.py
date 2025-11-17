@@ -176,6 +176,7 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                                         }
                                     ],
                                     'function_call': None,
+                                    'provider_specific_fields': {'refusal': None},
                                     'annotations': [],
                                 },
                                 'provider_specific_fields': {},
@@ -222,6 +223,7 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                                 }
                             ],
                             'function_call': None,
+                            'provider_specific_fields': {'refusal': None},
                             'annotations': [],
                         }
                     },
@@ -278,6 +280,7 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                                     }
                                 ],
                                 'function_call': None,
+                                'provider_specific_fields': {'refusal': None},
                                 'annotations': [],
                             },
                             {
@@ -358,6 +361,7 @@ def test_litellm_instrumentation(exporter: TestExporter) -> None:
                                     }
                                 ],
                                 'function_call': None,
+                                'provider_specific_fields': {'refusal': None},
                                 'annotations': [],
                             },
                             {
