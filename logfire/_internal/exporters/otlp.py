@@ -54,27 +54,38 @@ class OTLPExporterHttpSession(Session):
     """A requests.Session subclass that defers failed requests to a DiskRetryer."""
 
     def post(self, url: str, data: bytes, **kwargs: Any):  # type: ignore
+        start_time = time.time()
         try:
             response = super().post(url, data=data, **kwargs)
             raise_for_retryable_status(response)
+            return response
         except requests.exceptions.RequestException:
-            # Retry in another thread so that the BatchSpanProcessor can continue creating batches
-            # and not fill up its queue in memory.
-            # TODO consider first immediately retrying a little bit.
-            #   In particular this would help with very transient errors (as opposed to logfire being down)
-            #   that happen when the process is shutting down.
-            #   DiskRetryer uses a daemon thread so it will shut down when the main thread does,
-            #   meaning that kind of failed export would be lost.
-            #   BatchSpanProcessor on the other hand stays alive for a bit with a deadline.
-            #   If we do this we must measure and limit the amount of time spent requesting and retrying.
-            # TODO consider increasing the BatchSpanProcessor export delay here
-            #   to reduce the number of small inefficient requests.
-            # No threads in Emscripten, we can't add a task to try later, just raise
-            if not platform_is_emscripten():  # pragma: no branch
-                self.retryer.add_task(data, {'url': url, **kwargs})
-            raise
+            # Wait a little before trying again normally, before resorting to disk retrying.
+            # This has several advantages:
+            #  - Writing to disk might be impossible.
+            #  - It adds backpressure to the exporter, leading to fewer, more efficient batches and requests
+            #  - It's better when the process is currently shutting down, as DiskRetryer uses a daemon thread.
+            # However, the longer we block here instead of in the disk retryer thread,
+            # the more we risk filling up the BatchSpanProcessor queue in memory, or passing the shutdown deadline.
+            # So only do this if the first attempt took less than 10 seconds.
+            end_time = time.time()
+            if end_time - start_time > 10:
+                self.add_task(data, {'url': url, **kwargs})
+                raise
 
-        return response
+            time.sleep(1)
+            try:
+                response = super().post(url, data=data, **kwargs)
+                raise_for_retryable_status(response)
+                return response
+            except requests.exceptions.RequestException:
+                self.add_task(data, {'url': url, **kwargs})
+                raise
+
+    def add_task(self, data: bytes, kwargs: dict[str, Any]):
+        # No threads in Emscripten, we can't add a task to try later
+        if not platform_is_emscripten():  # pragma: no branch
+            self.retryer.add_task(data, kwargs)
 
     @cached_property
     def retryer(self) -> DiskRetryer:
