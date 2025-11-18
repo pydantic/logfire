@@ -24,15 +24,15 @@ try:
     from mcp.server.fastmcp import Context, FastMCP
     from mcp.shared.memory import create_client_server_memory_streams
 except ImportError:
-    pytestmark = [
-        pytest.mark.skipif(sys.version_info < (3, 10), reason='Requires Python 3.10 or higher'),
-        pytest.mark.skipif(
-            get_version(pydantic.__version__) < get_version('2.11'), reason='Requires Pydantic 2.11 or higher'
-        ),
-    ]
     if TYPE_CHECKING:
         assert False
 
+pytestmark = [
+    pytest.mark.skipif(sys.version_info < (3, 10), reason='Requires Python 3.10 or higher'),
+    pytest.mark.skipif(
+        get_version(pydantic.__version__) < get_version('2.11'), reason='Requires Pydantic 2.11 or higher'
+    ),
+]
 
 os.environ.setdefault('OPENAI_API_KEY', 'foo')
 os.environ['OPENAI_DEFAULT_MODEL'] = 'gpt-4o'
