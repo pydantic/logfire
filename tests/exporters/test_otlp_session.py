@@ -90,35 +90,37 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytes
     assert not session.retryer.thread
     assert not list(session.retryer.dir.iterdir())
 
-    sleep_times = [call.args for call in sleep_mock.call_args_list]
+    sleep_times = [call.args[0] for call in sleep_mock.call_args_list]
     # The initial sleep before the first retry is always 1 second.
-    assert sleep_times.count((1,)) == num_exports
+    assert sleep_times.count(1) == num_exports
     # The initial sleeps are shuffled in randomly because of threads, so remove them before checking the rest.
-    sleep_times = [t for t in sleep_times if t != (1,)]
+    sleep_times = [t for t in sleep_times if t != 1]
     # random.random is mocked to return 0.5 so that the retry delay is always 1.5 * 2 ** n.
     # This means these numbers show the average time slept for each call,
     # e.g. 6.0 means the actual sleep would be between 4 and 8 seconds.
-    assert (
-        sleep_times
-        == [
-            (1.5,),
-            (3.0,),
-            (6.0,),
-            (12.0,),
-            (24.0,),
-            (48.0,),
-            (96.0,),
-            # This is where we reach the MAX_DELAY of 128 seconds.
-            (192.0,),
-            (192.0,),
-            (192.0,),
-            (192.0,),
-            # The errors stop here and requests succeed, so the sleep time is reset.
-            # There are 10 exports and the first one succeeded after the last 192s wait,
-            # so that leaves 9 more short sleeps.
-        ]
-        + [(1.5,)] * 9
-    )
+    sleep_times_exponential = [
+        1.5,
+        3.0,
+        6.0,
+        12.0,
+        24.0,
+        48.0,
+        96.0,
+        # This is where we reach the MAX_DELAY of 128 seconds.
+        192.0,
+        192.0,
+        192.0,
+        192.0,
+        # The errors stop here and requests succeed, so the sleep time is reset.
+        # There are 10 exports and the first one succeeded after the last 192s wait,
+        # so that leaves 9 more short sleeps.
+    ]
+    assert sleep_times[: len(sleep_times_exponential)] == sleep_times_exponential
+    sleep_times_after = sleep_times[len(sleep_times_exponential) :]
+    assert len(sleep_times_after) == num_exports - 1
+    # While there's still tasks to process, the base sleep time is reduced to 0.2 seconds.
+    # When that loop ends, a new task may still be added and the loop restarts with a base time of 1 second.
+    assert all(t in {0.2 * 1.5, 1.0 * 1.5} for t in sleep_times_after)
 
     # A message gets logged once per minute when an export fails.
     # time.monotonic is mocked to return a value increasing by 30 each time,

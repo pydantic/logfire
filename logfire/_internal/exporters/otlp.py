@@ -204,10 +204,12 @@ class DiskRetryer:
                     except requests.exceptions.RequestException:
                         # Failed, increase delay exponentially up to MAX_DELAY.
                         delay = min(delay * 2, self.MAX_DELAY)
+                        # Make it at least 2 seconds, this is for when it was decreased to 0.2 in the block below.
+                        delay = max(delay, 2)
                     else:
-                        # Success, reset the delay (so that remaining tasks can be done quickly),
+                        # Success, set the delay to a small value (so that remaining tasks can be done quickly),
                         # remove the file, and move on to the next task.
-                        delay = 1
+                        delay = 0.2
                         path.unlink()
                         with self.lock:
                             self.total_size -= len(data)
