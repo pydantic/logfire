@@ -56,9 +56,7 @@ class OTLPExporterHttpSession(Session):
     def post(self, url: str, data: bytes, **kwargs: Any):  # type: ignore
         start_time = time.time()
         try:
-            response = super().post(url, data=data, **kwargs)
-            raise_for_retryable_status(response)
-            return response
+            return self._post(url, data, **kwargs)
         except requests.exceptions.RequestException:
             # Wait a little before trying again normally, before resorting to disk retrying.
             # This has several advantages:
@@ -70,22 +68,25 @@ class OTLPExporterHttpSession(Session):
             # So only do this if the first attempt took less than 10 seconds.
             end_time = time.time()
             if end_time - start_time > 10:  # pragma: no cover
-                self.add_task(data, {'url': url, **kwargs})
+                self._add_task(data, url, kwargs)
                 raise
 
             time.sleep(1)
             try:
-                response = super().post(url, data=data, **kwargs)
-                raise_for_retryable_status(response)
-                return response
+                return self._post(url, data, **kwargs)
             except requests.exceptions.RequestException:
-                self.add_task(data, {'url': url, **kwargs})
+                self._add_task(data, url, kwargs)
                 raise
 
-    def add_task(self, data: bytes, kwargs: dict[str, Any]):
+    def _add_task(self, data: bytes, url: str, kwargs: dict[str, Any]):
         # No threads in Emscripten, we can't add a task to try later
         if not platform_is_emscripten():  # pragma: no branch
-            self.retryer.add_task(data, kwargs)
+            self.retryer.add_task(data, {'url': url, **kwargs})
+
+    def _post(self, url: str, data: bytes, **kwargs: Any):
+        response = super().post(url, data=data, **kwargs)
+        raise_for_retryable_status(response)
+        return response
 
     @cached_property
     def retryer(self) -> DiskRetryer:
