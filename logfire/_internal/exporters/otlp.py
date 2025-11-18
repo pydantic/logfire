@@ -69,7 +69,7 @@ class OTLPExporterHttpSession(Session):
             # the more we risk filling up the BatchSpanProcessor queue in memory, or passing the shutdown deadline.
             # So only do this if the first attempt took less than 10 seconds.
             end_time = time.time()
-            if end_time - start_time > 10:
+            if end_time - start_time > 10:  # pragma: no cover
                 self.add_task(data, {'url': url, **kwargs})
                 raise
 
