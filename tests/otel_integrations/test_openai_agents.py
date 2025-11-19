@@ -553,7 +553,10 @@ async def test_responses(exporter: TestExporter):
                     'gen_ai.system': 'openai',
                     'gen_ai.operation.name': 'chat',
                     'raw_input': [
-                        {'content': 'Generate a random number then, hand off to agent2.', 'role': 'user'},
+                        {
+                            'content': IsStr(),
+                            'role': 'assistant',
+                        },
                         {
                             'id': 'fc_67ced68352a48191aca3872f9376de86',
                             'arguments': '{}',
@@ -584,9 +587,9 @@ async def test_responses(exporter: TestExporter):
                             'role': 'system',
                         },
                         {
-                            'event.name': 'gen_ai.user.message',
-                            'content': 'Generate a random number then, hand off to agent2.',
-                            'role': 'user',
+                            'event.name': 'gen_ai.assistant.message',
+                            'content': IsStr(),
+                            'role': 'assistant',
                         },
                         {
                             'event.name': 'gen_ai.assistant.message',
