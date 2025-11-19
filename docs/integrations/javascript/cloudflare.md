@@ -4,10 +4,10 @@ integration: logfire
 
 # Cloudflare
 
-To instrument your Cloudflare Workers and send spans to Logfire, install the `@pydantic/logfire-cf-workers` and `@pydantic/logfire-api` NPM packages:
+To instrument your Cloudflare Workers and send spans to Logfire, install the `@pydantic/logfire-cf-workers` and `logfire` NPM packages:
 
 ```sh
-npm install @pydantic/logfire-cf-workers @pydantic/logfire-api
+npm install @pydantic/logfire-cf-workers logfire
 ```
 
 Next, add the Node.js compatibility flag to your Wrangler configuration:
@@ -33,7 +33,7 @@ npx wrangler secret put LOGFIRE_TOKEN
 Finally, wrap your handler with the instrumentation. The `instrument` function will automatically configure Logfire using your environment variables:
 
 ```ts
-import * as logfire from "@pydantic/logfire-api";
+import * as logfire from "logfire";
 import { instrument } from "@pydantic/logfire-cf-workers";
 
 const handler = {
@@ -44,18 +44,18 @@ const handler = {
 } satisfies ExportedHandler;
 
 export default instrument(handler, {
-	service: {
-		name: 'my-cloudflare-worker',
-		namespace: '',
-		version: '1.0.0',
-	},
+  service: {
+    name: "my-cloudflare-worker",
+    namespace: "",
+    version: "1.0.0",
+  },
 });
 ```
 
 A complete working example is available in the [examples/cf-worker](https://github.com/pydantic/logfire-js/tree/main/examples/cf-worker) directory.
 
 !!! info
-    If you're testing your Worker with Vitest, add the following configuration to your `vitest.config.mts` to ensure proper module loading:
+If you're testing your Worker with Vitest, add the following configuration to your `vitest.config.mts` to ensure proper module loading:
 
     ```ts
     export default defineWorkersConfig({

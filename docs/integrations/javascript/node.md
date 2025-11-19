@@ -12,13 +12,13 @@ Let's create an empty project:
 mkdir test-logfire-js
 cd test-logfire-js
 npm init -y es6 # This creates a package.json with `type: module` for ES6 support
-npm install logfire
+npm install @pydantic/logfire-node
 ```
 
 Then, create the following `hello.js` script in the directory:
 
 ```js
-import * as logfire from "logfire";
+import * as logfire from "@pydantic/logfire-node";
 
 logfire.configure({
   token: "your-write-token",
@@ -26,11 +26,15 @@ logfire.configure({
   serviceVersion: "1.0.0",
 });
 
-logfire.info("Hello from Node.js", {
-  "attribute-key": "attribute-value",
-}, {
-  tags: ["example", "example2"],
-});
+logfire.info(
+  "Hello from Node.js",
+  {
+    "attribute-key": "attribute-value",
+  },
+  {
+    tags: ["example", "example2"],
+  },
+);
 ```
 
 Run the script with `node hello.js`, and you should see the span appear in
