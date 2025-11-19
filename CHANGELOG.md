@@ -1,5 +1,10 @@
 # Release Notes
 
+## [v4.15.0] (2025-11-19)
+
+* Limit retried exports based on total size, not number by @alexmojaki in [#1527](https://github.com/pydantic/logfire/pull/1527)
+* More tweaks to retrying exports by @alexmojaki in [#1531](https://github.com/pydantic/logfire/pull/1531)
+
 ## [v4.14.2] (2025-10-24)
 
 * Ensure `OTEL_EXPORTER_OTLP_HEADERS` doesn't override logfire token by @alexmojaki in [#1500](https://github.com/pydantic/logfire/pull/1500)
@@ -966,3 +971,4 @@ First release from new repo!
 [v4.14.0]: https://github.com/pydantic/logfire/compare/v4.13.2...v4.14.0
 [v4.14.1]: https://github.com/pydantic/logfire/compare/v4.14.0...v4.14.1
 [v4.14.2]: https://github.com/pydantic/logfire/compare/v4.14.1...v4.14.2
+[v4.15.0]: https://github.com/pydantic/logfire/compare/v4.14.2...v4.15.0

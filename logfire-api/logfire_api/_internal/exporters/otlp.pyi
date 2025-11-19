@@ -30,11 +30,12 @@ def raise_for_retryable_status(response: requests.Response): ...
 class DiskRetryer:
     """Retries requests failed by OTLPExporterHttpSession, saving the request body to disk to save memory."""
     MAX_DELAY: int
-    MAX_TASKS: int
+    MAX_TASK_SIZE: Incomplete
     LOG_INTERVAL: int
     lock: Incomplete
     thread: Thread | None
     tasks: deque[tuple[Path, dict[str, Any]]]
+    total_size: int
     session: Incomplete
     dir: Incomplete
     last_log_time: Incomplete
