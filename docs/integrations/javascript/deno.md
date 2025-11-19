@@ -10,5 +10,5 @@ The [logfire-js examples directory includes a `Hello World` example](https://git
 to export OpenTelemetry data to Logfire through environment variables.
 
 You can also use the Logfire API package to create manual spans.
-Install the `@pydantic/logfire-api` NPM package and call the appropriate methods
+Install the `logfire` NPM package and call the appropriate methods
 in your code.

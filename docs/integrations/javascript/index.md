@@ -3,7 +3,7 @@
 Logfire offers first-class integration for the most popular JavaScript frameworks
 and runtimes. Where appropriate (like Deno or Next.js), integration happens through the framework/runtime's built-in OTel mechanism.
 
-In addition to the instrumentation itself, we ship an `@pydantic/logfire-api` package that mirrors the Python `logfire` package API for creating spans and reporting exceptions.
+In addition to the instrumentation itself, we ship an `logfire` package that mirrors the Python `logfire` package API for creating spans and reporting exceptions.
 
 ## Browser
 
@@ -19,7 +19,7 @@ Refer to the [Next.js documentation section](./nextjs.md) for more details.
 
 ## Cloudflare
 
-Instrumenting Cloudflare Workers is straightforward with Logfire. You can use the `@pydantic/logfire-cf-workers` package to instrument your worker handlers, and the `@pydantic/logfire-api` package to send logs and spans.
+Instrumenting Cloudflare Workers is straightforward with Logfire. You can use the `@pydantic/logfire-cf-workers` package to instrument your worker handlers, and the `logfire` package to send logs and spans.
 
 Refer to the [Cloudflare Workers documentation section](./cloudflare.md) for more details.
 
@@ -29,7 +29,7 @@ To instrument an Express app, use the `logfire` package, optionally using `doten
 
 ## Node.js
 
-Generic Node.js scripts can be instrumented using the `logfire` package. Refer to the [Node.js documentation section](./node.md) for more details.
+Generic Node.js scripts can be instrumented using the `@pydantic/logfire-node` package. Refer to the [Node.js documentation section](./node.md) for more details.
 
 ## Deno
 

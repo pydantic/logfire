@@ -19,27 +19,32 @@ OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'
 This configuration directs the OpenTelemetry instrumentation to send data to Logfire.
 
 !!! note
-    Vercel production deployments use a caching mechanism that may prevent
-    configuration changes from taking effect immediately or prevent spans from being reported. If you
-    don't see spans appearing in Logfire, you can
-    [clear the data cache for your project](https://vercel.com/docs/data-cache/manage-data-cache).
+Vercel production deployments use a caching mechanism that may prevent
+configuration changes from taking effect immediately or prevent spans from being reported. If you
+don't see spans appearing in Logfire, you can
+[clear the data cache for your project](https://vercel.com/docs/data-cache/manage-data-cache).
 
 Optionally, you can use the Logfire API package to create manual spans.
-Install the `@pydantic/logfire-api` NPM package and call the appropriate methods
+Install the `logfire` NPM package and call the appropriate methods
 from your server-side code:
 
 ```tsx
-import * as logfire from "@pydantic/logfire-api";
+import * as logfire from "logfire";
 
 export default async function Home() {
-  return logfire.span("A warning span", {}, {
-    level: logfire.Level.Warning,
-  }, async (span) => {
-    logfire.info("Nested info span");
+  return logfire.span(
+    "A warning span",
+    {},
+    {
+      level: logfire.Level.Warning,
+    },
+    async (span) => {
+      logfire.info("Nested info span");
       // Call span.end() to ensure the span is properly reported
-    span.end();
-    return <div>Hello</div>;
-  });
+      span.end();
+      return <div>Hello</div>;
+    },
+  );
 }
 ```
 
