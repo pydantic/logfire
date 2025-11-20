@@ -13,6 +13,7 @@ from logging import getLogger
 from typing import Any, Callable
 from unittest.mock import patch
 
+import cloudpickle
 import pytest
 from dirty_equals import IsInt, IsJson, IsStr
 from inline_snapshot import Is, snapshot
@@ -68,6 +69,8 @@ def test_instrument_with_no_args(exporter: TestExporter) -> None:
     def foo(x: int):
         return x * 2
 
+    foo = cloudpickle.loads(cloudpickle.dumps(foo))  # type: ignore
+
     assert foo(2) == 4
     assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
         [
@@ -96,6 +99,8 @@ def test_instrument_with_no_parameters(exporter: TestExporter) -> None:
     @logfire.instrument
     def foo(x: int):
         return x * 2
+
+    foo = cloudpickle.loads(cloudpickle.dumps(foo))  # type: ignore
 
     assert foo(2) == 4
     assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
@@ -126,6 +131,8 @@ def test_instrument_func_with_no_params(exporter: TestExporter) -> None:
     def foo():
         return 4
 
+    foo = cloudpickle.loads(cloudpickle.dumps(foo))  # type: ignore
+
     assert foo() == 4
     assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
         [
@@ -152,6 +159,8 @@ def test_instrument_extract_args_list(exporter: TestExporter) -> None:
     @logfire.instrument(extract_args=['a', 'b', 'optional', 'optional_kw'])
     def foo(a: int, b: int, c: int, optional: int = 10, *, optional_kw: int = 5) -> int:
         return a + b + c + optional + optional_kw
+
+    foo = cloudpickle.loads(cloudpickle.dumps(foo))  # type: ignore
 
     assert foo(1, 2, 3) == 21
     assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
@@ -184,6 +193,8 @@ def test_instrument_optional_args(exporter: TestExporter) -> None:
     @logfire.instrument('Calling foo {optional=}')
     def foo(a: int, b: int, c: int, optional: int = 10, *, optional_kw: int = 5) -> int:
         return a + b + c + optional + optional_kw
+
+    foo = cloudpickle.loads(cloudpickle.dumps(foo))  # type: ignore
 
     assert foo(1, 2, 3) == 21
     assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
@@ -224,6 +235,8 @@ def test_instrument_missing_all_extract_args(exporter: TestExporter) -> None:
     assert str(warnings[0].message) == snapshot('Ignoring missing arguments to extract: bar')
     assert warnings[0].lineno == inspect.currentframe().f_lineno - 4  # type: ignore
 
+    foo = cloudpickle.loads(cloudpickle.dumps(foo))  # type: ignore
+
     assert foo() == 4
     assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
         [
@@ -246,12 +259,14 @@ def test_instrument_missing_all_extract_args(exporter: TestExporter) -> None:
     )
 
 
-def test_instrument_missing_some_extract_args(exporter: TestExporter) -> None:
+def test_instrument_missing_some_extract_args(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
+    lf = logfire.configure(local=True, **config_kwargs)
+
     def foo(a: int, d: int, e: int):
         return a + d + e
 
     with pytest.warns(UserWarning) as warnings:
-        foo = logfire.instrument(extract_args=['a', 'b', 'c'])(foo)
+        foo = lf.instrument(extract_args=['a', 'b', 'c'])(foo)
 
     assert len(warnings) == 1
     assert str(warnings[0].message) == snapshot('Ignoring missing arguments to extract: b, c')
