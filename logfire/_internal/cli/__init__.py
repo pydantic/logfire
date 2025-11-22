@@ -122,6 +122,7 @@ def parse_list_projects(args: argparse.Namespace) -> None:
 
     projects = client.get_user_projects()
     if projects:
+        sys.stderr.write("List of the projects you have write access to (requires the 'write_token' permission):\n\n")
         sys.stderr.write(
             _pretty_table(
                 ['Organization', 'Project'],

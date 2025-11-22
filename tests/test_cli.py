@@ -500,6 +500,8 @@ def test_projects_list(default_credentials: Path, capsys: pytest.CaptureFixture[
         output = capsys.readouterr().err
         assert output.splitlines() == snapshot(
             [
+                "List of the projects you have write access to (requires the 'write_token' permission):",
+                '',
                 ' Organization   | Project',
                 '----------------|--------',
                 ' test-org       | test-pr',
