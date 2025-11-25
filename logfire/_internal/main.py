@@ -5,7 +5,7 @@ import inspect
 import json
 import sys
 import warnings
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from contextlib import AbstractContextManager
 from contextvars import Token
 from enum import Enum
@@ -30,6 +30,7 @@ from opentelemetry.trace import SpanContext
 from opentelemetry.util import types as otel_types
 from typing_extensions import LiteralString, ParamSpec
 
+from ..variables.variable import ResolveFunction, Variable
 from ..version import VERSION
 from . import async_
 from .auto_trace import AutoTraceModule, install_auto_tracing
@@ -125,6 +126,8 @@ if TYPE_CHECKING:
     # 3. The argument name exc_info is very suggestive of the sys function.
     ExcInfo = Union[SysExcInfo, BaseException, bool, None]
 
+T = TypeVar('T')
+
 
 class Logfire:
     """The main logfire class."""
@@ -147,6 +150,10 @@ class Logfire:
     @property
     def config(self) -> LogfireConfig:
         return self._config
+
+    @property
+    def resource_attributes(self) -> Mapping[str, Any]:
+        return self._tracer_provider.resource.attributes
 
     @cached_property
     def _tracer_provider(self) -> ProxyTracerProvider:
@@ -2330,6 +2337,9 @@ class Logfire:
             return False
         self._meter_provider.shutdown(remaining)
         return (start - time()) < timeout_millis
+
+    def var(self, name: str, default: T | ResolveFunction[T], type_: type[T] | None = None) -> Variable[T]:
+        return Variable(name, default=default, value_type=type_, logfire_instance=self)
 
 
 class FastLogfireSpan:
