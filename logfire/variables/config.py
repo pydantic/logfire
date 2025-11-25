@@ -259,7 +259,4 @@ _VariablesConfigAdapter = TypeAdapter(VariablesConfig)
 
 def _matches_all_conditions(conditions: list[Condition], attributes: Mapping[str, Any]) -> bool:
     """Check if all conditions match the provided attributes."""
-    for condition in conditions:
-        if not condition.matches(attributes):
-            return False
-    return True
+    return all(condition.matches(attributes) for condition in conditions)
