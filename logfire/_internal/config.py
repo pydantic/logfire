@@ -69,7 +69,7 @@ from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceConte
 from ..types import ExceptionCallback
 from ..variables.config import VariablesConfig
 from ..variables.providers.abstract import NoOpVariableProvider, VariableProvider
-from ..variables.providers.local import LogfireLocalProvider
+from ..variables.providers.local import LocalVariableProvider
 from .client import InvalidProjectName, LogfireClient, ProjectAlreadyExists
 from .config_params import ParamManager, PydanticPluginRecordValues
 from .constants import (
@@ -276,7 +276,7 @@ class VariablesOptions:
         include_baggage_in_context: bool = True,
     ):
         if isinstance(provider, VariablesConfig):
-            provider = LogfireLocalProvider(provider)
+            provider = LocalVariableProvider(provider)
         elif not provider:
             provider = NoOpVariableProvider()
 

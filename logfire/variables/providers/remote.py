@@ -17,14 +17,14 @@ from logfire._internal.client import UA_HEADER
 from logfire._internal.utils import UnexpectedResponse
 from logfire.variables.config import VariablesConfig
 
-__all__ = ['LogfireRemoteProvider']
+__all__ = ['LogfireRemoteVariableProvider']
 
 from logfire.variables.providers.abstract import VariableProvider, VariableResolutionDetails
 
 
 # TODO: Do we need to provide a mechanism for whether the LogfireRemoteProvider should block to retrieve the config
 #   during startup or do synchronize in the background?
-class LogfireRemoteProvider(VariableProvider):
+class LogfireRemoteVariableProvider(VariableProvider):
     """Variable provider that fetches configuration from a remote Logfire API.
 
     The threading implementation draws heavily from opentelemetry.sdk._shared_internal.BatchProcessor.

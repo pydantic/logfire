@@ -5,12 +5,12 @@ from typing import Any
 
 from logfire.variables.config import VariablesConfig
 
-__all__ = ['LogfireLocalProvider']
+__all__ = ['LocalVariableProvider']
 
 from logfire.variables.providers.abstract import VariableProvider, VariableResolutionDetails
 
 
-class LogfireLocalProvider(VariableProvider):
+class LocalVariableProvider(VariableProvider):
     """Variable provider that resolves values from a local in-memory configuration."""
 
     def __init__(
