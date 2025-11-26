@@ -20,7 +20,16 @@ class VariableProvider(ABC):
         targeting_key: str | None = None,
         attributes: Mapping[str, Any] | None = None,
     ) -> VariableResolutionDetails[str | None]:
-        """Retrieve the serialized value for a variable."""
+        """Retrieve the serialized value for a variable.
+
+        Args:
+            variable_name: The name of the variable to resolve.
+            targeting_key: Optional key for deterministic variant selection (e.g., user ID).
+            attributes: Optional attributes for condition-based targeting rules.
+
+        Returns:
+            A VariableResolutionDetails containing the serialized value (or None if not found).
+        """
         raise NotImplementedError
 
     def shutdown(self):
@@ -37,5 +46,14 @@ class NoOpVariableProvider(VariableProvider):
         targeting_key: str | None = None,
         attributes: Mapping[str, Any] | None = None,
     ) -> VariableResolutionDetails[str | None]:
-        """Return None for all variable lookups."""
+        """Return None for all variable lookups.
+
+        Args:
+            variable_name: The name of the variable to resolve (ignored).
+            targeting_key: Optional key for deterministic variant selection (ignored).
+            attributes: Optional attributes for condition-based targeting rules (ignored).
+
+        Returns:
+            A VariableResolutionDetails with value=None.
+        """
         return VariableResolutionDetails(value=None, _reason='resolved')

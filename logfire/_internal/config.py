@@ -266,8 +266,11 @@ class VariablesOptions:
     """Configuration of managed variables."""
 
     provider: VariableProvider
+    """Provider for resolving variable values."""
     include_resource_attributes_in_context: bool = True
+    """Whether to include OpenTelemetry resource attributes when resolving variables."""
     include_baggage_in_context: bool = True
+    """Whether to include OpenTelemetry baggage when resolving variables."""
 
     def __init__(
         self,
@@ -275,6 +278,16 @@ class VariablesOptions:
         include_resource_attributes_in_context: bool = True,
         include_baggage_in_context: bool = True,
     ):
+        """Initialize variable options.
+
+        Args:
+            provider: Provider for resolving variable values. Can be a `VariableProvider` instance,
+                a `VariablesConfig` (which will be wrapped in a `LocalVariableProvider`),
+                or `None` (which will use a `NoOpVariableProvider`, which always uses code defaults).
+            include_resource_attributes_in_context: Whether to include OpenTelemetry resource attributes
+                when resolving variables.
+            include_baggage_in_context: Whether to include OpenTelemetry baggage when resolving variables.
+        """
         if isinstance(provider, VariablesConfig):
             provider = LocalVariableProvider(provider)
         elif not provider:

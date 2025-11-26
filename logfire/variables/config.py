@@ -17,8 +17,11 @@ class ValueEquals:
     """Condition that matches when an attribute equals a specific value."""
 
     attribute: str
+    """The name of the attribute to check."""
     value: Any
+    """The value the attribute must equal."""
     kind: Literal['value-equals'] = 'value-equals'
+    """Discriminator field for condition type."""
 
     def matches(self, attributes: Mapping[str, Any]) -> bool:
         """Check if the attribute equals the expected value."""
@@ -30,8 +33,11 @@ class ValueDoesNotEqual:
     """Condition that matches when an attribute does not equal a specific value."""
 
     attribute: str
+    """The name of the attribute to check."""
     value: Any
+    """The value the attribute must not equal."""
     kind: Literal['value-does-not-equal'] = 'value-does-not-equal'
+    """Discriminator field for condition type."""
 
     def matches(self, attributes: Mapping[str, Any]) -> bool:
         """Check if the attribute does not equal the specified value."""
@@ -43,8 +49,11 @@ class ValueIsIn:
     """Condition that matches when an attribute value is in a set of values."""
 
     attribute: str
+    """The name of the attribute to check."""
     values: Sequence[Any]
+    """The set of values the attribute must be in."""
     kind: Literal['value-is-in'] = 'value-is-in'
+    """Discriminator field for condition type."""
 
     def matches(self, attributes: Mapping[str, Any]) -> bool:
         """Check if the attribute value is in the allowed set."""
@@ -57,8 +66,11 @@ class ValueIsNotIn:
     """Condition that matches when an attribute value is not in a set of values."""
 
     attribute: str
+    """The name of the attribute to check."""
     values: Sequence[Any]
+    """The set of values the attribute must not be in."""
     kind: Literal['value-is-not-in'] = 'value-is-not-in'
+    """Discriminator field for condition type."""
 
     def matches(self, attributes: Mapping[str, Any]) -> bool:
         """Check if the attribute value is not in the excluded set."""
@@ -71,8 +83,11 @@ class ValueMatchesRegex:
     """Condition that matches when an attribute value matches a regex pattern."""
 
     attribute: str
+    """The name of the attribute to check."""
     pattern: str | re.Pattern[str]
+    """The regex pattern the attribute value must match."""
     kind: Literal['value-matches-regex'] = 'value-matches-regex'
+    """Discriminator field for condition type."""
 
     def matches(self, attributes: Mapping[str, Any]) -> bool:
         """Check if the attribute value matches the regex pattern."""
@@ -87,8 +102,11 @@ class ValueDoesNotMatchRegex:
     """Condition that matches when an attribute value does not match a regex pattern."""
 
     attribute: str
+    """The name of the attribute to check."""
     pattern: str | re.Pattern[str]
+    """The regex pattern the attribute value must not match."""
     kind: Literal['value-does-not-match-regex'] = 'value-does-not-match-regex'
+    """Discriminator field for condition type."""
 
     def matches(self, attributes: Mapping[str, Any]) -> bool:
         """Check if the attribute value does not match the regex pattern."""
@@ -103,7 +121,9 @@ class KeyIsPresent:
     """Condition that matches when an attribute key is present."""
 
     attribute: str
+    """The name of the attribute key that must be present."""
     kind: Literal['key-is-present'] = 'key-is-present'
+    """Discriminator field for condition type."""
 
     def matches(self, attributes: Mapping[str, Any]) -> bool:
         """Check if the attribute key exists in the attributes."""
@@ -115,7 +135,9 @@ class KeyIsNotPresent:
     """Condition that matches when an attribute key is not present."""
 
     attribute: str
+    """The name of the attribute key that must not be present."""
     kind: Literal['key-is-not-present'] = 'key-is-not-present'
+    """Discriminator field for condition type."""
 
     def matches(self, attributes: Mapping[str, Any]) -> bool:
         """Check if the attribute key does not exist in the attributes."""
@@ -150,6 +172,7 @@ class Rollout:
     """Configuration for variant selection with weighted probabilities."""
 
     variants: dict[VariantKey, float]
+    """Mapping of variant keys to their selection weights (must sum to at most 1.0)."""
 
     @field_validator('variants')
     @classmethod
@@ -161,7 +184,15 @@ class Rollout:
         return v
 
     def select_variant(self, seed: str | None) -> VariantKey | None:
-        """Select a variant based on configured weights using optional seeded randomness."""
+        """Select a variant based on configured weights using optional seeded randomness.
+
+        Args:
+            seed: Optional seed for deterministic variant selection. If provided, the same seed
+                will always select the same variant.
+
+        Returns:
+            The key of the selected variant, or None if no variant is selected (when weights sum to less than 1.0).
+        """
         rand = random.Random(seed)
 
         population: list[VariantKey | None] = []
@@ -183,10 +214,14 @@ class Variant:
     """A specific variant of a managed variable with its serialized value."""
 
     key: VariantKey
+    """Unique identifier for this variant."""
     serialized_value: str
+    """The JSON-serialized value for this variant."""
     # format: Literal['json', 'yaml']  # TODO: Consider supporting yaml, and not just JSON; allows comments and better formatting
     description: str | None = None
+    """Optional human-readable description of this variant."""
     version: str | None = None  # TODO: should this be required?
+    """Optional version identifier for this variant."""
 
 
 @dataclass(kw_only=True)
@@ -194,7 +229,9 @@ class RolloutOverride:
     """An override of the default rollout when specific conditions are met."""
 
     conditions: list[Condition]
+    """List of conditions that must all match for this override to apply."""
     rollout: Rollout
+    """The rollout configuration to use when all conditions match."""
 
 
 @dataclass(kw_only=True)
@@ -202,10 +239,15 @@ class VariableConfig:
     """Configuration for a single managed variable including variants and rollout rules."""
 
     name: VariableName
+    """Unique name identifying this variable."""
     variants: dict[VariantKey, Variant]
+    """Mapping of variant keys to their configurations."""
     rollout: Rollout
-    overrides: list[RolloutOverride]  # first match takes precedence
+    """Default rollout configuration for variant selection."""
+    overrides: list[RolloutOverride]
+    """Conditional overrides evaluated in order; first match takes precedence."""
     json_schema: dict[str, Any]
+    """JSON schema describing the expected type of this variable's values."""
     # TODO: Should we add a validator that all variants match the provided JSON schema?
 
     @model_validator(mode='after')
@@ -264,6 +306,7 @@ class VariablesConfig:
     """Container for all managed variable configurations."""
 
     variables: dict[VariableName, VariableConfig]
+    """Mapping of variable names to their configurations."""
 
     @model_validator(mode='after')
     def _validate_variables(self):
@@ -274,7 +317,14 @@ class VariablesConfig:
         return self
 
     def get_validation_errors(self, variables: list[Variable[Any]]) -> dict[str, dict[str | None, Exception]]:
-        """Validate that all variable variants can be deserialized to their expected types."""
+        """Validate that all variable variants can be deserialized to their expected types.
+
+        Args:
+            variables: List of Variable instances to validate against this configuration.
+
+        Returns:
+            A dict mapping variable names to dicts of variant keys (or None for general errors) to exceptions.
+        """
         errors: dict[str, dict[str | None, Exception]] = {}
         for variable in variables:
             try:
@@ -292,7 +342,14 @@ class VariablesConfig:
 
     @staticmethod
     def validate_python(data: Any) -> VariablesConfig:
-        """Parse and validate a VariablesConfig from a Python object."""
+        """Parse and validate a VariablesConfig from a Python object.
+
+        Args:
+            data: A Python object (typically a dict) to validate as a VariablesConfig.
+
+        Returns:
+            A validated VariablesConfig instance.
+        """
         return _VariablesConfigAdapter.validate_python(data)
 
 
@@ -300,7 +357,15 @@ _VariablesConfigAdapter = TypeAdapter(VariablesConfig)
 
 
 def _matches_all_conditions(conditions: list[Condition], attributes: Mapping[str, Any]) -> bool:
-    """Check if all conditions match the provided attributes."""
+    """Check if all conditions match the provided attributes.
+
+    Args:
+        conditions: List of conditions to evaluate.
+        attributes: Attributes to match against.
+
+    Returns:
+        True if all conditions match, False otherwise.
+    """
     for condition in conditions:
         if not condition.matches(attributes):
             return False

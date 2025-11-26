@@ -17,6 +17,12 @@ class LocalVariableProvider(VariableProvider):
         self,
         config: VariablesConfig | Callable[[], VariablesConfig],
     ):
+        """Create a new local variable provider.
+
+        Args:
+            config: Either a VariablesConfig instance, or a callable that returns one.
+                Using a callable allows for dynamic configuration reloading.
+        """
         super().__init__()
         if isinstance(config, VariablesConfig):
 
@@ -33,7 +39,16 @@ class LocalVariableProvider(VariableProvider):
         targeting_key: str | None = None,
         attributes: Mapping[str, Any] | None = None,
     ) -> VariableResolutionDetails[str | None]:
-        """Resolve a variable's serialized value from the local configuration."""
+        """Resolve a variable's serialized value from the local configuration.
+
+        Args:
+            variable_name: The name of the variable to resolve.
+            targeting_key: Optional key for deterministic variant selection (e.g., user ID).
+            attributes: Optional attributes for condition-based targeting rules.
+
+        Returns:
+            A VariableResolutionDetails containing the serialized value (or None if not found).
+        """
         variables_config = self.get_config()
 
         variable_config = variables_config.variables.get(variable_name)

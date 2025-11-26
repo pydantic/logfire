@@ -37,6 +37,16 @@ class LogfireRemoteVariableProvider(VariableProvider):
         block_before_first_fetch: bool,
         polling_interval: timedelta | float = timedelta(seconds=30),
     ):
+        """Create a new remote variable provider.
+
+        Args:
+            base_url: The base URL of the Logfire API.
+            token: Authentication token for the Logfire API.
+            block_before_first_fetch: Whether to block on first variable access until configuration
+                is fetched from the remote API.
+            polling_interval: How often to poll for configuration updates. Can be a timedelta or
+                a number of seconds.
+        """
         super().__init__()
 
         self._base_url = base_url
@@ -106,7 +116,11 @@ class LogfireRemoteVariableProvider(VariableProvider):
             warnings.warn(error_message, category=RuntimeWarning)
 
     def refresh(self, force: bool = False):
-        """Fetch the latest variable configuration from the remote API."""
+        """Fetch the latest variable configuration from the remote API.
+
+        Args:
+            force: If True, fetch configuration even if the polling interval hasn't elapsed.
+        """
         # TODO: Probably makes sense to replace this with something that just polls for a version number or hash
         #   or similar, rather than the whole config, and only grabs the whole config if that version or hash changes.
         with self._refresh_lock:  # Make at most one request at a time
@@ -138,7 +152,16 @@ class LogfireRemoteVariableProvider(VariableProvider):
         targeting_key: str | None = None,
         attributes: Mapping[str, Any] | None = None,
     ) -> VariableResolutionDetails[str | None]:
-        """Resolve a variable's serialized value from the remote configuration."""
+        """Resolve a variable's serialized value from the remote configuration.
+
+        Args:
+            variable_name: The name of the variable to resolve.
+            targeting_key: Optional key for deterministic variant selection (e.g., user ID).
+            attributes: Optional attributes for condition-based targeting rules.
+
+        Returns:
+            A VariableResolutionDetails containing the serialized value (or None if not found).
+        """
         if self._pid != os.getpid():
             self._reset_once.do_once(self._at_fork_reinit)
 

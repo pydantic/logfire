@@ -29,14 +29,25 @@ class VariableResolutionDetails(Generic[T_co]):
     """Details about a variable resolution including value, variant, and any errors."""
 
     value: T_co
+    """The resolved value of the variable."""
     variant: str | None = None
+    """The key of the selected variant, if any."""
     exception: Exception | None = None
+    """Any exception that occurred during resolution."""
     _reason: Literal[
         'resolved', 'context_override', 'missing_config', 'unrecognized_variable', 'validation_error', 'other_error'
-    ]
+    ]  # we might eventually make this public, but I didn't want to yet
+    """Internal field indicating how the value was resolved."""
 
     def with_value(self, v: T) -> VariableResolutionDetails[T]:
-        """Return a copy of this result with a different value."""
+        """Return a copy of this result with a different value.
+
+        Args:
+            v: The new value to use.
+
+        Returns:
+            A new VariableResolutionDetails with the given value.
+        """
         return replace(self, value=v)  # pyright: ignore[reportReturnType]
 
 
@@ -49,7 +60,14 @@ class ResolveFunction(Protocol[T_co]):
 
 
 def is_resolve_function(f: Any) -> TypeIs[ResolveFunction[Any]]:
-    """Check if a callable matches the ResolveFunction signature."""
+    """Check if a callable matches the ResolveFunction signature.
+
+    Args:
+        f: The object to check.
+
+    Returns:
+        True if the callable has a signature matching ResolveFunction.
+    """
     if not callable(f):
         return False
     signature = inspect.signature(f)
@@ -62,17 +80,15 @@ def is_resolve_function(f: Any) -> TypeIs[ResolveFunction[Any]]:
 class Variable(Generic[T]):
     """A managed variable that can be resolved dynamically based on configuration."""
 
-    # TODO: Need to add otel instrumentation in some way
-    #  Should the default be that logfire dumps a span with the details into the project for you?
-    #  And there's no in-process otel? But you can enable that?
-    # TODO: Add get_sync method or similar
-    # TODO: Need to decide how this is going to work. Options:
-
     name: str
+    """Unique name identifying this variable."""
     default: T | ResolveFunction[T]
+    """Default value or function to compute the default."""
     value_type: type[T] | None = None
+    """The expected type of this variable's values."""
 
     logfire_instance: Logfire
+    """The Logfire instance this variable is associated with."""
 
     def __init__(
         self,
@@ -82,6 +98,15 @@ class Variable(Generic[T]):
         type: type[T],
         logfire_instance: Logfire,
     ):
+        """Create a new managed variable.
+
+        Args:
+            name: Unique name identifying this variable.
+            default: Default value to use when no configuration is found, or a function
+                that computes the default based on targeting_key and attributes.
+            type: The expected type of this variable's values, used for validation.
+            logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
+        """
         self.name = name
         self.default = default
 
@@ -90,7 +115,12 @@ class Variable(Generic[T]):
 
     @contextmanager
     def override(self, value: T | ResolveFunction[T]) -> Iterator[None]:
-        """Context manager to temporarily override this variable's value."""
+        """Context manager to temporarily override this variable's value.
+
+        Args:
+            value: The value to use within this context, or a function that computes
+                the value based on targeting_key and attributes.
+        """
         current = _VARIABLE_OVERRIDES.get() or {}
         token = _VARIABLE_OVERRIDES.set({**current, self.name: value})
         try:
@@ -99,13 +129,30 @@ class Variable(Generic[T]):
             _VARIABLE_OVERRIDES.reset(token)
 
     async def get(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> T:
-        """Resolve and return the variable's value."""
+        """Resolve and return the variable's value.
+
+        Args:
+            targeting_key: Optional key for deterministic variant selection (e.g., user ID).
+            attributes: Optional attributes for condition-based targeting rules.
+
+        Returns:
+            The resolved value of the variable.
+        """
         return (await self.get_details(targeting_key, attributes)).value
 
     async def get_details(
         self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
     ) -> VariableResolutionDetails[T]:
-        """Resolve the variable and return full details including variant and any errors."""
+        """Resolve the variable and return full details including variant and any errors.
+
+        Args:
+            targeting_key: Optional key for deterministic variant selection (e.g., user ID).
+            attributes: Optional attributes for condition-based targeting rules.
+
+        Returns:
+            A VariableResolutionDetails object containing the resolved value, selected variant,
+            and any errors that occurred.
+        """
         merged_attributes = self._get_merged_attributes(attributes)
 
         # TODO: How much of the following code should be in the try: except:?
