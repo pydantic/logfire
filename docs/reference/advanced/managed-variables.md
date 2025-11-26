@@ -39,11 +39,12 @@ agent_instructions = logfire.var(
     type=str,
 )
 
-# Use the variable in your application
-async def get_agent_response(user_message: str) -> str:
+
+async def main():
+    # Get the variable's value
     instructions = await agent_instructions.get()
-    # Use instructions with your AI framework...
-    return f"Instructions: {instructions}"
+    print(f'Instructions: {instructions}')
+    #> Instructions: You are a helpful assistant.
 ```
 
 ### Variable Parameters
@@ -56,16 +57,32 @@ async def get_agent_response(user_message: str) -> str:
 
 ### Getting Variable Values
 
-Variables are resolved asynchronously:
+Variables are resolved asynchronously. You can get just the value, or full resolution details:
 
 ```python
-# Get just the value
-value = await my_variable.get()
+import logfire
 
-# Get full resolution details (includes variant info, any errors, etc.)
-details = await my_variable.get_details()
-print(details.value)    # The resolved value
-print(details.variant)  # Which variant was selected (if any)
+logfire.configure()
+
+my_variable = logfire.var(
+    name='my_variable',
+    default='default value',
+    type=str,
+)
+
+
+async def main():
+    # Get just the value
+    value = await my_variable.get()
+    print(f'Value: {value}')
+    #> Value: default value
+
+    # Get full resolution details (includes variant info, any errors, etc.)
+    details = await my_variable.get_details()
+    print(f'Resolved value: {details.value}')
+    #> Resolved value: default value
+    print(f'Selected variant: {details.variant}')
+    #> Selected variant: None
 ```
 
 ### Targeting and Attributes
@@ -73,11 +90,25 @@ print(details.variant)  # Which variant was selected (if any)
 You can pass targeting information to influence which variant is selected:
 
 ```python
-# Target a specific user for consistent A/B test assignment
-value = await agent_instructions.get(
-    targeting_key='user_123',  # Used for deterministic variant selection
-    attributes={'plan': 'enterprise', 'region': 'us-east'},
+import logfire
+
+logfire.configure()
+
+agent_instructions = logfire.var(
+    name='agent_instructions',
+    default='You are a helpful assistant.',
+    type=str,
 )
+
+
+async def main():
+    # Target a specific user for consistent A/B test assignment
+    value = await agent_instructions.get(
+        targeting_key='user_123',  # Used for deterministic variant selection
+        attributes={'plan': 'enterprise', 'region': 'us-east'},
+    )
+    print(value)
+    #> You are a helpful assistant.
 ```
 
 The `targeting_key` ensures the same user always gets the same variant (deterministic selection based on the key). Additional `attributes` can be used for condition-based targeting rules.
@@ -101,36 +132,62 @@ model_temperature = logfire.var(
 )
 
 
-async def generate_response(creative_mode: bool = False):
-    if creative_mode:
-        # Override temperature for this context only
-        with model_temperature.override(1.0):
-            temp = await model_temperature.get()
-            print(f"Using creative temperature: {temp}")  # 1.0
-            # ... generate response ...
-    else:
+async def main():
+    # Default value
+    temp = await model_temperature.get()
+    print(f'Default temperature: {temp}')
+    #> Default temperature: 0.7
+
+    # Override for creative mode
+    with model_temperature.override(1.0):
         temp = await model_temperature.get()
-        print(f"Using default temperature: {temp}")  # 0.7
-        # ... generate response ...
+        print(f'Creative temperature: {temp}')
+        #> Creative temperature: 1.0
+
+    # Back to default after context exits
+    temp = await model_temperature.get()
+    print(f'Back to default: {temp}')
+    #> Back to default: 0.7
 ```
 
 ### Dynamic Override Functions
 
-You can also override with a function that computes the value dynamically:
+You can also override with a function that computes the value dynamically based on the targeting key and attributes:
 
 ```python
-def get_temperature_for_context(targeting_key: str | None, attributes: dict | None) -> float:
+from collections.abc import Mapping
+from typing import Any
+
+import logfire
+
+logfire.configure()
+
+model_temperature = logfire.var(
+    name='model_temperature',
+    default=0.7,
+    type=float,
+)
+
+
+def get_temperature_for_context(
+    targeting_key: str | None, attributes: Mapping[str, Any] | None
+) -> float:
     """Compute temperature based on context."""
     if attributes and attributes.get('mode') == 'creative':
         return 1.0
     return 0.5
 
 
-async def process_request():
+async def main():
     with model_temperature.override(get_temperature_for_context):
         # Temperature will be computed based on the attributes passed to get()
         temp = await model_temperature.get(attributes={'mode': 'creative'})
-        print(temp)  # 1.0
+        print(f'Creative mode: {temp}')
+        #> Creative mode: 1.0
+
+        temp = await model_temperature.get(attributes={'mode': 'precise'})
+        print(f'Precise mode: {temp}')
+        #> Precise mode: 0.5
 ```
 
 ## Local Variable Provider
@@ -146,25 +203,29 @@ Variables are configured using `VariablesConfig`, which defines:
 - **Rollouts**: Probability weights for selecting variants
 - **Overrides**: Conditional rules that change the rollout based on attributes
 
-### Example: Configuring an AI Agent
+### Example: Configuring a PydanticAI Agent
+
+Here's a complete example that configures system prompts for a [PydanticAI](https://ai.pydantic.dev/) agent with A/B testing and user-based targeting:
 
 ```python
 import logfire
+from pydantic_ai import Agent
+
 from logfire._internal.config import VariablesOptions
 from logfire.variables.config import (
-    VariablesConfig,
-    VariableConfig,
-    Variant,
     Rollout,
     RolloutOverride,
+    VariableConfig,
+    VariablesConfig,
+    Variant,
     ValueEquals,
 )
 
-# Define your variable configurations
-config = VariablesConfig(
+# Define variable configurations
+variables_config = VariablesConfig(
     variables={
-        'agent_system_prompt': VariableConfig(
-            name='agent_system_prompt',
+        'assistant_system_prompt': VariableConfig(
+            name='assistant_system_prompt',
             variants={
                 'default': Variant(
                     key='default',
@@ -172,11 +233,11 @@ config = VariablesConfig(
                 ),
                 'detailed': Variant(
                     key='detailed',
-                    serialized_value='"You are a helpful AI assistant. Always provide detailed explanations with examples. Structure your responses clearly."',
+                    serialized_value='"You are a helpful AI assistant. Always provide detailed explanations with examples. Structure your responses with clear headings."',
                 ),
                 'concise': Variant(
                     key='concise',
-                    serialized_value='"You are a helpful AI assistant. Be brief and to the point."',
+                    serialized_value='"You are a helpful AI assistant. Be brief and direct. Avoid unnecessary elaboration."',
                 ),
             },
             # Default rollout: 80% default, 10% detailed, 10% concise
@@ -190,79 +251,53 @@ config = VariablesConfig(
             ],
             json_schema={'type': 'string'},
         ),
-        'model_config': VariableConfig(
-            name='model_config',
-            variants={
-                'standard': Variant(
-                    key='standard',
-                    serialized_value='{"model": "gpt-4o-mini", "temperature": 0.7, "max_tokens": 1000}',
-                ),
-                'premium': Variant(
-                    key='premium',
-                    serialized_value='{"model": "gpt-4o", "temperature": 0.5, "max_tokens": 4000}',
-                ),
-            },
-            rollout=Rollout(variants={'standard': 1.0}),
-            overrides=[
-                RolloutOverride(
-                    conditions=[ValueEquals(attribute='plan', value='enterprise')],
-                    rollout=Rollout(variants={'premium': 1.0}),
-                ),
-            ],
-            json_schema={'type': 'object'},
-        ),
     }
 )
 
 # Configure Logfire with the local provider
 logfire.configure(
-    variables=VariablesOptions(provider=config),
+    variables=VariablesOptions(provider=variables_config),
 )
-```
+logfire.instrument_pydantic_ai()
 
-### Using Configured Variables
-
-```python
-from pydantic import BaseModel
-
-
-class ModelConfig(BaseModel):
-    model: str
-    temperature: float
-    max_tokens: int
-
-
-# Define variables with proper types
+# Define the variable
 system_prompt = logfire.var(
-    name='agent_system_prompt',
+    name='assistant_system_prompt',
     default='You are a helpful assistant.',
     type=str,
 )
 
-model_config = logfire.var(
-    name='model_config',
-    default=ModelConfig(model='gpt-4o-mini', temperature=0.7, max_tokens=1000),
-    type=ModelConfig,
-)
 
-
-async def run_agent(user_id: str, user_plan: str):
+async def run_agent(user_id: str, user_plan: str, user_message: str) -> str:
+    """Run the agent with the appropriate prompt for this user."""
     # Get the prompt - variant selection is deterministic per user
     prompt = await system_prompt.get(
         targeting_key=user_id,
         attributes={'plan': user_plan},
     )
 
-    # Get model configuration
-    config = await model_config.get(
-        targeting_key=user_id,
-        attributes={'plan': user_plan},
+    # Create the agent with the resolved prompt
+    agent = Agent('openai:gpt-4o-mini', system_prompt=prompt)
+    result = await agent.run(user_message)
+    return result.output
+
+
+async def main():
+    # Enterprise user gets the detailed prompt
+    response = await run_agent(
+        user_id='enterprise_user_1',
+        user_plan='enterprise',
+        user_message='What is Python?',
     )
+    print(f'Enterprise user response: {response}')
 
-    print(f"Using prompt: {prompt}")
-    print(f"Using model: {config.model} with temperature {config.temperature}")
-
-    # Use with your AI framework...
+    # Free user gets one of the default rollout variants
+    response = await run_agent(
+        user_id='free_user_42',
+        user_plan='free',
+        user_message='What is Python?',
+    )
+    print(f'Free user response: {response}')
 ```
 
 ### Variant Selection
@@ -294,11 +329,11 @@ Overrides use conditions to match against the provided attributes. Available con
 
 ```python
 from logfire.variables.config import (
-    RolloutOverride,
+    KeyIsPresent,
     Rollout,
+    RolloutOverride,
     ValueEquals,
     ValueIsIn,
-    KeyIsPresent,
 )
 
 overrides = [
@@ -328,18 +363,69 @@ By default, Logfire automatically includes additional context when resolving var
 This allows you to create targeting rules based on deployment environment, service identity, or request-scoped baggage without explicitly passing these values.
 
 ```python
-# These are automatically included in variable resolution
-with logfire.set_baggage(user_id='user_123', plan='enterprise'):
-    # No need to pass attributes - baggage is included automatically
-    prompt = await system_prompt.get()
+import logfire
+from logfire._internal.config import VariablesOptions
+from logfire.variables.config import (
+    Rollout,
+    RolloutOverride,
+    VariableConfig,
+    VariablesConfig,
+    Variant,
+    ValueEquals,
+)
+
+variables_config = VariablesConfig(
+    variables={
+        'agent_prompt': VariableConfig(
+            name='agent_prompt',
+            variants={
+                'standard': Variant(key='standard', serialized_value='"Standard prompt"'),
+                'premium': Variant(key='premium', serialized_value='"Premium prompt"'),
+            },
+            rollout=Rollout(variants={'standard': 1.0}),
+            overrides=[
+                # This matches baggage set via logfire.set_baggage()
+                RolloutOverride(
+                    conditions=[ValueEquals(attribute='plan', value='enterprise')],
+                    rollout=Rollout(variants={'premium': 1.0}),
+                ),
+            ],
+            json_schema={'type': 'string'},
+        ),
+    }
+)
+
+logfire.configure(variables=VariablesOptions(provider=variables_config))
+
+agent_prompt = logfire.var(name='agent_prompt', default='Default prompt', type=str)
+
+
+async def main():
+    # Baggage is automatically included in variable resolution
+    with logfire.set_baggage(plan='enterprise'):
+        # No need to pass attributes - baggage is included automatically
+        prompt = await agent_prompt.get()
+        print(f'With enterprise baggage: {prompt}')
+        #> With enterprise baggage: Premium prompt
+
+    # Without matching baggage, gets the default rollout
+    prompt = await agent_prompt.get()
+    print(f'Without baggage: {prompt}')
+    #> Without baggage: Standard prompt
 ```
 
-To disable this behavior:
+To disable automatic context enrichment:
 
 ```python
+import logfire
+from logfire._internal.config import VariablesOptions
+from logfire.variables.config import VariablesConfig
+
+variables_config = VariablesConfig(variables={})
+
 logfire.configure(
     variables=VariablesOptions(
-        provider=config,
+        provider=variables_config,
         include_resource_attributes_in_context=False,
         include_baggage_in_context=False,
     ),
@@ -358,32 +444,33 @@ logfire.configure(
     - Track the performance of different variants
     - Roll out changes gradually with confidence
 
-## Complete Example: AI Agent with Managed Prompts
+## Complete Example: Support Agent with A/B Testing
 
-Here's a complete example showing how to use managed variables with an AI agent:
+Here's a complete example showing a customer support agent with A/B testing on system prompts and configurable model settings:
 
 ```python
 import logfire
 from pydantic import BaseModel
+from pydantic_ai import Agent
+
 from logfire._internal.config import VariablesOptions
 from logfire.variables.config import (
-    VariablesConfig,
-    VariableConfig,
-    Variant,
     Rollout,
-    RolloutOverride,
-    ValueEquals,
+    VariableConfig,
+    VariablesConfig,
+    Variant,
 )
 
 
-# Configuration types
-class AgentConfig(BaseModel):
+class ModelSettings(BaseModel):
+    """Configuration for the AI model."""
+
     model: str
     temperature: float
     max_tokens: int
 
 
-# Variable configuration
+# Variable configuration with two prompt variants for A/B testing
 variables_config = VariablesConfig(
     variables={
         'support_agent_prompt': VariableConfig(
@@ -397,7 +484,7 @@ variables_config = VariablesConfig(
                 ),
                 'v2': Variant(
                     key='v2',
-                    serialized_value='"You are an expert customer support agent. Be empathetic, helpful, and solution-oriented. Always acknowledge the customer\'s concern before providing assistance."',
+                    serialized_value='"You are an expert customer support agent. Be empathetic and solution-oriented. Always acknowledge the customer\'s concern before providing assistance."',
                     description='Improved prompt with empathy focus',
                     version='2.0.0',
                 ),
@@ -406,12 +493,12 @@ variables_config = VariablesConfig(
             overrides=[],
             json_schema={'type': 'string'},
         ),
-        'support_agent_config': VariableConfig(
-            name='support_agent_config',
+        'support_model_settings': VariableConfig(
+            name='support_model_settings',
             variants={
                 'default': Variant(
                     key='default',
-                    serialized_value='{"model": "gpt-4o-mini", "temperature": 0.3, "max_tokens": 500}',
+                    serialized_value='{"model": "openai:gpt-4o-mini", "temperature": 0.3, "max_tokens": 500}',
                 ),
             },
             rollout=Rollout(variants={'default': 1.0}),
@@ -422,9 +509,8 @@ variables_config = VariablesConfig(
 )
 
 # Configure Logfire
-logfire.configure(
-    variables=VariablesOptions(provider=variables_config),
-)
+logfire.configure(variables=VariablesOptions(provider=variables_config))
+logfire.instrument_pydantic_ai()
 
 # Define variables
 system_prompt = logfire.var(
@@ -433,79 +519,133 @@ system_prompt = logfire.var(
     type=str,
 )
 
-agent_config = logfire.var(
-    name='support_agent_config',
-    default=AgentConfig(model='gpt-4o-mini', temperature=0.3, max_tokens=500),
-    type=AgentConfig,
+model_settings = logfire.var(
+    name='support_model_settings',
+    default=ModelSettings(model='openai:gpt-4o-mini', temperature=0.3, max_tokens=500),
+    type=ModelSettings,
 )
 
 
 async def handle_support_request(user_id: str, message: str) -> str:
-    """Handle a customer support request."""
-
-    # Get configuration - same user always gets same variant
+    """Handle a customer support request with managed configuration."""
+    # Get configuration - same user always gets same variant (deterministic)
     prompt = await system_prompt.get(targeting_key=user_id)
-    config = await agent_config.get(targeting_key=user_id)
+    settings = await model_settings.get(targeting_key=user_id)
 
-    # Get details to log which variant is being used
+    # Get details for logging/observability
     prompt_details = await system_prompt.get_details(targeting_key=user_id)
 
     with logfire.span(
-        'support_agent_response',
+        'support_request',
         user_id=user_id,
         prompt_variant=prompt_details.variant,
-        model=config.model,
+        model=settings.model,
     ):
-        # Here you would call your AI framework
-        # For example with PydanticAI:
-        #
-        # from pydantic_ai import Agent
-        # agent = Agent(config.model, system_prompt=prompt)
-        # result = await agent.run(message)
-        # return result.data
-
-        return f"[Using {prompt_details.variant}] Response to: {message}"
+        # Create and run the agent with resolved configuration
+        agent = Agent(settings.model, system_prompt=prompt)
+        result = await agent.run(message)
+        return result.output
 
 
-# Example usage
 async def main():
-    # Simulate requests from different users
-    for user_id in ['user_1', 'user_2', 'user_3', 'user_4']:
-        response = await handle_support_request(user_id, "I need help with my order")
-        print(f"{user_id}: {response}")
+    # Handle requests from different users
+    # Each user consistently gets the same variant due to targeting_key
+    users = ['user_alice', 'user_bob', 'user_charlie', 'user_diana']
 
+    for user_id in users:
+        # Check which variant this user gets
+        details = await system_prompt.get_details(targeting_key=user_id)
+        print(f'{user_id} -> prompt variant: {details.variant}')
 
-if __name__ == '__main__':
-    import asyncio
-    asyncio.run(main())
+        # In a real app, you'd handle actual messages:
+        # response = await handle_support_request(user_id, "I need help with my order")
 ```
 
 ## Testing with Managed Variables
 
-Use contextual overrides to test specific variable values:
+Use contextual overrides to test specific variable values without modifying configuration:
 
 ```python
-import pytest
+import logfire
+from pydantic import BaseModel
+
+from logfire._internal.config import VariablesOptions
+from logfire.variables.config import (
+    Rollout,
+    VariableConfig,
+    VariablesConfig,
+    Variant,
+)
 
 
-async def test_support_agent_with_v2_prompt():
-    """Test the support agent with the v2 prompt variant."""
-
-    v2_prompt = "You are an expert customer support agent..."
-
-    with system_prompt.override(v2_prompt):
-        response = await handle_support_request('test_user', 'Help!')
-        # Assert expected behavior with v2 prompt
-        assert 'test_user' in response or response  # Example assertion
+class ModelSettings(BaseModel):
+    model: str
+    temperature: float
 
 
-async def test_support_agent_with_custom_config():
-    """Test with a completely custom configuration."""
+variables_config = VariablesConfig(
+    variables={
+        'test_prompt': VariableConfig(
+            name='test_prompt',
+            variants={
+                'production': Variant(
+                    key='production', serialized_value='"Production prompt"'
+                ),
+            },
+            rollout=Rollout(variants={'production': 1.0}),
+            overrides=[],
+            json_schema={'type': 'string'},
+        ),
+    }
+)
 
-    custom_config = AgentConfig(model='gpt-4', temperature=0.0, max_tokens=100)
+logfire.configure(variables=VariablesOptions(provider=variables_config))
 
-    with agent_config.override(custom_config):
-        config = await agent_config.get()
-        assert config.model == 'gpt-4'
-        assert config.temperature == 0.0
+system_prompt = logfire.var(name='test_prompt', default='Default prompt', type=str)
+
+model_settings = logfire.var(
+    name='model_settings',
+    default=ModelSettings(model='gpt-4o-mini', temperature=0.7),
+    type=ModelSettings,
+)
+
+
+async def test_prompt_override():
+    """Test that prompt overrides work correctly."""
+    # Production value from config
+    prompt = await system_prompt.get()
+    assert prompt == 'Production prompt'
+
+    # Override for testing
+    with system_prompt.override('Test prompt for unit tests'):
+        prompt = await system_prompt.get()
+        assert prompt == 'Test prompt for unit tests'
+
+    # Back to production after context exits
+    prompt = await system_prompt.get()
+    assert prompt == 'Production prompt'
+
+    print('All prompt override tests passed!')
+
+
+async def test_model_settings_override():
+    """Test overriding structured configuration."""
+    # Default value (no config for this variable)
+    settings = await model_settings.get()
+    assert settings.model == 'gpt-4o-mini'
+    assert settings.temperature == 0.7
+
+    # Override with custom settings
+    test_settings = ModelSettings(model='gpt-4', temperature=0.0)
+    with model_settings.override(test_settings):
+        settings = await model_settings.get()
+        assert settings.model == 'gpt-4'
+        assert settings.temperature == 0.0
+
+    print('All model settings override tests passed!')
+
+
+async def main():
+    await test_prompt_override()
+    await test_model_settings_override()
 ```
