@@ -67,6 +67,9 @@ from logfire.version import VERSION
 
 from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
 from ..types import ExceptionCallback
+from ..variables.config import VariablesConfig
+from ..variables.providers.abstract import NoOpVariableProvider, VariableProvider
+from ..variables.providers.local import LogfireLocalProvider
 from .client import InvalidProjectName, LogfireClient, ProjectAlreadyExists
 from .config_params import ParamManager, PydanticPluginRecordValues
 from .constants import (
@@ -258,6 +261,44 @@ class CodeSource:
     """
 
 
+@dataclass(init=False)
+class VariablesOptions:
+    """Configuration of managed variables."""
+
+    provider: VariableProvider
+    include_resource_attributes_in_context: bool = True
+    include_baggage_in_context: bool = True
+
+    def __init__(
+        self,
+        provider: VariableProvider | VariablesConfig | None = None,
+        include_resource_attributes_in_context: bool = True,
+        include_baggage_in_context: bool = True,
+    ):
+        if isinstance(provider, VariablesConfig):
+            provider = LogfireLocalProvider(provider)
+        elif not provider:
+            provider = NoOpVariableProvider()
+
+        self.provider = provider
+        self.include_resource_attributes_in_context = include_resource_attributes_in_context
+        self.include_baggage_in_context = include_baggage_in_context
+
+    # """Provider for resolving values of Variables.
+    #
+    # Defaults to setting an OFREP-compatible provider that hits Logfire's API."""
+    #
+    # create_remote_spans: bool = True
+    # """Whether to insert OTel spans for variable resolution when using the Logfire OFREP provider.
+    #
+    # Has no impact if using a non-Logfire provider."""
+    #
+    # create_local_spans: bool | None = None
+    # """Whether to open OTel spans for variable resolution in the process.
+    #
+    # Defaults to True if using a non-Logfire provider, otherwise False."""
+
+
 class DeprecatedKwargs(TypedDict):
     # Empty so that passing any additional kwargs makes static type checkers complain.
     pass
@@ -282,6 +323,7 @@ def configure(  # noqa: D417
     min_level: int | LevelName | None = None,
     add_baggage_to_attributes: bool = True,
     code_source: CodeSource | None = None,
+    variables: VariablesOptions | None = None,
     distributed_tracing: bool | None = None,
     advanced: AdvancedOptions | None = None,
     **deprecated_kwargs: Unpack[DeprecatedKwargs],
@@ -346,6 +388,7 @@ def configure(  # noqa: D417
         add_baggage_to_attributes: Set to `False` to prevent OpenTelemetry Baggage from being added to spans as attributes.
             See the [Baggage documentation](https://logfire.pydantic.dev/docs/reference/advanced/baggage/) for more details.
         code_source: Settings for the source code of the project.
+        variables: Options related to managed variables.
         distributed_tracing: By default, incoming trace context is extracted, but generates a warning.
             Set to `True` to disable the warning.
             Set to `False` to suppress extraction of incoming trace context.
@@ -482,6 +525,7 @@ def configure(  # noqa: D417
         sampling=sampling,
         add_baggage_to_attributes=add_baggage_to_attributes,
         code_source=code_source,
+        variables=variables,
         distributed_tracing=distributed_tracing,
         advanced=advanced,
     )
@@ -546,6 +590,9 @@ class _LogfireConfigData:
     code_source: CodeSource | None
     """Settings for the source code of the project."""
 
+    variables: VariablesOptions
+    """Settings related to managed variables."""
+
     distributed_tracing: bool | None
     """Whether to extract incoming trace context."""
 
@@ -573,6 +620,7 @@ class _LogfireConfigData:
         min_level: int | LevelName | None,
         add_baggage_to_attributes: bool,
         code_source: CodeSource | None,
+        variables: VariablesOptions | None,
         distributed_tracing: bool | None,
         advanced: AdvancedOptions | None,
     ) -> None:
@@ -639,6 +687,8 @@ class _LogfireConfigData:
             code_source = CodeSource(**code_source)  # type: ignore
         self.code_source = code_source
 
+        self.variables = variables or VariablesOptions()
+
         if isinstance(advanced, dict):
             # This is particularly for deserializing from a dict as in executors.py
             advanced = AdvancedOptions(**advanced)  # type: ignore
@@ -682,6 +732,7 @@ class LogfireConfig(_LogfireConfigData):
         sampling: SamplingOptions | None = None,
         min_level: int | LevelName | None = None,
         add_baggage_to_attributes: bool = True,
+        variables: VariablesOptions | None = None,
         code_source: CodeSource | None = None,
         distributed_tracing: bool | None = None,
         advanced: AdvancedOptions | None = None,
@@ -711,6 +762,7 @@ class LogfireConfig(_LogfireConfigData):
             min_level=min_level,
             add_baggage_to_attributes=add_baggage_to_attributes,
             code_source=code_source,
+            variables=variables,
             distributed_tracing=distributed_tracing,
             advanced=advanced,
         )
@@ -720,6 +772,7 @@ class LogfireConfig(_LogfireConfigData):
         # note: this reference is important because the MeterProvider runs things in background threads
         # thus it "shuts down" when it's gc'ed
         self._meter_provider = ProxyMeterProvider(NoOpMeterProvider())
+        self._variable_provider = NoOpVariableProvider()
         self._logger_provider = ProxyLoggerProvider(NoOpLoggerProvider())
         try:
             from opentelemetry.sdk._events import EventLoggerProvider as SDKEventLoggerProvider
@@ -750,6 +803,7 @@ class LogfireConfig(_LogfireConfigData):
         min_level: int | LevelName | None,
         add_baggage_to_attributes: bool,
         code_source: CodeSource | None,
+        variables: VariablesOptions | None,
         distributed_tracing: bool | None,
         advanced: AdvancedOptions | None,
     ) -> None:
@@ -772,6 +826,7 @@ class LogfireConfig(_LogfireConfigData):
                 min_level,
                 add_baggage_to_attributes,
                 code_source,
+                variables,
                 distributed_tracing,
                 advanced,
             )
@@ -1102,6 +1157,9 @@ class LogfireConfig(_LogfireConfigData):
                 timeout_millis=200
             )  # note: this may raise an Exception if it times out, call `logfire.shutdown` first
             self._meter_provider.set_meter_provider(meter_provider)
+
+            self._variable_provider.shutdown()
+            self._variable_provider = self.variables.provider
 
             multi_log_processor = SynchronousMultiLogRecordProcessor()
             for processor in log_record_processors:

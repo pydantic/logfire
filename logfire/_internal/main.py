@@ -5,7 +5,7 @@ import inspect
 import json
 import sys
 import warnings
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from contextlib import AbstractContextManager
 from contextvars import Token
 from enum import Enum
@@ -30,6 +30,7 @@ from opentelemetry.trace import SpanContext
 from opentelemetry.util import types as otel_types
 from typing_extensions import LiteralString, ParamSpec
 
+from ..variables.variable import ResolveFunction, Variable
 from ..version import VERSION
 from . import async_
 from .auto_trace import AutoTraceModule, install_auto_tracing
@@ -125,6 +126,8 @@ if TYPE_CHECKING:
     # 3. The argument name exc_info is very suggestive of the sys function.
     ExcInfo = Union[SysExcInfo, BaseException, bool, None]
 
+T = TypeVar('T')
+
 
 class Logfire:
     """The main logfire class."""
@@ -147,6 +150,10 @@ class Logfire:
     @property
     def config(self) -> LogfireConfig:
         return self._config
+
+    @property
+    def resource_attributes(self) -> Mapping[str, Any]:
+        return self._tracer_provider.resource.attributes
 
     @cached_property
     def _tracer_provider(self) -> ProxyTracerProvider:
@@ -2329,7 +2336,22 @@ class Logfire:
         if not remaining:  # pragma: no cover
             return False
         self._meter_provider.shutdown(remaining)
+
+        remaining = max(0, timeout_millis - (time() - start))
+        if not remaining:  # pragma: no cover
+            return False
+
+        self.config.variables.provider.shutdown()
+
         return (start - time()) < timeout_millis
+
+    def var(self, *, name: str, default: T | ResolveFunction[T], type: type[T] | Sequence[type[T]]) -> Variable[T]:
+        tp: type[T]
+        if isinstance(type, Sequence):
+            tp = Union[tuple(type)]  # pyright: ignore[reportAssignmentType]
+        else:
+            tp = type
+        return Variable[T](name, default=default, type=tp, logfire_instance=self)
 
 
 class FastLogfireSpan:
