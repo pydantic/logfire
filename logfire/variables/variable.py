@@ -26,6 +26,8 @@ _DEFAULT_SENTINEL = object()
 
 @dataclass(kw_only=True)
 class VariableResolutionDetails(Generic[T_co]):
+    """Details about a variable resolution including value, variant, and any errors."""
+
     value: T_co
     variant: str | None = None
     exception: Exception | None = None
@@ -34,15 +36,20 @@ class VariableResolutionDetails(Generic[T_co]):
     ]
 
     def with_value(self, v: T) -> VariableResolutionDetails[T]:
+        """Return a copy of this result with a different value."""
         return replace(self, value=v)  # pyright: ignore[reportReturnType]
 
 
 class ResolveFunction(Protocol[T_co]):
+    """Protocol for functions that resolve variable values based on context."""
+
     def __call__(self, targeting_key: str | None, attributes: Mapping[str, Any] | None) -> T_co:
+        """Resolve the variable value given a targeting key and attributes."""
         raise NotImplementedError
 
 
 def is_resolve_function(f: Any) -> TypeIs[ResolveFunction[Any]]:
+    """Check if a callable matches the ResolveFunction signature."""
     if not callable(f):
         return False
     signature = inspect.signature(f)
@@ -53,12 +60,13 @@ def is_resolve_function(f: Any) -> TypeIs[ResolveFunction[Any]]:
 
 
 class Variable(Generic[T]):
-    """TODO: Need to add otel instrumentation in some way
-      Should the default be that logfire dumps a span with the details into the project for you?
-      And there's no in-process otel? But you can enable that?
-    TODO: Add get_sync method or similar
-    TODO: Need to decide how this is going to work. Options:
-    """
+    """A managed variable that can be resolved dynamically based on configuration."""
+
+    # TODO: Need to add otel instrumentation in some way
+    #  Should the default be that logfire dumps a span with the details into the project for you?
+    #  And there's no in-process otel? But you can enable that?
+    # TODO: Add get_sync method or similar
+    # TODO: Need to decide how this is going to work. Options:
 
     name: str
     default: T | ResolveFunction[T]
@@ -82,6 +90,7 @@ class Variable(Generic[T]):
 
     @contextmanager
     def override(self, value: T | ResolveFunction[T]) -> Iterator[None]:
+        """Context manager to temporarily override this variable's value."""
         current = _VARIABLE_OVERRIDES.get() or {}
         token = _VARIABLE_OVERRIDES.set({**current, self.name: value})
         try:
@@ -90,11 +99,13 @@ class Variable(Generic[T]):
             _VARIABLE_OVERRIDES.reset(token)
 
     async def get(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> T:
+        """Resolve and return the variable's value."""
         return (await self.get_details(targeting_key, attributes)).value
 
     async def get_details(
         self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
     ) -> VariableResolutionDetails[T]:
+        """Resolve the variable and return full details including variant and any errors."""
         merged_attributes = self._get_merged_attributes(attributes)
 
         # TODO: How much of the following code should be in the try: except:?

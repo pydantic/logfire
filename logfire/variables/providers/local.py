@@ -11,6 +11,8 @@ from logfire.variables.providers.abstract import VariableProvider, VariableResol
 
 
 class LogfireLocalProvider(VariableProvider):
+    """Variable provider that resolves values from a local in-memory configuration."""
+
     def __init__(
         self,
         config: VariablesConfig | Callable[[], VariablesConfig],
@@ -31,6 +33,7 @@ class LogfireLocalProvider(VariableProvider):
         targeting_key: str | None = None,
         attributes: Mapping[str, Any] | None = None,
     ) -> VariableResolutionDetails[str | None]:
+        """Resolve a variable's serialized value from the local configuration."""
         variables_config = self.get_config()
 
         variable_config = variables_config.variables.get(variable_name)

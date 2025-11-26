@@ -25,8 +25,11 @@ from logfire.variables.providers.abstract import VariableProvider, VariableResol
 # TODO: Do we need to provide a mechanism for whether the LogfireRemoteProvider should block to retrieve the config
 #   during startup or do synchronize in the background?
 class LogfireRemoteProvider(VariableProvider):
-    # The threading implementation draws heavily from opentelemetry.sdk._shared_internal.BatchProcessor
-    # You might look there to better understand where some of this logic came from if it seems wrong.
+    """Variable provider that fetches configuration from a remote Logfire API.
+
+    The threading implementation draws heavily from opentelemetry.sdk._shared_internal.BatchProcessor.
+    """
+
     def __init__(
         self,
         base_url: str,
@@ -103,6 +106,7 @@ class LogfireRemoteProvider(VariableProvider):
             warnings.warn(error_message, category=RuntimeWarning)
 
     def refresh(self, force: bool = False):
+        """Fetch the latest variable configuration from the remote API."""
         # TODO: Probably makes sense to replace this with something that just polls for a version number or hash
         #   or similar, rather than the whole config, and only grabs the whole config if that version or hash changes.
         with self._refresh_lock:  # Make at most one request at a time
@@ -134,6 +138,7 @@ class LogfireRemoteProvider(VariableProvider):
         targeting_key: str | None = None,
         attributes: Mapping[str, Any] | None = None,
     ) -> VariableResolutionDetails[str | None]:
+        """Resolve a variable's serialized value from the remote configuration."""
         if self._pid != os.getpid():
             self._reset_once.do_once(self._at_fork_reinit)
 
@@ -159,6 +164,7 @@ class LogfireRemoteProvider(VariableProvider):
             return VariableResolutionDetails(value=variant.serialized_value, variant=variant.key, _reason='resolved')
 
     def shutdown(self):
+        """Stop the background polling thread and clean up resources."""
         if self._shutdown:
             return
         self._shutdown = True

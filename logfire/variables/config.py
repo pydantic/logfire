@@ -14,53 +14,68 @@ from logfire.variables.variable import Variable
 
 @dataclass(kw_only=True)
 class ValueEquals:
+    """Condition that matches when an attribute equals a specific value."""
+
     attribute: str
     value: Any
     kind: Literal['value-equals'] = 'value-equals'
 
     def matches(self, attributes: Mapping[str, Any]) -> bool:
+        """Check if the attribute equals the expected value."""
         return attributes.get(self.attribute, object()) == self.value
 
 
 @dataclass(kw_only=True)
 class ValueDoesNotEqual:
+    """Condition that matches when an attribute does not equal a specific value."""
+
     attribute: str
     value: Any
     kind: Literal['value-does-not-equal'] = 'value-does-not-equal'
 
     def matches(self, attributes: Mapping[str, Any]) -> bool:
+        """Check if the attribute does not equal the specified value."""
         return attributes.get(self.attribute, object()) != self.value
 
 
 @dataclass(kw_only=True)
 class ValueIsIn:
+    """Condition that matches when an attribute value is in a set of values."""
+
     attribute: str
     values: Sequence[Any]
     kind: Literal['value-is-in'] = 'value-is-in'
 
     def matches(self, attributes: Mapping[str, Any]) -> bool:
+        """Check if the attribute value is in the allowed set."""
         value = attributes.get(self.attribute, object())
         return value in self.values
 
 
 @dataclass(kw_only=True)
 class ValueIsNotIn:
+    """Condition that matches when an attribute value is not in a set of values."""
+
     attribute: str
     values: Sequence[Any]
     kind: Literal['value-is-not-in'] = 'value-is-not-in'
 
     def matches(self, attributes: Mapping[str, Any]) -> bool:
+        """Check if the attribute value is not in the excluded set."""
         value = attributes.get(self.attribute, object())
         return value not in self.values
 
 
 @dataclass(kw_only=True)
 class ValueMatchesRegex:
+    """Condition that matches when an attribute value matches a regex pattern."""
+
     attribute: str
     pattern: str | re.Pattern[str]
     kind: Literal['value-matches-regex'] = 'value-matches-regex'
 
     def matches(self, attributes: Mapping[str, Any]) -> bool:
+        """Check if the attribute value matches the regex pattern."""
         value = attributes.get(self.attribute)
         if not isinstance(value, str):
             return False
@@ -69,11 +84,14 @@ class ValueMatchesRegex:
 
 @dataclass(kw_only=True)
 class ValueDoesNotMatchRegex:
+    """Condition that matches when an attribute value does not match a regex pattern."""
+
     attribute: str
     pattern: str | re.Pattern[str]
     kind: Literal['value-does-not-match-regex'] = 'value-does-not-match-regex'
 
     def matches(self, attributes: Mapping[str, Any]) -> bool:
+        """Check if the attribute value does not match the regex pattern."""
         value = attributes.get(self.attribute)
         if not isinstance(value, str):
             return False
@@ -82,19 +100,25 @@ class ValueDoesNotMatchRegex:
 
 @dataclass(kw_only=True)
 class KeyIsPresent:
+    """Condition that matches when an attribute key is present."""
+
     attribute: str
     kind: Literal['key-is-present'] = 'key-is-present'
 
     def matches(self, attributes: Mapping[str, Any]) -> bool:
+        """Check if the attribute key exists in the attributes."""
         return self.attribute in attributes
 
 
 @dataclass(kw_only=True)
 class KeyIsNotPresent:
+    """Condition that matches when an attribute key is not present."""
+
     attribute: str
     kind: Literal['key-is-not-present'] = 'key-is-not-present'
 
     def matches(self, attributes: Mapping[str, Any]) -> bool:
+        """Check if the attribute key does not exist in the attributes."""
         return self.attribute not in attributes
 
 
@@ -123,6 +147,8 @@ VariableName = str
 
 @dataclass(kw_only=True)
 class Rollout:
+    """Configuration for variant selection with weighted probabilities."""
+
     variants: dict[VariantKey, float]
 
     @field_validator('variants')
@@ -135,6 +161,7 @@ class Rollout:
         return v
 
     def select_variant(self, seed: str | None) -> VariantKey | None:
+        """Select a variant based on configured weights using optional seeded randomness."""
         rand = random.Random(seed)
 
         population: list[VariantKey | None] = []
@@ -153,6 +180,8 @@ class Rollout:
 
 @dataclass(kw_only=True)
 class Variant:
+    """A specific variant of a managed variable with its serialized value."""
+
     key: VariantKey
     serialized_value: str
     # format: Literal['json', 'yaml']  # TODO: Consider supporting yaml, and not just JSON; allows comments and better formatting
@@ -162,12 +191,16 @@ class Variant:
 
 @dataclass(kw_only=True)
 class RolloutOverride:
+    """An override of the default rollout when specific conditions are met."""
+
     conditions: list[Condition]
     rollout: Rollout
 
 
 @dataclass(kw_only=True)
 class VariableConfig:
+    """Configuration for a single managed variable including variants and rollout rules."""
+
     name: VariableName
     variants: dict[VariantKey, Variant]
     rollout: Rollout
@@ -228,6 +261,8 @@ class VariableConfig:
 
 @dataclass(kw_only=True)
 class VariablesConfig:
+    """Container for all managed variable configurations."""
+
     variables: dict[VariableName, VariableConfig]
 
     @model_validator(mode='after')
@@ -239,6 +274,7 @@ class VariablesConfig:
         return self
 
     def get_validation_errors(self, variables: list[Variable[Any]]) -> dict[str, dict[str | None, Exception]]:
+        """Validate that all variable variants can be deserialized to their expected types."""
         errors: dict[str, dict[str | None, Exception]] = {}
         for variable in variables:
             try:
@@ -256,6 +292,7 @@ class VariablesConfig:
 
     @staticmethod
     def validate_python(data: Any) -> VariablesConfig:
+        """Parse and validate a VariablesConfig from a Python object."""
         return _VariablesConfigAdapter.validate_python(data)
 
 
