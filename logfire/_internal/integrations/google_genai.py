@@ -36,6 +36,30 @@ try:
 except Exception:  # pragma: no cover
     pass
 
+
+try:
+    from opentelemetry.instrumentation.google_genai import generate_content
+    from pydantic import TypeAdapter
+
+    original_to_dict: Any = generate_content._to_dict  # type: ignore
+
+    ANY_ADAPTER = TypeAdapter[Any](Any)
+
+    def wrapped_to_dict(obj: object) -> object:
+        try:
+            return original_to_dict(obj)
+        except Exception:
+            try:
+                return ANY_ADAPTER.dump_python(obj, mode='json')
+            except Exception:  # pragma: no cover
+                return safe_repr(obj)
+
+    generate_content._to_dict = wrapped_to_dict  # type: ignore
+
+except Exception:  # pragma: no cover
+    pass
+
+
 Part: TypeAlias = 'dict[str, Any] | str'
 
 
@@ -57,7 +81,10 @@ class SpanEventLogger(Logger):
                 body['message'] = {'role': 'assistant', 'content': new_parts}
         else:
             if 'content' in body:  # pragma: no branch
-                body['content'] = transform_part(body['content'])
+                if isinstance(body['content'], (list, tuple, set)):
+                    body['content'] = [transform_part(part) for part in body['content']]  # type: ignore
+                else:
+                    body['content'] = transform_part(body['content'])
             body['role'] = body.get('role', record.event_name.split('.')[1])
 
         span.add_event(record.event_name, attributes={'event_body': json.dumps(body, default=default_json)})
