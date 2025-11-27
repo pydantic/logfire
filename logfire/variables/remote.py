@@ -15,11 +15,10 @@ from requests import Response, Session
 
 from logfire._internal.client import UA_HEADER
 from logfire._internal.utils import UnexpectedResponse
+from logfire.variables.abstract import VariableProvider, VariableResolutionDetails
 from logfire.variables.config import VariablesConfig
 
-__all__ = ['LogfireRemoteVariableProvider']
-
-from logfire.variables.providers.abstract import VariableProvider, VariableResolutionDetails
+__all__ = ('LogfireRemoteVariableProvider',)
 
 
 # TODO: Do we need to provide a mechanism for whether the LogfireRemoteProvider should block to retrieve the config
@@ -121,6 +120,10 @@ class LogfireRemoteVariableProvider(VariableProvider):
         Args:
             force: If True, fetch configuration even if the polling interval hasn't elapsed.
         """
+        if self._refresh_lock.locked():
+            # If we're already fetching, we'll get a new value, so no need to force
+            force = False
+
         # TODO: Probably makes sense to replace this with something that just polls for a version number or hash
         #   or similar, rather than the whole config, and only grabs the whole config if that version or hash changes.
         with self._refresh_lock:  # Make at most one request at a time
@@ -176,6 +179,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
         if self._config is None:
             return VariableResolutionDetails(value=None, _reason='missing_config')
 
+        # TODO: Move the following down to a method on VariablesConfig
         variable_config = self._config.variables.get(variable_name)
         if variable_config is None:
             return VariableResolutionDetails(value=None, _reason='unrecognized_variable')

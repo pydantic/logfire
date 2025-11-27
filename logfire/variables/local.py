@@ -1,13 +1,12 @@
 from __future__ import annotations as _annotations
 
-from collections.abc import Callable, Mapping
-from typing import Any
+from collections.abc import Mapping
+from typing import Any, Callable
 
+from logfire.variables.abstract import VariableProvider, VariableResolutionDetails
 from logfire.variables.config import VariablesConfig
 
-__all__ = ['LocalVariableProvider']
-
-from logfire.variables.providers.abstract import VariableProvider, VariableResolutionDetails
+__all__ = ('LocalVariableProvider',)
 
 
 class LocalVariableProvider(VariableProvider):
@@ -51,9 +50,10 @@ class LocalVariableProvider(VariableProvider):
         """
         variables_config = self.get_config()
 
+        # TODO: Move the following down to a method on VariablesConfig
         variable_config = variables_config.variables.get(variable_name)
         if variable_config is None:
-            return VariableResolutionDetails(value=None, _reason='missing_config')
+            return VariableResolutionDetails(value=None, _reason='unrecognized_variable')
 
         variant = variable_config.resolve_variant(targeting_key, attributes)
         if variant is None:

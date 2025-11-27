@@ -211,7 +211,6 @@ Here's a complete example that configures system prompts for a [PydanticAI](http
 import logfire
 from pydantic_ai import Agent
 
-from logfire._internal.config import VariablesOptions
 from logfire.variables.config import (
     Rollout,
     RolloutOverride,
@@ -256,7 +255,7 @@ variables_config = VariablesConfig(
 
 # Configure Logfire with the local provider
 logfire.configure(
-    variables=VariablesOptions(provider=variables_config),
+    variables=logfire.VariablesOptions(provider=variables_config),
 )
 logfire.instrument_pydantic_ai()
 

@@ -246,7 +246,7 @@ class VariableConfig:
     """Default rollout configuration for variant selection."""
     overrides: list[RolloutOverride]
     """Conditional overrides evaluated in order; first match takes precedence."""
-    json_schema: dict[str, Any]
+    json_schema: dict[str, Any] | None = None
     """JSON schema describing the expected type of this variable's values."""
     # TODO: Should we add a validator that all variants match the provided JSON schema?
 

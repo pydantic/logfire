@@ -1,19 +1,19 @@
 from __future__ import annotations as _annotations
 
+import asyncio
 import inspect
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Any, Generic, Literal, Protocol, TypeVar
+from typing import Any, Generic, Protocol, TypeVar
 
 from pydantic import TypeAdapter, ValidationError
 from typing_extensions import TypeIs
 
 import logfire
+from logfire.variables.abstract import VariableResolutionDetails
 
-if TYPE_CHECKING:
-    from logfire import Logfire
+__all__ = ('ResolveFunction', 'is_resolve_function', 'Variable')
 
 T = TypeVar('T')
 T_co = TypeVar('T_co', covariant=True)
@@ -22,33 +22,6 @@ T_co = TypeVar('T_co', covariant=True)
 _VARIABLE_OVERRIDES = ContextVar[dict[str, Any] | None]('_VARIABLE_OVERRIDES', default=None)
 
 _DEFAULT_SENTINEL = object()
-
-
-@dataclass(kw_only=True)
-class VariableResolutionDetails(Generic[T_co]):
-    """Details about a variable resolution including value, variant, and any errors."""
-
-    value: T_co
-    """The resolved value of the variable."""
-    variant: str | None = None
-    """The key of the selected variant, if any."""
-    exception: Exception | None = None
-    """Any exception that occurred during resolution."""
-    _reason: Literal[
-        'resolved', 'context_override', 'missing_config', 'unrecognized_variable', 'validation_error', 'other_error'
-    ]  # we might eventually make this public, but I didn't want to yet
-    """Internal field indicating how the value was resolved."""
-
-    def with_value(self, v: T) -> VariableResolutionDetails[T]:
-        """Return a copy of this result with a different value.
-
-        Args:
-            v: The new value to use.
-
-        Returns:
-            A new VariableResolutionDetails with the given value.
-        """
-        return replace(self, value=v)  # pyright: ignore[reportReturnType]
 
 
 class ResolveFunction(Protocol[T_co]):
@@ -87,7 +60,7 @@ class Variable(Generic[T]):
     value_type: type[T] | None = None
     """The expected type of this variable's values."""
 
-    logfire_instance: Logfire
+    logfire_instance: logfire.Logfire
     """The Logfire instance this variable is associated with."""
 
     def __init__(
@@ -96,7 +69,7 @@ class Variable(Generic[T]):
         *,
         default: T | ResolveFunction[T],
         type: type[T],
-        logfire_instance: Logfire,
+        logfire_instance: logfire.Logfire,
     ):
         """Create a new managed variable.
 
@@ -128,7 +101,15 @@ class Variable(Generic[T]):
         finally:
             _VARIABLE_OVERRIDES.reset(token)
 
-    async def get(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> T:
+    async def refresh(self, force: bool = False):
+        """Asynchronously refresh the variable."""
+        await asyncio.to_thread(self.logfire_instance.config.get_variable_provider().refresh, force=force)
+
+    def refresh_sync(self, force: bool = False):
+        """Synchronously refresh the variable."""
+        self.logfire_instance.config.get_variable_provider().refresh(force=force)
+
+    def get(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> T:
         """Resolve and return the variable's value.
 
         Args:
@@ -138,9 +119,9 @@ class Variable(Generic[T]):
         Returns:
             The resolved value of the variable.
         """
-        return (await self.get_details(targeting_key, attributes)).value
+        return (self.get_details(targeting_key, attributes)).value
 
-    async def get_details(
+    def get_details(
         self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
     ) -> VariableResolutionDetails[T]:
         """Resolve the variable and return full details including variant and any errors.
@@ -164,7 +145,7 @@ class Variable(Generic[T]):
                     context_value = context_value(targeting_key, merged_attributes)
                 return VariableResolutionDetails(value=context_value, _reason='context_override')
 
-            provider = self.logfire_instance.config.variables.provider
+            provider = self.logfire_instance.config.get_variable_provider()
             serialized_result = provider.get_serialized_value(self.name, targeting_key, merged_attributes)
 
             if serialized_result.value is None:

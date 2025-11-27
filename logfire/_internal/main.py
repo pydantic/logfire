@@ -30,7 +30,6 @@ from opentelemetry.trace import SpanContext
 from opentelemetry.util import types as otel_types
 from typing_extensions import LiteralString, ParamSpec
 
-from ..variables.variable import ResolveFunction, Variable
 from ..version import VERSION
 from . import async_
 from .auto_trace import AutoTraceModule, install_auto_tracing
@@ -110,6 +109,7 @@ if TYPE_CHECKING:
     from ..integrations.redis import RequestHook as RedisRequestHook, ResponseHook as RedisResponseHook
     from ..integrations.sqlalchemy import CommenterOptions as SQLAlchemyCommenterOptions
     from ..integrations.wsgi import RequestHook as WSGIRequestHook, ResponseHook as WSGIResponseHook
+    from ..variables.variable import ResolveFunction, Variable
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
     from .integrations.aws_lambda import LambdaEvent, LambdaHandler
     from .integrations.mysql import MySQLConnection
@@ -2341,11 +2341,13 @@ class Logfire:
         if not remaining:  # pragma: no cover
             return False
 
-        self.config.variables.provider.shutdown()
+        self.config.get_variable_provider().shutdown()
 
         return (start - time()) < timeout_millis
 
     def var(self, *, name: str, default: T | ResolveFunction[T], type: type[T] | Sequence[type[T]]) -> Variable[T]:
+        from logfire.variables.variable import Variable
+
         tp: type[T]
         if isinstance(type, Sequence):
             tp = Union[tuple(type)]  # pyright: ignore[reportAssignmentType]

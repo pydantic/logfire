@@ -183,7 +183,6 @@ dev = [
     "openinference-instrumentation-litellm >= 0",
     "litellm >= 0",
     "pip >= 0",
-    "openfeature-sdk >= 0.8.3",
 ]
 docs = [
     "black>=23.12.0",

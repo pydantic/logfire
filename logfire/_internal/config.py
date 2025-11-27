@@ -12,6 +12,7 @@ import warnings
 from collections.abc import Sequence
 from contextlib import suppress
 from dataclasses import dataclass, field
+from datetime import timedelta
 from pathlib import Path
 from threading import RLock, Thread
 from typing import TYPE_CHECKING, Any, Callable, Literal, TypedDict
@@ -63,13 +64,11 @@ from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
 from logfire.exceptions import LogfireConfigError
 from logfire.sampling import SamplingOptions
 from logfire.sampling._tail_sampling import TailSamplingProcessor
+from logfire.variables.abstract import NoOpVariableProvider, VariableProvider
 from logfire.version import VERSION
 
 from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
 from ..types import ExceptionCallback
-from ..variables.config import VariablesConfig
-from ..variables.providers.abstract import NoOpVariableProvider, VariableProvider
-from ..variables.providers.local import LocalVariableProvider
 from .client import InvalidProjectName, LogfireClient, ProjectAlreadyExists
 from .config_params import ParamManager, PydanticPluginRecordValues
 from .constants import (
@@ -119,6 +118,8 @@ if TYPE_CHECKING:
     from typing import TextIO
 
     from opentelemetry._events import EventLoggerProvider
+
+    from logfire.variables.config import VariablesConfig
 
     from .main import Logfire
 
@@ -265,16 +266,59 @@ class CodeSource:
 class VariablesOptions:
     """Configuration of managed variables."""
 
-    provider: VariableProvider
-    """Provider for resolving variable values."""
+    provider: VariableProvider | Callable[[LogfireConfig], VariableProvider]
+    """A variable provider, or a function that accepts LogfireConfig and returns a provider for resolving variables."""
     include_resource_attributes_in_context: bool = True
     """Whether to include OpenTelemetry resource attributes when resolving variables."""
     include_baggage_in_context: bool = True
     """Whether to include OpenTelemetry baggage when resolving variables."""
 
+    @classmethod
+    def local(
+        cls,
+        config: VariablesConfig | Callable[[], VariablesConfig],
+        include_resource_attributes_in_context: bool = True,
+        include_baggage_in_context: bool = True,
+    ):
+        from logfire.variables.local import LocalVariableProvider
+
+        return VariablesOptions(
+            provider=LocalVariableProvider(config),
+            include_resource_attributes_in_context=include_resource_attributes_in_context,
+            include_baggage_in_context=include_baggage_in_context,
+        )
+
+    @classmethod
+    def remote(
+        cls,
+        block_before_first_fetch: bool,
+        polling_interval: timedelta | float = timedelta(seconds=30),
+        include_resource_attributes_in_context: bool = True,
+        include_baggage_in_context: bool = True,
+    ):
+        from logfire.variables.remote import LogfireRemoteVariableProvider
+
+        def get_provider(config: LogfireConfig) -> VariableProvider:
+            token = config.token
+            if not token:
+                return NoOpVariableProvider()
+            base_url = config.advanced.base_url or get_base_url_from_token(token)
+            return LogfireRemoteVariableProvider(
+                base_url=base_url,
+                token=token,
+                block_before_first_fetch=block_before_first_fetch,
+                polling_interval=polling_interval,
+            )
+
+        return VariablesOptions(
+            provider=get_provider,
+            include_resource_attributes_in_context=include_resource_attributes_in_context,
+            include_baggage_in_context=include_baggage_in_context,
+        )
+
     def __init__(
         self,
-        provider: VariableProvider | VariablesConfig | None = None,
+        provider: VariableProvider | Callable[[LogfireConfig], VariableProvider] | None = None,
         include_resource_attributes_in_context: bool = True,
         include_baggage_in_context: bool = True,
     ):
@@ -288,28 +332,14 @@ class VariablesOptions:
                 when resolving variables.
             include_baggage_in_context: Whether to include OpenTelemetry baggage when resolving variables.
         """
-        if isinstance(provider, VariablesConfig):
-            provider = LocalVariableProvider(provider)
-        elif not provider:
+        if not provider:
             provider = NoOpVariableProvider()
 
         self.provider = provider
         self.include_resource_attributes_in_context = include_resource_attributes_in_context
         self.include_baggage_in_context = include_baggage_in_context
 
-    # """Provider for resolving values of Variables.
-    #
-    # Defaults to setting an OFREP-compatible provider that hits Logfire's API."""
-    #
-    # create_remote_spans: bool = True
-    # """Whether to insert OTel spans for variable resolution when using the Logfire OFREP provider.
-    #
-    # Has no impact if using a non-Logfire provider."""
-    #
-    # create_local_spans: bool | None = None
-    # """Whether to open OTel spans for variable resolution in the process.
-    #
-    # Defaults to True if using a non-Logfire provider, otherwise False."""
+    # TODO: Add OTel-related config here
 
 
 class DeprecatedKwargs(TypedDict):
@@ -1172,7 +1202,10 @@ class LogfireConfig(_LogfireConfigData):
             self._meter_provider.set_meter_provider(meter_provider)
 
             self._variable_provider.shutdown()
-            self._variable_provider = self.variables.provider
+            if callable(self.variables.provider):
+                self._variable_provider = self.variables.provider(self)
+            else:
+                self._variable_provider = self.variables.provider
 
             multi_log_processor = SynchronousMultiLogRecordProcessor()
             for processor in log_record_processors:
@@ -1304,6 +1337,16 @@ class LogfireConfig(_LogfireConfigData):
             The event logger provider.
         """
         return self._event_logger_provider
+
+    def get_variable_provider(self) -> VariableProvider:
+        """Get a variable provider from this `LogfireConfig`.
+
+        This is used internally and should not be called by users of the SDK.
+
+        Returns:
+            The variable provider.
+        """
+        return self._variable_provider
 
     def warn_if_not_initialized(self, message: str):
         ignore_no_config_env = os.getenv('LOGFIRE_IGNORE_NO_CONFIG', '')
