@@ -2320,28 +2320,33 @@ class Logfire:
             `False` if the timeout was reached before the shutdown was completed, `True` otherwise.
         """
         start = time()
-        if flush:  # pragma: no branch
-            self._tracer_provider.force_flush(timeout_millis)
-        remaining = max(0, timeout_millis - (time() - start))
-        if not remaining:  # pragma: no cover
-            return False
-        self._tracer_provider.shutdown()
-
-        remaining = max(0, timeout_millis - (time() - start))
-        if not remaining:  # pragma: no cover
-            return False
-        if flush:  # pragma: no branch
-            self._meter_provider.force_flush(remaining)
-        remaining = max(0, timeout_millis - (time() - start))
-        if not remaining:  # pragma: no cover
-            return False
-        self._meter_provider.shutdown(remaining)
-
-        remaining = max(0, timeout_millis - (time() - start))
-        if not remaining:  # pragma: no cover
-            return False
 
         self.config.get_variable_provider().shutdown()
+        remaining = max(0, timeout_millis - (time() - start))
+        if not remaining:  # pragma: no cover
+            return False
+
+        if flush:  # pragma: no branch
+            self._tracer_provider.force_flush(timeout_millis)
+            remaining = max(0, timeout_millis - (time() - start))
+            if not remaining:  # pragma: no cover
+                return False
+
+        self._tracer_provider.shutdown()
+        remaining = max(0, timeout_millis - (time() - start))
+        if not remaining:  # pragma: no cover
+            return False
+
+        if flush:  # pragma: no branch
+            self._meter_provider.force_flush(remaining)
+            remaining = max(0, timeout_millis - (time() - start))
+            if not remaining:  # pragma: no cover
+                return False
+
+        self._meter_provider.shutdown(remaining)
+        remaining = max(0, timeout_millis - (time() - start))
+        if not remaining:  # pragma: no cover
+            return False
 
         return (start - time()) < timeout_millis
 

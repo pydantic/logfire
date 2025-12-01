@@ -1,14 +1,20 @@
 from __future__ import annotations as _annotations
 
-import asyncio
 import inspect
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
+from importlib.util import find_spec
 from typing import Any, Generic, Protocol, TypeVar
 
 from pydantic import TypeAdapter, ValidationError
 from typing_extensions import TypeIs
+
+if find_spec('anyio') is not None:
+    # Use anyio for running sync functions on separate threads in an event loop if it is available
+    from anyio.to_thread import run_sync as to_thread
+else:
+    from asyncio import to_thread
 
 import logfire
 from logfire.variables.abstract import VariableResolutionDetails
@@ -103,7 +109,7 @@ class Variable(Generic[T]):
 
     async def refresh(self, force: bool = False):
         """Asynchronously refresh the variable."""
-        await asyncio.to_thread(self.logfire_instance.config.get_variable_provider().refresh, force=force)
+        await to_thread(self.refresh_sync, force)
 
     def refresh_sync(self, force: bool = False):
         """Synchronously refresh the variable."""

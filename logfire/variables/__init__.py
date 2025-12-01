@@ -54,11 +54,3 @@ def __getattr__(name: str):
         )
 
     raise AttributeError(f'module {__name__!r} has no attribute {name!r}')
-
-
-# from logfire.variables.local import LocalVariableProvider
-# from logfire.variables.remote import LogfireRemoteVariableProvider
-# from logfire.variables.config import VariablesConfig
-
-
-# from logfire.variables import LocalVariableProvider, LogfireRemoteVariableProvider, VariablesConfig
