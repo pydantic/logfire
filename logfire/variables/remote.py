@@ -11,7 +11,7 @@ from urllib.parse import urljoin
 
 from opentelemetry.util._once import Once
 from pydantic import ValidationError
-from requests import Response, Session
+from requests import Session
 
 from logfire._internal.client import UA_HEADER
 from logfire._internal.utils import UnexpectedResponse
@@ -100,20 +100,6 @@ class LogfireRemoteVariableProvider(VariableProvider):
             if self._shutdown:
                 break
 
-    def _get_raw(self, endpoint: str, params: dict[str, Any] | None = None) -> Response:
-        # TODO: Should we try to unify this and `_get` with LogfireClient in some way? Are they even necessary?
-        response = self._session.get(urljoin(self._base_url, endpoint), params=params)
-        UnexpectedResponse.raise_for_status(response)
-        return response
-
-    def _get(self, endpoint: str, *, params: dict[str, Any] | None = None, error_message: str) -> Any:
-        try:
-            return self._get_raw(endpoint, params).json()
-        except UnexpectedResponse:
-            # TODO: Update the following logic to be smarter
-            # TODO: Handle any error here, not just UnexpectedResponse, so we don't crash user application on failure
-            warnings.warn(error_message, category=RuntimeWarning)
-
     def refresh(self, force: bool = False):
         """Fetch the latest variable configuration from the remote API.
 
@@ -137,7 +123,16 @@ class LogfireRemoteVariableProvider(VariableProvider):
             ):
                 return  # nothing to do
 
-            variables_config_data = self._get('/v1/variables/', error_message='Error retrieving variables')
+            try:
+                variables_response = self._session.get(urljoin(self._base_url, '/v1/variables/'))
+                UnexpectedResponse.raise_for_status(variables_response)
+            except UnexpectedResponse:
+                # TODO: Update the following logic to be smarter
+                # TODO: Handle any error here, not just UnexpectedResponse, so we don't crash user application on failure
+                warnings.warn('Error retrieving variables', category=RuntimeWarning)
+                return
+
+            variables_config_data = variables_response.json()
             try:
                 self._config = VariablesConfig.validate_python(variables_config_data)
             except ValidationError as e:
