@@ -144,8 +144,12 @@ def get_open_span(
         prev_context = trace.get_current_span().get_span_context()
         if not prev_context.is_valid:
             return {}
-        return {'links': [trace.Link(prev_context)], 'context': trace.set_span_in_context(trace.INVALID_SPAN)}
+        return {
+            'links': [trace.Link(prev_context)],
+            'context': trace.set_span_in_context(trace.INVALID_SPAN),
+        }
 
+    # This is the fast case for when there are no arguments to extract
     def open_span(new_context: bool, *_: P.args, **__: P.kwargs):  # type: ignore
         return get_logfire()._fast_span(final_span_name, attributes, **extra_span_kwargs(new_context))  # type: ignore
 
