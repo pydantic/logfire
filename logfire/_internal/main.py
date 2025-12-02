@@ -246,20 +246,20 @@ class Logfire:
             log_internal_error()
             return NoopSpan()  # type: ignore
 
-    def _fast_span(self, name: str, attributes: otel_types.Attributes) -> FastLogfireSpan:
+    def _fast_span(self, name: str, attributes: otel_types.Attributes, **kwargs: Any) -> FastLogfireSpan:
         """A simple version of `_span` optimized for auto-tracing that doesn't support message formatting.
 
         Returns a similarly simplified version of `LogfireSpan` which must immediately be used as a context manager.
         """
         try:
-            span = self._spans_tracer.start_span(name=name, attributes=attributes)
+            span = self._spans_tracer.start_span(name=name, attributes=attributes, **kwargs)
             return FastLogfireSpan(span)
         except Exception:  # pragma: no cover
             log_internal_error()
             return NoopSpan()  # type: ignore
 
     def _instrument_span_with_args(
-        self, name: str, attributes: dict[str, otel_types.AttributeValue], function_args: dict[str, Any]
+        self, name: str, attributes: dict[str, otel_types.AttributeValue], function_args: dict[str, Any], **kwargs: Any
     ) -> FastLogfireSpan:
         """A version of `_span` used by `@instrument` with `extract_args=True`.
 
@@ -272,7 +272,7 @@ class Logfire:
             if json_schema_properties := attributes_json_schema_properties(function_args):  # pragma: no branch
                 attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
             attributes.update(prepare_otlp_attributes(function_args))
-            return self._fast_span(name, attributes)
+            return self._fast_span(name, attributes, **kwargs)
         except Exception:  # pragma: no cover
             log_internal_error()
             return NoopSpan()  # type: ignore

@@ -917,6 +917,7 @@ def test_instrument_new_context(exporter: TestExporter) -> None:
                     'logfire.pending_parent_id': '0000000000000000',
                     'logfire.tags': ('test_instrument',),
                 },
+                'links': [{'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False}, 'attributes': {}}],
             },
             {
                 'attributes': {
@@ -1025,6 +1026,7 @@ def test_instrument_new_context_no_extract(exporter: TestExporter) -> None:
                     'logfire.pending_parent_id': '0000000000000000',
                     'logfire.tags': ('test_instrument',),
                 },
+                'links': [{'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False}, 'attributes': {}}],
             },
             {
                 'context': {
@@ -1134,6 +1136,7 @@ def test_instrument_new_context_some_args(exporter: TestExporter) -> None:
                     'logfire.pending_parent_id': '0000000000000000',
                     'logfire.tags': ('test_instrument',),
                 },
+                'links': [{'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False}, 'attributes': {}}],
             },
             {
                 'attributes': {
