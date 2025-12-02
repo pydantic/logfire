@@ -170,7 +170,9 @@ def get_open_span(
                     final_span_name, attributes, args_dict, **extra_span_kwargs()
                 )
 
-    elif extract_args:  # i.e. extract_args should be an iterable of argument names
+        return open_span
+
+    if extract_args:  # i.e. extract_args should be an iterable of argument names
         sig = inspect.signature(func)
 
         if isinstance(extract_args, str):
