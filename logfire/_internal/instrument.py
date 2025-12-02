@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 from opentelemetry import trace
 from opentelemetry.util import types as otel_types
-from typing_extensions import Concatenate, LiteralString, ParamSpec
+from typing_extensions import LiteralString, ParamSpec
 
 from .constants import ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_TAGS_KEY
 from .stack_info import get_filepath_attribute
@@ -63,21 +63,21 @@ def instrument(
             )
 
         attributes = get_attributes(func, msg_template, tags)
-        open_span = get_open_span(logfire, attributes, span_name, extract_args, func)
+        open_span = get_open_span(logfire, attributes, span_name, extract_args, func, new_context)
 
         if inspect.isgeneratorfunction(func):
             if not allow_generator:
                 warnings.warn(GENERATOR_WARNING_MESSAGE, stacklevel=2)
 
             def wrapper(*func_args: P.args, **func_kwargs: P.kwargs):  # type: ignore
-                with open_span(new_context, *func_args, **func_kwargs):
+                with open_span(*func_args, **func_kwargs):
                     yield from func(*func_args, **func_kwargs)
         elif inspect.isasyncgenfunction(func):
             if not allow_generator:
                 warnings.warn(GENERATOR_WARNING_MESSAGE, stacklevel=2)
 
             async def wrapper(*func_args: P.args, **func_kwargs: P.kwargs):  # type: ignore
-                with open_span(new_context, *func_args, **func_kwargs):
+                with open_span(*func_args, **func_kwargs):
                     # `yield from` is invalid syntax in an async function.
                     # This loop is not quite equivalent, because `yield from` also handles things like
                     # sending values to the subgenerator.
@@ -91,7 +91,7 @@ def instrument(
         elif inspect.iscoroutinefunction(func):
 
             async def wrapper(*func_args: P.args, **func_kwargs: P.kwargs) -> R:  # type: ignore
-                with open_span(new_context, *func_args, **func_kwargs) as span:
+                with open_span(*func_args, **func_kwargs) as span:
                     result = await func(*func_args, **func_kwargs)
                     if record_return:
                         # open_span returns a FastLogfireSpan, so we can't use span.set_attribute for complex types.
@@ -103,7 +103,7 @@ def instrument(
         else:
             # Same as the above, but without the async/await
             def wrapper(*func_args: P.args, **func_kwargs: P.kwargs) -> R:
-                with open_span(new_context, *func_args, **func_kwargs) as span:
+                with open_span(*func_args, **func_kwargs) as span:
                     result = func(*func_args, **func_kwargs)
                     if record_return:
                         set_user_attributes_on_raw_span(span._span, {'return': result})
@@ -121,7 +121,8 @@ def get_open_span(
     span_name: str | None,
     extract_args: bool | Iterable[str],
     func: Callable[P, R],
-) -> Callable[Concatenate[bool, P], AbstractContextManager[Any]]:
+    new_context: bool,
+) -> Callable[P, AbstractContextManager[Any]]:
     final_span_name: str = span_name or attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
 
     def get_logfire():
@@ -138,31 +139,35 @@ def get_open_span(
         def get_logfire():
             return logfire
 
-    def extra_span_kwargs(new_context: bool) -> dict[str, Any]:
-        if not new_context:
+    if new_context:
+
+        def extra_span_kwargs() -> dict[str, Any]:
+            prev_context = trace.get_current_span().get_span_context()
+            if not prev_context.is_valid:
+                return {}
+            return {
+                'links': [trace.Link(prev_context)],
+                'context': trace.set_span_in_context(trace.INVALID_SPAN),
+            }
+    else:
+
+        def extra_span_kwargs() -> dict[str, Any]:
             return {}
-        prev_context = trace.get_current_span().get_span_context()
-        if not prev_context.is_valid:
-            return {}
-        return {
-            'links': [trace.Link(prev_context)],
-            'context': trace.set_span_in_context(trace.INVALID_SPAN),
-        }
 
     # This is the fast case for when there are no arguments to extract
-    def open_span(new_context: bool, *_: P.args, **__: P.kwargs):  # type: ignore
-        return get_logfire()._fast_span(final_span_name, attributes, **extra_span_kwargs(new_context))  # type: ignore
+    def open_span(*_: P.args, **__: P.kwargs):  # type: ignore
+        return get_logfire()._fast_span(final_span_name, attributes, **extra_span_kwargs())  # type: ignore
 
     if extract_args is True:
         sig = inspect.signature(func)
         if sig.parameters:  # only extract args if there are any
 
-            def open_span(new_context: bool, *func_args: P.args, **func_kwargs: P.kwargs):
+            def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
                 bound = sig.bind(*func_args, **func_kwargs)
                 bound.apply_defaults()
                 args_dict = bound.arguments
                 return get_logfire()._instrument_span_with_args(  # type: ignore
-                    final_span_name, attributes, args_dict, **extra_span_kwargs(new_context)
+                    final_span_name, attributes, args_dict, **extra_span_kwargs()
                 )
 
     elif extract_args:  # i.e. extract_args should be an iterable of argument names
@@ -182,7 +187,7 @@ def get_open_span(
 
         if extract_args_final:  # check that there are still arguments to extract
 
-            def open_span(new_context: bool, *func_args: P.args, **func_kwargs: P.kwargs):
+            def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
                 bound = sig.bind(*func_args, **func_kwargs)
                 bound.apply_defaults()
                 args_dict = bound.arguments
@@ -191,7 +196,7 @@ def get_open_span(
                 args_dict = {k: args_dict[k] for k in extract_args_final}
 
                 return get_logfire()._instrument_span_with_args(  # type: ignore
-                    final_span_name, attributes, args_dict, **extra_span_kwargs(new_context)
+                    final_span_name, attributes, args_dict, **extra_span_kwargs()
                 )
 
     return open_span
