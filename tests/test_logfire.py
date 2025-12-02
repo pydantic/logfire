@@ -1086,6 +1086,37 @@ def test_instrument_new_context_no_extract(exporter: TestExporter) -> None:
     )
 
 
+def test_instrument_new_context_no_parent(exporter: TestExporter) -> None:
+    @logfire.instrument(new_context=True)
+    def hello_world(a: int, b: int) -> str:
+        return f'hello {a} {b}'
+
+    assert hello_world(5, 10) == 'hello 5 10'
+
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_new_context_no_parent.<locals>.hello_world',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_new_context_no_parent.<locals>.hello_world',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_new_context_no_parent.<locals>.hello_world',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_new_context_no_parent.<locals>.hello_world',
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{},"b":{}}}',
+                    'a': 5,
+                    'b': 10,
+                    'logfire.span_type': 'span',
+                },
+            }
+        ]
+    )
+
+
 def test_instrument_new_context_some_args(exporter: TestExporter) -> None:
     tagged = logfire.with_tags('test_instrument')
 
