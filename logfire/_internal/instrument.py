@@ -8,6 +8,7 @@ from collections.abc import Iterable, Sequence
 from contextlib import AbstractContextManager, asynccontextmanager, contextmanager
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
+from opentelemetry import trace
 from opentelemetry.util import types as otel_types
 from typing_extensions import LiteralString, ParamSpec
 
@@ -50,6 +51,7 @@ def instrument(
     extract_args: bool | Iterable[str],
     record_return: bool,
     allow_generator: bool,
+    new_trace: bool,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     from .main import set_user_attributes_on_raw_span
 
@@ -61,7 +63,7 @@ def instrument(
             )
 
         attributes = get_attributes(func, msg_template, tags)
-        open_span = get_open_span(logfire, attributes, span_name, extract_args, func)
+        open_span = get_open_span(logfire, attributes, span_name, extract_args, func, new_trace)
 
         if inspect.isgeneratorfunction(func):
             if not allow_generator:
@@ -119,6 +121,7 @@ def get_open_span(
     span_name: str | None,
     extract_args: bool | Iterable[str],
     func: Callable[P, R],
+    new_trace: bool,
 ) -> Callable[P, AbstractContextManager[Any]]:
     final_span_name: str = span_name or attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
 
@@ -136,9 +139,24 @@ def get_open_span(
         def get_logfire():
             return logfire
 
+    if new_trace:
+
+        def extra_span_kwargs() -> dict[str, Any]:
+            prev_context = trace.get_current_span().get_span_context()
+            if not prev_context.is_valid:
+                return {}
+            return {
+                'links': [trace.Link(prev_context)],
+                'context': trace.set_span_in_context(trace.INVALID_SPAN),
+            }
+    else:
+
+        def extra_span_kwargs() -> dict[str, Any]:
+            return {}
+
     # This is the fast case for when there are no arguments to extract
     def open_span(*_: P.args, **__: P.kwargs):  # type: ignore
-        return get_logfire()._fast_span(final_span_name, attributes)  # type: ignore
+        return get_logfire()._fast_span(final_span_name, attributes, **extra_span_kwargs())  # type: ignore
 
     if extract_args is True:
         sig = inspect.signature(func)
@@ -149,7 +167,7 @@ def get_open_span(
                 bound.apply_defaults()
                 args_dict = bound.arguments
                 return get_logfire()._instrument_span_with_args(  # type: ignore
-                    final_span_name, attributes, args_dict
+                    final_span_name, attributes, args_dict, **extra_span_kwargs()
                 )
 
         return open_span
@@ -180,7 +198,7 @@ def get_open_span(
                 args_dict = {k: args_dict[k] for k in extract_args_final}
 
                 return get_logfire()._instrument_span_with_args(  # type: ignore
-                    final_span_name, attributes, args_dict
+                    final_span_name, attributes, args_dict, **extra_span_kwargs()
                 )
 
     return open_span

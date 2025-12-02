@@ -65,6 +65,7 @@ def test_instrument_google_genai(exporter: TestExporter) -> None:
             ],
             config=types.GenerateContentConfig(
                 tools=[get_current_weather],
+                system_instruction=[types.Part.from_text(text='help')],
             ),
         )
 
@@ -75,8 +76,8 @@ def test_instrument_google_genai(exporter: TestExporter) -> None:
                 'name': 'execute_tool get_current_weather',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 3000000000,
-                'end_time': 4000000000,
+                'start_time': 4000000000,
+                'end_time': 5000000000,
                 'attributes': {
                     'gen_ai.system': 'gemini',
                     'gen_ai.operation.name': 'execute_tool',
@@ -99,7 +100,7 @@ def test_instrument_google_genai(exporter: TestExporter) -> None:
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': IsInt(),
-                'end_time': 6000000000,
+                'end_time': 7000000000,
                 'attributes': {
                     'code.function.name': 'google.genai.Models.generate_content',
                     'gen_ai.system': 'gemini',
@@ -112,6 +113,7 @@ def test_instrument_google_genai(exporter: TestExporter) -> None:
                     'gen_ai.response.finish_reasons': ('stop',),
                     'logfire.metrics': IsPartialDict(),
                     'events': [
+                        {'content': ['help'], 'role': 'system'},
                         {'content': 'What is the weather like in Boston?', 'role': 'user'},
                         {
                             'content': {
