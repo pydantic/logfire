@@ -26,6 +26,7 @@ every standard library log record.
 === "Using [`dictConfig()`][logging.config.dictConfig]"
 
     ```py title="main.py"
+    from logging import getLogger
     from logging.config import dictConfig
 
     import logfire

@@ -79,6 +79,7 @@ nav:
           - Add Logfire Auto-Tracing: guides/onboarding-checklist/add-auto-tracing.md
           - Add Logfire Metrics: guides/onboarding-checklist/add-metrics.md
       - Web UI:
+          - Organizations and projects: guides/web-ui/organizations-and-projects.md
           - Live View: guides/web-ui/live.md
           - LLM Panels: guides/web-ui/llm-panels.md
           - Dashboards: guides/web-ui/dashboards.md
@@ -177,7 +178,6 @@ nav:
       - Examples: reference/examples.md
       - Configuration: reference/configuration.md
       - Data Regions: reference/data-regions.md
-      - Organization Structure: reference/organization-structure.md
       - Self-Hosted Deployment:
           - Overview: reference/self-hosted/overview.md
           - Local Quickstart: reference/self-hosted/local-quickstart.md
@@ -326,7 +326,6 @@ plugins:
         "integrations/celery.md": "integrations/event-streams/celery.md"
         "integrations/openai.md": "integrations/llms/openai.md"
         "integrations/anthropic.md": "integrations/llms/anthropic.md"
-        "reference/organization_structure.md": "reference/organization-structure.md"
         "legal/service_level_agreement.md": "https://pydantic.dev/legal/terms-of-service"
         "legal/terms_of_service.md": "https://pydantic.dev/legal/terms-of-service"
         "legal/data_processing_addendum.md": "https://pydantic.dev/legal/data-processing-addendum"
@@ -356,6 +355,7 @@ plugins:
         "why-logfire/sql.md": "why.md"
         "get-started/traces.md": "concepts.md"
         "how-to-guides/otel-collector.md": "how-to-guides/otel-collector/otel-collector-overview.md"
+        "reference/organization-structure.md": "guides/web-ui/organizations-and-projects.md"
   - llmstxt:
       enabled: !ENV [CI, false]
       full_output: llms-full.txt

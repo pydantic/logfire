@@ -141,9 +141,22 @@ def get_open_span(
 ) -> Callable[Concatenate[trace.SpanContext | None, P], AbstractContextManager[Any]]:
     final_span_name: str = span_name or attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
 
-    # This is the fast case for when there are no arguments to extract
+    def get_logfire():
+        # This avoids having a `logfire` closure variable, which would make the instrumented
+        # function unpicklable with cloudpickle.
+        # This is only possible when using `logfire.instrument` on the global instance, i.e. on the module,
+        # but that's the common case.
+        from logfire import DEFAULT_LOGFIRE_INSTANCE
+
+        return DEFAULT_LOGFIRE_INSTANCE
+
+    if get_logfire() != logfire:
+
+        def get_logfire():
+            return logfire
+
     def open_span(span_context: trace.SpanContext | None, *_: P.args, **__: P.kwargs):  # type: ignore
-        span = logfire._fast_span(final_span_name, attributes)  # type: ignore
+        span = get_logfire()._fast_span(final_span_name, attributes)  # type: ignore
         if span_context is not None:
             span._span.add_link(span_context)  # pyright: ignore[reportPrivateUsage]
         return span
@@ -156,7 +169,7 @@ def get_open_span(
                 bound = sig.bind(*func_args, **func_kwargs)
                 bound.apply_defaults()
                 args_dict = bound.arguments
-                span = logfire._instrument_span_with_args(  # type: ignore
+                span = get_logfire()._instrument_span_with_args(  # type: ignore
                     final_span_name, attributes, args_dict
                 )
                 if span_context is not None:
@@ -188,7 +201,7 @@ def get_open_span(
                 # This line is the only difference from the extract_args=True case
                 args_dict = {k: args_dict[k] for k in extract_args_final}
 
-                span = logfire._instrument_span_with_args(  # type: ignore
+                span = get_logfire()._instrument_span_with_args(  # type: ignore
                     final_span_name, attributes, args_dict
                 )
                 if span_context is not None:

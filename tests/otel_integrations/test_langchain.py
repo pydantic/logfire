@@ -42,7 +42,13 @@ def test_instrument_langchain(exporter: TestExporter):
 
     math_agent = create_agent(model='gpt-4o', tools=[add])  # pyright: ignore [reportUnknownVariableType]
 
-    result = math_agent.invoke({'messages': [{'role': 'user', 'content': "what's 123 + 456?"}]})  # pyright: ignore
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            'ignore',
+            category=UserWarning,
+            message='LangSmith now uses UUID v7 for run and trace identifiers. This warning appears when passing custom IDs. Please use: from langsmith import uuid7',
+        )
+        result = math_agent.invoke({'messages': [{'role': 'user', 'content': "what's 123 + 456?"}]})  # pyright: ignore
 
     assert result['messages'][-1].content == snapshot('123 + 456 equals 579.')
 
