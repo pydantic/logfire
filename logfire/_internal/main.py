@@ -580,7 +580,7 @@ class Logfire:
         extract_args: bool | Iterable[str] = True,
         record_return: bool = False,
         allow_generator: bool = False,
-        new_context: bool = False,
+        new_trace: bool = False,
     ) -> Callable[[Callable[P, R]], Callable[P, R]]:
         """Decorator for instrumenting a function as a span.
 
@@ -604,7 +604,8 @@ class Logfire:
                 Ignored for generators.
             allow_generator: Set to `True` to prevent a warning when instrumenting a generator function.
                 Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
-            new_context: Set to `True` to clear context before starting instrumentation, and link back to the previous span.
+            new_trace: Set to `True` to start a new trace with a span link to the current span
+                instead of creating a child of the current span.
         """
 
     @overload
@@ -631,7 +632,7 @@ class Logfire:
         extract_args: bool | Iterable[str] = True,
         record_return: bool = False,
         allow_generator: bool = False,
-        new_context: bool = False,
+        new_trace: bool = False,
     ) -> Callable[[Callable[P, R]], Callable[P, R]] | Callable[P, R]:
         """Decorator for instrumenting a function as a span.
 
@@ -655,12 +656,13 @@ class Logfire:
                 Ignored for generators.
             allow_generator: Set to `True` to prevent a warning when instrumenting a generator function.
                 Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
-            new_context: Set to `True` to clear context before starting instrumentation, and link back to the previous span.
+            new_trace: Set to `True` to start a new trace with a span link to the current span
+                instead of creating a child of the current span.
         """
         if callable(msg_template):
             return self.instrument()(msg_template)
         return instrument(
-            self, tuple(self._tags), msg_template, span_name, extract_args, record_return, allow_generator, new_context
+            self, tuple(self._tags), msg_template, span_name, extract_args, record_return, allow_generator, new_trace
         )
 
     def log(

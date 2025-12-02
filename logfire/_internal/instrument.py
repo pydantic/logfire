@@ -51,7 +51,7 @@ def instrument(
     extract_args: bool | Iterable[str],
     record_return: bool,
     allow_generator: bool,
-    new_context: bool,
+    new_trace: bool,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     from .main import set_user_attributes_on_raw_span
 
@@ -63,7 +63,7 @@ def instrument(
             )
 
         attributes = get_attributes(func, msg_template, tags)
-        open_span = get_open_span(logfire, attributes, span_name, extract_args, func, new_context)
+        open_span = get_open_span(logfire, attributes, span_name, extract_args, func, new_trace)
 
         if inspect.isgeneratorfunction(func):
             if not allow_generator:
@@ -121,7 +121,7 @@ def get_open_span(
     span_name: str | None,
     extract_args: bool | Iterable[str],
     func: Callable[P, R],
-    new_context: bool,
+    new_trace: bool,
 ) -> Callable[P, AbstractContextManager[Any]]:
     final_span_name: str = span_name or attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
 
@@ -139,7 +139,7 @@ def get_open_span(
         def get_logfire():
             return logfire
 
-    if new_context:
+    if new_trace:
 
         def extra_span_kwargs() -> dict[str, Any]:
             prev_context = trace.get_current_span().get_span_context()

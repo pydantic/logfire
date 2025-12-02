@@ -867,10 +867,10 @@ def test_instrument_with_parent(exporter: TestExporter) -> None:
     )
 
 
-def test_instrument_new_context(exporter: TestExporter) -> None:
+def test_instrument_new_trace(exporter: TestExporter) -> None:
     tagged = logfire.with_tags('test_instrument')
 
-    @tagged.instrument('hello-world {a=}', record_return=True, new_context=True)
+    @tagged.instrument('hello-world {a=}', record_return=True, new_trace=True)
     def hello_world(a: int) -> str:
         return f'hello {a}'
 
@@ -891,7 +891,7 @@ def test_instrument_new_context(exporter: TestExporter) -> None:
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.lineno': 123,
-                    'code.function': 'test_instrument_new_context.<locals>.parent',
+                    'code.function': 'test_instrument_new_trace.<locals>.parent',
                     'logfire.msg': 'parent',
                     'logfire.msg_template': 'parent',
                     'logfire.span_type': 'pending_span',
@@ -908,7 +908,7 @@ def test_instrument_new_context(exporter: TestExporter) -> None:
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.lineno': 123,
-                    'code.function': 'test_instrument_new_context.<locals>.hello_world',
+                    'code.function': 'test_instrument_new_trace.<locals>.hello_world',
                     'a': 5,
                     'logfire.msg_template': 'hello-world {a=}',
                     'logfire.msg': 'hello-world a=5',
@@ -923,7 +923,7 @@ def test_instrument_new_context(exporter: TestExporter) -> None:
                 'attributes': {
                     'a': 5,
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'test_instrument_new_context.<locals>.hello_world',
+                    'code.function': 'test_instrument_new_trace.<locals>.hello_world',
                     'code.lineno': 123,
                     'logfire.json_schema': '{"type":"object","properties":{"a":{},"return":{}}}',
                     'logfire.msg': 'hello-world a=5',
@@ -955,7 +955,7 @@ def test_instrument_new_context(exporter: TestExporter) -> None:
             {
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'test_instrument_new_context.<locals>.parent',
+                    'code.function': 'test_instrument_new_trace.<locals>.parent',
                     'code.lineno': 123,
                     'logfire.json_schema': '{"type":"object","properties":{"return":{}}}',
                     'logfire.msg': 'parent',
@@ -978,10 +978,10 @@ def test_instrument_new_context(exporter: TestExporter) -> None:
     )
 
 
-def test_instrument_new_context_no_extract(exporter: TestExporter) -> None:
+def test_instrument_new_trace_no_extract(exporter: TestExporter) -> None:
     tagged = logfire.with_tags('test_instrument')
 
-    @tagged.instrument('hello-world', record_return=True, new_context=True, extract_args=False)
+    @tagged.instrument('hello-world', record_return=True, new_trace=True, extract_args=False)
     def hello_world(a: int) -> str:
         return f'hello {a}'
 
@@ -1002,7 +1002,7 @@ def test_instrument_new_context_no_extract(exporter: TestExporter) -> None:
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.lineno': 123,
-                    'code.function': 'test_instrument_new_context_no_extract.<locals>.parent',
+                    'code.function': 'test_instrument_new_trace_no_extract.<locals>.parent',
                     'logfire.msg': 'parent',
                     'logfire.msg_template': 'parent',
                     'logfire.span_type': 'pending_span',
@@ -1019,7 +1019,7 @@ def test_instrument_new_context_no_extract(exporter: TestExporter) -> None:
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.lineno': 123,
-                    'code.function': 'test_instrument_new_context_no_extract.<locals>.hello_world',
+                    'code.function': 'test_instrument_new_trace_no_extract.<locals>.hello_world',
                     'logfire.msg_template': 'hello-world',
                     'logfire.msg': 'hello-world',
                     'logfire.span_type': 'pending_span',
@@ -1048,7 +1048,7 @@ def test_instrument_new_context_no_extract(exporter: TestExporter) -> None:
                 'name': 'hello-world',
                 'parent': None,
                 'attributes': {
-                    'code.function': 'test_instrument_new_context_no_extract.<locals>.hello_world',
+                    'code.function': 'test_instrument_new_trace_no_extract.<locals>.hello_world',
                     'logfire.msg_template': 'hello-world',
                     'code.lineno': 123,
                     'code.filepath': 'test_logfire.py',
@@ -1063,7 +1063,7 @@ def test_instrument_new_context_no_extract(exporter: TestExporter) -> None:
             {
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'test_instrument_new_context_no_extract.<locals>.parent',
+                    'code.function': 'test_instrument_new_trace_no_extract.<locals>.parent',
                     'code.lineno': 123,
                     'logfire.json_schema': '{"type":"object","properties":{"return":{}}}',
                     'logfire.msg': 'parent',
@@ -1086,8 +1086,8 @@ def test_instrument_new_context_no_extract(exporter: TestExporter) -> None:
     )
 
 
-def test_instrument_new_context_no_parent(exporter: TestExporter) -> None:
-    @logfire.instrument(new_context=True)
+def test_instrument_new_trace_no_parent(exporter: TestExporter) -> None:
+    @logfire.instrument(new_trace=True)
     def hello_world(a: int, b: int) -> str:
         return f'hello {a} {b}'
 
@@ -1096,17 +1096,17 @@ def test_instrument_new_context_no_parent(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
         [
             {
-                'name': 'Calling tests.test_logfire.test_instrument_new_context_no_parent.<locals>.hello_world',
+                'name': 'Calling tests.test_logfire.test_instrument_new_trace_no_parent.<locals>.hello_world',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
                 'end_time': 2000000000,
                 'attributes': {
-                    'code.function': 'test_instrument_new_context_no_parent.<locals>.hello_world',
-                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_new_context_no_parent.<locals>.hello_world',
+                    'code.function': 'test_instrument_new_trace_no_parent.<locals>.hello_world',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_new_trace_no_parent.<locals>.hello_world',
                     'code.lineno': 123,
                     'code.filepath': 'test_logfire.py',
-                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_new_context_no_parent.<locals>.hello_world',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_new_trace_no_parent.<locals>.hello_world',
                     'logfire.json_schema': '{"type":"object","properties":{"a":{},"b":{}}}',
                     'a': 5,
                     'b': 10,
@@ -1117,10 +1117,10 @@ def test_instrument_new_context_no_parent(exporter: TestExporter) -> None:
     )
 
 
-def test_instrument_new_context_some_args(exporter: TestExporter) -> None:
+def test_instrument_new_trace_some_args(exporter: TestExporter) -> None:
     tagged = logfire.with_tags('test_instrument')
 
-    @tagged.instrument('hello-world {a=}', record_return=True, new_context=True, extract_args=['a'])
+    @tagged.instrument('hello-world {a=}', record_return=True, new_trace=True, extract_args=['a'])
     def hello_world(a: int, b: int) -> str:
         return f'hello {a} {b}'
 
@@ -1141,7 +1141,7 @@ def test_instrument_new_context_some_args(exporter: TestExporter) -> None:
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.lineno': 123,
-                    'code.function': 'test_instrument_new_context_some_args.<locals>.parent',
+                    'code.function': 'test_instrument_new_trace_some_args.<locals>.parent',
                     'logfire.msg': 'parent',
                     'logfire.msg_template': 'parent',
                     'logfire.span_type': 'pending_span',
@@ -1158,7 +1158,7 @@ def test_instrument_new_context_some_args(exporter: TestExporter) -> None:
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.lineno': 123,
-                    'code.function': 'test_instrument_new_context_some_args.<locals>.hello_world',
+                    'code.function': 'test_instrument_new_trace_some_args.<locals>.hello_world',
                     'a': 5,
                     'logfire.msg_template': 'hello-world {a=}',
                     'logfire.msg': 'hello-world a=5',
@@ -1173,7 +1173,7 @@ def test_instrument_new_context_some_args(exporter: TestExporter) -> None:
                 'attributes': {
                     'a': 5,
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'test_instrument_new_context_some_args.<locals>.hello_world',
+                    'code.function': 'test_instrument_new_trace_some_args.<locals>.hello_world',
                     'code.lineno': 123,
                     'logfire.json_schema': '{"type":"object","properties":{"a":{},"return":{}}}',
                     'logfire.msg': 'hello-world a=5',
@@ -1205,7 +1205,7 @@ def test_instrument_new_context_some_args(exporter: TestExporter) -> None:
             {
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
-                    'code.function': 'test_instrument_new_context_some_args.<locals>.parent',
+                    'code.function': 'test_instrument_new_trace_some_args.<locals>.parent',
                     'code.lineno': 123,
                     'logfire.json_schema': '{"type":"object","properties":{"return":{}}}',
                     'logfire.msg': 'parent',
