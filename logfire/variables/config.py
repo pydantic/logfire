@@ -335,9 +335,9 @@ class VariablesConfig:
                     try:
                         variable.type_adapter.validate_json(v.serialized_value)
                     except ValidationError as e:
-                        errors[variable.name][k] = e
+                        errors.setdefault(variable.name, {})[k] = e
             except Exception as e:
-                errors[variable.name][None] = e
+                errors.setdefault(variable.name, {})[None] = e
         return errors
 
     @staticmethod

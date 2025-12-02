@@ -63,8 +63,6 @@ def __getattr__(name: str):
             "    pip install 'logfire[variables]'"
         )
 
-    import sys
-
     from logfire.variables.config import (
         KeyIsNotPresent,
         KeyIsPresent,
@@ -84,4 +82,4 @@ def __getattr__(name: str):
     from logfire.variables.remote import LogfireRemoteVariableProvider
     from logfire.variables.variable import Variable
 
-    return getattr(sys.modules[__name__], name)
+    return locals()[name]
