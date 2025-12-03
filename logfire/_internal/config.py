@@ -115,7 +115,7 @@ from .utils import (
 if TYPE_CHECKING:
     from typing import TextIO
 
-    from opentelemetry._events import EventLoggerProvider
+    from opentelemetry._events import EventLoggerProvider  # type: ignore
 
     from .main import Logfire
 
@@ -722,10 +722,10 @@ class LogfireConfig(_LogfireConfigData):
         self._meter_provider = ProxyMeterProvider(NoOpMeterProvider())
         self._logger_provider = ProxyLoggerProvider(NoOpLoggerProvider())
         try:
-            from opentelemetry.sdk._events import EventLoggerProvider as SDKEventLoggerProvider
+            from opentelemetry.sdk._events import EventLoggerProvider as SDKEventLoggerProvider  # type: ignore
 
             self._event_logger_provider = SDKEventLoggerProvider(self._logger_provider)  # type: ignore
-        except ImportError:
+        except Exception:
             self._event_logger_provider = None
         # This ensures that we only call OTEL's global set_tracer_provider once to avoid warnings.
         self._has_set_providers = False
@@ -1126,10 +1126,11 @@ class LogfireConfig(_LogfireConfigData):
                 trace.set_tracer_provider(self._tracer_provider)
                 set_meter_provider(self._meter_provider)
                 set_logger_provider(self._logger_provider)
-                if self._event_logger_provider:
-                    from opentelemetry._events import set_event_logger_provider
-
-                    set_event_logger_provider(self._event_logger_provider)
+                # TODO
+                # if self._event_logger_provider:
+                #     from opentelemetry._events import set_event_logger_provider
+                #
+                #     set_event_logger_provider(self._event_logger_provider)
 
             @atexit.register
             def exit_open_spans():  # pragma: no cover
@@ -1224,7 +1225,7 @@ class LogfireConfig(_LogfireConfigData):
         """
         return self._logger_provider
 
-    def get_event_logger_provider(self) -> EventLoggerProvider | None:
+    def get_event_logger_provider(self) -> EventLoggerProvider | None:  # type: ignore
         """Get an event logger provider from this `LogfireConfig`.
 
         This is used internally and should not be called by users of the SDK.
