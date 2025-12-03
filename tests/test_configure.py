@@ -3,6 +3,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import os
+import pickle
 import sys
 import threading
 from collections.abc import Iterable, Sequence
@@ -847,6 +848,8 @@ def test_config_serializable():
         scrubbing=logfire.ScrubbingOptions(),
         code_source=logfire.CodeSource(repository='https://github.com/pydantic/logfire', revision='main'),
         variables=logfire.VariablesOptions(include_baggage_in_context=False),
+        # TODO this fails: remote providers aren't pickleable, meaning they can't be used with ProcessPoolExecutor.
+        # variables=logfire.VariablesOptions.remote(block_before_first_fetch=False, include_baggage_in_context=False),
     )
 
     for field in dataclasses.fields(GLOBAL_CONFIG):
@@ -858,8 +861,8 @@ def test_config_serializable():
 
     serialized = serialize_config()
     GLOBAL_CONFIG._initialized = False  # type: ignore  # ensure deserialize_config actually configures
-    deserialize_config(serialized)
-    serialized2 = serialize_config()
+    deserialize_config(pickle.loads(pickle.dumps(serialized)))
+    serialized2 = pickle.loads(pickle.dumps(serialize_config()))
 
     def normalize(s: dict[str, Any]) -> dict[str, Any]:
         for value in s.values():
