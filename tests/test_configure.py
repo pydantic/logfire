@@ -3,6 +3,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import os
+import pickle
 import sys
 import threading
 from collections.abc import Iterable, Sequence
@@ -846,19 +847,22 @@ def test_config_serializable():
         sampling=logfire.SamplingOptions(),
         scrubbing=logfire.ScrubbingOptions(),
         code_source=logfire.CodeSource(repository='https://github.com/pydantic/logfire', revision='main'),
+        variables=logfire.VariablesOptions(include_baggage_in_context=False),
+        # TODO this fails: remote providers aren't pickleable, meaning they can't be used with ProcessPoolExecutor.
+        # variables=logfire.VariablesOptions.remote(block_before_first_fetch=False, include_baggage_in_context=False),
     )
 
     for field in dataclasses.fields(GLOBAL_CONFIG):
         # Check that the full set of dataclass fields is known.
         # If a new field appears here, make sure it gets deserialized properly in configure, and tested here.
         assert dataclasses.is_dataclass(getattr(GLOBAL_CONFIG, field.name)) == (
-            field.name in ['console', 'sampling', 'scrubbing', 'advanced', 'code_source']
+            field.name in ['console', 'sampling', 'scrubbing', 'advanced', 'code_source', 'variables']
         )
 
     serialized = serialize_config()
     GLOBAL_CONFIG._initialized = False  # type: ignore  # ensure deserialize_config actually configures
-    deserialize_config(serialized)
-    serialized2 = serialize_config()
+    deserialize_config(pickle.loads(pickle.dumps(serialized)))
+    serialized2 = pickle.loads(pickle.dumps(serialize_config()))
 
     def normalize(s: dict[str, Any]) -> dict[str, Any]:
         for value in s.values():
@@ -872,6 +876,7 @@ def test_config_serializable():
     assert isinstance(GLOBAL_CONFIG.scrubbing, logfire.ScrubbingOptions)
     assert isinstance(GLOBAL_CONFIG.advanced, logfire.AdvancedOptions)
     assert isinstance(GLOBAL_CONFIG.advanced.id_generator, SeededRandomIdGenerator)
+    assert isinstance(GLOBAL_CONFIG.variables, logfire.VariablesOptions)
 
 
 def test_config_serializable_console_false():

@@ -12,6 +12,7 @@ import warnings
 from collections.abc import Sequence
 from contextlib import suppress
 from dataclasses import dataclass, field
+from datetime import timedelta
 from pathlib import Path
 from threading import RLock, Thread
 from typing import TYPE_CHECKING, Any, Callable, Literal, TypedDict
@@ -63,6 +64,7 @@ from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
 from logfire.exceptions import LogfireConfigError
 from logfire.sampling import SamplingOptions
 from logfire.sampling._tail_sampling import TailSamplingProcessor
+from logfire.variables.abstract import NoOpVariableProvider, VariableProvider
 from logfire.version import VERSION
 
 from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
@@ -116,6 +118,8 @@ if TYPE_CHECKING:
     from typing import TextIO
 
     from opentelemetry._events import EventLoggerProvider
+
+    from logfire.variables.config import VariablesConfig
 
     from .main import Logfire
 
@@ -258,6 +262,86 @@ class CodeSource:
     """
 
 
+@dataclass(init=False)
+class VariablesOptions:
+    """Configuration of managed variables."""
+
+    provider: VariableProvider | Callable[[LogfireConfig], VariableProvider]
+    """A variable provider, or a function that accepts LogfireConfig and returns a provider for resolving variables."""
+    include_resource_attributes_in_context: bool = True
+    """Whether to include OpenTelemetry resource attributes when resolving variables."""
+    include_baggage_in_context: bool = True
+    """Whether to include OpenTelemetry baggage when resolving variables."""
+
+    @classmethod
+    def local(
+        cls,
+        config: VariablesConfig | Callable[[], VariablesConfig],
+        include_resource_attributes_in_context: bool = True,
+        include_baggage_in_context: bool = True,
+    ):
+        from logfire.variables.local import LocalVariableProvider
+
+        return VariablesOptions(
+            provider=LocalVariableProvider(config),
+            include_resource_attributes_in_context=include_resource_attributes_in_context,
+            include_baggage_in_context=include_baggage_in_context,
+        )
+
+    @classmethod
+    def remote(
+        cls,
+        block_before_first_fetch: bool,
+        polling_interval: timedelta | float = timedelta(seconds=30),
+        include_resource_attributes_in_context: bool = True,
+        include_baggage_in_context: bool = True,
+    ):
+        from logfire.variables.remote import LogfireRemoteVariableProvider
+
+        def get_provider(config: LogfireConfig) -> VariableProvider:
+            token = config.token
+            if not token:
+                return NoOpVariableProvider()
+            base_url = config.advanced.base_url or get_base_url_from_token(token)
+            return LogfireRemoteVariableProvider(
+                base_url=base_url,
+                token=token,
+                block_before_first_fetch=block_before_first_fetch,
+                polling_interval=polling_interval,
+            )
+
+        return VariablesOptions(
+            provider=get_provider,
+            include_resource_attributes_in_context=include_resource_attributes_in_context,
+            include_baggage_in_context=include_baggage_in_context,
+        )
+
+    def __init__(
+        self,
+        provider: VariableProvider | Callable[[LogfireConfig], VariableProvider] | None = None,
+        include_resource_attributes_in_context: bool = True,
+        include_baggage_in_context: bool = True,
+    ):
+        """Initialize variable options.
+
+        Args:
+            provider: Provider for resolving variable values. Can be a `VariableProvider` instance,
+                a `VariablesConfig` (which will be wrapped in a `LocalVariableProvider`),
+                or `None` (which will use a `NoOpVariableProvider`, which always uses code defaults).
+            include_resource_attributes_in_context: Whether to include OpenTelemetry resource attributes
+                when resolving variables.
+            include_baggage_in_context: Whether to include OpenTelemetry baggage when resolving variables.
+        """
+        if not provider:
+            provider = NoOpVariableProvider()
+
+        self.provider = provider
+        self.include_resource_attributes_in_context = include_resource_attributes_in_context
+        self.include_baggage_in_context = include_baggage_in_context
+
+    # TODO: Add OTel-related config here
+
+
 class DeprecatedKwargs(TypedDict):
     # Empty so that passing any additional kwargs makes static type checkers complain.
     pass
@@ -282,6 +366,7 @@ def configure(  # noqa: D417
     min_level: int | LevelName | None = None,
     add_baggage_to_attributes: bool = True,
     code_source: CodeSource | None = None,
+    variables: VariablesOptions | None = None,
     distributed_tracing: bool | None = None,
     advanced: AdvancedOptions | None = None,
     **deprecated_kwargs: Unpack[DeprecatedKwargs],
@@ -346,6 +431,7 @@ def configure(  # noqa: D417
         add_baggage_to_attributes: Set to `False` to prevent OpenTelemetry Baggage from being added to spans as attributes.
             See the [Baggage documentation](https://logfire.pydantic.dev/docs/reference/advanced/baggage/) for more details.
         code_source: Settings for the source code of the project.
+        variables: Options related to managed variables.
         distributed_tracing: By default, incoming trace context is extracted, but generates a warning.
             Set to `True` to disable the warning.
             Set to `False` to suppress extraction of incoming trace context.
@@ -482,6 +568,7 @@ def configure(  # noqa: D417
         sampling=sampling,
         add_baggage_to_attributes=add_baggage_to_attributes,
         code_source=code_source,
+        variables=variables,
         distributed_tracing=distributed_tracing,
         advanced=advanced,
     )
@@ -546,6 +633,9 @@ class _LogfireConfigData:
     code_source: CodeSource | None
     """Settings for the source code of the project."""
 
+    variables: VariablesOptions
+    """Settings related to managed variables."""
+
     distributed_tracing: bool | None
     """Whether to extract incoming trace context."""
 
@@ -573,6 +663,7 @@ class _LogfireConfigData:
         min_level: int | LevelName | None,
         add_baggage_to_attributes: bool,
         code_source: CodeSource | None,
+        variables: VariablesOptions | None,
         distributed_tracing: bool | None,
         advanced: AdvancedOptions | None,
     ) -> None:
@@ -639,6 +730,13 @@ class _LogfireConfigData:
             code_source = CodeSource(**code_source)  # type: ignore
         self.code_source = code_source
 
+        if isinstance(variables, dict):
+            # This is particularly for deserializing from a dict as in executors.py
+            variables = VariablesOptions(**variables)  # type: ignore
+        elif variables is None:
+            variables = VariablesOptions()
+        self.variables = variables
+
         if isinstance(advanced, dict):
             # This is particularly for deserializing from a dict as in executors.py
             advanced = AdvancedOptions(**advanced)  # type: ignore
@@ -682,6 +780,7 @@ class LogfireConfig(_LogfireConfigData):
         sampling: SamplingOptions | None = None,
         min_level: int | LevelName | None = None,
         add_baggage_to_attributes: bool = True,
+        variables: VariablesOptions | None = None,
         code_source: CodeSource | None = None,
         distributed_tracing: bool | None = None,
         advanced: AdvancedOptions | None = None,
@@ -711,6 +810,7 @@ class LogfireConfig(_LogfireConfigData):
             min_level=min_level,
             add_baggage_to_attributes=add_baggage_to_attributes,
             code_source=code_source,
+            variables=variables,
             distributed_tracing=distributed_tracing,
             advanced=advanced,
         )
@@ -720,6 +820,7 @@ class LogfireConfig(_LogfireConfigData):
         # note: this reference is important because the MeterProvider runs things in background threads
         # thus it "shuts down" when it's gc'ed
         self._meter_provider = ProxyMeterProvider(NoOpMeterProvider())
+        self._variable_provider = NoOpVariableProvider()
         self._logger_provider = ProxyLoggerProvider(NoOpLoggerProvider())
         try:
             from opentelemetry.sdk._events import EventLoggerProvider as SDKEventLoggerProvider
@@ -750,6 +851,7 @@ class LogfireConfig(_LogfireConfigData):
         min_level: int | LevelName | None,
         add_baggage_to_attributes: bool,
         code_source: CodeSource | None,
+        variables: VariablesOptions | None,
         distributed_tracing: bool | None,
         advanced: AdvancedOptions | None,
     ) -> None:
@@ -772,6 +874,7 @@ class LogfireConfig(_LogfireConfigData):
                 min_level,
                 add_baggage_to_attributes,
                 code_source,
+                variables,
                 distributed_tracing,
                 advanced,
             )
@@ -1103,6 +1206,12 @@ class LogfireConfig(_LogfireConfigData):
             )  # note: this may raise an Exception if it times out, call `logfire.shutdown` first
             self._meter_provider.set_meter_provider(meter_provider)
 
+            self._variable_provider.shutdown()
+            if callable(self.variables.provider):
+                self._variable_provider = self.variables.provider(self)
+            else:
+                self._variable_provider = self.variables.provider
+
             multi_log_processor = SynchronousMultiLogRecordProcessor()
             for processor in log_record_processors:
                 multi_log_processor.add_log_record_processor(processor)
@@ -1233,6 +1342,16 @@ class LogfireConfig(_LogfireConfigData):
             The event logger provider.
         """
         return self._event_logger_provider
+
+    def get_variable_provider(self) -> VariableProvider:
+        """Get a variable provider from this `LogfireConfig`.
+
+        This is used internally and should not be called by users of the SDK.
+
+        Returns:
+            The variable provider.
+        """
+        return self._variable_provider
 
     def warn_if_not_initialized(self, message: str):
         ignore_no_config_env = os.getenv('LOGFIRE_IGNORE_NO_CONFIG', '')
