@@ -730,7 +730,12 @@ class _LogfireConfigData:
             code_source = CodeSource(**code_source)  # type: ignore
         self.code_source = code_source
 
-        self.variables = variables or VariablesOptions()
+        if isinstance(variables, dict):
+            # This is particularly for deserializing from a dict as in executors.py
+            variables = VariablesOptions(**variables)  # type: ignore
+        elif variables is None:
+            variables = VariablesOptions()
+        self.variables = variables
 
         if isinstance(advanced, dict):
             # This is particularly for deserializing from a dict as in executors.py

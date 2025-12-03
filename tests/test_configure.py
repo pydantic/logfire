@@ -846,6 +846,7 @@ def test_config_serializable():
         sampling=logfire.SamplingOptions(),
         scrubbing=logfire.ScrubbingOptions(),
         code_source=logfire.CodeSource(repository='https://github.com/pydantic/logfire', revision='main'),
+        variables=logfire.VariablesOptions(include_baggage_in_context=False),
     )
 
     for field in dataclasses.fields(GLOBAL_CONFIG):
@@ -872,6 +873,7 @@ def test_config_serializable():
     assert isinstance(GLOBAL_CONFIG.scrubbing, logfire.ScrubbingOptions)
     assert isinstance(GLOBAL_CONFIG.advanced, logfire.AdvancedOptions)
     assert isinstance(GLOBAL_CONFIG.advanced.id_generator, SeededRandomIdGenerator)
+    assert isinstance(GLOBAL_CONFIG.variables, logfire.VariablesOptions)
 
 
 def test_config_serializable_console_false():

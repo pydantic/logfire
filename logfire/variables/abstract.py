@@ -85,6 +85,7 @@ class VariableProvider(ABC):
         pass
 
 
+@dataclass
 class NoOpVariableProvider(VariableProvider):
     """A variable provider that always returns None, used when no provider is configured."""
 
