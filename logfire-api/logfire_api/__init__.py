@@ -279,6 +279,9 @@ except ImportError:
         class MetricsOptions:
             def __init__(self, *args, **kwargs) -> None: ...
 
+        class VariablesOptions:
+            def __init__(self, *args, **kwargs) -> None: ...
+
         class PydanticPlugin:
             def __init__(self, *args, **kwargs) -> None: ...
 

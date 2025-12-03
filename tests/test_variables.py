@@ -1,12 +1,15 @@
 """Tests for managed variables."""
+# pyright: reportPrivateUsage=false
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Mapping
 from datetime import timedelta
 from typing import Any
 
 import pytest
+import requests_mock as requests_mock_module
 from pydantic import BaseModel, ValidationError
 
 import logfire
@@ -29,8 +32,7 @@ from logfire.variables.config import (
 )
 from logfire.variables.local import LocalVariableProvider
 from logfire.variables.remote import LogfireRemoteVariableProvider
-from logfire.variables.variable import Variable, is_resolve_function
-
+from logfire.variables.variable import is_resolve_function
 
 # =============================================================================
 # Test Condition Classes
@@ -358,47 +360,53 @@ class TestVariableConfig:
 
         adapter = TypeAdapter(VariableConfig)
         with pytest.raises(ValidationError, match='invalid lookup key'):
-            adapter.validate_python({
-                'name': 'test',
-                'variants': {
-                    'wrong_key': {'key': 'correct_key', 'serialized_value': '"value"'},
-                },
-                'rollout': {'variants': {'correct_key': 1.0}},
-                'overrides': [],
-            })
+            adapter.validate_python(
+                {
+                    'name': 'test',
+                    'variants': {
+                        'wrong_key': {'key': 'correct_key', 'serialized_value': '"value"'},
+                    },
+                    'rollout': {'variants': {'correct_key': 1.0}},
+                    'overrides': [],
+                }
+            )
 
     def test_validation_rollout_references_missing_variant(self):
         from pydantic import TypeAdapter
 
         adapter = TypeAdapter(VariableConfig)
         with pytest.raises(ValidationError, match="Variant 'missing' present in `rollout.variants` is not present"):
-            adapter.validate_python({
-                'name': 'test',
-                'variants': {
-                    'v1': {'key': 'v1', 'serialized_value': '"value"'},
-                },
-                'rollout': {'variants': {'missing': 1.0}},
-                'overrides': [],
-            })
+            adapter.validate_python(
+                {
+                    'name': 'test',
+                    'variants': {
+                        'v1': {'key': 'v1', 'serialized_value': '"value"'},
+                    },
+                    'rollout': {'variants': {'missing': 1.0}},
+                    'overrides': [],
+                }
+            )
 
     def test_validation_override_references_missing_variant(self):
         from pydantic import TypeAdapter
 
         adapter = TypeAdapter(VariableConfig)
         with pytest.raises(ValidationError, match="Variant 'missing' present in `overrides"):
-            adapter.validate_python({
-                'name': 'test',
-                'variants': {
-                    'v1': {'key': 'v1', 'serialized_value': '"value"'},
-                },
-                'rollout': {'variants': {'v1': 1.0}},
-                'overrides': [
-                    {
-                        'conditions': [],
-                        'rollout': {'variants': {'missing': 1.0}},
-                    }
-                ],
-            })
+            adapter.validate_python(
+                {
+                    'name': 'test',
+                    'variants': {
+                        'v1': {'key': 'v1', 'serialized_value': '"value"'},
+                    },
+                    'rollout': {'variants': {'v1': 1.0}},
+                    'overrides': [
+                        {
+                            'conditions': [],
+                            'rollout': {'variants': {'missing': 1.0}},
+                        }
+                    ],
+                }
+            )
 
 
 # =============================================================================
@@ -425,29 +433,32 @@ class TestVariablesConfig:
 
         adapter = TypeAdapter(VariablesConfig)
         with pytest.raises(ValidationError, match='invalid lookup key'):
-            adapter.validate_python({
+            adapter.validate_python(
+                {
+                    'variables': {
+                        'wrong_key': {
+                            'name': 'correct_name',
+                            'variants': {'v1': {'key': 'v1', 'serialized_value': '"value"'}},
+                            'rollout': {'variants': {'v1': 1.0}},
+                            'overrides': [],
+                        }
+                    }
+                }
+            )
+
+    def test_validate_python(self):
+        config = VariablesConfig.validate_python(
+            {
                 'variables': {
-                    'wrong_key': {
-                        'name': 'correct_name',
+                    'my_var': {
+                        'name': 'my_var',
                         'variants': {'v1': {'key': 'v1', 'serialized_value': '"value"'}},
                         'rollout': {'variants': {'v1': 1.0}},
                         'overrides': [],
                     }
                 }
-            })
-
-    def test_validate_python(self):
-        data = {
-            'variables': {
-                'my_var': {
-                    'name': 'my_var',
-                    'variants': {'v1': {'key': 'v1', 'serialized_value': '"value"'}},
-                    'rollout': {'variants': {'v1': 1.0}},
-                    'overrides': [],
-                }
             }
-        }
-        config = VariablesConfig.validate_python(data)
+        )
         assert isinstance(config, VariablesConfig)
         assert 'my_var' in config.variables
 
@@ -638,9 +649,9 @@ REMOTE_TOKEN = 'pylf_v1_local_test_token'
 
 @pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
 class TestLogfireRemoteVariableProvider:
-    def test_get_serialized_value_basic(self, requests_mock):
-        # Mock the API response
-        requests_mock.get(
+    def test_get_serialized_value_basic(self) -> None:
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
             'http://localhost:8000/v1/variables/',
             json={
                 'variables': {
@@ -661,40 +672,44 @@ class TestLogfireRemoteVariableProvider:
                 }
             },
         )
-        provider = LogfireRemoteVariableProvider(
-            base_url=REMOTE_BASE_URL,
-            token=REMOTE_TOKEN,
-            block_before_first_fetch=True,
-            polling_interval=timedelta(seconds=60),
-        )
-        try:
-            result = provider.get_serialized_value('test_var')
-            assert result.value == '"remote_value"'
-            assert result.variant == 'default'
-        finally:
-            provider.shutdown()
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                block_before_first_fetch=True,
+                polling_interval=timedelta(seconds=60),
+            )
+            try:
+                result = provider.get_serialized_value('test_var')
+                assert result.value == '"remote_value"'
+                assert result.variant == 'default'
+            finally:
+                provider.shutdown()
 
-    def test_get_serialized_value_missing_config_no_block(self, requests_mock):
-        requests_mock.get(
+    def test_get_serialized_value_missing_config_no_block(self) -> None:
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
             'http://localhost:8000/v1/variables/',
             json={'variables': {}},
         )
-        provider = LogfireRemoteVariableProvider(
-            base_url=REMOTE_BASE_URL,
-            token=REMOTE_TOKEN,
-            block_before_first_fetch=False,
-            polling_interval=timedelta(seconds=60),
-        )
-        try:
-            # Without blocking, config might not be fetched yet
-            result = provider.get_serialized_value('test_var')
-            # Should return missing_config if not fetched
-            assert result._reason in ('missing_config', 'resolved', 'unrecognized_variable')
-        finally:
-            provider.shutdown()
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                block_before_first_fetch=False,
+                polling_interval=timedelta(seconds=60),
+            )
+            try:
+                # Without blocking, config might not be fetched yet
+                result = provider.get_serialized_value('test_var')
+                # Should return missing_config if not fetched
+                assert result._reason in ('missing_config', 'resolved', 'unrecognized_variable')
+            finally:
+                provider.shutdown()
 
-    def test_unrecognized_variable(self, requests_mock):
-        requests_mock.get(
+    def test_unrecognized_variable(self) -> None:
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
             'http://localhost:8000/v1/variables/',
             json={
                 'variables': {
@@ -712,54 +727,60 @@ class TestLogfireRemoteVariableProvider:
                 }
             },
         )
-        provider = LogfireRemoteVariableProvider(
-            base_url=REMOTE_BASE_URL,
-            token=REMOTE_TOKEN,
-            block_before_first_fetch=True,
-            polling_interval=timedelta(seconds=60),
-        )
-        try:
-            result = provider.get_serialized_value('nonexistent_var')
-            assert result.value is None
-            assert result._reason == 'unrecognized_variable'
-        finally:
-            provider.shutdown()
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                block_before_first_fetch=True,
+                polling_interval=timedelta(seconds=60),
+            )
+            try:
+                result = provider.get_serialized_value('nonexistent_var')
+                assert result.value is None
+                assert result._reason == 'unrecognized_variable'
+            finally:
+                provider.shutdown()
 
-    def test_shutdown_idempotent(self, requests_mock):
-        requests_mock.get(
+    def test_shutdown_idempotent(self) -> None:
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
             'http://localhost:8000/v1/variables/',
             json={'variables': {}},
         )
-        provider = LogfireRemoteVariableProvider(
-            base_url=REMOTE_BASE_URL,
-            token=REMOTE_TOKEN,
-            block_before_first_fetch=False,
-            polling_interval=timedelta(seconds=60),
-        )
-        provider.shutdown()
-        provider.shutdown()  # Should not raise
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                block_before_first_fetch=False,
+                polling_interval=timedelta(seconds=60),
+            )
+            provider.shutdown()
+            provider.shutdown()  # Should not raise
 
-    def test_refresh_with_force(self, requests_mock):
-        requests_mock.get(
+    def test_refresh_with_force(self) -> None:
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
             'http://localhost:8000/v1/variables/',
             json={'variables': {}},
         )
-        provider = LogfireRemoteVariableProvider(
-            base_url=REMOTE_BASE_URL,
-            token=REMOTE_TOKEN,
-            block_before_first_fetch=False,
-            polling_interval=timedelta(seconds=60),
-        )
-        try:
-            provider.refresh(force=True)
-            result = provider.get_serialized_value('test_var')
-            assert result._reason == 'unrecognized_variable'
-        finally:
-            provider.shutdown()
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                block_before_first_fetch=False,
+                polling_interval=timedelta(seconds=60),
+            )
+            try:
+                provider.refresh(force=True)
+                result = provider.get_serialized_value('test_var')
+                assert result._reason == 'unrecognized_variable'
+            finally:
+                provider.shutdown()
 
-    def test_rollout_returns_none_variant(self, requests_mock):
+    def test_rollout_returns_none_variant(self) -> None:
         """Test case where rollout returns None (no variant selected)."""
-        requests_mock.get(
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
             'http://localhost:8000/v1/variables/',
             json={
                 'variables': {
@@ -778,31 +799,31 @@ class TestLogfireRemoteVariableProvider:
                 }
             },
         )
-        provider = LogfireRemoteVariableProvider(
-            base_url=REMOTE_BASE_URL,
-            token=REMOTE_TOKEN,
-            block_before_first_fetch=True,
-            polling_interval=timedelta(seconds=60),
-        )
-        try:
-            result = provider.get_serialized_value('partial_var')
-            assert result.value is None
-            assert result._reason == 'resolved'
-        finally:
-            provider.shutdown()
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                block_before_first_fetch=True,
+                polling_interval=timedelta(seconds=60),
+            )
+            try:
+                result = provider.get_serialized_value('partial_var')
+                assert result.value is None
+                assert result._reason == 'resolved'
+            finally:
+                provider.shutdown()
 
 
 @pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
 class TestLogfireRemoteVariableProviderErrors:
-    def test_handles_unexpected_response(self, requests_mock):
-        requests_mock.get(
+    def test_handles_unexpected_response(self) -> None:
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
             'http://localhost:8000/v1/variables/',
             status_code=500,
             json={'error': 'Internal Server Error'},
         )
-        import warnings
-
-        with warnings.catch_warnings():
+        with warnings.catch_warnings(), request_mocker:
             warnings.simplefilter('ignore', RuntimeWarning)
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
@@ -817,14 +838,13 @@ class TestLogfireRemoteVariableProviderErrors:
             finally:
                 provider.shutdown()
 
-    def test_handles_validation_error(self, requests_mock):
-        requests_mock.get(
+    def test_handles_validation_error(self) -> None:
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
             'http://localhost:8000/v1/variables/',
             json={'invalid_field': 'this is not valid VariablesConfig data'},
         )
-        import warnings
-
-        with warnings.catch_warnings():
+        with warnings.catch_warnings(), request_mocker:
             warnings.simplefilter('ignore', RuntimeWarning)
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
@@ -1182,7 +1202,7 @@ class TestLazyImports:
         from logfire import variables
 
         with pytest.raises(AttributeError, match="has no attribute 'NonExistent'"):
-            variables.NonExistent  # type: ignore
+            variables.NonExistent
 
 
 # =============================================================================

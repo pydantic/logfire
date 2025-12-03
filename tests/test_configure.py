@@ -852,7 +852,7 @@ def test_config_serializable():
         # Check that the full set of dataclass fields is known.
         # If a new field appears here, make sure it gets deserialized properly in configure, and tested here.
         assert dataclasses.is_dataclass(getattr(GLOBAL_CONFIG, field.name)) == (
-            field.name in ['console', 'sampling', 'scrubbing', 'advanced', 'code_source']
+            field.name in ['console', 'sampling', 'scrubbing', 'advanced', 'code_source', 'variables']
         )
 
     serialized = serialize_config()
