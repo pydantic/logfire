@@ -110,6 +110,7 @@ Because it found something more "sole-ful!"\
                     'request': {
                         'method': 'tools/list',
                         'params': {
+                            'task': None,
                             'meta': {
                                 'progressToken': None,
                                 'traceparent': '00-00000000000000000000000000000002-0000000000000005-01',
@@ -241,6 +242,7 @@ Because it found something more "sole-ful!"\
                     'request': {
                         'method': 'sampling/createMessage',
                         'params': {
+                            'task': None,
                             'meta': {
                                 'progressToken': None,
                                 'traceparent': '00-00000000000000000000000000000002-0000000000000017-01',
@@ -254,6 +256,7 @@ Because it found something more "sole-ful!"\
                                         'annotations': None,
                                         'meta': None,
                                     },
+                                    'meta': None,
                                 }
                             ],
                             'modelPreferences': None,
@@ -263,6 +266,8 @@ Because it found something more "sole-ful!"\
                             'maxTokens': 16384,
                             'stopSequences': None,
                             'metadata': None,
+                            'tools': None,
+                            'toolChoice': None,
                         },
                         'jsonrpc': '2.0',
                         'id': 0,
@@ -298,6 +303,7 @@ Because it found something more "sole-ful!"\
                     'request': {
                         'method': 'sampling/createMessage',
                         'params': {
+                            'task': None,
                             'meta': None,
                             'messages': [
                                 {
@@ -308,6 +314,7 @@ Because it found something more "sole-ful!"\
                                         'annotations': None,
                                         'meta': None,
                                     },
+                                    'meta': None,
                                 }
                             ],
                             'modelPreferences': None,
@@ -317,6 +324,8 @@ Because it found something more "sole-ful!"\
                             'maxTokens': 16384,
                             'stopSequences': None,
                             'metadata': None,
+                            'tools': None,
+                            'toolChoice': None,
                         },
                     },
                     'rpc.system': 'jsonrpc',
@@ -423,6 +432,7 @@ Because it found something more "sole-ful!"\
                     'request': {
                         'method': 'tools/call',
                         'params': {
+                            'task': None,
                             'meta': {
                                 'progressToken': None,
                                 'traceparent': '00-00000000000000000000000000000002-000000000000000f-01',
@@ -470,7 +480,7 @@ Because it found something more "sole-ful!"\
                 'attributes': {
                     'request': {
                         'method': 'tools/call',
-                        'params': {'meta': None, 'name': 'joker', 'arguments': {'theme': 'socks'}},
+                        'params': {'task': None, 'meta': None, 'name': 'joker', 'arguments': {'theme': 'socks'}},
                     },
                     'rpc.system': 'jsonrpc',
                     'rpc.jsonrpc.version': '2.0',
@@ -540,6 +550,7 @@ Because it found something more "sole-ful!"\
                     'request': {
                         'method': 'tools/list',
                         'params': {
+                            'task': None,
                             'meta': {
                                 'progressToken': None,
                                 'traceparent': '00-00000000000000000000000000000002-000000000000001d-01',
