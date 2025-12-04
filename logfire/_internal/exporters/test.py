@@ -12,9 +12,9 @@ from pathlib import Path
 from typing import Any, cast
 
 from opentelemetry import trace
-from opentelemetry.sdk._logs import LogData
-from opentelemetry.sdk._logs._internal.export import LogExportResult
-from opentelemetry.sdk._logs.export import InMemoryLogExporter
+from opentelemetry.sdk._logs import ReadableLogRecord
+from opentelemetry.sdk._logs._internal.export import LogRecordExportResult
+from opentelemetry.sdk._logs.export import InMemoryLogRecordExporter
 from opentelemetry.sdk.trace import Event, ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 
@@ -178,7 +178,7 @@ def build_attributes(
     return attributes
 
 
-class TestLogExporter(InMemoryLogExporter):
+class TestLogExporter(InMemoryLogRecordExporter):
     """A LogExporter that stores exported logs in a list for asserting in tests."""
 
     # NOTE: Avoid test discovery by pytest.
@@ -188,7 +188,7 @@ class TestLogExporter(InMemoryLogExporter):
         super().__init__()
         self.ns_timestamp_generator = ns_timestamp_generator
 
-    def export(self, batch: typing.Sequence[LogData]) -> LogExportResult:
+    def export(self, batch: typing.Sequence[ReadableLogRecord]) -> LogRecordExportResult:
         for log in batch:
             log.log_record.timestamp = self.ns_timestamp_generator()
             log.log_record.observed_timestamp = self.ns_timestamp_generator()
@@ -211,7 +211,7 @@ class TestLogExporter(InMemoryLogExporter):
             parse_json_attributes=parse_json_attributes,
         )
 
-        def build_log(log_data: LogData) -> dict[str, Any]:
+        def build_log(log_data: ReadableLogRecord) -> dict[str, Any]:
             log_record = log_data.log_record
             res = {
                 'body': log_record.body,
@@ -226,12 +226,12 @@ class TestLogExporter(InMemoryLogExporter):
             }
 
             if include_resources:  # pragma: no branch
-                resource_attributes = _build_attributes(log_record.resource.attributes)
+                resource_attributes = _build_attributes(log_data.resource.attributes)
                 res['resource'] = {
                     'attributes': resource_attributes,
                 }
 
-            if include_instrumentation_scope:  # pragma: no branch
+            if include_instrumentation_scope and log_data.instrumentation_scope:  # pragma: no branch
                 res['instrumentation_scope'] = log_data.instrumentation_scope.name
 
             return res

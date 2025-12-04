@@ -45,8 +45,8 @@ classifiers = [
     "Framework :: OpenTelemetry :: Instrumentations",
 ]
 dependencies = [
-    "opentelemetry-sdk >= 1.35.0, < 1.39.0",
-    "opentelemetry-exporter-otlp-proto-http >= 1.35.0, < 1.39.0",
+    "opentelemetry-sdk >= 1.39.0, < 1.40.0",
+    "opentelemetry-exporter-otlp-proto-http >= 1.39.0, < 1.40.0",
     "opentelemetry-instrumentation >= 0.41b0",
     "rich >= 13.4.2",
     "protobuf >= 4.23.4",
@@ -295,8 +295,9 @@ filterwarnings = [
     "ignore:The `capture_response_headers` parameter is deprecated. Use `capture_headers` instead.:DeprecationWarning",
     # kombu using deprecated redis API
     "ignore:Call to 'get_connection' function with deprecated usage of input argument/s.*:DeprecationWarning",
-    # OTel logs going through weird deprecation process
-    "ignore::opentelemetry.sdk._logs._internal.LogDeprecatedInitWarning",
+    # OpenTelemetry event logger stuff being used by Pydantic AI
+    "ignore:You should use `\\w*(L|l)ogger\\w*` instead. Deprecated since version 1.39.0 and will be removed in a future release.:DeprecationWarning",
+
 ]
 DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_test_site.settings"
 

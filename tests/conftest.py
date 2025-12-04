@@ -26,8 +26,9 @@ from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 # Emit both new and old semantic convention attribute names
 os.environ['OTEL_SEMCONV_STABILITY_OPT_IN'] = 'http/dup'
 
-# Ensure that LOGFIRE_TOKEN in the environment doesn't interfere
+# Ensure that these variables in the environment don't interfere
 os.environ['LOGFIRE_TOKEN'] = ''
+os.environ.pop('OPENAI_BASE_URL', None)
 
 # https://github.com/openai/openai-python/issues/2644
 sys.modules['openai.resources.evals'] = unittest.mock.MagicMock()

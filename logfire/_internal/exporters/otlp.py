@@ -13,8 +13,8 @@ from typing import Any
 
 import requests.exceptions
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk._logs import LogData
-from opentelemetry.sdk._logs._internal.export import LogExportResult
+from opentelemetry.sdk._logs import ReadableLogRecord
+from opentelemetry.sdk._logs._internal.export import LogRecordExportResult
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult
 from requests import Session
@@ -263,9 +263,9 @@ class QuietSpanExporter(WrapperSpanExporter):
 class QuietLogExporter(WrapperLogExporter):
     """A LogExporter that catches request exceptions to prevent OTEL from logging a huge traceback."""
 
-    def export(self, batch: Sequence[LogData]):
+    def export(self, batch: Sequence[ReadableLogRecord]):
         try:
             return super().export(batch)
         except requests.exceptions.RequestException:
             # Rely on OTLPExporterHttpSession/DiskRetryer to log this kind of error periodically.
-            return LogExportResult.FAILURE
+            return LogRecordExportResult.FAILURE

@@ -4,7 +4,7 @@ import dataclasses
 import functools
 from dataclasses import dataclass
 from threading import Lock
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, overload
 from weakref import WeakSet
 
 from opentelemetry import trace
@@ -93,7 +93,17 @@ class ProxyLogger(Logger):
     schema_url: str | None = None
     attributes: _ExtendedAttributes | None = None
 
-    def emit(self, record: LogRecord) -> None:  # type: ignore
+    @overload
+    def emit(self, record: LogRecord) -> None: ...
+
+    @overload
+    def emit(self, **kwargs: Any) -> None: ...
+
+    def emit(self, record: LogRecord | None = None, **kwargs: Any) -> None:  # type: ignore
+        # If record is not provided, create one from kwargs
+        if record is None:
+            record = LogRecord(**kwargs)
+
         if record.severity_number is not None:
             if record.severity_number.value < self.min_level:
                 return
@@ -109,8 +119,6 @@ class ProxyLogger(Logger):
             record.trace_id = span_context.trace_id
             record.span_id = span_context.span_id
             record.trace_flags = span_context.trace_flags
-        if hasattr(self.logger, 'resource') and hasattr(record, 'resource'):
-            record.resource = self.logger.resource  # type: ignore
         self.logger.emit(record)
 
     def set_logger(self, provider: LoggerProvider) -> None:

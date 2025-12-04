@@ -122,6 +122,6 @@ def capfire() -> CaptureLogfire:
 
 def get_collected_metrics(metrics_reader: InMemoryMetricReader) -> list[dict[str, Any]]:
     """Get the collected metrics as a list of dictionaries."""
-    exported_metrics = json.loads(cast(MetricsData, metrics_reader.get_metrics_data()).to_json())  # type: ignore
+    exported_metrics = json.loads(cast(MetricsData, metrics_reader.get_metrics_data()).to_json())
     [resource_metric] = exported_metrics['resource_metrics']
     return [metric for scope_metric in resource_metric['scope_metrics'] for metric in scope_metric['metrics']]
