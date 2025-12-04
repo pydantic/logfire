@@ -137,6 +137,24 @@ This should be passed as the `preferred_temporality` argument of metric readers 
 which send to the Logfire backend.
 """
 
+DEFAULT_VIEWS: Sequence[View] = (
+    View(
+        instrument_type=Histogram,
+        aggregation=ExponentialBucketHistogramAggregation(),
+    ),
+    View(
+        instrument_type=UpDownCounter,
+        instrument_name='http.server.active_requests',
+        attribute_keys={
+            'url.scheme',
+            'http.scheme',
+            'http.flavor',
+            'http.method',
+            'http.request.method',
+        },
+    ),
+)
+
 
 @dataclass
 class ConsoleOptions:
@@ -229,6 +247,9 @@ class MetricsOptions:
 
     collect_in_spans: bool = False
     """Experimental setting to add up the values of counter and histogram metrics in active spans."""
+
+    views: Sequence[View] = DEFAULT_VIEWS
+    """Sequence of views to be enabled for metric collection"""
 
 
 @dataclass
@@ -1049,26 +1070,11 @@ class LogfireConfig(_LogfireConfigData):
                 log_record_processors.append(logfire_log_processor)
 
             if metric_readers is not None:
+                assert isinstance(self.metrics, MetricsOptions)
                 meter_provider = MeterProvider(
                     metric_readers=metric_readers,
                     resource=resource,
-                    views=[
-                        View(
-                            instrument_type=Histogram,
-                            aggregation=ExponentialBucketHistogramAggregation(),
-                        ),
-                        View(
-                            instrument_type=UpDownCounter,
-                            instrument_name='http.server.active_requests',
-                            attribute_keys={
-                                'url.scheme',
-                                'http.scheme',
-                                'http.flavor',
-                                'http.method',
-                                'http.request.method',
-                            },
-                        ),
-                    ],
+                    views=self.metrics.views,
                 )
             else:
                 meter_provider = NoOpMeterProvider()
