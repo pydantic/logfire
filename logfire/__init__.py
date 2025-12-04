@@ -91,6 +91,9 @@ metric_counter_callback = DEFAULT_LOGFIRE_INSTANCE.metric_counter_callback
 metric_gauge_callback = DEFAULT_LOGFIRE_INSTANCE.metric_gauge_callback
 metric_up_down_counter_callback = DEFAULT_LOGFIRE_INSTANCE.metric_up_down_counter_callback
 
+# Variables
+var = DEFAULT_LOGFIRE_INSTANCE.var
+
 
 def loguru_handler() -> Any:
     """Create a **Logfire** handler for Loguru.
@@ -176,6 +179,7 @@ __all__ = (
     'SamplingOptions',
     'MetricsOptions',
     'VariablesOptions',
+    'var',
     'logfire_info',
     'get_baggage',
     'set_baggage',

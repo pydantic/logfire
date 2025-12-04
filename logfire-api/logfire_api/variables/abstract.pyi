@@ -14,15 +14,6 @@ class VariableResolutionDetails(Generic[T_co]):
     value: T_co
     variant: str | None = ...
     exception: Exception | None = ...
-    def with_value(self, v: T) -> VariableResolutionDetails[T]:
-        """Return a copy of this result with a different value.
-
-        Args:
-            v: The new value to use.
-
-        Returns:
-            A new VariableResolutionDetails with the given value.
-        """
 
 class VariableProvider(ABC):
     """Abstract base class for variable value providers."""
@@ -53,6 +44,7 @@ class VariableProvider(ABC):
     def shutdown(self) -> None:
         """Clean up any resources used by the provider."""
 
+@dataclass
 class NoOpVariableProvider(VariableProvider):
     """A variable provider that always returns None, used when no provider is configured."""
     def get_serialized_value(self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> VariableResolutionDetails[str | None]:

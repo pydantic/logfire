@@ -2,6 +2,7 @@ import re
 from _typeshed import Incomplete
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from logfire.variables.variable import Variable as Variable
 from typing import Any, Literal
 
@@ -109,6 +110,57 @@ class RolloutOverride:
     rollout: Rollout
 
 @dataclass(kw_only=True)
+class RolloutStage:
+    """A single stage in a scheduled rollout sequence.
+
+    Rollout schedules progress through stages sequentially, with each stage having its own
+    duration, rollout configuration, and optional conditional overrides. This allows for
+    gradual rollouts where traffic percentages can increase over time.
+
+    Example: A three-stage rollout might have:
+    - Stage 1: 5% of traffic for 1 hour (canary)
+    - Stage 2: 25% of traffic for 4 hours (early adopters)
+    - Stage 3: 100% of traffic (full rollout)
+    """
+    duration: timedelta
+    rollout: Rollout
+    overrides: list[RolloutOverride]
+
+@dataclass(kw_only=True)
+class RolloutSchedule:
+    """A time-based progression through multiple rollout stages.
+
+    Rollout schedules enable gradual rollouts where the variant selection weights
+    change over time. Starting from `start_at`, the schedule progresses through
+    each stage sequentially, with each stage lasting for its specified duration.
+
+    Use cases:
+    - Canary deployments: Start with 1% traffic, increase to 10%, then 100%
+    - Time-limited experiments: Run an A/B test for a specific duration
+    - Phased feature launches: Gradually expose new features to more users
+
+    The schedule is considered active when `start_at` is set and is in the past.
+    Once all stages have completed (i.e., current time exceeds start_at plus the
+    sum of all stage durations), the base rollout and overrides from the parent
+    VariableConfig are used.
+    """
+    start_at: datetime | None
+    stages: list[RolloutStage]
+    def get_active_stage(self, now: datetime | None = None) -> RolloutStage | None:
+        """Determine the currently active stage based on the current time.
+
+        Args:
+            now: The current datetime. If None, uses datetime.now() with the same
+                timezone as start_at (or naive if start_at is naive).
+
+        Returns:
+            The currently active RolloutStage, or None if:
+            - The schedule is not active (start_at is None)
+            - The schedule hasn't started yet (start_at is in the future)
+            - The schedule has completed (all stage durations have elapsed)
+        """
+
+@dataclass(kw_only=True)
 class VariableConfig:
     """Configuration for a single managed variable including variants and rollout rules."""
     name: VariableName
@@ -116,15 +168,25 @@ class VariableConfig:
     rollout: Rollout
     overrides: list[RolloutOverride]
     json_schema: dict[str, Any] | None = ...
+    schedule: RolloutSchedule | None = ...
     def resolve_variant(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> Variant | None:
-        """Evaluate a managed variable configuration and return the serialized value.
+        """Evaluate a managed variable configuration and return the selected variant.
+
+        The resolution process:
+        1. Check if there's an active rollout schedule with a current stage
+        2. If a schedule stage is active, use that stage's rollout and overrides
+        3. Otherwise, use the base rollout and overrides from this config
+        4. Evaluate overrides in order; the first match takes precedence
+        5. Select a variant based on the rollout weights (deterministic if targeting_key is provided)
 
         Args:
-            targeting_key: A string identifying the subject of evaluation (e.g., user ID)
-            attributes: Additional attributes for condition matching
+            targeting_key: A string identifying the subject of evaluation (e.g., user ID).
+                When provided, ensures deterministic variant selection for the same key.
+            attributes: Additional attributes for condition matching in override rules.
 
         Returns:
-            The serialized value of the selected variant, or None if no variant is selected
+            The selected Variant, or None if no variant is selected (can happen when
+            rollout weights sum to less than 1.0).
         """
 
 @dataclass(kw_only=True)

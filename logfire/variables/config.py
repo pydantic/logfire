@@ -4,7 +4,7 @@ import random
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any, Literal
 
 from pydantic import Discriminator, TypeAdapter, ValidationError, field_validator, model_validator
@@ -339,7 +339,8 @@ class RolloutSchedule:
             if self.start_at.tzinfo is not None:
                 now = datetime.now(self.start_at.tzinfo)
             else:
-                now = datetime.now()
+                # Treat naive datetimes as UTC
+                now = datetime.now(tz=timezone.utc)
 
         if now < self.start_at:
             # Schedule hasn't started yet

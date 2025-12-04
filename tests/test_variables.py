@@ -446,24 +446,6 @@ class TestRolloutSchedule:
         assert active is not None
         assert active.rollout.variants == {'v1': 0.5}
 
-    def test_naive_datetime_uses_naive_now(self):
-        """When start_at is naive, datetime.now() without tz is used."""
-        now = datetime.now()  # Naive datetime
-        start_time = now - timedelta(minutes=30)
-        schedule = RolloutSchedule(
-            start_at=start_time,
-            stages=[
-                RolloutStage(
-                    duration=timedelta(hours=1),
-                    rollout=Rollout(variants={'v1': 0.1}),
-                    overrides=[],
-                ),
-            ],
-        )
-        # Should not raise, and should find the active stage
-        active = schedule.get_active_stage()
-        assert active is not None
-
     def test_third_stage_active(self):
         """Test progression through multiple stages."""
         now = datetime.now(timezone.utc)

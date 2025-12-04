@@ -132,6 +132,10 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire_api.VariablesOptions()
     logfire__all__.remove('VariablesOptions')
 
+    assert hasattr(logfire_api, 'var')
+    logfire_api.var(name='test_var', default='default', type=str)
+    logfire__all__.remove('var')
+
     assert hasattr(logfire_api, 'PydanticPlugin')
     logfire_api.PydanticPlugin()
     logfire__all__.remove('PydanticPlugin')
