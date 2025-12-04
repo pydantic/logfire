@@ -7,7 +7,6 @@ import pytest
 import requests.exceptions
 from dirty_equals import IsPartialDict, IsStr
 from inline_snapshot import snapshot
-from opentelemetry import version as otel_version
 from opentelemetry._logs import LogRecord, SeverityNumber, get_logger, get_logger_provider
 from opentelemetry.sdk._logs import ReadableLogRecord
 from opentelemetry.sdk._logs.export import (
@@ -17,14 +16,11 @@ from opentelemetry.sdk._logs.export import (
     SimpleLogRecordProcessor,
 )
 from opentelemetry.sdk.resources import Resource
-from packaging.version import Version
 
 import logfire
 from logfire import suppress_instrumentation
 from logfire._internal.exporters.otlp import QuietLogExporter
 from logfire.testing import TestLogExporter
-
-OTEL_VERSION = Version(otel_version.__version__)
 
 
 def test_otel_logs_supress_scopes(logs_exporter: InMemoryLogRecordExporter, config_kwargs: dict[str, Any]) -> None:
@@ -162,7 +158,6 @@ def test_quiet_log_exporter(caplog: pytest.LogCaptureFixture):
     assert connection_error_exporter.shutdown_called
 
 
-@pytest.mark.skipif(OTEL_VERSION < Version('1.38.0'), reason='emit() kwargs support requires opentelemetry >= 1.38.0')
 def test_log_events_with_kwargs(logs_exporter: TestLogExporter) -> None:
     logger = get_logger('scope')
     with logfire.span('span'):
