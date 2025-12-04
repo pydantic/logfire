@@ -1449,7 +1449,7 @@ class LogfireCredentials:
                 [f'{index}. {item[0]}/{item[1]}' for index, item in project_choices.items()]
             )
             selected_project_key = Prompt.ask(
-                f'Please select one of the following projects by number:\n{project_choices_str}\n',
+                f"Please select one of the following projects by number (requires the 'write_token' permission):\n{project_choices_str}\n",
                 choices=list(project_choices.keys()),
                 default='1',
             )

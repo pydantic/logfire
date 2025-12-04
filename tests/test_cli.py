@@ -500,6 +500,8 @@ def test_projects_list(default_credentials: Path, capsys: pytest.CaptureFixture[
         output = capsys.readouterr().err
         assert output.splitlines() == snapshot(
             [
+                "List of the projects you have write access to (requires the 'write_token' permission):",
+                '',
                 ' Organization   | Project',
                 '----------------|--------',
                 ' test-org       | test-pr',
@@ -1208,7 +1210,7 @@ def test_projects_use_without_project_name(
         assert prompt_mock.mock_calls == [
             call(
                 (
-                    'Please select one of the following projects by number:\n'
+                    "Please select one of the following projects by number (requires the 'write_token' permission):\n"
                     '1. fake_org/myproject\n'
                     '2. fake_org/otherproject\n'
                 ),
@@ -1276,7 +1278,7 @@ def test_projects_use_multiple(
         assert prompt_mock.mock_calls == [
             call(
                 (
-                    'Please select one of the following projects by number:\n'
+                    "Please select one of the following projects by number (requires the 'write_token' permission):\n"
                     '1. fake_org/myproject\n'
                     '2. other_org/myproject\n'
                 ),
@@ -1377,7 +1379,7 @@ def test_projects_use_wrong_project(
                 default='y',
             ),
             call(
-                'Please select one of the following projects by number:\n1. fake_org/myproject\n',
+                "Please select one of the following projects by number (requires the 'write_token' permission):\n1. fake_org/myproject\n",
                 choices=['1'],
                 default='1',
             ),
