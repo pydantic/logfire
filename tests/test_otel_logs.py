@@ -8,6 +8,7 @@ import pytest
 import requests.exceptions
 from dirty_equals import IsPartialDict, IsStr
 from inline_snapshot import snapshot
+from opentelemetry import version as otel_version
 from opentelemetry._events import get_event_logger_provider
 from opentelemetry._logs import SeverityNumber, get_logger, get_logger_provider
 from opentelemetry.sdk._logs import LogData, LogRecord
@@ -18,11 +19,14 @@ from opentelemetry.sdk._logs.export import (
     SimpleLogRecordProcessor,
 )
 from opentelemetry.sdk.resources import Resource
+from packaging.version import Version
 
 import logfire
 from logfire import suppress_instrumentation
 from logfire._internal.exporters.otlp import QuietLogExporter
 from logfire.testing import TestLogExporter
+
+OTEL_VERSION = Version(otel_version.__version__)
 
 
 def test_otel_logs_supress_scopes(logs_exporter: InMemoryLogExporter, config_kwargs: dict[str, Any]) -> None:
@@ -109,7 +113,7 @@ def test_log_events(logs_exporter: TestLogExporter) -> None:
         )
         logger.emit(record)
 
-    assert logs_exporter.exported_logs_as_dicts(include_instrumentation_scope=True) == snapshot(
+    assert logs_exporter.exported_logs_as_dicts(include_resources=True, include_instrumentation_scope=True) == snapshot(
         [
             {
                 'body': 'body',
@@ -121,6 +125,20 @@ def test_log_events(logs_exporter: TestLogExporter) -> None:
                 'trace_id': 1,
                 'span_id': 1,
                 'trace_flags': 1,
+                'resource': {
+                    'attributes': {
+                        'service.instance.id': '00000000000000000000000000000000',
+                        'telemetry.sdk.language': 'python',
+                        'telemetry.sdk.name': 'opentelemetry',
+                        'telemetry.sdk.version': '0.0.0',
+                        'service.name': 'unknown_service',
+                        'process.pid': 1234,
+                        'process.runtime.name': 'cpython',
+                        'process.runtime.version': IsStr(),
+                        'process.runtime.description': IsStr(),
+                        'service.version': IsStr(),
+                    },
+                },
                 'instrumentation_scope': 'scope',
             }
         ]
@@ -157,6 +175,7 @@ def test_no_events_sdk():
         logfire_instance.shutdown()
 
 
+@pytest.mark.skipif(OTEL_VERSION < Version('1.38.0'), reason='emit() kwargs support requires opentelemetry >= 1.38.0')
 def test_log_events_with_kwargs(logs_exporter: TestLogExporter) -> None:
     logger = get_logger('scope')
     with logfire.span('span'):
