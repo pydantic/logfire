@@ -169,3 +169,46 @@ def test_no_events_sdk():
         assert logfire_instance.config.get_event_logger_provider() is None
         logfire_instance.force_flush()
         logfire_instance.shutdown()
+
+
+def test_log_events_with_kwargs(logs_exporter: TestLogExporter) -> None:
+    logger = get_logger('scope')
+    with logfire.span('span'):
+        logger.emit(
+            event_name='my_event',
+            timestamp=2,
+            severity_number=SeverityNumber.INFO,
+            body='body',
+            attributes={'key': 'value'},
+        )
+
+    assert logs_exporter.exported_logs_as_dicts(include_resources=True, include_instrumentation_scope=True) == snapshot(
+        [
+            {
+                'body': 'body',
+                'severity_number': 9,
+                'severity_text': None,
+                'attributes': IsPartialDict({'key': 'value'}),
+                'timestamp': 2000000000,
+                'observed_timestamp': 3000000000,
+                'trace_id': 1,
+                'span_id': 1,
+                'trace_flags': 1,
+                'resource': {
+                    'attributes': {
+                        'service.instance.id': '00000000000000000000000000000000',
+                        'telemetry.sdk.language': 'python',
+                        'telemetry.sdk.name': 'opentelemetry',
+                        'telemetry.sdk.version': '0.0.0',
+                        'service.name': 'unknown_service',
+                        'process.pid': 1234,
+                        'process.runtime.name': 'cpython',
+                        'process.runtime.version': IsStr(),
+                        'process.runtime.description': IsStr(),
+                        'service.version': IsStr(),
+                    },
+                },
+                'instrumentation_scope': 'scope',
+            }
+        ]
+    )
