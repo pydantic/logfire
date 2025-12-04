@@ -816,11 +816,7 @@ class LogfireConfig(_LogfireConfigData):
             ):
                 otel_resource_attributes[RESOURCE_ATTRIBUTES_CODE_WORK_DIR] = os.getcwd()
 
-            if emscripten:  # pragma: no cover
-                # Resource.create creates a thread pool which fails in Pyodide / Emscripten
-                resource = Resource(otel_resource_attributes)
-            else:
-                resource = Resource.create(otel_resource_attributes)
+            resource = Resource.create(otel_resource_attributes)
 
             # Set service instance ID to a random UUID if it hasn't been set already.
             # Setting it above would have also mostly worked and allowed overriding via OTEL_RESOURCE_ATTRIBUTES,
