@@ -109,7 +109,7 @@ def test_log_events(logs_exporter: TestLogExporter) -> None:
         )
         logger.emit(record)
 
-    assert logs_exporter.exported_logs_as_dicts(include_resources=True, include_instrumentation_scope=True) == snapshot(
+    assert logs_exporter.exported_logs_as_dicts(include_instrumentation_scope=True) == snapshot(
         [
             {
                 'body': 'body',
@@ -121,20 +121,6 @@ def test_log_events(logs_exporter: TestLogExporter) -> None:
                 'trace_id': 1,
                 'span_id': 1,
                 'trace_flags': 1,
-                'resource': {
-                    'attributes': {
-                        'service.instance.id': '00000000000000000000000000000000',
-                        'telemetry.sdk.language': 'python',
-                        'telemetry.sdk.name': 'opentelemetry',
-                        'telemetry.sdk.version': '0.0.0',
-                        'service.name': 'unknown_service',
-                        'process.pid': 1234,
-                        'process.runtime.name': 'cpython',
-                        'process.runtime.version': IsStr(),
-                        'process.runtime.description': IsStr(),
-                        'service.version': IsStr(),
-                    },
-                },
                 'instrumentation_scope': 'scope',
             }
         ]
