@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from typing import Any
-from unittest import mock
 
 import pytest
 import requests.exceptions
@@ -87,11 +86,8 @@ def test_otel_logs_min_level(config_kwargs: dict[str, Any]) -> None:
 
 def test_get_logger_provider() -> None:
     logger_provider = get_logger_provider()
-    # event_logger_provider = get_event_logger_provider()
     config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
     assert logger_provider is config.get_logger_provider()
-    # assert event_logger_provider is config.get_event_logger_provider()
-    # assert event_logger_provider._logger_provider is logger_provider
     resource = logger_provider.resource  # type: ignore
     assert isinstance(resource, Resource)
     assert get_logger('scope').resource is resource  # type: ignore
@@ -160,12 +156,3 @@ def test_quiet_log_exporter(caplog: pytest.LogCaptureFixture):
     assert not connection_error_exporter.shutdown_called
     exporter.shutdown()
     assert connection_error_exporter.shutdown_called
-
-
-def test_no_events_sdk():
-    assert logfire.DEFAULT_LOGFIRE_INSTANCE.config.get_event_logger_provider() is not None
-    with mock.patch.dict('sys.modules', {'opentelemetry.sdk._events': None}):
-        logfire_instance = logfire.configure(send_to_logfire=False, local=True)
-        assert logfire_instance.config.get_event_logger_provider() is None
-        logfire_instance.force_flush()
-        logfire_instance.shutdown()
