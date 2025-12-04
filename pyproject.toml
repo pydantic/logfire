@@ -295,6 +295,7 @@ filterwarnings = [
     "ignore:The `capture_response_headers` parameter is deprecated. Use `capture_headers` instead.:DeprecationWarning",
     # kombu using deprecated redis API
     "ignore:Call to 'get_connection' function with deprecated usage of input argument/s.*:DeprecationWarning",
+    # OpenTelemetry event logger stuff being used by Pydantic AI
     "ignore:You should use `\\w*(L|l)ogger\\w*` instead. Deprecated since version 1.39.0 and will be removed in a future release.:DeprecationWarning",
 
 ]
