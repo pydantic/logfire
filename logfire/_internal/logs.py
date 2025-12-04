@@ -119,8 +119,6 @@ class ProxyLogger(Logger):
             record.trace_id = span_context.trace_id
             record.span_id = span_context.span_id
             record.trace_flags = span_context.trace_flags
-        if hasattr(self.logger, 'resource') and hasattr(record, 'resource'):
-            record.resource = self.logger.resource  # type: ignore
         self.logger.emit(record)
 
     def set_logger(self, provider: LoggerProvider) -> None:

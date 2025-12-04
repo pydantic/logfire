@@ -1223,7 +1223,7 @@ def test_record_metrics_env_var(metrics_reader: InMemoryMetricReader) -> None:
             x: int
 
         MyModel(x=1)
-        assert metrics_reader.get_metrics_data() is None  # type: ignore
+        assert metrics_reader.get_metrics_data() is None
 
         GLOBAL_CONFIG._initialized = True  # type: ignore
 
