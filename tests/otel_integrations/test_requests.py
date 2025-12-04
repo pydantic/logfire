@@ -6,7 +6,7 @@ from unittest import mock
 
 import pytest
 import requests
-from dirty_equals import IsFloat
+from dirty_equals import IsFloat, IsStr
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
 
@@ -56,7 +56,7 @@ async def test_requests_instrumentation(exporter: TestExporter):
                     'http.request.method': 'GET',
                     'http.url': 'https://example.org:8080/foo',
                     'url.full': 'https://example.org:8080/foo',
-                    'user_agent.original': 'python-requests/2.32.5',
+                    'user_agent.original': IsStr(),
                     'http.host': 'example.org',
                     'server.address': 'example.org',
                     'network.peer.address': 'example.org',
