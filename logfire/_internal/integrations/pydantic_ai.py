@@ -29,6 +29,7 @@ def instrument_pydantic_ai(
         for k, v in dict(
             tracer_provider=logfire_instance.config.get_tracer_provider(),
             meter_provider=logfire_instance.config.get_meter_provider(),  # not in old versions
+            logger_provider=logfire_instance.config.get_logger_provider(),
         ).items()
         if k in expected_kwarg_names
     }
