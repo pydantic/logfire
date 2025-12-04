@@ -847,9 +847,9 @@ def test_config_serializable():
         sampling=logfire.SamplingOptions(),
         scrubbing=logfire.ScrubbingOptions(),
         code_source=logfire.CodeSource(repository='https://github.com/pydantic/logfire', revision='main'),
-        variables=logfire.VariablesOptions(include_baggage_in_context=False),
+        # variables=logfire.VariablesOptions(include_baggage_in_context=False),
         # TODO this fails: remote providers aren't pickleable, meaning they can't be used with ProcessPoolExecutor.
-        # variables=logfire.VariablesOptions.remote(block_before_first_fetch=False, include_baggage_in_context=False),
+        variables=logfire.VariablesOptions.remote(block_before_first_fetch=False, include_baggage_in_context=False),
     )
 
     for field in dataclasses.fields(GLOBAL_CONFIG):

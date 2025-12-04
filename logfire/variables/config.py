@@ -4,6 +4,7 @@ import random
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Annotated, Any, Literal
 
 from pydantic import Discriminator, TypeAdapter, ValidationError, field_validator, model_validator
@@ -235,6 +236,128 @@ class RolloutOverride:
 
 
 @dataclass(kw_only=True)
+class RolloutStage:
+    """A single stage in a scheduled rollout sequence.
+
+    Rollout schedules progress through stages sequentially, with each stage having its own
+    duration, rollout configuration, and optional conditional overrides. This allows for
+    gradual rollouts where traffic percentages can increase over time.
+
+    Example: A three-stage rollout might have:
+    - Stage 1: 5% of traffic for 1 hour (canary)
+    - Stage 2: 25% of traffic for 4 hours (early adopters)
+    - Stage 3: 100% of traffic (full rollout)
+    """
+
+    duration: timedelta
+    """Duration to remain in this stage before progressing to the next.
+
+    Once a stage's duration has elapsed, the schedule automatically advances to the
+    next stage. If this is the final stage and its duration has elapsed, the schedule
+    is considered complete.
+
+    Note: Automated rollback based on error rates is only supported server-side and should
+    be performed before the final stage completes. After completion, the variable config
+    should be updated to make the final stage's rollout the new default.
+    """
+
+    rollout: Rollout
+    """The rollout configuration used during this stage.
+
+    Defines the probability weights for selecting each variant during this stage.
+    For example, an early stage might have `{'new_variant': 0.05}` (5% rollout)
+    while the final stage might have `{'new_variant': 1.0}` (100% rollout).
+    """
+    overrides: list[RolloutOverride]
+    """Conditional overrides that take precedence over the stage's default rollout.
+
+    Evaluated in order; the first matching override's rollout is used instead of
+    this stage's default rollout. This allows for stage-specific targeting rules.
+    """
+
+
+@dataclass(kw_only=True)
+class RolloutSchedule:
+    """A time-based progression through multiple rollout stages.
+
+    Rollout schedules enable gradual rollouts where the variant selection weights
+    change over time. Starting from `start_at`, the schedule progresses through
+    each stage sequentially, with each stage lasting for its specified duration.
+
+    Use cases:
+    - Canary deployments: Start with 1% traffic, increase to 10%, then 100%
+    - Time-limited experiments: Run an A/B test for a specific duration
+    - Phased feature launches: Gradually expose new features to more users
+
+    The schedule is considered active when `start_at` is set and is in the past.
+    Once all stages have completed (i.e., current time exceeds start_at plus the
+    sum of all stage durations), the base rollout and overrides from the parent
+    VariableConfig are used.
+    """
+
+    start_at: datetime | None
+    """The datetime when this schedule becomes active.
+
+    If None, the schedule is inactive and the base rollout is used.
+    If set to a time in the future, the base rollout is used until that time.
+    If set to a time in the past, the appropriate stage is determined based
+    on elapsed time since start_at.
+
+    Note: Datetimes should be timezone-aware for consistent behavior across
+    different deployment environments.
+    """
+    stages: list[RolloutStage]
+    """The sequence of rollout stages to progress through.
+
+    Stages are processed in order. The active stage is determined by comparing
+    the current time against start_at and the cumulative durations of previous stages.
+    """
+    # TODO: Need to add rollback condition support (possibly only in backend?)
+    #   Note: we could add this client side using the logfire query client if the token has read capability.
+    #   However, this should maybe be discouraged if it's viable to run health check queries server-side.
+    #   We could expose a `health_check` field that contains one (or more?) SQL queries, which would either be
+    #   evaluated client side or server side. However, I don't love the
+
+    def get_active_stage(self, now: datetime | None = None) -> RolloutStage | None:
+        """Determine the currently active stage based on the current time.
+
+        Args:
+            now: The current datetime. If None, uses datetime.now() with the same
+                timezone as start_at (or naive if start_at is naive).
+
+        Returns:
+            The currently active RolloutStage, or None if:
+            - The schedule is not active (start_at is None)
+            - The schedule hasn't started yet (start_at is in the future)
+            - The schedule has completed (all stage durations have elapsed)
+        """
+        if self.start_at is None:
+            return None
+
+        if now is None:
+            # Use the same timezone as start_at for consistency
+            if self.start_at.tzinfo is not None:
+                now = datetime.now(self.start_at.tzinfo)
+            else:
+                now = datetime.now()
+
+        if now < self.start_at:
+            # Schedule hasn't started yet
+            return None
+
+        elapsed = now - self.start_at
+        cumulative_duration = timedelta()
+
+        for stage in self.stages:
+            cumulative_duration += stage.duration
+            if elapsed < cumulative_duration:
+                return stage
+
+        # All stages have completed
+        return None
+
+
+@dataclass(kw_only=True)
 class VariableConfig:
     """Configuration for a single managed variable including variants and rollout rules."""
 
@@ -248,6 +371,8 @@ class VariableConfig:
     """Conditional overrides evaluated in order; first match takes precedence."""
     json_schema: dict[str, Any] | None = None
     """JSON schema describing the expected type of this variable's values."""
+    schedule: RolloutSchedule | None = None
+    # TODO: Consider adding server-side management of targeting_key, rather than requiring it in the API call
     # TODO: Should we add a validator that all variants match the provided JSON schema?
 
     @model_validator(mode='after')
@@ -268,26 +393,61 @@ class VariableConfig:
                 if k not in self.variants:
                     raise ValueError(f'Variant {k!r} present in `overrides[{i}].rollout` is not present in `variants`.')
 
+        # Validate schedule stage variant references
+        if self.schedule is not None:
+            for stage_idx, stage in enumerate(self.schedule.stages):
+                for k, v in stage.rollout.variants.items():
+                    if k not in self.variants:
+                        raise ValueError(
+                            f'Variant {k!r} present in `schedule.stages[{stage_idx}].rollout` is not present in `variants`.'
+                        )
+                for override_idx, override in enumerate(stage.overrides):
+                    for k, v in override.rollout.variants.items():
+                        if k not in self.variants:
+                            raise ValueError(
+                                f'Variant {k!r} present in `schedule.stages[{stage_idx}].overrides[{override_idx}].rollout` '
+                                f'is not present in `variants`.'
+                            )
+
         return self
 
     def resolve_variant(
         self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
     ) -> Variant | None:
-        """Evaluate a managed variable configuration and return the serialized value.
+        """Evaluate a managed variable configuration and return the selected variant.
+
+        The resolution process:
+        1. Check if there's an active rollout schedule with a current stage
+        2. If a schedule stage is active, use that stage's rollout and overrides
+        3. Otherwise, use the base rollout and overrides from this config
+        4. Evaluate overrides in order; the first match takes precedence
+        5. Select a variant based on the rollout weights (deterministic if targeting_key is provided)
 
         Args:
-            targeting_key: A string identifying the subject of evaluation (e.g., user ID)
-            attributes: Additional attributes for condition matching
+            targeting_key: A string identifying the subject of evaluation (e.g., user ID).
+                When provided, ensures deterministic variant selection for the same key.
+            attributes: Additional attributes for condition matching in override rules.
 
         Returns:
-            The serialized value of the selected variant, or None if no variant is selected
+            The selected Variant, or None if no variant is selected (can happen when
+            rollout weights sum to less than 1.0).
         """
         if attributes is None:
             attributes = {}
 
-        # Step 1: Find the first matching override, or use the base rollout
-        selected_rollout = self.rollout
-        for override in self.overrides:
+        # Step 1: Determine the rollout and overrides to use (from schedule or base config)
+        base_rollout = self.rollout
+        base_overrides = self.overrides
+
+        if self.schedule is not None:
+            active_stage = self.schedule.get_active_stage()
+            if active_stage is not None:
+                base_rollout = active_stage.rollout
+                base_overrides = active_stage.overrides
+
+        # Step 2: Find the first matching override, or use the base rollout
+        selected_rollout = base_rollout
+        for override in base_overrides:
             if _matches_all_conditions(override.conditions, attributes):
                 selected_rollout = override.rollout
                 break  # First match takes precedence

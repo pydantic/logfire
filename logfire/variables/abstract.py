@@ -2,7 +2,7 @@ from __future__ import annotations as _annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import Any, Generic, Literal, TypeVar
 
 __all__ = ('VariableResolutionDetails', 'VariableProvider', 'NoOpVariableProvider')
@@ -31,17 +31,6 @@ class VariableResolutionDetails(Generic[T_co]):
         'no_provider',
     ]  # we might eventually make this public, but I didn't want to yet
     """Internal field indicating how the value was resolved."""
-
-    def with_value(self, v: T) -> VariableResolutionDetails[T]:
-        """Return a copy of this result with a different value.
-
-        Args:
-            v: The new value to use.
-
-        Returns:
-            A new VariableResolutionDetails with the given value.
-        """
-        return replace(self, value=v)  # pyright: ignore[reportReturnType]
 
 
 class VariableProvider(ABC):

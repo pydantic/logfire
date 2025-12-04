@@ -266,6 +266,7 @@ class CodeSource:
 class VariablesOptions:
     """Configuration of managed variables."""
 
+    # TODO: Rework to allow concrete types
     provider: VariableProvider | Callable[[LogfireConfig], VariableProvider]
     """A variable provider, or a function that accepts LogfireConfig and returns a provider for resolving variables."""
     include_resource_attributes_in_context: bool = True

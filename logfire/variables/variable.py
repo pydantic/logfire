@@ -4,6 +4,7 @@ import inspect
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
+from dataclasses import replace
 from importlib.util import find_spec
 from typing import Any, Generic, Protocol, TypeVar
 
@@ -115,6 +116,8 @@ class Variable(Generic[T]):
         """Synchronously refresh the variable."""
         self.logfire_instance.config.get_variable_provider().refresh(force=force)
 
+    # TODO: add ok_or_default() to VariableResolutionDetails and make this just be get_details; so you do
+    #   .get().ok_or_default() to get the current behavior of this
     def get(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> T:
         """Resolve and return the variable's value.
 
@@ -156,7 +159,7 @@ class Variable(Generic[T]):
 
             if serialized_result.value is None:
                 default = self._get_default(targeting_key, merged_attributes)
-                return serialized_result.with_value(default)
+                return _with_value(serialized_result, default)
 
             try:
                 value = self.type_adapter.validate_json(serialized_result.value)
@@ -184,3 +187,16 @@ class Variable(Generic[T]):
         if variables_options.include_resource_attributes_in_context:
             result.update(self.logfire_instance.resource_attributes)
         return result
+
+
+def _with_value(details: VariableResolutionDetails[Any], new_value: T) -> VariableResolutionDetails[T]:
+    """Return a copy of the provided resolution details, just with a different value.
+
+    Args:
+        details: Existing resolution details to modify.
+        new_value: The new value to use.
+
+    Returns:
+        A new VariableResolutionDetails with the given value.
+    """
+    return replace(details, value=new_value)
