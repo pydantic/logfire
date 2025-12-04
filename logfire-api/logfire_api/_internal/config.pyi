@@ -30,7 +30,6 @@ from logfire.exceptions import LogfireConfigError as LogfireConfigError
 from logfire.sampling import SamplingOptions as SamplingOptions
 from logfire.sampling._tail_sampling import TailSamplingProcessor as TailSamplingProcessor
 from logfire.version import VERSION as VERSION
-from opentelemetry._events import EventLoggerProvider
 from opentelemetry.sdk._logs import LogRecordProcessor as LogRecordProcessor
 from opentelemetry.sdk.metrics.export import MetricReader as MetricReader
 from opentelemetry.sdk.trace import SpanProcessor
@@ -232,14 +231,6 @@ class LogfireConfig(_LogfireConfigData):
 
         Returns:
             The logger provider.
-        """
-    def get_event_logger_provider(self) -> EventLoggerProvider | None:
-        """Get an event logger provider from this `LogfireConfig`.
-
-        This is used internally and should not be called by users of the SDK.
-
-        Returns:
-            The event logger provider.
         """
     def warn_if_not_initialized(self, message: str): ...
     def suppress_scopes(self, *scopes: str) -> None: ...

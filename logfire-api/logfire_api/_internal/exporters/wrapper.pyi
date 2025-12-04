@@ -2,8 +2,8 @@ from _typeshed import Incomplete
 from collections.abc import Sequence
 from dataclasses import dataclass
 from opentelemetry import context
-from opentelemetry.sdk._logs import LogData, LogRecordProcessor
-from opentelemetry.sdk._logs.export import LogExportResult, LogExporter
+from opentelemetry.sdk._logs import LogRecordProcessor, ReadWriteLogRecord, ReadableLogRecord as ReadableLogRecord
+from opentelemetry.sdk._logs.export import LogRecordExportResult, LogRecordExporter
 from opentelemetry.sdk.metrics.export import AggregationTemporality as AggregationTemporality, MetricExportResult, MetricExporter, MetricsData
 from opentelemetry.sdk.metrics.view import Aggregation as Aggregation
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
@@ -36,16 +36,16 @@ class WrapperSpanProcessor(SpanProcessor):
     def force_flush(self, timeout_millis: int = 30000) -> bool: ...
 
 @dataclass
-class WrapperLogExporter(LogExporter):
+class WrapperLogExporter(LogRecordExporter):
     """A base class for LogExporters that wrap another exporter."""
-    exporter: LogExporter
-    def export(self, batch: Sequence[LogData]) -> LogExportResult: ...
+    exporter: LogRecordExporter
+    def export(self, batch: Sequence[ReadableLogRecord]) -> LogRecordExportResult: ...
     def shutdown(self): ...
 
 @dataclass
 class WrapperLogProcessor(LogRecordProcessor):
     """A base class for SpanProcessors that wrap another processor."""
     processor: LogRecordProcessor
-    def on_emit(self, log_data: LogData) -> None: ...
+    def on_emit(self, log_record: ReadWriteLogRecord) -> None: ...
     def shutdown(self): ...
     def force_flush(self, timeout_millis: int = 30000): ...

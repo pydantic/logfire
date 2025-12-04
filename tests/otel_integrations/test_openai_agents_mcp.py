@@ -124,6 +124,7 @@ async def test_mcp(exporter: TestExporter):
                     'request': {
                         'method': 'tools/list',
                         'params': {
+                            'task': None,
                             'meta': {
                                 'progressToken': None,
                                 'traceparent': '00-00000000000000000000000000000002-0000000000000007-01',
@@ -260,6 +261,7 @@ async def test_mcp(exporter: TestExporter):
                     'request': {
                         'method': 'tools/call',
                         'params': {
+                            'task': None,
                             'meta': {
                                 'progressToken': None,
                                 'traceparent': '00-00000000000000000000000000000002-0000000000000011-01',
@@ -290,7 +292,7 @@ async def test_mcp(exporter: TestExporter):
                 'attributes': {
                     'request': {
                         'method': 'tools/call',
-                        'params': {'meta': None, 'name': 'random_number', 'arguments': {}},
+                        'params': {'task': None, 'meta': None, 'name': 'random_number', 'arguments': {}},
                     },
                     'rpc.system': 'jsonrpc',
                     'rpc.jsonrpc.version': '2.0',
@@ -333,6 +335,7 @@ async def test_mcp(exporter: TestExporter):
                     'request': {
                         'method': 'tools/list',
                         'params': {
+                            'task': None,
                             'meta': {
                                 'progressToken': None,
                                 'traceparent': '00-00000000000000000000000000000002-0000000000000019-01',
@@ -507,11 +510,12 @@ async def test_mcp(exporter: TestExporter):
                     'request': {
                         'method': 'ping',
                         'params': {
+                            'task': None,
                             'meta': {
                                 'progressToken': None,
                                 'traceparent': '00-00000000000000000000000000000003-000000000000001f-01',
                                 'foo': 'bar1',
-                            }
+                            },
                         },
                         'jsonrpc': '2.0',
                         'id': 4,
@@ -532,7 +536,7 @@ async def test_mcp(exporter: TestExporter):
                     'code.filepath': 'test_openai_agents_mcp.py',
                     'code.function': 'test_mcp',
                     'code.lineno': 123,
-                    'request': "\"PingRequest(method='ping', params=RequestParams(meta={'foo': 'bar1'}))\"",
+                    'request': "\"PingRequest(method='ping', params=RequestParams(task=None, meta={'foo': 'bar1'}))\"",
                     'rpc.system': 'jsonrpc',
                     'rpc.jsonrpc.version': '2.0',
                     'rpc.method': 'ping',
@@ -552,11 +556,12 @@ async def test_mcp(exporter: TestExporter):
                     'request': {
                         'method': 'ping',
                         'params': {
+                            'task': None,
                             'meta': {
                                 'progressToken': None,
                                 'traceparent': '00-00000000000000000000000000000004-0000000000000023-01',
                                 'foo': 'bar2',
-                            }
+                            },
                         },
                         'jsonrpc': '2.0',
                         'id': 5,
@@ -577,7 +582,10 @@ async def test_mcp(exporter: TestExporter):
                     'code.filepath': 'test_openai_agents_mcp.py',
                     'code.function': 'test_mcp',
                     'code.lineno': 123,
-                    'request': {'method': 'ping', 'params': {'meta': {'progressToken': None, 'foo': 'bar2'}}},
+                    'request': {
+                        'method': 'ping',
+                        'params': {'task': None, 'meta': {'progressToken': None, 'foo': 'bar2'}},
+                    },
                     'rpc.system': 'jsonrpc',
                     'rpc.jsonrpc.version': '2.0',
                     'rpc.method': 'ping',

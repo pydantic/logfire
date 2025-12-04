@@ -1,5 +1,12 @@
 # Release Notes
 
+## [v4.16.0] (2025-12-04)
+
+* Support OpenTelemetry 1.39.0, drop support for earlier versions, stop using the OTel events API/SDK by @alexmojaki in [#1562](https://github.com/pydantic/logfire/pull/1562)
+* Add `new_trace` parameter to `logfire.instrument` by @njz-cvm in [#1499](https://github.com/pydantic/logfire/pull/1499)
+* Fix JSON serialization error with `instrument_google_genai` by @alexmojaki in [#1551](https://github.com/pydantic/logfire/pull/1551)
+* Support kwargs in `ProxyLogger` `emit()` by @qianl15 in [#1561](https://github.com/pydantic/logfire/pull/1561)
+
 ## [v4.15.1] (2025-11-20)
 
 * Make `logfire.instrument`ed functions cloudpicklable by @alexmojaki in [#1542](https://github.com/pydantic/logfire/pull/1542)
@@ -977,3 +984,4 @@ First release from new repo!
 [v4.14.2]: https://github.com/pydantic/logfire/compare/v4.14.1...v4.14.2
 [v4.15.0]: https://github.com/pydantic/logfire/compare/v4.14.2...v4.15.0
 [v4.15.1]: https://github.com/pydantic/logfire/compare/v4.15.0...v4.15.1
+[v4.16.0]: https://github.com/pydantic/logfire/compare/v4.15.1...v4.16.0

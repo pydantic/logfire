@@ -43,7 +43,7 @@ jobs:
           enable-cache: true
 
       - run: uv sync --python 3.12 --frozen --group docs
-      - run: uv pip install --upgrade mkdocs-material mkdocstrings-python griffe==0.48.0
+      - run: uv pip install --upgrade mkdocs-material mkdocstrings-python 'mkdocstrings<1' griffe==0.48.0
         env:
           UV_EXTRA_INDEX_URL: ${{ secrets.UV_EXTRA_INDEX_URL }}
       - run: |
@@ -68,9 +68,10 @@ jobs:
             - python-version: '3.12'
               pydantic-version: '2.4'
               otel-version: '1'  # i.e. the latest
-            - python-version: '3.13'
-              pydantic-version: '2'  # i.e. the latest
-              otel-version: '1.35'
+            # Uncomment when we support multiple versions of OTel again
+#            - python-version: '3.13'
+#              pydantic-version: '2'  # i.e. the latest
+#              otel-version: '1.39'
     env:
       PYTHON: ${{ matrix.python-version }}
     steps:
