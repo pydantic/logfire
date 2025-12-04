@@ -115,8 +115,6 @@ from .utils import (
 if TYPE_CHECKING:
     from typing import TextIO
 
-    from opentelemetry._events import EventLoggerProvider
-
     from .main import Logfire
 
 
@@ -721,12 +719,6 @@ class LogfireConfig(_LogfireConfigData):
         # thus it "shuts down" when it's gc'ed
         self._meter_provider = ProxyMeterProvider(NoOpMeterProvider())
         self._logger_provider = ProxyLoggerProvider(NoOpLoggerProvider())
-        try:
-            from opentelemetry.sdk._events import EventLoggerProvider as SDKEventLoggerProvider
-
-            self._event_logger_provider = SDKEventLoggerProvider(self._logger_provider)  # type: ignore
-        except ImportError:
-            self._event_logger_provider = None
         # This ensures that we only call OTEL's global set_tracer_provider once to avoid warnings.
         self._has_set_providers = False
         self._initialized = False
@@ -824,11 +816,7 @@ class LogfireConfig(_LogfireConfigData):
             ):
                 otel_resource_attributes[RESOURCE_ATTRIBUTES_CODE_WORK_DIR] = os.getcwd()
 
-            if emscripten:  # pragma: no cover
-                # Resource.create creates a thread pool which fails in Pyodide / Emscripten
-                resource = Resource(otel_resource_attributes)
-            else:
-                resource = Resource.create(otel_resource_attributes)
+            resource = Resource.create(otel_resource_attributes)
 
             # Set service instance ID to a random UUID if it hasn't been set already.
             # Setting it above would have also mostly worked and allowed overriding via OTEL_RESOURCE_ATTRIBUTES,
@@ -1111,12 +1099,7 @@ class LogfireConfig(_LogfireConfigData):
             )
             logger_provider = SDKLoggerProvider(resource)
             logger_provider.add_log_record_processor(root_log_processor)
-
-            if self._event_logger_provider:
-                # This also shuts down the underlying self._logger_provider
-                self._event_logger_provider.shutdown()
-            else:
-                self._logger_provider.shutdown()
+            self._logger_provider.shutdown()
 
             self._logger_provider.set_provider(logger_provider)
             self._logger_provider.set_min_level(self.min_level)
@@ -1126,10 +1109,6 @@ class LogfireConfig(_LogfireConfigData):
                 trace.set_tracer_provider(self._tracer_provider)
                 set_meter_provider(self._meter_provider)
                 set_logger_provider(self._logger_provider)
-                if self._event_logger_provider:
-                    from opentelemetry._events import set_event_logger_provider
-
-                    set_event_logger_provider(self._event_logger_provider)
 
             @atexit.register
             def exit_open_spans():  # pragma: no cover
@@ -1190,8 +1169,6 @@ class LogfireConfig(_LogfireConfigData):
         """
         self._meter_provider.force_flush(timeout_millis)
         self._logger_provider.force_flush(timeout_millis)
-        if self._event_logger_provider:
-            self._event_logger_provider.force_flush(timeout_millis)
         return self._tracer_provider.force_flush(timeout_millis)
 
     def get_tracer_provider(self) -> ProxyTracerProvider:
@@ -1223,16 +1200,6 @@ class LogfireConfig(_LogfireConfigData):
             The logger provider.
         """
         return self._logger_provider
-
-    def get_event_logger_provider(self) -> EventLoggerProvider | None:
-        """Get an event logger provider from this `LogfireConfig`.
-
-        This is used internally and should not be called by users of the SDK.
-
-        Returns:
-            The event logger provider.
-        """
-        return self._event_logger_provider
 
     def warn_if_not_initialized(self, message: str):
         ignore_no_config_env = os.getenv('LOGFIRE_IGNORE_NO_CONFIG', '')

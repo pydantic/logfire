@@ -2,19 +2,17 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from typing import Any
-from unittest import mock
 
 import pytest
 import requests.exceptions
 from dirty_equals import IsPartialDict, IsStr
 from inline_snapshot import snapshot
-from opentelemetry._events import get_event_logger_provider
-from opentelemetry._logs import SeverityNumber, get_logger, get_logger_provider
-from opentelemetry.sdk._logs import LogData, LogRecord
+from opentelemetry._logs import LogRecord, SeverityNumber, get_logger, get_logger_provider
+from opentelemetry.sdk._logs import ReadableLogRecord
 from opentelemetry.sdk._logs.export import (
-    InMemoryLogExporter,
-    LogExporter,
-    LogExportResult,
+    InMemoryLogRecordExporter,
+    LogRecordExporter,
+    LogRecordExportResult,
     SimpleLogRecordProcessor,
 )
 from opentelemetry.sdk.resources import Resource
@@ -25,7 +23,7 @@ from logfire._internal.exporters.otlp import QuietLogExporter
 from logfire.testing import TestLogExporter
 
 
-def test_otel_logs_supress_scopes(logs_exporter: InMemoryLogExporter, config_kwargs: dict[str, Any]) -> None:
+def test_otel_logs_supress_scopes(logs_exporter: InMemoryLogRecordExporter, config_kwargs: dict[str, Any]) -> None:
     record = LogRecord(
         timestamp=1,
         observed_timestamp=2,
@@ -43,7 +41,7 @@ def test_otel_logs_supress_scopes(logs_exporter: InMemoryLogExporter, config_kwa
     logger2.emit(record)
     assert not logs_exporter.get_finished_logs()
 
-    logs_exporter = InMemoryLogExporter()
+    logs_exporter = InMemoryLogRecordExporter()
     config_kwargs['advanced'].log_record_processors = [SimpleLogRecordProcessor(logs_exporter)]
     logfire.configure(**config_kwargs)
 
@@ -59,11 +57,12 @@ def test_otel_logs_supress_scopes(logs_exporter: InMemoryLogExporter, config_kwa
         logger3.emit(record)
     [log_data] = logs_exporter.get_finished_logs()
     assert log_data.log_record == record
+    assert log_data.instrumentation_scope
     assert log_data.instrumentation_scope.name == 'scope3'
 
 
 def test_otel_logs_min_level(config_kwargs: dict[str, Any]) -> None:
-    logs_exporter = InMemoryLogExporter()
+    logs_exporter = InMemoryLogRecordExporter()
     config_kwargs['min_level'] = 'error'
     config_kwargs['advanced'].log_record_processors = [SimpleLogRecordProcessor(logs_exporter)]
     logfire.configure(**config_kwargs)
@@ -87,11 +86,8 @@ def test_otel_logs_min_level(config_kwargs: dict[str, Any]) -> None:
 
 def test_get_logger_provider() -> None:
     logger_provider = get_logger_provider()
-    event_logger_provider = get_event_logger_provider()
     config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
     assert logger_provider is config.get_logger_provider()
-    assert event_logger_provider is config.get_event_logger_provider()
-    assert event_logger_provider._logger_provider is logger_provider  # type: ignore
     resource = logger_provider.resource  # type: ignore
     assert isinstance(resource, Resource)
     assert get_logger('scope').resource is resource  # type: ignore
@@ -142,30 +138,21 @@ def test_log_events(logs_exporter: TestLogExporter) -> None:
 
 
 def test_quiet_log_exporter(caplog: pytest.LogCaptureFixture):
-    class ConnectionErrorExporter(LogExporter):
+    class ConnectionErrorExporter(LogRecordExporter):
         shutdown_called = False
 
         def shutdown(self):
             self.shutdown_called = True
 
-        def export(self, batch: Sequence[LogData]):
+        def export(self, batch: Sequence[ReadableLogRecord]):
             raise requests.exceptions.ConnectionError()
 
     connection_error_exporter = ConnectionErrorExporter()
     exporter = QuietLogExporter(connection_error_exporter)
 
-    assert exporter.export([]) == LogExportResult.FAILURE
+    assert exporter.export([]) == LogRecordExportResult.FAILURE
     assert not caplog.messages
 
     assert not connection_error_exporter.shutdown_called
     exporter.shutdown()
     assert connection_error_exporter.shutdown_called
-
-
-def test_no_events_sdk():
-    assert logfire.DEFAULT_LOGFIRE_INSTANCE.config.get_event_logger_provider() is not None
-    with mock.patch.dict('sys.modules', {'opentelemetry.sdk._events': None}):
-        logfire_instance = logfire.configure(send_to_logfire=False, local=True)
-        assert logfire_instance.config.get_event_logger_provider() is None
-        logfire_instance.force_flush()
-        logfire_instance.shutdown()

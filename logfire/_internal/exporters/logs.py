@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from opentelemetry.sdk._logs import LogData
+from opentelemetry.sdk._logs import ReadWriteLogRecord
 
 import logfire
 from logfire._internal.exporters.wrapper import WrapperLogProcessor
@@ -14,17 +14,17 @@ class CheckSuppressInstrumentationLogProcessorWrapper(WrapperLogProcessor):
     Placed at the root of the tree of processors.
     """
 
-    def on_emit(self, log_data: LogData):
+    def on_emit(self, log_record: ReadWriteLogRecord):
         if is_instrumentation_suppressed():
             return None
         with logfire.suppress_instrumentation():
-            return super().on_emit(log_data)
+            return super().on_emit(log_record)
 
 
 @dataclass
 class MainLogProcessorWrapper(WrapperLogProcessor):
     scrubber: BaseScrubber
 
-    def on_emit(self, log_data: LogData):
-        log_data.log_record = self.scrubber.scrub_log(log_data.log_record)
-        return super().on_emit(log_data)
+    def on_emit(self, log_record: ReadWriteLogRecord):
+        log_record.log_record = self.scrubber.scrub_log(log_record.log_record)
+        return super().on_emit(log_record)
