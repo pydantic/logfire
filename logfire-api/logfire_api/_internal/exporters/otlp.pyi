@@ -6,7 +6,7 @@ from collections import deque
 from collections.abc import Mapping, Sequence
 from functools import cached_property
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk._logs import LogData as LogData
+from opentelemetry.sdk._logs import ReadableLogRecord as ReadableLogRecord
 from opentelemetry.sdk.trace import ReadableSpan as ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult
 from pathlib import Path
@@ -60,4 +60,4 @@ class QuietSpanExporter(WrapperSpanExporter):
 
 class QuietLogExporter(WrapperLogExporter):
     """A LogExporter that catches request exceptions to prevent OTEL from logging a huge traceback."""
-    def export(self, batch: Sequence[LogData]): ...
+    def export(self, batch: Sequence[ReadableLogRecord]): ...
