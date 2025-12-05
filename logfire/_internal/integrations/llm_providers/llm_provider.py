@@ -82,7 +82,7 @@ def instrument_llm_provider(
 
     is_async = is_async_client_fn(client if isinstance(client, type) else type(client))
 
-    def _instrumentation_setup(*args: Any, _original_context: ContextCarrier, **kwargs: Any) -> Any:
+    def _instrumentation_setup(*args: Any, **kwargs: Any) -> Any:
         try:
             if is_instrumentation_suppressed():
                 return None, None, kwargs
@@ -97,12 +97,13 @@ def instrument_llm_provider(
             if kwargs.get('stream') and stream_state_cls:
                 stream_cls = kwargs['stream_cls']
                 assert stream_cls is not None, 'Expected `stream_cls` when streaming'
+                original_context = get_context()
 
                 if is_async:
 
                     class LogfireInstrumentedAsyncStream(stream_cls):
                         async def __stream__(self) -> AsyncIterator[Any]:
-                            with record_streaming(logfire_llm, span_data, stream_state_cls, _original_context) as record_chunk:
+                            with record_streaming(logfire_llm, span_data, stream_state_cls, original_context) as record_chunk:
                                 async for chunk in super().__stream__():  # type: ignore
                                     record_chunk(chunk)
                                     yield chunk
@@ -112,7 +113,7 @@ def instrument_llm_provider(
 
                     class LogfireInstrumentedStream(stream_cls):
                         def __stream__(self) -> Iterator[Any]:
-                            with record_streaming(logfire_llm, span_data, stream_state_cls, _original_context) as record_chunk:
+                            with record_streaming(logfire_llm, span_data, stream_state_cls, original_context) as record_chunk:
                                 for chunk in super().__stream__():  # type: ignore
                                     record_chunk(chunk)
                                     yield chunk
@@ -128,8 +129,7 @@ def instrument_llm_provider(
     # in the case where we instrument classes rather than client instances.
 
     def instrumented_llm_request_sync(*args: Any, **kwargs: Any) -> Any:
-        original_context = get_context()
-        message_template, span_data, kwargs = _instrumentation_setup(*args, _original_context=original_context, **kwargs)
+        message_template, span_data, kwargs = _instrumentation_setup(*args, **kwargs)
         if message_template is None:
             return original_request_method(*args, **kwargs)
         with logfire_llm.span(message_template, **span_data) as span:
@@ -141,8 +141,7 @@ def instrument_llm_provider(
                     return response
 
     async def instrumented_llm_request_async(*args: Any, **kwargs: Any) -> Any:
-        original_context = get_context()
-        message_template, span_data, kwargs = _instrumentation_setup(*args, _original_context=original_context, **kwargs)
+        message_template, span_data, kwargs = _instrumentation_setup(*args, **kwargs)
         if message_template is None:
             return await original_request_method(*args, **kwargs)
         with logfire_llm.span(message_template, **span_data) as span:
