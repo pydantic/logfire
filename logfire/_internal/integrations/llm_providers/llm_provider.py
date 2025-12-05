@@ -103,7 +103,9 @@ def instrument_llm_provider(
 
                     class LogfireInstrumentedAsyncStream(stream_cls):
                         async def __stream__(self) -> AsyncIterator[Any]:
-                            with record_streaming(logfire_llm, span_data, stream_state_cls, original_context) as record_chunk:
+                            with record_streaming(
+                                logfire_llm, span_data, stream_state_cls, original_context
+                            ) as record_chunk:
                                 async for chunk in super().__stream__():  # type: ignore
                                     record_chunk(chunk)
                                     yield chunk
@@ -113,7 +115,9 @@ def instrument_llm_provider(
 
                     class LogfireInstrumentedStream(stream_cls):
                         def __stream__(self) -> Iterator[Any]:
-                            with record_streaming(logfire_llm, span_data, stream_state_cls, original_context) as record_chunk:
+                            with record_streaming(
+                                logfire_llm, span_data, stream_state_cls, original_context
+                            ) as record_chunk:
                                 for chunk in super().__stream__():  # type: ignore
                                     record_chunk(chunk)
                                     yield chunk
