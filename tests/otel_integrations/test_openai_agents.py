@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from typing import Any
 
 import numpy as np
@@ -1680,9 +1681,34 @@ async def test_function_tool_exception(exporter: TestExporter):
     )
 
 
+@pytest.fixture
+def vcr_allow_bytes():
+    if sys.version_info[:2] > (3, 9):
+        # Newer versions of vcr don't need this patch but don't support Python 3.9
+        return
+
+    # https://github.com/kevin1024/vcrpy/issues/844#issuecomment-2649743189
+
+    import httpx
+    import vcr.stubs.httpcore_stubs
+    from vcr.request import Request as VcrRequest
+
+    def _make_vcr_request(httpx_request: httpx.Request, **_: Any):
+        body_bytes = httpx_request.read()
+        try:
+            body = body_bytes.decode('utf-8')
+        except UnicodeDecodeError:
+            body = body_bytes
+        uri = str(httpx_request.url)
+        headers = dict(httpx_request.headers)
+        return VcrRequest(httpx_request.method, uri, body, headers)
+
+    vcr.stubs.httpcore_stubs._make_vcr_request = _make_vcr_request  # type: ignore
+
+
 @pytest.mark.vcr()
 @pytest.mark.anyio
-async def test_voice_pipeline(exporter: TestExporter):
+async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
     logfire.instrument_openai_agents()
 
     agent = Agent(name='Assistant')
