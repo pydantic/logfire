@@ -1680,30 +1680,9 @@ async def test_function_tool_exception(exporter: TestExporter):
     )
 
 
-@pytest.fixture
-def vcr_allow_bytes():
-    # https://github.com/kevin1024/vcrpy/issues/844#issuecomment-2649743189
-
-    import httpx
-    import vcr.stubs.httpx_stubs
-    from vcr.request import Request as VcrRequest
-
-    def _make_vcr_request(httpx_request: httpx.Request, **_: Any):
-        body_bytes = httpx_request.read()
-        try:
-            body = body_bytes.decode('utf-8')
-        except UnicodeDecodeError:
-            body = body_bytes
-        uri = str(httpx_request.url)
-        headers = dict(httpx_request.headers)
-        return VcrRequest(httpx_request.method, uri, body, headers)
-
-    vcr.stubs.httpx_stubs._make_vcr_request = _make_vcr_request  # type: ignore
-
-
 @pytest.mark.vcr()
 @pytest.mark.anyio
-async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
+async def test_voice_pipeline(exporter: TestExporter):
     logfire.instrument_openai_agents()
 
     agent = Agent(name='Assistant')
