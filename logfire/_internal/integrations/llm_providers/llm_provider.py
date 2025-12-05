@@ -4,6 +4,9 @@ from collections.abc import AsyncIterator, Iterable, Iterator
 from contextlib import AbstractContextManager, ExitStack, contextmanager, nullcontext
 from typing import TYPE_CHECKING, Any, Callable, cast
 
+from logfire import attach_context, get_context
+from logfire.propagate import ContextCarrier
+
 from ...constants import ONE_SECOND_IN_NANOSECONDS
 from ...utils import is_instrumentation_suppressed, log_internal_error, suppress_instrumentation
 
@@ -93,6 +96,7 @@ def instrument_llm_provider(
 
             if kwargs.get('stream') and stream_state_cls:
                 stream_cls = kwargs['stream_cls']
+                original_context = kwargs.get('_original_context')
                 assert stream_cls is not None, 'Expected `stream_cls` when streaming'
 
                 if is_async:
@@ -125,6 +129,8 @@ def instrument_llm_provider(
     # in the case where we instrument classes rather than client instances.
 
     def instrumented_llm_request_sync(*args: Any, **kwargs: Any) -> Any:
+        original_context = get_context()
+        kwargs["_original_context"] = original_context
         message_template, span_data, kwargs = _instrumentation_setup(*args, **kwargs)
         if message_template is None:
             return original_request_method(*args, **kwargs)
@@ -137,6 +143,8 @@ def instrument_llm_provider(
                     return response
 
     async def instrumented_llm_request_async(*args: Any, **kwargs: Any) -> Any:
+        original_context = get_context()
+        kwargs["_original_context"] = original_context
         message_template, span_data, kwargs = _instrumentation_setup(*args, **kwargs)
         if message_template is None:
             return await original_request_method(*args, **kwargs)
@@ -186,6 +194,7 @@ def record_streaming(
     logire_llm: Logfire,
     span_data: dict[str, Any],
     stream_state_cls: type[StreamState],
+    original_context: ContextCarrier | None = None,
 ):
     stream_state = stream_state_cls()
 
@@ -199,8 +208,9 @@ def record_streaming(
         yield record_chunk
     finally:
         duration = (timer() - start) / ONE_SECOND_IN_NANOSECONDS
-        logire_llm.info(
-            'streaming response from {request_data[model]!r} took {duration:.2f}s',
-            duration=duration,
-            **stream_state.get_attributes(span_data),
-        )
+        with attach_context(original_context):
+            logire_llm.info(
+                'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                duration=duration,
+                **stream_state.get_attributes(span_data),
+            )
