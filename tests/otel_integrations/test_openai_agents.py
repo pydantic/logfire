@@ -1690,7 +1690,7 @@ def vcr_allow_bytes():
     # https://github.com/kevin1024/vcrpy/issues/844#issuecomment-2649743189
 
     import httpx
-    import vcr.stubs.httpcore_stubs
+    import vcr.stubs.httpx_stubs  # type: ignore
     from vcr.request import Request as VcrRequest
 
     def _make_vcr_request(httpx_request: httpx.Request, **_: Any):
@@ -1703,7 +1703,7 @@ def vcr_allow_bytes():
         headers = dict(httpx_request.headers)
         return VcrRequest(httpx_request.method, uri, body, headers)
 
-    vcr.stubs.httpcore_stubs._make_vcr_request = _make_vcr_request  # type: ignore
+    vcr.stubs.httpx_stubs._make_vcr_request = _make_vcr_request  # type: ignore
 
 
 @pytest.mark.vcr()
