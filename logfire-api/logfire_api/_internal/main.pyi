@@ -238,7 +238,7 @@ class Logfire:
                 Attributes starting with an underscore are not allowed.
         """
     @overload
-    def instrument(self, msg_template: LiteralString | None = None, *, span_name: str | None = None, extract_args: bool | Iterable[str] = True, record_return: bool = False, allow_generator: bool = False) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    def instrument(self, msg_template: LiteralString | None = None, *, span_name: str | None = None, extract_args: bool | Iterable[str] = True, record_return: bool = False, allow_generator: bool = False, new_trace: bool = False) -> Callable[[Callable[P, R]], Callable[P, R]]:
         """Decorator for instrumenting a function as a span.
 
         ```py
@@ -261,6 +261,8 @@ class Logfire:
                 Ignored for generators.
             allow_generator: Set to `True` to prevent a warning when instrumenting a generator function.
                 Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
+            new_trace: Set to `True` to start a new trace with a span link to the current span
+                instead of creating a child of the current span.
         """
     @overload
     def instrument(self, func: Callable[P, R]) -> Callable[P, R]:

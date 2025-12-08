@@ -61,7 +61,7 @@ Here is a sample query to compute those percentiles for HTTP requests duration:
 ```sql
 WITH dataset AS (
   SELECT
-    time_bucket('%time_bucket_duration%', start_timestamp) AS x,
+    time_bucket($resolution, start_timestamp) AS x,
     duration * 1000 as duration_ms
   FROM records
   WHERE attributes ? 'http.method'
