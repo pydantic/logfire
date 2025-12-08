@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import pickle
+import warnings
 from dataclasses import asdict
 from functools import partial
-from typing import Any, Callable, TypedDict, cast
+from typing import Any, Callable
 
 from logfire.propagate import ContextCarrier, attach_context, get_context
 
@@ -55,17 +57,12 @@ except ImportError:  # pragma: no cover
         pass
 
 
-# ---- Minimal typing fix to satisfy pyright ----
+def serialize_config() -> dict[str, Any] | None:
+    """Serialize the global config for transmission to child processes.
 
-
-class AdvancedConfigDict(TypedDict, total=False):
-    exception_callback: Callable[..., Any] | None
-    id_generator: Any | None
-    ns_timestamp_generator: Any | None
-    log_record_processors: Any | None
-
-
-def serialize_config() -> dict[str, Any]:
+    Returns None if the config cannot be pickled, in which case a warning is emitted.
+    See: https://github.com/pydantic/logfire/issues/1556
+    """
     from ..config import GLOBAL_CONFIG
 
     # note: since `logfire.config._LogfireConfigData` is a dataclass
@@ -73,25 +70,28 @@ def serialize_config() -> dict[str, Any]:
     # which is what we want here!
     config_dict = asdict(GLOBAL_CONFIG)
 
-    # Remove non-picklable fields from advanced options
-    # exception_callback may be a local function which can't be pickled when using ProcessPoolExecutor
-    # See: https://github.com/pydantic/logfire/issues/1556
-    if 'advanced' in config_dict and isinstance(config_dict['advanced'], dict):
-        config_dict['advanced'] = cast(AdvancedConfigDict, config_dict['advanced']).copy()
-        # exception_callback cannot be pickled if it's a local function
-        config_dict['advanced'].pop('exception_callback', None)
-        # id_generator and ns_timestamp_generator are handled specially during deserialization
-        # but they may not be picklable, so we exclude them and use defaults in child processes
-        config_dict['advanced'].pop('id_generator', None)
-        config_dict['advanced'].pop('ns_timestamp_generator', None)
-        # log_record_processors may contain non-picklable objects
-        config_dict['advanced'].pop('log_record_processors', None)
+    try:
+        pickle.dumps(config_dict)
+    except Exception:
+        warnings.warn(
+            'The Logfire configuration cannot be pickled and will not be automatically '
+            'sent to child processes. You will need to manually call logfire.configure() '
+            'in each child process. This typically happens when using local functions '
+            'as callbacks (e.g., exception_callback).',
+            UserWarning,
+            stacklevel=2,
+        )
+        return None
 
     return config_dict
 
 
-def deserialize_config(config: dict[str, Any]) -> None:
+def deserialize_config(config: dict[str, Any] | None) -> None:
+    """Deserialize a config dict and apply it to the global config."""
     from ..config import GLOBAL_CONFIG, configure
+
+    if config is None:
+        return
 
     if not GLOBAL_CONFIG._initialized:  # type: ignore
         configure(**config)

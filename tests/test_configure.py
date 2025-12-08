@@ -856,9 +856,11 @@ def test_config_serializable():
         )
 
     serialized = serialize_config()
+    assert serialized is not None  # Config should be picklable in this test
     GLOBAL_CONFIG._initialized = False  # type: ignore  # ensure deserialize_config actually configures
     deserialize_config(serialized)
     serialized2 = serialize_config()
+    assert serialized2 is not None  # Config should be picklable in this test
 
     def normalize(s: dict[str, Any]) -> dict[str, Any]:
         for value in s.values():
@@ -893,6 +895,7 @@ def test_serialize_config_without_advanced():
         config_dict.pop('advanced', None)
         mock_asdict.return_value = config_dict
         result = serialize_config()
+        assert result is not None
         assert 'advanced' not in result
 
     # Also test when 'advanced' exists but is not a dict
@@ -901,7 +904,29 @@ def test_serialize_config_without_advanced():
         config_dict['advanced'] = None  # Not a dict
         mock_asdict.return_value = config_dict
         result = serialize_config()
+        assert result is not None
         assert result['advanced'] is None
+
+
+def test_serialize_config_unpicklable():
+    """Test serialize_config when config cannot be pickled."""
+    from logfire.types import ExceptionCallbackHelper
+
+    logfire.configure(send_to_logfire=False)
+
+    def local_exception_callback(helper: ExceptionCallbackHelper) -> None:
+        pass
+
+    logfire.configure(
+        send_to_logfire=False,
+        advanced=logfire.AdvancedOptions(exception_callback=local_exception_callback),
+    )
+
+    with pytest.warns(UserWarning, match='cannot be pickled'):
+        result = serialize_config()
+
+    assert result is None
+    deserialize_config(None)
 
 
 def test_deserialize_seeded_random_id_generator():
@@ -914,8 +939,9 @@ def test_deserialize_seeded_random_id_generator():
     )
 
     # Serialize config - this converts SeededRandomIdGenerator to a dict
-    # but serialize_config() removes id_generator because it's not picklable
+    # Note: SeededRandomIdGenerator should be picklable, so serialize_config should succeed
     serialized = serialize_config()
+    assert serialized is not None
 
     # Manually add id_generator back as a dict to test the deserialization path
     # This simulates what would happen if id_generator was included in serialization

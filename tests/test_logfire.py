@@ -2290,12 +2290,14 @@ def test_process_pool_executor_with_exception_callback() -> None:
     assert callback_called
 
     # This should not raise AttributeError about pickling the local function
-    # The exception_callback will be excluded from serialization, but the process should still work
-    with ProcessPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(_test_helper_function)
-        result = future.result()
-        assert result == 42
-        executor.shutdown(wait=True)
+    # The config cannot be pickled, so serialize_config returns None and emits a warning
+    # The process should still work (just without the config being sent)
+    with pytest.warns(UserWarning, match='cannot be pickled'):
+        with ProcessPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_test_helper_function)
+            result = future.result()
+            assert result == 42
+            executor.shutdown(wait=True)
 
 
 def test_kwarg_with_dot_in_name(exporter: TestExporter) -> None:
