@@ -904,6 +904,35 @@ def test_serialize_config_without_advanced():
         assert result['advanced'] is None
 
 
+def test_deserialize_seeded_random_id_generator():
+    """Test deserialization of SeededRandomIdGenerator from dict (covers line 650 in config.py)."""
+    from dataclasses import asdict
+
+    logfire.configure(
+        send_to_logfire=False,
+        advanced=logfire.AdvancedOptions(id_generator=SeededRandomIdGenerator(seed=42)),
+    )
+
+    # Serialize config - this converts SeededRandomIdGenerator to a dict
+    # but serialize_config() removes id_generator because it's not picklable
+    serialized = serialize_config()
+
+    # Manually add id_generator back as a dict to test the deserialization path
+    # This simulates what would happen if id_generator was included in serialization
+    id_generator_dict = asdict(SeededRandomIdGenerator(seed=42))
+    # Ensure keys are in the right order for the condition to match
+    assert list(id_generator_dict.keys()) == ['seed', '_ms_timestamp_generator']
+    serialized['advanced']['id_generator'] = id_generator_dict
+
+    # Deserialize - this should trigger line 650 in config.py
+    GLOBAL_CONFIG._initialized = False  # type: ignore
+    deserialize_config(serialized)
+
+    # Verify it was deserialized back to SeededRandomIdGenerator
+    assert isinstance(GLOBAL_CONFIG.advanced.id_generator, SeededRandomIdGenerator)
+    assert GLOBAL_CONFIG.advanced.id_generator.seed == 42
+
+
 def test_config_console_output_set():
     output = StringIO()
     logfire.configure(send_to_logfire=False, console=logfire.ConsoleOptions(output=output))

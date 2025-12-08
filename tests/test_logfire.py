@@ -29,7 +29,7 @@ from pydantic_core import ValidationError
 import logfire
 from logfire import Logfire, suppress_instrumentation
 from logfire._internal.ast_utils import InspectArgumentsFailedWarning
-from logfire._internal.config import LogfireConfig, LogfireNotConfiguredWarning, configure
+from logfire._internal.config import GLOBAL_CONFIG, LogfireConfig, LogfireNotConfiguredWarning, configure
 from logfire._internal.constants import (
     ATTRIBUTES_MESSAGE_KEY,
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
@@ -2259,10 +2259,13 @@ def test_process_pool_executor_with_exception_callback() -> None:
     """
     from logfire.types import ExceptionCallbackHelper
 
+    callback_called = False
+
     def setup_logfire():
         # This simulates the scenario from the issue where exception_callback is a local function
         def exception_callback(helper: ExceptionCallbackHelper) -> None:
-            pass
+            nonlocal callback_called
+            callback_called = True
 
         logfire.configure(
             send_to_logfire=False,
@@ -2271,6 +2274,20 @@ def test_process_pool_executor_with_exception_callback() -> None:
         )
 
     setup_logfire()
+
+    # Cover line 2251 by calling the helper function directly in the main process
+    assert _test_helper_function() == 42
+
+    # Cover line 2265 by triggering the exception_callback in the main process
+    # (where it's available since it's not pickled)
+    with logfire.span('test') as span:
+        try:
+            raise ValueError('test exception')
+        except ValueError as e:
+            # Call record_exception with the callback from config
+            record_exception(span._span, e, callback=GLOBAL_CONFIG.advanced.exception_callback)  # type: ignore
+
+    assert callback_called
 
     # This should not raise AttributeError about pickling the local function
     # The exception_callback will be excluded from serialization, but the process should still work
