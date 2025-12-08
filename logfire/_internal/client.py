@@ -67,6 +67,17 @@ class LogfireClient:
         UnexpectedResponse.raise_for_status(response)
         return response
 
+    def _put_raw(self, endpoint: str, body: Any | None = None) -> Response:
+        response = self._session.put(urljoin(self.base_url, endpoint), json=body)
+        UnexpectedResponse.raise_for_status(response)
+        return response
+
+    def _put(self, endpoint: str, *, body: Any | None = None, error_message: str) -> Any:
+        try:
+            return self._put_raw(endpoint, body).json()
+        except UnexpectedResponse as e:
+            raise LogfireConfigError(error_message) from e
+
     def _post(self, endpoint: str, *, body: Any | None = None, error_message: str) -> Any:
         try:
             return self._post_raw(endpoint, body).json()
@@ -132,4 +143,38 @@ class LogfireClient:
             f'/v1/organizations/{organization}/projects/{project_name}/prompts',
             params={'issue': issue},
             error_message='Error retrieving prompt',
+        )
+
+    # --- Variables API ---
+
+    def get_variables_config(self, organization: str, project_name: str) -> dict[str, Any]:
+        """Get the variables configuration for a project."""
+        return self._get(
+            f'/api/organizations/{organization}/projects/{project_name}/variables/config/',
+            error_message='Error retrieving variables configuration',
+        )
+
+    def get_variable_by_name(self, organization: str, project_name: str, variable_name: str) -> dict[str, Any]:
+        """Get a variable definition by name."""
+        return self._get(
+            f'/api/organizations/{organization}/projects/{project_name}/variables/by-name/{variable_name}/',
+            error_message=f'Error retrieving variable {variable_name!r}',
+        )
+
+    def create_variable(self, organization: str, project_name: str, body: dict[str, Any]) -> dict[str, Any]:
+        """Create a new variable definition."""
+        return self._post(
+            f'/api/organizations/{organization}/projects/{project_name}/variables/',
+            body=body,
+            error_message='Error creating variable',
+        )
+
+    def update_variable(
+        self, organization: str, project_name: str, variable_id: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Update an existing variable definition."""
+        return self._put(
+            f'/api/organizations/{organization}/projects/{project_name}/variables/{variable_id}/',
+            body=body,
+            error_message='Error updating variable',
         )

@@ -27,6 +27,7 @@ from ._internal.stack_info import add_non_user_code_prefix
 from ._internal.utils import suppress_instrumentation
 from .integrations.logging import LogfireLoggingHandler
 from .integrations.structlog import LogfireProcessor as StructlogProcessor
+from .variables.push import push_variables
 from .version import VERSION
 
 DEFAULT_LOGFIRE_INSTANCE: Logfire = Logfire()
@@ -93,6 +94,7 @@ metric_up_down_counter_callback = DEFAULT_LOGFIRE_INSTANCE.metric_up_down_counte
 
 # Variables
 var = DEFAULT_LOGFIRE_INSTANCE.var
+get_variables = DEFAULT_LOGFIRE_INSTANCE.get_variables
 
 
 def loguru_handler() -> Any:
@@ -180,6 +182,8 @@ __all__ = (
     'MetricsOptions',
     'VariablesOptions',
     'var',
+    'get_variables',
+    'push_variables',
     'logfire_info',
     'get_baggage',
     'set_baggage',

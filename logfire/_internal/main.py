@@ -146,6 +146,7 @@ class Logfire:
         self._sample_rate = sample_rate
         self._console_log = console_log
         self._otel_scope = otel_scope
+        self._variables: dict[str, Variable[Any]] = {}
 
     @property
     def config(self) -> LogfireConfig:
@@ -2364,7 +2365,13 @@ class Logfire:
             tp = Union[tuple(type)]  # pyright: ignore[reportAssignmentType]
         else:
             tp = type
-        return Variable[T](name, default=default, type=tp, logfire_instance=self)
+        variable = Variable[T](name, default=default, type=tp, logfire_instance=self)
+        self._variables[name] = variable
+        return variable
+
+    def get_variables(self) -> list[Variable[Any]]:
+        """Get all variables registered with this Logfire instance."""
+        return list(self._variables.values())
 
 
 class FastLogfireSpan:
