@@ -14,7 +14,7 @@ from logfire.variables.variable import Variable, is_resolve_function
 if TYPE_CHECKING:
     from logfire._internal.client import LogfireClient
 
-__all__ = ('push_variables', 'VariableDiff', 'VariableChange')
+__all__ = ('push_variables', 'validate_variables', 'VariableDiff', 'VariableChange')
 
 
 @dataclass
@@ -433,3 +433,169 @@ def push_variables(
 
     print('\n\033[32mDone! Variables synced successfully.\033[0m')
     return True
+
+
+@dataclass
+class VariantValidationError:
+    """Represents a validation error for a specific variant."""
+
+    variable_name: str
+    variant_key: str | None
+    error: Exception
+
+
+@dataclass
+class ValidationReport:
+    """Report of variable validation results."""
+
+    errors: list[VariantValidationError]
+    variables_checked: int
+    variables_not_on_server: list[str]
+
+    @property
+    def has_errors(self) -> bool:
+        """Return True if there are any validation errors."""
+        return len(self.errors) > 0 or len(self.variables_not_on_server) > 0
+
+
+def _format_validation_report(report: ValidationReport) -> str:
+    """Format a validation report for display to the user."""
+    lines: list[str] = []
+
+    if report.errors:
+        lines.append('\n\033[31m=== Validation Errors ===\033[0m')
+        for error in report.errors:
+            if error.variant_key is None:
+                lines.append(f'  \033[31m✗ {error.variable_name}: {error.error}\033[0m')
+            else:
+                lines.append(f'  \033[31m✗ {error.variable_name} (variant: {error.variant_key})\033[0m')
+                # Format the error message, indenting each line
+                error_lines = str(error.error).split('\n')
+                for line in error_lines[:5]:  # Limit to first 5 lines
+                    lines.append(f'      {line}')
+                if len(error_lines) > 5:
+                    lines.append(f'      ... ({len(error_lines) - 5} more lines)')
+
+    if report.variables_not_on_server:
+        lines.append('\n\033[33m=== Variables Not Found on Server ===\033[0m')
+        for name in report.variables_not_on_server:
+            lines.append(f'  \033[33m? {name}\033[0m')
+
+    valid_count = report.variables_checked - len(report.errors) - len(report.variables_not_on_server)
+    if valid_count > 0:
+        lines.append(f'\n\033[32m=== Valid ({valid_count} variables) ===\033[0m')
+
+    return '\n'.join(lines)
+
+
+def validate_variables(
+    variables: list[Variable[Any]] | None = None,
+    *,
+    data_dir: str | None = None,
+) -> bool:
+    """Validate that server-side variable variants match local type definitions.
+
+    This function fetches the current variable configuration from the server and
+    validates that all variant values can be deserialized to the expected types
+    defined in the local Variable instances.
+
+    Args:
+        variables: Variable instances to validate. If None, all variables
+            registered with the default Logfire instance will be validated.
+        data_dir: Directory containing Logfire credentials. Defaults to '.logfire'.
+
+    Returns:
+        True if all variables validated successfully, False if there were errors.
+
+    Example:
+        ```python
+        import logfire
+
+        feature_enabled = logfire.var(name='feature-enabled', default=False, type=bool)
+        max_retries = logfire.var(name='max-retries', default=3, type=int)
+
+        if __name__ == '__main__':
+            # Validate all registered variables
+            logfire.validate_variables()
+
+            # Or validate specific variables only
+            logfire.validate_variables([feature_enabled])
+        ```
+    """
+    import logfire as logfire_module
+    from logfire._internal.client import LogfireClient
+    from logfire.variables.config import VariablesConfig
+
+    if variables is None:
+        variables = logfire_module.DEFAULT_LOGFIRE_INSTANCE.get_variables()
+
+    if not variables:
+        print('No variables to validate. Create variables using logfire.var() first.')
+        return True  # No variables to validate is not an error
+
+    # Get credentials
+    try:
+        organization, project = _get_project_credentials(data_dir)
+    except RuntimeError as e:
+        print(f'\033[31mError: {e}\033[0m', file=sys.stderr)
+        return False
+
+    print(f'Validating variables for project: {organization}/{project}')
+
+    # Create client with user auth
+    try:
+        client = LogfireClient.from_url(None)
+    except Exception as e:
+        print('\033[31mError: Failed to authenticate. Run `logfire auth` first.\033[0m', file=sys.stderr)
+        print(f'\033[31m{e}\033[0m', file=sys.stderr)
+        return False
+
+    # Fetch current server config
+    try:
+        server_config_raw = client.get_variables_config(organization, project)
+    except Exception as e:
+        print(f'\033[31mError fetching server config: {e}\033[0m', file=sys.stderr)
+        return False
+
+    # Parse into VariablesConfig
+    try:
+        config = VariablesConfig.validate_python(server_config_raw)
+    except Exception as e:
+        print(f'\033[31mError parsing server config: {e}\033[0m', file=sys.stderr)
+        return False
+
+    # Find variables not on server
+    variables_not_on_server = [v.name for v in variables if v.name not in config.variables]
+
+    # Filter to variables that are on the server
+    variables_on_server = [v for v in variables if v.name in config.variables]
+
+    # Get validation errors
+    error_dict = config.get_validation_errors(variables_on_server)
+
+    # Build report
+    errors: list[VariantValidationError] = []
+    for var_name, variant_errors in error_dict.items():
+        for variant_key, error in variant_errors.items():
+            errors.append(VariantValidationError(
+                variable_name=var_name,
+                variant_key=variant_key,
+                error=error,
+            ))
+
+    report = ValidationReport(
+        errors=errors,
+        variables_checked=len(variables),
+        variables_not_on_server=variables_not_on_server,
+    )
+
+    # Print report
+    print(_format_validation_report(report))
+
+    if report.has_errors:
+        error_count = len(report.errors) + len(report.variables_not_on_server)
+        print(f'\n\033[31mValidation failed: {error_count} error(s) found.\033[0m')
+        return False
+    else:
+        print(f'\n\033[32mValidation passed: All {report.variables_checked} variable(s) are valid.\033[0m')
+        return True

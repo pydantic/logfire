@@ -11,11 +11,14 @@ import pytest
 
 import logfire
 from logfire.variables.push import (
+    ValidationReport,
     VariableChange,
     VariableDiff,
+    VariantValidationError,
     _check_variant_compatibility,
     _compute_diff,
     _format_diff,
+    _format_validation_report,
     _get_default_serialized,
     _get_json_schema,
 )
@@ -339,3 +342,90 @@ def test_get_variables_returns_all_registered() -> None:
     assert var1 in variables
     assert var2 in variables
     assert var3 in variables
+
+
+# --- Validation tests ---
+
+
+def test_validation_report_has_errors_true_with_errors() -> None:
+    """Test has_errors when there are validation errors."""
+    report = ValidationReport(
+        errors=[
+            VariantValidationError(
+                variable_name='test',
+                variant_key='default',
+                error=ValueError('invalid'),
+            )
+        ],
+        variables_checked=1,
+        variables_not_on_server=[],
+    )
+    assert report.has_errors is True
+
+
+def test_validation_report_has_errors_true_with_missing() -> None:
+    """Test has_errors when there are missing variables."""
+    report = ValidationReport(
+        errors=[],
+        variables_checked=1,
+        variables_not_on_server=['missing-var'],
+    )
+    assert report.has_errors is True
+
+
+def test_validation_report_has_errors_false() -> None:
+    """Test has_errors when there are no errors."""
+    report = ValidationReport(
+        errors=[],
+        variables_checked=2,
+        variables_not_on_server=[],
+    )
+    assert report.has_errors is False
+
+
+def test_format_validation_report_with_errors() -> None:
+    """Test validation report formatting with errors."""
+    report = ValidationReport(
+        errors=[
+            VariantValidationError(
+                variable_name='my-feature',
+                variant_key='default',
+                error=ValueError('value is not valid'),
+            )
+        ],
+        variables_checked=1,
+        variables_not_on_server=[],
+    )
+    output = _format_validation_report(report)
+    assert 'Validation Errors' in output
+    assert 'my-feature' in output
+    assert 'default' in output
+
+
+def test_format_validation_report_with_missing() -> None:
+    """Test validation report formatting with missing variables."""
+    report = ValidationReport(
+        errors=[],
+        variables_checked=2,
+        variables_not_on_server=['missing-feature'],
+    )
+    output = _format_validation_report(report)
+    assert 'Not Found on Server' in output
+    assert 'missing-feature' in output
+
+
+def test_format_validation_report_all_valid() -> None:
+    """Test validation report formatting when all valid."""
+    report = ValidationReport(
+        errors=[],
+        variables_checked=3,
+        variables_not_on_server=[],
+    )
+    output = _format_validation_report(report)
+    assert 'Valid (3 variables)' in output
+
+
+def test_validate_variables_no_variables() -> None:
+    """Test validate_variables with no variables."""
+    result = logfire.validate_variables()
+    assert result is True  # No variables to validate is success

@@ -27,7 +27,7 @@ from ._internal.stack_info import add_non_user_code_prefix
 from ._internal.utils import suppress_instrumentation
 from .integrations.logging import LogfireLoggingHandler
 from .integrations.structlog import LogfireProcessor as StructlogProcessor
-from .variables.push import push_variables
+from .variables.push import push_variables, validate_variables
 from .version import VERSION
 
 DEFAULT_LOGFIRE_INSTANCE: Logfire = Logfire()
@@ -184,6 +184,7 @@ __all__ = (
     'var',
     'get_variables',
     'push_variables',
+    'validate_variables',
     'logfire_info',
     'get_baggage',
     'set_baggage',
