@@ -910,6 +910,7 @@ def test_serialize_config_without_advanced():
 
 def test_serialize_config_unpicklable():
     """Test serialize_config when config cannot be pickled."""
+    from logfire._internal.tracer import record_exception
     from logfire.types import ExceptionCallbackHelper
 
     logfire.configure(send_to_logfire=False)
@@ -921,6 +922,13 @@ def test_serialize_config_unpicklable():
         send_to_logfire=False,
         advanced=logfire.AdvancedOptions(exception_callback=local_exception_callback),
     )
+
+    # Call the callback to cover the pass statement
+    with logfire.span('test') as span:
+        try:
+            raise ValueError('test')
+        except ValueError as e:
+            record_exception(span._span, e, callback=GLOBAL_CONFIG.advanced.exception_callback)  # type: ignore
 
     with pytest.warns(UserWarning, match='cannot be pickled'):
         result = serialize_config()
