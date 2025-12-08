@@ -530,3 +530,43 @@ def test_reconfigure(caplog: pytest.LogCaptureFixture):
     # For comparison, this logs a warning because the advisory is different (unset)
     meter.create_histogram('foo', unit='x', description='bar')
     assert caplog.messages
+
+
+def test_metrics_options_default_views() -> None:
+    """Test that MetricsOptions.DEFAULT_VIEWS is accessible as a class variable."""
+    from opentelemetry.sdk.metrics.view import View
+
+    # DEFAULT_VIEWS should be accessible as a class variable
+    assert logfire.MetricsOptions.DEFAULT_VIEWS is not None
+    assert len(logfire.MetricsOptions.DEFAULT_VIEWS) == 2
+
+    # Each element should be a View
+    for view in logfire.MetricsOptions.DEFAULT_VIEWS:
+        assert isinstance(view, View)
+
+
+def test_metrics_options_extend_default_views() -> None:
+    """Test that users can extend DEFAULT_VIEWS with their own views."""
+    from opentelemetry.sdk.metrics import Counter
+    from opentelemetry.sdk.metrics.view import View
+
+    custom_view = View(
+        instrument_type=Counter,
+        instrument_name='my_custom_counter',
+        description='A custom view for testing',
+    )
+
+    # Extend DEFAULT_VIEWS with a custom view
+    extended_views = [*logfire.MetricsOptions.DEFAULT_VIEWS, custom_view]
+    assert len(extended_views) == 3
+    assert extended_views[-1] is custom_view
+
+    # Verify we can create MetricsOptions with extended views
+    options = logfire.MetricsOptions(views=extended_views)
+    assert len(options.views) == 3
+
+
+def test_metrics_options_default_views_unchanged() -> None:
+    """Test that default views are used when not explicitly provided."""
+    options = logfire.MetricsOptions()
+    assert options.views is logfire.MetricsOptions.DEFAULT_VIEWS
