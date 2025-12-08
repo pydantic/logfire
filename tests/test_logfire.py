@@ -39,6 +39,7 @@ from logfire._internal.constants import (
     LevelName,
 )
 from logfire._internal.formatter import FormattingFailedWarning
+from logfire._internal.integrations.executors import serialize_config
 from logfire._internal.main import NoopSpan
 from logfire._internal.tracer import record_exception
 from logfire._internal.utils import SeededRandomIdGenerator, is_instrumentation_suppressed
@@ -2252,17 +2253,15 @@ def _test_helper_function() -> int:
 
 
 def test_process_pool_executor_with_exception_callback() -> None:
-    """Test that ProcessPoolExecutor works even when exception_callback is a local function.
+    """Test ProcessPoolExecutor with local exception_callback function.
 
-    This tests the fix for https://github.com/pydantic/logfire/issues/1556
-    where local exception_callback functions couldn't be pickled.
+    See: https://github.com/pydantic/logfire/issues/1556
     """
     from logfire.types import ExceptionCallbackHelper
 
     callback_called = False
 
     def setup_logfire():
-        # This simulates the scenario from the issue where exception_callback is a local function
         def exception_callback(helper: ExceptionCallbackHelper) -> None:
             nonlocal callback_called
             callback_called = True
@@ -2275,24 +2274,23 @@ def test_process_pool_executor_with_exception_callback() -> None:
 
     setup_logfire()
 
-    # Cover line 2251 by calling the helper function directly in the main process
     assert _test_helper_function() == 42
 
-    # Cover line 2265 by triggering the exception_callback in the main process
-    # (where it's available since it's not pickled)
     with logfire.span('test') as span:
         try:
             raise ValueError('test exception')
         except ValueError as e:
-            # Call record_exception with the callback from config
             record_exception(span._span, e, callback=GLOBAL_CONFIG.advanced.exception_callback)  # type: ignore
 
     assert callback_called
 
-    # This should not raise AttributeError about pickling the local function
-    # The config cannot be pickled, so serialize_config returns None and emits a warning
-    # The process should still work (just without the config being sent)
     with pytest.warns(UserWarning, match='cannot be pickled'):
+        result = serialize_config()
+    assert result is None
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', category=DeprecationWarning, message='.*fork.*')
+        warnings.filterwarnings('ignore', category=UserWarning, message='.*cannot be pickled.*')
         with ProcessPoolExecutor(max_workers=1) as executor:
             future = executor.submit(_test_helper_function)
             result = future.result()
