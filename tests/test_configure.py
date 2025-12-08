@@ -882,6 +882,28 @@ def test_config_serializable_console_false():
     assert GLOBAL_CONFIG.console is False
 
 
+def test_serialize_config_without_advanced():
+    """Test serialize_config when 'advanced' is not in config_dict or is not a dict."""
+    from dataclasses import asdict
+
+    logfire.configure(send_to_logfire=False)
+    # Patch asdict to return a config without 'advanced' to cover the missing branch
+    with patch('logfire._internal.integrations.executors.asdict') as mock_asdict:
+        config_dict = asdict(GLOBAL_CONFIG)
+        config_dict.pop('advanced', None)
+        mock_asdict.return_value = config_dict
+        result = serialize_config()
+        assert 'advanced' not in result
+
+    # Also test when 'advanced' exists but is not a dict
+    with patch('logfire._internal.integrations.executors.asdict') as mock_asdict:
+        config_dict = asdict(GLOBAL_CONFIG)
+        config_dict['advanced'] = None  # Not a dict
+        mock_asdict.return_value = config_dict
+        result = serialize_config()
+        assert result['advanced'] is None
+
+
 def test_config_console_output_set():
     output = StringIO()
     logfire.configure(send_to_logfire=False, console=logfire.ConsoleOptions(output=output))
