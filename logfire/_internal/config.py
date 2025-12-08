@@ -188,7 +188,12 @@ class AdvancedOptions:
     exception_callback: ExceptionCallback | None = None
     """Callback function that is called when an exception is recorded on a span.
 
-    This is experimental and may be modified or removed."""
+    This is experimental and may be modified or removed.
+
+    Note: When using ProcessPoolExecutor, this callback must be defined at the module level
+    (not as a local function) to be picklable. Local functions will be excluded from the
+    serialized configuration sent to child processes. See the distributed tracing guide for more details.
+    """
 
     def generate_base_url(self, token: str) -> str:
         if self.base_url is not None:

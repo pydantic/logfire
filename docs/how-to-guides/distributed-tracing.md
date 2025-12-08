@@ -64,6 +64,9 @@ with logfire.span("Doubling everything") as span:
     span.set_attribute("results", results)
 ```
 
+!!! note "ProcessPoolExecutor and exception_callback"
+    When using [`ProcessPoolExecutor`][concurrent.futures.ProcessPoolExecutor], the configuration is serialized and sent to child processes. If you set an `exception_callback` that is a local function (defined inside another function), it cannot be pickled and will be excluded from the serialized configuration. The child process will use the default configuration without the exception callback. To work around this, define your exception callback at the module level instead of as a local function.
+
 ## Unintentional Distributed Tracing
 
 Because instrumented web servers automatically extract the `traceparent` header by default, your spans can accidentally pick up the wrong context from an externally instrumented client, or from your cloud provider such as Google Cloud Run. This can lead to:

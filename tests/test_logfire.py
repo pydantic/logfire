@@ -2246,6 +2246,41 @@ def test_config_preserved_across_thread_or_process(
         executor.shutdown(wait=True)
 
 
+def _test_helper_function() -> int:
+    """Helper function for test_process_pool_executor_with_exception_callback."""
+    return 42
+
+
+def test_process_pool_executor_with_exception_callback() -> None:
+    """Test that ProcessPoolExecutor works even when exception_callback is a local function.
+
+    This tests the fix for https://github.com/pydantic/logfire/issues/1556
+    where local exception_callback functions couldn't be pickled.
+    """
+    from logfire.types import ExceptionCallbackHelper
+
+    def setup_logfire():
+        # This simulates the scenario from the issue where exception_callback is a local function
+        def exception_callback(helper: ExceptionCallbackHelper) -> None:
+            pass
+
+        logfire.configure(
+            send_to_logfire=False,
+            console=False,
+            advanced=logfire.AdvancedOptions(exception_callback=exception_callback),
+        )
+
+    setup_logfire()
+
+    # This should not raise AttributeError about pickling the local function
+    # The exception_callback will be excluded from serialization, but the process should still work
+    with ProcessPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(_test_helper_function)
+        result = future.result()
+        assert result == 42
+        executor.shutdown(wait=True)
+
+
 def test_kwarg_with_dot_in_name(exporter: TestExporter) -> None:
     logfire.info('{http.status}', **{'http.status': 123})  # type: ignore
 

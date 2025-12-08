@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from functools import partial
-from typing import Any, Callable
+from typing import Any, Callable, TypedDict, cast
 
 from logfire.propagate import ContextCarrier, attach_context, get_context
 
@@ -55,13 +55,39 @@ except ImportError:  # pragma: no cover
         pass
 
 
+# ---- Minimal typing fix to satisfy pyright ----
+
+
+class AdvancedConfigDict(TypedDict, total=False):
+    exception_callback: Callable[..., Any] | None
+    id_generator: Any | None
+    ns_timestamp_generator: Any | None
+    log_record_processors: Any | None
+
+
 def serialize_config() -> dict[str, Any]:
     from ..config import GLOBAL_CONFIG
 
     # note: since `logfire.config._LogfireConfigData` is a dataclass
     # but `LogfireConfig` is not we only get the attributes from `_LogfireConfigData`
     # which is what we want here!
-    return asdict(GLOBAL_CONFIG)
+    config_dict = asdict(GLOBAL_CONFIG)
+
+    # Remove non-picklable fields from advanced options
+    # exception_callback may be a local function which can't be pickled when using ProcessPoolExecutor
+    # See: https://github.com/pydantic/logfire/issues/1556
+    if 'advanced' in config_dict and isinstance(config_dict['advanced'], dict):
+        config_dict['advanced'] = cast(AdvancedConfigDict, config_dict['advanced']).copy()
+        # exception_callback cannot be pickled if it's a local function
+        config_dict['advanced'].pop('exception_callback', None)
+        # id_generator and ns_timestamp_generator are handled specially during deserialization
+        # but they may not be picklable, so we exclude them and use defaults in child processes
+        config_dict['advanced'].pop('id_generator', None)
+        config_dict['advanced'].pop('ns_timestamp_generator', None)
+        # log_record_processors may contain non-picklable objects
+        config_dict['advanced'].pop('log_record_processors', None)
+
+    return config_dict
 
 
 def deserialize_config(config: dict[str, Any]) -> None:
