@@ -137,24 +137,6 @@ This should be passed as the `preferred_temporality` argument of metric readers 
 which send to the Logfire backend.
 """
 
-DEFAULT_VIEWS: Sequence[View] = (
-    View(
-        instrument_type=Histogram,
-        aggregation=ExponentialBucketHistogramAggregation(),
-    ),
-    View(
-        instrument_type=UpDownCounter,
-        instrument_name='http.server.active_requests',
-        attribute_keys={
-            'url.scheme',
-            'http.scheme',
-            'http.flavor',
-            'http.method',
-            'http.request.method',
-        },
-    ),
-)
-
 
 @dataclass
 class ConsoleOptions:
@@ -242,7 +224,23 @@ class PydanticPlugin:
 class MetricsOptions:
     """Configuration of metrics."""
 
-    DEFAULT_VIEWS: ClassVar[Sequence[View]] = DEFAULT_VIEWS
+    DEFAULT_VIEWS: ClassVar[Sequence[View]] = (
+        View(
+            instrument_type=Histogram,
+            aggregation=ExponentialBucketHistogramAggregation(),
+        ),
+        View(
+            instrument_type=UpDownCounter,
+            instrument_name='http.server.active_requests',
+            attribute_keys={
+                'url.scheme',
+                'http.scheme',
+                'http.flavor',
+                'http.method',
+                'http.request.method',
+            },
+        ),
+    )
     """The default OpenTelemetry metric views applied by Logfire.
 
     This class variable is provided for reference so you can extend the defaults when configuring
@@ -263,7 +261,7 @@ class MetricsOptions:
     collect_in_spans: bool = False
     """Experimental setting to add up the values of counter and histogram metrics in active spans."""
 
-    views: Sequence[View] = DEFAULT_VIEWS
+    views: Sequence[View] = field(default_factory=lambda: MetricsOptions.DEFAULT_VIEWS)
     """Sequence of OpenTelemetry metric views to apply during metric collection.
 
     Defaults to `DEFAULT_VIEWS`. To add custom views while keeping the defaults, use:
