@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import logfire
+from opentelemetry import trace
+
 from logfire._internal.integrations.llm_providers.llm_provider import (
     instrument_llm_provider,
     record_streaming,
@@ -98,6 +100,9 @@ def is_async_client(client_type: type) -> bool:
 def test_record_streaming_preserves_context(exporter: TestExporter) -> None:
     with logfire.span('parent'):
         original_context = get_context()
+        span_context = trace.get_current_span().get_span_context()
+        expected_trace_id = span_context.trace_id
+        expected_span_id = span_context.span_id
 
     # Outside the parent span, streaming log should still link to parent via attach_context
     with record_streaming(
@@ -109,11 +114,10 @@ def test_record_streaming_preserves_context(exporter: TestExporter) -> None:
         record_chunk('chunk')
 
     spans = exporter.exported_spans_as_dict()
-    parent = next(s for s in spans if s['name'] == 'parent')
     streaming = next(s for s in spans if 'streaming response' in s['name'])
 
-    assert streaming['context']['trace_id'] == parent['context']['trace_id']
-    assert streaming['parent']['span_id'] == parent['context']['span_id']
+    assert streaming['context']['trace_id'] == expected_trace_id
+    assert streaming['parent']['span_id'] == expected_span_id
 
 
 def test_sync_streaming_preserves_original_context(exporter: TestExporter) -> None:
