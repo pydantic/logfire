@@ -134,19 +134,21 @@ def test_sync_streaming_preserves_original_context(exporter: TestExporter) -> No
     )
 
     with logfire.span('parent'):
+        span_context = trace.get_current_span().get_span_context()
+        expected_trace_id = span_context.trace_id
+        expected_span_id = span_context.span_id
         result = client.request(options=MockOptions(), stream=True, stream_cls=MockSyncStream)
         for _ in result.__stream__():
             pass
 
     spans = exporter.exported_spans_as_dict()
-    parent = next(s for s in spans if s['name'] == 'parent')
     request = next(s for s in spans if 'Test with' in s['name'])
     streaming = next(s for s in spans if 'streaming response' in s['name'])
 
-    assert request['context']['trace_id'] == parent['context']['trace_id']
-    assert streaming['context']['trace_id'] == parent['context']['trace_id']
-    assert request['parent']['span_id'] == parent['context']['span_id']
-    assert streaming['parent']['span_id'] == parent['context']['span_id']
+    assert request['context']['trace_id'] == expected_trace_id
+    assert streaming['context']['trace_id'] == expected_trace_id
+    assert request['parent']['span_id'] == expected_span_id
+    assert streaming['parent']['span_id'] == expected_span_id
 
 
 async def test_async_streaming_preserves_original_context(exporter: TestExporter) -> None:
@@ -163,16 +165,18 @@ async def test_async_streaming_preserves_original_context(exporter: TestExporter
     )
 
     with logfire.span('parent'):
+        span_context = trace.get_current_span().get_span_context()
+        expected_trace_id = span_context.trace_id
+        expected_span_id = span_context.span_id
         result = await client.request(options=MockOptions(), stream=True, stream_cls=MockAsyncStream)
         async for _ in result.__stream__():
             pass
 
     spans = exporter.exported_spans_as_dict()
-    parent = next(s for s in spans if s['name'] == 'parent')
     request = next(s for s in spans if 'Test with' in s['name'])
     streaming = next(s for s in spans if 'streaming response' in s['name'])
 
-    assert request['context']['trace_id'] == parent['context']['trace_id']
-    assert streaming['context']['trace_id'] == parent['context']['trace_id']
-    assert request['parent']['span_id'] == parent['context']['span_id']
-    assert streaming['parent']['span_id'] == parent['context']['span_id']
+    assert request['context']['trace_id'] == expected_trace_id
+    assert streaming['context']['trace_id'] == expected_trace_id
+    assert request['parent']['span_id'] == expected_span_id
+    assert streaming['parent']['span_id'] == expected_span_id
