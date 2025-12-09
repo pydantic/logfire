@@ -6,9 +6,9 @@ from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
-import logfire
 from opentelemetry import trace
 
+import logfire
 from logfire._internal.integrations.llm_providers.llm_provider import (
     instrument_llm_provider,
     record_streaming,
