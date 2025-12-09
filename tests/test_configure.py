@@ -30,7 +30,7 @@ from opentelemetry.propagate import get_global_textmap
 from opentelemetry.propagators.composite import CompositePropagator
 from opentelemetry.sdk._logs import LogRecordProcessor
 from opentelemetry.sdk._logs._internal import SynchronousMultiLogRecordProcessor
-from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, LogExporter, SimpleLogRecordProcessor
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, LogRecordExporter, SimpleLogRecordProcessor
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader, PeriodicExportingMetricReader
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor, SynchronousMultiSpanProcessor
 from opentelemetry.sdk.trace.export import (
@@ -583,7 +583,7 @@ def get_batch_span_exporter(processor: SpanProcessor) -> SpanExporter:
     return exporter  # type: ignore
 
 
-def get_batch_log_exporter(processor: LogRecordProcessor) -> LogExporter:
+def get_batch_log_exporter(processor: LogRecordProcessor) -> LogRecordExporter:
     assert isinstance(processor, BatchLogRecordProcessor)
     return processor._batch_processor._exporter  # type: ignore
 
@@ -991,7 +991,7 @@ def test_initialize_project_use_existing_project(tmp_dir_cwd: Path, tmp_path: Pa
         ]
         assert prompt_mock.mock_calls == [
             call(
-                'Please select one of the following projects by number:\n1. fake_org/fake_project\n',
+                "Please select one of the following projects by number (requires the 'write_token' permission):\n1. fake_org/fake_project\n",
                 choices=['1'],
                 default='1',
             ),

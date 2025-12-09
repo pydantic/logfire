@@ -4,8 +4,9 @@ from ..utils import truncate_string as truncate_string
 from _typeshed import Incomplete
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from opentelemetry.sdk._logs import LogData as LogData, LogRecord
-from opentelemetry.sdk._logs.export import LogExportResult, LogExporter
+from opentelemetry._logs import LogRecord
+from opentelemetry.sdk._logs import ReadableLogRecord as ReadableLogRecord
+from opentelemetry.sdk._logs.export import LogRecordExportResult, LogRecordExporter
 from opentelemetry.sdk.trace import Event, ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult, SpanExporter
 from typing import TextIO
@@ -67,7 +68,7 @@ class ShowParentsConsoleSpanExporter(SimpleConsoleSpanExporter):
         """Print any parent spans which aren't in the current stack of displayed spans, then print this span."""
 
 @dataclass
-class ConsoleLogExporter(LogExporter):
+class ConsoleLogExporter(LogRecordExporter):
     span_exporter: SimpleConsoleSpanExporter
-    def export(self, batch: Sequence[LogData]) -> LogExportResult: ...
+    def export(self, batch: Sequence[ReadableLogRecord]) -> LogRecordExportResult: ...
     def shutdown(self) -> None: ...

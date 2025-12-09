@@ -33,7 +33,6 @@ from logfire.sampling._tail_sampling import TailSamplingProcessor as TailSamplin
 from logfire.variables.abstract import NoOpVariableProvider as NoOpVariableProvider, VariableProvider as VariableProvider
 from logfire.variables.config import VariablesConfig as VariablesConfig
 from logfire.version import VERSION as VERSION
-from opentelemetry._events import EventLoggerProvider
 from opentelemetry.sdk._logs import LogRecordProcessor as LogRecordProcessor
 from opentelemetry.sdk.metrics.export import MetricReader as MetricReader
 from opentelemetry.sdk.trace import SpanProcessor
@@ -259,14 +258,6 @@ class LogfireConfig(_LogfireConfigData):
 
         Returns:
             The logger provider.
-        """
-    def get_event_logger_provider(self) -> EventLoggerProvider | None:
-        """Get an event logger provider from this `LogfireConfig`.
-
-        This is used internally and should not be called by users of the SDK.
-
-        Returns:
-            The event logger provider.
         """
     def get_variable_provider(self) -> VariableProvider:
         """Get a variable provider from this `LogfireConfig`.

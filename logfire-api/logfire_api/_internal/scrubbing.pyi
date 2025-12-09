@@ -7,7 +7,7 @@ from _typeshed import Incomplete
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
-from opentelemetry.sdk._logs import LogRecord
+from opentelemetry._logs import LogRecord
 from opentelemetry.sdk.trace import Event
 from typing import Any, Callable, TypedDict
 

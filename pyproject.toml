@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "4.15.1"
+version = "4.16.0"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.9"
 authors = [
@@ -45,8 +45,8 @@ classifiers = [
     "Framework :: OpenTelemetry :: Instrumentations",
 ]
 dependencies = [
-    "opentelemetry-sdk >= 1.35.0, < 1.39.0",
-    "opentelemetry-exporter-otlp-proto-http >= 1.35.0, < 1.39.0",
+    "opentelemetry-sdk >= 1.39.0, < 1.40.0",
+    "opentelemetry-exporter-otlp-proto-http >= 1.39.0, < 1.40.0",
     "opentelemetry-instrumentation >= 0.41b0",
     "rich >= 13.4.2",
     "protobuf >= 4.23.4",
@@ -181,7 +181,7 @@ dev = [
     "opentelemetry-instrumentation-google-genai >= 0.4b0",
     "google-genai >= 0",
     "openinference-instrumentation-litellm >= 0",
-    "litellm >= 0",
+    "litellm != 1.80.9",
     "pip >= 0",
 ]
 docs = [
@@ -198,7 +198,7 @@ docs = [
 
 [tool.inline-snapshot]
 default-flags = ["disable"]
-format-command="ruff format --stdin-filename {filename}"
+format-command = "ruff format --stdin-filename {filename}"
 
 [tool.uv.sources]
 logfire-api = { workspace = true }
@@ -225,14 +225,14 @@ extend-exclude = ["logfire-api/logfire_api/*", "tests/auto_trace_samples/param_s
 
 [tool.ruff.lint]
 extend-select = [
-    "Q",      # https://docs.astral.sh/ruff/rules/#flake8-quotes-q
+    "Q", # https://docs.astral.sh/ruff/rules/#flake8-quotes-q
     "RUF100", # https://docs.astral.sh/ruff/rules/unused-noqa/
-    "C90",    # https://docs.astral.sh/ruff/rules/#mccabe-c90
-    "UP",     # https://docs.astral.sh/ruff/rules/#pyupgrade-up
-    "I",      # https://docs.astral.sh/ruff/rules/#isort-i
-    "D",      # https://docs.astral.sh/ruff/rules/#pydocstyle-d
+    "C90", # https://docs.astral.sh/ruff/rules/#mccabe-c90
+    "UP", # https://docs.astral.sh/ruff/rules/#pyupgrade-up
+    "I", # https://docs.astral.sh/ruff/rules/#isort-i
+    "D", # https://docs.astral.sh/ruff/rules/#pydocstyle-d
     "DTZ005", # https://docs.astral.sh/ruff/rules/call-datetime-now-without-tzinfo/
-    "FA",     # https://docs.astral.sh/ruff/rules/#flake8-future-annotations-fa
+    "FA", # https://docs.astral.sh/ruff/rules/#flake8-future-annotations-fa
 ]
 flake8-quotes = { inline-quotes = "single", multiline-quotes = "double" }
 isort = { combine-as-imports = true, known-first-party = [
@@ -296,8 +296,8 @@ filterwarnings = [
     "ignore:The `capture_response_headers` parameter is deprecated. Use `capture_headers` instead.:DeprecationWarning",
     # kombu using deprecated redis API
     "ignore:Call to 'get_connection' function with deprecated usage of input argument/s.*:DeprecationWarning",
-    # OTel logs going through weird deprecation process
-    "ignore::opentelemetry.sdk._logs._internal.LogDeprecatedInitWarning",
+    # OpenTelemetry event logger stuff being used by Pydantic AI
+    "ignore:You should use `\\w*(L|l)ogger\\w*` instead. Deprecated since version 1.39.0 and will be removed in a future release.:DeprecationWarning",
 ]
 DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_test_site.settings"
 

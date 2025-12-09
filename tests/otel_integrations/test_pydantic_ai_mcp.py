@@ -110,6 +110,7 @@ Because it found something more "sole-ful!"\
                     'request': {
                         'method': 'tools/list',
                         'params': {
+                            'task': None,
                             'meta': {
                                 'progressToken': None,
                                 'traceparent': '00-00000000000000000000000000000002-0000000000000005-01',
@@ -241,6 +242,7 @@ Because it found something more "sole-ful!"\
                     'request': {
                         'method': 'sampling/createMessage',
                         'params': {
+                            'task': None,
                             'meta': {
                                 'progressToken': None,
                                 'traceparent': '00-00000000000000000000000000000002-0000000000000017-01',
@@ -254,6 +256,7 @@ Because it found something more "sole-ful!"\
                                         'annotations': None,
                                         'meta': None,
                                     },
+                                    'meta': None,
                                 }
                             ],
                             'modelPreferences': None,
@@ -263,6 +266,8 @@ Because it found something more "sole-ful!"\
                             'maxTokens': 16384,
                             'stopSequences': None,
                             'metadata': None,
+                            'tools': None,
+                            'toolChoice': None,
                         },
                         'jsonrpc': '2.0',
                         'id': 0,
@@ -298,6 +303,7 @@ Because it found something more "sole-ful!"\
                     'request': {
                         'method': 'sampling/createMessage',
                         'params': {
+                            'task': None,
                             'meta': None,
                             'messages': [
                                 {
@@ -308,6 +314,7 @@ Because it found something more "sole-ful!"\
                                         'annotations': None,
                                         'meta': None,
                                     },
+                                    'meta': None,
                                 }
                             ],
                             'modelPreferences': None,
@@ -317,6 +324,8 @@ Because it found something more "sole-ful!"\
                             'maxTokens': 16384,
                             'stopSequences': None,
                             'metadata': None,
+                            'tools': None,
+                            'toolChoice': None,
                         },
                     },
                     'rpc.system': 'jsonrpc',
@@ -423,6 +432,7 @@ Because it found something more "sole-ful!"\
                     'request': {
                         'method': 'tools/call',
                         'params': {
+                            'task': None,
                             'meta': {
                                 'progressToken': None,
                                 'traceparent': '00-00000000000000000000000000000002-000000000000000f-01',
@@ -470,7 +480,7 @@ Because it found something more "sole-ful!"\
                 'attributes': {
                     'request': {
                         'method': 'tools/call',
-                        'params': {'meta': None, 'name': 'joker', 'arguments': {'theme': 'socks'}},
+                        'params': {'task': None, 'meta': None, 'name': 'joker', 'arguments': {'theme': 'socks'}},
                     },
                     'rpc.system': 'jsonrpc',
                     'rpc.jsonrpc.version': '2.0',
@@ -531,61 +541,11 @@ Because it found something more "sole-ful!"\
                 'attributes': {'tools': ('joker',), 'logfire.msg': 'running 1 tool', 'logfire.span_type': 'span'},
             },
             {
-                'name': 'MCP server handle request: tools/list',
-                'context': {'trace_id': 2, 'span_id': 31, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 29, 'is_remote': True},
-                'start_time': 29000000000,
-                'end_time': 30000000000,
-                'attributes': {
-                    'request': {
-                        'method': 'tools/list',
-                        'params': {
-                            'meta': {
-                                'progressToken': None,
-                                'traceparent': '00-00000000000000000000000000000002-000000000000001d-01',
-                            },
-                            'cursor': None,
-                        },
-                        'jsonrpc': '2.0',
-                        'id': 3,
-                    },
-                    'logfire.msg_template': 'MCP server handle request: tools/list',
-                    'logfire.msg': 'MCP server handle request: tools/list',
-                    'logfire.span_type': 'span',
-                    'response': {
-                        'meta': None,
-                        'nextCursor': None,
-                        'tools': [IsPartialDict()],
-                    },
-                },
-            },
-            {
-                'name': 'MCP request: tools/list',
+                'name': 'chat gpt-4o',
                 'context': {'trace_id': 2, 'span_id': 29, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
                 'start_time': 28000000000,
-                'end_time': 31000000000,
-                'attributes': {
-                    'request': {'method': 'tools/list', 'params': None},
-                    'rpc.system': 'jsonrpc',
-                    'rpc.jsonrpc.version': '2.0',
-                    'rpc.method': 'tools/list',
-                    'logfire.msg_template': 'MCP request: tools/list',
-                    'logfire.msg': 'MCP request: tools/list',
-                    'logfire.span_type': 'span',
-                    'response': {
-                        'meta': None,
-                        'nextCursor': None,
-                        'tools': [IsPartialDict()],
-                    },
-                },
-            },
-            {
-                'name': 'chat gpt-4o',
-                'context': {'trace_id': 2, 'span_id': 33, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
-                'start_time': 32000000000,
-                'end_time': 33000000000,
+                'end_time': 29000000000,
                 'attributes': {
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.system': 'openai',
@@ -653,7 +613,7 @@ Because it found something more "sole-ful!"\
                 'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
                 'parent': None,
                 'start_time': 3000000000,
-                'end_time': 34000000000,
+                'end_time': 30000000000,
                 'attributes': {
                     'model_name': 'gpt-4o',
                     'agent_name': 'agent',
