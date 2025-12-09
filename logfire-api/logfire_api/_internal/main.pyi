@@ -1122,6 +1122,8 @@ class Logfire:
             `False` if the timeout was reached before the shutdown was completed, `True` otherwise.
         """
     def var(self, *, name: str, default: T | ResolveFunction[T], type: type[T] | Sequence[type[T]]) -> Variable[T]: ...
+    def get_variables(self) -> list[Variable[Any]]:
+        """Get all variables registered with this Logfire instance."""
 
 class FastLogfireSpan:
     """A simple version of `LogfireSpan` optimized for auto-tracing."""

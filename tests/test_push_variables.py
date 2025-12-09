@@ -1,11 +1,10 @@
 """Tests for the push_variables functionality."""
 
+# pyright: reportPrivateUsage=false
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from typing import Any
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -192,9 +191,7 @@ def test_compute_diff_schema_change(mock_logfire_instance: MockLogfire) -> None:
         'variables': {
             'config-value': {
                 'json_schema': {'type': 'string'},  # Was string, now int
-                'variants': {
-                    'default': {'serialized_value': '"hello"'}
-                },
+                'variants': {'default': {'serialized_value': '"hello"'}},
             }
         }
     }
@@ -326,6 +323,7 @@ def test_var_registers_variable() -> None:
 
     var2 = lf.var(name='test-var-2', default=42, type=int)
     assert len(lf.get_variables()) == 2
+    assert var2 in lf.get_variables()
 
 
 def test_get_variables_returns_all_registered() -> None:

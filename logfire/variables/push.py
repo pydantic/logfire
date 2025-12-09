@@ -395,9 +395,7 @@ def push_variables(
 
     # Check for incompatible variants in strict mode
     if strict:
-        has_incompatible = any(
-            c.incompatible_variants for c in diff.changes if c.change_type == 'update_schema'
-        )
+        has_incompatible = any(c.incompatible_variants for c in diff.changes if c.change_type == 'update_schema')
         if has_incompatible:
             print(
                 '\n\033[31mError: Some existing variants are incompatible with the new schema. '
@@ -577,11 +575,13 @@ def validate_variables(
     errors: list[VariantValidationError] = []
     for var_name, variant_errors in error_dict.items():
         for variant_key, error in variant_errors.items():
-            errors.append(VariantValidationError(
-                variable_name=var_name,
-                variant_key=variant_key,
-                error=error,
-            ))
+            errors.append(
+                VariantValidationError(
+                    variable_name=var_name,
+                    variant_key=variant_key,
+                    error=error,
+                )
+            )
 
     report = ValidationReport(
         errors=errors,

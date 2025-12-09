@@ -35,10 +35,11 @@ from logfire.variables.config import VariablesConfig as VariablesConfig
 from logfire.version import VERSION as VERSION
 from opentelemetry.sdk._logs import LogRecordProcessor as LogRecordProcessor
 from opentelemetry.sdk.metrics.export import MetricReader as MetricReader
+from opentelemetry.sdk.metrics.view import View
 from opentelemetry.sdk.trace import SpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from pathlib import Path
-from typing import Any, Callable, Literal, TextIO, TypedDict
+from typing import Any, Callable, ClassVar, Literal, TextIO, TypedDict
 from typing_extensions import Self, Unpack
 
 CREDENTIALS_FILENAME: str
@@ -81,8 +82,10 @@ class PydanticPlugin:
 @dataclass
 class MetricsOptions:
     """Configuration of metrics."""
+    DEFAULT_VIEWS: ClassVar[Sequence[View]] = ...
     additional_readers: Sequence[MetricReader] = ...
     collect_in_spans: bool = ...
+    views: Sequence[View] = field(default_factory=Incomplete)
 
 @dataclass
 class CodeSource:
