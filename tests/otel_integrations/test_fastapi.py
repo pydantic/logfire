@@ -1796,8 +1796,8 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                         'timestamp': 10000000000,
                         'attributes': {
                             'exception.type': 'fastapi.exceptions.RequestValidationError',
-                            'exception.message': '[]',
-                            'exception.stacktrace': 'fastapi.exceptions.RequestValidationError: []',
+                            'exception.message': '0 validation errors:',
+                            'exception.stacktrace': 'fastapi.exceptions.RequestValidationError: 0 validation errors:',
                             'exception.escaped': 'True',
                         },
                     }
@@ -1877,8 +1877,8 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                         'timestamp': 9000000000,
                         'attributes': {
                             'exception.type': 'fastapi.exceptions.RequestValidationError',
-                            'exception.message': '[]',
-                            'exception.stacktrace': 'fastapi.exceptions.RequestValidationError: []',
+                            'exception.message': '0 validation errors:',
+                            'exception.stacktrace': 'fastapi.exceptions.RequestValidationError: 0 validation errors:',
                             'exception.escaped': 'False',
                             'recorded_by_logfire_fastapi': True,
                         },
