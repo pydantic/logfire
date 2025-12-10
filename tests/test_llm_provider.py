@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass, field
 from typing import Any
+from unittest.mock import Mock
 
 from opentelemetry import trace
 
@@ -62,10 +63,8 @@ class MockSyncClient:
         self._chunks = chunks or []
 
     def request(self, *args: Any, **kwargs: Any) -> Any:
-        if kwargs.get('stream') and self._chunks:
-            stream_cls = kwargs.get('stream_cls', MockSyncStream)
-            return stream_cls(self._chunks)
-        return {'result': 'success'}
+        stream_cls = kwargs.get('stream_cls', MockSyncStream)
+        return stream_cls(self._chunks)
 
 
 class MockAsyncClient:
@@ -75,10 +74,8 @@ class MockAsyncClient:
         self._chunks = chunks or []
 
     async def request(self, *args: Any, **kwargs: Any) -> Any:
-        if kwargs.get('stream') and self._chunks:
-            stream_cls = kwargs.get('stream_cls', MockAsyncStream)
-            return stream_cls(self._chunks)
-        return {'result': 'success'}
+        stream_cls = kwargs.get('stream_cls', MockAsyncStream)
+        return stream_cls(self._chunks)
 
 
 def get_endpoint_config(options: MockOptions) -> EndpointConfig:
@@ -89,8 +86,7 @@ def get_endpoint_config(options: MockOptions) -> EndpointConfig:
     )
 
 
-def on_response(response: Any, span: logfire.LogfireSpan) -> Any:
-    return response
+on_response = Mock()
 
 
 def is_async_client(client_type: type) -> bool:
