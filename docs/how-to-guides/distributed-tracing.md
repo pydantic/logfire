@@ -64,8 +64,8 @@ with logfire.span("Doubling everything") as span:
     span.set_attribute("results", results)
 ```
 
-!!! note "ProcessPoolExecutor and exception_callback"
-    When using [`ProcessPoolExecutor`][concurrent.futures.ProcessPoolExecutor], the configuration is serialized and sent to child processes. If you set an `exception_callback` that is a local function (defined inside another function), it cannot be pickled and will be excluded from the serialized configuration. The child process will use the default configuration without the exception callback. To work around this, define your exception callback at the module level instead of as a local function.
+!!! note "`ProcessPoolExecutor` and exception_callback"
+    When using [`ProcessPoolExecutor`][concurrent.futures.ProcessPoolExecutor], the configuration is serialized and sent to child processes. If this fails because of something unpickleable (e.g. a function defined in another function passed as a callback) then a warning is emitted and no configuration is passed on. If possible, try to define callbacks at the module level. If the configuration still can't be serialized, you will have to call `logfire.configure` at the start of child processes.
 
 ## Unintentional Distributed Tracing
 

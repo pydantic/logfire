@@ -884,30 +884,6 @@ def test_config_serializable_console_false():
     assert GLOBAL_CONFIG.console is False
 
 
-def test_serialize_config_without_advanced():
-    """Test serialize_config when 'advanced' is not in config_dict or is not a dict."""
-    from dataclasses import asdict
-
-    logfire.configure(send_to_logfire=False)
-    # Patch asdict to return a config without 'advanced' to cover the missing branch
-    with patch('logfire._internal.integrations.executors.asdict') as mock_asdict:
-        config_dict = asdict(GLOBAL_CONFIG)
-        config_dict.pop('advanced', None)
-        mock_asdict.return_value = config_dict
-        result = serialize_config()
-        assert result is not None
-        assert 'advanced' not in result
-
-    # Also test when 'advanced' exists but is not a dict
-    with patch('logfire._internal.integrations.executors.asdict') as mock_asdict:
-        config_dict = asdict(GLOBAL_CONFIG)
-        config_dict['advanced'] = None  # Not a dict
-        mock_asdict.return_value = config_dict
-        result = serialize_config()
-        assert result is not None
-        assert result['advanced'] is None
-
-
 def test_serialize_config_unpicklable():
     """Test serialize_config when config cannot be pickled."""
     from logfire._internal.tracer import record_exception
@@ -939,30 +915,17 @@ def test_serialize_config_unpicklable():
 
 def test_deserialize_seeded_random_id_generator():
     """Test deserialization of SeededRandomIdGenerator from dict (covers line 650 in config.py)."""
-    from dataclasses import asdict
-
     logfire.configure(
         send_to_logfire=False,
         advanced=logfire.AdvancedOptions(id_generator=SeededRandomIdGenerator(seed=42)),
     )
 
-    # Serialize config - this converts SeededRandomIdGenerator to a dict
-    # Note: SeededRandomIdGenerator should be picklable, so serialize_config should succeed
     serialized = serialize_config()
     assert serialized is not None
 
-    # Manually add id_generator back as a dict to test the deserialization path
-    # This simulates what would happen if id_generator was included in serialization
-    id_generator_dict = asdict(SeededRandomIdGenerator(seed=42))
-    # Ensure keys are in the right order for the condition to match
-    assert list(id_generator_dict.keys()) == ['seed', '_ms_timestamp_generator']
-    serialized['advanced']['id_generator'] = id_generator_dict
-
-    # Deserialize - this should trigger line 650 in config.py
     GLOBAL_CONFIG._initialized = False  # type: ignore
     deserialize_config(serialized)
 
-    # Verify it was deserialized back to SeededRandomIdGenerator
     assert isinstance(GLOBAL_CONFIG.advanced.id_generator, SeededRandomIdGenerator)
     assert GLOBAL_CONFIG.advanced.id_generator.seed == 42
 

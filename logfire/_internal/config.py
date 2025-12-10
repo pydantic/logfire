@@ -190,9 +190,9 @@ class AdvancedOptions:
 
     This is experimental and may be modified or removed.
 
-    Note: When using ProcessPoolExecutor, this callback must be defined at the module level
+    Note: When using `ProcessPoolExecutor`, this callback must be defined at the module level
     (not as a local function) to be picklable. Local functions will be excluded from the
-    serialized configuration sent to child processes. See the distributed tracing guide for more details.
+    serialized configuration sent to child processes. See the [distributed tracing guide](https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#thread-and-pool-executors) for more details.
     """
 
     def generate_base_url(self, token: str) -> str:
