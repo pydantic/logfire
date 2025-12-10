@@ -65,7 +65,7 @@ with logfire.span("Doubling everything") as span:
 ```
 
 !!! note "`ProcessPoolExecutor` and exception_callback"
-    When using [`ProcessPoolExecutor`][concurrent.futures.ProcessPoolExecutor], the configuration is serialized and sent to child processes. If this fails because of something unpickleable (e.g. a function defined in another function passed as a callback) then a warning is emitted and no configuration is passed on. If possible, try to define callbacks at the module level. If the configuration still can't be serialized, you will have to call `logfire.configure` at the start of child processes.
+    When using [`ProcessPoolExecutor`][concurrent.futures.ProcessPoolExecutor], the configuration is serialized and sent to child processes. If this fails because of something unpicklable (e.g. a function defined in another function passed as a callback) then a warning is emitted and no configuration is passed on. If possible, try to define callbacks at the module level. If the configuration still can't be serialized, you will have to call `logfire.configure` at the start of child processes.
 
 ## Unintentional Distributed Tracing
 
