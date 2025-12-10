@@ -14,7 +14,7 @@ from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 from threading import RLock, Thread
-from typing import TYPE_CHECKING, Any, Callable, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Literal, TypedDict
 from urllib.parse import urljoin
 from uuid import uuid4
 
@@ -229,11 +229,51 @@ class PydanticPlugin:
 class MetricsOptions:
     """Configuration of metrics."""
 
+    DEFAULT_VIEWS: ClassVar[Sequence[View]] = (
+        View(
+            instrument_type=Histogram,
+            aggregation=ExponentialBucketHistogramAggregation(),
+        ),
+        View(
+            instrument_type=UpDownCounter,
+            instrument_name='http.server.active_requests',
+            attribute_keys={
+                'url.scheme',
+                'http.scheme',
+                'http.flavor',
+                'http.method',
+                'http.request.method',
+            },
+        ),
+    )
+    """The default OpenTelemetry metric views applied by Logfire.
+
+    This class variable is provided for reference so you can extend the defaults when configuring
+    custom views: `MetricsOptions(views=[*MetricsOptions.DEFAULT_VIEWS, View(...), View(...)])`
+
+    The default views include:
+
+    - **Exponential bucket histogram aggregation** for all `Histogram` instruments, which provides
+      better resolution and smaller payload sizes compared to fixed-bucket histograms.
+    - **Attribute filtering** for the `http.server.active_requests` `UpDownCounter`, limiting
+      attributes to `url.scheme`, `http.scheme`, `http.flavor`, `http.method`, and `http.request.method`
+      to reduce cardinality.
+    """
+
     additional_readers: Sequence[MetricReader] = ()
     """Sequence of metric readers to be used in addition to the default which exports metrics to Logfire's API."""
 
     collect_in_spans: bool = False
     """Experimental setting to add up the values of counter and histogram metrics in active spans."""
+
+    views: Sequence[View] = field(default_factory=lambda: MetricsOptions.DEFAULT_VIEWS)
+    """Sequence of OpenTelemetry metric views to apply during metric collection.
+
+    Defaults to `DEFAULT_VIEWS`. To add custom views while keeping the defaults, use:
+    `MetricsOptions(views=[*MetricsOptions.DEFAULT_VIEWS, View(...), View(...)])`
+
+    To replace the defaults entirely, pass your own sequence of views.
+    """
 
 
 @dataclass
@@ -1054,26 +1094,11 @@ class LogfireConfig(_LogfireConfigData):
                 log_record_processors.append(logfire_log_processor)
 
             if metric_readers is not None:
+                assert isinstance(self.metrics, MetricsOptions)
                 meter_provider = MeterProvider(
                     metric_readers=metric_readers,
                     resource=resource,
-                    views=[
-                        View(
-                            instrument_type=Histogram,
-                            aggregation=ExponentialBucketHistogramAggregation(),
-                        ),
-                        View(
-                            instrument_type=UpDownCounter,
-                            instrument_name='http.server.active_requests',
-                            attribute_keys={
-                                'url.scheme',
-                                'http.scheme',
-                                'http.flavor',
-                                'http.method',
-                                'http.request.method',
-                            },
-                        ),
-                    ],
+                    views=self.metrics.views,
                 )
             else:
                 meter_provider = NoOpMeterProvider()
