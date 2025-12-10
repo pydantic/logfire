@@ -2288,9 +2288,7 @@ def test_process_pool_executor_with_exception_callback() -> None:
         result = serialize_config()
     assert result is None
 
-    with warnings.catch_warnings():
-        warnings.filterwarnings('ignore', category=DeprecationWarning, message='.*fork.*')
-        warnings.filterwarnings('ignore', category=UserWarning, message='.*cannot be pickled.*')
+    with pytest.warns((DeprecationWarning, UserWarning), match='.*'):
         with ProcessPoolExecutor(max_workers=1) as executor:
             future = executor.submit(_test_helper_function)
             result = future.result()

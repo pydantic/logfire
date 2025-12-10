@@ -846,6 +846,7 @@ def test_config_serializable():
         sampling=logfire.SamplingOptions(),
         scrubbing=logfire.ScrubbingOptions(),
         code_source=logfire.CodeSource(repository='https://github.com/pydantic/logfire', revision='main'),
+        advanced=logfire.AdvancedOptions(id_generator=SeededRandomIdGenerator(seed=42)),
     )
 
     for field in dataclasses.fields(GLOBAL_CONFIG):
@@ -874,6 +875,7 @@ def test_config_serializable():
     assert isinstance(GLOBAL_CONFIG.scrubbing, logfire.ScrubbingOptions)
     assert isinstance(GLOBAL_CONFIG.advanced, logfire.AdvancedOptions)
     assert isinstance(GLOBAL_CONFIG.advanced.id_generator, SeededRandomIdGenerator)
+    assert GLOBAL_CONFIG.advanced.id_generator.seed == 42
 
 
 def test_config_serializable_console_false():
@@ -911,23 +913,6 @@ def test_serialize_config_unpicklable():
 
     assert result is None
     deserialize_config(None)
-
-
-def test_deserialize_seeded_random_id_generator():
-    """Test deserialization of SeededRandomIdGenerator from dict (covers line 650 in config.py)."""
-    logfire.configure(
-        send_to_logfire=False,
-        advanced=logfire.AdvancedOptions(id_generator=SeededRandomIdGenerator(seed=42)),
-    )
-
-    serialized = serialize_config()
-    assert serialized is not None
-
-    GLOBAL_CONFIG._initialized = False  # type: ignore
-    deserialize_config(serialized)
-
-    assert isinstance(GLOBAL_CONFIG.advanced.id_generator, SeededRandomIdGenerator)
-    assert GLOBAL_CONFIG.advanced.id_generator.seed == 42
 
 
 def test_config_console_output_set():
