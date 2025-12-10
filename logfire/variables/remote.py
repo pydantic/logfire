@@ -14,6 +14,7 @@ from pydantic import ValidationError
 from requests import Session
 
 from logfire._internal.client import UA_HEADER
+from logfire._internal.config import RemoteVariablesConfig
 from logfire._internal.utils import UnexpectedResponse
 from logfire.variables.abstract import VariableProvider, VariableResolutionDetails
 from logfire.variables.config import VariablesConfig
@@ -29,29 +30,23 @@ class LogfireRemoteVariableProvider(VariableProvider):
     The threading implementation draws heavily from opentelemetry.sdk._shared_internal.BatchProcessor.
     """
 
-    def __init__(
-        self,
-        base_url: str,
-        token: str,
-        block_before_first_fetch: bool,
-        polling_interval: timedelta | float = timedelta(seconds=30),
-    ):
+    def __init__(self, base_url: str, token: str, config: RemoteVariablesConfig):
         """Create a new remote variable provider.
 
         Args:
             base_url: The base URL of the Logfire API.
             token: Authentication token for the Logfire API.
-            block_before_first_fetch: Whether to block on first variable access until configuration
-                is fetched from the remote API.
-            polling_interval: How often to poll for configuration updates. Can be a timedelta or
-                a number of seconds.
+            config: Config for retrieving remote variables.
         """
         super().__init__()
+
+        block_before_first_resolve = config.block_before_first_resolve
+        polling_interval = config.polling_interval
 
         self._base_url = base_url
         self._session = Session()
         self._session.headers.update({'Authorization': token, 'User-Agent': UA_HEADER})
-        self._block_before_first_fetch = block_before_first_fetch
+        self._block_before_first_fetch = block_before_first_resolve
         self._polling_interval: timedelta = (
             timedelta(seconds=polling_interval) if isinstance(polling_interval, float | int) else polling_interval
         )

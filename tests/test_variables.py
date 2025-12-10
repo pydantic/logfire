@@ -13,7 +13,7 @@ import requests_mock as requests_mock_module
 from pydantic import BaseModel, ValidationError
 
 import logfire
-from logfire._internal.config import VariablesOptions
+from logfire._internal.config import RemoteVariablesConfig, VariablesOptions
 from logfire.variables.abstract import NoOpVariableProvider, VariableProvider, VariableResolutionDetails
 from logfire.variables.config import (
     KeyIsNotPresent,
@@ -1127,8 +1127,10 @@ class TestLogfireRemoteVariableProvider:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                block_before_first_fetch=True,
-                polling_interval=timedelta(seconds=60),
+                config=RemoteVariablesConfig(
+                    block_before_first_resolve=True,
+                    polling_interval=timedelta(seconds=60),
+                ),
             )
             try:
                 result = provider.get_serialized_value('test_var')
@@ -1147,8 +1149,10 @@ class TestLogfireRemoteVariableProvider:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                block_before_first_fetch=False,
-                polling_interval=timedelta(seconds=60),
+                config=RemoteVariablesConfig(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
             )
             try:
                 # Without blocking, config might not be fetched yet
@@ -1182,8 +1186,10 @@ class TestLogfireRemoteVariableProvider:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                block_before_first_fetch=True,
-                polling_interval=timedelta(seconds=60),
+                config=RemoteVariablesConfig(
+                    block_before_first_resolve=True,
+                    polling_interval=timedelta(seconds=60),
+                ),
             )
             try:
                 result = provider.get_serialized_value('nonexistent_var')
@@ -1202,8 +1208,10 @@ class TestLogfireRemoteVariableProvider:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                block_before_first_fetch=False,
-                polling_interval=timedelta(seconds=60),
+                config=RemoteVariablesConfig(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
             )
             provider.shutdown()
             provider.shutdown()  # Should not raise
@@ -1218,8 +1226,10 @@ class TestLogfireRemoteVariableProvider:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                block_before_first_fetch=False,
-                polling_interval=timedelta(seconds=60),
+                config=RemoteVariablesConfig(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
             )
             try:
                 provider.refresh(force=True)
@@ -1254,8 +1264,10 @@ class TestLogfireRemoteVariableProvider:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                block_before_first_fetch=True,
-                polling_interval=timedelta(seconds=60),
+                config=RemoteVariablesConfig(
+                    block_before_first_resolve=True,
+                    polling_interval=timedelta(seconds=60),
+                ),
             )
             try:
                 result = provider.get_serialized_value('partial_var')
@@ -1279,8 +1291,10 @@ class TestLogfireRemoteVariableProviderErrors:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                block_before_first_fetch=True,
-                polling_interval=timedelta(seconds=60),
+                config=RemoteVariablesConfig(
+                    block_before_first_resolve=True,
+                    polling_interval=timedelta(seconds=60),
+                ),
             )
             try:
                 # The mock returns an error, so config should not be set
@@ -1300,8 +1314,10 @@ class TestLogfireRemoteVariableProviderErrors:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                block_before_first_fetch=True,
-                polling_interval=timedelta(seconds=60),
+                config=RemoteVariablesConfig(
+                    block_before_first_resolve=True,
+                    polling_interval=timedelta(seconds=60),
+                ),
             )
             try:
                 # The mock returns invalid data, so validation error happens
@@ -1362,7 +1378,7 @@ class TestVariable:
         )
 
     def test_get_string_variable(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
-        config_kwargs['variables'] = VariablesOptions.local(variables_config)
+        config_kwargs['variables'] = VariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='string_var', default='default_value', type=str)
@@ -1370,7 +1386,7 @@ class TestVariable:
         assert value == 'hello'
 
     def test_get_int_variable(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
-        config_kwargs['variables'] = VariablesOptions.local(variables_config)
+        config_kwargs['variables'] = VariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='int_var', default=0, type=int)
@@ -1382,7 +1398,7 @@ class TestVariable:
             name: str
             value: int
 
-        config_kwargs['variables'] = VariablesOptions.local(variables_config)
+        config_kwargs['variables'] = VariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='model_var', default=MyModel(name='default', value=0), type=MyModel)
@@ -1391,7 +1407,7 @@ class TestVariable:
         assert value.value == 123
 
     def test_get_with_attributes(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
-        config_kwargs['variables'] = VariablesOptions.local(variables_config)
+        config_kwargs['variables'] = VariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='string_var', default='default_value', type=str)
@@ -1403,7 +1419,7 @@ class TestVariable:
         assert var.get(attributes={'use_alt': True}) == 'world'
 
     def test_get_details(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
-        config_kwargs['variables'] = VariablesOptions.local(variables_config)
+        config_kwargs['variables'] = VariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='string_var', default='default_value', type=str)
@@ -1413,7 +1429,7 @@ class TestVariable:
         assert details.exception is None
 
     def test_get_details_with_validation_error(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
-        config_kwargs['variables'] = VariablesOptions.local(variables_config)
+        config_kwargs['variables'] = VariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='invalid_var', default=999, type=int)
@@ -1424,7 +1440,7 @@ class TestVariable:
         assert details._reason == 'validation_error'
 
     def test_get_uses_default_when_no_config(self, config_kwargs: dict[str, Any]):
-        config_kwargs['variables'] = VariablesOptions.local(VariablesConfig(variables={}))
+        config_kwargs['variables'] = VariablesOptions(config=VariablesConfig(variables={}))
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='unconfigured', default='my_default', type=str)
@@ -1432,7 +1448,7 @@ class TestVariable:
         assert value == 'my_default'
 
     def test_override_context_manager(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
-        config_kwargs['variables'] = VariablesOptions.local(variables_config)
+        config_kwargs['variables'] = VariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='string_var', default='default_value', type=str)
@@ -1445,7 +1461,7 @@ class TestVariable:
         assert var.get() == 'hello'
 
     def test_override_nested(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
-        config_kwargs['variables'] = VariablesOptions.local(variables_config)
+        config_kwargs['variables'] = VariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='string_var', default='default_value', type=str)
@@ -1457,7 +1473,7 @@ class TestVariable:
             assert var.get() == 'outer'
 
     def test_override_with_function(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
-        config_kwargs['variables'] = VariablesOptions.local(variables_config)
+        config_kwargs['variables'] = VariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='string_var', default='default_value', type=str)
@@ -1472,7 +1488,7 @@ class TestVariable:
             assert var.get(attributes={'mode': 'creative'}) == 'creative_value'
 
     def test_default_as_function(self, config_kwargs: dict[str, Any]):
-        config_kwargs['variables'] = VariablesOptions.local(VariablesConfig(variables={}))
+        config_kwargs['variables'] = VariablesOptions(config=VariablesConfig(variables={}))
         lf = logfire.configure(**config_kwargs)
 
         def resolve_default(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
@@ -1485,7 +1501,7 @@ class TestVariable:
         assert var.get(targeting_key='user123') == 'default_for_user123'
 
     def test_refresh_sync(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
-        config_kwargs['variables'] = VariablesOptions.local(variables_config)
+        config_kwargs['variables'] = VariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='string_var', default='default_value', type=str)
@@ -1493,7 +1509,7 @@ class TestVariable:
 
     @pytest.mark.anyio
     async def test_refresh_async(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
-        config_kwargs['variables'] = VariablesOptions.local(variables_config)
+        config_kwargs['variables'] = VariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='string_var', default='default_value', type=str)
@@ -1530,8 +1546,8 @@ class TestVariableContextEnrichment:
     def test_baggage_included_in_resolution(
         self, config_kwargs: dict[str, Any], config_with_targeting: VariablesConfig
     ):
-        config_kwargs['variables'] = VariablesOptions.local(
-            config_with_targeting,
+        config_kwargs['variables'] = VariablesOptions(
+            config=config_with_targeting,
             include_baggage_in_context=True,
         )
         lf = logfire.configure(**config_kwargs)
@@ -1546,8 +1562,8 @@ class TestVariableContextEnrichment:
             assert var.get() == 'premium'
 
     def test_baggage_can_be_disabled(self, config_kwargs: dict[str, Any], config_with_targeting: VariablesConfig):
-        config_kwargs['variables'] = VariablesOptions.local(
-            config_with_targeting,
+        config_kwargs['variables'] = VariablesOptions(
+            config=config_with_targeting,
             include_baggage_in_context=False,
         )
         lf = logfire.configure(**config_kwargs)
@@ -1562,8 +1578,8 @@ class TestVariableContextEnrichment:
     def test_resource_attributes_can_be_disabled(
         self, config_kwargs: dict[str, Any], config_with_targeting: VariablesConfig
     ):
-        config_kwargs['variables'] = VariablesOptions.local(
-            config_with_targeting,
+        config_kwargs['variables'] = VariablesOptions(
+            config=config_with_targeting,
             include_resource_attributes_in_context=False,
         )
         lf = logfire.configure(**config_kwargs)
@@ -1603,39 +1619,6 @@ class TestIsResolveFunction:
 
 
 # =============================================================================
-# Test VariablesOptions
-# =============================================================================
-
-
-class TestVariablesOptions:
-    def test_local_factory(self):
-        config = VariablesConfig(variables={})
-        options = VariablesOptions.local(config)
-        assert isinstance(options.provider, LocalVariableProvider)
-        assert options.include_resource_attributes_in_context is True
-        assert options.include_baggage_in_context is True
-
-    def test_local_factory_with_settings(self):
-        config = VariablesConfig(variables={})
-        options = VariablesOptions.local(
-            config,
-            include_resource_attributes_in_context=False,
-            include_baggage_in_context=False,
-        )
-        assert options.include_resource_attributes_in_context is False
-        assert options.include_baggage_in_context is False
-
-    def test_default_provider(self):
-        options = VariablesOptions()
-        assert isinstance(options.provider, NoOpVariableProvider)
-
-    def test_with_provider_instance(self):
-        provider = LocalVariableProvider(VariablesConfig(variables={}))
-        options = VariablesOptions(provider=provider)
-        assert options.provider is provider
-
-
-# =============================================================================
 # Test __init__.py lazy imports
 # =============================================================================
 
@@ -1663,8 +1646,8 @@ class TestLazyImports:
 
 class TestLogfireVarIntegration:
     def test_var_with_sequence_type(self, config_kwargs: dict[str, Any]):
-        config_kwargs['variables'] = VariablesOptions.local(
-            VariablesConfig(
+        config_kwargs['variables'] = VariablesOptions(
+            config=VariablesConfig(
                 variables={
                     'union_var': VariableConfig(
                         name='union_var',
@@ -1692,8 +1675,7 @@ class TestLogfireVarIntegration:
             ) -> VariableResolutionDetails[str | None]:
                 raise RuntimeError('Provider failed!')
 
-        config_kwargs['variables'] = VariablesOptions(provider=FailingProvider())
-        lf = logfire.configure(**config_kwargs)
+        lf = logfire.configure(variables=VariablesOptions(config=FailingProvider()))
 
         var = lf.var(name='failing_var', default='fallback', type=str)
         details = var.get_details()

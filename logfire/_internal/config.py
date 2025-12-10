@@ -69,6 +69,7 @@ from logfire.version import VERSION
 
 from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
 from ..types import ExceptionCallback
+from ..variables import LocalVariableProvider, LogfireRemoteVariableProvider
 from .client import InvalidProjectName, LogfireClient, ProjectAlreadyExists
 from .config_params import ParamManager, PydanticPluginRecordValues
 from .constants import (
@@ -300,83 +301,24 @@ class CodeSource:
     """
 
 
-@dataclass(init=False)
+@dataclass
+class RemoteVariablesConfig:
+    block_before_first_resolve: bool = True
+    """Whether the remote variables should be fetched before first resolving a value."""
+    polling_interval: timedelta | float = timedelta(seconds=30)
+    """The time interval for polling for updates to the variables config."""
+
+
+@dataclass
 class VariablesOptions:
     """Configuration of managed variables."""
 
-    # TODO: Rework to allow concrete types
-    provider: VariableProvider | Callable[[LogfireConfig], VariableProvider]
-    """A variable provider, or a function that accepts LogfireConfig and returns a provider for resolving variables."""
+    config: VariablesConfig | RemoteVariablesConfig | VariableProvider | None = None
+    """A local or remote variables config, or an arbitrary variable provider."""
     include_resource_attributes_in_context: bool = True
     """Whether to include OpenTelemetry resource attributes when resolving variables."""
     include_baggage_in_context: bool = True
     """Whether to include OpenTelemetry baggage when resolving variables."""
-
-    @classmethod
-    def local(
-        cls,
-        config: VariablesConfig | Callable[[], VariablesConfig],
-        include_resource_attributes_in_context: bool = True,
-        include_baggage_in_context: bool = True,
-    ):
-        from logfire.variables.local import LocalVariableProvider
-
-        return VariablesOptions(
-            provider=LocalVariableProvider(config),
-            include_resource_attributes_in_context=include_resource_attributes_in_context,
-            include_baggage_in_context=include_baggage_in_context,
-        )
-
-    @classmethod
-    def remote(
-        cls,
-        block_before_first_fetch: bool,
-        polling_interval: timedelta | float = timedelta(seconds=30),
-        include_resource_attributes_in_context: bool = True,
-        include_baggage_in_context: bool = True,
-    ):
-        from logfire.variables.remote import LogfireRemoteVariableProvider
-
-        def get_provider(config: LogfireConfig) -> VariableProvider:
-            token = config.token
-            if not token:
-                return NoOpVariableProvider()
-            base_url = config.advanced.base_url or get_base_url_from_token(token)
-            return LogfireRemoteVariableProvider(
-                base_url=base_url,
-                token=token,
-                block_before_first_fetch=block_before_first_fetch,
-                polling_interval=polling_interval,
-            )
-
-        return VariablesOptions(
-            provider=get_provider,
-            include_resource_attributes_in_context=include_resource_attributes_in_context,
-            include_baggage_in_context=include_baggage_in_context,
-        )
-
-    def __init__(
-        self,
-        provider: VariableProvider | Callable[[LogfireConfig], VariableProvider] | None = None,
-        include_resource_attributes_in_context: bool = True,
-        include_baggage_in_context: bool = True,
-    ):
-        """Initialize variable options.
-
-        Args:
-            provider: Provider for resolving variable values. Can be a `VariableProvider` instance,
-                a `VariablesConfig` (which will be wrapped in a `LocalVariableProvider`),
-                or `None` (which will use a `NoOpVariableProvider`, which always uses code defaults).
-            include_resource_attributes_in_context: Whether to include OpenTelemetry resource attributes
-                when resolving variables.
-            include_baggage_in_context: Whether to include OpenTelemetry baggage when resolving variables.
-        """
-        if not provider:
-            provider = NoOpVariableProvider()
-
-        self.provider = provider
-        self.include_resource_attributes_in_context = include_resource_attributes_in_context
-        self.include_baggage_in_context = include_baggage_in_context
 
     # TODO: Add OTel-related config here
 
@@ -859,7 +801,7 @@ class LogfireConfig(_LogfireConfigData):
         # note: this reference is important because the MeterProvider runs things in background threads
         # thus it "shuts down" when it's gc'ed
         self._meter_provider = ProxyMeterProvider(NoOpMeterProvider())
-        self._variable_provider = NoOpVariableProvider()
+        self._variable_provider: VariableProvider = NoOpVariableProvider()
         self._logger_provider = ProxyLoggerProvider(NoOpLoggerProvider())
         # This ensures that we only call OTEL's global set_tracer_provider once to avoid warnings.
         self._has_set_providers = False
@@ -1221,10 +1163,25 @@ class LogfireConfig(_LogfireConfigData):
             self._meter_provider.set_meter_provider(meter_provider)
 
             self._variable_provider.shutdown()
-            if callable(self.variables.provider):
-                self._variable_provider = self.variables.provider(self)
-            else:
-                self._variable_provider = self.variables.provider
+            if isinstance(self.variables.config, VariableProvider):
+                self._variable_provider = self.variables.config
+            elif isinstance(self.variables.config, VariablesConfig):
+                self._variable_provider = LocalVariableProvider(self.variables.config)
+            elif isinstance(self.variables.config, RemoteVariablesConfig):
+                # TODO: Need to use a non-write-token
+                token = self.token
+                if token:
+                    base_url = self.advanced.base_url or get_base_url_from_token(token)
+                    self._variable_provider = LogfireRemoteVariableProvider(
+                        base_url=base_url,
+                        token=token,
+                        config=self.variables.config,
+                    )
+                else:
+                    # No token, so can't use the remote variable provider
+                    self._variable_provider = NoOpVariableProvider()
+            elif self.variables.config is None:
+                self._variable_provider = NoOpVariableProvider()
 
             multi_log_processor = SynchronousMultiLogRecordProcessor()
             for processor in log_record_processors:
