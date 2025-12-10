@@ -891,8 +891,6 @@ def test_serialize_config_unpicklable():
     from logfire._internal.tracer import record_exception
     from logfire.types import ExceptionCallbackHelper
 
-    logfire.configure(send_to_logfire=False)
-
     def local_exception_callback(helper: ExceptionCallbackHelper) -> None:
         pass
 
