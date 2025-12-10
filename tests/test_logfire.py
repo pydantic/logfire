@@ -2288,12 +2288,14 @@ def test_process_pool_executor_with_exception_callback() -> None:
         result = serialize_config()
     assert result is None
 
-    with pytest.warns((DeprecationWarning, UserWarning), match='.*'):
-        with ProcessPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(_test_helper_function)
-            result = future.result()
-            assert result == 42
-            executor.shutdown(wait=True)
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', category=DeprecationWarning, message='.*fork.*')
+        with pytest.warns(UserWarning, match='cannot be pickled'):
+            with ProcessPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(_test_helper_function)
+                result = future.result()
+                assert result == 42
+                executor.shutdown(wait=True)
 
 
 def test_kwarg_with_dot_in_name(exporter: TestExporter) -> None:
