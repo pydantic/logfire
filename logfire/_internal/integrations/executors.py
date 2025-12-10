@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import pickle
-import warnings
 from dataclasses import asdict
 from functools import partial
 from typing import Any, Callable
 
 from logfire.propagate import ContextCarrier, attach_context, get_context
+
+from ..stack_info import warn_at_user_stacklevel
 
 try:
     # concurrent.futures does not work in pyodide
@@ -73,13 +74,12 @@ def serialize_config() -> dict[str, Any] | None:
     try:
         pickle.dumps(config_dict)
     except Exception:
-        warnings.warn(
+        warn_at_user_stacklevel(
             'The Logfire configuration cannot be pickled and will not be automatically '
             'sent to child processes. You will need to manually call logfire.configure() '
             'in each child process. This typically happens when using local functions '
             'as callbacks (e.g., exception_callback).',
             UserWarning,
-            stacklevel=2,
         )
         return None
 
