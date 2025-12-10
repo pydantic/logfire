@@ -24,8 +24,7 @@ class MockStreamState(StreamState):
         self.chunks: list[str] = []
 
     def record_chunk(self, chunk: Any) -> None:
-        if isinstance(chunk, str):
-            self.chunks.append(chunk)
+        self.chunks.append(chunk)
 
     def get_response_data(self) -> Any:
         return {'combined_chunk_content': ''.join(self.chunks), 'chunk_count': len(self.chunks)}
