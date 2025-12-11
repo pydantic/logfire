@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import inspect
 import uuid
 from typing import Any, Union, get_args, get_origin
@@ -66,10 +67,13 @@ def patch_method(obj: Any, method_name: str, logfire_instance: Logfire):
         template += ' ' + ', '.join(f'{p} = {{{p}}}' for p in template_params)
 
     # TODO only log for generators
+    @functools.wraps(original_method)
     def wrapped_method(*args: Any, **kwargs: Any) -> Any:
         params = sig.bind(*args, **kwargs).arguments
         params.pop('self', None)
         with logfire_instance.span(template, **params, _span_name=span_name):
             return original_method(*args, **kwargs)
+
+    wrapped_method._logfire_template = template  # type: ignore
 
     setattr(obj, method_name, wrapped_method)
