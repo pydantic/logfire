@@ -926,6 +926,12 @@ class Logfire:
     def _warn_if_not_initialized_for_instrumentation(self):
         self.config.warn_if_not_initialized('Instrumentation will have no effect')
 
+    def instrument_surrealdb(self, obj: Any = None) -> None:
+        from .integrations.surrealdb import instrument_surrealdb
+
+        self._warn_if_not_initialized_for_instrumentation()
+        instrument_surrealdb(obj, self)
+
     def instrument_mcp(self, *, propagate_otel_context: bool = True) -> None:
         """Instrument the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk).
 
