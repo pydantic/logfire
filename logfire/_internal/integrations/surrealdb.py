@@ -66,13 +66,24 @@ def patch_method(obj: Any, method_name: str, logfire_instance: Logfire):
     elif len(template_params) > 1:
         template += ' ' + ', '.join(f'{p} = {{{p}}}' for p in template_params)
 
-    # TODO only log for generators
-    @functools.wraps(original_method)
-    def wrapped_method(*args: Any, **kwargs: Any) -> Any:
-        params = sig.bind(*args, **kwargs).arguments
+    def get_params(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        bound = sig.bind(*args, **kwargs)
+        params = bound.arguments
         params.pop('self', None)
-        with logfire_instance.span(template, **params, _span_name=span_name):
+        return params
+
+    if inspect.isgeneratorfunction(original_method):
+
+        @functools.wraps(original_method)
+        def wrapped_method(*args: Any, **kwargs: Any) -> Any:
+            logfire_instance.info(template, **get_params(*args, **kwargs))
             return original_method(*args, **kwargs)
+    else:
+
+        @functools.wraps(original_method)
+        def wrapped_method(*args: Any, **kwargs: Any) -> Any:
+            with logfire_instance.span(template, **get_params(*args, **kwargs), _span_name=span_name):
+                return original_method(*args, **kwargs)
 
     wrapped_method._logfire_template = template  # type: ignore
 
