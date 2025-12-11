@@ -30,9 +30,16 @@ def is_complex_type(tp: type | type[Value]) -> bool:
 def instrument_surrealdb(obj: Any, logfire_instance: Logfire):
     logfire_instance = logfire_instance.with_settings(custom_scope_suffix='surrealdb')
     # TODO async
-    # TODO obj as type
-    # TODO obj=None
-    assert isinstance(obj, SyncTemplate)
+    if obj is None:
+        for cls in SyncTemplate.__subclasses__():
+            instrument_surrealdb(cls, logfire_instance)
+        return
+
+    if isinstance(obj, type):
+        assert issubclass(obj, SyncTemplate)
+    else:
+        assert isinstance(obj, SyncTemplate)
+
     for name, template_method in inspect.getmembers(SyncTemplate):
         if not inspect.isfunction(template_method):
             continue
