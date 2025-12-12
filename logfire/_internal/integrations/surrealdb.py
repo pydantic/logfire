@@ -86,11 +86,17 @@ def patch_method(obj: Any, method_name: str, logfire_instance: Logfire):
         return params
 
     if inspect.isgeneratorfunction(original_method):
-
+        # TODO async version
         @functools.wraps(original_method)
         def wrapped_method(*args: Any, **kwargs: Any) -> Any:
             logfire_instance.info(template, **get_params(*args, **kwargs))
             return original_method(*args, **kwargs)
+    elif inspect.iscoroutinefunction(original_method):
+
+        @functools.wraps(original_method)
+        async def wrapped_method(*args: Any, **kwargs: Any) -> Any:  # pyright: ignore[reportRedeclaration]
+            with logfire_instance.span(template, **get_params(*args, **kwargs), _span_name=span_name):
+                return await original_method(*args, **kwargs)
     else:
 
         @functools.wraps(original_method)
