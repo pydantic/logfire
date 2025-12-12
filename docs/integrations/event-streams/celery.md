@@ -106,6 +106,40 @@ To run the beat, you can use the following command:
 celery -A tasks beat --loglevel=info
 ```
 
+## Distributed Tracing
+
+You must configure Celery instrumentation across client and worker processes, to ensure worker-generated spans are linked to the parent spans in the caller process.
+
+Let's extend the original example to showcase a distributed tracing setup, including both worker and client code with separate entrypoints. You can run the worker process with `celery -A tasks worker --loglevel=info`, and the client by executing `python tasks.py` from a separate terminal session:
+
+```py title="tasks.py" hl_lines="6-11 19-22"
+import logfire
+from celery import Celery
+from celery.signals import worker_init
+
+
+@worker_init.connect()
+def init_worker(*args, **kwargs):
+    logfire.configure(service_name="worker", distributed_tracing=True)  # (1)!
+    logfire.instrument_celery()
+
+app = Celery("tasks", broker="redis://localhost:6379/0")
+
+
+@app.task
+def add(x: int, y: int):
+    return x + y
+
+
+if __name__ == "__main__":  # (2)!
+    logfire.configure(service_name="client-app")
+    logfire.instrument_celery()
+    add.delay(42, 50)
+```
+
+1. Mark the configuration as running in a distributed tracing environment. This is only required for the worker.
+2. Running the file directly will simulate a client application that calls the Celery task.
+
 The keyword arguments of [`logfire.instrument_celery()`][logfire.Logfire.instrument_celery] are passed to the
 [`CeleryInstrumentor().instrument()`][opentelemetry.instrumentation.celery.CeleryInstrumentor] method.
 
