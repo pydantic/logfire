@@ -74,6 +74,7 @@ def test_instrument_surrealdb(exporter: TestExporter) -> None:
         db.update('person', {'user': 'you', 'password': 'very_safe', 'marketing': False, 'tags': ['Awesome']})
         db.delete('person')
         db.query('select * from person')
+        db.subscribe_live('foo')
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
@@ -185,11 +186,29 @@ def test_instrument_surrealdb(exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': 'surrealdb close',
+                'name': 'surrealdb subscribe_live {query_uuid}',
                 'context': {'trace_id': 7, 'span_id': 13, 'is_remote': False},
                 'parent': None,
                 'start_time': 13000000000,
-                'end_time': 14000000000,
+                'end_time': 13000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'surrealdb subscribe_live {query_uuid}',
+                    'logfire.msg': 'surrealdb subscribe_live foo',
+                    'code.filepath': 'test_surrealdb.py',
+                    'code.function': 'test_instrument_surrealdb',
+                    'code.lineno': 123,
+                    'query_uuid': 'foo',
+                    'logfire.json_schema': '{"type":"object","properties":{"query_uuid":{}}}',
+                },
+            },
+            {
+                'name': 'surrealdb close',
+                'context': {'trace_id': 8, 'span_id': 14, 'is_remote': False},
+                'parent': None,
+                'start_time': 14000000000,
+                'end_time': 15000000000,
                 'attributes': {
                     'code.filepath': 'test_surrealdb.py',
                     'code.function': 'test_instrument_surrealdb',
