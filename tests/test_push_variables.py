@@ -3,8 +3,10 @@
 # pyright: reportPrivateUsage=false
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 
@@ -425,5 +427,7 @@ def test_format_validation_report_all_valid() -> None:
 
 def test_validate_variables_no_variables() -> None:
     """Test validate_variables with no variables."""
-    result = logfire.validate_variables()
-    assert result is True  # No variables to validate is success
+    # Without the following patch, you get a 'No Logfire credentials found' error
+    with patch.dict(os.environ, {'LOGFIRE_TOKEN': '...'}):
+        result = logfire.validate_variables()
+        assert result is True  # No variables to validate is success
