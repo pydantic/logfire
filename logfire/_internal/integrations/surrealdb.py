@@ -47,22 +47,22 @@ def instrument_surrealdb(obj: Any, logfire_instance: Logfire):
             instrument_surrealdb(cls, logfire_instance)
         return
 
-    # TODO check that the templates have the same methods
-    for name, template_method in inspect.getmembers(SyncTemplate):
+    for name, template_method in inspect.getmembers(AsyncTemplate):
         if not (
             inspect.isfunction(template_method)
             and not name.startswith('_')
-            and SyncTemplate.__dict__.get(name) == template_method
+            and name != 'connect'  # weird case that differs between classes
+            and AsyncTemplate.__dict__.get(name) == template_method
         ):
             continue
         patch_method(obj, name, logfire_instance)
 
 
 def patch_method(obj: Any, method_name: str, logfire_instance: Logfire):
-    if hasattr(getattr(obj, method_name), '_logfire_template'):
+    original_method = getattr(obj, method_name, None)
+    if not original_method or hasattr(original_method, '_logfire_template'):
         return  # already patched
 
-    original_method = getattr(obj, method_name)
     sig = inspect.signature(original_method)
     template_params: list[str] = []
     scrubber = logfire_instance.config.scrubber
