@@ -230,7 +230,7 @@ class TestRollout:
         rollout = Rollout(variants={'v1': 0.5, 'v2': 0.5})
         # Without seed, still works but isn't deterministic
         result = rollout.select_variant(None)
-        assert result in {'v1', 'v2', None}
+        assert result in {'v1', 'v2'}
 
     def test_validation_sum_exceeds_one(self):
         # Note: Validation only runs when using TypeAdapter (not direct instantiation)

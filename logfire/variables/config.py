@@ -114,7 +114,7 @@ class ValueDoesNotMatchRegex:
         value = attributes.get(self.attribute)
         if not isinstance(value, str):
             return False
-        return bool(re.search(self.pattern, value))
+        return not re.search(self.pattern, value)
 
 
 @dataclass(kw_only=True)
