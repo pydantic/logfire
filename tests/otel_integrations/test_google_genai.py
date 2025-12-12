@@ -113,7 +113,7 @@ def test_instrument_google_genai(exporter: TestExporter) -> None:
                     'gen_ai.response.finish_reasons': ('stop',),
                     'logfire.metrics': IsPartialDict(),
                     'events': [
-                        {'content': ['help'], 'role': 'system'},
+                        {'content': 'help', 'role': 'system'},
                         {'content': 'What is the weather like in Boston?', 'role': 'user'},
                         {
                             'content': {
@@ -256,6 +256,7 @@ def test_instrument_google_genai_response_schema(exporter: TestExporter) -> None
                     'gen_ai.request.model': 'gemini-2.5-flash',
                     'gen_ai.operation.name': 'chat',
                     'logfire.span_type': 'span',
+                    'gen_ai.output.type': 'json',
                     'logfire.msg': 'generate_content gemini-2.5-flash',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 13,
