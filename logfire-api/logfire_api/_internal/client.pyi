@@ -54,11 +54,3 @@ class LogfireClient:
         """Create a read token for the given project in the given organization."""
     def get_prompt(self, organization: str, project_name: str, issue: str) -> dict[str, Any]:
         """Get a prompt to be used with your favorite LLM."""
-    def get_variables_config(self, organization: str, project_name: str) -> dict[str, Any]:
-        """Get the variables configuration for a project."""
-    def get_variable_by_name(self, organization: str, project_name: str, variable_name: str) -> dict[str, Any]:
-        """Get a variable definition by name."""
-    def create_variable(self, organization: str, project_name: str, body: dict[str, Any]) -> dict[str, Any]:
-        """Create a new variable definition."""
-    def update_variable(self, organization: str, project_name: str, variable_id: str, body: dict[str, Any]) -> dict[str, Any]:
-        """Update an existing variable definition."""

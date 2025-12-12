@@ -13,7 +13,6 @@ from ..integrations.psycopg import CommenterOptions as PsycopgCommenterOptions
 from ..integrations.redis import RequestHook as RedisRequestHook, ResponseHook as RedisResponseHook
 from ..integrations.sqlalchemy import CommenterOptions as SQLAlchemyCommenterOptions
 from ..integrations.wsgi import RequestHook as WSGIRequestHook, ResponseHook as WSGIResponseHook
-from ..variables.variable import ResolveFunction as ResolveFunction, Variable as Variable
 from ..version import VERSION as VERSION
 from .auto_trace import AutoTraceModule as AutoTraceModule, install_auto_tracing as install_auto_tracing
 from .config import GLOBAL_CONFIG as GLOBAL_CONFIG, LogfireConfig as LogfireConfig
@@ -33,7 +32,7 @@ from .metrics import ProxyMeterProvider as ProxyMeterProvider
 from .stack_info import get_user_stack_info as get_user_stack_info
 from .tracer import ProxyTracerProvider as ProxyTracerProvider, _ProxyTracer, set_exception_status as set_exception_status
 from .utils import SysExcInfo as SysExcInfo, get_version as get_version, handle_internal_errors as handle_internal_errors, log_internal_error as log_internal_error, uniquify_sequence as uniquify_sequence
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Sequence
 from contextlib import AbstractContextManager
 from django.http import HttpRequest as HttpRequest, HttpResponse as HttpResponse
 from fastapi import FastAPI
@@ -56,15 +55,12 @@ from typing_extensions import LiteralString, ParamSpec, Unpack
 from wsgiref.types import WSGIApplication
 
 ExcInfo = SysExcInfo | BaseException | bool | None
-T = TypeVar('T')
 
 class Logfire:
     """The main logfire class."""
     def __init__(self, *, config: LogfireConfig = ..., sample_rate: float | None = None, tags: Sequence[str] = (), console_log: bool = True, otel_scope: str = 'logfire') -> None: ...
     @property
     def config(self) -> LogfireConfig: ...
-    @property
-    def resource_attributes(self) -> Mapping[str, Any]: ...
     def trace(self, msg_template: str, /, *, _tags: Sequence[str] | None = None, _exc_info: ExcInfo = False, **attributes: Any) -> None:
         """Log a trace message.
 
@@ -1121,9 +1117,6 @@ class Logfire:
         Returns:
             `False` if the timeout was reached before the shutdown was completed, `True` otherwise.
         """
-    def var(self, *, name: str, default: T | ResolveFunction[T], type: type[T] | Sequence[type[T]]) -> Variable[T]: ...
-    def get_variables(self) -> list[Variable[Any]]:
-        """Get all variables registered with this Logfire instance."""
 
 class FastLogfireSpan:
     """A simple version of `LogfireSpan` optimized for auto-tracing."""

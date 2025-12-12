@@ -86,9 +86,10 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
     def _worker(self):
         while not self._shutdown:
-            # TODO: Ideally we'd be able to terminate while the following request was going even if it takes a while
-            #   Note it's far more reasonable to terminate this worker thread "gracelessly" than an OTel exporter's.
-            #   Is there anything similar to an anyio CancelScope we can use here?
+            # Note: Ideally we'd be able to terminate while the following request was going even if it takes a while,
+            # it's far more reasonable to terminate this worker thread "gracelessly" than an OTel exporter's.
+            # But given this is pretty unlikely to cause issues, Alex and I decided are okay leaving this as-is.
+            # We can change this if we run into issues, but it doesn't seem to be causing any now.
             self.refresh()
             self._worker_awaken.clear()
             self._worker_awaken.wait(self._polling_interval.total_seconds())

@@ -2,7 +2,7 @@ from ._internal.auto_trace import AutoTraceModule as AutoTraceModule
 from ._internal.auto_trace.rewrite_ast import no_auto_trace as no_auto_trace
 from ._internal.baggage import get_baggage as get_baggage, set_baggage as set_baggage
 from ._internal.cli import logfire_info as logfire_info
-from ._internal.config import AdvancedOptions as AdvancedOptions, CodeSource as CodeSource, ConsoleOptions as ConsoleOptions, MetricsOptions as MetricsOptions, PydanticPlugin as PydanticPlugin, VariablesOptions as VariablesOptions, configure as configure
+from ._internal.config import AdvancedOptions as AdvancedOptions, CodeSource as CodeSource, ConsoleOptions as ConsoleOptions, MetricsOptions as MetricsOptions, PydanticPlugin as PydanticPlugin, configure as configure
 from ._internal.constants import LevelName as LevelName
 from ._internal.main import Logfire as Logfire, LogfireSpan as LogfireSpan
 from ._internal.scrubbing import ScrubMatch as ScrubMatch, ScrubbingOptions as ScrubbingOptions
@@ -10,13 +10,12 @@ from ._internal.stack_info import add_non_user_code_prefix as add_non_user_code_
 from ._internal.utils import suppress_instrumentation as suppress_instrumentation
 from .integrations.logging import LogfireLoggingHandler as LogfireLoggingHandler
 from .integrations.structlog import LogfireProcessor as StructlogProcessor
-from .variables.push import push_variables as push_variables, validate_variables as validate_variables
 from .version import VERSION as VERSION
 from logfire.propagate import attach_context as attach_context, get_context as get_context
 from logfire.sampling import SamplingOptions as SamplingOptions
 from typing import Any
 
-__all__ = ['Logfire', 'LogfireSpan', 'LevelName', 'AdvancedOptions', 'ConsoleOptions', 'CodeSource', 'PydanticPlugin', 'configure', 'span', 'instrument', 'log', 'trace', 'debug', 'notice', 'info', 'warn', 'warning', 'error', 'exception', 'fatal', 'force_flush', 'log_slow_async_callbacks', 'install_auto_tracing', 'instrument_asgi', 'instrument_wsgi', 'instrument_pydantic', 'instrument_pydantic_ai', 'instrument_fastapi', 'instrument_openai', 'instrument_openai_agents', 'instrument_anthropic', 'instrument_google_genai', 'instrument_litellm', 'instrument_print', 'instrument_asyncpg', 'instrument_httpx', 'instrument_celery', 'instrument_requests', 'instrument_psycopg', 'instrument_django', 'instrument_flask', 'instrument_starlette', 'instrument_aiohttp_client', 'instrument_aiohttp_server', 'instrument_sqlalchemy', 'instrument_sqlite3', 'instrument_aws_lambda', 'instrument_redis', 'instrument_pymongo', 'instrument_mysql', 'instrument_system_metrics', 'instrument_mcp', 'AutoTraceModule', 'with_tags', 'with_settings', 'suppress_scopes', 'shutdown', 'no_auto_trace', 'ScrubMatch', 'ScrubbingOptions', 'VERSION', 'add_non_user_code_prefix', 'suppress_instrumentation', 'StructlogProcessor', 'LogfireLoggingHandler', 'loguru_handler', 'SamplingOptions', 'MetricsOptions', 'VariablesOptions', 'var', 'get_variables', 'push_variables', 'validate_variables', 'logfire_info', 'get_baggage', 'set_baggage', 'get_context', 'attach_context']
+__all__ = ['Logfire', 'LogfireSpan', 'LevelName', 'AdvancedOptions', 'ConsoleOptions', 'CodeSource', 'PydanticPlugin', 'configure', 'span', 'instrument', 'log', 'trace', 'debug', 'notice', 'info', 'warn', 'warning', 'error', 'exception', 'fatal', 'force_flush', 'log_slow_async_callbacks', 'install_auto_tracing', 'instrument_asgi', 'instrument_wsgi', 'instrument_pydantic', 'instrument_pydantic_ai', 'instrument_fastapi', 'instrument_openai', 'instrument_openai_agents', 'instrument_anthropic', 'instrument_google_genai', 'instrument_litellm', 'instrument_print', 'instrument_asyncpg', 'instrument_httpx', 'instrument_celery', 'instrument_requests', 'instrument_psycopg', 'instrument_django', 'instrument_flask', 'instrument_starlette', 'instrument_aiohttp_client', 'instrument_aiohttp_server', 'instrument_sqlalchemy', 'instrument_sqlite3', 'instrument_aws_lambda', 'instrument_redis', 'instrument_pymongo', 'instrument_mysql', 'instrument_system_metrics', 'instrument_mcp', 'AutoTraceModule', 'with_tags', 'with_settings', 'suppress_scopes', 'shutdown', 'no_auto_trace', 'ScrubMatch', 'ScrubbingOptions', 'VERSION', 'add_non_user_code_prefix', 'suppress_instrumentation', 'StructlogProcessor', 'LogfireLoggingHandler', 'loguru_handler', 'SamplingOptions', 'MetricsOptions', 'logfire_info', 'get_baggage', 'set_baggage', 'get_context', 'attach_context']
 
 DEFAULT_LOGFIRE_INSTANCE = Logfire()
 span = DEFAULT_LOGFIRE_INSTANCE.span
@@ -67,8 +66,6 @@ warning = DEFAULT_LOGFIRE_INSTANCE.warning
 error = DEFAULT_LOGFIRE_INSTANCE.error
 fatal = DEFAULT_LOGFIRE_INSTANCE.fatal
 exception = DEFAULT_LOGFIRE_INSTANCE.exception
-var = DEFAULT_LOGFIRE_INSTANCE.var
-get_variables = DEFAULT_LOGFIRE_INSTANCE.get_variables
 
 def loguru_handler() -> Any:
     """Create a **Logfire** handler for Loguru.

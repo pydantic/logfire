@@ -24,22 +24,18 @@ from .utils import SeededRandomIdGenerator as SeededRandomIdGenerator, ensure_da
 from _typeshed import Incomplete
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from datetime import timedelta
 from logfire._internal.auth import PYDANTIC_LOGFIRE_TOKEN_PATTERN as PYDANTIC_LOGFIRE_TOKEN_PATTERN, REGIONS as REGIONS
 from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor as DirectBaggageAttributesSpanProcessor
 from logfire.exceptions import LogfireConfigError as LogfireConfigError
 from logfire.sampling import SamplingOptions as SamplingOptions
 from logfire.sampling._tail_sampling import TailSamplingProcessor as TailSamplingProcessor
-from logfire.variables.abstract import NoOpVariableProvider as NoOpVariableProvider, VariableProvider as VariableProvider
-from logfire.variables.config import VariablesConfig as VariablesConfig
 from logfire.version import VERSION as VERSION
 from opentelemetry.sdk._logs import LogRecordProcessor as LogRecordProcessor
 from opentelemetry.sdk.metrics.export import MetricReader as MetricReader
-from opentelemetry.sdk.metrics.view import View
 from opentelemetry.sdk.trace import SpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Literal, TextIO, TypedDict
+from typing import Any, Callable, Literal, TextIO, TypedDict
 from typing_extensions import Self, Unpack
 
 CREDENTIALS_FILENAME: str
@@ -82,10 +78,8 @@ class PydanticPlugin:
 @dataclass
 class MetricsOptions:
     """Configuration of metrics."""
-    DEFAULT_VIEWS: ClassVar[Sequence[View]] = ...
     additional_readers: Sequence[MetricReader] = ...
     collect_in_spans: bool = ...
-    views: Sequence[View] = field(default_factory=Incomplete)
 
 @dataclass
 class CodeSource:
@@ -94,31 +88,9 @@ class CodeSource:
     revision: str
     root_path: str = ...
 
-@dataclass(init=False)
-class VariablesOptions:
-    """Configuration of managed variables."""
-    provider: VariableProvider | Callable[[LogfireConfig], VariableProvider]
-    include_resource_attributes_in_context: bool = ...
-    include_baggage_in_context: bool = ...
-    @classmethod
-    def local(cls, config: VariablesConfig | Callable[[], VariablesConfig], include_resource_attributes_in_context: bool = True, include_baggage_in_context: bool = True): ...
-    @classmethod
-    def remote(cls, block_before_first_fetch: bool, polling_interval: timedelta | float = ..., include_resource_attributes_in_context: bool = True, include_baggage_in_context: bool = True): ...
-    def __init__(self, provider: VariableProvider | Callable[[LogfireConfig], VariableProvider] | None = None, include_resource_attributes_in_context: bool = True, include_baggage_in_context: bool = True) -> None:
-        """Initialize variable options.
-
-        Args:
-            provider: Provider for resolving variable values. Can be a `VariableProvider` instance,
-                a `VariablesConfig` (which will be wrapped in a `LocalVariableProvider`),
-                or `None` (which will use a `NoOpVariableProvider`, which always uses code defaults).
-            include_resource_attributes_in_context: Whether to include OpenTelemetry resource attributes
-                when resolving variables.
-            include_baggage_in_context: Whether to include OpenTelemetry baggage when resolving variables.
-        """
-
 class DeprecatedKwargs(TypedDict): ...
 
-def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-present'] | None = None, token: str | None = None, service_name: str | None = None, service_version: str | None = None, environment: str | None = None, console: ConsoleOptions | Literal[False] | None = None, config_dir: Path | str | None = None, data_dir: Path | str | None = None, additional_span_processors: Sequence[SpanProcessor] | None = None, metrics: MetricsOptions | Literal[False] | None = None, scrubbing: ScrubbingOptions | Literal[False] | None = None, inspect_arguments: bool | None = None, sampling: SamplingOptions | None = None, min_level: int | LevelName | None = None, add_baggage_to_attributes: bool = True, code_source: CodeSource | None = None, variables: VariablesOptions | None = None, distributed_tracing: bool | None = None, advanced: AdvancedOptions | None = None, **deprecated_kwargs: Unpack[DeprecatedKwargs]) -> Logfire:
+def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-present'] | None = None, token: str | None = None, service_name: str | None = None, service_version: str | None = None, environment: str | None = None, console: ConsoleOptions | Literal[False] | None = None, config_dir: Path | str | None = None, data_dir: Path | str | None = None, additional_span_processors: Sequence[SpanProcessor] | None = None, metrics: MetricsOptions | Literal[False] | None = None, scrubbing: ScrubbingOptions | Literal[False] | None = None, inspect_arguments: bool | None = None, sampling: SamplingOptions | None = None, min_level: int | LevelName | None = None, add_baggage_to_attributes: bool = True, code_source: CodeSource | None = None, distributed_tracing: bool | None = None, advanced: AdvancedOptions | None = None, **deprecated_kwargs: Unpack[DeprecatedKwargs]) -> Logfire:
     """Configure the logfire SDK.
 
     Args:
@@ -179,7 +151,6 @@ def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-
         add_baggage_to_attributes: Set to `False` to prevent OpenTelemetry Baggage from being added to spans as attributes.
             See the [Baggage documentation](https://logfire.pydantic.dev/docs/reference/advanced/baggage/) for more details.
         code_source: Settings for the source code of the project.
-        variables: Options related to managed variables.
         distributed_tracing: By default, incoming trace context is extracted, but generates a warning.
             Set to `True` to disable the warning.
             Set to `False` to suppress extraction of incoming trace context.
@@ -214,19 +185,18 @@ class _LogfireConfigData:
     min_level: int
     add_baggage_to_attributes: bool
     code_source: CodeSource | None
-    variables: VariablesOptions
     distributed_tracing: bool | None
     advanced: AdvancedOptions
 
 class LogfireConfig(_LogfireConfigData):
-    def __init__(self, send_to_logfire: bool | Literal['if-token-present'] | None = None, token: str | None = None, service_name: str | None = None, service_version: str | None = None, environment: str | None = None, console: ConsoleOptions | Literal[False] | None = None, config_dir: Path | None = None, data_dir: Path | None = None, additional_span_processors: Sequence[SpanProcessor] | None = None, metrics: MetricsOptions | Literal[False] | None = None, scrubbing: ScrubbingOptions | Literal[False] | None = None, inspect_arguments: bool | None = None, sampling: SamplingOptions | None = None, min_level: int | LevelName | None = None, add_baggage_to_attributes: bool = True, variables: VariablesOptions | None = None, code_source: CodeSource | None = None, distributed_tracing: bool | None = None, advanced: AdvancedOptions | None = None) -> None:
+    def __init__(self, send_to_logfire: bool | Literal['if-token-present'] | None = None, token: str | None = None, service_name: str | None = None, service_version: str | None = None, environment: str | None = None, console: ConsoleOptions | Literal[False] | None = None, config_dir: Path | None = None, data_dir: Path | None = None, additional_span_processors: Sequence[SpanProcessor] | None = None, metrics: MetricsOptions | Literal[False] | None = None, scrubbing: ScrubbingOptions | Literal[False] | None = None, inspect_arguments: bool | None = None, sampling: SamplingOptions | None = None, min_level: int | LevelName | None = None, add_baggage_to_attributes: bool = True, code_source: CodeSource | None = None, distributed_tracing: bool | None = None, advanced: AdvancedOptions | None = None) -> None:
         """Create a new LogfireConfig.
 
         Users should never need to call this directly, instead use `logfire.configure`.
 
         See `_LogfireConfigData` for parameter documentation.
         """
-    def configure(self, send_to_logfire: bool | Literal['if-token-present'] | None, token: str | None, service_name: str | None, service_version: str | None, environment: str | None, console: ConsoleOptions | Literal[False] | None, config_dir: Path | None, data_dir: Path | None, additional_span_processors: Sequence[SpanProcessor] | None, metrics: MetricsOptions | Literal[False] | None, scrubbing: ScrubbingOptions | Literal[False] | None, inspect_arguments: bool | None, sampling: SamplingOptions | None, min_level: int | LevelName | None, add_baggage_to_attributes: bool, code_source: CodeSource | None, variables: VariablesOptions | None, distributed_tracing: bool | None, advanced: AdvancedOptions | None) -> None: ...
+    def configure(self, send_to_logfire: bool | Literal['if-token-present'] | None, token: str | None, service_name: str | None, service_version: str | None, environment: str | None, console: ConsoleOptions | Literal[False] | None, config_dir: Path | None, data_dir: Path | None, additional_span_processors: Sequence[SpanProcessor] | None, metrics: MetricsOptions | Literal[False] | None, scrubbing: ScrubbingOptions | Literal[False] | None, inspect_arguments: bool | None, sampling: SamplingOptions | None, min_level: int | LevelName | None, add_baggage_to_attributes: bool, code_source: CodeSource | None, distributed_tracing: bool | None, advanced: AdvancedOptions | None) -> None: ...
     def initialize(self) -> None:
         """Configure internals to start exporting traces and metrics."""
     def force_flush(self, timeout_millis: int = 30000) -> bool:
@@ -261,14 +231,6 @@ class LogfireConfig(_LogfireConfigData):
 
         Returns:
             The logger provider.
-        """
-    def get_variable_provider(self) -> VariableProvider:
-        """Get a variable provider from this `LogfireConfig`.
-
-        This is used internally and should not be called by users of the SDK.
-
-        Returns:
-            The variable provider.
         """
     def warn_if_not_initialized(self, message: str): ...
     def suppress_scopes(self, *scopes: str) -> None: ...
