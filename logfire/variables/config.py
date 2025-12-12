@@ -175,6 +175,23 @@ class Rollout:
     variants: dict[VariantKey, float]
     """Mapping of variant keys to their selection weights (must sum to at most 1.0)."""
 
+    def __post_init__(self):
+        # pre-compute the population and weights.
+        # Note that this means that the `variants` field should be treated as immutable
+        population: list[VariantKey | None] = []
+        weights: list[float] = []
+        for k, v in self.variants.items():
+            population.append(k)
+            weights.append(v)
+
+        p_code_default = 1 - sum(weights)
+        if p_code_default > 0:
+            population.append(None)
+            weights.append(p_code_default)
+
+        self._population = population
+        self._weights = weights
+
     @field_validator('variants')
     @classmethod
     def _validate_variant_proportions(cls, v: dict[VariantKey, float]):
@@ -195,19 +212,7 @@ class Rollout:
             The key of the selected variant, or None if no variant is selected (when weights sum to less than 1.0).
         """
         rand = random.Random(seed)
-
-        population: list[VariantKey | None] = []
-        weights: list[float] = []
-        for k, v in self.variants.items():
-            population.append(k)
-            weights.append(v)
-
-        p_code_default = 1 - sum(weights)
-        if p_code_default > 0:
-            population.append(None)
-            weights.append(p_code_default)
-
-        return rand.choices(population, weights)[0]
+        return rand.choices(self._population, self._weights)[0]
 
 
 @dataclass(kw_only=True)
@@ -312,11 +317,6 @@ class RolloutSchedule:
     Stages are processed in order. The active stage is determined by comparing
     the current time against start_at and the cumulative durations of previous stages.
     """
-    # TODO: Need to add rollback condition support (possibly only in backend?)
-    #   Note: we could add this client side using the logfire query client if the token has read capability.
-    #   However, this should maybe be discouraged if it's viable to run health check queries server-side.
-    #   We could expose a `health_check` field that contains one (or more?) SQL queries, which would either be
-    #   evaluated client side or server side. However, I don't love the
 
     def get_active_stage(self, now: datetime | None = None) -> RolloutStage | None:
         """Determine the currently active stage based on the current time.
