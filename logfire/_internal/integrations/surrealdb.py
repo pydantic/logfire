@@ -5,6 +5,7 @@ import inspect
 import uuid
 from typing import Any, Union, get_args, get_origin
 
+from surrealdb.connections.async_template import AsyncTemplate
 from surrealdb.connections.sync_template import SyncTemplate
 from surrealdb.data.types.record_id import RecordIdType
 from surrealdb.data.types.table import Table
@@ -24,31 +25,43 @@ def is_complex_type(tp: type | type[Value]) -> bool:
     if origin is Union:
         args = get_args(tp)
         return any(is_complex_type(arg) for arg in args)
-    # TODO test that there are no other types?
     return True
+
+
+def get_all_subclasses(cls: type) -> set[type]:
+    subclasses: set[type] = set()
+    for subclass in cls.__subclasses__():
+        subclasses.add(subclass)
+        subclasses.update(get_all_subclasses(subclass))
+    return subclasses
+
+
+def get_all_surrealdb_classes() -> set[type]:
+    return get_all_subclasses(SyncTemplate) | get_all_subclasses(AsyncTemplate)
 
 
 def instrument_surrealdb(obj: Any, logfire_instance: Logfire):
     logfire_instance = logfire_instance.with_settings(custom_scope_suffix='surrealdb')
-    # TODO async
     if obj is None:
-        for cls in SyncTemplate.__subclasses__():
+        for cls in get_all_surrealdb_classes():
             instrument_surrealdb(cls, logfire_instance)
         return
 
-    if isinstance(obj, type):
-        assert issubclass(obj, SyncTemplate)
-    else:
-        assert isinstance(obj, SyncTemplate)
-
+    # TODO check that the templates have the same methods
     for name, template_method in inspect.getmembers(SyncTemplate):
-        if not inspect.isfunction(template_method):
+        if not (
+            inspect.isfunction(template_method)
+            and not name.startswith('_')
+            and SyncTemplate.__dict__.get(name) == template_method
+        ):
             continue
-        assert SyncTemplate.__dict__[name] is template_method
         patch_method(obj, name, logfire_instance)
 
 
 def patch_method(obj: Any, method_name: str, logfire_instance: Logfire):
+    if hasattr(getattr(obj, method_name), '_logfire_template'):
+        return  # already patched
+
     original_method = getattr(obj, method_name)
     sig = inspect.signature(original_method)
     template_params: list[str] = []

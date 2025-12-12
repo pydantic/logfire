@@ -5,10 +5,26 @@ from surrealdb import BlockingHttpSurrealConnection, Surreal
 
 import logfire
 from logfire._internal.exporters.test import TestExporter
+from logfire._internal.integrations.surrealdb import get_all_surrealdb_classes
+
+
+def test_get_all_surrealdb_classes():
+    assert sorted(cls.__name__ for cls in get_all_surrealdb_classes()) == snapshot(
+        [
+            'AsyncEmbeddedSurrealConnection',
+            'AsyncHttpSurrealConnection',
+            'AsyncWsSurrealConnection',
+            'BlockingEmbeddedSurrealConnection',
+            'BlockingHttpSurrealConnection',
+            'BlockingWsSurrealConnection',
+        ]
+    )
 
 
 def test_instrument_surrealdb(exporter: TestExporter) -> None:
     logfire.instrument_surrealdb()
+    logfire.instrument_surrealdb()
+
     templates: list[str] = []
     for _name, method in inspect.getmembers(BlockingHttpSurrealConnection):
         template = getattr(method, '_logfire_template', None)
@@ -163,6 +179,21 @@ def test_instrument_surrealdb(exporter: TestExporter) -> None:
                     'logfire.msg_template': 'surrealdb query {query}',
                     'logfire.msg': 'surrealdb query select * from person',
                     'logfire.json_schema': '{"type":"object","properties":{"query":{}}}',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'surrealdb close',
+                'context': {'trace_id': 7, 'span_id': 13, 'is_remote': False},
+                'parent': None,
+                'start_time': 13000000000,
+                'end_time': 14000000000,
+                'attributes': {
+                    'code.filepath': 'test_surrealdb.py',
+                    'code.function': 'test_instrument_surrealdb',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'surrealdb close',
+                    'logfire.msg': 'surrealdb close',
                     'logfire.span_type': 'span',
                 },
             },
