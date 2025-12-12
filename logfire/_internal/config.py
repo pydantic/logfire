@@ -69,7 +69,6 @@ from logfire.version import VERSION
 
 from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
 from ..types import ExceptionCallback
-from ..variables import LocalVariableProvider, LogfireRemoteVariableProvider
 from .client import InvalidProjectName, LogfireClient, ProjectAlreadyExists
 from .config_params import ParamManager, PydanticPluginRecordValues
 from .constants import (
@@ -118,7 +117,7 @@ from .utils import (
 if TYPE_CHECKING:
     from typing import TextIO
 
-    from logfire.variables.config import VariablesConfig
+    from logfire.variables import VariablesConfig
 
     from .main import Logfire
 
@@ -1166,6 +1165,8 @@ class LogfireConfig(_LogfireConfigData):
                 timeout_millis=200
             )  # note: this may raise an Exception if it times out, call `logfire.shutdown` first
             self._meter_provider.set_meter_provider(meter_provider)
+
+            from logfire.variables import LocalVariableProvider, LogfireRemoteVariableProvider, VariablesConfig
 
             self._variable_provider.shutdown()
             if isinstance(self.variables.config, VariableProvider):
