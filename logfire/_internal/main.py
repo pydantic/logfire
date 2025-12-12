@@ -1032,13 +1032,13 @@ class Logfire:
 
         Args:
             obj: What to instrument.
-                By default, all agents are instrumented.
-                You can also pass a specific model or agent.
+                By default, all agents and embedders are instrumented.
+                You can also pass a specific agent, model, embedder, or embedding model.
                 If you pass a model, a new instrumented model will be returned.
             include_binary_content: Whether to include base64 encoded binary content (e.g. images) in the telemetry.
                 On by default. Requires Pydantic AI 0.2.5 or newer.
-            include_content: Whether to include prompts, completions, and tool call arguments and responses
-                in the telemetry. On by default. Requires Pydantic AI 0.3.4 or newer.
+            include_content: Whether to include prompts, completions, tool call arguments and responses,
+                and embedded documents and embeddings in the telemetry. On by default. Requires Pydantic AI 0.3.4 or newer.
             version: Version of the data format. This is unrelated to the Pydantic AI package version.
                 Requires Pydantic AI 0.7.5 or newer.
                 Version 1 is based on the legacy event-based OpenTelemetry GenAI spec
