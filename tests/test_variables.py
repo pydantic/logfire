@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Mapping
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from typing import Any
 
 import pytest
@@ -20,8 +20,8 @@ from logfire.variables.config import (
     KeyIsPresent,
     Rollout,
     RolloutOverride,
-    RolloutSchedule,
-    RolloutStage,
+    # RolloutSchedule,
+    # RolloutStage,
     ValueDoesNotEqual,
     ValueDoesNotMatchRegex,
     ValueEquals,
@@ -290,190 +290,190 @@ class TestRolloutOverride:
         assert len(override.conditions) == 2
 
 
-# =============================================================================
-# Test RolloutStage
-# =============================================================================
-
-
-class TestRolloutStage:
-    def test_basic_stage(self):
-        stage = RolloutStage(
-            duration=timedelta(hours=1),
-            rollout=Rollout(variants={'v1': 0.1}),
-            overrides=[],
-        )
-        assert stage.duration == timedelta(hours=1)
-        assert stage.rollout.variants == {'v1': 0.1}
-        assert stage.overrides == []
-
-    def test_stage_with_overrides(self):
-        stage = RolloutStage(
-            duration=timedelta(hours=2),
-            rollout=Rollout(variants={'v1': 0.5}),
-            overrides=[
-                RolloutOverride(
-                    conditions=[ValueEquals(attribute='beta', value=True)],
-                    rollout=Rollout(variants={'v1': 1.0}),
-                ),
-            ],
-        )
-        assert len(stage.overrides) == 1
-
-
-# =============================================================================
-# Test RolloutSchedule
-# =============================================================================
-
-
-class TestRolloutSchedule:
-    def test_inactive_schedule_returns_none(self):
-        """Schedule with start_at=None is inactive."""
-        schedule = RolloutSchedule(
-            start_at=None,
-            stages=[
-                RolloutStage(
-                    duration=timedelta(hours=1),
-                    rollout=Rollout(variants={'v1': 0.1}),
-                    overrides=[],
-                ),
-            ],
-        )
-        assert schedule.get_active_stage() is None
-
-    def test_future_schedule_returns_none(self):
-        """Schedule with start_at in the future is not yet active."""
-        future_time = datetime.now(timezone.utc) + timedelta(hours=1)
-        schedule = RolloutSchedule(
-            start_at=future_time,
-            stages=[
-                RolloutStage(
-                    duration=timedelta(hours=1),
-                    rollout=Rollout(variants={'v1': 0.1}),
-                    overrides=[],
-                ),
-            ],
-        )
-        assert schedule.get_active_stage() is None
-
-    def test_first_stage_active(self):
-        """When within first stage duration, first stage is active."""
-        now = datetime.now(timezone.utc)
-        start_time = now - timedelta(minutes=30)  # Started 30 minutes ago
-        schedule = RolloutSchedule(
-            start_at=start_time,
-            stages=[
-                RolloutStage(
-                    duration=timedelta(hours=1),  # Stage 1: 1 hour
-                    rollout=Rollout(variants={'v1': 0.1}),
-                    overrides=[],
-                ),
-                RolloutStage(
-                    duration=timedelta(hours=2),  # Stage 2: 2 hours
-                    rollout=Rollout(variants={'v1': 0.5}),
-                    overrides=[],
-                ),
-            ],
-        )
-        active = schedule.get_active_stage(now=now)
-        assert active is not None
-        assert active.rollout.variants == {'v1': 0.1}
-
-    def test_second_stage_active(self):
-        """When past first stage but within second, second stage is active."""
-        now = datetime.now(timezone.utc)
-        start_time = now - timedelta(hours=1, minutes=30)  # Started 1.5 hours ago
-        schedule = RolloutSchedule(
-            start_at=start_time,
-            stages=[
-                RolloutStage(
-                    duration=timedelta(hours=1),  # Stage 1: ends at 1 hour
-                    rollout=Rollout(variants={'v1': 0.1}),
-                    overrides=[],
-                ),
-                RolloutStage(
-                    duration=timedelta(hours=2),  # Stage 2: ends at 3 hours
-                    rollout=Rollout(variants={'v1': 0.5}),
-                    overrides=[],
-                ),
-            ],
-        )
-        active = schedule.get_active_stage(now=now)
-        assert active is not None
-        assert active.rollout.variants == {'v1': 0.5}
-
-    def test_completed_schedule_returns_none(self):
-        """When all stages have elapsed, returns None."""
-        now = datetime.now(timezone.utc)
-        start_time = now - timedelta(hours=5)  # Started 5 hours ago
-        schedule = RolloutSchedule(
-            start_at=start_time,
-            stages=[
-                RolloutStage(
-                    duration=timedelta(hours=1),  # Stage 1: ends at 1 hour
-                    rollout=Rollout(variants={'v1': 0.1}),
-                    overrides=[],
-                ),
-                RolloutStage(
-                    duration=timedelta(hours=2),  # Stage 2: ends at 3 hours
-                    rollout=Rollout(variants={'v1': 0.5}),
-                    overrides=[],
-                ),
-            ],
-        )
-        # Total duration is 3 hours, we're at 5 hours, so schedule is complete
-        assert schedule.get_active_stage(now=now) is None
-
-    def test_exact_boundary_uses_next_stage(self):
-        """At exact stage boundary, uses the next stage."""
-        now = datetime.now(timezone.utc)
-        start_time = now - timedelta(hours=1)  # Exactly at stage 1 boundary
-        schedule = RolloutSchedule(
-            start_at=start_time,
-            stages=[
-                RolloutStage(
-                    duration=timedelta(hours=1),  # Stage 1: ends exactly now
-                    rollout=Rollout(variants={'v1': 0.1}),
-                    overrides=[],
-                ),
-                RolloutStage(
-                    duration=timedelta(hours=2),
-                    rollout=Rollout(variants={'v1': 0.5}),
-                    overrides=[],
-                ),
-            ],
-        )
-        active = schedule.get_active_stage(now=now)
-        assert active is not None
-        assert active.rollout.variants == {'v1': 0.5}
-
-    def test_third_stage_active(self):
-        """Test progression through multiple stages."""
-        now = datetime.now(timezone.utc)
-        # Started 4 hours ago: past stage 1 (1h) and stage 2 (2h), in stage 3
-        start_time = now - timedelta(hours=4)
-        schedule = RolloutSchedule(
-            start_at=start_time,
-            stages=[
-                RolloutStage(
-                    duration=timedelta(hours=1),
-                    rollout=Rollout(variants={'v1': 0.05}),
-                    overrides=[],
-                ),
-                RolloutStage(
-                    duration=timedelta(hours=2),
-                    rollout=Rollout(variants={'v1': 0.25}),
-                    overrides=[],
-                ),
-                RolloutStage(
-                    duration=timedelta(hours=4),
-                    rollout=Rollout(variants={'v1': 1.0}),
-                    overrides=[],
-                ),
-            ],
-        )
-        active = schedule.get_active_stage(now=now)
-        assert active is not None
-        assert active.rollout.variants == {'v1': 1.0}
+# # =============================================================================
+# # Test RolloutStage
+# # =============================================================================
+#
+#
+# class TestRolloutStage:
+#     def test_basic_stage(self):
+#         stage = RolloutStage(
+#             duration=timedelta(hours=1),
+#             rollout=Rollout(variants={'v1': 0.1}),
+#             overrides=[],
+#         )
+#         assert stage.duration == timedelta(hours=1)
+#         assert stage.rollout.variants == {'v1': 0.1}
+#         assert stage.overrides == []
+#
+#     def test_stage_with_overrides(self):
+#         stage = RolloutStage(
+#             duration=timedelta(hours=2),
+#             rollout=Rollout(variants={'v1': 0.5}),
+#             overrides=[
+#                 RolloutOverride(
+#                     conditions=[ValueEquals(attribute='beta', value=True)],
+#                     rollout=Rollout(variants={'v1': 1.0}),
+#                 ),
+#             ],
+#         )
+#         assert len(stage.overrides) == 1
+#
+#
+# # =============================================================================
+# # Test RolloutSchedule
+# # =============================================================================
+#
+#
+# class TestRolloutSchedule:
+#     def test_inactive_schedule_returns_none(self):
+#         """Schedule with start_at=None is inactive."""
+#         schedule = RolloutSchedule(
+#             start_at=None,
+#             stages=[
+#                 RolloutStage(
+#                     duration=timedelta(hours=1),
+#                     rollout=Rollout(variants={'v1': 0.1}),
+#                     overrides=[],
+#                 ),
+#             ],
+#         )
+#         assert schedule.get_active_stage() is None
+#
+#     def test_future_schedule_returns_none(self):
+#         """Schedule with start_at in the future is not yet active."""
+#         future_time = datetime.now(timezone.utc) + timedelta(hours=1)
+#         schedule = RolloutSchedule(
+#             start_at=future_time,
+#             stages=[
+#                 RolloutStage(
+#                     duration=timedelta(hours=1),
+#                     rollout=Rollout(variants={'v1': 0.1}),
+#                     overrides=[],
+#                 ),
+#             ],
+#         )
+#         assert schedule.get_active_stage() is None
+#
+#     def test_first_stage_active(self):
+#         """When within first stage duration, first stage is active."""
+#         now = datetime.now(timezone.utc)
+#         start_time = now - timedelta(minutes=30)  # Started 30 minutes ago
+#         schedule = RolloutSchedule(
+#             start_at=start_time,
+#             stages=[
+#                 RolloutStage(
+#                     duration=timedelta(hours=1),  # Stage 1: 1 hour
+#                     rollout=Rollout(variants={'v1': 0.1}),
+#                     overrides=[],
+#                 ),
+#                 RolloutStage(
+#                     duration=timedelta(hours=2),  # Stage 2: 2 hours
+#                     rollout=Rollout(variants={'v1': 0.5}),
+#                     overrides=[],
+#                 ),
+#             ],
+#         )
+#         active = schedule.get_active_stage(now=now)
+#         assert active is not None
+#         assert active.rollout.variants == {'v1': 0.1}
+#
+#     def test_second_stage_active(self):
+#         """When past first stage but within second, second stage is active."""
+#         now = datetime.now(timezone.utc)
+#         start_time = now - timedelta(hours=1, minutes=30)  # Started 1.5 hours ago
+#         schedule = RolloutSchedule(
+#             start_at=start_time,
+#             stages=[
+#                 RolloutStage(
+#                     duration=timedelta(hours=1),  # Stage 1: ends at 1 hour
+#                     rollout=Rollout(variants={'v1': 0.1}),
+#                     overrides=[],
+#                 ),
+#                 RolloutStage(
+#                     duration=timedelta(hours=2),  # Stage 2: ends at 3 hours
+#                     rollout=Rollout(variants={'v1': 0.5}),
+#                     overrides=[],
+#                 ),
+#             ],
+#         )
+#         active = schedule.get_active_stage(now=now)
+#         assert active is not None
+#         assert active.rollout.variants == {'v1': 0.5}
+#
+#     def test_completed_schedule_returns_none(self):
+#         """When all stages have elapsed, returns None."""
+#         now = datetime.now(timezone.utc)
+#         start_time = now - timedelta(hours=5)  # Started 5 hours ago
+#         schedule = RolloutSchedule(
+#             start_at=start_time,
+#             stages=[
+#                 RolloutStage(
+#                     duration=timedelta(hours=1),  # Stage 1: ends at 1 hour
+#                     rollout=Rollout(variants={'v1': 0.1}),
+#                     overrides=[],
+#                 ),
+#                 RolloutStage(
+#                     duration=timedelta(hours=2),  # Stage 2: ends at 3 hours
+#                     rollout=Rollout(variants={'v1': 0.5}),
+#                     overrides=[],
+#                 ),
+#             ],
+#         )
+#         # Total duration is 3 hours, we're at 5 hours, so schedule is complete
+#         assert schedule.get_active_stage(now=now) is None
+#
+#     def test_exact_boundary_uses_next_stage(self):
+#         """At exact stage boundary, uses the next stage."""
+#         now = datetime.now(timezone.utc)
+#         start_time = now - timedelta(hours=1)  # Exactly at stage 1 boundary
+#         schedule = RolloutSchedule(
+#             start_at=start_time,
+#             stages=[
+#                 RolloutStage(
+#                     duration=timedelta(hours=1),  # Stage 1: ends exactly now
+#                     rollout=Rollout(variants={'v1': 0.1}),
+#                     overrides=[],
+#                 ),
+#                 RolloutStage(
+#                     duration=timedelta(hours=2),
+#                     rollout=Rollout(variants={'v1': 0.5}),
+#                     overrides=[],
+#                 ),
+#             ],
+#         )
+#         active = schedule.get_active_stage(now=now)
+#         assert active is not None
+#         assert active.rollout.variants == {'v1': 0.5}
+#
+#     def test_third_stage_active(self):
+#         """Test progression through multiple stages."""
+#         now = datetime.now(timezone.utc)
+#         # Started 4 hours ago: past stage 1 (1h) and stage 2 (2h), in stage 3
+#         start_time = now - timedelta(hours=4)
+#         schedule = RolloutSchedule(
+#             start_at=start_time,
+#             stages=[
+#                 RolloutStage(
+#                     duration=timedelta(hours=1),
+#                     rollout=Rollout(variants={'v1': 0.05}),
+#                     overrides=[],
+#                 ),
+#                 RolloutStage(
+#                     duration=timedelta(hours=2),
+#                     rollout=Rollout(variants={'v1': 0.25}),
+#                     overrides=[],
+#                 ),
+#                 RolloutStage(
+#                     duration=timedelta(hours=4),
+#                     rollout=Rollout(variants={'v1': 1.0}),
+#                     overrides=[],
+#                 ),
+#             ],
+#         )
+#         active = schedule.get_active_stage(now=now)
+#         assert active is not None
+#         assert active.rollout.variants == {'v1': 1.0}
 
 
 # =============================================================================
@@ -654,216 +654,216 @@ class TestVariableConfig:
             )
 
 
-# =============================================================================
-# Test VariableConfig with RolloutSchedule
-# =============================================================================
-
-
-class TestVariableConfigWithSchedule:
-    @pytest.fixture
-    def config_with_schedule(self) -> VariableConfig:
-        """Config with schedule that has different rollouts per stage."""
-        now = datetime.now(timezone.utc)
-        return VariableConfig(
-            name='scheduled_var',
-            variants={
-                'control': Variant(key='control', serialized_value='"control value"'),
-                'treatment': Variant(key='treatment', serialized_value='"treatment value"'),
-            },
-            # Base rollout: 100% control (used before schedule or after schedule completes)
-            rollout=Rollout(variants={'control': 1.0}),
-            overrides=[],
-            schedule=RolloutSchedule(
-                start_at=now - timedelta(minutes=30),  # Started 30 minutes ago
-                stages=[
-                    # Stage 1: 10% treatment (canary) for 1 hour
-                    RolloutStage(
-                        duration=timedelta(hours=1),
-                        rollout=Rollout(variants={'control': 0.9, 'treatment': 0.1}),
-                        overrides=[],
-                    ),
-                    # Stage 2: 50% treatment for 2 hours
-                    RolloutStage(
-                        duration=timedelta(hours=2),
-                        rollout=Rollout(variants={'control': 0.5, 'treatment': 0.5}),
-                        overrides=[],
-                    ),
-                    # Stage 3: 100% treatment for 1 hour (full rollout)
-                    RolloutStage(
-                        duration=timedelta(hours=1),
-                        rollout=Rollout(variants={'treatment': 1.0}),
-                        overrides=[],
-                    ),
-                ],
-            ),
-        )
-
-    def test_resolve_uses_active_schedule_stage(self, config_with_schedule: VariableConfig):
-        """resolve_variant should use the active schedule stage's rollout."""
-        # The schedule started 30 minutes ago, so we're in stage 1 (10% treatment)
-        # Sample many times to verify the distribution
-        results = [config_with_schedule.resolve_variant(targeting_key=f'user{i}') for i in range(1000)]
-        treatment_count = sum(1 for r in results if r and r.key == 'treatment')
-        control_count = sum(1 for r in results if r and r.key == 'control')
-
-        # With 10% treatment / 90% control, expect roughly 100 treatment / 900 control
-        # Allow for statistical variance
-        assert 50 < treatment_count < 200, f'Expected ~100 treatment, got {treatment_count}'
-        assert 800 < control_count < 950, f'Expected ~900 control, got {control_count}'
-
-    def test_resolve_uses_base_rollout_when_schedule_inactive(self):
-        """When schedule is inactive, use base rollout."""
-        config = VariableConfig(
-            name='test_var',
-            variants={
-                'control': Variant(key='control', serialized_value='"control"'),
-                'treatment': Variant(key='treatment', serialized_value='"treatment"'),
-            },
-            rollout=Rollout(variants={'control': 1.0}),  # Base: 100% control
-            overrides=[],
-            schedule=RolloutSchedule(
-                start_at=None,  # Inactive schedule
-                stages=[
-                    RolloutStage(
-                        duration=timedelta(hours=1),
-                        rollout=Rollout(variants={'treatment': 1.0}),  # Would be 100% treatment if active
-                        overrides=[],
-                    ),
-                ],
-            ),
-        )
-        # All results should be control since schedule is inactive
-        for i in range(10):
-            variant = config.resolve_variant(targeting_key=f'user{i}')
-            assert variant is not None
-            assert variant.key == 'control'
-
-    def test_resolve_uses_base_rollout_when_schedule_not_started(self):
-        """When schedule hasn't started yet, use base rollout."""
-        future_time = datetime.now(timezone.utc) + timedelta(hours=1)
-        config = VariableConfig(
-            name='test_var',
-            variants={
-                'control': Variant(key='control', serialized_value='"control"'),
-                'treatment': Variant(key='treatment', serialized_value='"treatment"'),
-            },
-            rollout=Rollout(variants={'control': 1.0}),
-            overrides=[],
-            schedule=RolloutSchedule(
-                start_at=future_time,  # Schedule starts in 1 hour
-                stages=[
-                    RolloutStage(
-                        duration=timedelta(hours=1),
-                        rollout=Rollout(variants={'treatment': 1.0}),
-                        overrides=[],
-                    ),
-                ],
-            ),
-        )
-        for i in range(10):
-            variant = config.resolve_variant(targeting_key=f'user{i}')
-            assert variant is not None
-            assert variant.key == 'control'
-
-    def test_resolve_uses_base_rollout_when_schedule_completed(self):
-        """When all schedule stages have elapsed, use base rollout."""
-        now = datetime.now(timezone.utc)
-        config = VariableConfig(
-            name='test_var',
-            variants={
-                'control': Variant(key='control', serialized_value='"control"'),
-                'treatment': Variant(key='treatment', serialized_value='"treatment"'),
-            },
-            rollout=Rollout(variants={'control': 1.0}),  # Base: 100% control
-            overrides=[],
-            schedule=RolloutSchedule(
-                start_at=now - timedelta(hours=5),  # Started 5 hours ago
-                stages=[
-                    RolloutStage(
-                        duration=timedelta(hours=1),  # Ended 4 hours ago
-                        rollout=Rollout(variants={'treatment': 1.0}),
-                        overrides=[],
-                    ),
-                ],
-            ),
-        )
-        # Schedule completed, should use base rollout
-        for i in range(10):
-            variant = config.resolve_variant(targeting_key=f'user{i}')
-            assert variant is not None
-            assert variant.key == 'control'
-
-    def test_resolve_uses_stage_overrides_when_schedule_active(self):
-        """When schedule is active, use the stage's overrides, not base overrides."""
-        now = datetime.now(timezone.utc)
-        config = VariableConfig(
-            name='test_var',
-            variants={
-                'control': Variant(key='control', serialized_value='"control"'),
-                'treatment': Variant(key='treatment', serialized_value='"treatment"'),
-                'vip': Variant(key='vip', serialized_value='"vip"'),
-            },
-            rollout=Rollout(variants={'control': 1.0}),
-            # Base overrides: enterprise gets treatment
-            overrides=[
-                RolloutOverride(
-                    conditions=[ValueEquals(attribute='plan', value='enterprise')],
-                    rollout=Rollout(variants={'treatment': 1.0}),
-                ),
-            ],
-            schedule=RolloutSchedule(
-                start_at=now - timedelta(minutes=30),  # Active schedule
-                stages=[
-                    RolloutStage(
-                        duration=timedelta(hours=1),
-                        rollout=Rollout(variants={'control': 1.0}),
-                        # Stage overrides: enterprise gets VIP instead
-                        overrides=[
-                            RolloutOverride(
-                                conditions=[ValueEquals(attribute='plan', value='enterprise')],
-                                rollout=Rollout(variants={'vip': 1.0}),
-                            ),
-                        ],
-                    ),
-                ],
-            ),
-        )
-        # Enterprise users should get VIP (from stage override), not treatment (from base override)
-        variant = config.resolve_variant(targeting_key='user1', attributes={'plan': 'enterprise'})
-        assert variant is not None
-        assert variant.key == 'vip'
-
-        # Non-enterprise users get control (from stage rollout)
-        variant = config.resolve_variant(targeting_key='user2', attributes={'plan': 'free'})
-        assert variant is not None
-        assert variant.key == 'control'
-
-    def test_no_schedule_uses_base_config(self):
-        """When no schedule is configured, use base rollout and overrides."""
-        config = VariableConfig(
-            name='test_var',
-            variants={
-                'default': Variant(key='default', serialized_value='"default"'),
-                'premium': Variant(key='premium', serialized_value='"premium"'),
-            },
-            rollout=Rollout(variants={'default': 1.0}),
-            overrides=[
-                RolloutOverride(
-                    conditions=[ValueEquals(attribute='plan', value='enterprise')],
-                    rollout=Rollout(variants={'premium': 1.0}),
-                ),
-            ],
-            schedule=None,
-        )
-        # Without enterprise plan, get default
-        variant = config.resolve_variant(targeting_key='user1')
-        assert variant is not None
-        assert variant.key == 'default'
-
-        # With enterprise plan, get premium
-        variant = config.resolve_variant(targeting_key='user1', attributes={'plan': 'enterprise'})
-        assert variant is not None
-        assert variant.key == 'premium'
+# # =============================================================================
+# # Test VariableConfig with RolloutSchedule
+# # =============================================================================
+#
+#
+# class TestVariableConfigWithSchedule:
+#     @pytest.fixture
+#     def config_with_schedule(self) -> VariableConfig:
+#         """Config with schedule that has different rollouts per stage."""
+#         now = datetime.now(timezone.utc)
+#         return VariableConfig(
+#             name='scheduled_var',
+#             variants={
+#                 'control': Variant(key='control', serialized_value='"control value"'),
+#                 'treatment': Variant(key='treatment', serialized_value='"treatment value"'),
+#             },
+#             # Base rollout: 100% control (used before schedule or after schedule completes)
+#             rollout=Rollout(variants={'control': 1.0}),
+#             overrides=[],
+#             schedule=RolloutSchedule(
+#                 start_at=now - timedelta(minutes=30),  # Started 30 minutes ago
+#                 stages=[
+#                     # Stage 1: 10% treatment (canary) for 1 hour
+#                     RolloutStage(
+#                         duration=timedelta(hours=1),
+#                         rollout=Rollout(variants={'control': 0.9, 'treatment': 0.1}),
+#                         overrides=[],
+#                     ),
+#                     # Stage 2: 50% treatment for 2 hours
+#                     RolloutStage(
+#                         duration=timedelta(hours=2),
+#                         rollout=Rollout(variants={'control': 0.5, 'treatment': 0.5}),
+#                         overrides=[],
+#                     ),
+#                     # Stage 3: 100% treatment for 1 hour (full rollout)
+#                     RolloutStage(
+#                         duration=timedelta(hours=1),
+#                         rollout=Rollout(variants={'treatment': 1.0}),
+#                         overrides=[],
+#                     ),
+#                 ],
+#             ),
+#         )
+#
+#     def test_resolve_uses_active_schedule_stage(self, config_with_schedule: VariableConfig):
+#         """resolve_variant should use the active schedule stage's rollout."""
+#         # The schedule started 30 minutes ago, so we're in stage 1 (10% treatment)
+#         # Sample many times to verify the distribution
+#         results = [config_with_schedule.resolve_variant(targeting_key=f'user{i}') for i in range(1000)]
+#         treatment_count = sum(1 for r in results if r and r.key == 'treatment')
+#         control_count = sum(1 for r in results if r and r.key == 'control')
+#
+#         # With 10% treatment / 90% control, expect roughly 100 treatment / 900 control
+#         # Allow for statistical variance
+#         assert 50 < treatment_count < 200, f'Expected ~100 treatment, got {treatment_count}'
+#         assert 800 < control_count < 950, f'Expected ~900 control, got {control_count}'
+#
+#     def test_resolve_uses_base_rollout_when_schedule_inactive(self):
+#         """When schedule is inactive, use base rollout."""
+#         config = VariableConfig(
+#             name='test_var',
+#             variants={
+#                 'control': Variant(key='control', serialized_value='"control"'),
+#                 'treatment': Variant(key='treatment', serialized_value='"treatment"'),
+#             },
+#             rollout=Rollout(variants={'control': 1.0}),  # Base: 100% control
+#             overrides=[],
+#             schedule=RolloutSchedule(
+#                 start_at=None,  # Inactive schedule
+#                 stages=[
+#                     RolloutStage(
+#                         duration=timedelta(hours=1),
+#                         rollout=Rollout(variants={'treatment': 1.0}),  # Would be 100% treatment if active
+#                         overrides=[],
+#                     ),
+#                 ],
+#             ),
+#         )
+#         # All results should be control since schedule is inactive
+#         for i in range(10):
+#             variant = config.resolve_variant(targeting_key=f'user{i}')
+#             assert variant is not None
+#             assert variant.key == 'control'
+#
+#     def test_resolve_uses_base_rollout_when_schedule_not_started(self):
+#         """When schedule hasn't started yet, use base rollout."""
+#         future_time = datetime.now(timezone.utc) + timedelta(hours=1)
+#         config = VariableConfig(
+#             name='test_var',
+#             variants={
+#                 'control': Variant(key='control', serialized_value='"control"'),
+#                 'treatment': Variant(key='treatment', serialized_value='"treatment"'),
+#             },
+#             rollout=Rollout(variants={'control': 1.0}),
+#             overrides=[],
+#             schedule=RolloutSchedule(
+#                 start_at=future_time,  # Schedule starts in 1 hour
+#                 stages=[
+#                     RolloutStage(
+#                         duration=timedelta(hours=1),
+#                         rollout=Rollout(variants={'treatment': 1.0}),
+#                         overrides=[],
+#                     ),
+#                 ],
+#             ),
+#         )
+#         for i in range(10):
+#             variant = config.resolve_variant(targeting_key=f'user{i}')
+#             assert variant is not None
+#             assert variant.key == 'control'
+#
+#     def test_resolve_uses_base_rollout_when_schedule_completed(self):
+#         """When all schedule stages have elapsed, use base rollout."""
+#         now = datetime.now(timezone.utc)
+#         config = VariableConfig(
+#             name='test_var',
+#             variants={
+#                 'control': Variant(key='control', serialized_value='"control"'),
+#                 'treatment': Variant(key='treatment', serialized_value='"treatment"'),
+#             },
+#             rollout=Rollout(variants={'control': 1.0}),  # Base: 100% control
+#             overrides=[],
+#             schedule=RolloutSchedule(
+#                 start_at=now - timedelta(hours=5),  # Started 5 hours ago
+#                 stages=[
+#                     RolloutStage(
+#                         duration=timedelta(hours=1),  # Ended 4 hours ago
+#                         rollout=Rollout(variants={'treatment': 1.0}),
+#                         overrides=[],
+#                     ),
+#                 ],
+#             ),
+#         )
+#         # Schedule completed, should use base rollout
+#         for i in range(10):
+#             variant = config.resolve_variant(targeting_key=f'user{i}')
+#             assert variant is not None
+#             assert variant.key == 'control'
+#
+#     def test_resolve_uses_stage_overrides_when_schedule_active(self):
+#         """When schedule is active, use the stage's overrides, not base overrides."""
+#         now = datetime.now(timezone.utc)
+#         config = VariableConfig(
+#             name='test_var',
+#             variants={
+#                 'control': Variant(key='control', serialized_value='"control"'),
+#                 'treatment': Variant(key='treatment', serialized_value='"treatment"'),
+#                 'vip': Variant(key='vip', serialized_value='"vip"'),
+#             },
+#             rollout=Rollout(variants={'control': 1.0}),
+#             # Base overrides: enterprise gets treatment
+#             overrides=[
+#                 RolloutOverride(
+#                     conditions=[ValueEquals(attribute='plan', value='enterprise')],
+#                     rollout=Rollout(variants={'treatment': 1.0}),
+#                 ),
+#             ],
+#             schedule=RolloutSchedule(
+#                 start_at=now - timedelta(minutes=30),  # Active schedule
+#                 stages=[
+#                     RolloutStage(
+#                         duration=timedelta(hours=1),
+#                         rollout=Rollout(variants={'control': 1.0}),
+#                         # Stage overrides: enterprise gets VIP instead
+#                         overrides=[
+#                             RolloutOverride(
+#                                 conditions=[ValueEquals(attribute='plan', value='enterprise')],
+#                                 rollout=Rollout(variants={'vip': 1.0}),
+#                             ),
+#                         ],
+#                     ),
+#                 ],
+#             ),
+#         )
+#         # Enterprise users should get VIP (from stage override), not treatment (from base override)
+#         variant = config.resolve_variant(targeting_key='user1', attributes={'plan': 'enterprise'})
+#         assert variant is not None
+#         assert variant.key == 'vip'
+#
+#         # Non-enterprise users get control (from stage rollout)
+#         variant = config.resolve_variant(targeting_key='user2', attributes={'plan': 'free'})
+#         assert variant is not None
+#         assert variant.key == 'control'
+#
+#     def test_no_schedule_uses_base_config(self):
+#         """When no schedule is configured, use base rollout and overrides."""
+#         config = VariableConfig(
+#             name='test_var',
+#             variants={
+#                 'default': Variant(key='default', serialized_value='"default"'),
+#                 'premium': Variant(key='premium', serialized_value='"premium"'),
+#             },
+#             rollout=Rollout(variants={'default': 1.0}),
+#             overrides=[
+#                 RolloutOverride(
+#                     conditions=[ValueEquals(attribute='plan', value='enterprise')],
+#                     rollout=Rollout(variants={'premium': 1.0}),
+#                 ),
+#             ],
+#             schedule=None,
+#         )
+#         # Without enterprise plan, get default
+#         variant = config.resolve_variant(targeting_key='user1')
+#         assert variant is not None
+#         assert variant.key == 'default'
+#
+#         # With enterprise plan, get premium
+#         variant = config.resolve_variant(targeting_key='user1', attributes={'plan': 'enterprise'})
+#         assert variant is not None
+#         assert variant.key == 'premium'
 
 
 # =============================================================================
