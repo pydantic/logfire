@@ -199,6 +199,12 @@ except ImportError:
 
             def shutdown(self, *args, **kwargs) -> None: ...
 
+            def var(self, *args, **kwargs):
+                return MagicMock()
+
+            def get_variables(self, *args, **kwargs) -> list[Any]:
+                return []
+
         DEFAULT_LOGFIRE_INSTANCE = Logfire()
         span = DEFAULT_LOGFIRE_INSTANCE.span
         log = DEFAULT_LOGFIRE_INSTANCE.log
@@ -248,6 +254,14 @@ except ImportError:
         instrument_mcp = DEFAULT_LOGFIRE_INSTANCE.instrument_mcp
         shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
         suppress_scopes = DEFAULT_LOGFIRE_INSTANCE.suppress_scopes
+        var = DEFAULT_LOGFIRE_INSTANCE.var
+        get_variables = DEFAULT_LOGFIRE_INSTANCE.get_variables
+
+        def push_variables(*args, **kwargs) -> bool:
+            return False
+
+        def validate_variables(*args, **kwargs) -> bool:
+            return True
 
         def loguru_handler() -> dict[str, Any]:
             return {}
@@ -277,6 +291,9 @@ except ImportError:
             def __init__(self, *args, **kwargs) -> None: ...
 
         class MetricsOptions:
+            def __init__(self, *args, **kwargs) -> None: ...
+
+        class VariablesOptions:
             def __init__(self, *args, **kwargs) -> None: ...
 
         class PydanticPlugin:

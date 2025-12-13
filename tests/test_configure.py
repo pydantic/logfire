@@ -3,6 +3,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import os
+import pickle
 import sys
 import threading
 from collections.abc import Iterable, Sequence
@@ -52,6 +53,7 @@ from logfire._internal.config import (
     ConsoleOptions,
     LogfireConfig,
     LogfireCredentials,
+    RemoteVariablesConfig,
     get_base_url_from_token,
     sanitize_project_name,
 )
@@ -846,6 +848,9 @@ def test_config_serializable():
         sampling=logfire.SamplingOptions(),
         scrubbing=logfire.ScrubbingOptions(),
         code_source=logfire.CodeSource(repository='https://github.com/pydantic/logfire', revision='main'),
+        variables=logfire.VariablesOptions(
+            config=RemoteVariablesConfig(block_before_first_resolve=False), include_baggage_in_context=False
+        ),
         advanced=logfire.AdvancedOptions(id_generator=SeededRandomIdGenerator(seed=42)),
     )
 
@@ -853,14 +858,14 @@ def test_config_serializable():
         # Check that the full set of dataclass fields is known.
         # If a new field appears here, make sure it gets deserialized properly in configure, and tested here.
         assert dataclasses.is_dataclass(getattr(GLOBAL_CONFIG, field.name)) == (
-            field.name in ['console', 'sampling', 'scrubbing', 'advanced', 'code_source']
+            field.name in ['console', 'sampling', 'scrubbing', 'advanced', 'code_source', 'variables']
         )
 
     serialized = serialize_config()
     assert serialized is not None  # Config should be picklable in this test
     GLOBAL_CONFIG._initialized = False  # type: ignore  # ensure deserialize_config actually configures
-    deserialize_config(serialized)
-    serialized2 = serialize_config()
+    deserialize_config(pickle.loads(pickle.dumps(serialized)))
+    serialized2 = pickle.loads(pickle.dumps(serialize_config()))
     assert serialized2 is not None  # Config should be picklable in this test
 
     def normalize(s: dict[str, Any]) -> dict[str, Any]:
@@ -875,6 +880,7 @@ def test_config_serializable():
     assert isinstance(GLOBAL_CONFIG.scrubbing, logfire.ScrubbingOptions)
     assert isinstance(GLOBAL_CONFIG.advanced, logfire.AdvancedOptions)
     assert isinstance(GLOBAL_CONFIG.advanced.id_generator, SeededRandomIdGenerator)
+    assert isinstance(GLOBAL_CONFIG.variables, logfire.VariablesOptions)
     assert GLOBAL_CONFIG.advanced.id_generator.seed == 42
 
 
