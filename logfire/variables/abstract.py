@@ -2,6 +2,7 @@ from __future__ import annotations as _annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
+from contextlib import ExitStack
 from dataclasses import dataclass
 from typing import Any, Generic, Literal, TypeVar
 
@@ -11,10 +12,28 @@ T = TypeVar('T')
 T_co = TypeVar('T_co', covariant=True)
 
 
+# TODO: Should we rename this to `ResolvedVariable`?
 @dataclass(kw_only=True)
 class VariableResolutionDetails(Generic[T_co]):
-    """Details about a variable resolution including value, variant, and any errors."""
+    """Details about a variable resolution including value, variant, and any errors.
 
+    This class can be used as a context manager. When used as a context manager, it
+    automatically sets baggage with the variable name and variant, enabling downstream
+    spans and logs to be associated with the variable resolution that was active at the time.
+
+    Example:
+        ```python
+        my_var = logfire.var(name='my_var', default='default', type=str)
+        with my_var.get() as details:
+            # Inside this context, baggage is set with:
+            # logfire.variables.my_var = <variant_name> (or '<code_default>' if no variant)
+            value = details.value
+            # Any spans/logs created here will have the baggage attached
+        ```
+    """
+
+    name: str
+    """The name of the variable."""
     value: T_co
     """The resolved value of the variable."""
     variant: str | None = None
@@ -31,6 +50,28 @@ class VariableResolutionDetails(Generic[T_co]):
         'no_provider',
     ]  # we might eventually make this public, but I didn't want to yet
     """Internal field indicating how the value was resolved."""
+
+    def __post_init__(self):
+        self._exit_stack = ExitStack()
+
+    def __enter__(self):
+        self._exit_stack.__enter__()
+
+        import logfire
+
+        # TODO:
+        #  * Should we "nest" the value into a 'logfire.variables' key, rather than separate keys for each variable?
+        #  * Is there a better value to use here over `<code_default>` when the variant is None?
+        #  * Should either of the above be configurable?
+        #  * Should we _require_ you to enter the context to get the value of a variable?
+        self._exit_stack.enter_context(
+            logfire.set_baggage(**{f'logfire.variables.{self.name}': self.variant or '<code_default>'})
+        )
+
+        return self
+
+    def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: Any) -> None:
+        self._exit_stack.__exit__(exc_type, exc_val, exc_tb)
 
 
 class VariableProvider(ABC):
@@ -94,4 +135,4 @@ class NoOpVariableProvider(VariableProvider):
         Returns:
             A VariableResolutionDetails with value=None.
         """
-        return VariableResolutionDetails(value=None, _reason='no_provider')
+        return VariableResolutionDetails(name=variable_name, value=None, _reason='no_provider')

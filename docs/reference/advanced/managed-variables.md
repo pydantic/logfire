@@ -41,10 +41,10 @@ agent_instructions = logfire.var(
 
 
 async def main():
-    # Get the variable's value
-    instructions = await agent_instructions.get()
-    print(f'Instructions: {instructions}')
-    #> Instructions: You are a helpful assistant.
+    # Get the variable's resolution details and use as context manager
+    with await agent_instructions.get() as details:
+        print(f'Instructions: {details.value}')
+        #> Instructions: You are a helpful assistant.
 ```
 
 ### Variable Parameters
@@ -57,7 +57,7 @@ async def main():
 
 ### Getting Variable Values
 
-Variables are resolved asynchronously. You can get just the value, or full resolution details:
+Variables return a `VariableResolutionDetails` object containing the resolved value and metadata about how it was resolved:
 
 ```python
 import logfire
@@ -72,18 +72,47 @@ my_variable = logfire.var(
 
 
 async def main():
-    # Get just the value
-    value = await my_variable.get()
-    print(f'Value: {value}')
-    #> Value: default value
-
     # Get full resolution details (includes variant info, any errors, etc.)
-    details = await my_variable.get_details()
+    details = await my_variable.get()
     print(f'Resolved value: {details.value}')
     #> Resolved value: default value
     print(f'Selected variant: {details.variant}')
     #> Selected variant: None
 ```
+
+### Using Variables as Context Managers (Recommended)
+
+The `VariableResolutionDetails` object can be used as a context manager. This is the **recommended pattern** because it automatically sets [baggage](baggage.md) with the variable name and selected variant, allowing downstream spans and logs to be associated with the variable resolution:
+
+```python
+import logfire
+
+logfire.configure()
+
+system_prompt = logfire.var(
+    name='system_prompt',
+    default='You are a helpful assistant.',
+    type=str,
+)
+
+
+async def main():
+    # Use as context manager to automatically track the variable variant
+    with await system_prompt.get() as details:
+        prompt = details.value
+        # Inside this context, baggage is automatically set:
+        # logfire.variables.system_prompt = <variant_name>
+        # Any spans or logs created here will have this baggage attached,
+        # making it easy to correlate behavior with the variant that was used.
+        print(f'Using prompt variant: {details.variant}')
+        # ... use the prompt value for your AI agent or other logic ...
+```
+
+This pattern is especially useful for:
+
+- **A/B testing analysis**: Easily filter traces by which variant was active
+- **Debugging**: Understand which configuration was in effect during a request
+- **Observability**: Track how different variants affect application behavior
 
 ### Targeting and Attributes
 
@@ -103,12 +132,12 @@ agent_instructions = logfire.var(
 
 async def main():
     # Target a specific user for consistent A/B test assignment
-    value = await agent_instructions.get(
+    with await agent_instructions.get(
         targeting_key='user_123',  # Used for deterministic variant selection
         attributes={'plan': 'enterprise', 'region': 'us-east'},
-    )
-    print(value)
-    #> You are a helpful assistant.
+    ) as details:
+        print(details.value)
+        #> You are a helpful assistant.
 ```
 
 The `targeting_key` ensures the same user always gets the same variant (deterministic selection based on the key). Additional `attributes` can be used for condition-based targeting rules.
@@ -134,19 +163,19 @@ model_temperature = logfire.var(
 
 async def main():
     # Default value
-    temp = await model_temperature.get()
-    print(f'Default temperature: {temp}')
+    details = await model_temperature.get()
+    print(f'Default temperature: {details.value}')
     #> Default temperature: 0.7
 
     # Override for creative mode
     with model_temperature.override(1.0):
-        temp = await model_temperature.get()
-        print(f'Creative temperature: {temp}')
+        details = await model_temperature.get()
+        print(f'Creative temperature: {details.value}')
         #> Creative temperature: 1.0
 
     # Back to default after context exits
-    temp = await model_temperature.get()
-    print(f'Back to default: {temp}')
+    details = await model_temperature.get()
+    print(f'Back to default: {details.value}')
     #> Back to default: 0.7
 ```
 
@@ -181,12 +210,12 @@ def get_temperature_for_context(
 async def main():
     with model_temperature.override(get_temperature_for_context):
         # Temperature will be computed based on the attributes passed to get()
-        temp = await model_temperature.get(attributes={'mode': 'creative'})
-        print(f'Creative mode: {temp}')
+        details = await model_temperature.get(attributes={'mode': 'creative'})
+        print(f'Creative mode: {details.value}')
         #> Creative mode: 1.0
 
-        temp = await model_temperature.get(attributes={'mode': 'precise'})
-        print(f'Precise mode: {temp}')
+        details = await model_temperature.get(attributes={'mode': 'precise'})
+        print(f'Precise mode: {details.value}')
         #> Precise mode: 0.5
 ```
 
@@ -270,15 +299,15 @@ system_prompt = logfire.var(
 async def run_agent(user_id: str, user_plan: str, user_message: str) -> str:
     """Run the agent with the appropriate prompt for this user."""
     # Get the prompt - variant selection is deterministic per user
-    prompt = await system_prompt.get(
+    # Using the context manager ensures the variant is recorded in baggage
+    with await system_prompt.get(
         targeting_key=user_id,
         attributes={'plan': user_plan},
-    )
-
-    # Create the agent with the resolved prompt
-    agent = Agent('openai:gpt-4o-mini', system_prompt=prompt)
-    result = await agent.run(user_message)
-    return result.output
+    ) as details:
+        # Create the agent with the resolved prompt
+        agent = Agent('openai:gpt-4o-mini', system_prompt=details.value)
+        result = await agent.run(user_message)
+        return result.output
 
 
 async def main():
@@ -552,13 +581,13 @@ async def main():
     # Baggage is automatically included in variable resolution
     with logfire.set_baggage(plan='enterprise'):
         # No need to pass attributes - baggage is included automatically
-        prompt = await agent_prompt.get()
-        print(f'With enterprise baggage: {prompt}')
+        details = await agent_prompt.get()
+        print(f'With enterprise baggage: {details.value}')
         #> With enterprise baggage: Premium prompt
 
     # Without matching baggage, gets the default rollout
-    prompt = await agent_prompt.get()
-    print(f'Without baggage: {prompt}')
+    details = await agent_prompt.get()
+    print(f'Without baggage: {details.value}')
     #> Without baggage: Standard prompt
 ```
 
@@ -677,22 +706,19 @@ model_settings = logfire.var(
 async def handle_support_request(user_id: str, message: str) -> str:
     """Handle a customer support request with managed configuration."""
     # Get configuration - same user always gets same variant (deterministic)
-    prompt = await system_prompt.get(targeting_key=user_id)
-    settings = await model_settings.get(targeting_key=user_id)
-
-    # Get details for logging/observability
-    prompt_details = await system_prompt.get_details(targeting_key=user_id)
-
-    with logfire.span(
-        'support_request',
-        user_id=user_id,
-        prompt_variant=prompt_details.variant,
-        model=settings.model,
-    ):
-        # Create and run the agent with resolved configuration
-        agent = Agent(settings.model, system_prompt=prompt)
-        result = await agent.run(message)
-        return result.output
+    # Using context managers ensures variant info is recorded in baggage
+    with await system_prompt.get(targeting_key=user_id) as prompt_details:
+        with await model_settings.get(targeting_key=user_id) as settings_details:
+            with logfire.span(
+                'support_request',
+                user_id=user_id,
+                prompt_variant=prompt_details.variant,
+                model=settings_details.value.model,
+            ):
+                # Create and run the agent with resolved configuration
+                agent = Agent(settings_details.value.model, system_prompt=prompt_details.value)
+                result = await agent.run(message)
+                return result.output
 
 
 async def main():
@@ -702,7 +728,7 @@ async def main():
 
     for user_id in users:
         # Check which variant this user gets
-        details = await system_prompt.get_details(targeting_key=user_id)
+        details = await system_prompt.get(targeting_key=user_id)
         print(f'{user_id} -> prompt variant: {details.variant}')
 
         # In a real app, you'd handle actual messages:
@@ -761,17 +787,17 @@ model_settings = logfire.var(
 async def test_prompt_override():
     """Test that prompt overrides work correctly."""
     # Production value from config
-    prompt = await system_prompt.get()
-    assert prompt == 'Production prompt'
+    details = await system_prompt.get()
+    assert details.value == 'Production prompt'
 
     # Override for testing
     with system_prompt.override('Test prompt for unit tests'):
-        prompt = await system_prompt.get()
-        assert prompt == 'Test prompt for unit tests'
+        details = await system_prompt.get()
+        assert details.value == 'Test prompt for unit tests'
 
     # Back to production after context exits
-    prompt = await system_prompt.get()
-    assert prompt == 'Production prompt'
+    details = await system_prompt.get()
+    assert details.value == 'Production prompt'
 
     print('All prompt override tests passed!')
 
@@ -779,16 +805,16 @@ async def test_prompt_override():
 async def test_model_settings_override():
     """Test overriding structured configuration."""
     # Default value (no config for this variable)
-    settings = await model_settings.get()
-    assert settings.model == 'gpt-4o-mini'
-    assert settings.temperature == 0.7
+    details = await model_settings.get()
+    assert details.value.model == 'gpt-4o-mini'
+    assert details.value.temperature == 0.7
 
     # Override with custom settings
     test_settings = ModelSettings(model='gpt-4', temperature=0.0)
     with model_settings.override(test_settings):
-        settings = await model_settings.get()
-        assert settings.model == 'gpt-4'
-        assert settings.temperature == 0.0
+        details = await model_settings.get()
+        assert details.value.model == 'gpt-4'
+        assert details.value.temperature == 0.0
 
     print('All model settings override tests passed!')
 

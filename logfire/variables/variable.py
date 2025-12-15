@@ -116,21 +116,8 @@ class Variable(Generic[T]):
         """Synchronously refresh the variable."""
         self.logfire_instance.config.get_variable_provider().refresh(force=force)
 
-    # TODO: add ok_or_default() to VariableResolutionDetails and make this just be get_details; so you do
-    #   .get().ok_or_default() to get the current behavior of this
-    def get(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> T:
-        """Resolve and return the variable's value.
-
-        Args:
-            targeting_key: Optional key for deterministic variant selection (e.g., user ID).
-            attributes: Optional attributes for condition-based targeting rules.
-
-        Returns:
-            The resolved value of the variable.
-        """
-        return (self.get_details(targeting_key, attributes)).value
-
-    def get_details(
+    # TODO: Should we rename this to `resolve`?
+    def get(
         self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
     ) -> VariableResolutionDetails[T]:
         """Resolve the variable and return full details including variant and any errors.
@@ -143,35 +130,64 @@ class Variable(Generic[T]):
             A VariableResolutionDetails object containing the resolved value, selected variant,
             and any errors that occurred.
         """
+        # TODO:
+        #  * Should we include the serialized value as an attribute here?
+        #  * Should we _not_ include the deserialized value as an attribute here?
+        #  * Should we remove the `attributes` attribute of the span below?
+        #  * Should we remove the _merged_ part of the `attributes` attribute below?
+        #  * Should we _rename_ the `attributes` attribute below?
+        #  * Should some/all of the above be configurable? On a logfire/variable/call-site-specific basis?
+
         merged_attributes = self._get_merged_attributes(attributes)
 
-        # TODO: How much of the following code should be in the try: except:?
+        with self.logfire_instance.span(
+            'Resolve variable {name}',
+            name=self.name,
+            targeting_key=targeting_key,
+            attributes=merged_attributes,
+        ) as span:
+            result = self._resolve(targeting_key, merged_attributes)
+            span.set_attributes({
+                'name': result.name,
+                'value': result.value,
+                'variant': result.variant,
+                'reason': result._reason,
+            })
+            if result.exception:
+                span.record_exception(result.exception)
+            return result
+
+    def _resolve(
+        self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+    ) -> VariableResolutionDetails[T]:
         try:
             if (context_overrides := _VARIABLE_OVERRIDES.get()) is not None and (
                 context_value := context_overrides.get(self.name)
             ) is not None:
                 if is_resolve_function(context_value):
-                    context_value = context_value(targeting_key, merged_attributes)
-                return VariableResolutionDetails(value=context_value, _reason='context_override')
+                    context_value = context_value(targeting_key, attributes)
+                return VariableResolutionDetails(name=self.name, value=context_value, _reason='context_override')
 
             provider = self.logfire_instance.config.get_variable_provider()
-            serialized_result = provider.get_serialized_value(self.name, targeting_key, merged_attributes)
+            serialized_result = provider.get_serialized_value(self.name, targeting_key, attributes)
 
             if serialized_result.value is None:
-                default = self._get_default(targeting_key, merged_attributes)
+                default = self._get_default(targeting_key, attributes)
                 return _with_value(serialized_result, default)
 
             try:
                 value = self.type_adapter.validate_json(serialized_result.value)
             except ValidationError as e:
-                default = self._get_default(targeting_key, merged_attributes)
-                return VariableResolutionDetails(value=default, exception=e, _reason='validation_error')
+                default = self._get_default(targeting_key, attributes)
+                return VariableResolutionDetails(name=self.name, value=default, exception=e, _reason='validation_error')
 
-            return VariableResolutionDetails(value=value, variant=serialized_result.variant, _reason='resolved')
+            return VariableResolutionDetails(
+                name=self.name, value=value, variant=serialized_result.variant, _reason='resolved'
+            )
 
         except Exception as e:
-            default = self._get_default(targeting_key, merged_attributes)
-            return VariableResolutionDetails(value=default, exception=e, _reason='other_error')
+            default = self._get_default(targeting_key, attributes)
+            return VariableResolutionDetails(name=self.name, value=default, exception=e, _reason='other_error')
 
     def _get_default(self, targeting_key: str | None = None, merged_attributes: Mapping[str, Any] | None = None) -> T:
         if is_resolve_function(self.default):

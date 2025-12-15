@@ -1003,19 +1003,134 @@ class TestNoOpVariableProvider:
 
 class TestVariableResolutionDetails:
     def test_basic_details(self):
-        details = VariableResolutionDetails(value='test', _reason='resolved')
+        details = VariableResolutionDetails(name='test_var', value='test', _reason='resolved')
+        assert details.name == 'test_var'
         assert details.value == 'test'
         assert details.variant is None
         assert details.exception is None
 
     def test_with_variant(self):
-        details = VariableResolutionDetails(value='test', variant='v1', _reason='resolved')
+        details = VariableResolutionDetails(name='test_var', value='test', variant='v1', _reason='resolved')
         assert details.variant == 'v1'
 
     def test_with_exception(self):
         error = ValueError('test error')
-        details = VariableResolutionDetails(value='default', exception=error, _reason='validation_error')
+        details = VariableResolutionDetails(
+            name='test_var', value='default', exception=error, _reason='validation_error'
+        )
         assert details.exception is error
+
+    def test_context_manager_sets_baggage(self, config_kwargs: dict[str, Any]):
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='context_test_var', default='default', type=str)
+        details = var.get()
+
+        # Before entering context, check that baggage is not set
+        baggage_before = logfire.get_baggage()
+        assert 'logfire.variables.context_test_var' not in baggage_before
+
+        # Inside context, baggage should be set
+        with details:
+            baggage_inside = logfire.get_baggage()
+            assert 'logfire.variables.context_test_var' in baggage_inside
+            # Value should be '<code_default>' since no variant was selected (no config)
+            assert baggage_inside['logfire.variables.context_test_var'] == '<code_default>'
+
+        # After exiting context, baggage should be unset
+        baggage_after = logfire.get_baggage()
+        assert 'logfire.variables.context_test_var' not in baggage_after
+
+    def test_context_manager_sets_variant_name_in_baggage(self, config_kwargs: dict[str, Any]):
+        variables_config = VariablesConfig(
+            variables={
+                'cm_var': VariableConfig(
+                    name='cm_var',
+                    variants={
+                        'my_variant': Variant(key='my_variant', serialized_value='"variant_value"'),
+                    },
+                    rollout=Rollout(variants={'my_variant': 1.0}),
+                    overrides=[],
+                ),
+            }
+        )
+        config_kwargs['variables'] = VariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='cm_var', default='default', type=str)
+        details = var.get()
+
+        assert details.variant == 'my_variant'
+
+        with details:
+            baggage = logfire.get_baggage()
+            assert baggage['logfire.variables.cm_var'] == 'my_variant'
+
+    def test_context_manager_returns_self(self, config_kwargs: dict[str, Any]):
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='cm_return_test', default='default', type=str)
+        details = var.get()
+
+        with details as entered_details:
+            assert entered_details is details
+
+    def test_context_manager_nested(self, config_kwargs: dict[str, Any]):
+        variables_config = VariablesConfig(
+            variables={
+                'var_a': VariableConfig(
+                    name='var_a',
+                    variants={'a1': Variant(key='a1', serialized_value='"value_a"')},
+                    rollout=Rollout(variants={'a1': 1.0}),
+                    overrides=[],
+                ),
+                'var_b': VariableConfig(
+                    name='var_b',
+                    variants={'b1': Variant(key='b1', serialized_value='"value_b"')},
+                    rollout=Rollout(variants={'b1': 1.0}),
+                    overrides=[],
+                ),
+            }
+        )
+        config_kwargs['variables'] = VariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+
+        var_a = lf.var(name='var_a', default='default_a', type=str)
+        var_b = lf.var(name='var_b', default='default_b', type=str)
+
+        details_a = var_a.get()
+        details_b = var_b.get()
+
+        with details_a:
+            baggage = logfire.get_baggage()
+            assert 'logfire.variables.var_a' in baggage
+            assert 'logfire.variables.var_b' not in baggage
+
+            with details_b:
+                baggage = logfire.get_baggage()
+                assert 'logfire.variables.var_a' in baggage
+                assert 'logfire.variables.var_b' in baggage
+
+            baggage = logfire.get_baggage()
+            assert 'logfire.variables.var_a' in baggage
+            assert 'logfire.variables.var_b' not in baggage
+
+    def test_context_manager_with_exception(self, config_kwargs: dict[str, Any]):
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='exc_test_var', default='default', type=str)
+        details = var.get()
+
+        # Ensure the context manager properly cleans up even when an exception is raised
+        try:
+            with details:
+                baggage = logfire.get_baggage()
+                assert 'logfire.variables.exc_test_var' in baggage
+                raise ValueError('test exception')
+        except ValueError:
+            pass
+
+        # Baggage should be cleaned up
+        baggage = logfire.get_baggage()
+        assert 'logfire.variables.exc_test_var' not in baggage
 
 
 # =============================================================================
@@ -1382,16 +1497,16 @@ class TestVariable:
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='string_var', default='default_value', type=str)
-        value = var.get()
-        assert value == 'hello'
+        details = var.get()
+        assert details.value == 'hello'
 
     def test_get_int_variable(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
         config_kwargs['variables'] = VariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='int_var', default=0, type=int)
-        value = var.get()
-        assert value == 42
+        details = var.get()
+        assert details.value == 42
 
     def test_get_model_variable(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
         class MyModel(BaseModel):
@@ -1402,9 +1517,9 @@ class TestVariable:
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='model_var', default=MyModel(name='default', value=0), type=MyModel)
-        value = var.get()
-        assert value.name == 'test'
-        assert value.value == 123
+        details = var.get()
+        assert details.value.name == 'test'
+        assert details.value.value == 123
 
     def test_get_with_attributes(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
         config_kwargs['variables'] = VariablesOptions(config=variables_config)
@@ -1413,17 +1528,17 @@ class TestVariable:
         var = lf.var(name='string_var', default='default_value', type=str)
 
         # Without override condition
-        assert var.get() == 'hello'
+        assert var.get().value == 'hello'
 
         # With override condition
-        assert var.get(attributes={'use_alt': True}) == 'world'
+        assert var.get(attributes={'use_alt': True}).value == 'world'
 
     def test_get_details(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
         config_kwargs['variables'] = VariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='string_var', default='default_value', type=str)
-        details = var.get_details()
+        details = var.get()
         assert details.value == 'hello'
         assert details.variant == 'default'
         assert details.exception is None
@@ -1433,7 +1548,7 @@ class TestVariable:
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='invalid_var', default=999, type=int)
-        details = var.get_details()
+        details = var.get()
         # Falls back to default when validation fails
         assert details.value == 999
         assert details.exception is not None
@@ -1444,7 +1559,7 @@ class TestVariable:
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='unconfigured', default='my_default', type=str)
-        value = var.get()
+        value = var.get().value
         assert value == 'my_default'
 
     def test_override_context_manager(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
@@ -1453,12 +1568,12 @@ class TestVariable:
 
         var = lf.var(name='string_var', default='default_value', type=str)
 
-        assert var.get() == 'hello'
+        assert var.get().value == 'hello'
 
         with var.override('overridden'):
-            assert var.get() == 'overridden'
+            assert var.get().value == 'overridden'
 
-        assert var.get() == 'hello'
+        assert var.get().value == 'hello'
 
     def test_override_nested(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
         config_kwargs['variables'] = VariablesOptions(config=variables_config)
@@ -1467,10 +1582,10 @@ class TestVariable:
         var = lf.var(name='string_var', default='default_value', type=str)
 
         with var.override('outer'):
-            assert var.get() == 'outer'
+            assert var.get().value == 'outer'
             with var.override('inner'):
-                assert var.get() == 'inner'
-            assert var.get() == 'outer'
+                assert var.get().value == 'inner'
+            assert var.get().value == 'outer'
 
     def test_override_with_function(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
         config_kwargs['variables'] = VariablesOptions(config=variables_config)
@@ -1484,8 +1599,8 @@ class TestVariable:
             return 'default_fn_value'
 
         with var.override(resolve_fn):
-            assert var.get() == 'default_fn_value'
-            assert var.get(attributes={'mode': 'creative'}) == 'creative_value'
+            assert var.get().value == 'default_fn_value'
+            assert var.get(attributes={'mode': 'creative'}).value == 'creative_value'
 
     def test_default_as_function(self, config_kwargs: dict[str, Any]):
         config_kwargs['variables'] = VariablesOptions(config=VariablesConfig(variables={}))
@@ -1497,8 +1612,8 @@ class TestVariable:
             return 'generic_default'
 
         var = lf.var(name='with_fn_default', default=resolve_default, type=str)
-        assert var.get() == 'generic_default'
-        assert var.get(targeting_key='user123') == 'default_for_user123'
+        assert var.get().value == 'generic_default'
+        assert var.get(targeting_key='user123').value == 'default_for_user123'
 
     def test_refresh_sync(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
         config_kwargs['variables'] = VariablesOptions(config=variables_config)
@@ -1555,11 +1670,11 @@ class TestVariableContextEnrichment:
         var = lf.var(name='targeted_var', default='fallback', type=str)
 
         # Without baggage
-        assert var.get() == 'default'
+        assert var.get().value == 'default'
 
         # With baggage
         with logfire.set_baggage(plan='enterprise'):
-            assert var.get() == 'premium'
+            assert var.get().value == 'premium'
 
     def test_baggage_can_be_disabled(self, config_kwargs: dict[str, Any], config_with_targeting: VariablesConfig):
         config_kwargs['variables'] = VariablesOptions(
@@ -1573,7 +1688,7 @@ class TestVariableContextEnrichment:
         # With baggage but disabled
         with logfire.set_baggage(plan='enterprise'):
             # Should NOT match override since baggage is disabled
-            assert var.get() == 'default'
+            assert var.get().value == 'default'
 
     def test_resource_attributes_can_be_disabled(
         self, config_kwargs: dict[str, Any], config_with_targeting: VariablesConfig
@@ -1586,7 +1701,7 @@ class TestVariableContextEnrichment:
 
         var = lf.var(name='targeted_var', default='fallback', type=str)
         # Just verify it works with this setting
-        assert var.get() == 'default'
+        assert var.get().value == 'default'
 
 
 # =============================================================================
@@ -1662,7 +1777,7 @@ class TestLogfireVarIntegration:
 
         # Using sequence of types creates a Union
         var = lf.var(name='union_var', default='default', type=[str, int])
-        assert var.get() == 'string_value'
+        assert var.get().value == 'string_value'
 
     def test_exception_handling_in_get_details(self, config_kwargs: dict[str, Any]):
         # Create a provider that raises an exception
@@ -1678,7 +1793,7 @@ class TestLogfireVarIntegration:
         lf = logfire.configure(variables=VariablesOptions(config=FailingProvider()))
 
         var = lf.var(name='failing_var', default='fallback', type=str)
-        details = var.get_details()
+        details = var.get()
         assert details.value == 'fallback'
         assert details._reason == 'other_error'
         assert isinstance(details.exception, RuntimeError)

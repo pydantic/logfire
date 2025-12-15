@@ -359,6 +359,8 @@ def push_variables(
         print('No variables to push. Create variables using logfire.var() first.')
         return False
 
+    # TODO: Use the approach from `def check_token():` here if all I have is a token, but do it in foreground rather than background
+    # TODO: Update the endpoints to be under /v1
     # Get credentials
     try:
         organization, project = _get_project_credentials(data_dir)
