@@ -1,12 +1,24 @@
 import inspect
+import sys
+from typing import TYPE_CHECKING
 
 import pytest
 from inline_snapshot import snapshot
-from surrealdb import AsyncSurreal, Surreal
 
 import logfire
 from logfire._internal.exporters.test import TestExporter
-from logfire._internal.integrations.surrealdb import get_all_surrealdb_classes
+
+try:
+    from surrealdb import AsyncSurreal, Surreal
+
+    from logfire._internal.integrations.surrealdb import get_all_surrealdb_classes
+
+except Exception:
+    assert not TYPE_CHECKING
+
+pytestmark = [
+    pytest.mark.skipif(sys.version_info < (3, 10), reason='surrealdb requires Python 3.10 or higher'),
+]
 
 
 def test_get_all_surrealdb_classes():
