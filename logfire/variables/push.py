@@ -202,21 +202,21 @@ def _format_diff(diff: VariableDiff) -> str:
 def _apply_changes(
     client: LogfireClient,
     organization: str,
-    project: str,
+    project_name: str,
     diff: VariableDiff,
 ) -> None:
     """Apply the changes to the server."""
     for change in diff.changes:
         if change.change_type == 'create':
-            _create_variable(client, organization, project, change)
+            _create_variable(client, organization, project_name, change)
         elif change.change_type == 'update_schema':
-            _update_variable_schema(client, organization, project, change)
+            _update_variable_schema(client, organization, project_name, change)
 
 
 def _create_variable(
     client: LogfireClient,
     organization: str,
-    project: str,
+    project_name: str,
     change: VariableChange,
 ) -> None:
     """Create a new variable on the server."""
@@ -241,42 +241,52 @@ def _create_variable(
 
     body['overrides'] = []
 
-    client.create_variable(organization, project, body)
+    client.create_variable(organization, project_name, body)
     print(f'  \033[32mCreated: {change.name}\033[0m')
 
 
 def _update_variable_schema(
     client: LogfireClient,
     organization: str,
-    project: str,
+    project_name: str,
     change: VariableChange,
 ) -> None:
     """Update an existing variable's schema on the server."""
     server_id = change.server_id
     if not server_id:
         # Need to look up the variable by name to get its ID
-        var_data = client.get_variable_by_name(organization, project, change.name)
+        var_data = client.get_variable_by_name(organization, project_name, change.name)
         server_id = var_data['id']
 
     body = {
         'json_schema': change.local_schema,
     }
 
-    client.update_variable(organization, project, server_id, body)
+    client.update_variable(organization, project_name, server_id, body)
     print(f'  \033[33mUpdated schema: {change.name}\033[0m')
 
 
-def _get_project_credentials(data_dir: str | None = None) -> tuple[str, str]:
-    """Get the organization and project from local credentials.
+@dataclass
+class ProjectCredentials:
+    """Project credentials containing org and project info."""
+
+    organization: str
+    project_name: str
+    project_url: str
+    logfire_api_url: str
+
+
+def _get_project_credentials(data_dir: str | None = None) -> ProjectCredentials:
+    """Get the project credentials from local credentials file.
 
     Args:
         data_dir: Optional path to the data directory. Defaults to '.logfire'.
 
     Returns:
-        Tuple of (organization, project_name)
+        ProjectCredentials containing organization, project name, and URLs.
 
     Raises:
-        RuntimeError: If credentials are not found or cannot determine organization.
+        RuntimeError: If credentials are not found or project URL is invalid.
     """
     from pathlib import Path
     from urllib.parse import urlparse
@@ -293,18 +303,20 @@ def _get_project_credentials(data_dir: str | None = None) -> tuple[str, str]:
             'or use `logfire projects use` to select a project.'
         )
 
-    # Parse org and project from project_url
-    # project_url is like: https://logfire.pydantic.dev/org-name/project-name
+    # Parse organization from project_url (format: https://logfire.pydantic.dev/{org}/{project})
     parsed = urlparse(creds.project_url)
-    path_parts = [p for p in parsed.path.split('/') if p]
+    path_parts = parsed.path.strip('/').split('/')
+    if len(path_parts) < 2:
+        raise RuntimeError(
+            f'Invalid project URL format: {creds.project_url}. '
+            'Expected format: https://logfire.pydantic.dev/{org}/{project}'
+        )
 
-    if len(path_parts) >= 2:
-        return path_parts[0], path_parts[1]
-
-    # Fallback: try to get from the project list using the project_name
-    raise RuntimeError(
-        f'Could not determine organization from project URL: {creds.project_url}. '
-        'Expected format: https://logfire.pydantic.dev/org/project'
+    return ProjectCredentials(
+        organization=path_parts[0],
+        project_name=path_parts[1],
+        project_url=creds.project_url,
+        logfire_api_url=creds.logfire_api_url,
     )
 
 
@@ -359,28 +371,25 @@ def push_variables(
         print('No variables to push. Create variables using logfire.var() first.')
         return False
 
-    # TODO: Use the approach from `def check_token():` here if all I have is a token, but do it in foreground rather than background
-    # TODO: Update the endpoints to be under /v1
-    # Get credentials
+    # Get project credentials to know which project to sync
     try:
-        organization, project = _get_project_credentials(data_dir)
+        project_creds = _get_project_credentials(data_dir)
     except RuntimeError as e:
         print(f'\033[31mError: {e}\033[0m', file=sys.stderr)
         return False
 
-    print(f'Syncing variables for project: {organization}/{project}')
+    print(f'Syncing variables for project: {project_creds.project_url}')
 
-    # Create client with user auth
+    # Create client with user token auth
     try:
-        client = LogfireClient.from_url(None)
+        client = LogfireClient.from_url(project_creds.logfire_api_url)
     except Exception as e:
-        print('\033[31mError: Failed to authenticate. Run `logfire auth` first.\033[0m', file=sys.stderr)
-        print(f'\033[31m{e}\033[0m', file=sys.stderr)
+        print(f'\033[31mError: Failed to create client: {e}\033[0m', file=sys.stderr)
         return False
 
     # Fetch current server config
     try:
-        server_config = client.get_variables_config(organization, project)
+        server_config = client.get_variables_config(project_creds.organization, project_creds.project_name)
     except Exception as e:
         print(f'\033[31mError fetching server config: {e}\033[0m', file=sys.stderr)
         return False
@@ -426,7 +435,7 @@ def push_variables(
     # Apply changes
     print('\nApplying changes...')
     try:
-        _apply_changes(client, organization, project, diff)
+        _apply_changes(client, project_creds.organization, project_creds.project_name, diff)
     except Exception as e:
         print(f'\033[31mError applying changes: {e}\033[0m', file=sys.stderr)
         return False
@@ -533,26 +542,25 @@ def validate_variables(
         print('No variables to validate. Create variables using logfire.var() first.')
         return True  # No variables to validate is not an error
 
-    # Get credentials
+    # Get project credentials to know which project to validate
     try:
-        organization, project = _get_project_credentials(data_dir)
+        project_creds = _get_project_credentials(data_dir)
     except RuntimeError as e:
         print(f'\033[31mError: {e}\033[0m', file=sys.stderr)
         return False
 
-    print(f'Validating variables for project: {organization}/{project}')
+    print(f'Validating variables for project: {project_creds.project_url}')
 
-    # Create client with user auth
+    # Create client with user token auth
     try:
-        client = LogfireClient.from_url(None)
+        client = LogfireClient.from_url(project_creds.logfire_api_url)
     except Exception as e:
-        print('\033[31mError: Failed to authenticate. Run `logfire auth` first.\033[0m', file=sys.stderr)
-        print(f'\033[31m{e}\033[0m', file=sys.stderr)
+        print(f'\033[31mError: Failed to create client: {e}\033[0m', file=sys.stderr)
         return False
 
     # Fetch current server config
     try:
-        server_config_raw = client.get_variables_config(organization, project)
+        server_config_raw = client.get_variables_config(project_creds.organization, project_creds.project_name)
     except Exception as e:
         print(f'\033[31mError fetching server config: {e}\033[0m', file=sys.stderr)
         return False

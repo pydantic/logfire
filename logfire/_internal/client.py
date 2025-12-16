@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin
 
 from requests import Response, Session
@@ -11,6 +11,9 @@ from logfire.version import VERSION
 
 from .auth import UserToken, UserTokenCollection
 from .utils import UnexpectedResponse
+
+if TYPE_CHECKING:
+    from .config import LogfireCredentials
 
 UA_HEADER = f'logfire/{VERSION}'
 
@@ -150,21 +153,21 @@ class LogfireClient:
     def get_variables_config(self, organization: str, project_name: str) -> dict[str, Any]:
         """Get the variables configuration for a project."""
         return self._get(
-            f'/v1/api/organizations/{organization}/projects/{project_name}/variables/config/',
+            f'/v1/organizations/{organization}/projects/{project_name}/variables/config/',
             error_message='Error retrieving variables configuration',
         )
 
     def get_variable_by_name(self, organization: str, project_name: str, variable_name: str) -> dict[str, Any]:
         """Get a variable definition by name."""
         return self._get(
-            f'/v1/api/organizations/{organization}/projects/{project_name}/variables/by-name/{variable_name}/',
+            f'/v1/organizations/{organization}/projects/{project_name}/variables/by-name/{variable_name}/',
             error_message=f'Error retrieving variable {variable_name!r}',
         )
 
     def create_variable(self, organization: str, project_name: str, body: dict[str, Any]) -> dict[str, Any]:
         """Create a new variable definition."""
         return self._post(
-            f'/v1/api/organizations/{organization}/projects/{project_name}/variables/',
+            f'/v1/organizations/{organization}/projects/{project_name}/variables/',
             body=body,
             error_message='Error creating variable',
         )
@@ -174,7 +177,106 @@ class LogfireClient:
     ) -> dict[str, Any]:
         """Update an existing variable definition."""
         return self._put(
-            f'/v1/api/organizations/{organization}/projects/{project_name}/variables/{variable_id}/',
+            f'/v1/organizations/{organization}/projects/{project_name}/variables/{variable_id}/',
+            body=body,
+            error_message='Error updating variable',
+        )
+
+
+class WriteTokenClient:
+    """A Logfire HTTP client that uses write token authentication.
+
+    This client authenticates using a project write token (from LogfireCredentials)
+    and doesn't require organization/project names in API paths since they are
+    determined from the token.
+
+    Args:
+        credentials: The LogfireCredentials containing the write token.
+    """
+
+    def __init__(self, credentials: LogfireCredentials) -> None:
+        from .config import LogfireCredentials as _LogfireCredentials
+
+        if not isinstance(credentials, _LogfireCredentials):
+            raise TypeError(f'Expected LogfireCredentials, got {type(credentials).__name__}')
+        self.base_url = credentials.logfire_api_url
+        self._token = credentials.token
+        self._session = Session()
+        self._session.headers.update({'Authorization': self._token, 'User-Agent': UA_HEADER})
+
+    def _get_raw(self, endpoint: str, params: dict[str, Any] | None = None) -> Response:
+        response = self._session.get(urljoin(self.base_url, endpoint), params=params)
+        UnexpectedResponse.raise_for_status(response)
+        return response
+
+    def _get(self, endpoint: str, *, params: dict[str, Any] | None = None, error_message: str) -> Any:
+        try:
+            return self._get_raw(endpoint, params).json()
+        except UnexpectedResponse as e:
+            raise LogfireConfigError(error_message) from e
+
+    def _post_raw(self, endpoint: str, body: Any | None = None) -> Response:
+        response = self._session.post(urljoin(self.base_url, endpoint), json=body)
+        UnexpectedResponse.raise_for_status(response)
+        return response
+
+    def _post(self, endpoint: str, *, body: Any | None = None, error_message: str) -> Any:
+        try:
+            return self._post_raw(endpoint, body).json()
+        except UnexpectedResponse as e:
+            raise LogfireConfigError(error_message) from e
+
+    def _put_raw(self, endpoint: str, body: Any | None = None) -> Response:
+        response = self._session.put(urljoin(self.base_url, endpoint), json=body)
+        UnexpectedResponse.raise_for_status(response)
+        return response
+
+    def _put(self, endpoint: str, *, body: Any | None = None, error_message: str) -> Any:
+        try:
+            return self._put_raw(endpoint, body).json()
+        except UnexpectedResponse as e:
+            raise LogfireConfigError(error_message) from e
+
+    # --- Variables API ---
+
+    def get_variables_config(self) -> dict[str, Any]:
+        """Get the variables configuration for the project.
+
+        The project is determined from the write token.
+        """
+        return self._get(
+            '/v1/variables/',
+            error_message='Error retrieving variables configuration',
+        )
+
+    def get_variable_by_name(self, variable_name: str) -> dict[str, Any]:
+        """Get a variable definition by name.
+
+        The project is determined from the write token.
+        """
+        return self._get(
+            f'/v1/variables/by-name/{variable_name}/',
+            error_message=f'Error retrieving variable {variable_name!r}',
+        )
+
+    def create_variable(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Create a new variable definition.
+
+        The project is determined from the write token.
+        """
+        return self._post(
+            '/v1/variables/',
+            body=body,
+            error_message='Error creating variable',
+        )
+
+    def update_variable(self, variable_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        """Update an existing variable definition.
+
+        The project is determined from the write token.
+        """
+        return self._put(
+            f'/v1/variables/{variable_id}/',
             body=body,
             error_message='Error updating variable',
         )
