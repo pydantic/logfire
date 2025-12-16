@@ -26,9 +26,7 @@ From the team behind Pydantic Validation, **Pydantic Logfire** is an observabili
 
   ***
 
-  Understand the data flowing through your Pydantic Validation models and get built-in analytics on validations.
-
-  Pydantic Logfire helps you instrument your applications with less code, less time, and better understanding.
+  Understand the data flowing through your Pydantic Validation models and get built-in analytics on validations. Pydantic Logfire helps you instrument your applications with less code, less time, and better understanding.
 
   [:octicons-arrow-right-24: Read more](#pydantic-integration)
 
