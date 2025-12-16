@@ -14,7 +14,8 @@ from surrealdb.types import Value
 from logfire._internal.main import Logfire
 
 
-def is_complex_type(tp: type | type[Value]) -> bool:
+def _is_complex_type(tp: type | type[Value]) -> bool:
+    """Return false if values of this type are small and thus worth including in the log message."""
     origin = get_origin(tp)
     if origin in {list, dict, set, tuple}:
         return True
@@ -24,35 +25,36 @@ def is_complex_type(tp: type | type[Value]) -> bool:
         return False
     if origin is Union:  # pragma: no branch
         args = get_args(tp)
-        return any(is_complex_type(arg) for arg in args)
+        return any(_is_complex_type(arg) for arg in args)
     return True  # pragma: no cover
 
 
-def get_all_subclasses(cls: type) -> set[type]:
+def _get_all_subclasses(cls: type) -> set[type]:
     subclasses: set[type] = set()
     for subclass in cls.__subclasses__():
         subclasses.add(subclass)
-        subclasses.update(get_all_subclasses(subclass))
+        subclasses.update(_get_all_subclasses(subclass))
     return subclasses
 
 
 def get_all_surrealdb_classes() -> set[type]:
-    return get_all_subclasses(SyncTemplate) | get_all_subclasses(AsyncTemplate)
+    return _get_all_subclasses(SyncTemplate) | _get_all_subclasses(AsyncTemplate)
 
 
-def instrument_surrealdb(obj: Any, logfire_instance: Logfire):
+def instrument_surrealdb(
+    obj: SyncTemplate | AsyncTemplate | type[SyncTemplate] | type[AsyncTemplate] | None, logfire_instance: Logfire
+):
     logfire_instance = logfire_instance.with_settings(custom_scope_suffix='surrealdb')
     if obj is None:
         for cls in get_all_surrealdb_classes():
             instrument_surrealdb(cls, logfire_instance)
         return
 
-    for name, template_method in inspect.getmembers(AsyncTemplate):
+    for name, template_method in inspect.getmembers(SyncTemplate):
         if not (
             inspect.isfunction(template_method)
             and not name.startswith('_')
-            and name != 'connect'  # weird case that differs between classes
-            and AsyncTemplate.__dict__.get(name) == template_method
+            and SyncTemplate.__dict__.get(name) == template_method
         ):
             continue
         patch_method(obj, name, logfire_instance)
@@ -71,7 +73,7 @@ def patch_method(obj: Any, method_name: str, logfire_instance: Logfire):
             continue
         assert param.annotation is not inspect.Parameter.empty
         _, scrubbed = scrubber.scrub_value(path=(param_name,), value=None)
-        if not is_complex_type(param.annotation) and not scrubbed:
+        if not _is_complex_type(param.annotation) and not scrubbed:
             template_params.append(param_name)
     template = span_name = f'surrealdb {method_name}'
     if len(template_params) == 1:

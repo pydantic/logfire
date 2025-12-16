@@ -88,6 +88,8 @@ if TYPE_CHECKING:
     from starlette.applications import Starlette
     from starlette.requests import Request
     from starlette.websockets import WebSocket
+    from surrealdb.connections.async_template import AsyncTemplate
+    from surrealdb.connections.sync_template import SyncTemplate
     from typing_extensions import Unpack
 
     from ..integrations.aiohttp_client import (
@@ -926,7 +928,16 @@ class Logfire:
     def _warn_if_not_initialized_for_instrumentation(self):
         self.config.warn_if_not_initialized('Instrumentation will have no effect')
 
-    def instrument_surrealdb(self, obj: Any = None) -> None:
+    def instrument_surrealdb(
+        self, obj: SyncTemplate | AsyncTemplate | type[SyncTemplate] | type[AsyncTemplate] | None = None
+    ) -> None:
+        """Instrument [SurrealDB](https://surrealdb.com/) connections, creating a span for each method.
+
+        Args:
+            obj: Pass a single connection instance to instrument only that connection.
+                Pass a connection class to instrument all instances of that class.
+                By default, all connection classes are instrumented.
+        """
         from .integrations.surrealdb import instrument_surrealdb
 
         self._warn_if_not_initialized_for_instrumentation()
