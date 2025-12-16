@@ -19,7 +19,11 @@ from logfire import LogfireSpan
 
 from ...utils import handle_internal_errors, log_internal_error
 from .semconv import (
+    INPUT_MESSAGES,
+    INPUT_TOKENS,
     OPERATION_NAME,
+    OUTPUT_MESSAGES,
+    OUTPUT_TOKENS,
     PROVIDER_NAME,
     REQUEST_FREQUENCY_PENALTY,
     REQUEST_MAX_TOKENS,
@@ -29,6 +33,10 @@ from .semconv import (
     REQUEST_STOP_SEQUENCES,
     REQUEST_TEMPERATURE,
     REQUEST_TOP_P,
+    RESPONSE_FINISH_REASONS,
+    RESPONSE_ID,
+    RESPONSE_MODEL,
+    SYSTEM_INSTRUCTIONS,
     TOOL_DEFINITIONS,
 )
 from .types import EndpointConfig, StreamState
@@ -97,8 +105,17 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             'gen_ai.request.model': json_data.get('model'),
             PROVIDER_NAME: 'openai',
             OPERATION_NAME: 'chat',
+            REQUEST_MODEL: json_data.get('model'),
         }
         _extract_request_parameters(json_data, span_data)
+
+        # Convert messages to semantic convention format
+        messages: list[dict[str, Any]] = json_data.get('messages', [])
+        if messages:
+            input_messages, system_instructions = convert_openai_messages_to_semconv(messages)
+            span_data[INPUT_MESSAGES] = input_messages
+            if system_instructions:
+                span_data[SYSTEM_INSTRUCTIONS] = system_instructions
 
         return EndpointConfig(
             message_template='Chat Completion with {request_data[model]!r}',
@@ -119,11 +136,12 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             ),
             PROVIDER_NAME: 'openai',
             OPERATION_NAME: 'chat',
+            REQUEST_MODEL: json_data.get('model'),
         }
         _extract_request_parameters(json_data, span_data)
 
         return EndpointConfig(
-            message_template='Responses API with {gen_ai.request.model!r}',
+            message_template='Responses API with {request_data[model]!r}',
             span_data=span_data,
             stream_state_cls=OpenaiResponsesStreamState,
         )
@@ -133,6 +151,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             'gen_ai.request.model': json_data.get('model'),
             PROVIDER_NAME: 'openai',
             OPERATION_NAME: 'text_completion',
+            REQUEST_MODEL: json_data.get('model'),
         }
         _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
@@ -146,6 +165,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             'gen_ai.request.model': json_data.get('model'),
             PROVIDER_NAME: 'openai',
             OPERATION_NAME: 'embeddings',
+            REQUEST_MODEL: json_data.get('model'),
         }
         _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
@@ -158,6 +178,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             'gen_ai.request.model': json_data.get('model'),
             PROVIDER_NAME: 'openai',
             OPERATION_NAME: 'image_generation',
+            REQUEST_MODEL: json_data.get('model'),
         }
         _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
@@ -177,6 +198,137 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             message_template='OpenAI API call to {url!r}',
             span_data=span_data,
         )
+
+
+def convert_openai_messages_to_semconv(
+    messages: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Convert OpenAI messages format to OTel Gen AI Semantic Convention format.
+
+    Returns a tuple of (input_messages, system_instructions).
+    """
+    input_messages: list[dict[str, Any]] = []
+    system_instructions: list[dict[str, Any]] = []
+
+    for msg in messages:
+        role = msg.get('role', 'unknown')
+        content = msg.get('content')
+
+        if role == 'system':
+            # System messages go to system_instructions
+            if isinstance(content, str):
+                system_instructions.append({'type': 'text', 'content': content})
+            elif isinstance(content, list):
+                for part in cast('list[dict[str, Any] | str]', content):
+                    system_instructions.append(_convert_content_part(part))
+            continue
+
+        # Build the message with parts
+        parts: list[dict[str, Any]] = []
+
+        if content is not None:
+            if isinstance(content, str):
+                parts.append({'type': 'text', 'content': content})
+            elif isinstance(content, list):
+                for part in cast('list[dict[str, Any] | str]', content):
+                    parts.append(_convert_content_part(part))
+
+        # Handle tool calls from assistant messages
+        tool_calls = msg.get('tool_calls')
+        if tool_calls:
+            for tc in tool_calls:
+                function = tc.get('function', {})
+                arguments = function.get('arguments')
+                if isinstance(arguments, str):
+                    with contextlib.suppress(json.JSONDecodeError):
+                        arguments = json.loads(arguments)
+                parts.append(
+                    {
+                        'type': 'tool_call',
+                        'id': tc.get('id'),
+                        'name': function.get('name'),
+                        'arguments': arguments,
+                    }
+                )
+
+        # Handle tool message (tool response)
+        tool_call_id = msg.get('tool_call_id')
+        if role == 'tool' and tool_call_id:
+            # For tool messages, the content is the response, not text content
+            # Clear text parts and add tool_call_response instead
+            parts = [p for p in parts if p.get('type') != 'text']
+            parts.append(
+                {
+                    'type': 'tool_call_response',
+                    'id': tool_call_id,
+                    'response': content,
+                }
+            )
+
+        input_messages.append(
+            {
+                'role': role,
+                'parts': parts,
+                **({'name': msg.get('name')} if msg.get('name') else {}),
+            }
+        )
+
+    return input_messages, system_instructions
+
+
+def _convert_content_part(part: dict[str, Any] | str) -> dict[str, Any]:
+    """Convert a single content part to semconv format."""
+    if isinstance(part, str):
+        return {'type': 'text', 'content': part}
+
+    part_type = part.get('type', 'text')
+    if part_type == 'text':
+        return {'type': 'text', 'content': part.get('text', '')}
+    elif part_type == 'image_url':
+        url = part.get('image_url', {}).get('url', '')
+        return {'type': 'uri', 'modality': 'image', 'uri': url}
+    elif part_type in ('input_audio', 'audio'):
+        return {'type': 'blob', 'modality': 'audio', 'content': part.get('data', '')}
+    else:
+        # Return as generic part
+        return {'type': part_type, **{k: v for k, v in part.items() if k != 'type'}}
+
+
+def convert_openai_response_to_semconv(
+    message: Any,
+    finish_reason: str | None = None,
+) -> dict[str, Any]:
+    """Convert an OpenAI response message to OTel Gen AI Semantic Convention format."""
+    parts: list[dict[str, Any]] = []
+
+    if hasattr(message, 'content') and message.content:
+        parts.append({'type': 'text', 'content': message.content})
+
+    if hasattr(message, 'tool_calls') and message.tool_calls:
+        for tc in message.tool_calls:
+            function = tc.function if hasattr(tc, 'function') else tc.get('function', {})
+            func_name = function.name if hasattr(function, 'name') else function.get('name')
+            func_args = function.arguments if hasattr(function, 'arguments') else function.get('arguments')
+            if isinstance(func_args, str):
+                with contextlib.suppress(json.JSONDecodeError):
+                    func_args = json.loads(func_args)
+            parts.append(
+                {
+                    'type': 'tool_call',
+                    'id': tc.id if hasattr(tc, 'id') else tc.get('id'),
+                    'name': func_name,
+                    'arguments': func_args,
+                }
+            )
+
+    result: dict[str, Any] = {
+        'role': message.role if hasattr(message, 'role') else message.get('role', 'assistant'),
+        'parts': parts,
+    }
+    if finish_reason:
+        result['finish_reason'] = finish_reason
+
+    return result
 
 
 def is_current_agent_span(*span_names: str):
@@ -266,10 +418,11 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         on_response(response.parse(), span)  # type: ignore
         return cast('ResponseT', response)
 
+    # Keep gen_ai.system for backward compatibility
     span.set_attribute('gen_ai.system', 'openai')
 
     if isinstance(response_model := getattr(response, 'model', None), str):
-        span.set_attribute('gen_ai.response.model', response_model)
+        span.set_attribute(RESPONSE_MODEL, response_model)
 
         try:
             from genai_prices import calc_price, extract_usage
@@ -287,25 +440,59 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         except Exception:
             pass
 
+    # Set response ID
+    response_id = getattr(response, 'id', None)
+    if isinstance(response_id, str):
+        span.set_attribute(RESPONSE_ID, response_id)
+
     usage = getattr(response, 'usage', None)
     input_tokens = getattr(usage, 'prompt_tokens', getattr(usage, 'input_tokens', None))
     output_tokens = getattr(usage, 'completion_tokens', getattr(usage, 'output_tokens', None))
     if isinstance(input_tokens, int):
-        span.set_attribute('gen_ai.usage.input_tokens', input_tokens)
+        span.set_attribute(INPUT_TOKENS, input_tokens)
     if isinstance(output_tokens, int):
-        span.set_attribute('gen_ai.usage.output_tokens', output_tokens)
+        span.set_attribute(OUTPUT_TOKENS, output_tokens)
 
     if isinstance(response, ChatCompletion) and response.choices:
+        # Keep response_data for backward compatibility
         span.set_attribute(
             'response_data',
             {'message': response.choices[0].message, 'usage': usage},
         )
+        # Add semantic convention output messages
+        output_messages: list[dict[str, Any]] = []
+        finish_reasons: list[str] = []
+        for choice in response.choices:
+            finish_reason = choice.finish_reason
+            if finish_reason:
+                finish_reasons.append(finish_reason)
+            output_messages.append(convert_openai_response_to_semconv(choice.message, finish_reason))
+        span.set_attribute(OUTPUT_MESSAGES, output_messages)
+        if finish_reasons:
+            span.set_attribute(RESPONSE_FINISH_REASONS, finish_reasons)
     elif isinstance(response, Completion) and response.choices:
         first_choice = response.choices[0]
         span.set_attribute(
             'response_data',
             {'finish_reason': first_choice.finish_reason, 'text': first_choice.text, 'usage': usage},
         )
+        # Add semantic convention output messages for text completion
+        output_messages_completion: list[dict[str, Any]] = []
+        finish_reasons_completion: list[str] = []
+        for choice in response.choices:
+            finish_reason = choice.finish_reason
+            if finish_reason:
+                finish_reasons_completion.append(finish_reason)
+            output_messages_completion.append(
+                {
+                    'role': 'assistant',
+                    'parts': [{'type': 'text', 'content': choice.text}],
+                    'finish_reason': finish_reason,
+                }
+            )
+        span.set_attribute(OUTPUT_MESSAGES, output_messages_completion)
+        if finish_reasons_completion:
+            span.set_attribute(RESPONSE_FINISH_REASONS, finish_reasons_completion)
     elif isinstance(response, CreateEmbeddingResponse):
         span.set_attribute('response_data', {'usage': usage})
     elif isinstance(response, ImagesResponse):
