@@ -3,6 +3,7 @@ from __future__ import annotations
 import functools
 import inspect
 import uuid
+from inspect import Signature
 from typing import Any, Union, get_args, get_origin
 
 from surrealdb.connections.async_template import AsyncTemplate
@@ -12,6 +13,8 @@ from surrealdb.data.types.table import Table
 from surrealdb.types import Value
 
 from logfire._internal.main import Logfire
+from logfire._internal.scrubbing import BaseScrubber
+from logfire._internal.utils import handle_internal_errors
 
 
 def _is_complex_type(tp: type | type[Value]) -> bool:
@@ -60,54 +63,64 @@ def instrument_surrealdb(
         patch_method(obj, name, logfire_instance)
 
 
+@handle_internal_errors
 def patch_method(obj: Any, method_name: str, logfire_instance: Logfire):
     original_method = getattr(obj, method_name, None)
     if not original_method or hasattr(original_method, '_logfire_template'):
         return  # already patched
 
     sig = inspect.signature(original_method)
-    template_params: list[str] = []
-    scrubber = logfire_instance.config.scrubber
-    for param_name, param in sig.parameters.items():
-        if param_name == 'self':
-            continue
-        assert param.annotation is not inspect.Parameter.empty
-        _, scrubbed = scrubber.scrub_value(path=(param_name,), value=None)
-        if not _is_complex_type(param.annotation) and not scrubbed:
-            template_params.append(param_name)
     template = span_name = f'surrealdb {method_name}'
-    if len(template_params) == 1:
-        template += f' {{{template_params[0]}}}'
-    elif len(template_params) > 1:
-        template += ' ' + ', '.join(f'{p} = {{{p}}}' for p in template_params)
+    # Keep the span name clean and simple.
+    template += _get_params_template(logfire_instance.config.scrubber, sig)
 
-    def get_params(*args: Any, **kwargs: Any) -> dict[str, Any]:
+    def get_attributes(*args: Any, **kwargs: Any) -> dict[str, Any]:
         bound = sig.bind(*args, **kwargs)
         params = bound.arguments
         params.pop('self', None)
         return params
 
     if inspect.isgeneratorfunction(original_method) or inspect.isasyncgenfunction(original_method):
-
+        # Don't create a span around a generator: https://logfire.pydantic.dev/docs/reference/advanced/generators/
         @functools.wraps(original_method)
         def wrapped_method(*args: Any, **kwargs: Any) -> Any:
-            logfire_instance.info(template, **get_params(*args, **kwargs))
+            logfire_instance.info(template, **get_attributes(*args, **kwargs))
             return original_method(*args, **kwargs)
 
     elif inspect.iscoroutinefunction(original_method):
 
         @functools.wraps(original_method)
         async def wrapped_method(*args: Any, **kwargs: Any) -> Any:  # pyright: ignore[reportRedeclaration]
-            with logfire_instance.span(template, **get_params(*args, **kwargs), _span_name=span_name):
+            with logfire_instance.span(template, **get_attributes(*args, **kwargs), _span_name=span_name):
                 return await original_method(*args, **kwargs)
 
     else:
 
         @functools.wraps(original_method)
         def wrapped_method(*args: Any, **kwargs: Any) -> Any:
-            with logfire_instance.span(template, **get_params(*args, **kwargs), _span_name=span_name):
+            with logfire_instance.span(template, **get_attributes(*args, **kwargs), _span_name=span_name):
                 return original_method(*args, **kwargs)
 
+    # Mark the method as patched to avoid double patching. Also useful for testing.
     wrapped_method._logfire_template = template  # type: ignore
 
     setattr(obj, method_name, wrapped_method)
+
+
+def _get_params_template(scrubber: BaseScrubber, sig: Signature) -> str:
+    """Returns a string template for simple non-sensitive parameters in the signature."""
+    template_params: list[str] = []
+    for param_name, param in sig.parameters.items():
+        if param_name == 'self':
+            continue
+        _, scrubbed = scrubber.scrub_value(path=(param_name,), value=None)
+        if param.annotation is not inspect.Parameter.empty and not _is_complex_type(param.annotation) and not scrubbed:
+            template_params.append(param_name)
+    if len(template_params) == 1:
+        # e.g. " {param}"
+        return f' {{{template_params[0]}}}'
+    elif len(template_params) > 1:
+        # e.g. " param1 = {param1}, param2 = {param2}"
+        return ' ' + ', '.join(f'{p} = {{{p}}}' for p in template_params)
+    else:
+        return ''
