@@ -78,6 +78,7 @@ def patch_method(obj: Any, method_name: str, logfire_instance: Logfire):
         bound = sig.bind(*args, **kwargs)
         params = bound.arguments
         params.pop('self', None)
+        params.pop('token', None)  # not scrubbed by default, definitely sensitive in this context
         return params
 
     if inspect.isgeneratorfunction(original_method) or inspect.isasyncgenfunction(original_method):
@@ -114,7 +115,13 @@ def _get_params_template(scrubber: BaseScrubber, sig: Signature) -> str:
         if param_name == 'self':
             continue
         _, scrubbed = scrubber.scrub_value(path=(param_name,), value=None)
-        if param.annotation is not inspect.Parameter.empty and not _is_complex_type(param.annotation) and not scrubbed:
+        if (
+            param.annotation is not inspect.Parameter.empty
+            and not _is_complex_type(param.annotation)
+            and not scrubbed
+            # not scrubbed by default, definitely sensitive in this context
+            and 'token' not in param_name
+        ):
             template_params.append(param_name)
     if len(template_params) == 1:
         # e.g. " {param}"

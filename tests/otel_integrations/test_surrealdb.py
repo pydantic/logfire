@@ -22,6 +22,7 @@ pytestmark = [
 
 
 def test_get_all_surrealdb_classes():
+    # These can change, but importantly they should match possible return types of surrealdb.[Async]Surreal()
     assert sorted(cls.__name__ for cls in get_all_surrealdb_classes()) == snapshot(
         [
             'AsyncEmbeddedSurrealConnection',
@@ -36,7 +37,7 @@ def test_get_all_surrealdb_classes():
 
 def test_instrument_surrealdb(exporter: TestExporter) -> None:
     logfire.instrument_surrealdb()
-    logfire.instrument_surrealdb()
+    logfire.instrument_surrealdb()  # should be idempotent
 
     for cls in get_all_surrealdb_classes():
         templates: list[str] = []
@@ -44,9 +45,12 @@ def test_instrument_surrealdb(exporter: TestExporter) -> None:
             template = getattr(method, '_logfire_template', None)
             if template is not None:
                 templates.append(template)
+        # This list can change as surrealdb adds/removes methods.
+        # It's a simple check that automatically instrumenting all methods of a class
+        # and selecting simple parameters from the signature works as expected.
         assert sorted(templates) == snapshot(
             [
-                'surrealdb authenticate {token}',
+                'surrealdb authenticate',
                 'surrealdb close',
                 'surrealdb create {record}',
                 'surrealdb delete {record}',
@@ -86,6 +90,10 @@ def test_instrument_surrealdb(exporter: TestExporter) -> None:
         db.update('person', {'user': 'you', 'password': 'very_safe', 'marketing': False, 'tags': ['Awesome']})
         db.delete('person')
         db.query('select * from person')
+
+        # This creates a log instead of a span because it's a generator.
+        # It doesn't work for async surreal connections so this is the only part not tested in the async test.
+        # Everything else should match.
         db.subscribe_live('foo')
 
     assert exporter.exported_spans_as_dict() == snapshot(
