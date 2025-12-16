@@ -125,7 +125,7 @@ user = User(name='Anne', country_code='USA', dob='2000-01-01')
 logfire.info('user processed: {user!r}', user=user)  # (1)!
 ```
 
-1. This will show `user processed: User(name='Anne', country_code='US', dob=datetime.date(2000, 1, 1))`, but also allow you to see a "pretty" view of the model within the Logfire Platform.
+1. This will show `user processed: User(name='Anne', country_code='USA', dob=datetime.date(2000, 1, 1))`, but also allow you to see a "pretty" view of the model within the Logfire Platform.
 
 ![Logfire pydantic manual screenshot](images/index/logfire-screenshot-pydantic-manual.png)
 

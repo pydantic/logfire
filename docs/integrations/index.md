@@ -7,9 +7,12 @@ For example, to instrument FastAPI and HTTPX, you would do:
 
 ```python
 import logfire
+from fastapi import FastAPI
+
+app = FastAPI()
 
 logfire.configure()
-logfire.instrument_fastapi()
+logfire.instrument_fastapi(app)
 logfire.instrument_httpx()
 
 # ... your application code here ...
