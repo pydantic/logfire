@@ -460,6 +460,21 @@ class VariableConfig:
 
         return self.variants[selected_variant_key]
 
+    @staticmethod
+    def validate_python(data: Any) -> VariableConfig:
+        """Parse and validate a VariablesConfig from a Python object.
+
+        Args:
+            data: A Python object (typically a dict) to validate as a VariablesConfig.
+
+        Returns:
+            A validated VariablesConfig instance.
+        """
+        return _VariableConfigAdapter.validate_python(data)
+
+
+_VariableConfigAdapter = TypeAdapter(VariableConfig)
+
 
 @dataclass(kw_only=True)
 class VariablesConfig:
