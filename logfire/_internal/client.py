@@ -195,10 +195,6 @@ class WriteTokenClient:
     """
 
     def __init__(self, credentials: LogfireCredentials) -> None:
-        from .config import LogfireCredentials as _LogfireCredentials
-
-        if not isinstance(credentials, _LogfireCredentials):
-            raise TypeError(f'Expected LogfireCredentials, got {type(credentials).__name__}')
         self.base_url = credentials.logfire_api_url
         self._token = credentials.token
         self._session = Session()

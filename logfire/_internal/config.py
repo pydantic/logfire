@@ -311,6 +311,17 @@ class RemoteVariablesConfig:
     """Whether the remote variables should be fetched before first resolving a value."""
     polling_interval: timedelta | float = timedelta(seconds=30)
     """The time interval for polling for updates to the variables config."""
+    api_token: str | None = None
+    """API token for accessing the variables endpoint.
+
+    If not provided, will be loaded from LOGFIRE_API_TOKEN environment variable.
+    This token should have the 'project:read_variables' scope.
+    """
+    base_url: str | None = None
+    """Base URL for the Logfire API.
+
+    If not provided, will be inferred from the API token or logfire token.
+    """
 
 
 @dataclass
@@ -1174,14 +1185,18 @@ class LogfireConfig(_LogfireConfigData):
             elif isinstance(self.variables.config, VariablesConfig):
                 self._variable_provider = LocalVariableProvider(self.variables.config)
             elif isinstance(self.variables.config, RemoteVariablesConfig):
-                # TODO: Need to use a non-write-token
-                token = self.token
+                remote_config = self.variables.config
+                # Load api_token from config or environment variable
+                api_token = remote_config.api_token or self.param_manager.load_param('api_token')
+                # Determine the token to use: prefer api_token, fall back to logfire token
+                token = api_token or self.token
                 if token:
-                    base_url = self.advanced.base_url or get_base_url_from_token(token)
+                    # Determine base URL: prefer config, then advanced settings, then infer from token
+                    base_url = remote_config.base_url or self.advanced.base_url or get_base_url_from_token(token)
                     self._variable_provider = LogfireRemoteVariableProvider(
                         base_url=base_url,
                         token=token,
-                        config=self.variables.config,
+                        config=remote_config,
                     )
                 else:
                     # No token, so can't use the remote variable provider

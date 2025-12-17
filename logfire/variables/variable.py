@@ -147,12 +147,14 @@ class Variable(Generic[T]):
             attributes=merged_attributes,
         ) as span:
             result = self._resolve(targeting_key, merged_attributes)
-            span.set_attributes({
-                'name': result.name,
-                'value': result.value,
-                'variant': result.variant,
-                'reason': result._reason,
-            })
+            span.set_attributes(
+                {
+                    'name': result.name,
+                    'value': result.value,
+                    'variant': result.variant,
+                    'reason': result._reason,  # pyright: ignore[reportPrivateUsage]
+                }
+            )
             if result.exception:
                 span.record_exception(result.exception)
             return result

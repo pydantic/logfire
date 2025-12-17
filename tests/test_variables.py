@@ -1443,6 +1443,81 @@ class TestLogfireRemoteVariableProviderErrors:
 
 
 # =============================================================================
+# Test API Token Support
+# =============================================================================
+
+
+@pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
+class TestApiTokenSupport:
+    def test_api_token_in_config(self) -> None:
+        """Test that api_token can be specified in RemoteVariablesConfig."""
+        api_token = 'test_api_token_12345'
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            json={
+                'variables': {
+                    'test_var': {
+                        'name': 'test_var',
+                        'variants': {
+                            'default': {
+                                'key': 'default',
+                                'serialized_value': '"api_token_value"',
+                                'description': None,
+                                'version': None,
+                            }
+                        },
+                        'rollout': {'variants': {'default': 1.0}},
+                        'overrides': [],
+                        'json_schema': {'type': 'string'},
+                    }
+                }
+            },
+        )
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url='http://localhost:8000/',
+                token=api_token,
+                config=RemoteVariablesConfig(
+                    block_before_first_resolve=True,
+                    polling_interval=timedelta(seconds=60),
+                    api_token=api_token,
+                ),
+            )
+            try:
+                result = provider.get_serialized_value('test_var')
+                assert result.value == '"api_token_value"'
+                assert result.variant == 'default'
+                # Verify that the api_token was used in the request header
+                assert request_mocker.last_request is not None
+                assert request_mocker.last_request.headers['Authorization'] == api_token
+            finally:
+                provider.shutdown()
+
+    def test_api_token_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test that api_token can be loaded from LOGFIRE_API_TOKEN environment variable."""
+        from logfire._internal.config_params import ParamManager
+
+        api_token = 'env_api_token_67890'
+        monkeypatch.setenv('LOGFIRE_API_TOKEN', api_token)
+
+        param_manager = ParamManager.create()
+        loaded_token = param_manager.load_param('api_token')
+        assert loaded_token == api_token
+
+    def test_remote_variables_config_base_url(self) -> None:
+        """Test that base_url can be specified in RemoteVariablesConfig."""
+        config = RemoteVariablesConfig(
+            block_before_first_resolve=True,
+            polling_interval=timedelta(seconds=30),
+            api_token='test_token',
+            base_url='https://custom-logfire.example.com/',
+        )
+        assert config.api_token == 'test_token'
+        assert config.base_url == 'https://custom-logfire.example.com/'
+
+
+# =============================================================================
 # Test Variable
 # =============================================================================
 
