@@ -55,3 +55,4 @@ with logfire.suppress_instrumentation():
 In this case, the span generated inside the `with logfire.suppress_instrumentation():` block will not be sent to **Logfire**.
 
 [BigQuery]: ../integrations/databases/bigquery.md
+[HTTPX]: ../integrations/http-clients/httpx.md
