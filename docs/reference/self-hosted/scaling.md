@@ -56,7 +56,7 @@ Each service can have standard kubernetes replicas, resource limits and autoscal
   # -- POD Disruption Budget
   pdb:
     maxUnavailable: 1
-    minAvaliable: 1
+    minAvailable: 1
 ```
 
 ## Recommended Starting Values
