@@ -61,7 +61,7 @@ Each service can have standard kubernetes replicas, resource limits and autoscal
 
 ## Recommended Starting Values
 
-By default, the helm chart only includes a single replica for all pods, and no configured resource limits.  When bringing self hosted to production, you will need to adjust the scaling of each service.  This is depenent on the usage patterns of your instance.
+By default, the helm chart only includes a single replica for all pods, and no configured resource limits.  When bringing self hosted to production, you will need to adjust the scaling of each service.  This is dependent on the usage patterns of your instance.
 
 I.e, if a lot of querying is going on, or there are a high number of dashboards, then you may need to scale up the query api and cache.  Conversely, if you are write heavy, but don't query as much, you may need to scale up ingest.  You can use the CPU and memory resources to gauge how busy certain aspects of Logfire are.
 
