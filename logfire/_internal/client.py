@@ -148,36 +148,54 @@ class LogfireClient:
             error_message='Error retrieving prompt',
         )
 
-    # --- Variables API ---
+    # --- Variables API (uses /api/v1/projects/{project_id}/variables/ endpoints) ---
 
-    def get_variables_config(self, organization: str, project_name: str) -> dict[str, Any]:
-        """Get the variables configuration for a project."""
+    def get_variables_config(self, project_id: str) -> dict[str, Any]:
+        """Get the variables configuration for a project.
+
+        Args:
+            project_id: The UUID of the project.
+        """
         return self._get(
-            f'/v1/organizations/{organization}/projects/{project_name}/variables/config/',
+            f'/api/v1/projects/{project_id}/variables/',
             error_message='Error retrieving variables configuration',
         )
 
-    def get_variable_by_name(self, organization: str, project_name: str, variable_name: str) -> dict[str, Any]:
-        """Get a variable definition by name."""
+    def get_variable_by_name(self, project_id: str, variable_name: str) -> dict[str, Any]:
+        """Get a variable definition by name.
+
+        Args:
+            project_id: The UUID of the project.
+            variable_name: The name of the variable.
+        """
         return self._get(
-            f'/v1/organizations/{organization}/projects/{project_name}/variables/by-name/{variable_name}/',
+            f'/api/v1/projects/{project_id}/variables/by-name/{variable_name}/',
             error_message=f'Error retrieving variable {variable_name!r}',
         )
 
-    def create_variable(self, organization: str, project_name: str, body: dict[str, Any]) -> dict[str, Any]:
-        """Create a new variable definition."""
+    def create_variable(self, project_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        """Create a new variable definition.
+
+        Args:
+            project_id: The UUID of the project.
+            body: The variable definition to create.
+        """
         return self._post(
-            f'/v1/organizations/{organization}/projects/{project_name}/variables/',
+            f'/api/v1/projects/{project_id}/variables/',
             body=body,
             error_message='Error creating variable',
         )
 
-    def update_variable(
-        self, organization: str, project_name: str, variable_id: str, body: dict[str, Any]
-    ) -> dict[str, Any]:
-        """Update an existing variable definition."""
+    def update_variable(self, project_id: str, variable_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        """Update an existing variable definition.
+
+        Args:
+            project_id: The UUID of the project.
+            variable_id: The UUID of the variable to update.
+            body: The update data.
+        """
         return self._put(
-            f'/v1/organizations/{organization}/projects/{project_name}/variables/{variable_id}/',
+            f'/api/v1/projects/{project_id}/variables/{variable_id}/',
             body=body,
             error_message='Error updating variable',
         )
