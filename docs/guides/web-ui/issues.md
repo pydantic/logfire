@@ -108,7 +108,7 @@ Use the sort options to find specific issues:
 _Click twice on any sort to reverse the order_
 
 - **Sort by Last Seen** - most <> least recent issues
-- **Sort by First Seen** - youngest <> oldest issues issues
+- **Sort by First Seen** - youngest <> oldest issues
 - **Sort by Message** - sort exception message alphabetically (A-Z) / (Z-A)
 - **Sort by Hits** - most <> least hits 
 - **Sort by Exception** - sort exception alphabetically (A-Z) / (Z-A)

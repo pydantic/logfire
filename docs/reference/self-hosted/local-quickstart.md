@@ -1,7 +1,7 @@
 # Local Quickstart for Enterprise
 
 This guide provides a fast path for setting up a local Logfire instance on Kubernetes to test, prototype, and evaluate the product
-as part of an enterpirse trial.
+as part of an enterprise trial.
 
 For a production setup, including detailed configuration and prerequisites, please refer to our In-Depth [Installation Guide](./installation.md).
 

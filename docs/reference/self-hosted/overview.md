@@ -1,6 +1,6 @@
 # Self Hosted Introduction
 
-Logfire can be deployed on-premises using the official [Logifre Helm Chart](https://github.com/pydantic/logfire-helm-chart). This allows organizations the ability to fully manage their own data.
+Logfire can be deployed on-premises using the official [Logfire Helm Chart](https://github.com/pydantic/logfire-helm-chart). This allows organizations the ability to fully manage their own data.
 
 This chart is included in our [Enterprise plan](../../enterprise.md). Contact us at [sales@pydantic.dev](mailto:sales@pydantic.dev) for details.
 
