@@ -86,7 +86,28 @@ class SimpleEvaluateAdapterMixin(GEPAAdapter[DataInst, Trajectory, RolloutOutput
     ) -> EvaluationResult[Trajectory, RolloutOutput]: ...
 
 
-class ManagedVarsEvaluateAdapterMixin(SimpleEvaluateAdapterMixin[DataInst, Trajectory, RolloutOutput], ABC):
+@dataclass
+class AdapterWrapper(GEPAAdapter[DataInst, Trajectory, RolloutOutput]):
+    wrapped: GEPAAdapter[DataInst, Trajectory, RolloutOutput]
+
+    def evaluate(
+        self,
+        batch: list[DataInst],
+        candidate: dict[str, str],
+        capture_traces: bool = False,
+    ):
+        return self.wrapped.evaluate(batch, candidate, capture_traces)
+
+    def make_reflective_dataset(
+        self,
+        candidate: dict[str, str],
+        eval_batch: EvaluationBatch[Trajectory, RolloutOutput],
+        components_to_update: list[str],
+    ):
+        return self.wrapped.make_reflective_dataset(candidate, eval_batch, components_to_update)
+
+
+class ManagedVarsEvaluateAdapterWrapper(AdapterWrapper[DataInst, Trajectory, RolloutOutput]):
     def evaluate(
         self,
         batch: list[DataInst],
