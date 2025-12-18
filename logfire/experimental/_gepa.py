@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from contextlib import ExitStack
 from dataclasses import dataclass
 from typing import Generic
 
 from gepa.core.adapter import DataInst, EvaluationBatch, GEPAAdapter, RolloutOutput, Trajectory
 
+import logfire
 from logfire._internal.utils import JsonDict
 
 
@@ -82,3 +84,19 @@ class SimpleEvaluateAdapterMixin(GEPAAdapter[DataInst, Trajectory, RolloutOutput
     def evaluate_instance(
         self, eval_input: EvaluationInput[DataInst]
     ) -> EvaluationResult[Trajectory, RolloutOutput]: ...
+
+
+class ManagedVarsEvaluateAdapterMixin(SimpleEvaluateAdapterMixin[DataInst, Trajectory, RolloutOutput], ABC):
+    def evaluate(
+        self,
+        batch: list[DataInst],
+        candidate: dict[str, str],
+        capture_traces: bool = False,
+    ):
+        stack = ExitStack()
+        variables = logfire.get_variables()
+        with stack:
+            for var in variables:
+                if var.name in candidate:
+                    stack.enter_context(var.override(candidate[var.name]))
+            return super().evaluate(batch, candidate, capture_traces)
