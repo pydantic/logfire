@@ -259,10 +259,10 @@ class TestVariant:
             key='v1',
             serialized_value='"hello"',
             description='Test variant',
-            version='1.0.0',
+            version=1,
         )
         assert variant.description == 'Test variant'
-        assert variant.version == '1.0.0'
+        assert variant.version == 1
 
 
 # =============================================================================

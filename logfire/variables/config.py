@@ -225,7 +225,7 @@ class Variant:
     # format: Literal['json', 'yaml']  # TODO: Consider supporting yaml, and not just JSON; allows comments and better formatting
     description: str | None = None
     """Optional human-readable description of this variant."""
-    version: str | None = None  # TODO: should this be required?
+    version: int | None = None  # TODO: should this be required? should this be `str`?
     """Optional version identifier for this variant."""
 
 
