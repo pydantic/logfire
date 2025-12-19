@@ -92,6 +92,10 @@ class SimpleProposeNewTextsAdapterMixin(
     GEPAAdapter[DataInst, Trajectory, RolloutOutput],
     ABC,
 ):
+    # GEPAAdapter has:
+    # propose_new_texts: ProposalFn | None = None
+    # instead of a normal abstractmethod, which is a pain for type checking.
+    # This mixin converts it to a normal abstractmethod called propose_new_texts_impl.
     def __init__(self, *args: Any, **kwargs: Any):
         self.propose_new_texts = self.propose_new_texts_impl
         super().__init__(*args, **kwargs)
@@ -106,16 +110,22 @@ class SimpleProposeNewTextsAdapterMixin(
 
 
 class CombinedSimpleAdapterMixin(
+    # These three mixins each have one abstractmethod.
+    # They're technically separate so I implemented them separately,
+    # but this was probably overkill.
+    # It's also actually hard to inherit from them without this combined one.
     SimpleEvaluateAdapterMixin[DataInst, Trajectory, RolloutOutput],
     SimpleReflectionAdapterMixin[DataInst, Trajectory, RolloutOutput],
     SimpleProposeNewTextsAdapterMixin[DataInst, Trajectory, RolloutOutput],
     ABC,
 ):
-    pass
+    """Facade which makes it easier to implement a GEPAAdapter by taking care of boilerplate."""
 
 
 @dataclass
 class AdapterWrapper(GEPAAdapter[DataInst, Trajectory, RolloutOutput]):
+    """GEPAAdapter which wraps another GEPAAdapter, forwarding all calls to it."""
+
     wrapped: GEPAAdapter[DataInst, Trajectory, RolloutOutput]
 
     def __post_init__(self):
@@ -139,6 +149,8 @@ class AdapterWrapper(GEPAAdapter[DataInst, Trajectory, RolloutOutput]):
 
 
 class ManagedVarsEvaluateAdapterWrapper(AdapterWrapper[DataInst, Trajectory, RolloutOutput]):
+    """GEPAAdapter which wraps another GEPAAdapter, setting logfire managed vars during evaluation."""
+
     def evaluate(
         self,
         batch: list[DataInst],
