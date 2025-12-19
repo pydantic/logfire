@@ -66,8 +66,9 @@ In this case, you'll need to call [`logfire.instrument_httpx()`][httpx-section].
 import asyncio
 import os
 
-import logfire
 from stripe import StripeClient
+
+import logfire
 
 logfire.configure()
 logfire.instrument_httpx()     # for asynchronous requests

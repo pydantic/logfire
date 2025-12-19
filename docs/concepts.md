@@ -117,6 +117,7 @@ low‑overhead signal about the overall health and performance of your services.
 
 ```python
 import time
+
 import logfire
 
 logfire.configure()

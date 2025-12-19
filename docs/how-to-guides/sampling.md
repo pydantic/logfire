@@ -251,6 +251,8 @@ A workaround is to explicitly put the new spans in their own trace using [
 `attach_context`][logfire.attach_context]:
 
 ```python
+import asyncio
+
 import logfire
 
 

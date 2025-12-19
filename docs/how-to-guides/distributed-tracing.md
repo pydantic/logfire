@@ -48,8 +48,9 @@ OpenTelemetry instrumentation libraries (which **Logfire** uses for its integrat
 **Logfire** automatically patches [`ThreadPoolExecutor`][concurrent.futures.ThreadPoolExecutor] and [`ProcessPoolExecutor`][concurrent.futures.ProcessPoolExecutor] to propagate context to child threads and processes. This means that logs and spans created in child threads and processes will be correctly associated with the parent span. Here's an example to demonstrate:
 
 ```python
-import logfire
 from concurrent.futures import ThreadPoolExecutor
+
+import logfire
 
 logfire.configure()
 

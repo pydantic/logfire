@@ -45,7 +45,7 @@ Logfire provides both synchronous and asynchronous clients.
 To use these clients, you can import them from the `query_client` namespace:
 
 ```python
-
+from logfire.query_client import AsyncLogfireQueryClient, LogfireQueryClient
 ```
 
 !!! note "Additional required dependencies"
@@ -68,6 +68,7 @@ Here's an example of how to use these clients:
     from io import StringIO
 
     import polars as pl
+
     from logfire.query_client import AsyncLogfireQueryClient
 
 
@@ -116,6 +117,7 @@ Here's an example of how to use these clients:
     from io import StringIO
 
     import polars as pl
+
     from logfire.query_client import LogfireQueryClient
 
 

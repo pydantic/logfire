@@ -65,6 +65,7 @@ Here's an example:
 ```python
 import logfire
 
+
 def scrubbing_callback(match: logfire.ScrubMatch):
     # `my_safe_value` often contains the string 'password' but it's not actually sensitive.
     if match.path == ('attributes', 'my_safe_value') and match.pattern_match.group(0) == 'password':
@@ -80,7 +81,7 @@ logfire.configure(scrubbing=logfire.ScrubbingOptions(callback=scrubbing_callback
 
 The full span/log message is not scrubbed, only the fields within. For example, this:
 
-```python
+```python test="skip"
 logfire.info('User details: {user}', user=User(id=123, password='secret'))
 ```
 
@@ -92,7 +93,7 @@ User details: [Scrubbed due to 'password']
 
 ...but this:
 
-```python
+```python test="skip"
 user = User(id=123, password='secret')
 logfire.info('User details: ' + str(user))
 ```

@@ -39,6 +39,8 @@ By default, third party modules are not instrumented by the plugin to avoid nois
 using the [`include`][logfire.PydanticPlugin.include] configuration.
 
 ```py
+import logfire
+
 logfire.instrument_pydantic(include={'openai'})
 ```
 
@@ -46,6 +48,8 @@ You can also disable instrumentation for your own modules using the
 [`exclude`][logfire.PydanticPlugin.exclude] configuration.
 
 ```py
+import logfire
+
 logfire.instrument_pydantic(exclude={'app.api.v1'})
 ```
 
@@ -55,8 +59,9 @@ If you want more granular control over the plugin, you can use the
 [`plugin_settings`][pydantic.config.ConfigDict.plugin_settings] class parameter in your Pydantic models.
 
 ```py
-from logfire.integrations.pydantic import PluginSettings
 from pydantic import BaseModel
+
+from logfire.integrations.pydantic import PluginSettings
 
 
 class Foo(BaseModel, plugin_settings=PluginSettings(logfire={'record': 'failure'})):
@@ -100,6 +105,7 @@ class Foo(
   BaseModel,
   plugin_settings={'logfire': {'record': 'all', 'tags': ('tag1', 'tag2')}}
 ):
+    ...
 ```
 
 [pydantic]: https://docs.pydantic.dev/latest/

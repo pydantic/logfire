@@ -12,8 +12,9 @@ This can be used to detect if a service is down.
 Let's say you have a [FastAPI application] that has a health check endpoint at `/health`.
 
 ```py
-import logfire
 from fastapi import FastAPI
+
+import logfire
 
 logfire.configure(service_name="backend")
 app = FastAPI()
