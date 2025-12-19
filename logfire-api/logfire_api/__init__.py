@@ -312,3 +312,45 @@ except ImportError:
 
         def attach_context(*args, **kwargs)-> ContextManager[None]:
             return nullcontext()
+
+        # API Client stubs
+        class LogfireAPIError(Exception):
+            """Base exception for Logfire API errors."""
+            def __init__(self, message: str = '', status_code: int | None = None, response_body: Any = None):
+                super().__init__(message)
+                self.status_code = status_code
+                self.response_body = response_body
+
+        class LogfireAPINotFoundError(LogfireAPIError):
+            """Resource not found (404)."""
+            pass
+
+        class LogfireAPIForbiddenError(LogfireAPIError):
+            """Permission denied (403)."""
+            pass
+
+        class LogfireAPIConflictError(LogfireAPIError):
+            """Resource already exists (409)."""
+            pass
+
+        class LogfireAPIValidationError(LogfireAPIError):
+            """Validation error (422)."""
+            pass
+
+        class LogfireAPIRateLimitError(LogfireAPIError):
+            """Rate limit exceeded (429)."""
+            pass
+
+        class LogfireAPIClient:
+            """Stub for LogfireAPIClient when logfire is not installed."""
+            def __init__(self, *args, **kwargs) -> None: ...
+            def __enter__(self): return self
+            def __exit__(self, *args, **kwargs) -> None: ...
+
+        class AsyncLogfireAPIClient:
+            """Stub for AsyncLogfireAPIClient when logfire is not installed."""
+            def __init__(self, *args, **kwargs) -> None: ...
+            async def __aenter__(self): return self
+            async def __aexit__(self, *args, **kwargs) -> None: ...
+
+        api_client = MagicMock()

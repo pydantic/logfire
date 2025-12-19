@@ -276,6 +276,40 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         pass
     logfire__all__.remove('attach_context')
 
+    # API Client
+    assert hasattr(logfire_api, 'api_client')
+    logfire__all__.remove('api_client')
+
+    assert hasattr(logfire_api, 'LogfireAPIClient')
+    logfire__all__.remove('LogfireAPIClient')
+
+    assert hasattr(logfire_api, 'AsyncLogfireAPIClient')
+    logfire__all__.remove('AsyncLogfireAPIClient')
+
+    assert hasattr(logfire_api, 'LogfireAPIError')
+    assert issubclass(logfire_api.LogfireAPIError, Exception)
+    logfire__all__.remove('LogfireAPIError')
+
+    assert hasattr(logfire_api, 'LogfireAPINotFoundError')
+    assert issubclass(logfire_api.LogfireAPINotFoundError, logfire_api.LogfireAPIError)
+    logfire__all__.remove('LogfireAPINotFoundError')
+
+    assert hasattr(logfire_api, 'LogfireAPIForbiddenError')
+    assert issubclass(logfire_api.LogfireAPIForbiddenError, logfire_api.LogfireAPIError)
+    logfire__all__.remove('LogfireAPIForbiddenError')
+
+    assert hasattr(logfire_api, 'LogfireAPIConflictError')
+    assert issubclass(logfire_api.LogfireAPIConflictError, logfire_api.LogfireAPIError)
+    logfire__all__.remove('LogfireAPIConflictError')
+
+    assert hasattr(logfire_api, 'LogfireAPIValidationError')
+    assert issubclass(logfire_api.LogfireAPIValidationError, logfire_api.LogfireAPIError)
+    logfire__all__.remove('LogfireAPIValidationError')
+
+    assert hasattr(logfire_api, 'LogfireAPIRateLimitError')
+    assert issubclass(logfire_api.LogfireAPIRateLimitError, logfire_api.LogfireAPIError)
+    logfire__all__.remove('LogfireAPIRateLimitError')
+
     # If it's not empty, it means that some of the __all__ members are not tested.
     assert logfire__all__ == set(), logfire__all__
 
