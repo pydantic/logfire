@@ -1,0 +1,55 @@
+interactions:
+- request:
+    body: null
+    headers:
+      accept:
+      - '*/*'
+      accept-encoding:
+      - gzip, deflate
+      authorization:
+      - '[FILTERED]'
+      connection:
+      - keep-alive
+      host:
+      - localhost:8000
+      user-agent:
+      - python-httpx/0.27.0
+    method: GET
+    uri: http://localhost:8000/api/v1/projects/
+  response:
+    body:
+      string: '[{"id":"00000000-0000-0000-0000-000000000001","project_name":"test-project","created_at":"2024-01-01T00:00:00Z","description":"Test
+        project","organization_name":"test-org","visibility":"private"}]'
+    headers:
+      content-type:
+      - application/json
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      accept:
+      - '*/*'
+      accept-encoding:
+      - gzip, deflate
+      authorization:
+      - '[FILTERED]'
+      connection:
+      - keep-alive
+      host:
+      - localhost:8000
+      user-agent:
+      - python-httpx/0.27.0
+    method: GET
+    uri: http://localhost:8000/api/v1/projects/00000000-0000-0000-0000-000000000001/write-tokens/
+  response:
+    body:
+      string: '[]'
+    headers:
+      content-type:
+      - application/json
+    status:
+      code: 200
+      message: OK
+version: 1
