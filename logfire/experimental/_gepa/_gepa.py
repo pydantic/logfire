@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Mapping, Sequence
 from contextlib import ExitStack
 from dataclasses import dataclass
-from typing import Generic
+from typing import Any, Generic
 
 from gepa.core.adapter import DataInst, EvaluationBatch, GEPAAdapter, RolloutOutput, Trajectory
 from pydantic import ValidationError
@@ -87,9 +88,27 @@ class SimpleEvaluateAdapterMixin(GEPAAdapter[DataInst, Trajectory, RolloutOutput
     ) -> EvaluationResult[Trajectory, RolloutOutput]: ...
 
 
+class SimpleProposeNewTextsAdapterMixin(
+    GEPAAdapter[DataInst, Trajectory, RolloutOutput],
+    ABC,
+):
+    def __init__(self, *args: Any, **kwargs: Any):
+        self.propose_new_texts = self.propose_new_texts_impl
+        super().__init__(*args, **kwargs)
+
+    @abstractmethod
+    def propose_new_texts_impl(
+        self,
+        candidate: dict[str, str],
+        reflective_dataset: Mapping[str, Sequence[Mapping[str, Any]]],
+        components_to_update: list[str],
+    ) -> dict[str, str]: ...
+
+
 class CombinedSimpleAdapterMixin(
     SimpleEvaluateAdapterMixin[DataInst, Trajectory, RolloutOutput],
     SimpleReflectionAdapterMixin[DataInst, Trajectory, RolloutOutput],
+    SimpleProposeNewTextsAdapterMixin[DataInst, Trajectory, RolloutOutput],
     ABC,
 ):
     pass

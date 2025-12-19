@@ -29,20 +29,14 @@ MyRolloutOutput = int
 prompt = logfire.var(name='prompt', default='Say 6', type=str)
 
 
-def _propose_new_texts(
-    candidate: dict[str, str],
-    reflective_dataset: Mapping[str, Sequence[Mapping[str, Any]]],
-    components_to_update: list[str],
-) -> dict[str, str]:
-    return {'prompt': 'Say 42'}
-
-
-class MyAdapter(
-    CombinedSimpleAdapterMixin[MyDataInst, MyTrajectory, MyRolloutOutput],
-):
-    def __init__(self) -> None:
-        super().__init__()
-        self.propose_new_texts = _propose_new_texts
+class MyAdapter(CombinedSimpleAdapterMixin[MyDataInst, MyTrajectory, MyRolloutOutput]):
+    def propose_new_texts_impl(
+        self,
+        candidate: dict[str, str],
+        reflective_dataset: Mapping[str, Sequence[Mapping[str, Any]]],
+        components_to_update: list[str],
+    ) -> dict[str, str]:
+        return {'prompt': 'Say 42'}
 
     def evaluate_instance(self, eval_input: EvaluationInput[MyDataInst]):
         if '42' in prompt.get().value:
