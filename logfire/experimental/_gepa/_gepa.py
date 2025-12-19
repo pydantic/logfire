@@ -48,6 +48,8 @@ class SimpleReflectionAdapterMixin(GEPAAdapter[DataInst, Trajectory, RolloutOutp
 @dataclass
 class EvaluationInput(Generic[DataInst]):
     data: DataInst
+    """Inputs to the task/function being evaluated."""
+
     candidate: dict[str, str]
     capture_traces: bool
 
