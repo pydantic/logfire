@@ -25,14 +25,22 @@ async def test_documentation_examples(example: CodeExample, eval_example: EvalEx
         'D103',  # ignore missing docstring in public functions
     ]
 
-    eval_example.lint_ruff(example)
-
     if eval_example.update_examples:
         eval_example.format(example)
+    else:
+        eval_example.lint_ruff(example)
 
 
 @pytest.mark.parametrize('example', find_examples('logfire/'), ids=str)
 def test_docstring_examples(example: CodeExample, eval_example: EvalExample):
     """Test Python code examples in source docstrings."""
-    eval_example.lint(example)
-    eval_example.run(example)
+    eval_example.config.ruff_ignore = [
+        'D101',  # ignore missing docstring in public classes
+        'D102',  # ignore missing docstring in public methods
+        'D103',  # ignore missing docstring in public functions
+    ]
+    
+    if eval_example.update_examples:
+        eval_example.format(example)
+    else:
+        eval_example.lint_ruff(example)

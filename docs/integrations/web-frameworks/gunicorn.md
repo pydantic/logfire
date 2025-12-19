@@ -13,6 +13,7 @@ To configure Logfire with Gunicorn, you can use the `logfire.configure()` functi
 ```py
 import logfire
 
+
 def post_fork(server, worker):
     logfire.configure()
 ```
@@ -36,17 +37,19 @@ from flask import Flask
 
 app = Flask(__name__)
 
-@app.route("/")
+
+@app.route('/')
 def index():
-    return "Hello from Flask + Gunicorn!"
+    return 'Hello from Flask + Gunicorn!'
 ```
 
 To instrument this Flask application with Logfire, you can modify the `post_fork` function in your Gunicorn configuration file to import and instrument the Flask app (`gunicorn_config.py`):
 
 ```py title="gunicorn_config.py"
+from myapp import app
+
 import logfire
 
-from myapp import app
 
 def post_fork(server, worker):
     logfire.configure()

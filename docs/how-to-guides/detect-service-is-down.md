@@ -16,13 +16,14 @@ from fastapi import FastAPI
 
 import logfire
 
-logfire.configure(service_name="backend")
+logfire.configure(service_name='backend')
 app = FastAPI()
 logfire.instrument_fastapi(app)
 
-@app.get("/health")
+
+@app.get('/health')
 async def health():
-    return {"status": "ok"}
+    return {'status': 'ok'}
 ```
 
 You probably have this endpoint because you have a mechanism that restarts the service if it's down.

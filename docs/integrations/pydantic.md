@@ -64,8 +64,7 @@ from pydantic import BaseModel
 from logfire.integrations.pydantic import PluginSettings
 
 
-class Foo(BaseModel, plugin_settings=PluginSettings(logfire={'record': 'failure'})):
-    ...
+class Foo(BaseModel, plugin_settings=PluginSettings(logfire={'record': 'failure'})): ...
 ```
 
 ### Record
@@ -86,8 +85,9 @@ It can be one of the following values:
 from pydantic import BaseModel
 
 
-class Foo(BaseModel, plugin_settings={'logfire': {'record': 'all', 'trace_sample_rate': 0.4}}):
-    ...
+class Foo(
+    BaseModel, plugin_settings={'logfire': {'record': 'all', 'trace_sample_rate': 0.4}}
+): ...
 ```
 -->
 
@@ -102,10 +102,8 @@ from pydantic import BaseModel
 
 
 class Foo(
-  BaseModel,
-  plugin_settings={'logfire': {'record': 'all', 'tags': ('tag1', 'tag2')}}
-):
-    ...
+    BaseModel, plugin_settings={'logfire': {'record': 'all', 'tags': ('tag1', 'tag2')}}
+): ...
 ```
 
 [pydantic]: https://docs.pydantic.dev/latest/

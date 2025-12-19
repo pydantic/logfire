@@ -11,12 +11,15 @@ Magentic instrumentation requires no additional setup beyond configuring **Logfi
 You might also want to enable the [OpenAI](../llms/openai.md) and/or [Anthropic](../llms/anthropic.md) integrations.
 
 ```python hl_lines="3 8 9"
+from __future__ import annotations
+
 from typing import Annotated
 
-import logfire
-from magentic import chatprompt, OpenaiChatModel, SystemMessage, UserMessage
+from magentic import OpenaiChatModel, SystemMessage, UserMessage, chatprompt
 from pydantic import BaseModel, Field
 from pydantic.functional_validators import AfterValidator
+
+import logfire
 
 logfire.configure()
 logfire.instrument_openai()
@@ -31,19 +34,19 @@ def assert_upper(value: str) -> str:
 class Superhero(BaseModel):
     name: Annotated[str, AfterValidator(assert_upper)]
     powers: list[str]
-    city: Annotated[str, Field(examples=["New York, NY"])]
+    city: Annotated[str, Field(examples=['New York, NY'])]
 
 
 @chatprompt(
     SystemMessage('You are professor A, in charge of the A-people.'),
     UserMessage('Create a new superhero named {name}.'),
-    model=OpenaiChatModel("gpt-4o"),
+    model=OpenaiChatModel('gpt-4o'),
     max_retries=3,
 )
 def make_superhero(name: str) -> Superhero: ...
 
 
-hero = make_superhero("The Bark Night")
+hero = make_superhero('The Bark Night')
 print(hero)
 ```
 

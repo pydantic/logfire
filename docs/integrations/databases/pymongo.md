@@ -51,18 +51,22 @@ The following script connects to a MongoDB database, inserts a document, and que
 
     ```py
     import asyncio
-    import logfire
+
     from motor.motor_asyncio import AsyncIOMotorClient
+
+    import logfire
 
     logfire.configure()
     logfire.instrument_pymongo()
 
+
     async def main():
         client = AsyncIOMotorClient()
-        db = client["database"]
-        collection = db["collection"]
-        await collection.insert_one({"name": "MongoDB"})
+        db = client['database']
+        collection = db['collection']
+        await collection.insert_one({'name': 'MongoDB'})
         await collection.find_one()
+
 
     asyncio.run(main())
     ```

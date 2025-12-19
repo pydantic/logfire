@@ -22,12 +22,13 @@ Let's see a minimal example below. You can run it with `python main.py`:
     import asyncio
 
     import httpx
+
     import logfire
 
     logfire.configure()
     logfire.instrument_httpx()
 
-    url = "https://httpbin.org/get"
+    url = 'https://httpbin.org/get'
 
     with httpx.Client() as client:
         client.get(url)
@@ -47,6 +48,7 @@ Let's see a minimal example below. You can run it with `python main.py`:
     import asyncio
 
     import httpx
+
     import logfire
 
     logfire.configure()
@@ -113,9 +115,10 @@ Instead of capturing both request and response headers, you can create a request
 
 ```py
 import httpx
+from opentelemetry.trace import Span
+
 import logfire
 from logfire.integrations.httpx import RequestInfo
-from opentelemetry.trace import Span
 
 
 def capture_request_headers(span: Span, request: RequestInfo):
@@ -132,7 +135,7 @@ logfire.configure()
 logfire.instrument_httpx(request_hook=capture_request_headers)
 
 client = httpx.Client()
-client.get("https://httpbin.org/get")
+client.get('https://httpbin.org/get')
 ```
 
 #### Capture Only Response Headers
@@ -141,16 +144,19 @@ Similarly, you can create a response hook to capture only the response headers:
 
 ```py
 import httpx
-import logfire
 from opentelemetry.trace import Span
+
+import logfire
 from logfire.integrations.httpx import RequestInfo, ResponseInfo
 
 
 def capture_response_headers(span: Span, request: RequestInfo, response: ResponseInfo):
     headers = response.headers
     span.set_attributes(
-        {f'http.response.header.{header_name}': headers.get_list(header_name)
-        for header_name in headers.keys()}
+        {
+            f'http.response.header.{header_name}': headers.get_list(header_name)
+            for header_name in headers.keys()
+        }
     )
 
 

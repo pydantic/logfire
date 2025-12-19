@@ -23,23 +23,24 @@ pip install uvicorn
 You can run it with `python main.py`:
 
 ```py title="main.py"
-import logfire
 from starlette.applications import Starlette
-from starlette.responses import PlainTextResponse
 from starlette.requests import Request
+from starlette.responses import PlainTextResponse
 from starlette.routing import Route
+
+import logfire
 
 logfire.configure()
 
 
 async def home(request: Request) -> PlainTextResponse:
-    return PlainTextResponse("Hello, world!")
+    return PlainTextResponse('Hello, world!')
 
 
-app = Starlette(routes=[Route("/", home)])
+app = Starlette(routes=[Route('/', home)])
 logfire.instrument_starlette(app)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     import uvicorn
 
     uvicorn.run(app)

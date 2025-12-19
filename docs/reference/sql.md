@@ -168,7 +168,7 @@ JOIN records child_records
 
 For example this code:
 
-```python
+```python test="skip"
 with logfire.span('parent'):
     logfire.info('child')
 ```

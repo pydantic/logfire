@@ -6,8 +6,11 @@ integration: logfire
 [`logfire.instrument_pydantic_ai()`][logfire.Logfire.instrument_pydantic_ai] method:
 
 ```python hl_lines="5"
-import logfire
+from __future__ import annotations
+
 from pydantic_ai import Agent, RunContext
+
+import logfire
 
 logfire.configure()
 logfire.instrument_pydantic_ai()
@@ -25,7 +28,7 @@ roulette_agent = Agent(
 
 @roulette_agent.tool
 async def roulette_wheel(ctx: RunContext[int], square: int) -> str:
-    """check if the square is a winner"""
+    """Check if the square is a winner."""
     return 'winner' if square == ctx.deps else 'loser'
 
 

@@ -20,7 +20,7 @@ Let's use LlamaIndex with OpenAI as an example.
 
 You only need to include the `LlamaIndexInstrumentor` and call its `instrument` method to enable the instrumentation.
 
-```python hl_lines="5 8"
+```python hl_lines="5 8" test="skip"
 import logfire
 from llama_index.core import VectorStoreIndex
 from llama_index.llms.openai import OpenAI

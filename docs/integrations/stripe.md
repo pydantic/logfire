@@ -19,9 +19,11 @@ client = StripeClient(api_key='<your_secret_key>')
 # Synchronous request
 client.customers.list()  # uses `requests`
 
+
 # Asynchronous request
 async def main():
     await client.customers.list_async()  # uses `httpx`
+
 
 if __name__ == '__main__':
     import asyncio
@@ -71,13 +73,15 @@ from stripe import StripeClient
 import logfire
 
 logfire.configure()
-logfire.instrument_httpx()     # for asynchronous requests
+logfire.instrument_httpx()  # for asynchronous requests
 
 client = StripeClient(api_key=os.getenv('STRIPE_SECRET_KEY'))
+
 
 async def main():
     with logfire.span('list async'):
         await client.customers.list_async()
+
 
 if __name__ == '__main__':
     asyncio.run(main())

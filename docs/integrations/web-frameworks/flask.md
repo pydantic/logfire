@@ -18,9 +18,9 @@ Install `logfire` with the `flask` extra:
 Let's see a minimal example below. You can run it with `python main.py`:
 
 ```py title="main.py"
-import logfire
 from flask import Flask
 
+import logfire
 
 logfire.configure()
 
@@ -28,12 +28,12 @@ app = Flask(__name__)
 logfire.instrument_flask(app)
 
 
-@app.route("/")
+@app.route('/')
 def hello():
-    return "Hello!"
+    return 'Hello!'
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run(debug=True)
 ```
 

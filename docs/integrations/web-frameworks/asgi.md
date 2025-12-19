@@ -20,24 +20,24 @@ Below we have a minimal example using [Uvicorn][uvicorn]. You can run it with `p
 ```py title="main.py"
 import logfire
 
-
 logfire.configure()
 
 
 async def app(scope, receive, send):
-    assert scope["type"] == "http"
+    assert scope['type'] == 'http'
     await send(
         {
-            "type": "http.response.start",
-            "status": 200,
-            "headers": [(b"content-type", b"text/plain"), (b"content-length", b"13")],
+            'type': 'http.response.start',
+            'status': 200,
+            'headers': [(b'content-type', b'text/plain'), (b'content-length', b'13')],
         }
     )
-    await send({"type": "http.response.body", "body": b"Hello, world!"})
+    await send({'type': 'http.response.body', 'body': b'Hello, world!'})
+
 
 app = logfire.instrument_asgi(app)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     import uvicorn
 
     uvicorn.run(app)

@@ -117,10 +117,12 @@ import logfire
 
 logfire.configure()
 
+
 class User(BaseModel):
     name: str
     country_code: str
     dob: date
+
 
 user = User(name='Anne', country_code='USA', dob='2000-01-01')
 logfire.info('user processed: {user!r}', user=user)  # (1)!
@@ -142,10 +144,12 @@ import logfire
 logfire.configure()
 logfire.instrument_pydantic()  # (1)!
 
+
 class User(BaseModel):
     name: str
     country_code: str
     dob: date
+
 
 User(name='Anne', country_code='USA', dob='2000-01-01')  # (2)!
 User(name='Ben', country_code='USA', dob='2000-02-02')

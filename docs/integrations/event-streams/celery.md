@@ -31,21 +31,25 @@ docker run --rm -d -p 6379:6379 redis
 Below we have a minimal example using Celery. You can run it with `celery -A tasks worker --loglevel=info`:
 
 ```py title="tasks.py"
-import logfire
 from celery import Celery
 from celery.signals import worker_init
+
+import logfire
 
 
 @worker_init.connect()  # (1)!
 def init_worker(*args, **kwargs):
-    logfire.configure(service_name="worker")  # (2)!
+    logfire.configure(service_name='worker')  # (2)!
     logfire.instrument_celery()
 
-app = Celery("tasks", broker="redis://localhost:6379/0")  # (3)!
+
+app = Celery('tasks', broker='redis://localhost:6379/0')  # (3)!
+
 
 @app.task
 def add(x: int, y: int):
     return x + y
+
 
 add.delay(42, 50)  # (4)!
 ```
@@ -64,29 +68,33 @@ As said before, it's also possible that you have periodic tasks scheduled with *
 Let's add the beat to the previous example:
 
 ```py title="tasks.py" hl_lines="11-14 17-23"
-import logfire
 from celery import Celery
-from celery.signals import worker_init, beat_init
+from celery.signals import beat_init, worker_init
+
+import logfire
 
 
 @worker_init.connect()
 def init_worker(*args, **kwargs):
-    logfire.configure(service_name="worker")
+    logfire.configure(service_name='worker')
     logfire.instrument_celery()
+
 
 @beat_init.connect()  # (1)!
 def init_beat(*args, **kwargs):
-    logfire.configure(service_name="beat")  # (2)!
+    logfire.configure(service_name='beat')  # (2)!
     logfire.instrument_celery()
 
-app = Celery("tasks", broker="redis://localhost:6379/0")
+
+app = Celery('tasks', broker='redis://localhost:6379/0')
 app.conf.beat_schedule = {  # (3)!
-    "add-every-30-seconds": {
-        "task": "tasks.add",
-        "schedule": 30.0,
-        "args": (16, 16),
+    'add-every-30-seconds': {
+        'task': 'tasks.add',
+        'schedule': 30.0,
+        'args': (16, 16),
     },
 }
+
 
 @app.task
 def add(x: int, y: int):

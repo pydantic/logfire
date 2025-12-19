@@ -257,13 +257,12 @@ import logfire
 
 
 async def background_task():
-   # `attach_context({})` forgets existing context
-   # so that spans within start a new trace.
-   with logfire.attach_context({}):
-      with logfire.span('new trace'):
-         await asyncio.sleep(0.2)
-         logfire.info('background')
-
+    # `attach_context({})` forgets existing context
+    # so that spans within start a new trace.
+    with logfire.attach_context({}):
+        with logfire.span('new trace'):
+            await asyncio.sleep(0.2)
+            logfire.info('background')
 ```
 
 ## Custom head sampling
@@ -285,19 +284,19 @@ import logfire
 
 class MySampler(Sampler):
     def should_sample(
-            self,
-            parent_context,
-            trace_id,
-            name,
-            *args,
-            **kwargs,
+        self,
+        parent_context,
+        trace_id,
+        name,
+        *args,
+        **kwargs,
     ):
         if name == 'exclude me':
             sampler = ALWAYS_OFF
         elif name == 'include me minimally':
             sampler = TraceIdRatioBased(0.01)  # 1% sampling
         elif name == 'include me partially':
-            sampler = TraceIdRatioBased(0.5)   # 50% sampling
+            sampler = TraceIdRatioBased(0.5)  # 50% sampling
         else:
             sampler = ALWAYS_ON
         return sampler.should_sample(

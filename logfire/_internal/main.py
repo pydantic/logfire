@@ -591,7 +591,6 @@ class Logfire:
 
         logfire.configure()
 
-
         @logfire.instrument('This is a span {a=}')
         def my_function(a: int):
             logfire.info('new log {a=}', a=a)
@@ -619,7 +618,6 @@ class Logfire:
 
         logfire.configure()
 
-
         @logfire.instrument
         def my_function(a: int):
             logfire.info('new log {a=}', a=a)
@@ -642,7 +640,6 @@ class Logfire:
         import logfire
 
         logfire.configure()
-
 
         @logfire.instrument('This is a span {a=}')
         def my_function(a: int):
@@ -1189,8 +1186,9 @@ class Logfire:
         Example usage:
 
         ```python
-        import logfire
         import openai
+
+        import logfire
 
         client = openai.OpenAI()
         logfire.configure()
@@ -1280,8 +1278,9 @@ class Logfire:
         Example usage:
 
         ```python
-        import logfire
         import anthropic
+
+        import logfire
 
         client = anthropic.Anthropic()
 
@@ -2071,7 +2070,9 @@ class Logfire:
         import logfire
 
         logfire.configure()
-        counter = logfire.metric_counter('exceptions', unit='1', description='Number of exceptions caught')
+        counter = logfire.metric_counter(
+            'exceptions', unit='1', description='Number of exceptions caught'
+        )
 
         try:
             raise Exception('oops')
@@ -2101,8 +2102,9 @@ class Logfire:
         import logfire
 
         logfire.configure()
-        histogram = logfire.metric_histogram('bank.amount_transferred', unit='$', description='Amount transferred')
-
+        histogram = logfire.metric_histogram(
+            'bank.amount_transferred', unit='$', description='Amount transferred'
+        )
 
         def transfer(amount: int):
             histogram.record(amount)
@@ -2131,7 +2133,6 @@ class Logfire:
         logfire.configure()
         gauge = logfire.metric_gauge('system.cpu_usage', unit='%', description='CPU usage')
 
-
         def update_cpu_usage(cpu_percent):
             gauge.set(cpu_percent)
         ```
@@ -2158,12 +2159,12 @@ class Logfire:
         import logfire
 
         logfire.configure()
-        up_down_counter = logfire.metric_up_down_counter('users.logged_in', unit='1', description='Users logged in')
-
+        up_down_counter = logfire.metric_up_down_counter(
+            'users.logged_in', unit='1', description='Users logged in'
+        )
 
         def on_login(user):
             up_down_counter.add(1)
-
 
         def on_logout(user):
             up_down_counter.add(-1)
@@ -2197,19 +2198,18 @@ class Logfire:
         The counter metric is a cumulative metric that represents a single numerical value that only ever goes up.
 
         ```py
-        import logfire
         import psutil
         from opentelemetry.metrics import CallbackOptions, Observation
 
-        logfire.configure()
+        import logfire
 
+        logfire.configure()
 
         def cpu_usage_callback(options: CallbackOptions):
             cpu_percents = psutil.cpu_percent(percpu=True)
 
             for i, cpu_percent in enumerate(cpu_percents):
                 yield Observation(cpu_percent, {'cpu': i})
-
 
         cpu_usage_counter = logfire.metric_counter_callback(
             'system.cpu.usage',
@@ -2243,15 +2243,14 @@ class Logfire:
         ```py
         import threading
 
-        import logfire
         from opentelemetry.metrics import CallbackOptions, Observation
+
+        import logfire
 
         logfire.configure()
 
-
         def thread_count_callback(options: CallbackOptions):
             yield Observation(threading.active_count())
-
 
         logfire.metric_gauge_callback(
             'system.thread_count',
@@ -2284,17 +2283,16 @@ class Logfire:
         down.
 
         ```py
-        import logfire
         from opentelemetry.metrics import CallbackOptions, Observation
+
+        import logfire
 
         logfire.configure()
 
         items = []
 
-
         def inventory_callback(options: CallbackOptions):
             yield Observation(len(items))
-
 
         logfire.metric_up_down_counter_callback(
             name='store.inventory',

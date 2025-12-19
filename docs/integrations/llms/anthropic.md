@@ -63,10 +63,11 @@ Here we also use Rich's [`Live`][rich.live.Live] and [`Markdown`][rich.markdown.
 
 ```python
 import anthropic
-import logfire
 from rich.console import Console
 from rich.live import Live
 from rich.markdown import Markdown
+
+import logfire
 
 client = anthropic.AsyncAnthropic()
 logfire.configure()
@@ -80,7 +81,9 @@ async def main():
             max_tokens=1000,
             model='claude-3-haiku-20240307',
             system='Reply in markdown one.',
-            messages=[{'role': 'user', 'content': 'Write Python to show a tree of files 🤞.'}],
+            messages=[
+                {'role': 'user', 'content': 'Write Python to show a tree of files 🤞.'}
+            ],
         )
         content = ''
         with Live('', refresh_per_second=15, console=console) as live:

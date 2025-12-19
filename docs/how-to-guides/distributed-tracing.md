@@ -55,15 +55,15 @@ import logfire
 logfire.configure()
 
 
-@logfire.instrument("Doubling {x}")
+@logfire.instrument('Doubling {x}')
 def double(x: int):
     return x * 2
 
 
-with logfire.span("Doubling everything") as span:
+with logfire.span('Doubling everything') as span:
     executor = ThreadPoolExecutor()
     results = list(executor.map(double, range(3)))
-    span.set_attribute("results", results)
+    span.set_attribute('results', results)
 ```
 
 !!! note "`ProcessPoolExecutor` and exception_callback"

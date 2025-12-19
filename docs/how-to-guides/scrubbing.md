@@ -68,9 +68,13 @@ import logfire
 
 def scrubbing_callback(match: logfire.ScrubMatch):
     # `my_safe_value` often contains the string 'password' but it's not actually sensitive.
-    if match.path == ('attributes', 'my_safe_value') and match.pattern_match.group(0) == 'password':
+    if (
+        match.path == ('attributes', 'my_safe_value')
+        and match.pattern_match.group(0) == 'password'
+    ):
         # Return the original value to prevent redaction.
         return match.value
+
 
 logfire.configure(scrubbing=logfire.ScrubbingOptions(callback=scrubbing_callback))
 ```

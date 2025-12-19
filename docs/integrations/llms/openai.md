@@ -61,7 +61,9 @@ For example, here's instrumentation of an image generation call:
 
 ```python
 import openai
+
 import logfire
+
 
 async def main():
     client = openai.AsyncClient()
@@ -74,10 +76,13 @@ async def main():
     )
     url = response.data[0].url
     import webbrowser
+
     webbrowser.open(url)
+
 
 if __name__ == '__main__':
     import asyncio
+
     asyncio.run(main())
 ```
 
@@ -97,14 +102,16 @@ Here we also use Rich's [`Live`][rich.live.Live] and [`Markdown`][rich.markdown.
 
 ```python
 import openai
-import logfire
 from rich.console import Console
 from rich.live import Live
 from rich.markdown import Markdown
 
+import logfire
+
 client = openai.AsyncClient()
 logfire.configure()
 logfire.instrument_openai(client)
+
 
 async def main():
     console = Console()
@@ -115,7 +122,7 @@ async def main():
                 {'role': 'system', 'content': 'Reply in markdown one.'},
                 {'role': 'user', 'content': 'Write Python to show a tree of files 🤞.'},
             ],
-            stream=True
+            stream=True,
         )
         content = ''
         with Live('', refresh_per_second=15, console=console) as live:
@@ -124,8 +131,10 @@ async def main():
                     content += chunk.choices[0].delta.content
                     live.update(Markdown(content))
 
+
 if __name__ == '__main__':
     import asyncio
+
     asyncio.run(main())
 ```
 
@@ -166,11 +175,11 @@ Which shows up like this in Logfire:
 In this example we add a function tool to the agents:
 
 ```python
+from agents import Agent, RunContextWrapper, Runner, function_tool
+from httpx import AsyncClient
 from typing_extensions import TypedDict
 
 import logfire
-from httpx import AsyncClient
-from agents import RunContextWrapper, Agent, function_tool, Runner
 
 logfire.configure()
 logfire.instrument_openai_agents()
@@ -199,12 +208,15 @@ agent = Agent(name='weather agent', tools=[fetch_weather])
 async def main():
     async with AsyncClient() as client:
         logfire.instrument_httpx(client)
-        result = await Runner.run(agent, 'Get the weather at lat=51 lng=0.2', context=client)
+        result = await Runner.run(
+            agent, 'Get the weather at lat=51 lng=0.2', context=client
+        )
     print(result.final_output)
 
 
 if __name__ == '__main__':
     import asyncio
+
     asyncio.run(main())
 ```
 

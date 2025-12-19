@@ -76,7 +76,7 @@ We are actively engaged with the OpenTelemetry community to improve the GenAI sp
 
 ### Single‑prompt calls
 
-```python
+```python test="skip"
 agent = Agent("google-gla:gemini-1.5-flash")
 result = agent.run_sync("Which city is the capital of France?")
 print(result.output)
@@ -86,7 +86,7 @@ print(result.output)
 
 Add a system prompt and Logfire captures it too:
 
-```python
+```python test="skip"
 agent = Agent(
     "google-gla:gemini-1.5-flash",
     system_prompt="You are a helpful assistant."

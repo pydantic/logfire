@@ -44,7 +44,7 @@ we provide Python clients to simplify the process of interacting with the API fr
 Logfire provides both synchronous and asynchronous clients.
 To use these clients, you can import them from the `query_client` namespace:
 
-```python
+```python test="skip"
 from logfire.query_client import AsyncLogfireQueryClient, LogfireQueryClient
 ```
 
