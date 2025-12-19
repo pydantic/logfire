@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Generic
 
 from gepa.core.adapter import DataInst, EvaluationBatch, GEPAAdapter, RolloutOutput, Trajectory
+from pydantic import ValidationError
 
 import logfire
 from logfire._internal.utils import JsonDict
@@ -98,6 +99,9 @@ class CombinedSimpleAdapterMixin(
 class AdapterWrapper(GEPAAdapter[DataInst, Trajectory, RolloutOutput]):
     wrapped: GEPAAdapter[DataInst, Trajectory, RolloutOutput]
 
+    def __post_init__(self):
+        self.propose_new_texts = self.wrapped.propose_new_texts
+
     def evaluate(
         self,
         batch: list[DataInst],
@@ -127,6 +131,15 @@ class ManagedVarsEvaluateAdapterWrapper(AdapterWrapper[DataInst, Trajectory, Rol
         with stack:
             for var in variables:
                 if var.name in candidate:
-                    value = var.type_adapter.validate_json(candidate[var.name])
+                    raw_value = candidate[var.name]
+                    try:
+                        value = var.type_adapter.validate_json(raw_value)
+                    except ValidationError:
+                        if var.value_type is str:
+                            value = raw_value
+                        else:
+                            # TODO var.value_type isn't set
+                            value = raw_value
+                            # raise
                     stack.enter_context(var.override(value))
             return super().evaluate(batch, candidate, capture_traces)
