@@ -86,6 +86,14 @@ class SimpleEvaluateAdapterMixin(GEPAAdapter[DataInst, Trajectory, RolloutOutput
     ) -> EvaluationResult[Trajectory, RolloutOutput]: ...
 
 
+class CombinedSimpleAdapterMixin(
+    SimpleEvaluateAdapterMixin[DataInst, Trajectory, RolloutOutput],
+    SimpleReflectionAdapterMixin[DataInst, Trajectory, RolloutOutput],
+    ABC,
+):
+    pass
+
+
 @dataclass
 class AdapterWrapper(GEPAAdapter[DataInst, Trajectory, RolloutOutput]):
     wrapped: GEPAAdapter[DataInst, Trajectory, RolloutOutput]
@@ -119,5 +127,6 @@ class ManagedVarsEvaluateAdapterWrapper(AdapterWrapper[DataInst, Trajectory, Rol
         with stack:
             for var in variables:
                 if var.name in candidate:
-                    stack.enter_context(var.override(candidate[var.name]))
+                    value = var.type_adapter.validate_json(candidate[var.name])
+                    stack.enter_context(var.override(value))
             return super().evaluate(batch, candidate, capture_traces)
