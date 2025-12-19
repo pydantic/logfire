@@ -6,7 +6,7 @@ from contextlib import ExitStack
 from dataclasses import dataclass
 from typing import Any, Generic, Literal, TypeVar
 
-__all__ = ('VariableResolutionDetails', 'VariableProvider', 'NoOpVariableProvider')
+__all__ = ('ResolvedVariable', 'VariableProvider', 'NoOpVariableProvider')
 
 T = TypeVar('T')
 T_co = TypeVar('T_co', covariant=True)
@@ -14,7 +14,7 @@ T_co = TypeVar('T_co', covariant=True)
 
 # TODO: Should we rename this to `ResolvedVariable`?
 @dataclass(kw_only=True)
-class VariableResolutionDetails(Generic[T_co]):
+class ResolvedVariable(Generic[T_co]):
     """Details about a variable resolution including value, variant, and any errors.
 
     This class can be used as a context manager. When used as a context manager, it
@@ -83,7 +83,7 @@ class VariableProvider(ABC):
         variable_name: str,
         targeting_key: str | None = None,
         attributes: Mapping[str, Any] | None = None,
-    ) -> VariableResolutionDetails[str | None]:
+    ) -> ResolvedVariable[str | None]:
         """Retrieve the serialized value for a variable.
 
         Args:
@@ -92,7 +92,7 @@ class VariableProvider(ABC):
             attributes: Optional attributes for condition-based targeting rules.
 
         Returns:
-            A VariableResolutionDetails containing the serialized value (or None if not found).
+            A ResolvedVariable containing the serialized value (or None if not found).
         """
         raise NotImplementedError
 
@@ -124,7 +124,7 @@ class NoOpVariableProvider(VariableProvider):
         variable_name: str,
         targeting_key: str | None = None,
         attributes: Mapping[str, Any] | None = None,
-    ) -> VariableResolutionDetails[str | None]:
+    ) -> ResolvedVariable[str | None]:
         """Return None for all variable lookups.
 
         Args:
@@ -133,6 +133,6 @@ class NoOpVariableProvider(VariableProvider):
             attributes: Optional attributes for condition-based targeting rules (ignored).
 
         Returns:
-            A VariableResolutionDetails with value=None.
+            A ResolvedVariable with value=None.
         """
-        return VariableResolutionDetails(name=variable_name, value=None, _reason='no_provider')
+        return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')

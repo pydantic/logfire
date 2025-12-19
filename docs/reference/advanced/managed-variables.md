@@ -57,7 +57,7 @@ async def main():
 
 ### Getting Variable Values
 
-Variables return a `VariableResolutionDetails` object containing the resolved value and metadata about how it was resolved:
+Variables' `.get()` method returns a `ResolvedVariable` object containing the resolved value and metadata about how it was resolved:
 
 ```python
 import logfire
@@ -82,7 +82,7 @@ async def main():
 
 ### Using Variables as Context Managers (Recommended)
 
-The `VariableResolutionDetails` object can be used as a context manager. This is the **recommended pattern** because it automatically sets [baggage](baggage.md) with the variable name and selected variant, allowing downstream spans and logs to be associated with the variable resolution:
+The `ResolvedVariable` object can be used as a context manager. This is the **recommended pattern** because it automatically sets [baggage](baggage.md) with the variable name and selected variant, allowing downstream spans and logs to be associated with the variable resolution:
 
 ```python
 import logfire

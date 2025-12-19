@@ -18,7 +18,7 @@ else:
     from asyncio import to_thread
 
 import logfire
-from logfire.variables.abstract import VariableResolutionDetails
+from logfire.variables.abstract import ResolvedVariable
 
 __all__ = ('ResolveFunction', 'is_resolve_function', 'Variable')
 
@@ -62,6 +62,8 @@ class Variable(Generic[T]):
 
     name: str
     """Unique name identifying this variable."""
+    description: str | None = None
+    """Description of the variable."""
     default: T | ResolveFunction[T]
     """Default value or function to compute the default."""
     value_type: type[T] | None = None
@@ -117,9 +119,7 @@ class Variable(Generic[T]):
         self.logfire_instance.config.get_variable_provider().refresh(force=force)
 
     # TODO: Should we rename this to `resolve`?
-    def get(
-        self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
-    ) -> VariableResolutionDetails[T]:
+    def get(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> ResolvedVariable[T]:
         """Resolve the variable and return full details including variant and any errors.
 
         Args:
@@ -127,7 +127,7 @@ class Variable(Generic[T]):
             attributes: Optional attributes for condition-based targeting rules.
 
         Returns:
-            A VariableResolutionDetails object containing the resolved value, selected variant,
+            A ResolvedVariable object containing the resolved value, selected variant,
             and any errors that occurred.
         """
         # TODO:
@@ -161,14 +161,14 @@ class Variable(Generic[T]):
 
     def _resolve(
         self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
-    ) -> VariableResolutionDetails[T]:
+    ) -> ResolvedVariable[T]:
         try:
             if (context_overrides := _VARIABLE_OVERRIDES.get()) is not None and (
                 context_value := context_overrides.get(self.name)
             ) is not None:
                 if is_resolve_function(context_value):
                     context_value = context_value(targeting_key, attributes)
-                return VariableResolutionDetails(name=self.name, value=context_value, _reason='context_override')
+                return ResolvedVariable(name=self.name, value=context_value, _reason='context_override')
 
             provider = self.logfire_instance.config.get_variable_provider()
             serialized_result = provider.get_serialized_value(self.name, targeting_key, attributes)
@@ -181,15 +181,13 @@ class Variable(Generic[T]):
                 value = self.type_adapter.validate_json(serialized_result.value)
             except ValidationError as e:
                 default = self._get_default(targeting_key, attributes)
-                return VariableResolutionDetails(name=self.name, value=default, exception=e, _reason='validation_error')
+                return ResolvedVariable(name=self.name, value=default, exception=e, _reason='validation_error')
 
-            return VariableResolutionDetails(
-                name=self.name, value=value, variant=serialized_result.variant, _reason='resolved'
-            )
+            return ResolvedVariable(name=self.name, value=value, variant=serialized_result.variant, _reason='resolved')
 
         except Exception as e:
             default = self._get_default(targeting_key, attributes)
-            return VariableResolutionDetails(name=self.name, value=default, exception=e, _reason='other_error')
+            return ResolvedVariable(name=self.name, value=default, exception=e, _reason='other_error')
 
     def _get_default(self, targeting_key: str | None = None, merged_attributes: Mapping[str, Any] | None = None) -> T:
         if is_resolve_function(self.default):
@@ -207,7 +205,7 @@ class Variable(Generic[T]):
         return result
 
 
-def _with_value(details: VariableResolutionDetails[Any], new_value: T) -> VariableResolutionDetails[T]:
+def _with_value(details: ResolvedVariable[Any], new_value: T) -> ResolvedVariable[T]:
     """Return a copy of the provided resolution details, just with a different value.
 
     Args:
@@ -215,6 +213,6 @@ def _with_value(details: VariableResolutionDetails[Any], new_value: T) -> Variab
         new_value: The new value to use.
 
     Returns:
-        A new VariableResolutionDetails with the given value.
+        A new ResolvedVariable with the given value.
     """
     return replace(details, value=new_value)

@@ -9,6 +9,7 @@ from typing import Annotated, Any, Literal
 from pydantic import Discriminator, TypeAdapter, ValidationError, field_validator, model_validator
 from typing_extensions import TypeAliasType
 
+from logfire.variables.abstract import ResolvedVariable
 from logfire.variables.variable import Variable
 
 
@@ -361,8 +362,13 @@ class RolloutOverride:
 class VariableConfig:
     """Configuration for a single managed variable including variants and rollout rules."""
 
-    name: VariableName
+    # A note on migrations:
+    # * To migrate value types, copy the variable using a new name, update the values, and use the new variable name in updated code
+    # * To migrate variable names, update the "aliases" field of the outer `VariablesConfig`
+    name: VariableName  # TODO: What restrictions should we add on allowed characters?
     """Unique name identifying this variable."""
+    description: str | None = None
+    """Description of the variable."""
     variants: dict[VariantKey, Variant]
     """Mapping of variant keys to their configurations."""
     rollout: Rollout
@@ -483,6 +489,14 @@ class VariablesConfig:
     variables: dict[VariableName, VariableConfig]
     """Mapping of variable names to their configurations."""
 
+    aliases: dict[VariableName, VariableName] | None = None
+    """Variable name aliases; useful for name migrations.
+
+    If you attempt to retrieve a variable that is not a member of the `variables` mapping, the lookup will fall back to
+    looking for the name as a key of this mapping. If present, the corresponding value will be used to look in the
+    variables mapping.
+    """
+
     @model_validator(mode='after')
     def _validate_variables(self):
         # Validate lookup keys on variants dict
@@ -490,6 +504,39 @@ class VariablesConfig:
             if v.name != k:
                 raise ValueError(f'`variables` has invalid lookup key {k!r} for value with name {v.name!r}.')
         return self
+
+    def resolve_serialized_value(
+        self, name: VariableName, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+    ) -> ResolvedVariable[str | None]:
+        """Evaluate a managed variable configuration and resolve the selected variant's serialized value."""
+        variable_config = self._get_variable_config(name)
+        if variable_config is None:
+            return ResolvedVariable(name=name, value=None, _reason='unrecognized_variable')
+
+        variant = variable_config.resolve_variant(targeting_key, attributes)
+        if variant is None:
+            return ResolvedVariable(name=variable_config.name, value=None, _reason='resolved')
+        else:
+            return ResolvedVariable(
+                name=variable_config.name, value=variant.serialized_value, variant=variant.key, _reason='resolved'
+            )
+
+    def _get_variable_config(self, name: VariableName) -> VariableConfig | None:
+        working_name: VariableName | None = name
+        config = self.variables.get(working_name)
+
+        if aliases := self.aliases:
+            visited = {working_name}
+            while config is None:
+                working_name = aliases.get(working_name)
+                if working_name is None:
+                    return None
+                if working_name in visited:
+                    return None  # alias cycle
+                visited.add(working_name)
+                config = self.variables.get(working_name)
+
+        return config
 
     def get_validation_errors(self, variables: list[Variable[Any]]) -> dict[str, dict[str | None, Exception]]:
         """Validate that all variable variants can be deserialized to their expected types.
@@ -503,7 +550,7 @@ class VariablesConfig:
         errors: dict[str, dict[str | None, Exception]] = {}
         for variable in variables:
             try:
-                config = self.variables.get(variable.name)
+                config = self._get_variable_config(variable.name)
                 if config is None:
                     raise ValueError(f'No config for variable with name {variable.name!r}')
                 for k, v in config.variants.items():

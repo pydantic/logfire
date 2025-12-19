@@ -14,7 +14,7 @@ from pydantic import BaseModel, ValidationError
 
 import logfire
 from logfire._internal.config import RemoteVariablesConfig, VariablesOptions
-from logfire.variables.abstract import NoOpVariableProvider, VariableProvider, VariableResolutionDetails
+from logfire.variables.abstract import NoOpVariableProvider, ResolvedVariable, VariableProvider
 from logfire.variables.config import (
     KeyIsNotPresent,
     KeyIsPresent,
@@ -1001,27 +1001,25 @@ class TestNoOpVariableProvider:
 
 
 # =============================================================================
-# Test VariableResolutionDetails
+# Test ResolvedVariable
 # =============================================================================
 
 
-class TestVariableResolutionDetails:
+class TestResolvedVariable:
     def test_basic_details(self):
-        details = VariableResolutionDetails(name='test_var', value='test', _reason='resolved')
+        details = ResolvedVariable(name='test_var', value='test', _reason='resolved')
         assert details.name == 'test_var'
         assert details.value == 'test'
         assert details.variant is None
         assert details.exception is None
 
     def test_with_variant(self):
-        details = VariableResolutionDetails(name='test_var', value='test', variant='v1', _reason='resolved')
+        details = ResolvedVariable(name='test_var', value='test', variant='v1', _reason='resolved')
         assert details.variant == 'v1'
 
     def test_with_exception(self):
         error = ValueError('test error')
-        details = VariableResolutionDetails(
-            name='test_var', value='default', exception=error, _reason='validation_error'
-        )
+        details = ResolvedVariable(name='test_var', value='default', exception=error, _reason='validation_error')
         assert details.exception is error
 
     def test_context_manager_sets_baggage(self, config_kwargs: dict[str, Any]):
@@ -1866,7 +1864,7 @@ class TestLogfireVarIntegration:
                 variable_name: str,
                 targeting_key: str | None = None,
                 attributes: Mapping[str, Any] | None = None,
-            ) -> VariableResolutionDetails[str | None]:
+            ) -> ResolvedVariable[str | None]:
                 raise RuntimeError('Provider failed!')
 
         lf = logfire.configure(variables=VariablesOptions(config=FailingProvider()))
