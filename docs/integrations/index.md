@@ -6,8 +6,9 @@ function call. Each of these should be called exactly once after [`logfire.confi
 For example, to instrument FastAPI and HTTPX, you would do:
 
 ```python
-import logfire
 from fastapi import FastAPI
+
+import logfire
 
 app = FastAPI()
 
@@ -104,7 +105,7 @@ Here's how you can use `logfire-api`:
 ```python
 import logfire_api as logfire
 
-logfire.info("Hello, Logfire!")
+logfire.info('Hello, Logfire!')
 ```
 
 !!! note

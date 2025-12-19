@@ -10,6 +10,7 @@ We support instrumenting both the [standard OpenAI SDK](https://github.com/opena
 
 ```python hl_lines="7"
 import openai
+
 import logfire
 
 client = openai.Client()
@@ -140,15 +141,16 @@ Shows up like this in Logfire:
 We also support instrumenting the [OpenAI "agents"](https://github.com/openai/openai-agents-python) framework.
 
 ```python hl_lines="5"
-import logfire
 from agents import Agent, Runner
+
+import logfire
 
 logfire.configure()
 logfire.instrument_openai_agents()
 
-agent = Agent(name="Assistant", instructions="You are a helpful assistant")
+agent = Agent(name='Assistant', instructions='You are a helpful assistant')
 
-result = Runner.run_sync(agent, "Write a haiku about recursion in programming.")
+result = Runner.run_sync(agent, 'Write a haiku about recursion in programming.')
 print(result.final_output)
 ```
 

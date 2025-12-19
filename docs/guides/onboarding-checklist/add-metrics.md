@@ -40,9 +40,7 @@ To create a counter metric, use the [`logfire.metric_counter`][logfire.Logfire.m
 import logfire
 
 counter = logfire.metric_counter(
-    'exceptions',
-    unit='1',  # (1)!
-    description='Number of exceptions caught'
+    'exceptions', unit='1', description='Number of exceptions caught'  # (1)!
 )
 
 try:
@@ -73,9 +71,7 @@ To create a histogram metric, use the [`logfire.metric_histogram`][logfire.Logfi
 import logfire
 
 histogram = logfire.metric_histogram(
-    'request_duration',
-    unit='ms',  # (1)!
-    description='Duration of requests'
+    'request_duration', unit='ms', description='Duration of requests'  # (1)!
 )
 
 for duration in [10, 20, 30, 40, 50]:

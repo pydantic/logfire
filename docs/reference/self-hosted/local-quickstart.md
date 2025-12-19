@@ -160,8 +160,8 @@ After creating your user, your project and your write token, you can start sendi
 import logfire
 
 logfire.configure(
-  advanced=logfire.AdvancedOptions(base_url='http://localhost:8080'),
-  token='__YOUR_LOGFIRE_WRITE_TOKEN__'
+    advanced=logfire.AdvancedOptions(base_url='http://localhost:8080'),
+    token='__YOUR_LOGFIRE_WRITE_TOKEN__',
 )
 logfire.info('Hello, {place}!', place='World')
 ```

@@ -21,19 +21,37 @@ import logfire
 
 logfire.configure(scrubbing=logfire.ScrubbingOptions(extra_patterns=['my_pattern']))
 
-logfire.info('Hello', data={
-    'key_matching_my_pattern': 'This string will be redacted because its key matches',
-    'other_key': 'This string will also be redacted because it matches MY_PATTERN case-insensitively',
-    'password': 'This will be redacted because custom patterns are combined with the default patterns',
-})
+logfire.info(
+    'Hello',
+    data={
+        'key_matching_my_pattern': 'This string will be redacted because its key matches',
+        'other_key': 'This string will also be redacted because it matches MY_PATTERN case-insensitively',
+        'password': 'This will be redacted because custom patterns are combined with the default patterns',
+    },
+)
 ```
 
 Here are the default scrubbing patterns:
 
 ```python
-['password', 'passwd', 'mysql_pwd', 'secret', 'auth(?!ors?\\b)', 'credential', 'private[._ -]?key', 'api[._ -]?key',
- 'session', 'cookie', 'social[._ -]?security', 'credit[._ -]?card', '(?:\\b|_)csrf(?:\\b|_)', '(?:\\b|_)xsrf(?:\\b|_)',
- '(?:\\b|_)jwt(?:\\b|_)', '(?:\\b|_)ssn(?:\\b|_)']
+[
+    'password',
+    'passwd',
+    'mysql_pwd',
+    'secret',
+    'auth(?!ors?\\b)',
+    'credential',
+    'private[._ -]?key',
+    'api[._ -]?key',
+    'session',
+    'cookie',
+    'social[._ -]?security',
+    'credit[._ -]?card',
+    '(?:\\b|_)csrf(?:\\b|_)',
+    '(?:\\b|_)xsrf(?:\\b|_)',
+    '(?:\\b|_)jwt(?:\\b|_)',
+    '(?:\\b|_)ssn(?:\\b|_)',
+]
 ```
 
 ## Scrubbing less with a callback

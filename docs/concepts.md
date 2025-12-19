@@ -43,6 +43,7 @@ In this example:
 
 ```py
 from pathlib import Path
+
 import logfire
 
 logfire.configure()

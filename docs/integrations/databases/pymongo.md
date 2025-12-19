@@ -33,16 +33,17 @@ The following script connects to a MongoDB database, inserts a document, and que
 === "Sync"
 
     ```py
-    import logfire
     from pymongo import MongoClient
+
+    import logfire
 
     logfire.configure()
     logfire.instrument_pymongo()
 
     client = MongoClient()
-    db = client["database"]
-    collection = db["collection"]
-    collection.insert_one({"name": "MongoDB"})
+    db = client['database']
+    collection = db['collection']
+    collection.insert_one({'name': 'MongoDB'})
     collection.find_one()
     ```
 

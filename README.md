@@ -50,8 +50,9 @@ logfire auth
 Here's a simple manual tracing (aka logging) example:
 
 ```python
-import logfire
 from datetime import date
+
+import logfire
 
 logfire.configure()
 logfire.info('Hello, {name}!', name='world')

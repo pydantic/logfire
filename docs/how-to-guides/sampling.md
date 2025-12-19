@@ -113,7 +113,9 @@ example, this script:
 ```python
 import logfire
 
-logfire.configure(sampling=logfire.SamplingOptions.level_or_duration(background_rate=0.3))
+logfire.configure(
+    sampling=logfire.SamplingOptions.level_or_duration(background_rate=0.3)
+)
 
 for x in range(10):
     logfire.info(f'info {x}')

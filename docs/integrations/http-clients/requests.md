@@ -16,13 +16,14 @@ Install `logfire` with the `requests` extra:
 ## Usage
 
 ```py title="main.py"
-import logfire
 import requests
+
+import logfire
 
 logfire.configure()
 logfire.instrument_requests()
 
-requests.get("https://httpbin.org/get")
+requests.get('https://httpbin.org/get')
 ```
 
 [`logfire.instrument_requests()`][logfire.Logfire.instrument_requests] uses the

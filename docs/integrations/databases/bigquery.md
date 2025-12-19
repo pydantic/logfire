@@ -18,7 +18,7 @@ and all the extra dependencies are already included with **Logfire** by default,
     import logfire
 
     logfire.configure()
-    logfire.suppress_scopes("google.cloud.bigquery.opentelemetry_tracing")
+    logfire.suppress_scopes('google.cloud.bigquery.opentelemetry_tracing')
     ```
 
 

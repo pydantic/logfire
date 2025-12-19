@@ -62,7 +62,7 @@ logfire.configure()
 basicConfig(handlers=[logfire.LogfireLoggingHandler()])
 
 logger = getLogger(__name__)
-logger.error("Hello %s!", "Fred")
+logger.error('Hello %s!', 'Fred')
 ```
 
 If we run the above code, with `python main.py`, we will see the following output:

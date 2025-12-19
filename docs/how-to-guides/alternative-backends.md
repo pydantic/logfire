@@ -42,7 +42,6 @@ logfire.configure(
     # Setting a service name is good practice in general, but especially
     # important for Jaeger, otherwise spans will be labeled as 'unknown_service'
     service_name='my_logfire_service',
-
     # Sending to Logfire is on by default regardless of the OTEL env vars.
     # Keep this line here if you don't want to send to both Jaeger and Logfire.
     send_to_logfire=False,

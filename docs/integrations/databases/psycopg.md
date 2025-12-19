@@ -43,8 +43,9 @@ This command will create a PostgreSQL database, that you can connect with `postg
 The following Python script connects to the PostgreSQL database and executes some SQL queries:
 
 ```py
-import logfire
 import psycopg
+
+import logfire
 
 logfire.configure()
 
@@ -106,7 +107,10 @@ e.g:
 import logfire
 
 logfire.configure()
-logfire.instrument_psycopg(enable_commenter=True, commenter_options={'db_driver': False, 'dbapi_threadsafety': False})
+logfire.instrument_psycopg(
+    enable_commenter=True,
+    commenter_options={'db_driver': False, 'dbapi_threadsafety': False},
+)
 ```
 
 ## API Reference

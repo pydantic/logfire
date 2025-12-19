@@ -40,8 +40,9 @@ In this case, you'll need to call [`logfire.instrument_requests()`][requests-sec
 ```py
 import os
 
-import logfire
 from stripe import StripeClient
+
+import logfire
 
 logfire.configure()
 logfire.instrument_requests()
@@ -93,8 +94,9 @@ Stripe also has a logger (`logger = getLogger('stripe')`) that [you can instrume
 import os
 from logging import basicConfig
 
-import logfire
 from stripe import StripeClient
+
+import logfire
 
 logfire.configure()
 basicConfig(handlers=[logfire.LogfireLoggingHandler()], level='INFO')

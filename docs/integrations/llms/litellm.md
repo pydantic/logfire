@@ -26,7 +26,7 @@ response = litellm.completion(
     messages=[{'role': 'user', 'content': 'Hi'}],
 )
 print(response.choices[0].message.content)
-# > Hello! How can I assist you today?
+#> Hello! How can I assist you today?
 ```
 
 !!! warning

@@ -13,6 +13,7 @@ with logfire.span('parent'):
     ctx = logfire.get_context()
 
 print(ctx)
+#> {'traceparent': '00-019b37d0a70ceb3c7f1690689cd83b9c-caa885b29b64d7e0-01'}
 
 # Attach the context in another execution environment
 with logfire.attach_context(ctx):

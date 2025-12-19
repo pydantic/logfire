@@ -81,13 +81,14 @@ You can capture all information (headers and bodies) by setting the `capture_all
 
 ```py
 import httpx
+
 import logfire
 
 logfire.configure()
 logfire.instrument_httpx(capture_all=True)
 
 client = httpx.Client()
-client.post("https://httpbin.org/post", json={"key": "value"})
+client.post('https://httpbin.org/post', json={'key': 'value'})
 ```
 
 ### Capture HTTP Headers
@@ -96,13 +97,14 @@ By default, **Logfire** doesn't capture HTTP headers. You can enable it by setti
 
 ```py
 import httpx
+
 import logfire
 
 logfire.configure()
 logfire.instrument_httpx(capture_headers=True)
 
 client = httpx.Client()
-client.get("https://httpbin.org/get")
+client.get('https://httpbin.org/get')
 ```
 
 #### Capture Only Request Headers
@@ -169,6 +171,7 @@ To capture bodies, you can set the `capture_request_body` and `capture_response_
 
 ```py
 import httpx
+
 import logfire
 
 logfire.configure()
@@ -178,7 +181,7 @@ logfire.instrument_httpx(
 )
 
 client = httpx.Client()
-client.post("https://httpbin.org/post", data="Hello, World!")
+client.post('https://httpbin.org/post', data='Hello, World!')
 ```
 
 [httpx]: https://www.python-httpx.org/

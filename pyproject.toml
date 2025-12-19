@@ -183,6 +183,7 @@ dev = [
     "litellm != 1.80.9",
     "pip >= 0",
     "surrealdb >= 0",
+    "pytest-examples>=0.0.18",
 ]
 docs = [
     "black>=23.12.0",
@@ -258,7 +259,7 @@ convention = "google"
 "logfire-api/logfire_api/**/*.py" = ["D"]
 
 [tool.ruff.format]
-docstring-code-format = true
+docstring-code-format = false  # pytest-examples handles this
 quote-style = "single"
 
 [tool.pyright]
@@ -273,6 +274,9 @@ venv = ".venv"
 xfail_strict = true
 # The langsmith pytest plugin messes with test_langchain.py
 addopts = "-p no:langsmith_plugin"
+markers = [
+    "examples: marks tests as documentation example tests",
+]
 filterwarnings = [
     "error",
     # fastapi uses deprecated pydantic functions

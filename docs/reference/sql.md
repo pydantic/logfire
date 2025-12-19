@@ -124,7 +124,9 @@ logfire.configure()
 with logfire.span('foo') as span:
     trace_id = span.get_span_context().trace_id
     print(trace_id)
+    #> 2135166073838151478072336889058305981
     print(format_trace_id(trace_id))
+    #> 019b37d0ab3be2a042538ab3fb9227bd
 ```
 
 will print something like:

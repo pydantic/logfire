@@ -7,8 +7,9 @@ integration: logfire
 **Logfire** can act as a sink for [Loguru][loguru] by emitting a **Logfire** log for every log record. For example:
 
 ```py title="main.py"
-import logfire
 from loguru import logger
+
+import logfire
 
 logfire.configure()
 

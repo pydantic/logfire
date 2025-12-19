@@ -45,7 +45,7 @@ Logfire provides both synchronous and asynchronous clients.
 To use these clients, you can import them from the `query_client` namespace:
 
 ```python
-from logfire.query_client import AsyncLogfireQueryClient, LogfireQueryClient
+
 ```
 
 !!! note "Additional required dependencies"
@@ -195,20 +195,20 @@ LIMIT 1
 """
 
 # Prepare the query parameters for the GET request
-params = {
-    'sql': query
-}
+params = {'sql': query}
 
 # Send the GET request to the Logfire API
 response = requests.get(f'{base_url}/v1/query', params=params, headers=headers)
 
 # Check the response status
 if response.status_code == 200:
-    print("Query Successful!")
+    print('Query Successful!')
     print(response.json())
 else:
-    print(f"Failed to execute query. Status code: {response.status_code}")
+    print(f'Failed to execute query. Status code: {response.status_code}')
+    #> Failed to execute query. Status code: 401
     print(response.text)
+    #> {"detail":"Invalid token"}
 ```
 
 ### Additional Configuration

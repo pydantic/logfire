@@ -8,6 +8,7 @@ integration: logfire
 
 ```python hl_lines="7"
 import anthropic
+
 import logfire
 
 client = anthropic.Anthropic()
@@ -20,7 +21,9 @@ response = client.messages.create(
     max_tokens=1000,
     model='claude-3-haiku-20240307',
     system='You are a helpful assistant.',
-    messages=[{'role': 'user', 'content': 'Please write me a limerick about Python logging.'}],
+    messages=[
+        {'role': 'user', 'content': 'Please write me a limerick about Python logging.'}
+    ],
 )
 print(response.content[0].text)
 ```
@@ -107,6 +110,7 @@ You can also log Anthropic LLM calls to Amazon Bedrock using the `AnthropicBedro
 
 ```python
 import anthropic
+
 import logfire
 
 client = anthropic.AnthropicBedrock(
