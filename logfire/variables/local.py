@@ -3,7 +3,7 @@ from __future__ import annotations as _annotations
 from collections.abc import Mapping
 from typing import Any, Callable
 
-from logfire.variables.abstract import VariableProvider, VariableResolutionDetails
+from logfire.variables.abstract import ResolvedVariable, VariableProvider
 from logfire.variables.config import VariablesConfig
 
 __all__ = ('LocalVariableProvider',)
@@ -37,7 +37,7 @@ class LocalVariableProvider(VariableProvider):
         variable_name: str,
         targeting_key: str | None = None,
         attributes: Mapping[str, Any] | None = None,
-    ) -> VariableResolutionDetails[str | None]:
+    ) -> ResolvedVariable[str | None]:
         """Resolve a variable's serialized value from the local configuration.
 
         Args:
@@ -46,19 +46,6 @@ class LocalVariableProvider(VariableProvider):
             attributes: Optional attributes for condition-based targeting rules.
 
         Returns:
-            A VariableResolutionDetails containing the serialized value (or None if not found).
+            A ResolvedVariable containing the serialized value (or None if not found).
         """
-        variables_config = self.get_config()
-
-        # TODO: Move the following down to a method on VariablesConfig
-        variable_config = variables_config.variables.get(variable_name)
-        if variable_config is None:
-            return VariableResolutionDetails(name=variable_name, value=None, _reason='unrecognized_variable')
-
-        variant = variable_config.resolve_variant(targeting_key, attributes)
-        if variant is None:
-            return VariableResolutionDetails(name=variable_name, value=None, _reason='resolved')
-        else:
-            return VariableResolutionDetails(
-                name=variable_name, value=variant.serialized_value, variant=variant.key, _reason='resolved'
-            )
+        return self.get_config().resolve_serialized_value(variable_name, targeting_key, attributes)

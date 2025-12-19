@@ -3,7 +3,7 @@
 from importlib.util import find_spec
 from typing import TYPE_CHECKING
 
-from logfire.variables.abstract import NoOpVariableProvider, VariableProvider, VariableResolutionDetails
+from logfire.variables.abstract import NoOpVariableProvider, ResolvedVariable, VariableProvider
 
 if TYPE_CHECKING:
     # We use a TYPE_CHECKING block here because we need to do these imports lazily to prevent issues due to loading the
@@ -50,7 +50,7 @@ __all__ = [
     'Variable',
     'VariableConfig',
     'VariableProvider',
-    'VariableResolutionDetails',
+    'ResolvedVariable',
     'VariablesConfig',
     'Variant',
 ]
