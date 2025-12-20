@@ -116,7 +116,7 @@ So this regex will only match routes that have no path after the host.
 
 This instrumentation might look like:
 
-```py
+```py skip-run="true" skip-reason="server-start"
 from fastapi import FastAPI
 
 import logfire

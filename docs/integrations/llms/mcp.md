@@ -16,7 +16,7 @@ pip install mcp 'pydantic-ai-slim[openai]'
 
 Next, run the server script below:
 
-```python title="server.py"
+```python title="server.py" skip-run="true" skip-reason="external-connection"
 from mcp.server.fastmcp import FastMCP
 
 import logfire
@@ -38,7 +38,7 @@ app.run(transport='streamable-http')
 
 Then run this client script in another terminal:
 
-```python title="agent.py"
+```python title="agent.py" skip-run="true" skip-reason="external-connection"
 from pydantic_ai import Agent
 from pydantic_ai.mcp import MCPServerStreamableHTTP
 

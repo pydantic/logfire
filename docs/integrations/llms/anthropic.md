@@ -6,8 +6,9 @@ integration: logfire
 **Logfire** supports instrumenting calls to [Anthropic](https://github.com/anthropics/anthropic-sdk-python) with the [`logfire.instrument_anthropic()`][logfire.Logfire.instrument_anthropic] method, for example:
 
 
-```python hl_lines="7"
+```python hl_lines="7" skip-run="true" skip-reason="external-connection"
 import anthropic
+
 import logfire
 
 client = anthropic.Anthropic()
@@ -58,12 +59,13 @@ around the streamed response.
 
 Here we also use Rich's [`Live`][rich.live.Live] and [`Markdown`][rich.markdown.Markdown] types to render the response in the terminal in real-time. :dancer:
 
-```python
+```python skip-run="true" skip-reason="external-connection"
 import anthropic
-import logfire
 from rich.console import Console
 from rich.live import Live
 from rich.markdown import Markdown
+
+import logfire
 
 client = anthropic.AsyncAnthropic()
 logfire.configure()
@@ -105,8 +107,9 @@ Shows up like this in Logfire:
 
 You can also log Anthropic LLM calls to Amazon Bedrock using the `AnthropicBedrock` and `AsyncAnthropicBedrock` clients.
 
-```python
+```python skip-run="true" skip-reason="external-connection"
 import anthropic
+
 import logfire
 
 client = anthropic.AnthropicBedrock(

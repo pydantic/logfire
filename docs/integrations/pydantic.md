@@ -19,7 +19,7 @@ pydantic_plugin_record = "all"
 
 - Call [`logfire.instrument_pydantic`][logfire.Logfire.instrument_pydantic] with the desired configuration, e.g:
 
-```py
+```py skip-run="true" skip-reason="global-instrumentation"
 import logfire
 
 logfire.instrument_pydantic()  # Defaults to record='all'
@@ -38,14 +38,18 @@ will be instrumented.
 By default, third party modules are not instrumented by the plugin to avoid noise. You can enable instrumentation for those
 using the [`include`][logfire.PydanticPlugin.include] configuration.
 
-```py
+```py skip-run="true" skip-reason="global-instrumentation"
+import logfire
+
 logfire.instrument_pydantic(include={'openai'})
 ```
 
 You can also disable instrumentation for your own modules using the
 [`exclude`][logfire.PydanticPlugin.exclude] configuration.
 
-```py
+```py skip-run="true" skip-reason="global-instrumentation"
+import logfire
+
 logfire.instrument_pydantic(exclude={'app.api.v1'})
 ```
 
@@ -55,12 +59,12 @@ If you want more granular control over the plugin, you can use the
 [`plugin_settings`][pydantic.config.ConfigDict.plugin_settings] class parameter in your Pydantic models.
 
 ```py
-from logfire.integrations.pydantic import PluginSettings
 from pydantic import BaseModel
 
+from logfire.integrations.pydantic import PluginSettings
 
-class Foo(BaseModel, plugin_settings=PluginSettings(logfire={'record': 'failure'})):
-    ...
+
+class Foo(BaseModel, plugin_settings=PluginSettings(logfire={'record': 'failure'})): ...
 ```
 
 ### Record
@@ -81,8 +85,7 @@ It can be one of the following values:
 from pydantic import BaseModel
 
 
-class Foo(BaseModel, plugin_settings={'logfire': {'record': 'all', 'trace_sample_rate': 0.4}}):
-    ...
+class Foo(BaseModel, plugin_settings={'logfire': {'record': 'all', 'trace_sample_rate': 0.4}}): ...
 ```
 -->
 
@@ -96,10 +99,7 @@ adding the [`tags`][logfire.integrations.pydantic.LogfireSettings.tags] key in
 from pydantic import BaseModel
 
 
-class Foo(
-  BaseModel,
-  plugin_settings={'logfire': {'record': 'all', 'tags': ('tag1', 'tag2')}}
-):
+class Foo(BaseModel, plugin_settings={'logfire': {'record': 'all', 'tags': ('tag1', 'tag2')}}): ...
 ```
 
 [pydantic]: https://docs.pydantic.dev/latest/

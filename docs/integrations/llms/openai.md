@@ -8,8 +8,9 @@ We support instrumenting both the [standard OpenAI SDK](https://github.com/opena
 
 **Logfire** supports instrumenting calls to OpenAI with the [`logfire.instrument_openai()`][logfire.Logfire.instrument_openai] method, for example:
 
-```python hl_lines="7"
+```python hl_lines="7" skip-run="true" skip-reason="external-connection"
 import openai
+
 import logfire
 
 client = openai.Client()
@@ -58,9 +59,11 @@ All methods are covered with both `openai.Client` and `openai.AsyncClient`.
 
 For example, here's instrumentation of an image generation call:
 
-```python
+```python skip-run="true" skip-reason="external-connection"
 import openai
+
 import logfire
+
 
 async def main():
     client = openai.AsyncClient()
@@ -73,10 +76,13 @@ async def main():
     )
     url = response.data[0].url
     import webbrowser
+
     webbrowser.open(url)
+
 
 if __name__ == '__main__':
     import asyncio
+
     asyncio.run(main())
 ```
 
@@ -94,16 +100,18 @@ around the streamed response.
 
 Here we also use Rich's [`Live`][rich.live.Live] and [`Markdown`][rich.markdown.Markdown] types to render the response in the terminal in real-time. :dancer:
 
-```python
+```python skip-run="true" skip-reason="external-connection"
 import openai
-import logfire
 from rich.console import Console
 from rich.live import Live
 from rich.markdown import Markdown
 
+import logfire
+
 client = openai.AsyncClient()
 logfire.configure()
 logfire.instrument_openai(client)
+
 
 async def main():
     console = Console()
@@ -114,7 +122,7 @@ async def main():
                 {'role': 'system', 'content': 'Reply in markdown one.'},
                 {'role': 'user', 'content': 'Write Python to show a tree of files 🤞.'},
             ],
-            stream=True
+            stream=True,
         )
         content = ''
         with Live('', refresh_per_second=15, console=console) as live:
@@ -123,8 +131,10 @@ async def main():
                     content += chunk.choices[0].delta.content
                     live.update(Markdown(content))
 
+
 if __name__ == '__main__':
     import asyncio
+
     asyncio.run(main())
 ```
 
@@ -139,16 +149,17 @@ Shows up like this in Logfire:
 
 We also support instrumenting the [OpenAI "agents"](https://github.com/openai/openai-agents-python) framework.
 
-```python hl_lines="5"
-import logfire
+```python hl_lines="5" skip-run="true" skip-reason="external-connection"
 from agents import Agent, Runner
+
+import logfire
 
 logfire.configure()
 logfire.instrument_openai_agents()
 
-agent = Agent(name="Assistant", instructions="You are a helpful assistant")
+agent = Agent(name='Assistant', instructions='You are a helpful assistant')
 
-result = Runner.run_sync(agent, "Write a haiku about recursion in programming.")
+result = Runner.run_sync(agent, 'Write a haiku about recursion in programming.')
 print(result.final_output)
 ```
 
@@ -163,12 +174,12 @@ Which shows up like this in Logfire:
 
 In this example we add a function tool to the agents:
 
-```python
+```python skip-run="true" skip-reason="external-connection"
+from agents import Agent, RunContextWrapper, Runner, function_tool
+from httpx import AsyncClient
 from typing_extensions import TypedDict
 
 import logfire
-from httpx import AsyncClient
-from agents import RunContextWrapper, Agent, function_tool, Runner
 
 logfire.configure()
 logfire.instrument_openai_agents()
@@ -203,6 +214,7 @@ async def main():
 
 if __name__ == '__main__':
     import asyncio
+
     asyncio.run(main())
 ```
 

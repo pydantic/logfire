@@ -27,6 +27,7 @@ logfire.configure()  # (1)!
 def handler(event, context):
     return 'Hello from Lambda'
 
+
 logfire.instrument_aws_lambda(handler)
 ```
 

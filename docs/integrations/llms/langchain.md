@@ -13,7 +13,7 @@ LANGSMITH_TRACING=true
 
 Here's a complete example using LangGraph:
 
-```python
+```python skip-run="true" skip-reason="external-connection"
 import os
 
 import logfire

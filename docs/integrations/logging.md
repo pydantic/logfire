@@ -9,7 +9,7 @@ every standard library log record.
 
 === "Using [`basicConfig()`][logging.basicConfig]"
 
-    ```py title="main.py"
+    ```py title="main.py" skip-run="true" skip-reason="global-state"
     from logging import basicConfig, getLogger
 
     import logfire
@@ -19,34 +19,36 @@ every standard library log record.
 
     logger = getLogger(__name__)
 
-    logger.error("Hello %s!", "Fred")
+    logger.error('Hello %s!', 'Fred')
     # 10:05:06.855 Hello Fred!
     ```
 
 === "Using [`dictConfig()`][logging.config.dictConfig]"
 
-    ```py title="main.py"
+    ```py title="main.py" skip-run="true" skip-reason="global-state"
     from logging import getLogger
     from logging.config import dictConfig
 
     import logfire
 
     logfire.configure()
-    dictConfig({
-        'version': 1,
-        'handlers': {
-            'logfire': {
-                'class': 'logfire.LogfireLoggingHandler',
+    dictConfig(
+        {
+            'version': 1,
+            'handlers': {
+                'logfire': {
+                    'class': 'logfire.LogfireLoggingHandler',
+                },
             },
-        },
-        'root': {
-            'handlers': ['logfire'],
-        },
-    })
+            'root': {
+                'handlers': ['logfire'],
+            },
+        }
+    )
 
     logger = getLogger(__name__)
 
-    logger.error("Hello %s!", "Fred")
+    logger.error('Hello %s!', 'Fred')
     # 10:05:06.855 Hello Fred!
     ```
 
@@ -67,7 +69,7 @@ Let's see an example with the [`apscheduler`](https://apscheduler.readthedocs.io
 ```py title="main.py"
 import logging
 
-logger = logging.getLogger("apscheduler")
+logger = logging.getLogger('apscheduler')
 logger.setLevel(logging.WARNING)
 ```
 
@@ -84,9 +86,9 @@ To disable such logs, a [filter](https://docs.python.org/3/library/logging.html#
 
 === "Using [`basicConfig()`][logging.basicConfig]"
 
-    ```py title="main.py"
+    ```py title="main.py" skip-run="true" skip-reason="global-state"
     import logging
-    from logging import DEBUG, basicConfig, getLogger
+    from logging import DEBUG, basicConfig
 
     import logfire
 
@@ -103,7 +105,7 @@ To disable such logs, a [filter](https://docs.python.org/3/library/logging.html#
 
 === "Using [`dictConfig()`][logging.config.dictConfig]"
 
-    ```py title="main.py"
+    ```py title="main.py" skip-run="true" skip-reason="global-state"
     import logging
     from logging.config import dictConfig
 
@@ -118,19 +120,21 @@ To disable such logs, a [filter](https://docs.python.org/3/library/logging.html#
     # (by default, writing to `sys.stderr`):
     fallback.addFilter(lambda record: not urllib3_filter.filter(record))
 
-    dictConfig({
-        'version': 1,
-        'disable_existing_loggers': False,
-        'handlers': {
-            'logfire': {
-                'class': 'logfire.LogfireLoggingHandler',
-                'level': 'DEBUG',
-                'fallback': fallback,
+    dictConfig(
+        {
+            'version': 1,
+            'disable_existing_loggers': False,
+            'handlers': {
+                'logfire': {
+                    'class': 'logfire.LogfireLoggingHandler',
+                    'level': 'DEBUG',
+                    'fallback': fallback,
+                },
             },
-        },
-        'root': {
-            'handlers': ['logfire'],
-            'level': 'DEBUG',
-        },
-    })
+            'root': {
+                'handlers': ['logfire'],
+                'level': 'DEBUG',
+            },
+        }
+    )
     ```

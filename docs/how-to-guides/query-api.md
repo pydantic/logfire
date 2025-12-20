@@ -44,7 +44,7 @@ we provide Python clients to simplify the process of interacting with the API fr
 Logfire provides both synchronous and asynchronous clients.
 To use these clients, you can import them from the `query_client` namespace:
 
-```python
+```python skip="true" skip-reason="incomplete"
 from logfire.query_client import AsyncLogfireQueryClient, LogfireQueryClient
 ```
 
@@ -64,10 +64,11 @@ Here's an example of how to use these clients:
 
 === "Async"
 
-    ```python
+    ```python skip-run="true" skip-reason="external-connection"
     from io import StringIO
 
     import polars as pl
+
     from logfire.query_client import AsyncLogfireQueryClient
 
 
@@ -112,10 +113,11 @@ Here's an example of how to use these clients:
 
 === "Sync"
 
-    ```python
+    ```python skip-run="true" skip-reason="external-connection"
     from io import StringIO
 
     import polars as pl
+
     from logfire.query_client import LogfireQueryClient
 
 
@@ -177,7 +179,7 @@ You can also use the `Accept` header to specify the desired format for the respo
 
 ### Example: Using Python `requests` Library
 
-```python
+```python skip-run="true" skip-reason="external-connection"
 import requests
 
 # Define the base URL and your read token
@@ -195,20 +197,20 @@ LIMIT 1
 """
 
 # Prepare the query parameters for the GET request
-params = {
-    'sql': query
-}
+params = {'sql': query}
 
 # Send the GET request to the Logfire API
 response = requests.get(f'{base_url}/v1/query', params=params, headers=headers)
 
 # Check the response status
 if response.status_code == 200:
-    print("Query Successful!")
+    print('Query Successful!')
     print(response.json())
 else:
-    print(f"Failed to execute query. Status code: {response.status_code}")
+    print(f'Failed to execute query. Status code: {response.status_code}')
+    #> Failed to execute query. Status code: 401
     print(response.text)
+    #> {"detail":"Invalid token"}
 ```
 
 ### Additional Configuration
