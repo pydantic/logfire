@@ -16,7 +16,7 @@ Let's see a minimal example below. You can run it with `python main.py`:
 
 === "Instrument a Single Engine"
 
-    ```py title="main.py"
+    ```py title="main.py" skip-run="true" skip-reason="global-state"
     from sqlalchemy import create_engine
 
     import logfire
@@ -29,7 +29,7 @@ Let's see a minimal example below. You can run it with `python main.py`:
 
 === "Instrument Multiple Engines"
 
-    ```py title="main.py"
+    ```py title="main.py" skip-run="true" skip-reason="global-state"
     from sqlalchemy import create_engine
 
     import logfire

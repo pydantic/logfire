@@ -5,6 +5,8 @@ import os
 import pytest
 from pytest_examples import CodeExample, EvalExample, find_examples
 
+import logfire
+
 # Prevent accidental live API calls during testing
 os.environ.setdefault('LOGFIRE_SEND_TO_LOGFIRE', 'false')
 
@@ -13,6 +15,15 @@ ruff_ignore = [
     'D102',  # ignore missing docstring in public methods
     'D103',  # ignore missing docstring in public functions
 ]
+
+
+# Override the autouse fixtures from conftest.py to prevent them from
+# interfering with doc examples. Doc examples call their own logfire.configure()
+# and we don't want them to pollute the test exporter state.
+@pytest.fixture(autouse=True)
+def config():
+    """Override the conftest config fixture - doc examples configure themselves."""
+    logfire.configure(send_to_logfire=False, console=False)
 
 
 def get_skip_reason(example: CodeExample):

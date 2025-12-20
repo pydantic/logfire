@@ -24,7 +24,7 @@ You can either instrument the `sqlite3` module or instrument a specific connecti
 
 Here's an example of instrumenting the [`sqlite3`][sqlite3] module:
 
-```py title="main.py" hl_lines="6"
+```py title="main.py" hl_lines="6" skip-run="true" skip-reason="global-state"
 import sqlite3
 
 import logfire
@@ -49,7 +49,7 @@ connection.close()
 
 As mentioned, you can also instrument a specific connection. Here's an example:
 
-```py title="main.py" hl_lines="8"
+```py title="main.py" hl_lines="8" skip-run="true" skip-reason="global-state"
 import sqlite3
 
 import logfire
