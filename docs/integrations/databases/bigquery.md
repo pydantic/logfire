@@ -24,7 +24,7 @@ and all the extra dependencies are already included with **Logfire** by default,
 
 Let's see an example:
 
-```python
+```python skip-run="true" skip-reason="external-connection"
 from google.cloud import bigquery
 
 import logfire

@@ -17,7 +17,7 @@ Install `logfire` with the `wsgi` extra:
 
 Below we have a minimal example using the standard library [`wsgiref`][wsgiref]. You can run it with `python main.py`:
 
-```py title="main.py"
+```py title="main.py" skip-run="true" skip-reason="server-start"
 from wsgiref.simple_server import make_server
 
 import logfire
@@ -34,6 +34,7 @@ app = logfire.instrument_wsgi(app)
 
 with make_server('', 8000, app) as httpd:
     print('Serving on port 8000...')
+    #> Serving on port 8000...
 
     # Serve until process is killed
     httpd.serve_forever()

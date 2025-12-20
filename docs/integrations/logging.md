@@ -9,7 +9,7 @@ every standard library log record.
 
 === "Using [`basicConfig()`][logging.basicConfig]"
 
-    ```py title="main.py"
+    ```py title="main.py" skip-run="true" skip-reason="global-state"
     from logging import basicConfig, getLogger
 
     import logfire
@@ -25,7 +25,7 @@ every standard library log record.
 
 === "Using [`dictConfig()`][logging.config.dictConfig]"
 
-    ```py title="main.py"
+    ```py title="main.py" skip-run="true" skip-reason="global-state"
     from logging import getLogger
     from logging.config import dictConfig
 
@@ -86,7 +86,7 @@ To disable such logs, a [filter](https://docs.python.org/3/library/logging.html#
 
 === "Using [`basicConfig()`][logging.basicConfig]"
 
-    ```py title="main.py"
+    ```py title="main.py" skip-run="true" skip-reason="global-state"
     import logging
     from logging import DEBUG, basicConfig
 
@@ -105,7 +105,7 @@ To disable such logs, a [filter](https://docs.python.org/3/library/logging.html#
 
 === "Using [`dictConfig()`][logging.config.dictConfig]"
 
-    ```py title="main.py"
+    ```py title="main.py" skip-run="true" skip-reason="global-state"
     import logging
     from logging.config import dictConfig
 

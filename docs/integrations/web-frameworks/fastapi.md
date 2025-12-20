@@ -23,7 +23,7 @@ pip install uvicorn
 
 You can run it with `python main.py`:
 
-```py title="main.py" hl_lines="6-7"
+```py title="main.py" hl_lines="6-7" skip-run="true" skip-reason="server-start"
 from fastapi import FastAPI
 
 import logfire
@@ -62,7 +62,7 @@ This function will be called with the `Request` or `WebSocket` object
 and a dictionary containing keys `values` and `errors` corresponding to the attributes above.
 It should return a new dictionary of attributes. For example:
 
-```py
+```py skip-run="true" skip-reason="server-start"
 import logfire
 
 app = ...

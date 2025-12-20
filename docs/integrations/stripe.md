@@ -11,7 +11,7 @@ The stripe Python client has both synchronous and asynchronous methods for makin
 By default, the stripe client uses the `requests` package for making synchronous requests and
 the `httpx` package for making asynchronous requests.
 
-```py
+```py skip-run="true" skip-reason="external-connection"
 from stripe import StripeClient
 
 client = StripeClient(api_key='<your_secret_key>')
@@ -39,7 +39,7 @@ As mentioned, by default, `stripe` uses the `requests` package for making HTTP r
 
 In this case, you'll need to call [`logfire.instrument_requests()`][requests-section].
 
-```py
+```py skip-run="true" skip-reason="external-connection"
 import os
 
 from stripe import StripeClient
@@ -64,7 +64,7 @@ As mentioned, by default, `stripe` uses the `httpx` package for making asynchron
 
 In this case, you'll need to call [`logfire.instrument_httpx()`][httpx-section].
 
-```py
+```py skip-run="true" skip-reason="external-connection"
 import asyncio
 import os
 
@@ -95,7 +95,7 @@ if __name__ == '__main__':
 
 Stripe also has a logger (`logger = getLogger('stripe')`) that [you can instrument with **Logfire**][logging-section].
 
-```py hl_lines="8"
+```py skip-run="true" skip-reason="external-connection" hl_lines="8"
 import os
 from logging import basicConfig
 

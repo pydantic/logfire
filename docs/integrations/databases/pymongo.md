@@ -32,7 +32,7 @@ The following script connects to a MongoDB database, inserts a document, and que
 
 === "Sync"
 
-    ```py
+    ```py skip-run="true" skip-reason="external-connection"
     from pymongo import MongoClient
 
     import logfire
@@ -49,7 +49,7 @@ The following script connects to a MongoDB database, inserts a document, and que
 
 === "Async"
 
-    ```py
+    ```py skip-run="true" skip-reason="external-connection"
     import asyncio
 
     from motor.motor_asyncio import AsyncIOMotorClient

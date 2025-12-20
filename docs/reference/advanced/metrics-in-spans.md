@@ -58,7 +58,7 @@ Generative AI instrumentations like [Pydantic AI](../../integrations/llms/pydant
 
 Here’s an example:
 
-```py
+```py skip-run="true" skip-reason="non-deterministic"
 from pydantic_ai import Agent
 
 import logfire

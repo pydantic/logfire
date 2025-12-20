@@ -10,7 +10,7 @@ call execution, and [other features](https://magentic.dev/#features).
 Magentic instrumentation requires no additional setup beyond configuring **Logfire** itself.
 You might also want to enable the [OpenAI](../llms/openai.md) and/or [Anthropic](../llms/anthropic.md) integrations.
 
-```python hl_lines="3 8 9"
+```python hl_lines="3 8 9" skip-run="true" skip-reason="external-connection"
 from __future__ import annotations
 
 from typing import Annotated

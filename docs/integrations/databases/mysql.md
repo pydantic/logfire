@@ -37,7 +37,7 @@ The command above will create a MySQL database, that you can connect with `mysql
 
 The following Python script connects to the MySQL database and executes some SQL queries:
 
-```py
+```py skip-run="true" skip-reason="external-connection"
 import mysql.connector
 
 import logfire

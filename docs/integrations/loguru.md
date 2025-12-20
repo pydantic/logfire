@@ -20,7 +20,7 @@ logger.info('Hello, {name}!', name='World')
 !!! note
     Currently, **Logfire** will not scrub sensitive data from the message formatted by Loguru, e.g:
 
-    ```py test="skip"
+    ```py skip="true" skip-reason="incomplete"
     logger.info('Foo: {bar}', bar='secret_value')
     # > 14:58:26.085 Foo: secret_value
     ```

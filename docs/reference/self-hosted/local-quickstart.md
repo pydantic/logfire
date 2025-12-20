@@ -73,7 +73,7 @@ Also check our [full installation guide](./installation.md) for a complete check
 
 If you are a [Tilt](https://tilt.dev/) user, you can use this `Tiltfile` to automate the Logfire setup:
 
-```python title="Tiltfile" test="skip"
+```python title="Tiltfile" skip="true" skip-reason="incomplete"
 load('ext://secret', 'secret_yaml_registry')
 load('ext://helm_resource', 'helm_resource', 'helm_repo')
 

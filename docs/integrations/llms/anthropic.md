@@ -6,7 +6,7 @@ integration: logfire
 **Logfire** supports instrumenting calls to [Anthropic](https://github.com/anthropics/anthropic-sdk-python) with the [`logfire.instrument_anthropic()`][logfire.Logfire.instrument_anthropic] method, for example:
 
 
-```python hl_lines="7"
+```python hl_lines="7" skip-run="true" skip-reason="external-connection"
 import anthropic
 
 import logfire
@@ -21,9 +21,7 @@ response = client.messages.create(
     max_tokens=1000,
     model='claude-3-haiku-20240307',
     system='You are a helpful assistant.',
-    messages=[
-        {'role': 'user', 'content': 'Please write me a limerick about Python logging.'}
-    ],
+    messages=[{'role': 'user', 'content': 'Please write me a limerick about Python logging.'}],
 )
 print(response.content[0].text)
 ```
@@ -61,7 +59,7 @@ around the streamed response.
 
 Here we also use Rich's [`Live`][rich.live.Live] and [`Markdown`][rich.markdown.Markdown] types to render the response in the terminal in real-time. :dancer:
 
-```python
+```python skip-run="true" skip-reason="external-connection"
 import anthropic
 from rich.console import Console
 from rich.live import Live
@@ -81,9 +79,7 @@ async def main():
             max_tokens=1000,
             model='claude-3-haiku-20240307',
             system='Reply in markdown one.',
-            messages=[
-                {'role': 'user', 'content': 'Write Python to show a tree of files 🤞.'}
-            ],
+            messages=[{'role': 'user', 'content': 'Write Python to show a tree of files 🤞.'}],
         )
         content = ''
         with Live('', refresh_per_second=15, console=console) as live:
@@ -111,7 +107,7 @@ Shows up like this in Logfire:
 
 You can also log Anthropic LLM calls to Amazon Bedrock using the `AnthropicBedrock` and `AsyncAnthropicBedrock` clients.
 
-```python
+```python skip-run="true" skip-reason="external-connection"
 import anthropic
 
 import logfire

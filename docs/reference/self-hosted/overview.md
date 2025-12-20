@@ -36,7 +36,6 @@ After setting up the chart, you can send data to your **Logfire** Self-hosted in
 import logfire
 
 logfire.configure(
-    ...,  # other options
     advanced=logfire.AdvancedOptions(base_url='https://<your_logfire_hostname>'),
 )
 ```

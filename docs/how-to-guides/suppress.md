@@ -35,7 +35,7 @@ You just want to suppress a small part of the code that you know will generate a
 
 You can do this by using the [`suppress_instrumentation`][logfire.suppress_instrumentation] context manager.
 
-```py
+```py skip-run="true" skip-reason="external-connection"
 import httpx
 
 import logfire

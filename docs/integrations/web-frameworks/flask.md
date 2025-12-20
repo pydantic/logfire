@@ -17,7 +17,7 @@ Install `logfire` with the `flask` extra:
 
 Let's see a minimal example below. You can run it with `python main.py`:
 
-```py title="main.py"
+```py title="main.py" skip-run="true" skip-reason="server-start"
 from flask import Flask
 
 import logfire

@@ -114,7 +114,7 @@ If you query individual records in the explore view, dashboard tables, or alerts
 
 Technically the trace ID is a 128-bit (16 byte) integer, but in the database it's represented as a 32-character hexadecimal string. For example, the following code:
 
-```python
+```python skip-run="true" skip-reason="non-deterministic"
 from opentelemetry.trace import format_trace_id
 
 import logfire
@@ -124,9 +124,9 @@ logfire.configure()
 with logfire.span('foo') as span:
     trace_id = span.get_span_context().trace_id
     print(trace_id)
-    #> 2135166073838151478072336889058305981
+    #> 2135173042243855739684686441807112708
     print(format_trace_id(trace_id))
-    #> 019b37d0ab3be2a042538ab3fb9227bd
+    #> 019b38289f5dfbf64cd7de68d37c6a04
 ```
 
 will print something like:
@@ -168,7 +168,7 @@ JOIN records child_records
 
 For example this code:
 
-```python test="skip"
+```python skip="true" skip-reason="incomplete"
 with logfire.span('parent'):
     logfire.info('child')
 ```
@@ -233,7 +233,7 @@ It's derived from the `exception.type` attribute of the `exception` span event.
 
 This is the message of the exception, e.g. this code:
 
-```python
+```python skip-run="true" skip-reason="non-deterministic"
 import logfire
 
 logfire.configure()

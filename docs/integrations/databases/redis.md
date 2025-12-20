@@ -27,7 +27,7 @@ docker run --name redis -p 6379:6379 -d redis:latest
 
 ### Run the Python script
 
-```py title="main.py"
+```py title="main.py" skip-run="true" skip-reason="external-connection"
 import redis
 
 import logfire

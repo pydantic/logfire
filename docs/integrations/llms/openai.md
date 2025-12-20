@@ -8,7 +8,7 @@ We support instrumenting both the [standard OpenAI SDK](https://github.com/opena
 
 **Logfire** supports instrumenting calls to OpenAI with the [`logfire.instrument_openai()`][logfire.Logfire.instrument_openai] method, for example:
 
-```python hl_lines="7"
+```python hl_lines="7" skip-run="true" skip-reason="external-connection"
 import openai
 
 import logfire
@@ -59,7 +59,7 @@ All methods are covered with both `openai.Client` and `openai.AsyncClient`.
 
 For example, here's instrumentation of an image generation call:
 
-```python
+```python skip-run="true" skip-reason="external-connection"
 import openai
 
 import logfire
@@ -100,7 +100,7 @@ around the streamed response.
 
 Here we also use Rich's [`Live`][rich.live.Live] and [`Markdown`][rich.markdown.Markdown] types to render the response in the terminal in real-time. :dancer:
 
-```python
+```python skip-run="true" skip-reason="external-connection"
 import openai
 from rich.console import Console
 from rich.live import Live
@@ -149,7 +149,7 @@ Shows up like this in Logfire:
 
 We also support instrumenting the [OpenAI "agents"](https://github.com/openai/openai-agents-python) framework.
 
-```python hl_lines="5"
+```python hl_lines="5" skip-run="true" skip-reason="external-connection"
 from agents import Agent, Runner
 
 import logfire
@@ -174,7 +174,7 @@ Which shows up like this in Logfire:
 
 In this example we add a function tool to the agents:
 
-```python
+```python skip-run="true" skip-reason="external-connection"
 from agents import Agent, RunContextWrapper, Runner, function_tool
 from httpx import AsyncClient
 from typing_extensions import TypedDict
@@ -208,9 +208,7 @@ agent = Agent(name='weather agent', tools=[fetch_weather])
 async def main():
     async with AsyncClient() as client:
         logfire.instrument_httpx(client)
-        result = await Runner.run(
-            agent, 'Get the weather at lat=51 lng=0.2', context=client
-        )
+        result = await Runner.run(agent, 'Get the weather at lat=51 lng=0.2', context=client)
     print(result.final_output)
 
 

@@ -11,7 +11,7 @@ To instrument [FastStream][faststream] with OpenTelemetry, you need to:
 
 Let's see an example:
 
-```python title="main.py"
+```python title="main.py" skip-run="true" skip-reason="external-connection"
 from faststream import FastStream
 from faststream.redis import RedisBroker
 from faststream.redis.opentelemetry import RedisTelemetryMiddleware

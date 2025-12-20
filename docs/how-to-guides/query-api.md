@@ -44,7 +44,7 @@ we provide Python clients to simplify the process of interacting with the API fr
 Logfire provides both synchronous and asynchronous clients.
 To use these clients, you can import them from the `query_client` namespace:
 
-```python test="skip"
+```python skip="true" skip-reason="incomplete"
 from logfire.query_client import AsyncLogfireQueryClient, LogfireQueryClient
 ```
 
@@ -64,7 +64,7 @@ Here's an example of how to use these clients:
 
 === "Async"
 
-    ```python
+    ```python skip-run="true" skip-reason="external-connection"
     from io import StringIO
 
     import polars as pl
@@ -113,7 +113,7 @@ Here's an example of how to use these clients:
 
 === "Sync"
 
-    ```python
+    ```python skip-run="true" skip-reason="external-connection"
     from io import StringIO
 
     import polars as pl
@@ -179,7 +179,7 @@ You can also use the `Accept` header to specify the desired format for the respo
 
 ### Example: Using Python `requests` Library
 
-```python
+```python skip-run="true" skip-reason="external-connection"
 import requests
 
 # Define the base URL and your read token

@@ -36,7 +36,7 @@ This command will create a PostgreSQL database, that you can connect with `postg
 
 The following Python script connects to the PostgreSQL database and executes some SQL queries:
 
-```py
+```py skip-run="true" skip-reason="external-connection"
 import asyncio
 
 import asyncpg
@@ -53,17 +53,11 @@ async def main():
     )
 
     with logfire.span('Create table and insert data'):
-        await connection.execute(
-            'CREATE TABLE IF NOT EXISTS test (id serial PRIMARY KEY, num integer, data varchar);'
-        )
+        await connection.execute('CREATE TABLE IF NOT EXISTS test (id serial PRIMARY KEY, num integer, data varchar);')
 
         # Insert some data
-        await connection.execute(
-            'INSERT INTO test (num, data) VALUES ($1, $2)', 100, 'abc'
-        )
-        await connection.execute(
-            'INSERT INTO test (num, data) VALUES ($1, $2)', 200, 'def'
-        )
+        await connection.execute('INSERT INTO test (num, data) VALUES ($1, $2)', 100, 'abc')
+        await connection.execute('INSERT INTO test (num, data) VALUES ($1, $2)', 200, 'def')
 
         # Query the data
         for record in await connection.fetch('SELECT * FROM test'):

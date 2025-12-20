@@ -41,6 +41,8 @@ with sqlite3.connect(':memory:') as connection:
     cursor.execute('SELECT * FROM users')
     print(cursor.fetchall())
     #> [(1, 'Alice')]
+
+connection.close()
 ```
 
 ### Instrument a connection
@@ -64,6 +66,8 @@ with sqlite3.connect(':memory:') as connection:
     cursor.execute('SELECT * FROM users')
     print(cursor.fetchall())
     #> [(1, 'Alice')]
+
+connection.close()
 ```
 
 !!! warning "Avoid using `execute` from `sqlite3.Connection`"

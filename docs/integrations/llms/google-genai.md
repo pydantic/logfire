@@ -13,7 +13,7 @@ Install `logfire` with the `google-genai` extra:
 
 ## Usage
 
-```python hl_lines="8 11"
+```python hl_lines="8 11" skip-run="true" skip-reason="external-connection"
 import os
 
 from google.genai import Client

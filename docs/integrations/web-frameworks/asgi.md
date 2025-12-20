@@ -17,7 +17,7 @@ Install `logfire` with the `asgi` extra:
 
 Below we have a minimal example using [Uvicorn][uvicorn]. You can run it with `python main.py`:
 
-```py title="main.py"
+```py title="main.py" skip-run="true" skip-reason="server-start"
 import logfire
 
 logfire.configure()

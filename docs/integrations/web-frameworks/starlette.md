@@ -22,7 +22,7 @@ pip install uvicorn
 
 You can run it with `python main.py`:
 
-```py title="main.py"
+```py title="main.py" skip-run="true" skip-reason="server-start"
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse

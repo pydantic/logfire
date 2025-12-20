@@ -40,9 +40,7 @@ To create a counter metric, use the [`logfire.metric_counter`][logfire.Logfire.m
 ```py
 import logfire
 
-counter = logfire.metric_counter(
-    'exceptions', unit='1', description='Number of exceptions caught'  # (1)!
-)
+counter = logfire.metric_counter('exceptions', unit='1', description='Number of exceptions caught')  # (1)!
 
 try:
     raise Exception('oops')
@@ -71,9 +69,7 @@ To create a histogram metric, use the [`logfire.metric_histogram`][logfire.Logfi
 ```py
 import logfire
 
-histogram = logfire.metric_histogram(
-    'request_duration', unit='ms', description='Duration of requests'  # (1)!
-)
+histogram = logfire.metric_histogram('request_duration', unit='ms', description='Duration of requests')  # (1)!
 
 for duration in [10, 20, 30, 40, 50]:
     histogram.record(duration)
@@ -101,9 +97,7 @@ To create an up-down counter metric, use the [`logfire.metric_up_down_counter`][
 ```py
 import logfire
 
-active_users = logfire.metric_up_down_counter(
-    'active_users', unit='1', description='Number of active users'  # (1)!
-)
+active_users = logfire.metric_up_down_counter('active_users', unit='1', description='Number of active users')  # (1)!
 
 
 def user_logged_in():
@@ -137,7 +131,7 @@ To create a gauge metric, use the [`logfire.metric_gauge`][logfire.Logfire.metri
 ```py
 import logfire
 
-temperature = logfire.metric_gauge('temperature', unit='°C', description='Temperature')
+temperature = logfire.metric_gauge('temperature', unit='C', description='Temperature')
 
 
 def set_temperature(value: float):
@@ -171,15 +165,9 @@ def cpu_time_callback(options: CallbackOptions) -> Iterable[Observation]:
             if not line.startswith('cpu'):
                 break
             cpu, user_time, nice_time, system_time = line.split()
-            observations.append(
-                Observation(int(user_time) // 100, {'cpu': cpu, 'state': 'user'})
-            )
-            observations.append(
-                Observation(int(nice_time) // 100, {'cpu': cpu, 'state': 'nice'})
-            )
-            observations.append(
-                Observation(int(system_time) // 100, {'cpu': cpu, 'state': 'system'})
-            )
+            observations.append(Observation(int(user_time) // 100, {'cpu': cpu, 'state': 'user'}))
+            observations.append(Observation(int(nice_time) // 100, {'cpu': cpu, 'state': 'nice'}))
+            observations.append(Observation(int(system_time) // 100, {'cpu': cpu, 'state': 'system'}))
     return observations
 
 
@@ -210,7 +198,8 @@ from opentelemetry.metrics import CallbackOptions, Observation
 import logfire
 
 
-def get_temperature(room: str) -> float: ...
+def get_temperature(room: str) -> float:
+    return 22.0
 
 
 def temperature_callback(options: CallbackOptions) -> Iterable[Observation]:
@@ -221,7 +210,7 @@ def temperature_callback(options: CallbackOptions) -> Iterable[Observation]:
 
 logfire.metric_gauge_callback(
     'temperature',
-    unit='°C',
+    unit='C',
     callbacks=[temperature_callback],
     description='Temperature',
 )
@@ -244,7 +233,8 @@ from opentelemetry.metrics import CallbackOptions, Observation
 import logfire
 
 
-def get_active_users() -> int: ...
+def get_active_users() -> int:
+    return 5
 
 
 def active_users_callback(options: CallbackOptions) -> Iterable[Observation]:

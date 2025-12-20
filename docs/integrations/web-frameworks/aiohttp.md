@@ -20,7 +20,7 @@ Install `logfire` with the `aiohttp-server` extra:
 
 Here's a minimal server example:
 
-```py title="server.py"
+```py title="server.py" skip-run="true" skip-reason="server-start"
 from aiohttp import web
 
 import logfire

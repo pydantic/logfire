@@ -49,7 +49,7 @@ logfire auth
 
 Here's a simple manual tracing (aka logging) example:
 
-```python
+```python skip-run="true" skip-reason="blocking"
 from datetime import date
 
 import logfire

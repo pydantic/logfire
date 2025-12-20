@@ -1,7 +1,5 @@
 """Test Python code examples in documentation and docstrings."""
 
-from __future__ import annotations
-
 import os
 
 import pytest
@@ -10,37 +8,55 @@ from pytest_examples import CodeExample, EvalExample, find_examples
 # Prevent accidental live API calls during testing
 os.environ.setdefault('LOGFIRE_SEND_TO_LOGFIRE', 'false')
 
+ruff_ignore = [
+    'D101',  # ignore missing docstring in public classes
+    'D102',  # ignore missing docstring in public methods
+    'D103',  # ignore missing docstring in public functions
+]
+
+
+def get_skip_reason(example: CodeExample):
+    """Get the reason for skipping the example."""
+    return example.prefix_settings().get('skip-reason')
+
+
+def set_eval_config(eval_example: EvalExample):
+    """Set the evaluation configuration."""
+    eval_example.set_config(
+        line_length=120,
+        quotes='single',
+        isort=True,
+        ruff_ignore=ruff_ignore,
+        target_version='py39',
+    )
+
 
 @pytest.mark.parametrize('example', find_examples('docs/', 'README.md'), ids=str)
-async def test_documentation_examples(example: CodeExample, eval_example: EvalExample):
-    """Test all Python code examples in documentation."""
-    if example.prefix_settings().get('test') == 'skip':
-        pytest.skip('Skipping example')
+@pytest.mark.timeout(3)
+def test_formatting(example: CodeExample, eval_example: EvalExample):
+    """Ensure examples in documentation are formatted correctly."""
+    if any(example.prefix_settings().get(key) == 'true' for key in ['skip', 'skip-lint']):
+        pytest.skip(get_skip_reason(example) or 'Skipping example')
 
-    eval_example.config.isort = True
+    set_eval_config(eval_example)
 
-    eval_example.config.ruff_ignore = [
-        'D101',  # ignore missing docstring in public classes
-        'D102',  # ignore missing docstring in public methods
-        'D103',  # ignore missing docstring in public functions
-    ]
-
-    if eval_example.update_examples:
+    if eval_example.update_examples:  # pragma: no cover
         eval_example.format(example)
     else:
         eval_example.lint_ruff(example)
 
 
-@pytest.mark.parametrize('example', find_examples('logfire/'), ids=str)
-def test_docstring_examples(example: CodeExample, eval_example: EvalExample):
-    """Test Python code examples in source docstrings."""
-    eval_example.config.ruff_ignore = [
-        'D101',  # ignore missing docstring in public classes
-        'D102',  # ignore missing docstring in public methods
-        'D103',  # ignore missing docstring in public functions
-    ]
-    
-    if eval_example.update_examples:
-        eval_example.format(example)
+@pytest.mark.parametrize('example', find_examples('logfire/', 'docs/', 'README.md'), ids=str)
+@pytest.mark.timeout(3)
+def test_runnable(example: CodeExample, eval_example: EvalExample):
+    """Ensure examples in documentation are runnable."""
+
+    if any(example.prefix_settings().get(key) == 'true' for key in ['skip', 'skip-run']):
+        pytest.skip(get_skip_reason(example) or 'Skipping example')
+
+    set_eval_config(eval_example)
+
+    if eval_example.update_examples:  # pragma: no cover
+        eval_example.run_print_update(example)
     else:
-        eval_example.lint_ruff(example)
+        eval_example.run_print_check(example)

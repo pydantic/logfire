@@ -45,7 +45,7 @@ def index():
 
 To instrument this Flask application with Logfire, you can modify the `post_fork` function in your Gunicorn configuration file to import and instrument the Flask app (`gunicorn_config.py`):
 
-```py title="gunicorn_config.py"
+```py title="gunicorn_config.py" skip-run="true" skip-reason="server-start"
 from myapp import app
 
 import logfire

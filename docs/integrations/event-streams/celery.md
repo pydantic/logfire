@@ -30,7 +30,7 @@ docker run --rm -d -p 6379:6379 redis
 
 Below we have a minimal example using Celery. You can run it with `celery -A tasks worker --loglevel=info`:
 
-```py title="tasks.py"
+```py title="tasks.py" skip-run="true" skip-reason="external-connection"
 from celery import Celery
 from celery.signals import worker_init
 
@@ -67,7 +67,7 @@ As said before, it's also possible that you have periodic tasks scheduled with *
 
 Let's add the beat to the previous example:
 
-```py title="tasks.py" hl_lines="11-14 17-23"
+```py title="tasks.py" hl_lines="11-14 17-23" skip-run="true" skip-reason="external-connection"
 from celery import Celery
 from celery.signals import beat_init, worker_init
 

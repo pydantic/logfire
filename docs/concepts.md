@@ -72,7 +72,7 @@ In this example:
 2. The user input is captured in the terminal
 3. `dob` (date of birth) is displayed in the span. Logfire calculates the age from the `dob` and displays age in the debug message
 
-```py
+```py skip-run="true" skip-reason="non-deterministic"
 from datetime import date
 
 import logfire

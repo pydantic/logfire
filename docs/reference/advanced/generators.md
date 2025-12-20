@@ -2,7 +2,7 @@
 
 The body of a `with logfire.span` statement or a function decorated with `@logfire.instrument` should not contain the `yield` keyword, except in functions decorated with `@contextlib.contextmanager` or `@contextlib.asynccontextmanager`. To see the problem, consider this example:
 
-```python test="skip"
+```python skip="true" skip-reason="intentional-error"
 import logfire
 
 logfire.configure()
@@ -98,15 +98,14 @@ This is why generator functions are not traced by [`logfire.install_auto_tracing
 
 If you're looping over a generator, wrapping the loop in a span is safe, e.g:
 
-```python test="skip"
+```python
 import logfire
 
 logfire.configure()
 
 
 def generate_items():
-    for i in range(3):
-        yield i
+    yield from range(3)
 
 
 def main():
@@ -156,7 +155,7 @@ This is fine because even if there's an exception inside the context manager, th
 
 `with closing(generator)` can be used to ensure that the generator and thus the span within is closed even if the loop is interrupted, e.g:
 
-```python test="skip"
+```python
 from contextlib import closing
 
 import logfire
@@ -166,8 +165,7 @@ logfire.configure()
 
 def generate_items():
     with logfire.span('Generating items'):
-        for i in range(3):
-            yield i
+        yield from range(3)
 
 
 def main():
@@ -183,7 +181,7 @@ main()
 
 However this means that users of `generate_items` must always remember to use `with closing`. To ensure that they have no choice but to do so, you can make `generate_items` a context manager itself:
 
-```python test="skip"
+```python
 from contextlib import closing, contextmanager
 
 import logfire
@@ -195,8 +193,7 @@ logfire.configure()
 def generate_items():
     def generator():
         with logfire.span('Generating items'):
-            for i in range(3):
-                yield i
+            yield from range(3)
 
     with closing(generator()) as items:
         yield items

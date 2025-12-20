@@ -2,7 +2,7 @@
 
 Here's a simple example of using Logfire:
 
-```python
+```python skip-run="true" skip-reason="blocking"
 import time
 
 import logfire
@@ -53,7 +53,7 @@ A _trace_ is a tree of spans/logs sharing the same root. Whenever you create a n
 
 Spans and logs can have structured data attached to them, e.g:
 
-```python test="skip"
+```python skip="true" skip-reason="incomplete"
 logfire.info('Hello', name='world')
 ```
 
@@ -67,7 +67,7 @@ Both spans and logs can have attributes containing arbitrary values which will b
 
 Sometimes it's useful to attach an attribute to a span after it's been created but before it's finished. You can do this by calling the `span.set_attribute` method:
 
-```python test="skip"
+```python skip="true" skip-reason="incomplete"
 with logfire.span('Calculating...') as span:
     result = 1 + 2
     span.set_attribute('result', result)
@@ -95,7 +95,7 @@ Here you can see that:
 
 You can also set `span.message` after a span is started but before it's finished, e.g:
 
-```python test="skip"
+```python skip="true" skip-reason="incomplete"
 with logfire.span('Calculating...') as span:
     result = 1 + 2
     span.message = f'Calculated: {result}'
@@ -105,14 +105,14 @@ You could use `message` to filter for related records, e.g. `message like 'Hello
 
 To allow efficiently filtering for related records, span names should be _low cardinality_, meaning they shouldn't vary too much. For example, this would be bad:
 
-```python test="skip"
+```python skip="true" skip-reason="incomplete"
 name = get_username()
 logfire.info('Hello ' + name, name=name)
 ```
 
 because now the `span_name` column will have a different value for every username. But this would be fine:
 
-```python test="skip"
+```python skip="true" skip-reason="incomplete"
 word = 'Goodbye' if leaving else 'Hello'
 logfire.info(word + ' {name}', name=name)
 ```
@@ -121,7 +121,7 @@ because now the `span_name` column will only have two values (`'Goodbye {name}'`
 
 You can use the `_span_name` argument when you want the span name to be different from the message template, e.g:
 
-```python test="skip"
+```python skip="true" skip-reason="incomplete"
 logfire.info('Hello {name}', name='world', _span_name='Hello')
 ```
 
@@ -131,13 +131,13 @@ This will set the `span_name` to `'Hello'` and the `message` to `'Hello world'`.
 
 Instead of this:
 
-```python test="skip"
+```python skip="true" skip-reason="incomplete"
 logfire.info('Hello {name}', name=name)
 ```
 
 it's much more convenient to use an f-string to avoid repeating `name` three times:
 
-```python test="skip"
+```python skip="true" skip-reason="incomplete"
 logfire.info(f'Hello {name}')
 ```
 
@@ -156,7 +156,7 @@ Contrary to the previous section, this _will_ work well in Python 3.11+ because 
 
 The `logfire.span` context manager will automatically record any exceptions that cause it to exit, e.g:
 
-```python
+```python skip-run="true" skip-reason="exception-demo"
 import logfire
 
 logfire.configure()
@@ -171,7 +171,7 @@ If you click on the span in the Live view, the panel on the right will have an '
 
 Exceptions which are caught and not re-raised will not be recorded, e.g:
 
-```python test="skip"
+```python skip="true" skip-reason="incomplete"
 with logfire.span('This is a span'):
     try:
         raise ValueError('This is an acceptable error not worth recording')
@@ -181,7 +181,7 @@ with logfire.span('This is a span'):
 
 If you want to record a handled exception, use the [`span.record_exception`][logfire.LogfireSpan.record_exception] method:
 
-```python test="skip"
+```python skip="true" skip-reason="incomplete"
 with logfire.span('This is a span') as span:
     try:
         raise ValueError('Catch this error, but record it')
@@ -191,7 +191,7 @@ with logfire.span('This is a span') as span:
 
 Alternatively, if you only want to log exceptions without creating a span for the normal case, you can use [`logfire.exception`][logfire.Logfire.exception]:
 
-```python test="skip"
+```python skip="true" skip-reason="incomplete"
 try:
     raise ValueError('This is an error')
 except ValueError:
@@ -204,7 +204,7 @@ except ValueError:
 
 Often you want to wrap a whole function in a span. Instead of doing this:
 
-```python test="skip"
+```python skip="true" skip-reason="incomplete"
 def my_function(x, y):
     with logfire.span('my_function', x=x, y=y):
         ...
@@ -212,7 +212,7 @@ def my_function(x, y):
 
 you can use the [`@logfire.instrument`][logfire.Logfire.instrument] decorator:
 
-```python test="skip"
+```python skip="true" skip-reason="incomplete"
 @logfire.instrument()
 def my_function(x, y):
     ...
@@ -225,7 +225,7 @@ The default span name will be something like `Calling module_name.my_function`.
 You can pass an alternative span name as the first argument to `instrument`, and it can even be a template
 into which arguments will be formatted, e.g:
 
-```python test="skip"
+```python skip="true" skip-reason="incomplete"
 @logfire.instrument('Applying my_function to {x=} and {y=}')
 def my_function(x, y):
     ...
@@ -255,7 +255,7 @@ To log a message with a variable level you can use `logfire.log`, e.g. `logfire.
 
 Spans are level `info` by default. You can change this with the `_level` argument, e.g. `with logfire.span('This is a debug span', _level='debug'):`. You can also change the level after the span has started but before it's finished with [`span.set_level`][logfire.LogfireSpan.set_level], e.g:
 
-```python test="skip"
+```python skip="true" skip-reason="incomplete"
 with logfire.span('Doing a thing') as span:
     success = do_thing()
     if not success:

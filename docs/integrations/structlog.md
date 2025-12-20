@@ -51,7 +51,7 @@ want to log with logfire, use [`LogfireProcessor(console_log=True)`][logfire.int
 
     If you have the following:
 
-    ```py test="skip"
+    ```py skip="true" skip-reason="incomplete"
     logger.error('Hello %s!', 'Fred')
     #> 2024-03-22 13:39:26 [error    ] Hello Fred!
     ```

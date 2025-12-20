@@ -85,9 +85,7 @@ It can be one of the following values:
 from pydantic import BaseModel
 
 
-class Foo(
-    BaseModel, plugin_settings={'logfire': {'record': 'all', 'trace_sample_rate': 0.4}}
-): ...
+class Foo(BaseModel, plugin_settings={'logfire': {'record': 'all', 'trace_sample_rate': 0.4}}): ...
 ```
 -->
 
@@ -101,9 +99,7 @@ adding the [`tags`][logfire.integrations.pydantic.LogfireSettings.tags] key in
 from pydantic import BaseModel
 
 
-class Foo(
-    BaseModel, plugin_settings={'logfire': {'record': 'all', 'tags': ('tag1', 'tag2')}}
-): ...
+class Foo(BaseModel, plugin_settings={'logfire': {'record': 'all', 'tags': ('tag1', 'tag2')}}): ...
 ```
 
 [pydantic]: https://docs.pydantic.dev/latest/

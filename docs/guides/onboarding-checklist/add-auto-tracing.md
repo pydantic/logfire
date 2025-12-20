@@ -10,7 +10,7 @@ For example, suppose all your code lives in the `app` package, e.g. `app.main`, 
 Instead of starting your application with `python app/main.py`,
 you could create another file outside of the `app` package, e.g:
 
-```py title="main.py" test="skip"
+```py title="main.py" skip="true" skip-reason="intentional-error"
 import logfire
 
 logfire.configure()
@@ -52,7 +52,7 @@ This function will be called with an [`AutoTraceModule`][logfire.AutoTraceModule
 `filename` attributes. For example, this should trace all modules that aren't part of the standard library or
 third-party packages in a typical Python installation:
 
-```py
+```py skip="true" skip-reason="incomplete"
 import pathlib
 
 import logfire
@@ -72,7 +72,7 @@ logfire.install_auto_tracing(should_trace, min_duration=0)
 Once you've selected which modules to trace, you probably don't want to trace *every* function in those modules.
 To exclude a function from auto-tracing, add the [`no_auto_trace`][logfire.no_auto_trace] decorator to it:
 
-```py test="skip"
+```py skip="true" skip-reason="incomplete"
 import logfire
 
 @logfire.no_auto_trace

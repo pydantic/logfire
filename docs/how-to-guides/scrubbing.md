@@ -68,10 +68,7 @@ import logfire
 
 def scrubbing_callback(match: logfire.ScrubMatch):
     # `my_safe_value` often contains the string 'password' but it's not actually sensitive.
-    if (
-        match.path == ('attributes', 'my_safe_value')
-        and match.pattern_match.group(0) == 'password'
-    ):
+    if match.path == ('attributes', 'my_safe_value') and match.pattern_match.group(0) == 'password':
         # Return the original value to prevent redaction.
         return match.value
 
@@ -85,7 +82,7 @@ logfire.configure(scrubbing=logfire.ScrubbingOptions(callback=scrubbing_callback
 
 The full span/log message is not scrubbed, only the fields within. For example, this:
 
-```python test="skip"
+```python skip="true" skip-reason="incomplete"
 logfire.info('User details: {user}', user=User(id=123, password='secret'))
 ```
 
@@ -97,7 +94,7 @@ User details: [Scrubbed due to 'password']
 
 ...but this:
 
-```python test="skip"
+```python skip="true" skip-reason="incomplete"
 user = User(id=123, password='secret')
 logfire.info('User details: ' + str(user))
 ```

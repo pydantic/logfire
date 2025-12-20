@@ -47,7 +47,7 @@ Note that 5 out of 10 traces are kept, and that the child log is kept if and onl
 Random head sampling often works well, but you may not want to lose any traces which indicate problems. In this case,
 you can use tail sampling. Here's a simple example:
 
-```python
+```python skip-run="true" skip-reason="blocking"
 import time
 
 import logfire
@@ -113,9 +113,7 @@ example, this script:
 ```python
 import logfire
 
-logfire.configure(
-    sampling=logfire.SamplingOptions.level_or_duration(background_rate=0.3)
-)
+logfire.configure(sampling=logfire.SamplingOptions.level_or_duration(background_rate=0.3))
 
 for x in range(10):
     logfire.info(f'info {x}')
@@ -158,7 +156,7 @@ trace will be included and the spans will be exported and freed. This works beca
 between the start of the trace and the start/end of the most recent span, so the tail sampler can know that a span will
 exceed the duration threshold even before it's complete. For example, running this script:
 
-```python
+```python skip-run="true" skip-reason="blocking"
 import time
 
 import logfire
@@ -214,7 +212,7 @@ only keeps track of active traces to save memory. This is similar to the distrib
 Here's an example with a FastAPI background task which starts after the root span corresponding to the request has
 ended:
 
-```python
+```python skip-run="true" skip-reason="blocking"
 import uvicorn
 from fastapi import BackgroundTasks, FastAPI
 
