@@ -19,7 +19,7 @@ pydantic_plugin_record = "all"
 
 - Call [`logfire.instrument_pydantic`][logfire.Logfire.instrument_pydantic] with the desired configuration, e.g:
 
-```py
+```py skip-run="true" skip-reason="global-instrumentation"
 import logfire
 
 logfire.instrument_pydantic()  # Defaults to record='all'
@@ -38,7 +38,7 @@ will be instrumented.
 By default, third party modules are not instrumented by the plugin to avoid noise. You can enable instrumentation for those
 using the [`include`][logfire.PydanticPlugin.include] configuration.
 
-```py
+```py skip-run="true" skip-reason="global-instrumentation"
 import logfire
 
 logfire.instrument_pydantic(include={'openai'})
@@ -47,7 +47,7 @@ logfire.instrument_pydantic(include={'openai'})
 You can also disable instrumentation for your own modules using the
 [`exclude`][logfire.PydanticPlugin.exclude] configuration.
 
-```py
+```py skip-run="true" skip-reason="global-instrumentation"
 import logfire
 
 logfire.instrument_pydantic(exclude={'app.api.v1'})

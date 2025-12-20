@@ -69,7 +69,7 @@ with logfire.span('Asking the user their {question}', question='age'):
 
 Or you can also avoid manual instrumentation and instead integrate with [lots of popular packages](https://logfire.pydantic.dev/docs/integrations/), here's an example of integrating with FastAPI:
 
-```py
+```py skip-run="true" skip-reason="global-instrumentation"
 from fastapi import FastAPI
 from pydantic import BaseModel
 

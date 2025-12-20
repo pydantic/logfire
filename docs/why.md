@@ -134,7 +134,7 @@ logfire.info('user processed: {user!r}', user=user)  # (1)!
 
 Or we can record information about validations automatically:
 
-```py
+```py skip-run="true" skip-reason="global-instrumentation"
 from datetime import date
 
 from pydantic import BaseModel
@@ -171,7 +171,7 @@ use a wealth of existing tooling and infrastructure, including
 
 For example, we can instrument a simple FastAPI app with just 2 lines of code:
 
-```py title="main.py" hl_lines="8 9 10"
+```py title="main.py" hl_lines="8 9 10" skip-run="true" skip-reason="global-instrumentation"
 from datetime import date
 
 from fastapi import FastAPI
