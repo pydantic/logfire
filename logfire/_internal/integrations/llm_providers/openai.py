@@ -17,7 +17,7 @@ from opentelemetry.trace import get_current_span
 
 from logfire import LogfireSpan
 
-from ...utils import handle_internal_errors, log_internal_error
+from ...utils import handle_internal_errors
 from .semconv import (
     INPUT_MESSAGES,
     INPUT_TOKENS,
@@ -130,15 +130,20 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         span_data = {
             'gen_ai.request.model': json_data.get('model'),
             'request_data': {'model': json_data.get('model'), 'stream': stream},
-            'events': inputs_to_events(
-                json_data.get('input'),
-                json_data.get('instructions'),
-            ),
             PROVIDER_NAME: 'openai',
             OPERATION_NAME: 'chat',
             REQUEST_MODEL: json_data.get('model'),
         }
         _extract_request_parameters(json_data, span_data)
+
+        # Convert inputs to semantic convention format
+        input_messages, system_instructions = convert_responses_inputs_to_semconv(
+            json_data.get('input'), json_data.get('instructions')
+        )
+        if input_messages:
+            span_data[INPUT_MESSAGES] = input_messages
+        if system_instructions:
+            span_data[SYSTEM_INSTRUCTIONS] = system_instructions
 
         return EndpointConfig(
             message_template='Responses API with {request_data[model]!r}',
@@ -331,6 +336,91 @@ def convert_openai_response_to_semconv(
     return result
 
 
+def convert_responses_inputs_to_semconv(
+    inputs: str | list[dict[str, Any]] | None, instructions: str | None
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Convert Responses API inputs to OTel Gen AI Semantic Convention format."""
+    input_messages: list[dict[str, Any]] = []
+    system_instructions: list[dict[str, Any]] = []
+    if instructions:
+        system_instructions.append({'type': 'text', 'content': instructions})
+    if inputs:
+        if isinstance(inputs, str):
+            input_messages.append({'role': 'user', 'parts': [{'type': 'text', 'content': inputs}]})
+        else:
+            for inp in inputs:
+                role, typ, content = inp.get('role', 'user'), inp.get('type'), inp.get('content')
+                if typ in (None, 'message') and content:
+                    parts: list[dict[str, Any]] = []
+                    if isinstance(content, str):
+                        parts.append({'type': 'text', 'content': content})
+                    elif isinstance(content, list):
+                        for item in content:
+                            if isinstance(item, dict) and item.get('type') == 'output_text':
+                                parts.append({'type': 'text', 'content': item.get('text', '')})
+                            else:
+                                parts.append(item if isinstance(item, dict) else {'type': 'text', 'content': str(item)})
+                    input_messages.append({'role': role, 'parts': parts})
+                elif typ == 'function_call':
+                    input_messages.append(
+                        {
+                            'role': 'assistant',
+                            'parts': [
+                                {
+                                    'type': 'tool_call',
+                                    'id': inp.get('call_id'),
+                                    'name': inp.get('name'),
+                                    'arguments': inp.get('arguments'),
+                                }
+                            ],
+                        }
+                    )
+                elif typ == 'function_call_output':
+                    msg = {
+                        'role': 'tool',
+                        'parts': [
+                            {'type': 'tool_call_response', 'id': inp.get('call_id'), 'response': inp.get('output')}
+                        ],
+                    }
+                    if 'name' in inp:
+                        msg['name'] = inp['name']
+                    input_messages.append(msg)
+    return input_messages, system_instructions
+
+
+def convert_responses_outputs_to_semconv(response: Response) -> list[dict[str, Any]]:
+    """Convert Responses API outputs to OTel Gen AI Semantic Convention format."""
+    output_messages: list[dict[str, Any]] = []
+    for out in response.output:
+        out_dict, typ, content = out.model_dump(), out.model_dump().get('type'), out.model_dump().get('content')
+        if typ in (None, 'message') and content:
+            parts: list[dict[str, Any]] = []
+            if isinstance(content, str):
+                parts.append({'type': 'text', 'content': content})
+            elif isinstance(content, list):
+                for item in content:
+                    if isinstance(item, dict) and item.get('type') == 'output_text':
+                        parts.append({'type': 'text', 'content': item.get('text', '')})
+                    else:
+                        parts.append(item if isinstance(item, dict) else {'type': 'text', 'content': str(item)})
+            output_messages.append({'role': 'assistant', 'parts': parts})
+        elif typ == 'function_call':
+            output_messages.append(
+                {
+                    'role': 'assistant',
+                    'parts': [
+                        {
+                            'type': 'tool_call',
+                            'id': out_dict.get('call_id'),
+                            'name': out_dict.get('name'),
+                            'arguments': out_dict.get('arguments'),
+                        }
+                    ],
+                }
+            )
+    return output_messages
+
+
 def is_current_agent_span(*span_names: str):
     current_span = get_current_span()
     return (
@@ -376,7 +466,9 @@ class OpenaiResponsesStreamState(StreamState):
 
     def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
         response = self.get_response_data()
-        span_data['events'] = span_data['events'] + responses_output_events(response)
+        output_messages = convert_responses_outputs_to_semconv(response)
+        if output_messages:
+            span_data[OUTPUT_MESSAGES] = output_messages
         return span_data
 
 
@@ -498,13 +590,9 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
     elif isinstance(response, ImagesResponse):
         span.set_attribute('response_data', {'images': response.data})
     elif isinstance(response, Response):  # pragma: no branch
-        try:
-            events = json.loads(span.attributes['events'])  # type: ignore
-        except Exception:
-            pass
-        else:
-            events += responses_output_events(response)
-            span.set_attribute('events', events)
+        output_messages = convert_responses_outputs_to_semconv(response)
+        if output_messages:
+            span.set_attribute(OUTPUT_MESSAGES, output_messages)
 
     return response
 
@@ -516,102 +604,3 @@ def is_async_client(client: type[openai.OpenAI] | type[openai.AsyncOpenAI]):
     assert issubclass(client, openai.AsyncOpenAI), f'Expected OpenAI or AsyncOpenAI type, got: {client}'
     return True
 
-
-@handle_internal_errors
-def inputs_to_events(inputs: str | list[dict[str, Any]] | None, instructions: str | None):
-    """Generate dictionaries in the style of OTel events from the inputs and instructions to the Responses API."""
-    events: list[dict[str, Any]] = []
-    tool_call_id_to_name: dict[str, str] = {}
-    if instructions:
-        events += [
-            {
-                'event.name': 'gen_ai.system.message',
-                'content': instructions,
-                'role': 'system',
-            }
-        ]
-    if inputs:
-        if isinstance(inputs, str):
-            inputs = [{'role': 'user', 'content': inputs}]
-        for inp in inputs:
-            events += input_to_events(inp, tool_call_id_to_name)
-    return events
-
-
-@handle_internal_errors
-def responses_output_events(response: Response):
-    """Generate dictionaries in the style of OTel events from the outputs of the Responses API."""
-    events: list[dict[str, Any]] = []
-    for out in response.output:
-        for message in input_to_events(
-            out.model_dump(),
-            # Outputs don't have tool call responses, so this isn't needed.
-            tool_call_id_to_name={},
-        ):
-            events.append({**message, 'role': 'assistant'})
-    return events
-
-
-def input_to_events(inp: dict[str, Any], tool_call_id_to_name: dict[str, str]):
-    """Generate dictionaries in the style of OTel events from one input to the Responses API.
-
-    `tool_call_id_to_name` is a mapping from tool call IDs to function names.
-    It's populated when the input is a tool call and used later to
-    provide the function name in the event for tool call responses.
-    """
-    try:
-        events: list[dict[str, Any]] = []
-        role: str | None = inp.get('role')
-        typ = inp.get('type')
-        content = inp.get('content')
-        if role and typ in (None, 'message') and content:
-            event_name = f'gen_ai.{role}.message'
-            if isinstance(content, str):
-                events.append({'event.name': event_name, 'content': content, 'role': role})
-            else:
-                for content_item in content:
-                    with contextlib.suppress(KeyError):
-                        if content_item['type'] == 'output_text':  # pragma: no branch
-                            events.append({'event.name': event_name, 'content': content_item['text'], 'role': role})
-                            continue
-                    events.append(unknown_event(content_item))  # pragma: no cover
-        elif typ == 'function_call':
-            tool_call_id_to_name[inp['call_id']] = inp['name']
-            events.append(
-                {
-                    'event.name': 'gen_ai.assistant.message',
-                    'role': 'assistant',
-                    'tool_calls': [
-                        {
-                            'id': inp['call_id'],
-                            'type': 'function',
-                            'function': {'name': inp['name'], 'arguments': inp['arguments']},
-                        },
-                    ],
-                }
-            )
-        elif typ == 'function_call_output':
-            events.append(
-                {
-                    'event.name': 'gen_ai.tool.message',
-                    'role': 'tool',
-                    'id': inp['call_id'],
-                    'content': inp['output'],
-                    'name': tool_call_id_to_name.get(inp['call_id'], inp.get('name', 'unknown')),
-                }
-            )
-        else:
-            events.append(unknown_event(inp))
-        return events
-    except Exception:  # pragma: no cover
-        log_internal_error()
-        return [unknown_event(inp)]
-
-
-def unknown_event(inp: dict[str, Any]):
-    return {
-        'event.name': 'gen_ai.unknown',
-        'role': inp.get('role') or 'unknown',
-        'content': f'{inp.get("type")}\n\nSee JSON for details',
-        'data': inp,
-    }
