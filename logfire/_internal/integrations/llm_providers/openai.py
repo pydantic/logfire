@@ -89,11 +89,14 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             OPERATION_NAME: 'chat',
             REQUEST_MODEL: json_data.get('model'),
             'request_data': {'model': json_data.get('model'), 'stream': stream},
-            'events': inputs_to_events(
-                json_data.get('input'),
-                json_data.get('instructions'),
-            ),
         }
+        input_messages, system_instructions = convert_responses_inputs_to_semconv(
+            json_data.get('input'), json_data.get('instructions')
+        )
+        if input_messages:
+            span_data[INPUT_MESSAGES] = input_messages
+        if system_instructions:
+            span_data[SYSTEM_INSTRUCTIONS] = system_instructions
 
         return EndpointConfig(
             message_template='Responses API with {request_data[model]!r}',
@@ -275,6 +278,91 @@ def convert_openai_response_to_semconv(
     return result
 
 
+def convert_responses_inputs_to_semconv(
+    inputs: str | list[dict[str, Any]] | None, instructions: str | None
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Convert Responses API inputs to OTel Gen AI Semantic Convention format."""
+    input_messages: list[dict[str, Any]] = []
+    system_instructions: list[dict[str, Any]] = []
+    if instructions:
+        system_instructions.append({'type': 'text', 'content': instructions})
+    if inputs:
+        if isinstance(inputs, str):
+            input_messages.append({'role': 'user', 'parts': [{'type': 'text', 'content': inputs}]})
+        else:
+            for inp in inputs:
+                role, typ, content = inp.get('role', 'user'), inp.get('type'), inp.get('content')
+                if typ in (None, 'message') and content:
+                    parts: list[dict[str, Any]] = []
+                    if isinstance(content, str):
+                        parts.append({'type': 'text', 'content': content})
+                    elif isinstance(content, list):
+                        for item in content:
+                            if isinstance(item, dict) and item.get('type') == 'output_text':
+                                parts.append({'type': 'text', 'content': item.get('text', '')})
+                            else:
+                                parts.append(item if isinstance(item, dict) else {'type': 'text', 'content': str(item)})
+                    input_messages.append({'role': role, 'parts': parts})
+                elif typ == 'function_call':
+                    input_messages.append(
+                        {
+                            'role': 'assistant',
+                            'parts': [
+                                {
+                                    'type': 'tool_call',
+                                    'id': inp.get('call_id'),
+                                    'name': inp.get('name'),
+                                    'arguments': inp.get('arguments'),
+                                }
+                            ],
+                        }
+                    )
+                elif typ == 'function_call_output':
+                    msg = {
+                        'role': 'tool',
+                        'parts': [
+                            {'type': 'tool_call_response', 'id': inp.get('call_id'), 'response': inp.get('output')}
+                        ],
+                    }
+                    if 'name' in inp:
+                        msg['name'] = inp['name']
+                    input_messages.append(msg)
+    return input_messages, system_instructions
+
+
+def convert_responses_outputs_to_semconv(response: Response) -> list[dict[str, Any]]:
+    """Convert Responses API outputs to OTel Gen AI Semantic Convention format."""
+    output_messages: list[dict[str, Any]] = []
+    for out in response.output:
+        out_dict, typ, content = out.model_dump(), out.model_dump().get('type'), out.model_dump().get('content')
+        if typ in (None, 'message') and content:
+            parts: list[dict[str, Any]] = []
+            if isinstance(content, str):
+                parts.append({'type': 'text', 'content': content})
+            elif isinstance(content, list):
+                for item in content:
+                    if isinstance(item, dict) and item.get('type') == 'output_text':
+                        parts.append({'type': 'text', 'content': item.get('text', '')})
+                    else:
+                        parts.append(item if isinstance(item, dict) else {'type': 'text', 'content': str(item)})
+            output_messages.append({'role': 'assistant', 'parts': parts})
+        elif typ == 'function_call':
+            output_messages.append(
+                {
+                    'role': 'assistant',
+                    'parts': [
+                        {
+                            'type': 'tool_call',
+                            'id': out_dict.get('call_id'),
+                            'name': out_dict.get('name'),
+                            'arguments': out_dict.get('arguments'),
+                        }
+                    ],
+                }
+            )
+    return output_messages
+
+
 def is_current_agent_span(*span_names: str):
     current_span = get_current_span()
     return (
@@ -320,7 +408,9 @@ class OpenaiResponsesStreamState(StreamState):
 
     def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
         response = self.get_response_data()
-        span_data['events'] = span_data['events'] + responses_output_events(response)
+        output_messages = convert_responses_outputs_to_semconv(response)
+        if output_messages:
+            span_data[OUTPUT_MESSAGES] = output_messages
         return span_data
 
 
@@ -442,13 +532,9 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
     elif isinstance(response, ImagesResponse):
         span.set_attribute('response_data', {'images': response.data})
     elif isinstance(response, Response):  # pragma: no branch
-        try:
-            events = json.loads(span.attributes['events'])  # type: ignore
-        except Exception:
-            pass
-        else:
-            events += responses_output_events(response)
-            span.set_attribute('events', events)
+        output_messages = convert_responses_outputs_to_semconv(response)
+        if output_messages:
+            span.set_attribute(OUTPUT_MESSAGES, output_messages)
 
     return response
 
