@@ -5,7 +5,7 @@ import inspect
 import json
 import sys
 import warnings
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from contextlib import AbstractContextManager
 from contextvars import Token
 from enum import Enum
@@ -111,6 +111,7 @@ if TYPE_CHECKING:
     from ..integrations.redis import RequestHook as RedisRequestHook, ResponseHook as RedisResponseHook
     from ..integrations.sqlalchemy import CommenterOptions as SQLAlchemyCommenterOptions
     from ..integrations.wsgi import RequestHook as WSGIRequestHook, ResponseHook as WSGIResponseHook
+    from ..variables.variable import ResolveFunction, Variable
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
     from .integrations.aws_lambda import LambdaEvent, LambdaHandler
     from .integrations.mysql import MySQLConnection
@@ -126,6 +127,8 @@ if TYPE_CHECKING:
     # 2. It mirrors the exc_info argument of the stdlib logging methods
     # 3. The argument name exc_info is very suggestive of the sys function.
     ExcInfo = Union[SysExcInfo, BaseException, bool, None]
+
+T = TypeVar('T')
 
 
 class Logfire:
@@ -145,10 +148,15 @@ class Logfire:
         self._sample_rate = sample_rate
         self._console_log = console_log
         self._otel_scope = otel_scope
+        self._variables: dict[str, Variable[Any]] = {}
 
     @property
     def config(self) -> LogfireConfig:
         return self._config
+
+    @property
+    def resource_attributes(self) -> Mapping[str, Any]:
+        return self._tracer_provider.resource.attributes
 
     @cached_property
     def _tracer_provider(self) -> ProxyTracerProvider:
@@ -2336,23 +2344,58 @@ class Logfire:
             `False` if the timeout was reached before the shutdown was completed, `True` otherwise.
         """
         start = time()
+
+        self.config.get_variable_provider().shutdown()
+        remaining = max(0, timeout_millis - (time() - start))
+        if not remaining:  # pragma: no cover
+            return False
+
         if flush:  # pragma: no branch
             self._tracer_provider.force_flush(timeout_millis)
-        remaining = max(0, timeout_millis - (time() - start))
-        if not remaining:  # pragma: no cover
-            return False
-        self._tracer_provider.shutdown()
+            remaining = max(0, timeout_millis - (time() - start))
+            if not remaining:  # pragma: no cover
+                return False
 
+        self._tracer_provider.shutdown()
         remaining = max(0, timeout_millis - (time() - start))
         if not remaining:  # pragma: no cover
             return False
+
         if flush:  # pragma: no branch
             self._meter_provider.force_flush(remaining)
+            remaining = max(0, timeout_millis - (time() - start))
+            if not remaining:  # pragma: no cover
+                return False
+
+        self._meter_provider.shutdown(remaining)
         remaining = max(0, timeout_millis - (time() - start))
         if not remaining:  # pragma: no cover
             return False
-        self._meter_provider.shutdown(remaining)
+
         return (start - time()) < timeout_millis
+
+    def var(
+        self,
+        *,
+        name: str,
+        default: T | ResolveFunction[T],
+        type: type[T] | Sequence[type[T]],
+        description: str | None = None,
+    ) -> Variable[T]:
+        from logfire.variables.variable import Variable
+
+        tp: type[T]
+        if isinstance(type, Sequence):
+            tp = Union[tuple(type)]  # pyright: ignore[reportAssignmentType]
+        else:
+            tp = type
+        variable = Variable[T](name, default=default, type=tp, logfire_instance=self, description=description)
+        self._variables[name] = variable
+        return variable
+
+    def get_variables(self) -> list[Variable[Any]]:
+        """Get all variables registered with this Logfire instance."""
+        return list(self._variables.values())
 
 
 class FastLogfireSpan:

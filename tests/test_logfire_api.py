@@ -128,6 +128,14 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire_api.ConsoleOptions(colors='auto')
     logfire__all__.remove('ConsoleOptions')
 
+    assert hasattr(logfire_api, 'VariablesOptions')
+    logfire_api.VariablesOptions()
+    logfire__all__.remove('VariablesOptions')
+
+    assert hasattr(logfire_api, 'var')
+    logfire_api.var(name='test_var', default='default', type=str)
+    logfire__all__.remove('var')
+
     assert hasattr(logfire_api, 'PydanticPlugin')
     logfire_api.PydanticPlugin()
     logfire__all__.remove('PydanticPlugin')
@@ -278,6 +286,18 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     with logfire_api.attach_context({'traceparent': '00-d1b9e555b056907ee20b0daebf62282c-7dcd821387246e1c-01'}):
         pass
     logfire__all__.remove('attach_context')
+
+    assert hasattr(logfire_api, 'get_variables')
+    assert isinstance(logfire_api.get_variables(), list)
+    logfire__all__.remove('get_variables')
+
+    assert hasattr(logfire_api, 'push_variables')
+    # NOTE: We don't call push_variables because it requires server connectivity.
+    logfire__all__.remove('push_variables')
+
+    assert hasattr(logfire_api, 'validate_variables')
+    # NOTE: We don't call validate_variables because it requires server connectivity.
+    logfire__all__.remove('validate_variables')
 
     # If it's not empty, it means that some of the __all__ members are not tested.
     assert logfire__all__ == set(), logfire__all__
