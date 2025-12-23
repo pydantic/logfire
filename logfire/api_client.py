@@ -998,28 +998,28 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
     # Variables API
     # ========================================================================
 
-    def get_variables_config(self, project_id: str | UUID) -> dict[str, Any]:
-        """Get the full variables configuration for a project.
+    def get_variables_config(self) -> dict[str, Any]:
+        """Get the full variables configuration for the project associated with the API token.
 
         Returns the complete configuration in a format compatible with the
         logfire SDK's VariablesConfig, suitable for use with remote variable providers.
 
-        Args:
-            project_id: The project ID.
+        Note: The API token must be scoped to a specific project.
 
         Returns:
             The variables configuration dictionary.
 
         Required scope: `project:read_variables`
         """
-        response = self.client.get(f'/api/v1/projects/{project_id}/variables/')
+        response = self.client.get('/v1/variables/')
         return self._handle_response(response)
 
-    def get_variable_by_name(self, project_id: str | UUID, variable_name: str) -> dict[str, Any]:
+    def get_variable_by_name(self, variable_name: str) -> dict[str, Any]:
         """Get a variable definition by name.
 
+        Note: The API token must be scoped to a specific project.
+
         Args:
-            project_id: The project ID.
             variable_name: The name of the variable.
 
         Returns:
@@ -1027,14 +1027,15 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
 
         Required scope: `project:read_variables`
         """
-        response = self.client.get(f'/api/v1/projects/{project_id}/variables/by-name/{variable_name}/')
+        response = self.client.get(f'/v1/variables/by-name/{variable_name}/')
         return self._handle_response(response)
 
-    def create_variable(self, project_id: str | UUID, body: dict[str, Any]) -> dict[str, Any]:
+    def create_variable(self, body: dict[str, Any]) -> dict[str, Any]:
         """Create a new variable definition.
 
+        Note: The API token must be scoped to a specific project.
+
         Args:
-            project_id: The project ID.
             body: The variable definition to create, including:
                 - name: Variable name (required)
                 - json_schema: JSON schema for the variable type (required)
@@ -1048,18 +1049,19 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
 
         Required scope: `project:write_variables`
         """
-        response = self.client.post(f'/api/v1/projects/{project_id}/variables/', json=body)
+        response = self.client.post('/v1/variables/', json=body)
         return self._handle_response(response)
 
-    def update_variable(self, project_id: str | UUID, variable_id: str | UUID, body: dict[str, Any]) -> dict[str, Any]:
+    def update_variable(self, variable_id: str | UUID, body: dict[str, Any]) -> dict[str, Any]:
         """Update an existing variable definition.
 
         When variants are provided, new versions are created rather than modifying existing ones.
         Fields present and set to None will be cleared.
         Fields not present will not be changed.
 
+        Note: The API token must be scoped to a specific project.
+
         Args:
-            project_id: The project ID.
             variable_id: The variable definition ID.
             body: The update data, which may include:
                 - name: New variable name
@@ -1074,7 +1076,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
 
         Required scope: `project:write_variables`
         """
-        response = self.client.put(f'/api/v1/projects/{project_id}/variables/{variable_id}/', json=body)
+        response = self.client.put(f'/v1/variables/{variable_id}/', json=body)
         return self._handle_response(response)
 
 
@@ -1707,28 +1709,28 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
     # Variables API
     # ========================================================================
 
-    async def get_variables_config(self, project_id: str | UUID) -> dict[str, Any]:
-        """Get the full variables configuration for a project.
+    async def get_variables_config(self) -> dict[str, Any]:
+        """Get the full variables configuration for the project associated with the API token.
 
         Returns the complete configuration in a format compatible with the
         logfire SDK's VariablesConfig, suitable for use with remote variable providers.
 
-        Args:
-            project_id: The project ID.
+        Note: The API token must be scoped to a specific project.
 
         Returns:
             The variables configuration dictionary.
 
         Required scope: `project:read_variables`
         """
-        response = await self.client.get(f'/api/v1/projects/{project_id}/variables/')
+        response = await self.client.get('/v1/variables/')
         return self._handle_response(response)
 
-    async def get_variable_by_name(self, project_id: str | UUID, variable_name: str) -> dict[str, Any]:
+    async def get_variable_by_name(self, variable_name: str) -> dict[str, Any]:
         """Get a variable definition by name.
 
+        Note: The API token must be scoped to a specific project.
+
         Args:
-            project_id: The project ID.
             variable_name: The name of the variable.
 
         Returns:
@@ -1736,14 +1738,15 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
 
         Required scope: `project:read_variables`
         """
-        response = await self.client.get(f'/api/v1/projects/{project_id}/variables/by-name/{variable_name}/')
+        response = await self.client.get(f'/v1/variables/by-name/{variable_name}/')
         return self._handle_response(response)
 
-    async def create_variable(self, project_id: str | UUID, body: dict[str, Any]) -> dict[str, Any]:
+    async def create_variable(self, body: dict[str, Any]) -> dict[str, Any]:
         """Create a new variable definition.
 
+        Note: The API token must be scoped to a specific project.
+
         Args:
-            project_id: The project ID.
             body: The variable definition to create, including:
                 - name: Variable name (required)
                 - json_schema: JSON schema for the variable type (required)
@@ -1757,20 +1760,19 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
 
         Required scope: `project:write_variables`
         """
-        response = await self.client.post(f'/api/v1/projects/{project_id}/variables/', json=body)
+        response = await self.client.post('/v1/variables/', json=body)
         return self._handle_response(response)
 
-    async def update_variable(
-        self, project_id: str | UUID, variable_id: str | UUID, body: dict[str, Any]
-    ) -> dict[str, Any]:
+    async def update_variable(self, variable_id: str | UUID, body: dict[str, Any]) -> dict[str, Any]:
         """Update an existing variable definition.
 
         When variants are provided, new versions are created rather than modifying existing ones.
         Fields present and set to None will be cleared.
         Fields not present will not be changed.
 
+        Note: The API token must be scoped to a specific project.
+
         Args:
-            project_id: The project ID.
             variable_id: The variable definition ID.
             body: The update data, which may include:
                 - name: New variable name
@@ -1785,5 +1787,5 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
 
         Required scope: `project:write_variables`
         """
-        response = await self.client.put(f'/api/v1/projects/{project_id}/variables/{variable_id}/', json=body)
+        response = await self.client.put(f'/v1/variables/{variable_id}/', json=body)
         return self._handle_response(response)

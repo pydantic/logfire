@@ -309,11 +309,10 @@ def test_push_variables_with_explicit_list_no_credentials(mock_logfire_instance:
         logfire_instance=mock_logfire_instance,  # type: ignore
     )
 
-    # Mock both credential lookup paths to return None
+    # Mock credential lookup to return None (no API token set)
     with (
         patch.dict(os.environ, {}, clear=True),  # Clear env vars including LOGFIRE_API_TOKEN
-        patch('logfire.variables.push._get_variables_client_from_api_token', return_value=None),
-        patch('logfire.variables.push._get_variables_client_from_user_token', return_value=None),
+        patch('logfire.variables.push._get_variables_client', return_value=None),
     ):
         # Should return False since there are no credentials configured
         result = logfire.push_variables([var])
