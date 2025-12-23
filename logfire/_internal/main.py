@@ -2376,8 +2376,8 @@ class Logfire:
 
     def var(
         self,
-        *,
         name: str,
+        *,
         default: T | ResolveFunction[T],
         type: type[T] | Sequence[type[T]],
         description: str | None = None,

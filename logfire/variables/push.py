@@ -12,7 +12,6 @@ from pydantic import ValidationError
 from logfire.variables.variable import Variable, is_resolve_function
 
 if TYPE_CHECKING:
-    from logfire._internal.client import LogfireClient
     from logfire.api_client import LogfireAPIClient
 
 __all__ = ('push_variables', 'validate_variables', 'VariableDiff', 'VariableChange', 'DescriptionDifference')
@@ -235,27 +234,26 @@ def _format_diff(diff: VariableDiff) -> str:
 
 
 class _VariablesClient:
-    """Abstract interface for variables API operations.
+    """Wrapper for variables API operations using LogfireAPIClient.
 
-    This allows both LogfireClient (user token) and LogfireAPIClient (API token)
-    to be used interchangeably for variable operations.
+    The underlying client methods use token-scoped endpoints that derive
+    the project from the API token itself.
     """
 
-    def __init__(self, client: LogfireClient | LogfireAPIClient, project_id: str):
+    def __init__(self, client: LogfireAPIClient):
         self._client = client
-        self._project_id = project_id
 
     def get_variables_config(self) -> dict[str, Any]:
-        return self._client.get_variables_config(self._project_id)
+        return self._client.get_variables_config()
 
     def get_variable_by_name(self, variable_name: str) -> dict[str, Any]:
-        return self._client.get_variable_by_name(self._project_id, variable_name)
+        return self._client.get_variable_by_name(variable_name)
 
     def create_variable(self, body: dict[str, Any]) -> dict[str, Any]:
-        return self._client.create_variable(self._project_id, body)
+        return self._client.create_variable(body)
 
     def update_variable(self, variable_id: str, body: dict[str, Any]) -> dict[str, Any]:
-        return self._client.update_variable(self._project_id, variable_id, body)
+        return self._client.update_variable(variable_id, body)
 
 
 def _apply_changes(
@@ -320,90 +318,14 @@ def _update_variable_schema(
     print(f'  \033[33mUpdated schema: {change.name}\033[0m')
 
 
-@dataclass
-class ProjectInfo:
-    """Project information for variable operations."""
+def _get_variables_client() -> tuple[_VariablesClient, str] | None:
+    """Create a variables client from LOGFIRE_API_TOKEN environment variable.
 
-    project_id: str
-    organization_name: str
-    project_name: str
-    project_url: str
-    logfire_api_url: str
-
-
-def _select_project(
-    projects: list[dict[str, Any]],
-    base_url: str,
-    yes: bool = False,
-) -> ProjectInfo | None:
-    """Prompt user to select a project from available projects.
-
-    Args:
-        projects: List of project dictionaries from the API.
-        base_url: The base API URL.
-        yes: If True, auto-select if only one project, otherwise prompt.
+    The API token must be scoped to a specific project. The project is derived
+    from the token itself.
 
     Returns:
-        Selected ProjectInfo, or None if cancelled.
-    """
-    if not projects:
-        print('\033[31mNo writable projects found. Create a project first.\033[0m', file=sys.stderr)
-        return None
-
-    if len(projects) == 1:
-        project = projects[0]
-        project_url = f'{base_url.rstrip("/")}/{project["organization_name"]}/{project["project_name"]}'
-        return ProjectInfo(
-            project_id=project['id'],
-            organization_name=project['organization_name'],
-            project_name=project['project_name'],
-            project_url=project_url,
-            logfire_api_url=base_url,
-        )
-
-    # Multiple projects - prompt user to select
-    print('\nAvailable projects:')
-    for i, project in enumerate(projects, 1):
-        print(f'  {i}. {project["organization_name"]}/{project["project_name"]}')
-
-    if yes:
-        print(
-            '\033[31mMultiple projects available. Please specify a project or run interactively.\033[0m',
-            file=sys.stderr,
-        )
-        return None
-
-    try:
-        choice = input('\nSelect a project (number): ')
-        idx = int(choice) - 1
-        if 0 <= idx < len(projects):
-            project = projects[idx]
-            project_url = f'{base_url.rstrip("/")}/{project["organization_name"]}/{project["project_name"]}'
-            return ProjectInfo(
-                project_id=project['id'],
-                organization_name=project['organization_name'],
-                project_name=project['project_name'],
-                project_url=project_url,
-                logfire_api_url=base_url,
-            )
-        else:
-            print('\033[31mInvalid selection.\033[0m', file=sys.stderr)
-            return None
-    except (ValueError, EOFError, KeyboardInterrupt):
-        print('\nAborted.')
-        return None
-
-
-def _get_variables_client_from_api_token(
-    yes: bool = False,
-) -> tuple[_VariablesClient, str] | None:
-    """Try to create a variables client from LOGFIRE_API_TOKEN environment variable.
-
-    Args:
-        yes: If True, auto-select project if only one available.
-
-    Returns:
-        Tuple of (client, project_url) if successful, None otherwise.
+        Tuple of (client, base_url) if successful, None otherwise.
     """
     import os
 
@@ -411,6 +333,11 @@ def _get_variables_client_from_api_token(
 
     api_token = os.environ.get(LOGFIRE_API_TOKEN_ENV)
     if not api_token:
+        print(
+            f'\033[31mError: {LOGFIRE_API_TOKEN_ENV} environment variable is not set.\n'
+            'The variables API requires a project-scoped API token.\033[0m',
+            file=sys.stderr,
+        )
         return None
 
     try:
@@ -419,59 +346,7 @@ def _get_variables_client_from_api_token(
         print(f'\033[31mError: Invalid API token: {e}\033[0m', file=sys.stderr)
         return None
 
-    # Get list of projects
-    try:
-        # TODO: refactor so that we are producing a list[ProjectRead] rather than list[dict[str, Any]]
-        projects = client.list_projects()
-    except Exception as e:
-        print(f'\033[31mError fetching projects: {e}\033[0m', file=sys.stderr)
-        return None
-
-    # Let user select a project
-    # TODO: Need to expose a way to manually specify the project? For compatibility with yes=True
-    project_info = _select_project(projects, client.base_url, yes=yes)  # pyright: ignore[reportArgumentType]
-    if project_info is None:
-        return None
-
-    return _VariablesClient(client, project_info.project_id), project_info.project_url
-
-
-def _get_variables_client_from_user_token(
-    base_url: str | None = None,
-    yes: bool = False,
-) -> tuple[_VariablesClient, str] | None:
-    """Try to create a variables client from user token.
-
-    Args:
-        base_url: Optional base URL. If None, uses default from user tokens.
-        yes: If True, auto-select project if only one available.
-
-    Returns:
-        Tuple of (client, project_url) if successful, None otherwise.
-    """
-    # TODO: Unify implementation better with `_get_variables_client_from_api_token` above?
-    from logfire._internal.client import LogfireClient
-
-    try:
-        client = LogfireClient.from_url(base_url)
-    except Exception as e:
-        print(f'\033[31mError: Not logged in or invalid user token: {e}\033[0m', file=sys.stderr)
-        return None
-
-    # Get list of writable projects
-    try:
-        projects = client.get_user_projects()
-    except Exception as e:
-        print(f'\033[31mError fetching projects: {e}\033[0m', file=sys.stderr)
-        return None
-
-    # Let user select a project
-    # TODO: Need to expose a way to manually specify the project? For compatibility with yes=True
-    project_info = _select_project(projects, client.base_url, yes=yes)
-    if project_info is None:
-        return None
-
-    return _VariablesClient(client, project_info.project_id), project_info.project_url
+    return _VariablesClient(client), client.base_url
 
 
 def push_variables(
@@ -488,17 +363,14 @@ def push_variables(
     - Updates JSON schemas for existing variables if they've changed
     - Warns about existing variants that are incompatible with new schemas
 
-    Authentication priority:
-    1. If LOGFIRE_API_TOKEN environment variable is set, uses the API client.
-    2. Otherwise, uses user token from ~/.logfire/default.toml and prompts for
-       project selection if multiple projects are available.
+    Authentication: Requires the LOGFIRE_API_TOKEN environment variable to be set
+    with a project-scoped API token. The project is derived from the token itself.
 
     Args:
         variables: Variable instances to push to the server. If None, all variables
             registered with the default Logfire instance will be pushed.
         dry_run: If True, only show what would change without applying.
-        yes: If True, skip confirmation prompt. For project selection, will auto-select
-            if only one project is available, otherwise fails.
+        yes: If True, skip confirmation prompt.
         strict: If True, fail if any existing variants are incompatible with new schemas.
 
     Returns:
@@ -528,25 +400,12 @@ def push_variables(
         print('No variables to push. Create variables using logfire.var() first.')
         return False
 
-    # Try to get a variables client
-    # Priority: 1. LOGFIRE_API_TOKEN environment variable, 2. User token with project selection
-    result = _get_variables_client_from_api_token(yes=yes)
-    if result is not None:
-        client, project_url = result
-        print(f'Using API token for project: {project_url}')
-    else:
-        # Fall back to user token auth
-        result = _get_variables_client_from_user_token(yes=yes)
-        if result is None:
-            print(
-                '\033[31mError: No valid credentials found. Either:\n'
-                '  - Set the LOGFIRE_API_TOKEN environment variable, or\n'
-                '  - Run `logfire auth` to log in with your user account.\033[0m',
-                file=sys.stderr,
-            )
-            return False
-        client, project_url = result
-        print(f'Using user token for project: {project_url}')
+    # Get variables client from API token
+    result = _get_variables_client()
+    if result is None:
+        return False
+    client, base_url = result
+    print(f'Using API token (base URL: {base_url})')
 
     # Fetch current server config
     try:
@@ -681,8 +540,6 @@ def _format_validation_report(report: ValidationReport) -> str:
 
 def validate_variables(
     variables: list[Variable[Any]] | None = None,
-    *,
-    yes: bool = False,
 ) -> bool:
     """Validate that server-side variable variants match local type definitions.
 
@@ -690,16 +547,12 @@ def validate_variables(
     validates that all variant values can be deserialized to the expected types
     defined in the local Variable instances.
 
-    Authentication priority:
-    1. If LOGFIRE_API_TOKEN environment variable is set, uses the API client.
-    2. Otherwise, uses user token from ~/.logfire/default.toml and prompts for
-       project selection if multiple projects are available.
+    Authentication: Requires the LOGFIRE_API_TOKEN environment variable to be set
+    with a project-scoped API token. The project is derived from the token itself.
 
     Args:
         variables: Variable instances to validate. If None, all variables
             registered with the default Logfire instance will be validated.
-        yes: If True, auto-select project if only one available, otherwise fail
-            for multiple projects.
 
     Returns:
         True if all variables validated successfully, False if there were errors.
@@ -729,25 +582,12 @@ def validate_variables(
         print('No variables to validate. Create variables using logfire.var() first.')
         return True  # No variables to validate is not an error
 
-    # Try to get a variables client
-    # Priority: 1. LOGFIRE_API_TOKEN environment variable, 2. User token with project selection
-    result = _get_variables_client_from_api_token(yes=yes)
-    if result is not None:
-        client, project_url = result
-        print(f'Using API token for project: {project_url}')
-    else:
-        # Fall back to user token auth
-        result = _get_variables_client_from_user_token(yes=yes)
-        if result is None:
-            print(
-                '\033[31mError: No valid credentials found. Either:\n'
-                '  - Set the LOGFIRE_API_TOKEN environment variable, or\n'
-                '  - Run `logfire auth` to log in with your user account.\033[0m',
-                file=sys.stderr,
-            )
-            return False
-        client, project_url = result
-        print(f'Validating variables for project: {project_url}')
+    # Get variables client from API token
+    result = _get_variables_client()
+    if result is None:
+        return False
+    client, base_url = result
+    print(f'Using API token (base URL: {base_url})')
 
     # Fetch current server config
     try:
