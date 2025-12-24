@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING, Any, cast
 
 import anthropic
@@ -14,11 +15,17 @@ from .semconv import (
     OUTPUT_MESSAGES,
     OUTPUT_TOKENS,
     PROVIDER_NAME,
+    REQUEST_MAX_TOKENS,
     REQUEST_MODEL,
+    REQUEST_STOP_SEQUENCES,
+    REQUEST_TEMPERATURE,
+    REQUEST_TOP_K,
+    REQUEST_TOP_P,
     RESPONSE_FINISH_REASONS,
     RESPONSE_ID,
     RESPONSE_MODEL,
     SYSTEM_INSTRUCTIONS,
+    TOOL_DEFINITIONS,
 )
 from .types import EndpointConfig, StreamState
 
@@ -33,6 +40,29 @@ __all__ = (
     'on_response',
     'is_async_client',
 )
+
+
+def _extract_request_parameters(json_data: dict[str, Any], span_data: dict[str, Any]) -> None:
+    """Extract request parameters from json_data and add to span_data."""
+    if (max_tokens := json_data.get('max_tokens')) is not None:
+        span_data[REQUEST_MAX_TOKENS] = max_tokens
+
+    if (temperature := json_data.get('temperature')) is not None:
+        span_data[REQUEST_TEMPERATURE] = temperature
+
+    if (top_p := json_data.get('top_p')) is not None:
+        span_data[REQUEST_TOP_P] = top_p
+
+    if (top_k := json_data.get('top_k')) is not None:
+        span_data[REQUEST_TOP_K] = top_k
+
+    # Anthropic uses 'stop_sequences' directly
+    if (stop_sequences := json_data.get('stop_sequences')) is not None:
+        span_data[REQUEST_STOP_SEQUENCES] = json.dumps(stop_sequences)
+
+    # Extract tool definitions if present
+    if (tools := json_data.get('tools')) is not None:
+        span_data[TOOL_DEFINITIONS] = json.dumps(tools)
 
 
 def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
@@ -51,6 +81,9 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             OPERATION_NAME: 'chat',
             REQUEST_MODEL: json_data.get('model'),
         }
+
+        # Extract request parameters
+        _extract_request_parameters(json_data, span_data)
 
         # Convert messages to semantic convention format
         messages: list[dict[str, Any]] = json_data.get('messages', [])
@@ -115,6 +148,10 @@ def convert_anthropic_messages_to_semconv(
                 for part in cast('list[dict[str, Any] | str]', content):
                     parts.append(_convert_anthropic_content_part(part))
 
+        # Per OTEL GenAI spec, messages containing tool_call_response should have role='tool'
+        if any(p.get('type') == 'tool_call_response' for p in parts):
+            role = 'tool'
+
         input_messages.append(
             {
                 'role': role,
@@ -169,7 +206,7 @@ def _convert_anthropic_content_part(part: dict[str, Any] | str) -> dict[str, Any
         return {
             'type': 'tool_call_response',
             'id': part.get('tool_use_id'),
-            'response': result_text,
+            'result': result_text,
         }
     else:
         # Return as generic part

@@ -4,11 +4,14 @@ from collections.abc import AsyncIterator, Iterable, Iterator
 from contextlib import AbstractContextManager, ExitStack, contextmanager, nullcontext
 from typing import TYPE_CHECKING, Any, Callable, cast
 
+from opentelemetry.trace import SpanKind
+
 from logfire import attach_context, get_context
 from logfire.propagate import ContextCarrier
 
 from ...constants import ONE_SECOND_IN_NANOSECONDS
 from ...utils import is_instrumentation_suppressed, log_internal_error, suppress_instrumentation
+from .semconv import OPERATION_NAME, REQUEST_MODEL, SERVER_ADDRESS, SERVER_PORT
 
 if TYPE_CHECKING:
     from ...main import Logfire, LogfireSpan
@@ -82,6 +85,24 @@ def instrument_llm_provider(
 
     is_async = is_async_client_fn(client if isinstance(client, type) else type(client))
 
+    # Extract server address and port from client's base_url
+    server_address: str | None = None
+    server_port: int | None = None
+    try:
+        base_url = getattr(client, 'base_url', None)
+        if base_url is not None:
+            # base_url is typically an httpx.URL object with host and port attributes
+            server_address = getattr(base_url, 'host', None)
+            port = getattr(base_url, 'port', None)
+            if port is not None:
+                server_port = port
+            else:
+                # Default port based on scheme
+                scheme = getattr(base_url, 'scheme', 'https')
+                server_port = 443 if scheme == 'https' else 80
+    except Exception:  # pragma: no cover
+        pass  # Server attributes are optional, don't fail if we can't extract them
+
     def _instrumentation_setup(*args: Any, **kwargs: Any) -> Any:
         try:
             if is_instrumentation_suppressed():
@@ -93,6 +114,12 @@ def instrument_llm_provider(
                 return None, None, kwargs
 
             span_data['async'] = is_async
+
+            # Add server attributes
+            if server_address:
+                span_data[SERVER_ADDRESS] = server_address
+            if server_port:
+                span_data[SERVER_PORT] = server_port
 
             if kwargs.get('stream') and stream_state_cls:
                 stream_cls = kwargs['stream_cls']
@@ -132,11 +159,20 @@ def instrument_llm_provider(
     # In these methods, `*args` is only expected to be `(self,)`
     # in the case where we instrument classes rather than client instances.
 
+    def _get_otel_span_name(span_data: dict[str, Any]) -> str | None:
+        """Construct OTel-compliant span name as '{operation} {model}'."""
+        operation = span_data.get(OPERATION_NAME)
+        model = span_data.get(REQUEST_MODEL)
+        if operation and model:
+            return f'{operation} {model}'
+        return None
+
     def instrumented_llm_request_sync(*args: Any, **kwargs: Any) -> Any:
         message_template, span_data, kwargs = _instrumentation_setup(*args, **kwargs)
         if message_template is None:
             return original_request_method(*args, **kwargs)
-        with logfire_llm.span(message_template, **span_data) as span:
+        span_name = _get_otel_span_name(span_data)
+        with logfire_llm.span(message_template, _span_kind=SpanKind.CLIENT, _span_name=span_name, **span_data) as span:
             with maybe_suppress_instrumentation(suppress_otel):
                 if kwargs.get('stream'):
                     return original_request_method(*args, **kwargs)
@@ -148,7 +184,8 @@ def instrument_llm_provider(
         message_template, span_data, kwargs = _instrumentation_setup(*args, **kwargs)
         if message_template is None:
             return await original_request_method(*args, **kwargs)
-        with logfire_llm.span(message_template, **span_data) as span:
+        span_name = _get_otel_span_name(span_data)
+        with logfire_llm.span(message_template, _span_kind=SpanKind.CLIENT, _span_name=span_name, **span_data) as span:
             with maybe_suppress_instrumentation(suppress_otel):
                 if kwargs.get('stream'):
                     return await original_request_method(*args, **kwargs)

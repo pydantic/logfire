@@ -25,11 +25,19 @@ from .semconv import (
     OUTPUT_MESSAGES,
     OUTPUT_TOKENS,
     PROVIDER_NAME,
+    REQUEST_FREQUENCY_PENALTY,
+    REQUEST_MAX_TOKENS,
     REQUEST_MODEL,
+    REQUEST_PRESENCE_PENALTY,
+    REQUEST_SEED,
+    REQUEST_STOP_SEQUENCES,
+    REQUEST_TEMPERATURE,
+    REQUEST_TOP_P,
     RESPONSE_FINISH_REASONS,
     RESPONSE_ID,
     RESPONSE_MODEL,
     SYSTEM_INSTRUCTIONS,
+    TOOL_DEFINITIONS,
 )
 from .types import EndpointConfig, StreamState
 
@@ -44,6 +52,42 @@ __all__ = (
     'on_response',
     'is_async_client',
 )
+
+
+def _extract_request_parameters(json_data: dict[str, Any], span_data: dict[str, Any]) -> None:
+    """Extract request parameters from json_data and add to span_data."""
+    # OpenAI Chat Completions uses 'max_tokens', Responses API uses 'max_output_tokens'
+    if (max_tokens := json_data.get('max_tokens')) is not None:
+        span_data[REQUEST_MAX_TOKENS] = max_tokens
+    elif (max_output_tokens := json_data.get('max_output_tokens')) is not None:
+        span_data[REQUEST_MAX_TOKENS] = max_output_tokens
+
+    if (temperature := json_data.get('temperature')) is not None:
+        span_data[REQUEST_TEMPERATURE] = temperature
+
+    if (top_p := json_data.get('top_p')) is not None:
+        span_data[REQUEST_TOP_P] = top_p
+
+    # OpenAI uses 'stop' not 'stop_sequences'
+    if (stop := json_data.get('stop')) is not None:
+        # Normalize to list
+        if isinstance(stop, str):
+            span_data[REQUEST_STOP_SEQUENCES] = json.dumps([stop])
+        else:
+            span_data[REQUEST_STOP_SEQUENCES] = json.dumps(stop)
+
+    if (seed := json_data.get('seed')) is not None:
+        span_data[REQUEST_SEED] = seed
+
+    if (frequency_penalty := json_data.get('frequency_penalty')) is not None:
+        span_data[REQUEST_FREQUENCY_PENALTY] = frequency_penalty
+
+    if (presence_penalty := json_data.get('presence_penalty')) is not None:
+        span_data[REQUEST_PRESENCE_PENALTY] = presence_penalty
+
+    # Extract tool definitions if present
+    if (tools := json_data.get('tools')) is not None:
+        span_data[TOOL_DEFINITIONS] = json.dumps(tools)
 
 
 def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
@@ -66,6 +110,9 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             OPERATION_NAME: 'chat',
             REQUEST_MODEL: json_data.get('model'),
         }
+        # Extract request parameters
+        _extract_request_parameters(json_data, span_data)
+
         # Convert messages to semantic convention format
         messages: list[dict[str, Any]] = json_data.get('messages', [])
         if messages:
@@ -89,11 +136,17 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             OPERATION_NAME: 'chat',
             REQUEST_MODEL: json_data.get('model'),
             'request_data': {'model': json_data.get('model'), 'stream': stream},
-            'events': inputs_to_events(
-                json_data.get('input'),
-                json_data.get('instructions'),
-            ),
         }
+        # Extract request parameters
+        _extract_request_parameters(json_data, span_data)
+
+        input_messages, system_instructions = convert_responses_inputs_to_semconv(
+            json_data.get('input'), json_data.get('instructions')
+        )
+        if input_messages:
+            span_data[INPUT_MESSAGES] = input_messages
+        if system_instructions:
+            span_data[SYSTEM_INSTRUCTIONS] = system_instructions
 
         return EndpointConfig(
             message_template='Responses API with {request_data[model]!r}',
@@ -205,7 +258,7 @@ def convert_openai_messages_to_semconv(
                 {
                     'type': 'tool_call_response',
                     'id': tool_call_id,
-                    'response': content,
+                    'result': content,
                 }
             )
 
@@ -275,6 +328,91 @@ def convert_openai_response_to_semconv(
     return result
 
 
+def convert_responses_inputs_to_semconv(
+    inputs: str | list[dict[str, Any]] | None, instructions: str | None
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Convert Responses API inputs to OTel Gen AI Semantic Convention format."""
+    input_messages: list[dict[str, Any]] = []
+    system_instructions: list[dict[str, Any]] = []
+    if instructions:
+        system_instructions.append({'type': 'text', 'content': instructions})
+    if inputs:
+        if isinstance(inputs, str):
+            input_messages.append({'role': 'user', 'parts': [{'type': 'text', 'content': inputs}]})
+        else:
+            for inp in inputs:
+                role, typ, content = inp.get('role', 'user'), inp.get('type'), inp.get('content')
+                if typ in (None, 'message') and content:
+                    parts: list[dict[str, Any]] = []
+                    if isinstance(content, str):
+                        parts.append({'type': 'text', 'content': content})
+                    elif isinstance(content, list):
+                        for item in content:
+                            if isinstance(item, dict) and item.get('type') == 'output_text':
+                                parts.append({'type': 'text', 'content': item.get('text', '')})
+                            else:
+                                parts.append(item if isinstance(item, dict) else {'type': 'text', 'content': str(item)})
+                    input_messages.append({'role': role, 'parts': parts})
+                elif typ == 'function_call':
+                    input_messages.append(
+                        {
+                            'role': 'assistant',
+                            'parts': [
+                                {
+                                    'type': 'tool_call',
+                                    'id': inp.get('call_id'),
+                                    'name': inp.get('name'),
+                                    'arguments': inp.get('arguments'),
+                                }
+                            ],
+                        }
+                    )
+                elif typ == 'function_call_output':
+                    msg = {
+                        'role': 'tool',
+                        'parts': [
+                            {'type': 'tool_call_response', 'id': inp.get('call_id'), 'result': inp.get('output')}
+                        ],
+                    }
+                    if 'name' in inp:
+                        msg['name'] = inp['name']
+                    input_messages.append(msg)
+    return input_messages, system_instructions
+
+
+def convert_responses_outputs_to_semconv(response: Response) -> list[dict[str, Any]]:
+    """Convert Responses API outputs to OTel Gen AI Semantic Convention format."""
+    output_messages: list[dict[str, Any]] = []
+    for out in response.output:
+        out_dict, typ, content = out.model_dump(), out.model_dump().get('type'), out.model_dump().get('content')
+        if typ in (None, 'message') and content:
+            parts: list[dict[str, Any]] = []
+            if isinstance(content, str):
+                parts.append({'type': 'text', 'content': content})
+            elif isinstance(content, list):
+                for item in content:
+                    if isinstance(item, dict) and item.get('type') == 'output_text':
+                        parts.append({'type': 'text', 'content': item.get('text', '')})
+                    else:
+                        parts.append(item if isinstance(item, dict) else {'type': 'text', 'content': str(item)})
+            output_messages.append({'role': 'assistant', 'parts': parts})
+        elif typ == 'function_call':
+            output_messages.append(
+                {
+                    'role': 'assistant',
+                    'parts': [
+                        {
+                            'type': 'tool_call',
+                            'id': out_dict.get('call_id'),
+                            'name': out_dict.get('name'),
+                            'arguments': out_dict.get('arguments'),
+                        }
+                    ],
+                }
+            )
+    return output_messages
+
+
 def is_current_agent_span(*span_names: str):
     current_span = get_current_span()
     return (
@@ -320,7 +458,9 @@ class OpenaiResponsesStreamState(StreamState):
 
     def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
         response = self.get_response_data()
-        span_data['events'] = span_data['events'] + responses_output_events(response)
+        output_messages = convert_responses_outputs_to_semconv(response)
+        if output_messages:
+            span_data[OUTPUT_MESSAGES] = output_messages
         return span_data
 
 
@@ -361,9 +501,6 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
     if isinstance(response, LegacyAPIResponse):  # pragma: no cover
         on_response(response.parse(), span)  # type: ignore
         return cast('ResponseT', response)
-
-    # Keep gen_ai.system for backward compatibility
-    span.set_attribute('gen_ai.system', 'openai')
 
     if isinstance(response_model := getattr(response, 'model', None), str):
         span.set_attribute(RESPONSE_MODEL, response_model)
@@ -442,13 +579,23 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
     elif isinstance(response, ImagesResponse):
         span.set_attribute('response_data', {'images': response.data})
     elif isinstance(response, Response):  # pragma: no branch
-        try:
-            events = json.loads(span.attributes['events'])  # type: ignore
-        except Exception:
-            pass
-        else:
-            events += responses_output_events(response)
-            span.set_attribute('events', events)
+        output_messages = convert_responses_outputs_to_semconv(response)
+        if output_messages:
+            span.set_attribute(OUTPUT_MESSAGES, output_messages)
+
+        # Map Responses API status to finish_reason
+        # status can be: completed, failed, in_progress, cancelled, queued, incomplete
+        status = getattr(response, 'status', None)
+        if status:
+            # Map status to OTel-compatible finish_reason
+            status_to_finish_reason = {
+                'completed': 'stop',
+                'failed': 'error',
+                'cancelled': 'cancelled',
+                'incomplete': 'length',  # Could also be content_filter
+            }
+            finish_reason = status_to_finish_reason.get(status, status)
+            span.set_attribute(RESPONSE_FINISH_REASONS, [finish_reason])
 
     return response
 
