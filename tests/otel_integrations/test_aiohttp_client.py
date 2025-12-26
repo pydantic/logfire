@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import importlib
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from unittest import mock
 
 import aiohttp
@@ -26,12 +28,33 @@ async def mock_handler(request: aiohttp.web.Request) -> aiohttp.web.Response:
     )
 
 
+async def json_echo_handler(request: aiohttp.web.Request) -> aiohttp.web.Response:
+    """Handler that returns a simple JSON response."""
+    return aiohttp.web.json_response({'good': 'response'})
+
+
 @pytest.fixture
 def test_app() -> aiohttp.web.Application:
     """Pytest fixture that creates a test aiohttp application with standard routes."""
     app = aiohttp.web.Application()
     app.router.add_get('/test', mock_handler)
+    app.router.add_post('/body', json_echo_handler)
     return app
+
+
+@pytest.fixture
+def uninstrument():
+    """Fixture that automatically uninstruments after each test."""
+    yield
+    AioHttpClientInstrumentor().uninstrument()
+
+
+@asynccontextmanager
+async def create_test_server(app: aiohttp.web.Application) -> AsyncIterator[aiohttp.test_utils.BaseTestServer]:
+    """Context manager that creates and starts a test server."""
+    async with aiohttp.test_utils.TestServer(app) as server:
+        await server.start_server()
+        yield server
 
 
 def request_hook(span: Span, params: TraceRequestStartParams) -> None:
@@ -364,28 +387,17 @@ async def test_aiohttp_client_capture_response_body(exporter: TestExporter, test
 
 
 @pytest.mark.anyio
-async def test_aiohttp_client_capture_all(exporter: TestExporter, test_app: aiohttp.web.Application):
-    """Test that aiohttp client captures request body when configured to do so."""
+async def test_aiohttp_client_capture_all(
+    exporter: TestExporter, test_app: aiohttp.web.Application, uninstrument: None
+):
+    """Test that aiohttp client captures all (headers, request body, response body) when capture_all=True."""
+    async with create_test_server(test_app) as server:
+        logfire.instrument_aiohttp_client(capture_all=True)
 
-    try:
-
-        async def handler(request: aiohttp.web.Request) -> aiohttp.web.Response:
-            return aiohttp.web.json_response({'good': 'response'})
-
-        test_app.router.add_post('/body', handler)
-
-        async with aiohttp.test_utils.TestServer(test_app) as server:
-            await server.start_server()
-
-            logfire.instrument_aiohttp_client(capture_all=True)
-
-            async with aiohttp.ClientSession() as session:
-                async with session.post(f'http://localhost:{server.port}/body', json={'good': 'request'}) as response:  # type: ignore
-                    assert await response.json() == {'good': 'response'}
-                    assert await response.read() == b'{"good": "response"}'
-
-    finally:
-        AioHttpClientInstrumentor().uninstrument()
+        async with aiohttp.ClientSession() as session:
+            async with session.post(f'http://localhost:{server.port}/body', json={'good': 'request'}) as response:  # type: ignore
+                assert await response.json() == {'good': 'response'}
+                assert await response.read() == b'{"good": "response"}'
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
@@ -439,27 +451,16 @@ async def test_aiohttp_client_capture_all(exporter: TestExporter, test_app: aioh
 
 
 @pytest.mark.anyio
-async def test_aiohttp_client_capture_request_body_bytes(exporter: TestExporter, test_app: aiohttp.web.Application):
+async def test_aiohttp_client_capture_request_body_bytes(
+    exporter: TestExporter, test_app: aiohttp.web.Application, uninstrument: None
+):
     """Test that aiohttp client captures bytes request body."""
+    async with create_test_server(test_app) as server:
+        logfire.instrument_aiohttp_client(capture_request_body=True)
 
-    try:
-
-        async def handler(request: aiohttp.web.Request) -> aiohttp.web.Response:
-            return aiohttp.web.json_response({'good': 'response'})
-
-        test_app.router.add_post('/body', handler)
-
-        async with aiohttp.test_utils.TestServer(test_app) as server:
-            await server.start_server()
-
-            logfire.instrument_aiohttp_client(capture_request_body=True)
-
-            async with aiohttp.ClientSession() as session:
-                async with session.post(f'http://localhost:{server.port}/body', data=b'raw bytes data') as response:  # type: ignore
-                    assert await response.json() == {'good': 'response'}
-
-    finally:
-        AioHttpClientInstrumentor().uninstrument()
+        async with aiohttp.ClientSession() as session:
+            async with session.post(f'http://localhost:{server.port}/body', data=b'raw bytes data') as response:  # type: ignore
+                assert await response.json() == {'good': 'response'}
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
@@ -491,27 +492,16 @@ async def test_aiohttp_client_capture_request_body_bytes(exporter: TestExporter,
 
 
 @pytest.mark.anyio
-async def test_aiohttp_client_capture_request_body_string(exporter: TestExporter, test_app: aiohttp.web.Application):
+async def test_aiohttp_client_capture_request_body_string(
+    exporter: TestExporter, test_app: aiohttp.web.Application, uninstrument: None
+):
     """Test that aiohttp client captures string request body."""
+    async with create_test_server(test_app) as server:
+        logfire.instrument_aiohttp_client(capture_request_body=True)
 
-    try:
-
-        async def handler(request: aiohttp.web.Request) -> aiohttp.web.Response:
-            return aiohttp.web.json_response({'good': 'response'})
-
-        test_app.router.add_post('/body', handler)
-
-        async with aiohttp.test_utils.TestServer(test_app) as server:
-            await server.start_server()
-
-            logfire.instrument_aiohttp_client(capture_request_body=True)
-
-            async with aiohttp.ClientSession() as session:
-                async with session.post(f'http://localhost:{server.port}/body', data='string data') as response:  # type: ignore
-                    assert await response.json() == {'good': 'response'}
-
-    finally:
-        AioHttpClientInstrumentor().uninstrument()
+        async with aiohttp.ClientSession() as session:
+            async with session.post(f'http://localhost:{server.port}/body', data='string data') as response:  # type: ignore
+                assert await response.json() == {'good': 'response'}
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
@@ -543,30 +533,19 @@ async def test_aiohttp_client_capture_request_body_string(exporter: TestExporter
 
 
 @pytest.mark.anyio
-async def test_aiohttp_client_capture_request_body_form(exporter: TestExporter, test_app: aiohttp.web.Application):
+async def test_aiohttp_client_capture_request_body_form(
+    exporter: TestExporter, test_app: aiohttp.web.Application, uninstrument: None
+):
     """Test that aiohttp client captures form data request body."""
+    async with create_test_server(test_app) as server:
+        logfire.instrument_aiohttp_client(capture_request_body=True)
 
-    try:
-
-        async def handler(request: aiohttp.web.Request) -> aiohttp.web.Response:
-            return aiohttp.web.json_response({'good': 'response'})
-
-        test_app.router.add_post('/body', handler)
-
-        async with aiohttp.test_utils.TestServer(test_app) as server:
-            await server.start_server()
-
-            logfire.instrument_aiohttp_client(capture_request_body=True)
-
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    f'http://localhost:{server.port}/body',
-                    data={'field1': 'value1', 'field2': 'value2'},  # type: ignore
-                ) as response:
-                    assert await response.json() == {'good': 'response'}
-
-    finally:
-        AioHttpClientInstrumentor().uninstrument()
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f'http://localhost:{server.port}/body',  # type: ignore
+                data={'field1': 'value1', 'field2': 'value2'},
+            ) as response:
+                assert await response.json() == {'good': 'response'}
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
@@ -599,19 +578,107 @@ async def test_aiohttp_client_capture_request_body_form(exporter: TestExporter, 
 
 
 @pytest.mark.anyio
-async def test_aiohttp_client_capture_response_body_exception(exporter: TestExporter):
-    """Test that aiohttp client captures response body when configured to do so."""
+async def test_aiohttp_client_capture_request_body_binary(
+    exporter: TestExporter, test_app: aiohttp.web.Application, uninstrument: None
+):
+    """Test that aiohttp client skips binary request body that can't be decoded as UTF-8."""
+    async with create_test_server(test_app) as server:
+        logfire.instrument_aiohttp_client(capture_request_body=True)
 
-    try:
-        logfire.instrument_aiohttp_client(capture_response_body=True)
+        # Binary data that can't be decoded as UTF-8
+        binary_data = b'\x80\x81\x82\xff\xfe'
 
         async with aiohttp.ClientSession() as session:
-            with pytest.raises(aiohttp.ClientConnectorError):
-                async with session.get('http://non-existent-host-12345.example.com/test'):
-                    pass
+            async with session.post(f'http://localhost:{server.port}/body', data=binary_data) as response:  # type: ignore
+                assert await response.json() == {'good': 'response'}
 
-    finally:
-        AioHttpClientInstrumentor().uninstrument()
+    # Should NOT have http.request.body.text since binary data can't be decoded
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'POST',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'http.method': 'POST',
+                    'http.request.method': 'POST',
+                    'http.url': IsStr(),
+                    'url.full': IsStr(),
+                    'http.host': 'localhost',
+                    'server.address': 'localhost',
+                    'net.peer.port': IsInt(),
+                    'server.port': IsInt(),
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'POST localhost/body',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                    'http.target': '/body',
+                },
+            }
+        ]
+    )
+
+
+@pytest.mark.anyio
+async def test_aiohttp_client_no_capture_empty_body(
+    exporter: TestExporter, test_app: aiohttp.web.Application, uninstrument: None
+):
+    """Test that aiohttp client handles GET requests (no body) when capture_request_body=True."""
+    async with create_test_server(test_app) as server:
+        logfire.instrument_aiohttp_client(capture_request_body=True)
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f'http://localhost:{server.port}/test') as response:  # type: ignore
+                await response.json()
+
+    # Should NOT have http.request.body.text since GET has no body
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'GET',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'http.method': 'GET',
+                    'http.request.method': 'GET',
+                    'http.url': IsStr(),
+                    'url.full': IsStr(),
+                    'http.host': 'localhost',
+                    'server.address': 'localhost',
+                    'net.peer.port': IsInt(),
+                    'server.port': IsInt(),
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET localhost/test',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                    'http.target': '/test',
+                },
+            }
+        ]
+    )
+
+
+def test_aiohttp_capture_all_and_other_flags_should_warn(uninstrument: None):
+    """Test that using capture_all with other capture flags emits a warning."""
+    with pytest.warns(
+        UserWarning, match='You should use either `capture_all` or the specific capture parameters, not both.'
+    ):
+        logfire.instrument_aiohttp_client(capture_all=True, capture_request_body=True)
+
+
+@pytest.mark.anyio
+async def test_aiohttp_client_capture_response_body_exception(exporter: TestExporter, uninstrument: None):
+    """Test that aiohttp client handles exceptions gracefully when capture_response_body=True."""
+    logfire.instrument_aiohttp_client(capture_response_body=True)
+
+    async with aiohttp.ClientSession() as session:
+        with pytest.raises(aiohttp.ClientConnectorError):
+            async with session.get('http://non-existent-host-12345.example.com/test'):
+                pass
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [

@@ -21,6 +21,7 @@ except ImportError:
     )
 
 from logfire import Logfire, LogfireSpan
+from logfire._internal.stack_info import warn_at_user_stacklevel
 from logfire._internal.utils import handle_internal_errors
 from logfire.integrations.aiohttp_client import AioHttpRequestHeaders, AioHttpResponseHeaders, RequestHook, ResponseHook
 
@@ -44,6 +45,11 @@ def instrument_aiohttp_client(
 
     See the `Logfire.instrument_aiohttp_client` method for details.
     """
+    if capture_all and (capture_headers or capture_request_body or capture_response_body):
+        warn_at_user_stacklevel(
+            'You should use either `capture_all` or the specific capture parameters, not both.', UserWarning
+        )
+
     should_capture_headers = capture_headers or capture_all
     should_capture_request_body = capture_request_body or capture_all
     should_capture_response_body = capture_response_body or capture_all
