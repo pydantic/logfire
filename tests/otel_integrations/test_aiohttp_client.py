@@ -388,14 +388,19 @@ async def test_aiohttp_client_capture_response_body(exporter: TestExporter, test
 
 
 @pytest.mark.anyio
-async def test_aiohttp_client_capture_response_body_exception(exporter: TestExporter, uninstrument: None):
-    """Test that aiohttp client handles exceptions gracefully when capture_response_body=True."""
-    logfire.instrument_aiohttp_client(capture_response_body=True)
+async def test_aiohttp_client_capture_response_body_exception(exporter: TestExporter):
+    """Test that aiohttp client captures response body when configured to do so."""
 
-    async with aiohttp.ClientSession() as session:
-        with pytest.raises(aiohttp.ClientConnectorError):
-            async with session.get('http://non-existent-host-12345.example.com/test'):
-                pass
+    try:
+        logfire.instrument_aiohttp_client(capture_response_body=True)
+
+        async with aiohttp.ClientSession() as session:
+            with pytest.raises(aiohttp.ClientConnectorError):
+                async with session.get('http://non-existent-host-12345.example.com/test'):
+                    pass
+
+    finally:
+        AioHttpClientInstrumentor().uninstrument()
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
