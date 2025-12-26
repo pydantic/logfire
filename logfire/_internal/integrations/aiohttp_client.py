@@ -11,6 +11,8 @@ from aiohttp.tracing import TraceRequestEndParams, TraceRequestExceptionParams, 
 from opentelemetry.trace import NonRecordingSpan, Span, use_span
 from yarl import URL
 
+from logfire._internal.main import set_user_attributes_on_raw_span
+
 try:
     from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
 except ImportError:
@@ -76,11 +78,6 @@ class LogfireClientInfoMixin:
     headers: AioHttpRequestHeaders
 
 
-CODES_FOR_METHODS_WITH_DATA_PARAM = [
-    inspect.unwrap(ClientSession._request).__code__,  # type: ignore
-]
-
-
 @attr.s(auto_attribs=True, frozen=True, slots=True)
 class LogfireAioHttpRequestInfo(TraceRequestStartParams, LogfireClientInfoMixin):
     span: Span
@@ -93,11 +90,11 @@ class LogfireAioHttpRequestInfo(TraceRequestStartParams, LogfireClientInfoMixin)
         try:
             while frame is not None:
                 if frame.f_code in CODES_FOR_METHODS_WITH_DATA_PARAM:
-                    json = frame.f_locals.get('json')
+                    json_data = frame.f_locals.get('json')
                     data = frame.f_locals.get('data')
 
-                    if json is not None:
-                        self._capture_json_body(json, attr_name)
+                    if json_data is not None:
+                        self._set_complex_span_attributes({attr_name: json_data})
                         return
 
                     if data is not None:
@@ -108,32 +105,27 @@ class LogfireAioHttpRequestInfo(TraceRequestStartParams, LogfireClientInfoMixin)
         finally:
             del frame
 
-    def _capture_json_body(self, json: Any, attr_name: str) -> None:
-        """Capture the JSON body of the request."""
-        from logfire._internal.main import set_user_attributes_on_raw_span
-
-        set_user_attributes_on_raw_span(self.span, {attr_name: json})  # type: ignore
-
     def _capture_data_body(self, data: Any, attr_name: str) -> None:
         """Capture the data body of the request."""
-        from logfire._internal.main import set_user_attributes_on_raw_span
-
         if isinstance(data, bytes):
             try:
                 text = data.decode('utf-8')
-                self._set_text_attribute(attr_name, text)
+                self._capture_text_as_json(attr_name, text)
             except UnicodeDecodeError:
                 pass  # Binary data, skip
         elif isinstance(data, str):
-            self._set_text_attribute(attr_name, data)
+            self._capture_text_as_json(attr_name, data)
         elif isinstance(data, dict):
-            from logfire._internal.main import set_user_attributes_on_raw_span
+            self._set_complex_span_attributes({'http.request.body.form': data})
 
-            set_user_attributes_on_raw_span(self.span, {'http.request.body.form': data})  # type: ignore
+    def _capture_text_as_json(self, attr_name: str, text: str) -> None:
+        """Capture text body with JSON schema (matches httpx pattern)."""
+        self._set_complex_span_attributes({attr_name: {}})  # Creates JSON schema
+        self.span.set_attribute(attr_name, text)  # Sets actual text value
 
-    def _set_text_attribute(self, attr_name: str, text: str):
-        """Set a text attribute on the span."""
-        self.span.set_attribute(attr_name, text)
+    def _set_complex_span_attributes(self, attributes: dict[str, Any]) -> None:
+        """Set complex attributes with JSON schema support."""
+        set_user_attributes_on_raw_span(self.span, attributes)  # type: ignore
 
 
 @attr.s(auto_attribs=True, slots=True)
@@ -292,3 +284,8 @@ def capture_request_or_response_headers(
             for header_name in headers.keys()
         }
     )
+
+
+CODES_FOR_METHODS_WITH_DATA_PARAM = [
+    inspect.unwrap(ClientSession._request).__code__,  # type: ignore
+]
