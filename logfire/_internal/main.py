@@ -92,6 +92,7 @@ if TYPE_CHECKING:
     from surrealdb.connections.sync_template import SyncTemplate
     from typing_extensions import Unpack
 
+    from ..api_client import LogfireAPIClient
     from ..integrations.aiohttp_client import (
         RequestHook as AiohttpClientRequestHook,
         ResponseHook as AiohttpClientResponseHook,
@@ -149,6 +150,61 @@ class Logfire:
     @property
     def config(self) -> LogfireConfig:
         return self._config
+
+    def api_client(
+        self,
+        api_token: str | None = None,
+        base_url: str | None = None,
+    ) -> LogfireAPIClient:
+        """Get an API client for interacting with the Logfire public API.
+
+        This method returns a synchronous client that can be used to manage
+        Logfire resources such as projects, tokens, alerts, dashboards, and channels.
+
+        Args:
+            api_token: The API token for authentication. If not provided, will use
+                the LOGFIRE_API_TOKEN environment variable.
+            base_url: The base URL for the API. If not provided, it will be
+                inferred from the token's region.
+
+        Returns:
+            A LogfireAPIClient instance.
+
+        Raises:
+            ValueError: If no API token is available.
+
+        Example:
+            ```python
+            import logfire
+
+            logfire.configure()
+
+            # Get API client (uses LOGFIRE_API_TOKEN env var)
+            client = logfire.api_client()
+
+            # Or with explicit token
+            client = logfire.api_client(api_token='your-api-token')
+
+            with client:
+                projects = client.list_projects()
+                for project in projects:
+                    print(project['project_name'])
+            ```
+        """
+        import os
+
+        from ..api_client import LOGFIRE_API_TOKEN_ENV, LogfireAPIClient
+
+        if api_token is None:
+            api_token = os.environ.get(LOGFIRE_API_TOKEN_ENV)
+
+        if api_token is None:
+            raise ValueError(
+                f'No API token available. Set the {LOGFIRE_API_TOKEN_ENV} environment variable '
+                'or pass api_token explicitly.'
+            )
+
+        return LogfireAPIClient(api_token=api_token, base_url=base_url)
 
     @cached_property
     def _tracer_provider(self) -> ProxyTracerProvider:

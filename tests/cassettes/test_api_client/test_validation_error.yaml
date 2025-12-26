@@ -1,0 +1,33 @@
+interactions:
+- request:
+    body: '{"project_name": "x", "visibility": "public"}'
+    headers:
+      accept:
+      - '*/*'
+      accept-encoding:
+      - gzip, deflate
+      authorization:
+      - '[FILTERED]'
+      connection:
+      - keep-alive
+      content-length:
+      - '45'
+      content-type:
+      - application/json
+      host:
+      - localhost:8000
+      user-agent:
+      - python-httpx/0.27.0
+    method: POST
+    uri: http://localhost:8000/api/v1/projects/
+  response:
+    body:
+      string: '{"detail":[{"type":"string_too_short","loc":["body","project_name"],"msg":"String
+        should have at least 2 characters","input":"x","ctx":{"min_length":2}}]}'
+    headers:
+      content-type:
+      - application/json
+    status:
+      code: 422
+      message: Unprocessable Entity
+version: 1

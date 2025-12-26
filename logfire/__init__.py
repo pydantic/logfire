@@ -17,6 +17,16 @@ from ._internal.main import Logfire, LogfireSpan
 from ._internal.scrubbing import ScrubbingOptions, ScrubMatch
 from ._internal.stack_info import add_non_user_code_prefix
 from ._internal.utils import suppress_instrumentation
+from .api_client import (
+    AsyncLogfireAPIClient,
+    LogfireAPIClient,
+    LogfireAPIConflictError,
+    LogfireAPIError,
+    LogfireAPIForbiddenError,
+    LogfireAPINotFoundError,
+    LogfireAPIRateLimitError,
+    LogfireAPIValidationError,
+)
 from .integrations.logging import LogfireLoggingHandler
 from .integrations.structlog import LogfireProcessor as StructlogProcessor
 from .version import VERSION
@@ -83,6 +93,9 @@ metric_gauge = DEFAULT_LOGFIRE_INSTANCE.metric_gauge
 metric_counter_callback = DEFAULT_LOGFIRE_INSTANCE.metric_counter_callback
 metric_gauge_callback = DEFAULT_LOGFIRE_INSTANCE.metric_gauge_callback
 metric_up_down_counter_callback = DEFAULT_LOGFIRE_INSTANCE.metric_up_down_counter_callback
+
+# API Client
+api_client = DEFAULT_LOGFIRE_INSTANCE.api_client
 
 
 def loguru_handler() -> Any:
@@ -174,4 +187,14 @@ __all__ = (
     'set_baggage',
     'get_context',
     'attach_context',
+    # API Client
+    'api_client',
+    'LogfireAPIClient',
+    'AsyncLogfireAPIClient',
+    'LogfireAPIError',
+    'LogfireAPINotFoundError',
+    'LogfireAPIForbiddenError',
+    'LogfireAPIConflictError',
+    'LogfireAPIValidationError',
+    'LogfireAPIRateLimitError',
 )

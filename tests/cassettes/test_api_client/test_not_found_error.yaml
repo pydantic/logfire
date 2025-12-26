@@ -1,0 +1,28 @@
+interactions:
+- request:
+    body: null
+    headers:
+      accept:
+      - '*/*'
+      accept-encoding:
+      - gzip, deflate
+      authorization:
+      - '[FILTERED]'
+      connection:
+      - keep-alive
+      host:
+      - localhost:8000
+      user-agent:
+      - python-httpx/0.27.0
+    method: GET
+    uri: http://localhost:8000/api/v1/projects/00000000-0000-0000-0000-nonexistent/
+  response:
+    body:
+      string: '{"detail":"Project not found"}'
+    headers:
+      content-type:
+      - application/json
+    status:
+      code: 404
+      message: Not Found
+version: 1
