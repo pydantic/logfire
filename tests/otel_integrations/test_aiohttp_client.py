@@ -364,7 +364,7 @@ async def test_aiohttp_client_capture_response_body(exporter: TestExporter, test
 
 
 @pytest.mark.anyio
-async def test_aiohttp_client_capture_request_body(exporter: TestExporter, test_app: aiohttp.web.Application):
+async def test_aiohttp_client_capture_all(exporter: TestExporter, test_app: aiohttp.web.Application):
     """Test that aiohttp client captures request body when configured to do so."""
 
     try:
@@ -377,11 +377,12 @@ async def test_aiohttp_client_capture_request_body(exporter: TestExporter, test_
         async with aiohttp.test_utils.TestServer(test_app) as server:
             await server.start_server()
 
-            logfire.instrument_aiohttp_client(capture_request_body=True)
+            logfire.instrument_aiohttp_client(capture_all=True)
 
             async with aiohttp.ClientSession() as session:
                 async with session.post(f'http://localhost:{server.port}/body', json={'good': 'request'}) as response:  # type: ignore
                     assert await response.json() == {'good': 'response'}
+                    assert await response.read() == b'{"good": "response"}'
 
     finally:
         AioHttpClientInstrumentor().uninstrument()
@@ -406,12 +407,33 @@ async def test_aiohttp_client_capture_request_body(exporter: TestExporter, test_
                     'logfire.span_type': 'span',
                     'logfire.msg': 'POST localhost/body',
                     'http.request.body.text': '{"good":"request"}',
-                    'logfire.json_schema': IsStr(),
+                    'logfire.json_schema': '{"type":"object","properties":{"http.request.body.text":{"type":"object"}}}',
+                    'http.response.header.Content-Type': ('application/json; charset=utf-8',),
+                    'http.response.header.Content-Length': IsTuple(IsStr()),
+                    'http.response.header.Date': IsTuple(IsStr()),
+                    'http.response.header.Server': IsTuple(IsStr()),
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'http.target': '/body',
                 },
-            }
+            },
+            {
+                'name': 'Reading response body',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_aiohttp_client.py',
+                    'code.function': 'test_aiohttp_client_capture_all',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'Reading response body',
+                    'logfire.msg': 'Reading response body',
+                    'logfire.span_type': 'span',
+                    'http.response.body.text': '{"good": "response"}',
+                    'logfire.json_schema': '{"type":"object","properties":{"http.response.body.text":{"type":"object"}}}',
+                },
+            },
         ]
     )
 
@@ -538,8 +560,9 @@ async def test_aiohttp_client_capture_request_body_form(exporter: TestExporter, 
 
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    f'http://localhost:{server.port}/body', data={'field1': 'value1', 'field2': 'value2'}
-                ) as response:  # type: ignore
+                    f'http://localhost:{server.port}/body',
+                    data={'field1': 'value1', 'field2': 'value2'},  # type: ignore
+                ) as response:
                     assert await response.json() == {'good': 'response'}
 
     finally:

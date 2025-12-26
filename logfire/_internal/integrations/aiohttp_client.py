@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 
 def instrument_aiohttp_client(
     logfire_instance: Logfire,
+    capture_all: bool,
     capture_request_body: bool,
     capture_response_body: bool,
     capture_headers: bool,
@@ -43,17 +44,21 @@ def instrument_aiohttp_client(
 
     See the `Logfire.instrument_aiohttp_client` method for details.
     """
+    should_capture_headers = capture_headers or capture_all
+    should_capture_request_body = capture_request_body or capture_all
+    should_capture_response_body = capture_response_body or capture_all
+
     logfire_instance = logfire_instance.with_settings(custom_scope_suffix='aiohttp_client')
 
     AioHttpClientInstrumentor().instrument(
         **{
             'tracer_provider': logfire_instance.config.get_tracer_provider(),
-            'request_hook': make_request_hook(request_hook, capture_headers, capture_request_body),
+            'request_hook': make_request_hook(request_hook, should_capture_headers, should_capture_request_body),
             'response_hook': make_response_hook(
                 response_hook,
                 logfire_instance,
-                capture_headers,
-                capture_response_body,
+                should_capture_headers,
+                should_capture_response_body,
             ),
             'meter_provider': logfire_instance.config.get_meter_provider(),
             **kwargs,
