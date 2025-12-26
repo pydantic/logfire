@@ -114,7 +114,7 @@ class LogfireAioHttpRequestInfo(TraceRequestStartParams, LogfireClientInfoMixin)
                 text = data.decode('utf-8')
                 self._capture_text_as_json(attr_name, text)
             except UnicodeDecodeError:
-                pass  # Binary data, skip
+                pass
         elif isinstance(data, str):
             self._capture_text_as_json(attr_name, data)
         elif isinstance(data, dict):
