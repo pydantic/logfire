@@ -388,6 +388,55 @@ async def test_aiohttp_client_capture_response_body(exporter: TestExporter, test
 
 
 @pytest.mark.anyio
+async def test_aiohttp_client_capture_response_body_exception(exporter: TestExporter, uninstrument: None):
+    """Test that aiohttp client handles exceptions gracefully when capture_response_body=True."""
+    logfire.instrument_aiohttp_client(capture_response_body=True)
+
+    async with aiohttp.ClientSession() as session:
+        with pytest.raises(aiohttp.ClientConnectorError):
+            async with session.get('http://non-existent-host-12345.example.com/test'):
+                pass
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'GET',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'http.method': 'GET',
+                    'http.request.method': 'GET',
+                    'http.url': 'http://non-existent-host-12345.example.com/test',
+                    'url.full': 'http://non-existent-host-12345.example.com/test',
+                    'http.host': 'non-existent-host-12345.example.com',
+                    'server.address': 'non-existent-host-12345.example.com',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET non-existent-host-12345.example.com/test',
+                    'error.type': 'ClientConnectorDNSError',
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
+                    'http.target': '/test',
+                    'logfire.level_num': 17,
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 2000000000,
+                        'attributes': {
+                            'exception.type': 'aiohttp.client_exceptions.ClientConnectorDNSError',
+                            'exception.message': IsStr(),
+                            'exception.stacktrace': IsStr(),
+                            'exception.escaped': 'False',
+                        },
+                    }
+                ],
+            }
+        ]
+    )
+
+
+@pytest.mark.anyio
 async def test_aiohttp_client_capture_all(
     exporter: TestExporter, test_app: aiohttp.web.Application, uninstrument: None
 ):
@@ -784,55 +833,6 @@ async def test_aiohttp_client_capture_all_environment_variable(
                     'logfire.json_schema': IsStr(),
                 },
             },
-        ]
-    )
-
-
-@pytest.mark.anyio
-async def test_aiohttp_client_capture_response_body_exception(exporter: TestExporter, uninstrument: None):
-    """Test that aiohttp client handles exceptions gracefully when capture_response_body=True."""
-    logfire.instrument_aiohttp_client(capture_response_body=True)
-
-    async with aiohttp.ClientSession() as session:
-        with pytest.raises(aiohttp.ClientConnectorError):
-            async with session.get('http://non-existent-host-12345.example.com/test'):
-                pass
-
-    assert exporter.exported_spans_as_dict() == snapshot(
-        [
-            {
-                'name': 'GET',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 3000000000,
-                'attributes': {
-                    'http.method': 'GET',
-                    'http.request.method': 'GET',
-                    'http.url': 'http://non-existent-host-12345.example.com/test',
-                    'url.full': 'http://non-existent-host-12345.example.com/test',
-                    'http.host': 'non-existent-host-12345.example.com',
-                    'server.address': 'non-existent-host-12345.example.com',
-                    'logfire.span_type': 'span',
-                    'logfire.msg': 'GET non-existent-host-12345.example.com/test',
-                    'error.type': 'ClientConnectorDNSError',
-                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
-                    'http.target': '/test',
-                    'logfire.level_num': 17,
-                },
-                'events': [
-                    {
-                        'name': 'exception',
-                        'timestamp': 2000000000,
-                        'attributes': {
-                            'exception.type': 'aiohttp.client_exceptions.ClientConnectorDNSError',
-                            'exception.message': IsStr(),
-                            'exception.stacktrace': IsStr(),
-                            'exception.escaped': 'False',
-                        },
-                    }
-                ],
-            }
         ]
     )
 
