@@ -109,7 +109,6 @@ class LogfireAioHttpRequestInfo(TraceRequestStartParams, LogfireClientInfoMixin)
             del frame
 
     def _capture_data_body(self, data: Any, attr_name: str) -> None:
-        """Capture the data body of the request."""
         if isinstance(data, bytes):
             try:
                 text = data.decode('utf-8')
@@ -122,12 +121,10 @@ class LogfireAioHttpRequestInfo(TraceRequestStartParams, LogfireClientInfoMixin)
             self._set_complex_span_attributes({'http.request.body.form': data})
 
     def _capture_text_as_json(self, attr_name: str, text: str) -> None:
-        """Capture text body with JSON schema (matches httpx pattern)."""
-        self._set_complex_span_attributes({attr_name: {}})  # Creates JSON schema
-        self.span.set_attribute(attr_name, text)  # Sets actual text value
+        self._set_complex_span_attributes({attr_name: {}})
+        self.span.set_attribute(attr_name, text)
 
     def _set_complex_span_attributes(self, attributes: dict[str, Any]) -> None:
-        """Set complex attributes with JSON schema support."""
         set_user_attributes_on_raw_span(self.span, attributes)  # type: ignore
 
 
@@ -241,7 +238,6 @@ def capture_request(
     capture_request_body: bool,
 ) -> LogfireAioHttpRequestInfo:
     request_info = LogfireAioHttpRequestInfo(method=request.method, url=request.url, headers=request.headers, span=span)
-
 
     if capture_headers:
         request_info.capture_headers()
