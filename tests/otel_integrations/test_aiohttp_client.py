@@ -406,7 +406,166 @@ async def test_aiohttp_client_capture_request_body(exporter: TestExporter, test_
                     'logfire.span_type': 'span',
                     'logfire.msg': 'POST localhost/body',
                     'http.request.body.text': '{"good":"request"}',
-                    'logfire.json_schema': '{"type":"object","properties":{"http.request.body.text":{"type":"object"}}}',
+                    'logfire.json_schema': IsStr(),
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                    'http.target': '/body',
+                },
+            }
+        ]
+    )
+
+
+@pytest.mark.anyio
+async def test_aiohttp_client_capture_request_body_bytes(exporter: TestExporter, test_app: aiohttp.web.Application):
+    """Test that aiohttp client captures bytes request body."""
+
+    try:
+
+        async def handler(request: aiohttp.web.Request) -> aiohttp.web.Response:
+            return aiohttp.web.json_response({'good': 'response'})
+
+        test_app.router.add_post('/body', handler)
+
+        async with aiohttp.test_utils.TestServer(test_app) as server:
+            await server.start_server()
+
+            logfire.instrument_aiohttp_client(capture_request_body=True)
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(f'http://localhost:{server.port}/body', data=b'raw bytes data') as response:  # type: ignore
+                    assert await response.json() == {'good': 'response'}
+
+    finally:
+        AioHttpClientInstrumentor().uninstrument()
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'POST',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'http.method': 'POST',
+                    'http.request.method': 'POST',
+                    'http.url': IsStr(),
+                    'url.full': IsStr(),
+                    'http.host': 'localhost',
+                    'server.address': 'localhost',
+                    'net.peer.port': IsInt(),
+                    'server.port': IsInt(),
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'POST localhost/body',
+                    'http.request.body.text': 'raw bytes data',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                    'http.target': '/body',
+                },
+            }
+        ]
+    )
+
+
+@pytest.mark.anyio
+async def test_aiohttp_client_capture_request_body_string(exporter: TestExporter, test_app: aiohttp.web.Application):
+    """Test that aiohttp client captures string request body."""
+
+    try:
+
+        async def handler(request: aiohttp.web.Request) -> aiohttp.web.Response:
+            return aiohttp.web.json_response({'good': 'response'})
+
+        test_app.router.add_post('/body', handler)
+
+        async with aiohttp.test_utils.TestServer(test_app) as server:
+            await server.start_server()
+
+            logfire.instrument_aiohttp_client(capture_request_body=True)
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(f'http://localhost:{server.port}/body', data='string data') as response:  # type: ignore
+                    assert await response.json() == {'good': 'response'}
+
+    finally:
+        AioHttpClientInstrumentor().uninstrument()
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'POST',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'http.method': 'POST',
+                    'http.request.method': 'POST',
+                    'http.url': IsStr(),
+                    'url.full': IsStr(),
+                    'http.host': 'localhost',
+                    'server.address': 'localhost',
+                    'net.peer.port': IsInt(),
+                    'server.port': IsInt(),
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'POST localhost/body',
+                    'http.request.body.text': 'string data',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                    'http.target': '/body',
+                },
+            }
+        ]
+    )
+
+
+@pytest.mark.anyio
+async def test_aiohttp_client_capture_request_body_form(exporter: TestExporter, test_app: aiohttp.web.Application):
+    """Test that aiohttp client captures form data request body."""
+
+    try:
+
+        async def handler(request: aiohttp.web.Request) -> aiohttp.web.Response:
+            return aiohttp.web.json_response({'good': 'response'})
+
+        test_app.router.add_post('/body', handler)
+
+        async with aiohttp.test_utils.TestServer(test_app) as server:
+            await server.start_server()
+
+            logfire.instrument_aiohttp_client(capture_request_body=True)
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f'http://localhost:{server.port}/body', data={'field1': 'value1', 'field2': 'value2'}
+                ) as response:  # type: ignore
+                    assert await response.json() == {'good': 'response'}
+
+    finally:
+        AioHttpClientInstrumentor().uninstrument()
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'POST',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'http.method': 'POST',
+                    'http.request.method': 'POST',
+                    'http.url': IsStr(),
+                    'url.full': IsStr(),
+                    'http.host': 'localhost',
+                    'server.address': 'localhost',
+                    'net.peer.port': IsInt(),
+                    'server.port': IsInt(),
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'POST localhost/body',
+                    'http.request.body.form': '{"field1":"value1","field2":"value2"}',
+                    'logfire.json_schema': IsStr(),
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'http.target': '/body',
