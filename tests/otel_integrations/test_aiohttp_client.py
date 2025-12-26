@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from unittest import mock
@@ -580,6 +581,56 @@ async def test_aiohttp_client_capture_request_body_form(
 
 
 @pytest.mark.anyio
+async def test_aiohttp_client_capture_stream_body(
+    exporter: TestExporter, test_app: aiohttp.web.Application, uninstrument: None
+):
+    """Test that aiohttp client doesn't crash when request body is a generator (streaming)."""
+
+    async def async_generator():
+        yield b'{"hello": '
+        yield b'"world"}'
+
+    async with create_test_server(test_app) as server:
+        logfire.instrument_aiohttp_client(capture_request_body=True)
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f'http://localhost:{server.port}/body',  # type: ignore
+                data=async_generator(),
+                headers={'Content-Type': 'application/json'},
+            ) as response:
+                assert await response.json() == {'good': 'response'}
+
+    # Streaming bodies aren't captured (generator is not bytes/str/dict)
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'POST',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'http.method': 'POST',
+                    'http.request.method': 'POST',
+                    'http.url': IsStr(),
+                    'url.full': IsStr(),
+                    'http.host': 'localhost',
+                    'server.address': 'localhost',
+                    'net.peer.port': IsInt(),
+                    'server.port': IsInt(),
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'POST localhost/body',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                    'http.target': '/body',
+                },
+            }
+        ]
+    )
+
+
+@pytest.mark.anyio
 async def test_aiohttp_client_capture_request_body_binary(
     exporter: TestExporter, test_app: aiohttp.web.Application, uninstrument: None
 ):
@@ -670,6 +721,71 @@ def test_aiohttp_capture_all_and_other_flags_should_warn(uninstrument: None):
         UserWarning, match='You should use either `capture_all` or the specific capture parameters, not both.'
     ):
         logfire.instrument_aiohttp_client(capture_all=True, capture_request_body=True)
+
+
+@pytest.mark.anyio
+async def test_aiohttp_client_capture_all_environment_variable(
+    exporter: TestExporter, test_app: aiohttp.web.Application, uninstrument: None
+):
+    """Test that capture_all can be enabled via environment variable."""
+    with mock.patch.dict(os.environ, {'LOGFIRE_AIOHTTP_CLIENT_CAPTURE_ALL': 'true'}):
+        async with create_test_server(test_app) as server:
+            logfire.instrument_aiohttp_client()
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(f'http://localhost:{server.port}/body', json={'test': 'data'}) as response:  # type: ignore
+                    assert await response.json() == {'good': 'response'}
+                    await response.read()
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'POST',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'http.method': 'POST',
+                    'http.request.method': 'POST',
+                    'http.url': IsStr(),
+                    'url.full': IsStr(),
+                    'http.host': 'localhost',
+                    'server.address': 'localhost',
+                    'net.peer.port': IsInt(),
+                    'server.port': IsInt(),
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'POST localhost/body',
+                    'http.request.body.text': '{"test":"data"}',
+                    'logfire.json_schema': IsStr(),
+                    'http.response.header.Content-Type': IsTuple(IsStr()),
+                    'http.response.header.Content-Length': IsTuple(IsStr()),
+                    'http.response.header.Date': IsTuple(IsStr()),
+                    'http.response.header.Server': IsTuple(IsStr()),
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                    'http.target': '/body',
+                },
+            },
+            {
+                'name': 'Reading response body',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_aiohttp_client.py',
+                    'code.function': 'test_aiohttp_client_capture_all_environment_variable',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'Reading response body',
+                    'logfire.msg': 'Reading response body',
+                    'logfire.span_type': 'span',
+                    'http.response.body.text': '{"good": "response"}',
+                    'logfire.json_schema': IsStr(),
+                },
+            },
+        ]
+    )
 
 
 @pytest.mark.anyio

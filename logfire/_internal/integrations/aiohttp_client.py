@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import functools
 import inspect
-from typing import TYPE_CHECKING, Any, Callable, Literal
+from typing import TYPE_CHECKING, Any, Callable, Literal, cast
 
 import attr
 from aiohttp.client import ClientSession
@@ -11,6 +11,7 @@ from aiohttp.tracing import TraceRequestEndParams, TraceRequestExceptionParams, 
 from opentelemetry.trace import NonRecordingSpan, Span, use_span
 from yarl import URL
 
+from logfire._internal.config import GLOBAL_CONFIG
 from logfire._internal.main import set_user_attributes_on_raw_span
 
 try:
@@ -35,7 +36,7 @@ if TYPE_CHECKING:
 
 def instrument_aiohttp_client(
     logfire_instance: Logfire,
-    capture_all: bool,
+    capture_all: bool | None,
     capture_request_body: bool,
     capture_response_body: bool,
     capture_headers: bool,
@@ -51,6 +52,8 @@ def instrument_aiohttp_client(
         warn_at_user_stacklevel(
             'You should use either `capture_all` or the specific capture parameters, not both.', UserWarning
         )
+
+    capture_all = cast(bool, GLOBAL_CONFIG.param_manager.load_param('aiohttp_client_capture_all', capture_all))
 
     should_capture_headers = capture_headers or capture_all
     should_capture_request_body = capture_request_body or capture_all
@@ -238,6 +241,7 @@ def capture_request(
     capture_request_body: bool,
 ) -> LogfireAioHttpRequestInfo:
     request_info = LogfireAioHttpRequestInfo(method=request.method, url=request.url, headers=request.headers, span=span)
+
 
     if capture_headers:
         request_info.capture_headers()

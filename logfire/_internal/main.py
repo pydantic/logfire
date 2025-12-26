@@ -1828,7 +1828,7 @@ class Logfire:
     def instrument_aiohttp_client(
         self,
         *,
-        capture_all: bool = False,
+        capture_all: bool | None = None,
         capture_headers: bool = False,
         capture_request_body: bool = False,
         capture_response_body: bool = False,
