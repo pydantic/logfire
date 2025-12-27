@@ -206,7 +206,7 @@ def _convert_anthropic_content_part(part: dict[str, Any] | str) -> dict[str, Any
         return {
             'type': 'tool_call_response',
             'id': part.get('tool_use_id'),
-            'result': result_text,
+            'response': result_text,
         }
     else:
         # Return as generic part

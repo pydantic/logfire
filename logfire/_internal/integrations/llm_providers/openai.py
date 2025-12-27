@@ -258,7 +258,7 @@ def convert_openai_messages_to_semconv(
                 {
                     'type': 'tool_call_response',
                     'id': tool_call_id,
-                    'result': content,
+                    'response': content,
                 }
             )
 
@@ -371,7 +371,7 @@ def convert_responses_inputs_to_semconv(
                     msg = {
                         'role': 'tool',
                         'parts': [
-                            {'type': 'tool_call_response', 'id': inp.get('call_id'), 'result': inp.get('output')}
+                            {'type': 'tool_call_response', 'id': inp.get('call_id'), 'response': inp.get('output')}
                         ],
                     }
                     if 'name' in inp:
