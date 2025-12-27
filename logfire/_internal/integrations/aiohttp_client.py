@@ -313,12 +313,4 @@ CODES_FOR_METHODS_WITH_DATA_OR_JSON_PARAM = [
 
 @cache
 def _content_type_header_from_string(content_type: str) -> ContentTypeHeader:
-    """Parse a Content-Type header string into a structured object.
-
-    Uses Python's email.headerregistry which handles parsing of MIME-style headers,
-    including extracting parameters like charset.
-
-    Example:
-        'application/json; charset=utf-8' -> ContentTypeHeader with params={'charset': 'utf-8'}
-    """
     return EmailPolicy.header_factory('content-type', content_type)
