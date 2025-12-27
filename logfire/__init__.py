@@ -35,6 +35,7 @@ instrument_fastapi = DEFAULT_LOGFIRE_INSTANCE.instrument_fastapi
 instrument_openai = DEFAULT_LOGFIRE_INSTANCE.instrument_openai
 instrument_openai_agents = DEFAULT_LOGFIRE_INSTANCE.instrument_openai_agents
 instrument_anthropic = DEFAULT_LOGFIRE_INSTANCE.instrument_anthropic
+instrument_langchain = DEFAULT_LOGFIRE_INSTANCE.instrument_langchain
 instrument_google_genai = DEFAULT_LOGFIRE_INSTANCE.instrument_google_genai
 instrument_litellm = DEFAULT_LOGFIRE_INSTANCE.instrument_litellm
 instrument_print = DEFAULT_LOGFIRE_INSTANCE.instrument_print
@@ -129,6 +130,7 @@ __all__ = (
     'instrument_openai',
     'instrument_openai_agents',
     'instrument_anthropic',
+    'instrument_langchain',
     'instrument_google_genai',
     'instrument_litellm',
     'instrument_print',

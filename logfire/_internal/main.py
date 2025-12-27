@@ -1323,6 +1323,38 @@ class Logfire:
             is_async_client,
         )
 
+    def instrument_langchain(self) -> AbstractContextManager[None]:
+        """Instrument LangChain/LangGraph to capture tool definitions.
+
+        This patches LangChain's callback system to capture:
+        - Tool definitions (gen_ai.tool.definitions)
+        - Input/output messages in OTel GenAI format
+        - Token usage
+        - Model information
+
+        Note: This works alongside LangSmith's OTEL integration but adds
+        tool definitions which LangSmith doesn't send via OTEL.
+
+        Returns:
+            A context manager that can be used to uninstrument.
+
+        Example:
+            ```python
+            import logfire
+            from langgraph.prebuilt import create_react_agent
+
+            logfire.configure()
+            logfire.instrument_langchain()
+
+            agent = create_react_agent(model, tools)
+            agent.invoke({'messages': [...]})
+            ```
+        """
+        from .integrations.langchain import instrument_langchain as _instrument
+
+        self._warn_if_not_initialized_for_instrumentation()
+        return _instrument(self)
+
     def instrument_google_genai(self, **kwargs: Any):
         """Instrument the [Google Gen AI SDK (`google-genai`)](https://googleapis.github.io/python-genai/).
 
