@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import functools
 import inspect
+from email.headerregistry import ContentTypeHeader
+from email.policy import EmailPolicy
+from functools import cache
 from typing import TYPE_CHECKING, Any, Callable, Literal, cast
 
 import attr
@@ -78,7 +81,24 @@ def instrument_aiohttp_client(
 
 
 class LogfireClientInfoMixin:
+    """Mixin providing content-type header parsing for charset detection."""
+
     headers: AioHttpRequestHeaders
+
+    @property
+    def content_type_header_object(self) -> ContentTypeHeader:
+        """Parse the Content-Type header into a structured object."""
+        return _content_type_header_from_string(self.content_type_header_string)
+
+    @property
+    def content_type_header_string(self) -> str:
+        """Get the raw Content-Type header value."""
+        return self.headers.get('content-type', '')
+
+    @property
+    def content_type_charset(self) -> str:
+        """Extract charset from Content-Type header, defaulting to utf-8."""
+        return self.content_type_header_object.params.get('charset', 'utf-8')
 
 
 @attr.s(auto_attribs=True, frozen=True, slots=True)
@@ -92,7 +112,7 @@ class LogfireAioHttpRequestInfo(TraceRequestStartParams, LogfireClientInfoMixin)
         frame = inspect.currentframe()
         try:
             while frame is not None:
-                if frame.f_code in CODES_FOR_METHODS_WITH_DATA_PARAM:
+                if frame.f_code in CODES_FOR_METHODS_WITH_DATA_OR_JSON_PARAM:
                     json_data = frame.f_locals.get('json')
                     data = frame.f_locals.get('data')
 
@@ -111,10 +131,10 @@ class LogfireAioHttpRequestInfo(TraceRequestStartParams, LogfireClientInfoMixin)
     def _capture_data_body(self, data: Any, attr_name: str) -> None:
         if isinstance(data, bytes):
             try:
-                text = data.decode('utf-8')
-                self._capture_text_as_json(attr_name, text)
-            except UnicodeDecodeError:
-                pass
+                text = data.decode(self.content_type_charset)
+            except (UnicodeDecodeError, LookupError):
+                return
+            self._capture_text_as_json(attr_name, text)
         elif isinstance(data, str):
             self._capture_text_as_json(attr_name, data)
         elif isinstance(data, dict):
@@ -286,6 +306,19 @@ def capture_request_or_response_headers(
     )
 
 
-CODES_FOR_METHODS_WITH_DATA_PARAM = [
+CODES_FOR_METHODS_WITH_DATA_OR_JSON_PARAM = [
     inspect.unwrap(ClientSession._request).__code__,  # type: ignore
 ]
+
+
+@cache
+def _content_type_header_from_string(content_type: str) -> ContentTypeHeader:
+    """Parse a Content-Type header string into a structured object.
+
+    Uses Python's email.headerregistry which handles parsing of MIME-style headers,
+    including extracting parameters like charset.
+
+    Example:
+        'application/json; charset=utf-8' -> ContentTypeHeader with params={'charset': 'utf-8'}
+    """
+    return EmailPolicy.header_factory('content-type', content_type)
