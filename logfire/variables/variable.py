@@ -8,6 +8,7 @@ from dataclasses import replace
 from importlib.util import find_spec
 from typing import Any, Generic, Protocol, TypeVar
 
+from opentelemetry.trace import get_current_span
 from pydantic import TypeAdapter, ValidationError
 from typing_extensions import TypeIs
 
@@ -95,7 +96,7 @@ class Variable(Generic[T]):
         self.default = default
         self.description = description
 
-        self.logfire_instance = logfire_instance
+        self.logfire_instance = logfire_instance.with_settings(custom_scope_suffix='variables')
         self.type_adapter = TypeAdapter[T](type)
 
     @contextmanager
@@ -126,6 +127,8 @@ class Variable(Generic[T]):
 
         Args:
             targeting_key: Optional key for deterministic variant selection (e.g., user ID).
+                If not provided and there is an active trace, its trace ID is used to ensure
+                the same value is used throughout a single trace.
             attributes: Optional attributes for condition-based targeting rules.
 
         Returns:
@@ -135,15 +138,22 @@ class Variable(Generic[T]):
         # TODO:
         #  * Should we include the serialized value as an attribute here?
         #  * Should we _not_ include the deserialized value as an attribute here?
-        #  * Should we remove the `attributes` attribute of the span below?
-        #  * Should we remove the _merged_ part of the `attributes` attribute below?
-        #  * Should we _rename_ the `attributes` attribute below?
         #  * Should some/all of the above be configurable? On a logfire/variable/call-site-specific basis?
+        #   TODO: Alex says "i think the most important part is that it should be possible to globally disable creating these spans entirely, or have them off by default and allow globally enabling them."
 
         merged_attributes = self._get_merged_attributes(attributes)
 
+        # Set the targeting key based on the current trace ID if appropriate
+        if targeting_key is None and (current_trace_id := get_current_span().get_span_context().trace_id):
+            # If there is no active trace, the current_trace_id will be zero
+            targeting_key = f'trace_id:{current_trace_id:032x}'
+
+        # Include the variable name directly here to make the span name more useful,
+        # it'll still be low cardinality. This also prevents it from being scrubbed from the message.
+        # Don't inline the f-string to avoid f-string magic.
+        span_name = f'Resolve variable {self.name}'
         with self.logfire_instance.span(
-            'Resolve variable: {name}',
+            span_name,
             name=self.name,
             targeting_key=targeting_key,
             attributes=merged_attributes,

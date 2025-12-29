@@ -43,6 +43,8 @@ class LocalVariableProvider(VariableProvider):
         Args:
             variable_name: The name of the variable to resolve.
             targeting_key: Optional key for deterministic variant selection (e.g., user ID).
+                If not provided and there is an active trace, its trace ID is used to ensure
+                the same value is used across a trace.
             attributes: Optional attributes for condition-based targeting rules.
 
         Returns:
