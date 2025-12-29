@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextvars
 import inspect
+import json
 import sys
 from abc import abstractmethod
 from contextlib import nullcontext
@@ -31,11 +32,25 @@ from agents.tracing import ResponseSpanData, response_span
 from agents.tracing.scope import Scope
 from agents.tracing.spans import NoOpSpan, SpanError, TSpanData
 from agents.tracing.traces import NoOpTrace
-from opentelemetry.trace import NonRecordingSpan, use_span
+from opentelemetry.trace import NonRecordingSpan, SpanKind, use_span
 from typing_extensions import Self
 
 from logfire._internal.formatter import logfire_format
-from logfire._internal.integrations.llm_providers.openai import inputs_to_events, responses_output_events
+from logfire._internal.integrations.llm_providers.openai import (
+    convert_responses_inputs_to_semconv,
+    convert_responses_outputs_to_semconv,
+    inputs_to_events,
+    responses_output_events,
+)
+from logfire._internal.integrations.llm_providers.semconv import (
+    INPUT_MESSAGES,
+    OUTPUT_MESSAGES,
+    PROVIDER_NAME,
+    RESPONSE_FINISH_REASONS,
+    SERVER_ADDRESS,
+    SERVER_PORT,
+    SYSTEM_INSTRUCTIONS,
+)
 from logfire._internal.scrubbing import NOOP_SCRUBBER
 from logfire._internal.utils import handle_internal_errors, log_internal_error, truncate_string
 
@@ -85,17 +100,24 @@ class LogfireTraceProviderWrapper:
                 return span
 
             extra_attributes: dict[str, Any] = {}
+            span_kind: SpanKind | None = None
+            otel_span_name: str | None = None
+
             if isinstance(span_data, AgentSpanData):
                 msg_template = 'Agent run: {name!r}'
             elif isinstance(span_data, FunctionSpanData):
                 msg_template = 'Function: {name}'
             elif isinstance(span_data, GenerationSpanData):
                 msg_template = 'Chat completion with {gen_ai.request.model!r}'
+                span_kind = SpanKind.CLIENT  # LLM API calls should be CLIENT
             elif isinstance(span_data, ResponseSpanData):
                 msg_template = 'Responses API'
                 extra_attributes = get_magic_response_attributes()
+                span_kind = SpanKind.CLIENT  # LLM API calls should be CLIENT
                 if 'gen_ai.request.model' in extra_attributes:  # pragma: no branch
                     msg_template += ' with {gen_ai.request.model!r}'
+                    # Set OTel-compliant span name: "{operation} {model}"
+                    otel_span_name = f"chat {extra_attributes['gen_ai.request.model']}"
             elif isinstance(span_data, GuardrailSpanData):
                 msg_template = 'Guardrail {name!r} {triggered=}'
             elif isinstance(span_data, HandoffSpanData):
@@ -118,6 +140,8 @@ class LogfireTraceProviderWrapper:
                 **attributes_from_span_data(span_data, msg_template),
                 **extra_attributes,
                 _tags=['LLM'] * isinstance(span_data, GenerationSpanData),
+                _span_kind=span_kind,
+                _span_name=otel_span_name,
             )
             helper = LogfireSpanHelper(logfire_span, parent)
             return LogfireSpanWrapper(span, helper)
@@ -347,6 +371,7 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
         if '{type}' not in msg_template and attributes.get('type') == span_data.type:
             del attributes['type']
         attributes['gen_ai.system'] = 'openai'
+        attributes[PROVIDER_NAME] = 'openai'  # OTel standard (gen_ai.system is deprecated)
         if isinstance(attributes.get('model'), str):
             attributes['gen_ai.request.model'] = attributes['gen_ai.response.model'] = attributes.pop('model')
         if isinstance(span_data, ResponseSpanData):
@@ -359,6 +384,41 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
             if (usage := getattr(span_data.response, 'usage', None)) and getattr(usage, 'total_tokens', None):
                 attributes['gen_ai.usage.input_tokens'] = usage.input_tokens
                 attributes['gen_ai.usage.output_tokens'] = usage.output_tokens
+
+            # Add OTel GenAI semantic convention attributes
+            response = span_data.response
+            inputs: str | list[dict[str, Any]] | None = span_data.input  # type: ignore
+            instructions = getattr(response, 'instructions', None) if response else None
+
+            # Convert to OTel message schema
+            input_messages, system_instructions = convert_responses_inputs_to_semconv(inputs, instructions)
+            if input_messages:
+                attributes[INPUT_MESSAGES] = json.dumps(input_messages)
+            if system_instructions:
+                attributes[SYSTEM_INSTRUCTIONS] = json.dumps(system_instructions)
+
+            if response:
+                output_messages = convert_responses_outputs_to_semconv(response)
+                if output_messages:
+                    attributes[OUTPUT_MESSAGES] = json.dumps(output_messages)
+
+                # Extract finish_reasons from response status
+                status = getattr(response, 'status', None)
+                if status:
+                    # Map Responses API status to OTel finish_reason
+                    status_to_finish_reason = {
+                        'completed': 'stop',
+                        'failed': 'error',
+                        'cancelled': 'cancelled',
+                        'incomplete': 'length',
+                    }
+                    finish_reason = status_to_finish_reason.get(status, status)
+                    attributes[RESPONSE_FINISH_REASONS] = json.dumps([finish_reason])
+
+            # Add server attributes
+            attributes[SERVER_ADDRESS] = 'api.openai.com'
+            attributes[SERVER_PORT] = 443
+
         elif isinstance(span_data, GenerationSpanData):
             attributes['request_data'] = dict(
                 messages=list(span_data.input or []) + list(span_data.output or []), model=span_data.model
@@ -383,6 +443,7 @@ def get_basic_response_attributes(response: Response):
         'gen_ai.response.model': getattr(response, 'model', None),
         'response': response,
         'gen_ai.system': 'openai',
+        PROVIDER_NAME: 'openai',  # OTel standard (gen_ai.system is deprecated)
         'gen_ai.operation.name': 'chat',
     }
 
