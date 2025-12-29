@@ -12,7 +12,6 @@ T = TypeVar('T')
 T_co = TypeVar('T_co', covariant=True)
 
 
-# TODO: Should we rename this to `ResolvedVariable`?
 @dataclass(kw_only=True)
 class ResolvedVariable(Generic[T_co]):
     """Details about a variable resolution including value, variant, and any errors.
