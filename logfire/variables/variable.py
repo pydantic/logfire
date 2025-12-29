@@ -121,7 +121,6 @@ class Variable(Generic[T]):
         """Synchronously refresh the variable."""
         self.logfire_instance.config.get_variable_provider().refresh(force=force)
 
-    # TODO: Should we rename this to `resolve`?
     def get(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> ResolvedVariable[T]:
         """Resolve the variable and return full details including variant and any errors.
 
