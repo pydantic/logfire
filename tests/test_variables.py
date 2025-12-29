@@ -270,23 +270,94 @@ class TestVariant:
 
 
 class TestRolloutOverride:
-    def test_basic_override(self):
-        override = RolloutOverride(
-            conditions=[ValueEquals(attribute='plan', value='enterprise')],
-            rollout=Rollout(variants={'premium': 1.0}),
-        )
-        assert len(override.conditions) == 1
-        assert override.rollout.variants == {'premium': 1.0}
-
-    def test_multiple_conditions(self):
-        override = RolloutOverride(
-            conditions=[
-                ValueEquals(attribute='plan', value='enterprise'),
-                ValueIsIn(attribute='country', values=['US', 'UK']),
+    def test_single_condition_override_applies_when_matched(self):
+        """Test that override applies when single condition matches."""
+        config = VariableConfig(
+            name='test_var',
+            variants={
+                'default': Variant(key='default', serialized_value='"default_value"'),
+                'premium': Variant(key='premium', serialized_value='"premium_value"'),
+            },
+            rollout=Rollout(variants={'default': 1.0}),
+            overrides=[
+                RolloutOverride(
+                    conditions=[ValueEquals(attribute='plan', value='enterprise')],
+                    rollout=Rollout(variants={'premium': 1.0}),
+                ),
             ],
-            rollout=Rollout(variants={'premium': 1.0}),
         )
-        assert len(override.conditions) == 2
+
+        # Without matching attribute, default rollout applies
+        variant = config.resolve_variant(targeting_key='user1')
+        assert variant is not None
+        assert variant.key == 'default'
+
+        # With matching attribute, override applies
+        variant = config.resolve_variant(targeting_key='user1', attributes={'plan': 'enterprise'})
+        assert variant is not None
+        assert variant.key == 'premium'
+
+        # With non-matching attribute, default rollout applies
+        variant = config.resolve_variant(targeting_key='user1', attributes={'plan': 'free'})
+        assert variant is not None
+        assert variant.key == 'default'
+
+    def test_multiple_conditions_require_all_to_match(self):
+        """Test that all conditions must match for an override to apply (AND logic)."""
+        config = VariableConfig(
+            name='test_var',
+            variants={
+                'default': Variant(key='default', serialized_value='"default_value"'),
+                'premium': Variant(key='premium', serialized_value='"premium_value"'),
+            },
+            rollout=Rollout(variants={'default': 1.0}),
+            overrides=[
+                RolloutOverride(
+                    conditions=[
+                        ValueEquals(attribute='plan', value='enterprise'),
+                        ValueIsIn(attribute='country', values=['US', 'UK']),
+                    ],
+                    rollout=Rollout(variants={'premium': 1.0}),
+                ),
+            ],
+        )
+
+        # Both conditions match -> override applies
+        variant = config.resolve_variant(
+            targeting_key='user1',
+            attributes={'plan': 'enterprise', 'country': 'US'},
+        )
+        assert variant is not None
+        assert variant.key == 'premium'
+
+        # Only first condition matches -> override does not apply
+        variant = config.resolve_variant(
+            targeting_key='user1',
+            attributes={'plan': 'enterprise', 'country': 'DE'},
+        )
+        assert variant is not None
+        assert variant.key == 'default'
+
+        # Only second condition matches -> override does not apply
+        variant = config.resolve_variant(
+            targeting_key='user1',
+            attributes={'plan': 'free', 'country': 'UK'},
+        )
+        assert variant is not None
+        assert variant.key == 'default'
+
+        # Neither condition matches -> override does not apply
+        variant = config.resolve_variant(
+            targeting_key='user1',
+            attributes={'plan': 'free', 'country': 'DE'},
+        )
+        assert variant is not None
+        assert variant.key == 'default'
+
+        # No attributes -> override does not apply
+        variant = config.resolve_variant(targeting_key='user1')
+        assert variant is not None
+        assert variant.key == 'default'
 
 
 # =============================================================================

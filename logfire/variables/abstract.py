@@ -58,13 +58,8 @@ class ResolvedVariable(Generic[T_co]):
 
         import logfire
 
-        # TODO:
-        #  * Should we "nest" the value into a 'logfire.variables' key, rather than separate keys for each variable?
-        #  * Is there a better value to use here over `<code_default>` when the variant is None?
-        #  * Should either of the above be configurable?
-        #  * Should we _require_ you to enter the context to get the value of a variable?
         self._exit_stack.enter_context(
-            logfire.set_baggage(**{f'logfire.variables.{self.name}': self.variant or '<code_default>'})
+            logfire.set_baggage(**{f'logfire.variables.{self.name}': self.variant or '<default>'})
         )
 
         return self
