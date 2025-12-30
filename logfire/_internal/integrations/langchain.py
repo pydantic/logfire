@@ -239,18 +239,39 @@ class LogfireLangchainCallbackHandler(_BASE_CLASS):  # type: ignore[misc]
                         system_instructions.append({'type': 'text', 'content': content})
                     elif isinstance(content, list):
                         system_instructions.extend(content)
+                elif msg_type == 'tool':
+                    tool_call_id = getattr(msg, 'tool_call_id', None)
+                    response_content = content if isinstance(content, str) else str(content)
+                    parts: list[dict[str, Any]] = [{
+                        'type': 'tool_call_response',
+                        'id': tool_call_id,
+                        'response': response_content,
+                    }]
+                    input_msgs.append({'role': 'tool', 'parts': parts})
                 else:
-                    otel_role = {'human': 'user', 'ai': 'assistant', 'tool': 'tool'}.get(msg_type, msg_type)
-                    parts: list[dict[str, Any]] = []
+                    otel_role = {'human': 'user', 'ai': 'assistant'}.get(msg_type, msg_type)
+                    parts = []
 
                     if isinstance(content, str):
                         parts.append({'type': 'text', 'content': content})
                     elif isinstance(content, list):
                         for item in content:
                             if isinstance(item, dict):
+                                if item.get('type') == 'tool_use':
+                                    continue
                                 parts.append(_normalize_content_block(item))
                             elif isinstance(item, str):
                                 parts.append({'type': 'text', 'content': item})
+
+                    if tool_calls := getattr(msg, 'tool_calls', None):
+                        for tc in tool_calls:
+                            if isinstance(tc, dict):
+                                parts.append({
+                                    'type': 'tool_call',
+                                    'id': tc.get('id'),
+                                    'name': tc.get('name'),
+                                    'arguments': tc.get('args'),
+                                })
 
                     input_msgs.append({'role': otel_role, 'parts': parts})
 
@@ -465,6 +486,8 @@ class LogfireLangchainCallbackHandler(_BASE_CLASS):  # type: ignore[misc]
                     elif isinstance(content, list):
                         for item in content:
                             if isinstance(item, dict):
+                                if item.get('type') == 'tool_use':
+                                    continue
                                 output_msg['parts'].append(_normalize_content_block(item))
                             elif isinstance(item, str):
                                 output_msg['parts'].append({'type': 'text', 'content': item})
@@ -507,11 +530,12 @@ class LogfireLangchainCallbackHandler(_BASE_CLASS):  # type: ignore[misc]
 
 _original_callback_manager_init: Any = None
 _logfire_instance: Logfire | None = None
+_handler_instance: LogfireLangchainCallbackHandler | None = None
 
 
 def _patch_callback_manager(logfire: Logfire) -> None:
     """Patch BaseCallbackManager to inject our handler."""
-    global _original_callback_manager_init, _logfire_instance
+    global _original_callback_manager_init, _logfire_instance, _handler_instance
 
     try:
         from langchain_core.callbacks import BaseCallbackManager
@@ -524,25 +548,28 @@ def _patch_callback_manager(logfire: Logfire) -> None:
         return  # Already patched
 
     _logfire_instance = logfire
+    _handler_instance = None  # Reset handler on patch
     _original_callback_manager_init = BaseCallbackManager.__init__
 
     def patched_init(self: Any, *args: Any, **kwargs: Any) -> None:
+        global _handler_instance
         _original_callback_manager_init(self, *args, **kwargs)
 
-        for handler in self.inheritable_handlers:
+        for handler in list(getattr(self, 'handlers', [])) + list(getattr(self, 'inheritable_handlers', [])):
             if isinstance(handler, LogfireLangchainCallbackHandler):
                 return
 
         if _logfire_instance is not None:
-            handler = LogfireLangchainCallbackHandler(_logfire_instance)
-            self.add_handler(handler, inherit=True)
+            if _handler_instance is None:
+                _handler_instance = LogfireLangchainCallbackHandler(_logfire_instance)
+            self.add_handler(_handler_instance, inherit=True)
 
     BaseCallbackManager.__init__ = patched_init
 
 
 def _unpatch_callback_manager() -> None:
     """Restore original BaseCallbackManager.__init__."""
-    global _original_callback_manager_init, _logfire_instance
+    global _original_callback_manager_init, _logfire_instance, _handler_instance
 
     if _original_callback_manager_init is None:
         return
@@ -556,6 +583,7 @@ def _unpatch_callback_manager() -> None:
 
     _original_callback_manager_init = None
     _logfire_instance = None
+    _handler_instance = None
 
 
 def instrument_langchain(logfire: Logfire) -> AbstractContextManager[None]:
