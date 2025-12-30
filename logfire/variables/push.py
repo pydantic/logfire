@@ -5,14 +5,13 @@ from __future__ import annotations
 import json
 import sys
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from pydantic import ValidationError
 
+from logfire.variables.abstract import VariableProvider
+from logfire.variables.config import Rollout, VariableConfig, VariablesConfig, Variant
 from logfire.variables.variable import Variable, is_resolve_function
-
-if TYPE_CHECKING:
-    from logfire.api_client import LogfireAPIClient
 
 __all__ = ('push_variables', 'validate_variables', 'VariableDiff', 'VariableChange', 'DescriptionDifference')
 
@@ -96,17 +95,24 @@ def _check_variant_compatibility(
 
 def _compute_diff(
     variables: list[Variable[Any]],
-    server_config: dict[str, Any],
+    server_config: VariablesConfig,
 ) -> VariableDiff:
-    """Compute the diff between local variables and server config."""
+    """Compute the diff between local variables and server config.
+
+    Args:
+        variables: Local variable definitions.
+        server_config: Server variable configurations (from provider.get_all_variables_config()).
+
+    Returns:
+        A VariableDiff describing the changes needed.
+    """
     changes: list[VariableChange] = []
     local_names = {v.name for v in variables}
-    server_variables = server_config.get('variables', {})
 
     for variable in variables:
         local_schema = _get_json_schema(variable)
         local_description = variable.description
-        server_var = server_variables.get(variable.name)
+        server_var = server_config.variables.get(variable.name)
 
         if server_var is None:
             # New variable - needs to be created
@@ -122,8 +128,8 @@ def _compute_diff(
             )
         else:
             # Variable exists - check if schema changed
-            server_schema = server_var.get('json_schema')
-            server_description = server_var.get('description')
+            server_schema = server_var.json_schema
+            server_description = server_var.description
 
             # Normalize schemas for comparison (remove $defs if empty, etc.)
             local_normalized = json.dumps(local_schema, sort_keys=True)
@@ -140,11 +146,11 @@ def _compute_diff(
             if schema_changed:
                 # Schema changed - check variant compatibility
                 incompatible: list[VariantCompatibility] = []
-                for variant_key, variant_data in server_var.get('variants', {}).items():
+                for variant_key, variant in server_var.variants.items():
                     compat = _check_variant_compatibility(
                         variable,
                         variant_key,
-                        variant_data.get('serialized_value', ''),
+                        variant.serialized_value,
                     )
                     if not compat.is_compatible:
                         incompatible.append(compat)
@@ -156,7 +162,6 @@ def _compute_diff(
                         local_schema=local_schema,
                         server_schema=server_schema,
                         incompatible_variants=incompatible if incompatible else None,
-                        server_id=server_var.get('id'),
                         local_description=local_description,
                         server_description=server_description,
                         description_differs=description_differs,
@@ -175,7 +180,7 @@ def _compute_diff(
                 )
 
     # Find orphaned server variables (on server but not in local code)
-    orphaned = [name for name in server_variables.keys() if name not in local_names]
+    orphaned = [name for name in server_config.variables.keys() if name not in local_names]
 
     return VariableDiff(changes=changes, orphaned_server_variables=orphaned)
 
@@ -233,114 +238,79 @@ def _format_diff(diff: VariableDiff) -> str:
     return '\n'.join(lines)
 
 
-class _VariablesClient:
-    """Wrapper for variables API operations using LogfireAPIClient.
-
-    The underlying client methods use token-scoped endpoints that derive
-    the project from the API token itself.
-    """
-
-    def __init__(self, client: LogfireAPIClient):
-        self._client = client
-
-    def get_variables_config(self) -> dict[str, Any]:
-        return self._client.get_variables_config()
-
-    def create_variable(self, body: dict[str, Any]) -> dict[str, Any]:
-        return self._client.create_variable(body)
-
-    def update_variable(self, variable_name: str, body: dict[str, Any]) -> dict[str, Any]:
-        return self._client.update_variable(variable_name, body)
-
-
 def _apply_changes(
-    client: _VariablesClient,
+    provider: VariableProvider,
     diff: VariableDiff,
+    server_config: VariablesConfig,
 ) -> None:
-    """Apply the changes to the server."""
+    """Apply the changes using the provider."""
     for change in diff.changes:
         if change.change_type == 'create':
-            _create_variable(client, change)
+            _create_variable(provider, change)
         elif change.change_type == 'update_schema':
-            _update_variable_schema(client, change)
+            _update_variable_schema(provider, change, server_config)
 
 
 def _create_variable(
-    client: _VariablesClient,
+    provider: VariableProvider,
     change: VariableChange,
 ) -> None:
-    """Create a new variable on the server."""
-    body: dict[str, Any] = {
-        'name': change.name,
-        'json_schema': change.local_schema,
-        'description': change.local_description,
-    }
-
+    """Create a new variable via the provider."""
     if change.initial_variant_value is not None:
         # Has a static default - create a 'default' variant with 100% rollout
-        body['variants'] = {
-            'default': {
-                'serialized_value': change.initial_variant_value,
-                'description': 'Default value from code',
-            }
+        variants = {
+            'default': Variant(
+                key='default',
+                serialized_value=change.initial_variant_value,
+                description='Default value from code',
+            )
         }
-        body['rollout'] = {'variants': {'default': 1.0}}
+        rollout = Rollout(variants={'default': 1.0})
     else:
         # Default is a function - no server-side variant, empty rollout
-        body['variants'] = {}
-        body['rollout'] = {'variants': {}}
+        variants = {}
+        rollout = Rollout(variants={})
 
-    body['overrides'] = []
+    config = VariableConfig(
+        name=change.name,
+        description=change.local_description,
+        variants=variants,
+        rollout=rollout,
+        overrides=[],
+        json_schema=change.local_schema,
+    )
 
-    client.create_variable(body)
+    provider.create_variable(config)
     print(f'  \033[32mCreated: {change.name}\033[0m')
 
 
 def _update_variable_schema(
-    client: _VariablesClient,
+    provider: VariableProvider,
     change: VariableChange,
+    server_config: VariablesConfig,
 ) -> None:
-    """Update an existing variable's schema on the server."""
-    body = {
-        'json_schema': change.local_schema,
-    }
+    """Update an existing variable's schema via the provider."""
+    # Get the existing config to preserve variants, rollout, overrides
+    existing = server_config.variables.get(change.name)
+    if existing is None:
+        # Should not happen, but handle gracefully
+        print(f'  \033[31mWarning: Could not find existing config for {change.name}\033[0m')
+        return
 
-    client.update_variable(change.name, body)
+    # Create updated config with new schema but preserve everything else
+    config = VariableConfig(
+        name=existing.name,
+        description=existing.description,
+        variants=existing.variants,
+        rollout=existing.rollout,
+        overrides=existing.overrides,
+        json_schema=change.local_schema,
+    )
+
+    provider.update_variable(change.name, config)
     print(f'  \033[33mUpdated schema: {change.name}\033[0m')
 
 
-def _get_variables_client() -> tuple[_VariablesClient, str] | None:
-    """Create a variables client from LOGFIRE_API_TOKEN environment variable.
-
-    The API token must be scoped to a specific project. The project is derived
-    from the token itself.
-
-    Returns:
-        Tuple of (client, base_url) if successful, None otherwise.
-    """
-    import os
-
-    from logfire.api_client import LOGFIRE_API_TOKEN_ENV, LogfireAPIClient
-
-    api_token = os.environ.get(LOGFIRE_API_TOKEN_ENV)
-    if not api_token:
-        print(
-            f'\033[31mError: {LOGFIRE_API_TOKEN_ENV} environment variable is not set.\n'
-            'The variables API requires a project-scoped API token.\033[0m',
-            file=sys.stderr,
-        )
-        return None
-
-    try:
-        client = LogfireAPIClient(api_token=api_token)
-    except Exception as e:
-        print(f'\033[31mError: Invalid API token: {e}\033[0m', file=sys.stderr)
-        return None
-
-    return _VariablesClient(client), client.base_url
-
-
-# TODO: Make it possible to manually provide the API token in this call
 def push_variables(
     variables: list[Variable[Any]] | None = None,
     *,
@@ -348,18 +318,18 @@ def push_variables(
     yes: bool = False,
     strict: bool = False,
 ) -> bool:
-    """Push variable definitions to the Logfire server.
+    """Push variable definitions to the configured provider.
 
-    This function syncs local variable definitions with the server:
-    - Creates new variables that don't exist on the server
+    This function syncs local variable definitions with the provider:
+    - Creates new variables that don't exist in the provider
     - Updates JSON schemas for existing variables if they've changed
     - Warns about existing variants that are incompatible with new schemas
 
-    Authentication: Requires the LOGFIRE_API_TOKEN environment variable to be set
-    with a project-scoped API token. The project is derived from the token itself.
+    The provider is determined by the Logfire configuration. For remote providers,
+    this requires proper authentication (e.g., LOGFIRE_API_TOKEN environment variable).
 
     Args:
-        variables: Variable instances to push to the server. If None, all variables
+        variables: Variable instances to push. If None, all variables
             registered with the default Logfire instance will be pushed.
         dry_run: If True, only show what would change without applying.
         yes: If True, skip confirmation prompt.
@@ -372,8 +342,8 @@ def push_variables(
         ```python
         import logfire
 
-        feature_enabled = logfire.var(name='feature-enabled', default=False, type=bool)
-        max_retries = logfire.var(name='max-retries', default=3, type=int)
+        feature_enabled = logfire.var(name='feature-enabled', type=bool, default=False)
+        max_retries = logfire.var(name='max-retries', type=int, default=3)
 
         if __name__ == '__main__':
             # Push all registered variables
@@ -392,18 +362,21 @@ def push_variables(
         print('No variables to push. Create variables using logfire.var() first.')
         return False
 
-    # Get variables client from API token
-    result = _get_variables_client()
-    if result is None:
-        return False
-    client, base_url = result
-    print(f'Using API token (base URL: {base_url})')
+    # Get the configured provider
+    provider = logfire_module.DEFAULT_LOGFIRE_INSTANCE.config.get_variable_provider()
+    print(f'Using provider: {type(provider).__name__}')
 
-    # Fetch current server config
+    # Refresh the provider to ensure we have the latest config
     try:
-        server_config = client.get_variables_config()
+        provider.refresh(force=True)
     except Exception as e:
-        print(f'\033[31mError fetching server config: {e}\033[0m', file=sys.stderr)
+        print(f'\033[33mWarning: Could not refresh provider: {e}\033[0m', file=sys.stderr)
+
+    # Get current variable configs from provider
+    try:
+        server_config = provider.get_all_variables_config()
+    except Exception as e:
+        print(f'\033[31mError fetching current config: {e}\033[0m', file=sys.stderr)
         return False
 
     # Compute diff
@@ -413,7 +386,7 @@ def push_variables(
     print(_format_diff(diff))
 
     if not diff.has_changes:
-        print('\n\033[32mNo changes needed. Server is up to date.\033[0m')
+        print('\n\033[32mNo changes needed. Provider is up to date.\033[0m')
         return False
 
     # Check for incompatible variants in strict mode
@@ -447,7 +420,7 @@ def push_variables(
     # Apply changes
     print('\nApplying changes...')
     try:
-        _apply_changes(client, diff)
+        _apply_changes(provider, diff, server_config)
     except Exception as e:
         print(f'\033[31mError applying changes: {e}\033[0m', file=sys.stderr)
         return False
@@ -533,14 +506,11 @@ def _format_validation_report(report: ValidationReport) -> str:
 def validate_variables(
     variables: list[Variable[Any]] | None = None,
 ) -> bool:
-    """Validate that server-side variable variants match local type definitions.
+    """Validate that provider-side variable variants match local type definitions.
 
-    This function fetches the current variable configuration from the server and
+    This function fetches the current variable configuration from the provider and
     validates that all variant values can be deserialized to the expected types
     defined in the local Variable instances.
-
-    Authentication: Requires the LOGFIRE_API_TOKEN environment variable to be set
-    with a project-scoped API token. The project is derived from the token itself.
 
     Args:
         variables: Variable instances to validate. If None, all variables
@@ -553,8 +523,8 @@ def validate_variables(
         ```python
         import logfire
 
-        feature_enabled = logfire.var(name='feature-enabled', default=False, type=bool)
-        max_retries = logfire.var(name='max-retries', default=3, type=int)
+        feature_enabled = logfire.var(name='feature-enabled', type=bool, default=False)
+        max_retries = logfire.var(name='max-retries', type=int, default=3)
 
         if __name__ == '__main__':
             # Validate all registered variables
@@ -565,7 +535,6 @@ def validate_variables(
         ```
     """
     import logfire as logfire_module
-    from logfire.variables.config import VariablesConfig
 
     if variables is None:
         variables = logfire_module.DEFAULT_LOGFIRE_INSTANCE.get_variables()
@@ -574,35 +543,31 @@ def validate_variables(
         print('No variables to validate. Create variables using logfire.var() first.')
         return True  # No variables to validate is not an error
 
-    # Get variables client from API token
-    result = _get_variables_client()
-    if result is None:
-        return False
-    client, base_url = result
-    print(f'Using API token (base URL: {base_url})')
+    # Get the configured provider
+    provider = logfire_module.DEFAULT_LOGFIRE_INSTANCE.config.get_variable_provider()
+    print(f'Using provider: {type(provider).__name__}')
 
-    # Fetch current server config
+    # Refresh the provider to ensure we have the latest config
     try:
-        server_config_raw = client.get_variables_config()
+        provider.refresh(force=True)
     except Exception as e:
-        print(f'\033[31mError fetching server config: {e}\033[0m', file=sys.stderr)
-        return False
+        print(f'\033[33mWarning: Could not refresh provider: {e}\033[0m', file=sys.stderr)
 
-    # Parse into VariablesConfig
+    # Get current variable configs from provider
     try:
-        config = VariablesConfig.validate_python(server_config_raw)
+        server_config = provider.get_all_variables_config()
     except Exception as e:
-        print(f'\033[31mError parsing server config: {e}\033[0m', file=sys.stderr)
+        print(f'\033[31mError fetching current config: {e}\033[0m', file=sys.stderr)
         return False
 
     # Find variables not on server
-    variables_not_on_server = [v.name for v in variables if v.name not in config.variables]
+    variables_not_on_server = [v.name for v in variables if v.name not in server_config.variables]
 
     # Filter to variables that are on the server
-    variables_on_server = [v for v in variables if v.name in config.variables]
+    variables_on_server = [v for v in variables if v.name in server_config.variables]
 
     # Get validation errors
-    error_dict = config.get_validation_errors(variables_on_server)
+    error_dict = server_config.get_validation_errors(variables_on_server)
 
     # Build report
     errors: list[VariantValidationError] = []
@@ -619,7 +584,7 @@ def validate_variables(
     # Check for description differences
     description_differences: list[DescriptionDifference] = []
     for variable in variables_on_server:
-        server_var = config.variables.get(variable.name)
+        server_var = server_config.variables.get(variable.name)
         if server_var is not None:
             # Normalize: treat None and empty string as equivalent
             local_desc = variable.description or None

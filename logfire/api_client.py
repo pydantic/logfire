@@ -1079,6 +1079,19 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         response = self.client.put(f'/v1/variables/{variable_name}/', json=body)
         return self._handle_response(response)
 
+    def delete_variable(self, variable_name: str) -> None:
+        """Delete a variable definition.
+
+        Note: The API token must be scoped to a specific project.
+
+        Args:
+            variable_name: The variable name.
+
+        Required scope: `project:write_variables`
+        """
+        response = self.client.delete(f'/v1/variables/{variable_name}/')
+        self._handle_response(response)
+
 
 # ============================================================================
 # Asynchronous client
@@ -1789,3 +1802,16 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         """
         response = await self.client.put(f'/v1/variables/{variable_name}/', json=body)
         return self._handle_response(response)
+
+    async def delete_variable(self, variable_name: str) -> None:
+        """Delete a variable definition.
+
+        Note: The API token must be scoped to a specific project.
+
+        Args:
+            variable_name: The variable name.
+
+        Required scope: `project:write_variables`
+        """
+        response = await self.client.delete(f'/v1/variables/{variable_name}/')
+        self._handle_response(response)

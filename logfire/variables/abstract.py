@@ -1,15 +1,44 @@
 from __future__ import annotations as _annotations
 
+import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from contextlib import ExitStack
 from dataclasses import dataclass
-from typing import Any, Generic, Literal, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar
 
-__all__ = ('ResolvedVariable', 'VariableProvider', 'NoOpVariableProvider')
+if TYPE_CHECKING:
+    from logfire.variables.config import VariableConfig, VariablesConfig
+
+__all__ = (
+    'ResolvedVariable',
+    'VariableProvider',
+    'NoOpVariableProvider',
+    'VariableWriteError',
+    'VariableNotFoundError',
+    'VariableAlreadyExistsError',
+)
 
 T = TypeVar('T')
 T_co = TypeVar('T_co', covariant=True)
+
+
+class VariableWriteError(Exception):
+    """Base exception for variable write operation failures."""
+
+    pass
+
+
+class VariableNotFoundError(VariableWriteError):
+    """Raised when a variable is not found."""
+
+    pass
+
+
+class VariableAlreadyExistsError(VariableWriteError):
+    """Raised when trying to create a variable that already exists."""
+
+    pass
 
 
 @dataclass(kw_only=True)
@@ -22,7 +51,7 @@ class ResolvedVariable(Generic[T_co]):
 
     Example:
         ```python
-        my_var = logfire.var(name='my_var', default='default', type=str)
+        my_var = logfire.var(name='my_var', type=str, default='default')
         with my_var.get() as details:
             # Inside this context, baggage is set with:
             # logfire.variables.my_var = <variant_name> (or '<code_default>' if no variant)
@@ -59,7 +88,7 @@ class ResolvedVariable(Generic[T_co]):
         import logfire
 
         self._exit_stack.enter_context(
-            logfire.set_baggage(**{f'logfire.variables.{self.name}': self.variant or '<default>'})
+            logfire.set_baggage(**{f'logfire.variables.{self.name}': self.variant or '<code_default>'})
         )
 
         return self
@@ -108,6 +137,118 @@ class VariableProvider(ABC):
         """Clean up any resources used by the provider."""
         pass
 
+    def get_variable_config(self, name: str) -> VariableConfig | None:
+        """Retrieve the full configuration for a variable.
+
+        Args:
+            name: The name of the variable.
+
+        Returns:
+            The VariableConfig if found, or None if the variable doesn't exist.
+
+        Note:
+            Subclasses should override this method to provide actual implementations.
+            The default implementation returns None.
+        """
+        return None
+
+    def get_all_variables_config(self) -> VariablesConfig:
+        """Retrieve all variable configurations.
+
+        This is used by push_variables() to compute diffs.
+
+        Returns:
+            A VariablesConfig containing all variable configurations.
+            Returns an empty VariablesConfig if no configs are available.
+        """
+        from logfire.variables.config import VariablesConfig
+
+        return VariablesConfig(variables={})
+
+    def create_variable(self, config: VariableConfig) -> VariableConfig:
+        """Create a new variable configuration.
+
+        Args:
+            config: The configuration for the new variable.
+
+        Returns:
+            The created VariableConfig.
+
+        Raises:
+            VariableAlreadyExistsError: If a variable with this name already exists.
+
+        Note:
+            Subclasses should override this method to provide actual implementations.
+            The default implementation emits a warning and returns the config unchanged.
+        """
+        warnings.warn(
+            f'{type(self).__name__} does not persist variable writes',
+            stacklevel=2,
+        )
+        return config
+
+    def update_variable(self, name: str, config: VariableConfig) -> VariableConfig:
+        """Update an existing variable configuration.
+
+        Args:
+            name: The name of the variable to update.
+            config: The new configuration for the variable.
+
+        Returns:
+            The updated VariableConfig.
+
+        Raises:
+            VariableNotFoundError: If the variable does not exist.
+
+        Note:
+            Subclasses should override this method to provide actual implementations.
+            The default implementation emits a warning and returns the config unchanged.
+        """
+        warnings.warn(
+            f'{type(self).__name__} does not persist variable writes',
+            stacklevel=2,
+        )
+        return config
+
+    def delete_variable(self, name: str) -> None:
+        """Delete a variable configuration.
+
+        Args:
+            name: The name of the variable to delete.
+
+        Raises:
+            VariableNotFoundError: If the variable does not exist.
+
+        Note:
+            Subclasses should override this method to provide actual implementations.
+            The default implementation emits a warning.
+        """
+        warnings.warn(
+            f'{type(self).__name__} does not persist variable writes',
+            stacklevel=2,
+        )
+
+    def batch_update(self, updates: dict[str, VariableConfig | None]) -> None:
+        """Update multiple variables atomically.
+
+        This default implementation processes updates sequentially. Subclasses
+        (especially remote providers) may override this to batch operations
+        into a single API call for better performance.
+
+        Args:
+            updates: A mapping of variable names to their new configurations.
+                Unrecognized names will be created.
+                A None value means the variable should be deleted.
+                All others will be updated.
+        """
+        for name, config in updates.items():
+            if config is None:
+                self.delete_variable(name)
+            elif self.get_variable_config(name) is None:
+                self.create_variable(config)
+            else:
+                self.update_variable(name, config)
+
 
 @dataclass
 class NoOpVariableProvider(VariableProvider):
@@ -130,3 +271,14 @@ class NoOpVariableProvider(VariableProvider):
             A ResolvedVariable with value=None.
         """
         return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')
+
+    def get_variable_config(self, name: str) -> VariableConfig | None:
+        """Return None for all variable lookups.
+
+        Args:
+            name: The name of the variable (ignored).
+
+        Returns:
+            Always None since no provider is configured.
+        """
+        return None

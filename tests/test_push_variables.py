@@ -3,14 +3,13 @@
 # pyright: reportPrivateUsage=false
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from typing import Any
-from unittest.mock import patch
 
 import pytest
 
 import logfire
+from logfire.variables.config import Rollout, VariableConfig, VariablesConfig, Variant
 from logfire.variables.push import (
     ValidationReport,
     VariableChange,
@@ -31,6 +30,10 @@ class MockLogfire:
     """Mock Logfire instance for testing."""
 
     config: Any = None
+
+    def with_settings(self, **kwargs: Any) -> MockLogfire:
+        """Return self for chaining."""
+        return self
 
 
 @pytest.fixture
@@ -145,7 +148,7 @@ def test_compute_diff_new_variable(mock_logfire_instance: MockLogfire) -> None:
         type=bool,
         logfire_instance=mock_logfire_instance,  # type: ignore
     )
-    server_config: dict[str, Any] = {'variables': {}}
+    server_config = VariablesConfig(variables={})
 
     diff = _compute_diff([var], server_config)
 
@@ -164,14 +167,17 @@ def test_compute_diff_no_change(mock_logfire_instance: MockLogfire) -> None:
         type=bool,
         logfire_instance=mock_logfire_instance,  # type: ignore
     )
-    server_config: dict[str, Any] = {
-        'variables': {
-            'existing-feature': {
-                'json_schema': {'type': 'boolean'},
-                'variants': {},
-            }
+    server_config = VariablesConfig(
+        variables={
+            'existing-feature': VariableConfig(
+                name='existing-feature',
+                json_schema={'type': 'boolean'},
+                variants={},
+                rollout=Rollout(variants={}),
+                overrides=[],
+            )
         }
-    }
+    )
 
     diff = _compute_diff([var], server_config)
 
@@ -189,14 +195,19 @@ def test_compute_diff_schema_change(mock_logfire_instance: MockLogfire) -> None:
         type=int,
         logfire_instance=mock_logfire_instance,  # type: ignore
     )
-    server_config: dict[str, Any] = {
-        'variables': {
-            'config-value': {
-                'json_schema': {'type': 'string'},  # Was string, now int
-                'variants': {'default': {'serialized_value': '"hello"'}},
-            }
+    server_config = VariablesConfig(
+        variables={
+            'config-value': VariableConfig(
+                name='config-value',
+                json_schema={'type': 'string'},  # Was string, now int
+                variants={
+                    'default': Variant(key='default', serialized_value='"hello"'),
+                },
+                rollout=Rollout(variants={'default': 1.0}),
+                overrides=[],
+            )
         }
-    }
+    )
 
     diff = _compute_diff([var], server_config)
 
@@ -216,18 +227,24 @@ def test_compute_diff_orphaned_variables(mock_logfire_instance: MockLogfire) -> 
         type=bool,
         logfire_instance=mock_logfire_instance,  # type: ignore
     )
-    server_config: dict[str, Any] = {
-        'variables': {
-            'my-feature': {
-                'json_schema': {'type': 'boolean'},
-                'variants': {},
-            },
-            'orphan-feature': {
-                'json_schema': {'type': 'boolean'},
-                'variants': {},
-            },
+    server_config = VariablesConfig(
+        variables={
+            'my-feature': VariableConfig(
+                name='my-feature',
+                json_schema={'type': 'boolean'},
+                variants={},
+                rollout=Rollout(variants={}),
+                overrides=[],
+            ),
+            'orphan-feature': VariableConfig(
+                name='orphan-feature',
+                json_schema={'type': 'boolean'},
+                variants={},
+                rollout=Rollout(variants={}),
+                overrides=[],
+            ),
         }
-    }
+    )
 
     diff = _compute_diff([var], server_config)
 
@@ -298,25 +315,6 @@ def test_push_variables_no_variables() -> None:
     # Use an explicit empty list to avoid picking up variables from the global DEFAULT_LOGFIRE_INSTANCE
     result = logfire.push_variables([])
     assert result is False
-
-
-def test_push_variables_with_explicit_list_no_credentials(mock_logfire_instance: MockLogfire) -> None:
-    """Test push_variables with an explicit list of variables but no credentials."""
-    var = Variable[bool](
-        name='test-feature',
-        default=False,
-        type=bool,
-        logfire_instance=mock_logfire_instance,  # type: ignore
-    )
-
-    # Mock credential lookup to return None (no API token set)
-    with (
-        patch.dict(os.environ, {}, clear=True),  # Clear env vars including LOGFIRE_API_TOKEN
-        patch('logfire.variables.push._get_variables_client', return_value=None),
-    ):
-        # Should return False since there are no credentials configured
-        result = logfire.push_variables([var])
-        assert result is False
 
 
 def test_var_registers_variable() -> None:
