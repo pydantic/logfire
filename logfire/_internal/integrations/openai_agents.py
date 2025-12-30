@@ -47,8 +47,6 @@ from logfire._internal.integrations.llm_providers.semconv import (
     OUTPUT_MESSAGES,
     PROVIDER_NAME,
     RESPONSE_FINISH_REASONS,
-    SERVER_ADDRESS,
-    SERVER_PORT,
     SYSTEM_INSTRUCTIONS,
     TOOL_DEFINITIONS,
 )
@@ -411,9 +409,6 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
                     }
                     finish_reason = status_to_finish_reason.get(status, status)
                     attributes[RESPONSE_FINISH_REASONS] = json.dumps([finish_reason])
-
-            attributes[SERVER_ADDRESS] = 'api.openai.com'
-            attributes[SERVER_PORT] = 443
 
             if response and hasattr(response, 'tools') and response.tools:
                 tool_defs = []

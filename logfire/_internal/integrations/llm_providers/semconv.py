@@ -39,7 +39,3 @@ SYSTEM_INSTRUCTIONS = 'gen_ai.system_instructions'
 
 # Tool definitions
 TOOL_DEFINITIONS = 'gen_ai.tool.definitions'
-
-# Server attributes
-SERVER_ADDRESS = 'server.address'
-SERVER_PORT = 'server.port'
