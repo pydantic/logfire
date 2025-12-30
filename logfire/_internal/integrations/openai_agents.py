@@ -108,11 +108,11 @@ class LogfireTraceProviderWrapper:
                 msg_template = 'Function: {name}'
             elif isinstance(span_data, GenerationSpanData):
                 msg_template = 'Chat completion with {gen_ai.request.model!r}'
-                span_kind = SpanKind.CLIENT  # LLM API calls should be CLIENT
+                span_kind = SpanKind.CLIENT
             elif isinstance(span_data, ResponseSpanData):
                 msg_template = 'Responses API'
                 extra_attributes = get_magic_response_attributes()
-                span_kind = SpanKind.CLIENT  # LLM API calls should be CLIENT
+                span_kind = SpanKind.CLIENT
                 if 'gen_ai.request.model' in extra_attributes:  # pragma: no branch
                     msg_template += ' with {gen_ai.request.model!r}'
                     otel_span_name = f"chat {extra_attributes['gen_ai.request.model']}"

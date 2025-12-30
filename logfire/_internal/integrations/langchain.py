@@ -22,7 +22,6 @@ from .llm_providers.semconv import (
     OPERATION_NAME,
     OUTPUT_MESSAGES,
     OUTPUT_TOKENS,
-    PROVIDER_NAME,
     REQUEST_MODEL,
     RESPONSE_FINISH_REASONS,
     RESPONSE_MODEL,
@@ -201,17 +200,6 @@ class LogfireLangchainCallbackHandler(_BASE_CLASS):  # type: ignore[misc]
                     }
                 )
         return tools
-
-    def _guess_provider(self, model: str) -> str:
-        """Guess provider from model name."""
-        model_lower = model.lower()
-        if 'gpt' in model_lower or 'openai' in model_lower or 'o1' in model_lower or 'o3' in model_lower:
-            return 'openai'
-        elif 'claude' in model_lower or 'anthropic' in model_lower:
-            return 'anthropic'
-        elif 'gemini' in model_lower or 'google' in model_lower:
-            return 'google'
-        return 'unknown'
 
     def _convert_messages_to_otel(
         self, messages: list[list[Any]]
@@ -409,7 +397,6 @@ class LogfireLangchainCallbackHandler(_BASE_CLASS):  # type: ignore[misc]
         span_data: dict[str, Any] = {
             OPERATION_NAME: 'chat',
             REQUEST_MODEL: model,
-            PROVIDER_NAME: self._guess_provider(model),
         }
 
         if tools := self._extract_tool_definitions(kwargs):
@@ -446,7 +433,6 @@ class LogfireLangchainCallbackHandler(_BASE_CLASS):  # type: ignore[misc]
         span_data: dict[str, Any] = {
             OPERATION_NAME: 'completion',
             REQUEST_MODEL: model,
-            PROVIDER_NAME: self._guess_provider(model),
         }
 
         if tools := self._extract_tool_definitions(kwargs):
