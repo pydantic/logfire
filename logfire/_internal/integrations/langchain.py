@@ -34,20 +34,19 @@ if TYPE_CHECKING:
     from ..main import Logfire, LogfireSpan
 
 
-# Import BaseCallbackHandler at runtime to get all required attributes
 try:
     from langchain_core.callbacks.base import BaseCallbackHandler
 
     _BASE_CLASS = BaseCallbackHandler
 except ImportError:
-    _BASE_CLASS = object  # Fallback if langchain_core not installed
+    _BASE_CLASS = object
 
 
 @dataclass
 class SpanWithToken:
     """Container for span and its context token."""
 
-    span: Any  # LogfireSpan
+    span: Any
     token: Token | None = None
 
 
@@ -62,7 +61,6 @@ def _detach_span_from_context(token: Token) -> None:
     try:
         context_api.detach(token)
     except ValueError:
-        # Token was created in different context - this is expected in async
         pass
 
 
@@ -113,10 +111,10 @@ class LogfireLangchainCallbackHandler(_BASE_CLASS):  # type: ignore[misc]
     """
 
     def __init__(self, logfire: Logfire):
-        super().__init__()  # Initialize BaseCallbackHandler
-        self.run_inline = True  # Run in main async task for proper context propagation
+        super().__init__()
+        self.run_inline = True
         self._logfire = logfire
-        self._run_span_mapping: dict[str, SpanWithToken] = {}  # run_id -> SpanWithToken
+        self._run_span_mapping: dict[str, SpanWithToken] = {}
 
     def _get_span_by_run_id(self, run_id: UUID) -> Any | None:
         """Get span from run_id mapping."""
@@ -146,26 +144,22 @@ class LogfireLangchainCallbackHandler(_BASE_CLASS):  # type: ignore[misc]
         """Start a span with proper parent linkage using parent_run_id."""
         parent_span = self._get_parent_span(parent_run_id)
 
-        # Temporarily attach parent context so the new span picks it up as parent
         parent_token = None
         if parent_span and parent_span._span:
             parent_context = trace.set_span_in_context(parent_span._span)
             parent_token = context_api.attach(parent_context)
 
         try:
-            # Create span (picks up parent from attached context)
             span = self._logfire.span(
                 span_name,
                 _span_kind=span_kind,
                 **span_data,
             )
-            span._start()  # Start without attaching to global context
+            span._start()
         finally:
-            # Always detach the parent context we attached
             if parent_token is not None:
                 context_api.detach(parent_token)
 
-        # Store span with token (don't attach to context to avoid async issues)
         self._run_span_mapping[str(run_id)] = SpanWithToken(span, None)
         return span
 
@@ -185,7 +179,6 @@ class LogfireLangchainCallbackHandler(_BASE_CLASS):  # type: ignore[misc]
                 st.span._span.record_exception(error, escaped=True)
             st.span._end()
         finally:
-            # Detach from context if we attached
             if st.token:
                 _detach_span_from_context(st.token)
 
@@ -194,10 +187,8 @@ class LogfireLangchainCallbackHandler(_BASE_CLASS):  # type: ignore[misc]
         raw_tools = kwargs.get('invocation_params', {}).get('tools', [])
         tools = []
         for raw_tool in raw_tools:
-            # OpenAI format: {"type": "function", "function": {...}}
             if raw_tool.get('type') == 'function':
                 tools.append(raw_tool)
-            # Anthropic format: {"name": "...", "description": "...", "input_schema": {...}}
             elif 'name' in raw_tool:
                 tools.append(
                     {
@@ -240,7 +231,6 @@ class LogfireLangchainCallbackHandler(_BASE_CLASS):  # type: ignore[misc]
                     elif isinstance(content, list):
                         for item in content:
                             if isinstance(item, dict):
-                                # Normalize 'text' field to 'content' per OTel spec
                                 if 'text' in item and 'content' not in item:
                                     system_instructions.append({
                                         'type': item.get('type', 'text'),
@@ -556,10 +546,10 @@ def _patch_callback_manager(logfire: Logfire) -> None:
         ) from e
 
     if _original_callback_manager_init is not None:
-        return  # Already patched
+        return
 
     _logfire_instance = logfire
-    _handler_instance = None  # Reset handler on patch
+    _handler_instance = None
     _original_callback_manager_init = BaseCallbackManager.__init__
 
     def patched_init(self: Any, *args: Any, **kwargs: Any) -> None:

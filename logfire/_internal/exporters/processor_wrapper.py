@@ -369,7 +369,7 @@ def _convert_to_otel_message(msg: dict[str, Any]) -> dict[str, Any]:
     if content:
         if isinstance(content, str):
             otel_msg['parts'].append({'type': 'text', 'content': content})
-        elif isinstance(content, list):
+        elif isinstance(content, list): 
             for block in content:
                 if isinstance(block, dict):
                     otel_msg['parts'].append(_normalize_content_block(block))
@@ -445,7 +445,6 @@ def _transform_langchain_span(span: ReadableSpanDict):
         # Remove gen_ai.system=langchain as this also interferes with costs in the UI.
         attributes = {k: v for k, v in attributes.items() if k != 'gen_ai.system'}
 
-    # OTel GenAI semconv: gen_ai.response.finish_reasons
     with suppress(Exception):
         completion = parsed_attributes.get('gen_ai.completion', {})
         stop_reason = (
@@ -493,7 +492,6 @@ def _transform_langchain_span(span: ReadableSpanDict):
         new_attributes['all_messages_events'] = json.dumps(message_events)
         properties['all_messages_events'] = {'type': 'array'}
 
-        # OTel GenAI semconv: gen_ai.input.messages, gen_ai.output.messages, gen_ai.system_instructions
         input_msgs = []
         output_msgs = []
         system_instructions = []

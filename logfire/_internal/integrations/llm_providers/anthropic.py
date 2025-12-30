@@ -56,11 +56,9 @@ def _extract_request_parameters(json_data: dict[str, Any], span_data: dict[str, 
     if (top_k := json_data.get('top_k')) is not None:
         span_data[REQUEST_TOP_K] = top_k
 
-    # Anthropic uses 'stop_sequences' directly
     if (stop_sequences := json_data.get('stop_sequences')) is not None:
         span_data[REQUEST_STOP_SEQUENCES] = json.dumps(stop_sequences)
 
-    # Extract tool definitions if present
     if (tools := json_data.get('tools')) is not None:
         span_data[TOOL_DEFINITIONS] = json.dumps(tools)
 
@@ -148,7 +146,6 @@ def convert_anthropic_messages_to_semconv(
                 for part in cast('list[dict[str, Any] | str]', content):
                     parts.append(_convert_anthropic_content_part(part))
 
-        # Per OTEL GenAI spec, messages containing tool_call_response should have role='tool'
         if any(p.get('type') == 'tool_call_response' for p in parts):
             role = 'tool'
 

@@ -115,7 +115,6 @@ class LogfireTraceProviderWrapper:
                 span_kind = SpanKind.CLIENT  # LLM API calls should be CLIENT
                 if 'gen_ai.request.model' in extra_attributes:  # pragma: no branch
                     msg_template += ' with {gen_ai.request.model!r}'
-                    # Set OTel-compliant span name: "{operation} {model}"
                     otel_span_name = f"chat {extra_attributes['gen_ai.request.model']}"
             elif isinstance(span_data, GuardrailSpanData):
                 msg_template = 'Guardrail {name!r} {triggered=}'
