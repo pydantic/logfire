@@ -56,7 +56,6 @@ __all__ = (
 
 def _extract_request_parameters(json_data: dict[str, Any], span_data: dict[str, Any]) -> None:
     """Extract request parameters from json_data and add to span_data."""
-    # OpenAI Chat Completions uses 'max_tokens', Responses API uses 'max_output_tokens'
     if (max_tokens := json_data.get('max_tokens')) is not None:
         span_data[REQUEST_MAX_TOKENS] = max_tokens
     elif (max_output_tokens := json_data.get('max_output_tokens')) is not None:
@@ -68,9 +67,7 @@ def _extract_request_parameters(json_data: dict[str, Any], span_data: dict[str, 
     if (top_p := json_data.get('top_p')) is not None:
         span_data[REQUEST_TOP_P] = top_p
 
-    # OpenAI uses 'stop' not 'stop_sequences'
     if (stop := json_data.get('stop')) is not None:
-        # Normalize to list
         if isinstance(stop, str):
             span_data[REQUEST_STOP_SEQUENCES] = json.dumps([stop])
         else:
@@ -85,7 +82,6 @@ def _extract_request_parameters(json_data: dict[str, Any], span_data: dict[str, 
     if (presence_penalty := json_data.get('presence_penalty')) is not None:
         span_data[REQUEST_PRESENCE_PENALTY] = presence_penalty
 
-    # Extract tool definitions if present
     if (tools := json_data.get('tools')) is not None:
         span_data[TOOL_DEFINITIONS] = json.dumps(tools)
 
@@ -110,10 +106,8 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             OPERATION_NAME: 'chat',
             REQUEST_MODEL: json_data.get('model'),
         }
-        # Extract request parameters
         _extract_request_parameters(json_data, span_data)
 
-        # Convert messages to semantic convention format
         messages: list[dict[str, Any]] = json_data.get('messages', [])
         if messages:
             input_messages, system_instructions = convert_openai_messages_to_semconv(messages)
@@ -583,16 +577,13 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         if output_messages:
             span.set_attribute(OUTPUT_MESSAGES, output_messages)
 
-        # Map Responses API status to finish_reason
-        # status can be: completed, failed, in_progress, cancelled, queued, incomplete
         status = getattr(response, 'status', None)
         if status:
-            # Map status to OTel-compatible finish_reason
             status_to_finish_reason = {
                 'completed': 'stop',
                 'failed': 'error',
                 'cancelled': 'cancelled',
-                'incomplete': 'length',  # Could also be content_filter
+                'incomplete': 'length',
             }
             finish_reason = status_to_finish_reason.get(status, status)
             span.set_attribute(RESPONSE_FINISH_REASONS, [finish_reason])

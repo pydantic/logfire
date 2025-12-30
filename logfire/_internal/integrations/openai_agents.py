@@ -50,6 +50,7 @@ from logfire._internal.integrations.llm_providers.semconv import (
     SERVER_ADDRESS,
     SERVER_PORT,
     SYSTEM_INSTRUCTIONS,
+    TOOL_DEFINITIONS,
 )
 from logfire._internal.scrubbing import NOOP_SCRUBBER
 from logfire._internal.utils import handle_internal_errors, log_internal_error, truncate_string
@@ -371,7 +372,7 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
         if '{type}' not in msg_template and attributes.get('type') == span_data.type:
             del attributes['type']
         attributes['gen_ai.system'] = 'openai'
-        attributes[PROVIDER_NAME] = 'openai'  # OTel standard (gen_ai.system is deprecated)
+        attributes[PROVIDER_NAME] = 'openai'
         if isinstance(attributes.get('model'), str):
             attributes['gen_ai.request.model'] = attributes['gen_ai.response.model'] = attributes.pop('model')
         if isinstance(span_data, ResponseSpanData):
@@ -385,12 +386,10 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
                 attributes['gen_ai.usage.input_tokens'] = usage.input_tokens
                 attributes['gen_ai.usage.output_tokens'] = usage.output_tokens
 
-            # Add OTel GenAI semantic convention attributes
             response = span_data.response
             inputs: str | list[dict[str, Any]] | None = span_data.input  # type: ignore
             instructions = getattr(response, 'instructions', None) if response else None
 
-            # Convert to OTel message schema
             input_messages, system_instructions = convert_responses_inputs_to_semconv(inputs, instructions)
             if input_messages:
                 attributes[INPUT_MESSAGES] = json.dumps(input_messages)
@@ -402,10 +401,8 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
                 if output_messages:
                     attributes[OUTPUT_MESSAGES] = json.dumps(output_messages)
 
-                # Extract finish_reasons from response status
                 status = getattr(response, 'status', None)
                 if status:
-                    # Map Responses API status to OTel finish_reason
                     status_to_finish_reason = {
                         'completed': 'stop',
                         'failed': 'error',
@@ -415,9 +412,24 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
                     finish_reason = status_to_finish_reason.get(status, status)
                     attributes[RESPONSE_FINISH_REASONS] = json.dumps([finish_reason])
 
-            # Add server attributes
             attributes[SERVER_ADDRESS] = 'api.openai.com'
             attributes[SERVER_PORT] = 443
+
+            if response and hasattr(response, 'tools') and response.tools:
+                tool_defs = []
+                for tool in response.tools:
+                    if hasattr(tool, 'name'):
+                        tool_def: dict[str, Any] = {
+                            'type': getattr(tool, 'type', 'function'),
+                            'name': tool.name,
+                        }
+                        if hasattr(tool, 'description') and tool.description:
+                            tool_def['description'] = tool.description
+                        if hasattr(tool, 'parameters') and tool.parameters:
+                            tool_def['parameters'] = tool.parameters
+                        tool_defs.append(tool_def)
+                if tool_defs:
+                    attributes[TOOL_DEFINITIONS] = json.dumps(tool_defs)
 
         elif isinstance(span_data, GenerationSpanData):
             attributes['request_data'] = dict(
@@ -443,7 +455,7 @@ def get_basic_response_attributes(response: Response):
         'gen_ai.response.model': getattr(response, 'model', None),
         'response': response,
         'gen_ai.system': 'openai',
-        PROVIDER_NAME: 'openai',  # OTel standard (gen_ai.system is deprecated)
+        PROVIDER_NAME: 'openai',
         'gen_ai.operation.name': 'chat',
     }
 

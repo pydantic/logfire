@@ -238,7 +238,18 @@ class LogfireLangchainCallbackHandler(_BASE_CLASS):  # type: ignore[misc]
                     if isinstance(content, str):
                         system_instructions.append({'type': 'text', 'content': content})
                     elif isinstance(content, list):
-                        system_instructions.extend(content)
+                        for item in content:
+                            if isinstance(item, dict):
+                                # Normalize 'text' field to 'content' per OTel spec
+                                if 'text' in item and 'content' not in item:
+                                    system_instructions.append({
+                                        'type': item.get('type', 'text'),
+                                        'content': item['text'],
+                                    })
+                                else:
+                                    system_instructions.append(item)
+                            elif isinstance(item, str):
+                                system_instructions.append({'type': 'text', 'content': item})
                 elif msg_type == 'tool':
                     tool_call_id = getattr(msg, 'tool_call_id', None)
                     response_content = content if isinstance(content, str) else str(content)
