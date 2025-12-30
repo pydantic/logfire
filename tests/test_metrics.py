@@ -8,6 +8,7 @@ from dirty_equals import IsInt
 from inline_snapshot import Is, snapshot
 from opentelemetry import metrics
 from opentelemetry.metrics import CallbackOptions, Observation
+from opentelemetry.sdk.metrics import Counter, Histogram
 from opentelemetry.sdk.metrics.export import (
     AggregationTemporality,
     InMemoryMetricReader,
@@ -15,6 +16,7 @@ from opentelemetry.sdk.metrics.export import (
     MetricExportResult,
     MetricsData,
 )
+from opentelemetry.sdk.metrics.view import ExplicitBucketHistogramAggregation, View
 
 import logfire
 from logfire._internal.config import METRICS_PREFERRED_TEMPORALITY
@@ -530,3 +532,224 @@ def test_reconfigure(caplog: pytest.LogCaptureFixture):
     # For comparison, this logs a warning because the advisory is different (unset)
     meter.create_histogram('foo', unit='x', description='bar')
     assert caplog.messages
+
+
+def test_metrics_options_default_views() -> None:
+    """Test that MetricsOptions.DEFAULT_VIEWS is accessible as a class variable."""
+    # DEFAULT_VIEWS should be accessible as a class variable
+    assert logfire.MetricsOptions.DEFAULT_VIEWS is not None
+    assert len(logfire.MetricsOptions.DEFAULT_VIEWS) == 2
+
+    # Each element should be a View
+    for view in logfire.MetricsOptions.DEFAULT_VIEWS:
+        assert isinstance(view, View)
+
+
+def test_metrics_options_default_views_unchanged() -> None:
+    """Test that default views are used when not explicitly provided."""
+    options = logfire.MetricsOptions()
+    assert options.views is logfire.MetricsOptions.DEFAULT_VIEWS
+
+
+def test_extend_default_views_with_attribute_filter(
+    metrics_reader: InMemoryMetricReader, config_kwargs: dict[str, Any]
+) -> None:
+    """Test extending DEFAULT_VIEWS with a custom view that filters attributes.
+
+    Verifies that:
+    1. The custom view is applied (attributes are filtered)
+    2. The default views still apply (histogram uses exponential bucket aggregation)
+    """
+    metrics_reader = InMemoryMetricReader(preferred_temporality=METRICS_PREFERRED_TEMPORALITY)
+
+    # Create a view that only keeps 'important' attribute for our custom counter
+    custom_view = View(
+        instrument_type=Counter,
+        instrument_name='filtered_counter',
+        attribute_keys={'important'},  # Only keep this attribute
+    )
+
+    logfire.configure(
+        **config_kwargs,
+        metrics=logfire.MetricsOptions(
+            additional_readers=[metrics_reader],
+            views=[*logfire.MetricsOptions.DEFAULT_VIEWS, custom_view],
+        ),
+    )
+
+    # Test the custom view works
+    counter = logfire.metric_counter('filtered_counter')
+    counter.add(100, attributes={'important': 'yes', 'not_important': 'should_be_filtered'})
+
+    # Also emit a histogram to verify default views still apply
+    histogram = logfire.metric_histogram('test_histogram')
+    histogram.record(50)
+
+    collected = get_collected_metrics(metrics_reader)
+    # Sort by name for consistent ordering
+    collected = sorted(collected, key=lambda m: m['name'])
+
+    assert collected == snapshot(
+        [
+            # Custom view applied: only 'important' attribute is present (not_important filtered out)
+            {
+                'name': 'filtered_counter',
+                'description': '',
+                'unit': '',
+                'data': {
+                    'data_points': [
+                        {
+                            'attributes': {'important': 'yes'},
+                            'start_time_unix_nano': IsInt(),
+                            'time_unix_nano': IsInt(),
+                            'value': 100,
+                            'exemplars': [],
+                        }
+                    ],
+                    'aggregation_temporality': AggregationTemporality.DELTA,
+                    'is_monotonic': True,
+                },
+            },
+            # Default view still applies: histogram uses exponential bucket aggregation
+            # (has 'scale', 'positive', 'negative' instead of 'bucket_counts' and 'explicit_bounds')
+            {
+                'name': 'test_histogram',
+                'description': '',
+                'unit': '',
+                'data': {
+                    'data_points': [
+                        {
+                            'attributes': {},
+                            'start_time_unix_nano': IsInt(),
+                            'time_unix_nano': IsInt(),
+                            'count': 1,
+                            'sum': 50,
+                            'scale': IsInt(),
+                            'zero_count': 0,
+                            'positive': {'offset': IsInt(), 'bucket_counts': [1]},
+                            'negative': {'offset': 0, 'bucket_counts': [0]},
+                            'flags': 0,
+                            'min': 50,
+                            'max': 50,
+                            'exemplars': [],
+                        }
+                    ],
+                    'aggregation_temporality': AggregationTemporality.DELTA,
+                },
+            },
+        ]
+    )
+
+
+def test_replace_default_views(metrics_reader: InMemoryMetricReader, config_kwargs: dict[str, Any]) -> None:
+    """Test replacing DEFAULT_VIEWS entirely with custom views.
+
+    Verifies that:
+    1. The custom view is applied (explicit bucket boundaries)
+    2. The default views do NOT apply (other histogram uses OTel default, not exponential)
+    """
+    metrics_reader = InMemoryMetricReader(preferred_temporality=METRICS_PREFERRED_TEMPORALITY)
+
+    # Replace default views with a custom histogram view using explicit buckets
+    # (instead of the default exponential bucket histogram)
+    custom_view = View(
+        instrument_type=Histogram,
+        instrument_name='custom_histogram',
+        aggregation=ExplicitBucketHistogramAggregation(boundaries=[10, 50, 100, 500]),
+    )
+
+    logfire.configure(
+        **config_kwargs,
+        metrics=logfire.MetricsOptions(
+            additional_readers=[metrics_reader],
+            views=[custom_view],  # Completely replace default views
+        ),
+    )
+
+    # Emit to the custom histogram (matched by our view)
+    custom_histogram = logfire.metric_histogram('custom_histogram')
+    custom_histogram.record(25)
+    custom_histogram.record(75)
+    custom_histogram.record(200)
+
+    # Emit to another histogram NOT matched by our view
+    # This should use OTel's default aggregation (explicit buckets), NOT exponential
+    # buckets from DEFAULT_VIEWS (since we replaced them)
+    other_histogram = logfire.metric_histogram('other_histogram')
+    other_histogram.record(50)
+
+    collected = get_collected_metrics(metrics_reader)
+    # Sort by name for consistent ordering
+    collected = sorted(collected, key=lambda m: m['name'])
+
+    # Both histograms use explicit bucket aggregation (not exponential from DEFAULT_VIEWS)
+    # - custom_histogram: uses our custom boundaries [10, 50, 100, 500]
+    # - other_histogram: uses OTel's default boundaries (since DEFAULT_VIEWS was replaced)
+    assert collected == snapshot(
+        [
+            # Custom view applied: explicit bucket histogram with our boundaries
+            # 25 is in bucket 1 (10-50), 75 is in bucket 2 (50-100), 200 is in bucket 3 (100-500)
+            {
+                'name': 'custom_histogram',
+                'description': '',
+                'unit': '',
+                'data': {
+                    'data_points': [
+                        {
+                            'attributes': {},
+                            'start_time_unix_nano': IsInt(),
+                            'time_unix_nano': IsInt(),
+                            'count': 3,
+                            'sum': 300,
+                            'bucket_counts': [0, 1, 1, 1, 0],
+                            'explicit_bounds': [10, 50, 100, 500],
+                            'min': 25,
+                            'max': 200,
+                            'exemplars': [],
+                        }
+                    ],
+                    'aggregation_temporality': AggregationTemporality.DELTA,
+                },
+            },
+            # DEFAULT_VIEWS is NOT applied: uses OTel's default explicit bucket aggregation
+            # (has 'bucket_counts' and 'explicit_bounds', NOT 'scale'/'positive'/'negative')
+            {
+                'name': 'other_histogram',
+                'description': '',
+                'unit': '',
+                'data': {
+                    'data_points': [
+                        {
+                            'attributes': {},
+                            'start_time_unix_nano': IsInt(),
+                            'time_unix_nano': IsInt(),
+                            'count': 1,
+                            'sum': 50,
+                            'bucket_counts': [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                            'explicit_bounds': [
+                                0.0,
+                                5.0,
+                                10.0,
+                                25.0,
+                                50.0,
+                                75.0,
+                                100.0,
+                                250.0,
+                                500.0,
+                                750.0,
+                                1000.0,
+                                2500.0,
+                                5000.0,
+                                7500.0,
+                                10000.0,
+                            ],
+                            'min': 50,
+                            'max': 50,
+                            'exemplars': [],
+                        }
+                    ],
+                    'aggregation_temporality': AggregationTemporality.DELTA,
+                },
+            },
+        ]
+    )

@@ -9,6 +9,11 @@ original_flatten_compound_value: Incomplete
 
 def wrapped_flatten_compound_value(key: str, value: Any, *args: Any, **kwargs: Any): ...
 
+original_to_dict: Any
+ANY_ADAPTER: Incomplete
+
+def wrapped_to_dict(obj: object) -> object: ...
+
 Part: TypeAlias
 
 def default_json(x: Any) -> str: ...

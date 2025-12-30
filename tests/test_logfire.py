@@ -29,7 +29,7 @@ from pydantic_core import ValidationError
 import logfire
 from logfire import Logfire, suppress_instrumentation
 from logfire._internal.ast_utils import InspectArgumentsFailedWarning
-from logfire._internal.config import LogfireConfig, LogfireNotConfiguredWarning, configure
+from logfire._internal.config import GLOBAL_CONFIG, LogfireConfig, LogfireNotConfiguredWarning, configure
 from logfire._internal.constants import (
     ATTRIBUTES_MESSAGE_KEY,
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
@@ -39,6 +39,7 @@ from logfire._internal.constants import (
     LevelName,
 )
 from logfire._internal.formatter import FormattingFailedWarning
+from logfire._internal.integrations.executors import serialize_config
 from logfire._internal.main import NoopSpan
 from logfire._internal.tracer import record_exception
 from logfire._internal.utils import SeededRandomIdGenerator, is_instrumentation_suppressed
@@ -2244,6 +2245,57 @@ def test_config_preserved_across_thread_or_process(
     with executor_factory() as executor:
         executor.submit(check_service_name, 'foobar!')
         executor.shutdown(wait=True)
+
+
+def _test_helper_function() -> int:
+    """Helper function for test_process_pool_executor_with_exception_callback."""
+    return 42
+
+
+def test_process_pool_executor_with_exception_callback() -> None:
+    """Test ProcessPoolExecutor with local exception_callback function.
+
+    See: https://github.com/pydantic/logfire/issues/1556
+    """
+    from logfire.types import ExceptionCallbackHelper
+
+    callback_called = False
+
+    def setup_logfire():
+        def exception_callback(helper: ExceptionCallbackHelper) -> None:
+            nonlocal callback_called
+            callback_called = True
+
+        logfire.configure(
+            send_to_logfire=False,
+            console=False,
+            advanced=logfire.AdvancedOptions(exception_callback=exception_callback),
+        )
+
+    setup_logfire()
+
+    assert _test_helper_function() == 42
+
+    with logfire.span('test') as span:
+        try:
+            raise ValueError('test exception')
+        except ValueError as e:
+            record_exception(span._span, e, callback=GLOBAL_CONFIG.advanced.exception_callback)  # type: ignore
+
+    assert callback_called
+
+    with pytest.warns(UserWarning, match='cannot be pickled'):
+        result = serialize_config()
+    assert result is None
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', category=DeprecationWarning, message='.*fork.*')
+        with pytest.warns(UserWarning, match='cannot be pickled'):
+            with ProcessPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(_test_helper_function)
+                result = future.result()
+                assert result == 42
+                executor.shutdown(wait=True)
 
 
 def test_kwarg_with_dot_in_name(exporter: TestExporter) -> None:

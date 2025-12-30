@@ -1,7 +1,7 @@
 # Local Quickstart for Enterprise
 
 This guide provides a fast path for setting up a local Logfire instance on Kubernetes to test, prototype, and evaluate the product
-as part of an enterpirse trial.
+as part of an enterprise trial.
 
 For a production setup, including detailed configuration and prerequisites, please refer to our In-Depth [Installation Guide](./installation.md).
 
@@ -36,7 +36,7 @@ Once the Kubernetes cluster is up and running you need to setup your Logfire Acc
 You'll need to replace `<YOUR_EMAIL>` with the email and `<YOUR_SECRET>` with the secret file provided to you by the Pydantic Team:
 
 ```bash
-kubectl create secret docker-registry regcred \
+kubectl create secret docker-registry logfire-image-key \
   --docker-server=us-docker.pkg.dev \
   --docker-username=_json_key \
   --docker-password="$(cat <YOUR_SECRET>)" \
@@ -54,7 +54,7 @@ Here is a minimal command to run Logfire in development mode, you can customize 
 ```bash
 helm install logfire pydantic/logfire \
   --set=adminEmail=my-awesome-email@example.com \
-  --set="imagePullSecrets[0]=regcred" \
+  --set="imagePullSecrets[0]=logfire-image-key" \
   --set=dev.deployPostgres=true \
   --set=dev.deployMinio=true \
   --set=dev.deployMaildev=true \
@@ -63,7 +63,7 @@ helm install logfire pydantic/logfire \
   --set=objectStore.env.AWS_SECRET_ACCESS_KEY=logfire-minio \
   --set=objectStore.env.AWS_ENDPOINT=http://logfire-minio:9000 \
   --set=objectStore.env.AWS_ALLOW_HTTP=true \
-  --set=ingress.hostname=localhost:8080
+  --set="ingress.hostnames[0]=localhost:8080"
 ```
 
 You can refer to the [Logfire Helm Chart](https://github.com/pydantic/logfire-helm-chart) documentation to check all the supported configurations.
@@ -79,7 +79,7 @@ load('ext://helm_resource', 'helm_resource', 'helm_repo')
 
 
 update_settings ( max_parallel_updates = 3 , k8s_upsert_timeout_secs = 600 , suppress_unused_image_warnings = None )
-k8s_yaml(secret_yaml_registry("regcred", flags_dict = {
+k8s_yaml(secret_yaml_registry("logfire-image-key", flags_dict = {
     'docker-server': 'us-docker.pkg.dev',
     'docker-username': '_json_key',
     'docker-email': os.getenv('LOGFIRE_EMAIL'),
@@ -89,7 +89,7 @@ k8s_yaml(secret_yaml_registry("regcred", flags_dict = {
 helm_repo('pydantic', 'https://charts.pydantic.dev/')
 helm_resource('logfire', 'pydantic/logfire', flags=[
   '--set=adminEmail=' + os.getenv('LOGFIRE_ADMIN_EMAIL'),
-  '--set=imagePullSecrets[0]=regcred',
+  '--set=imagePullSecrets[0]=logfire-image-key',
   '--set=dev.deployPostgres=true',
   '--set=dev.deployMinio=true',
   '--set=dev.deployMaildev=true',
@@ -98,7 +98,7 @@ helm_resource('logfire', 'pydantic/logfire', flags=[
   '--set=objectStore.env.AWS_SECRET_ACCESS_KEY=logfire-minio',
   '--set=objectStore.env.AWS_ENDPOINT=http://logfire-minio:9000',
   '--set=objectStore.env.AWS_ALLOW_HTTP=true',
-  '--set=ingress.hostname=localhost:8080',
+  '--set="ingress.hostnames[0]=localhost:8080"',
   ],
   links=[link('http://localhost:1080', 'maildev')],
 )

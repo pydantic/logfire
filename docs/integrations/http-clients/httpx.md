@@ -85,6 +85,8 @@ import logfire
 
 logfire.configure()
 logfire.instrument_httpx(capture_all=True)
+
+client = httpx.Client()
 client.post("https://httpbin.org/post", json={"key": "value"})
 ```
 

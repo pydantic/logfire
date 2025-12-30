@@ -9,8 +9,8 @@ from dataclasses import dataclass
 from typing import Any, Callable, TypedDict, cast
 
 import typing_extensions
+from opentelemetry._logs import LogRecord
 from opentelemetry.attributes import BoundedAttributes
-from opentelemetry.sdk._logs import LogRecord
 from opentelemetry.sdk.trace import Event
 from opentelemetry.trace import Link
 

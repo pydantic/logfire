@@ -5,6 +5,7 @@ import os
 from typing import Annotated, Any
 from unittest import mock
 
+import pydantic
 import pytest
 from dirty_equals import IsFloat, IsInt, IsJson
 from fastapi import BackgroundTasks, FastAPI, Response, WebSocket
@@ -23,7 +24,14 @@ import logfire._internal
 import logfire._internal.integrations
 import logfire._internal.integrations.fastapi
 from logfire._internal.main import set_user_attributes_on_raw_span
+from logfire._internal.utils import get_version
 from logfire.testing import TestExporter
+
+pytestmark = [
+    pytest.mark.skipif(
+        get_version(pydantic.__version__) < get_version('2.7.0'), reason='Requires newer pydantic version'
+    ),
+]
 
 
 def test_missing_opentelemetry_dependency() -> None:
@@ -1796,8 +1804,8 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                         'timestamp': 10000000000,
                         'attributes': {
                             'exception.type': 'fastapi.exceptions.RequestValidationError',
-                            'exception.message': '[]',
-                            'exception.stacktrace': 'fastapi.exceptions.RequestValidationError: []',
+                            'exception.message': '0 validation errors:',
+                            'exception.stacktrace': 'fastapi.exceptions.RequestValidationError: 0 validation errors:',
                             'exception.escaped': 'True',
                         },
                     }
@@ -1877,8 +1885,8 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                         'timestamp': 9000000000,
                         'attributes': {
                             'exception.type': 'fastapi.exceptions.RequestValidationError',
-                            'exception.message': '[]',
-                            'exception.stacktrace': 'fastapi.exceptions.RequestValidationError: []',
+                            'exception.message': '0 validation errors:',
+                            'exception.stacktrace': 'fastapi.exceptions.RequestValidationError: 0 validation errors:',
                             'exception.escaped': 'False',
                             'recorded_by_logfire_fastapi': True,
                         },

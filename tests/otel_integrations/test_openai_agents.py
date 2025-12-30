@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from typing import Any
 
 import numpy as np
@@ -1682,10 +1683,14 @@ async def test_function_tool_exception(exporter: TestExporter):
 
 @pytest.fixture
 def vcr_allow_bytes():
+    if sys.version_info[:2] > (3, 9):
+        # Newer versions of vcr don't need this patch but don't support Python 3.9
+        return
+
     # https://github.com/kevin1024/vcrpy/issues/844#issuecomment-2649743189
 
     import httpx
-    import vcr.stubs.httpx_stubs
+    import vcr.stubs.httpx_stubs  # type: ignore
     from vcr.request import Request as VcrRequest
 
     def _make_vcr_request(httpx_request: httpx.Request, **_: Any):
