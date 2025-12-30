@@ -1027,7 +1027,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
 
         Required scope: `project:read_variables`
         """
-        response = self.client.get(f'/v1/variables/by-name/{variable_name}/')
+        response = self.client.get(f'/v1/variables/{variable_name}/')
         return self._handle_response(response)
 
     def create_variable(self, body: dict[str, Any]) -> dict[str, Any]:
@@ -1052,7 +1052,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         response = self.client.post('/v1/variables/', json=body)
         return self._handle_response(response)
 
-    def update_variable(self, variable_id: str | UUID, body: dict[str, Any]) -> dict[str, Any]:
+    def update_variable(self, variable_name: str, body: dict[str, Any]) -> dict[str, Any]:
         """Update an existing variable definition.
 
         When variants are provided, new versions are created rather than modifying existing ones.
@@ -1062,7 +1062,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         Note: The API token must be scoped to a specific project.
 
         Args:
-            variable_id: The variable definition ID.
+            variable_name: The variable name.
             body: The update data, which may include:
                 - name: New variable name
                 - json_schema: New JSON schema
@@ -1076,7 +1076,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
 
         Required scope: `project:write_variables`
         """
-        response = self.client.put(f'/v1/variables/{variable_id}/', json=body)
+        response = self.client.put(f'/v1/variables/{variable_name}/', json=body)
         return self._handle_response(response)
 
 
@@ -1738,7 +1738,7 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
 
         Required scope: `project:read_variables`
         """
-        response = await self.client.get(f'/v1/variables/by-name/{variable_name}/')
+        response = await self.client.get(f'/v1/variables/{variable_name}/')
         return self._handle_response(response)
 
     async def create_variable(self, body: dict[str, Any]) -> dict[str, Any]:
@@ -1763,7 +1763,7 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         response = await self.client.post('/v1/variables/', json=body)
         return self._handle_response(response)
 
-    async def update_variable(self, variable_id: str | UUID, body: dict[str, Any]) -> dict[str, Any]:
+    async def update_variable(self, variable_name: str, body: dict[str, Any]) -> dict[str, Any]:
         """Update an existing variable definition.
 
         When variants are provided, new versions are created rather than modifying existing ones.
@@ -1773,7 +1773,7 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         Note: The API token must be scoped to a specific project.
 
         Args:
-            variable_id: The variable definition ID.
+            variable_name: The variable name.
             body: The update data, which may include:
                 - name: New variable name
                 - json_schema: New JSON schema
@@ -1787,5 +1787,5 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
 
         Required scope: `project:write_variables`
         """
-        response = await self.client.put(f'/v1/variables/{variable_id}/', json=body)
+        response = await self.client.put(f'/v1/variables/{variable_name}/', json=body)
         return self._handle_response(response)

@@ -246,14 +246,11 @@ class _VariablesClient:
     def get_variables_config(self) -> dict[str, Any]:
         return self._client.get_variables_config()
 
-    def get_variable_by_name(self, variable_name: str) -> dict[str, Any]:
-        return self._client.get_variable_by_name(variable_name)
-
     def create_variable(self, body: dict[str, Any]) -> dict[str, Any]:
         return self._client.create_variable(body)
 
-    def update_variable(self, variable_id: str, body: dict[str, Any]) -> dict[str, Any]:
-        return self._client.update_variable(variable_id, body)
+    def update_variable(self, variable_name: str, body: dict[str, Any]) -> dict[str, Any]:
+        return self._client.update_variable(variable_name, body)
 
 
 def _apply_changes(
@@ -304,17 +301,11 @@ def _update_variable_schema(
     change: VariableChange,
 ) -> None:
     """Update an existing variable's schema on the server."""
-    server_id = change.server_id
-    if not server_id:
-        # Need to look up the variable by name to get its ID
-        var_data = client.get_variable_by_name(change.name)
-        server_id = var_data['id']
-
     body = {
         'json_schema': change.local_schema,
     }
 
-    client.update_variable(server_id, body)
+    client.update_variable(change.name, body)
     print(f'  \033[33mUpdated schema: {change.name}\033[0m')
 
 
@@ -349,6 +340,7 @@ def _get_variables_client() -> tuple[_VariablesClient, str] | None:
     return _VariablesClient(client), client.base_url
 
 
+# TODO: Make it possible to manually provide the API token in this call
 def push_variables(
     variables: list[Variable[Any]] | None = None,
     *,

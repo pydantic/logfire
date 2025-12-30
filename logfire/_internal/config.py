@@ -320,8 +320,9 @@ class RemoteVariablesConfig:
     base_url: str | None = None
     """Base URL for the Logfire API.
 
-    If not provided, will be inferred from the API token or logfire token.
+    If not provided, will be inferred from the API token.
     """
+    # TODO: Decide what the behavior should be if no API token is present — error? Or the same behavior as the NoOpVariableProvider?
 
 
 @dataclass
