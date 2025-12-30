@@ -795,11 +795,6 @@ class TestLocalVariableProvider:
         assert result.value is None
         assert result._reason == 'unrecognized_variable'
 
-    def test_with_callable_config(self, simple_config: VariablesConfig):
-        provider = LocalVariableProvider(lambda: simple_config)
-        result = provider.get_serialized_value('test_var')
-        assert result.value == '"default_value"'
-
     def test_rollout_returns_none(self):
         config = VariablesConfig(
             variables={

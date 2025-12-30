@@ -9,8 +9,26 @@ from typing import Annotated, Any, Literal
 from pydantic import Discriminator, TypeAdapter, ValidationError, field_validator, model_validator
 from typing_extensions import TypeAliasType
 
+from logfire._internal.config import RemoteVariablesConfig as RemoteVariablesConfig
 from logfire.variables.abstract import ResolvedVariable
 from logfire.variables.variable import Variable
+
+__all__ = (
+    'KeyIsNotPresent',
+    'KeyIsPresent',
+    'RemoteVariablesConfig',
+    'Rollout',
+    'RolloutOverride',
+    'ValueDoesNotEqual',
+    'ValueDoesNotMatchRegex',
+    'ValueEquals',
+    'ValueIsIn',
+    'ValueIsNotIn',
+    'ValueMatchesRegex',
+    'VariableConfig',
+    'VariablesConfig',
+    'Variant',
+)
 
 
 @dataclass(kw_only=True)

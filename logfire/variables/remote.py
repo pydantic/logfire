@@ -16,8 +16,14 @@ from requests import Session
 from logfire._internal.client import UA_HEADER
 from logfire._internal.config import RemoteVariablesConfig
 from logfire._internal.utils import UnexpectedResponse
-from logfire.variables.abstract import ResolvedVariable, VariableProvider
-from logfire.variables.config import VariablesConfig
+from logfire.variables.abstract import (
+    ResolvedVariable,
+    VariableAlreadyExistsError,
+    VariableNotFoundError,
+    VariableProvider,
+    VariableWriteError,
+)
+from logfire.variables.config import VariableConfig, VariablesConfig
 
 __all__ = ('LogfireRemoteVariableProvider',)
 
@@ -36,8 +42,6 @@ class LogfireRemoteVariableProvider(VariableProvider):
             token: Authentication token for the Logfire API.
             config: Config for retrieving remote variables.
         """
-        super().__init__()
-
         block_before_first_resolve = config.block_before_first_resolve
         polling_interval = config.polling_interval
 
@@ -180,3 +184,162 @@ class LogfireRemoteVariableProvider(VariableProvider):
         # Join the thread so that resources get cleaned up in tests
         # It might be reasonable to modify this so this _only_ happens in tests, but for now it seems fine.
         self._worker_thread.join(timeout=5)
+
+    def get_variable_config(self, name: str) -> VariableConfig | None:
+        """Retrieve the full configuration for a variable from the cached config.
+
+        Args:
+            name: The name of the variable.
+
+        Returns:
+            The VariableConfig if found, or None if the variable doesn't exist.
+        """
+        if self._config is None:
+            return None
+        return self._config.variables.get(name)
+
+    def get_all_variables_config(self) -> VariablesConfig:
+        """Retrieve all variable configurations from the cached config.
+
+        Returns:
+            A VariablesConfig containing all variable configurations.
+            Returns an empty VariablesConfig if no config has been fetched yet.
+        """
+        if self._config is None:
+            return VariablesConfig(variables={})
+        return self._config
+
+    def create_variable(self, config: VariableConfig) -> VariableConfig:
+        """Create a new variable configuration via the remote API.
+
+        Args:
+            config: The configuration for the new variable.
+
+        Returns:
+            The created VariableConfig.
+
+        Raises:
+            VariableAlreadyExistsError: If a variable with this name already exists.
+            VariableWriteError: If the API request fails.
+        """
+        body = self._config_to_api_body(config)
+        try:
+            response = self._session.post(urljoin(self._base_url, '/v1/variables/'), json=body)
+            if response.status_code == 409:
+                raise VariableAlreadyExistsError(f"Variable '{config.name}' already exists")
+            UnexpectedResponse.raise_for_status(response)
+        except UnexpectedResponse as e:
+            raise VariableWriteError(f'Failed to create variable: {e}') from e
+
+        # Refresh cache after successful write
+        self.refresh(force=True)
+        return config
+
+    def update_variable(self, name: str, config: VariableConfig) -> VariableConfig:
+        """Update an existing variable configuration via the remote API.
+
+        Args:
+            name: The name of the variable to update.
+            config: The new configuration for the variable.
+
+        Returns:
+            The updated VariableConfig.
+
+        Raises:
+            VariableNotFoundError: If the variable does not exist.
+            VariableWriteError: If the API request fails.
+        """
+        body = self._config_to_api_body(config)
+        try:
+            response = self._session.put(urljoin(self._base_url, f'/v1/variables/{name}/'), json=body)
+            if response.status_code == 404:
+                raise VariableNotFoundError(f"Variable '{name}' not found")
+            UnexpectedResponse.raise_for_status(response)
+        except UnexpectedResponse as e:
+            raise VariableWriteError(f'Failed to update variable: {e}') from e
+
+        # Refresh cache after successful write
+        self.refresh(force=True)
+        return config
+
+    def delete_variable(self, name: str) -> None:
+        """Delete a variable configuration via the remote API.
+
+        Args:
+            name: The name of the variable to delete.
+
+        Raises:
+            VariableNotFoundError: If the variable does not exist.
+            VariableWriteError: If the API request fails.
+        """
+        try:
+            response = self._session.delete(urljoin(self._base_url, f'/v1/variables/{name}/'))
+            if response.status_code == 404:
+                raise VariableNotFoundError(f"Variable '{name}' not found")
+            UnexpectedResponse.raise_for_status(response)
+        except UnexpectedResponse as e:
+            raise VariableWriteError(f'Failed to delete variable: {e}') from e
+
+        # Refresh cache after successful write
+        self.refresh(force=True)
+
+    def _config_to_api_body(self, config: VariableConfig) -> dict[str, Any]:
+        """Convert a VariableConfig to the API request body format.
+
+        Args:
+            config: The VariableConfig to convert.
+
+        Returns:
+            A dictionary suitable for the API request body.
+        """
+        body: dict[str, Any] = {'name': config.name}
+
+        if config.description is not None:
+            body['description'] = config.description
+
+        if config.json_schema is not None:
+            body['json_schema'] = config.json_schema
+
+        if config.variants:
+            body['variants'] = {
+                key: {
+                    'key': variant.key,
+                    'serialized_value': variant.serialized_value,
+                    **({'description': variant.description} if variant.description else {}),
+                }
+                for key, variant in config.variants.items()
+            }
+
+        body['rollout'] = {'variants': config.rollout.variants}
+
+        if config.overrides:
+            body['overrides'] = [
+                {
+                    'conditions': [
+                        {'kind': cond.kind, 'attribute': cond.attribute, **self._condition_extra_fields(cond)}
+                        for cond in override.conditions
+                    ],
+                    'rollout': {'variants': override.rollout.variants},
+                }
+                for override in config.overrides
+            ]
+
+        return body
+
+    def _condition_extra_fields(self, condition: Any) -> dict[str, Any]:
+        """Extract extra fields from a condition based on its type.
+
+        Args:
+            condition: The condition object.
+
+        Returns:
+            A dictionary of extra fields for the condition.
+        """
+        if hasattr(condition, 'value'):
+            return {'value': condition.value}
+        elif hasattr(condition, 'values'):
+            return {'values': list(condition.values)}
+        elif hasattr(condition, 'pattern'):
+            pattern = condition.pattern
+            return {'pattern': pattern.pattern if hasattr(pattern, 'pattern') else pattern}
+        return {}

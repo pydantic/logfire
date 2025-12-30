@@ -1,36 +1,32 @@
 from __future__ import annotations as _annotations
 
 from collections.abc import Mapping
-from typing import Any, Callable
+from typing import Any
 
-from logfire.variables.abstract import ResolvedVariable, VariableProvider
-from logfire.variables.config import VariablesConfig
+from logfire.variables.abstract import (
+    ResolvedVariable,
+    VariableAlreadyExistsError,
+    VariableNotFoundError,
+    VariableProvider,
+)
+from logfire.variables.config import VariableConfig, VariablesConfig
 
 __all__ = ('LocalVariableProvider',)
 
 
 class LocalVariableProvider(VariableProvider):
-    """Variable provider that resolves values from a local in-memory configuration."""
+    """Variable provider that resolves values from a local in-memory configuration.
 
-    def __init__(
-        self,
-        config: VariablesConfig | Callable[[], VariablesConfig],
-    ):
+    This provider stores a mutable `VariablesConfig` and supports both read and write operations.
+    """
+
+    def __init__(self, config: VariablesConfig):
         """Create a new local variable provider.
 
         Args:
-            config: Either a VariablesConfig instance, or a callable that returns one.
-                Using a callable allows for dynamic configuration reloading.
+            config: A VariablesConfig instance to use for variable resolution and mutation.
         """
-        super().__init__()
-        if isinstance(config, VariablesConfig):
-
-            def get_config() -> VariablesConfig:
-                return config
-        else:
-            get_config = config
-
-        self.get_config = get_config
+        self._config = config
 
     def get_serialized_value(
         self,
@@ -50,4 +46,71 @@ class LocalVariableProvider(VariableProvider):
         Returns:
             A ResolvedVariable containing the serialized value (or None if not found).
         """
-        return self.get_config().resolve_serialized_value(variable_name, targeting_key, attributes)
+        return self._config.resolve_serialized_value(variable_name, targeting_key, attributes)
+
+    def get_variable_config(self, name: str) -> VariableConfig | None:
+        """Retrieve the full configuration for a variable.
+
+        Args:
+            name: The name of the variable.
+
+        Returns:
+            The VariableConfig if found, or None if the variable doesn't exist.
+        """
+        return self._config.variables.get(name)
+
+    def get_all_variables_config(self) -> VariablesConfig:
+        """Retrieve all variable configurations.
+
+        Returns:
+            A VariablesConfig containing all variable configurations.
+        """
+        return self._config
+
+    def create_variable(self, config: VariableConfig) -> VariableConfig:
+        """Create a new variable configuration.
+
+        Args:
+            config: The configuration for the new variable.
+
+        Returns:
+            The created VariableConfig.
+
+        Raises:
+            VariableAlreadyExistsError: If a variable with this name already exists.
+        """
+        if config.name in self._config.variables:
+            raise VariableAlreadyExistsError(f"Variable '{config.name}' already exists")
+        self._config.variables[config.name] = config
+        return config
+
+    def update_variable(self, name: str, config: VariableConfig) -> VariableConfig:
+        """Update an existing variable configuration.
+
+        Args:
+            name: The name of the variable to update.
+            config: The new configuration for the variable.
+
+        Returns:
+            The updated VariableConfig.
+
+        Raises:
+            VariableNotFoundError: If the variable does not exist.
+        """
+        if name not in self._config.variables:
+            raise VariableNotFoundError(f"Variable '{name}' not found")
+        self._config.variables[name] = config
+        return config
+
+    def delete_variable(self, name: str) -> None:
+        """Delete a variable configuration.
+
+        Args:
+            name: The name of the variable to delete.
+
+        Raises:
+            VariableNotFoundError: If the variable does not exist.
+        """
+        if name not in self._config.variables:
+            raise VariableNotFoundError(f"Variable '{name}' not found")
+        del self._config.variables[name]

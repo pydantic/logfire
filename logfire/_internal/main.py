@@ -2378,8 +2378,8 @@ class Logfire:
         self,
         name: str,
         *,
-        default: T | ResolveFunction[T],
         type: type[T] | Sequence[type[T]],
+        default: T | ResolveFunction[T],
         description: str | None = None,
     ) -> Variable[T]:
         from logfire.variables.variable import Variable

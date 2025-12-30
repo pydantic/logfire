@@ -1,336 +1,595 @@
 # Managed Variables
 
-Managed variables provide a way to dynamically configure values in your application—such as LLM prompts, model parameters, feature flags, and more—without redeploying code. They're particularly useful for AI applications where you want to iterate on prompts, adjust model settings, or run A/B tests.
+Managed variables let you define and reference configuration in your code, but control the runtime values from the Logfire UI without redeploying.
 
-## Why Use Managed Variables?
+Define a variable once with a sensible default, deploy your application, then iterate on the values in production. You can target specific populations (opted-in beta users, internal developers, enterprise customers, etc.) using flexible targeting rules that integrate with your existing OpenTelemetry attributes.
 
-### LLM Prompt Management
+Changes take effect quickly, and every variable resolution is visible in your traces. This trace-level visibility means you can correlate application behavior directly with configuration variants, enabling A/B testing, automated prompt optimization, and online evaluations using the same observability data you're already sending to Logfire.
 
-When building AI applications, you often need to:
+## What Are Managed Variables?
 
-- **Iterate on prompts quickly** without code changes or deployments
-- **A/B test different prompts** to find what works best
-- **Manage model parameters** like temperature, max tokens, or model selection
-- **Roll out prompt changes gradually** to a subset of users
+Managed variables are a way to externalize runtime configuration from your code. While they're especially powerful for AI applications (where prompt iteration is frequently critical), they work for any configuration you want to change without redeploying:
 
-### Beyond AI: Traditional Feature Flags
+- **Any type**: Use primitives (strings, bools, ints) or structured types (dataclasses, Pydantic models, etc.)
+- **Observability-integrated**: Every variable resolution creates a span, and using the context manager automatically sets baggage so downstream operations are tagged with which variant was used
+- **Variants and rollouts**: Define multiple values (variants) for a variable and control what percentage of requests get each variant
+- **Targeting**: Route specific users or segments to specific variants based on attributes
 
-Managed variables also work great for traditional use cases:
+## Structured Configuration
 
-- Feature flags and gradual rollouts
-- Configuration that varies by environment or user segment
-- Runtime-adjustable settings without restarts
-
-## Basic Usage
-
-### Creating a Variable
-
-Use `logfire.var()` to create a managed variable:
+While you can use simple primitive types as variables, the real power comes from using **structured types**—Pydantic models that group related configuration together:
 
 ```python
+from pydantic import BaseModel
+
 import logfire
 
 logfire.configure()
 
-# Define a variable for your AI agent's system prompt
-agent_instructions = logfire.var(
-    name='agent_instructions',
-    default='You are a helpful assistant.',
-    type=str,
-)
 
-# Get the variable's resolution details and use as context manager
-with agent_instructions.get() as details:
-    print(f'Instructions: {details.value}')
-    #> Instructions: You are a helpful assistant.
+class AgentConfig(BaseModel):
+    """Configuration for an AI agent."""
+
+    instructions: str
+    model: str
+    temperature: float
+    max_tokens: int
+
+
+# Create a managed variable with this structured type
+agent_config = logfire.var(
+    name='agent-config',
+    type=AgentConfig,
+    default=AgentConfig(
+        instructions='You are a helpful assistant.',
+        model='openai:gpt-4o-mini',
+        temperature=0.7,
+        max_tokens=500,
+    ),
+)
 ```
+
+**Why group configuration together instead of using separate variables?**
+
+- **Coherent variants**: A variant isn't just "instructions v2", it's a complete configuration where all the pieces work well together. The temperature that works with a detailed prompt might not work as well with a concise one.
+- **Atomic changes**: When you roll out a new variant, all settings change together. No risk of mismatched configurations.
+- **Holistic A/B testing**: Compare "config v1" vs "config v2" as complete packages, not individual parameters in isolation.
+- **Simpler management**: One variable to manage in the UI instead of many.
+
+!!! tip "When to use primitives"
+    Simple standalone settings like feature flags (`debug_mode: bool`), rate limits (`max_requests: int`), or even just agent instructions work great as primitive variables. Use structured types when you have multiple settings you want to vary together.
+
+## Why This Is So Useful For AI Applications
+
+In AI applications, prompts and model configurations are often critical to application behavior. Some changes are minor tweaks that don't significantly affect outputs, while others can have substantial positive or negative consequences. The traditional iteration process looks like:
+
+1. Edit the code
+2. Open a PR and get it reviewed
+3. Merge and deploy
+4. Wait to see the effect in production
+
+This process is problematic for AI configuration because:
+
+- **Production data is essential**: Useful AI agents often need access to production data and real user interactions. Testing locally or in staging environments rarely captures the full range of inputs your application will encounter.
+- **Representative testing is hard**: Even a fast deployment cycle adds significant friction when you're iterating on prompts. What works in a test environment may behave differently with real user queries.
+- **Risk affects all users**: Without targeting controls, every change affects your entire user base immediately.
+
+With managed variables, you can iterate safely in production:
+
+- **Iteration speed**: Edit prompts in the Logfire UI and see the effect in real traces immediately
+- **A/B testing**: Run multiple prompt/model/temperature combinations simultaneously and compare their performance in your traces
+- **Gradual rollouts**: Start a new configuration at 5% of traffic, watch the metrics, then gradually increase
+- **Emergency rollback**: If a configuration is causing problems, revert to the previous variant in seconds, with no deploy required
+
+## How It Works
+
+Here's the typical workflow using the `AgentConfig` example from above:
+
+1. **Define the variable in code** with your current configuration as the default
+2. **Deploy your application**: it starts using the default immediately
+3. **Push your variable schema** to Logfire using `logfire.push_variables()` (this makes it easier to create new variants in the UI with the correct structure)
+4. **Create variants in the Logfire UI**: for example, a "v2-detailed" variant with longer instructions and lower temperature
+5. **Set up a rollout**: start with 10% of traffic going to the new variant
+6. **Monitor in real-time**: filter traces by variant to compare response quality, latency, and token usage
+7. **Adjust based on data**: if v2 performs better, gradually increase to 50%, then 100%
+8. **Iterate**: create new variants, adjust rollouts, all without code changes
+
+In the Logfire UI, you can:
+
+- Create new variants for any variable with different values
+- Set rollout percentages (e.g., 80% variant A, 20% variant B)
+- Define targeting rules (e.g., enterprise users always get variant A)
+- See which variants are being served in real-time
+- Filter and group traces by variant to compare performance
+
+## Quick Start
+
+### Define a Variable
+
+Use `logfire.var()` to define a managed variable. Here's an example using a structured configuration:
+
+```python
+from pydantic import BaseModel
+
+import logfire
+
+logfire.configure()
+
+
+class AgentConfig(BaseModel):
+    """Configuration for a customer support agent."""
+
+    instructions: str
+    model: str
+    temperature: float
+    max_tokens: int
+
+
+# Define the variable with a sensible default
+agent_config = logfire.var(
+    name='support-agent-config',
+    type=AgentConfig,
+    default=AgentConfig(
+        instructions='You are a helpful customer support agent. Be friendly and concise.',
+        model='openai:gpt-4o-mini',
+        temperature=0.7,
+        max_tokens=500,
+    ),
+)
+```
+
+### Use the Variable
+
+The recommended pattern is to use the variable's `.get()` method as a context manager. This automatically:
+
+- Creates a span for the variable resolution
+- Sets baggage with the variable name and selected variant
+
+When using the Logfire SDK, baggage values are automatically added as attributes to all downstream spans. This means any spans created inside the context manager will be tagged with which variant was used, making it easy to filter and compare behavior by variant in the Logfire UI.
+
+```python
+from pydantic_ai import Agent
+
+
+async def handle_support_ticket(user_id: str, message: str) -> str:
+    """Handle a customer support request."""
+    # Get the configuration - same user always gets the same variant
+    with agent_config.get(targeting_key=user_id) as config:
+        # Inside this context, baggage is set:
+        # logfire.variables.support-agent-config = <variant_name>
+
+        agent = Agent(
+            config.value.model,
+            system_prompt=config.value.instructions,
+        )
+        result = await agent.run(
+            message,
+            model_settings={
+                'temperature': config.value.temperature,
+                'max_tokens': config.value.max_tokens,
+            },
+        )
+        return result.output
+```
+
+The `targeting_key` ensures deterministic variant selection: the same user always gets the same variant, which is essential for application behavior consistency when A/B testing.
+
+In practice, depending on your application structure, you may want to use `tenant_id` or another identifier for `targeting_key` instead of `user_id`. If no `targeting_key` is provided and there's an active trace, the `trace_id` is used automatically to ensure consistent behavior within a single request.
 
 ### Variable Parameters
 
-| Parameter | Description |
-|-----------|-------------|
-| `name` | Unique identifier for the variable |
-| `default` | Default value when no configuration is found (can also be a function) |
-| `type` | Expected type(s) for validation — can be a single type or sequence of types |
+| Parameter | Description                                                             |
+|-----------|-------------------------------------------------------------------------|
+| `name` | Unique identifier for the variable                                      |
+| `type` | Expected type for validation; can be a primitive type or Pydantic model |
+| `default` | Default value when no configuration is found (can also be a function)   |
 
-### Getting Variable Values
+## A/B Testing Configurations
 
-Variables' `.get()` method returns a `ResolvedVariable` object containing the resolved value and metadata about how it was resolved:
-
-```python
-import logfire
-
-logfire.configure()
-
-my_variable = logfire.var(
-    name='my_variable',
-    default='default value',
-    type=str,
-)
-
-# Get full resolution details (includes variant info, any errors, etc.)
-details = my_variable.get()
-print(f'Resolved value: {details.value}')
-#> Resolved value: default value
-print(f'Selected variant: {details.variant}')
-#> Selected variant: None
-```
-
-### Using Variables as Context Managers (Recommended)
-
-The `ResolvedVariable` object can be used as a context manager. This is the **recommended pattern** because it automatically sets [baggage](baggage.md) with the variable name and selected variant, allowing downstream spans and logs to be associated with the variable resolution:
+Here's a complete example showing how to A/B test two complete agent configurations:
 
 ```python
-import logfire
-
-logfire.configure()
-
-system_prompt = logfire.var(
-    name='system_prompt',
-    default='You are a helpful assistant.',
-    type=str,
-)
-
-# Use as context manager to automatically track the variable variant
-with system_prompt.get() as details:
-    prompt = details.value
-    # Inside this context, baggage is automatically set:
-    # logfire.variables.system_prompt = <variant_name>
-    # Any spans or logs created here will have this baggage attached,
-    # making it easy to correlate behavior with the variant that was used.
-    print(f'Using prompt variant: {details.variant}')
-    # ... use the prompt value for your AI agent or other logic ...
-```
-
-This pattern is especially useful for:
-
-- **A/B testing analysis**: Easily filter traces by which variant was active
-- **Debugging**: Understand which configuration was in effect during a request
-- **Observability**: Track how different variants affect application behavior
-
-### Targeting and Attributes
-
-You can pass targeting information to influence which variant is selected:
-
-```python
-import logfire
-
-logfire.configure()
-
-agent_instructions = logfire.var(
-    name='agent_instructions',
-    default='You are a helpful assistant.',
-    type=str,
-)
-
-# Target a specific user for consistent A/B test assignment
-with agent_instructions.get(
-    targeting_key='user_123',  # Used for deterministic variant selection
-    attributes={'plan': 'enterprise', 'region': 'us-east'},
-) as details:
-    print(details.value)
-    #> You are a helpful assistant.
-```
-
-The `targeting_key` ensures the same user always gets the same variant (deterministic selection based on the key). Additional `attributes` can be used for condition-based targeting rules.
-
-!!! note "Automatic Context Enrichment"
-    By default, Logfire automatically merges OpenTelemetry resource attributes and [baggage](baggage.md) into the attributes used for variable resolution. This means your targeting rules can match against service name, environment, or request-scoped baggage without explicitly passing them. See [Automatic Context Enrichment](#automatic-context-enrichment) for details and how to disable this behavior.
-
-## Contextual Overrides
-
-Use `variable.override()` to temporarily override a variable's value within a context. This is useful for testing or for request-scoped customization:
-
-```python
-import logfire
-
-logfire.configure()
-
-model_temperature = logfire.var(
-    name='model_temperature',
-    default=0.7,
-    type=float,
-)
-
-# Default value
-details = model_temperature.get()
-print(f'Default temperature: {details.value}')
-#> Default temperature: 0.7
-
-# Override for creative mode
-with model_temperature.override(1.0):
-    details = model_temperature.get()
-    print(f'Creative temperature: {details.value}')
-    #> Creative temperature: 1.0
-
-# Back to default after context exits
-details = model_temperature.get()
-print(f'Back to default: {details.value}')
-#> Back to default: 0.7
-```
-
-### Dynamic Override Functions
-
-You can also override with a function that computes the value dynamically based on the targeting key and attributes:
-
-```python
-from collections.abc import Mapping
-from typing import Any
-
-import logfire
-
-logfire.configure()
-
-model_temperature = logfire.var(
-    name='model_temperature',
-    default=0.7,
-    type=float,
-)
-
-
-def get_temperature_for_context(
-    targeting_key: str | None, attributes: Mapping[str, Any] | None
-) -> float:
-    """Compute temperature based on context."""
-    if attributes and attributes.get('mode') == 'creative':
-        return 1.0
-    return 0.5
-
-
-async def main():
-    with model_temperature.override(get_temperature_for_context):
-        # Temperature will be computed based on the attributes passed to get()
-        details = await model_temperature.get(attributes={'mode': 'creative'})
-        print(f'Creative mode: {details.value}')
-        #> Creative mode: 1.0
-
-        details = await model_temperature.get(attributes={'mode': 'precise'})
-        print(f'Precise mode: {details.value}')
-        #> Precise mode: 0.5
-```
-
-## Local Variable Provider
-
-The `LogfireLocalProvider` lets you configure variables from a local configuration object. This is useful for development, testing, or self-hosted deployments where you want full control over variable values.
-
-### Configuration Structure
-
-Variables are configured using `VariablesConfig`, which defines:
-
-- **Variables**: Each variable has variants (possible values) and rollout rules
-- **Variants**: Named values that can be selected
-- **Rollouts**: Probability weights for selecting variants
-- **Overrides**: Conditional rules that change the rollout based on attributes
-
-### Example: Configuring a PydanticAI Agent
-
-Here's a complete example that configures system prompts for a [PydanticAI](https://ai.pydantic.dev/) agent with A/B testing and user-based targeting:
-
-```python
-import logfire
+from pydantic import BaseModel
 from pydantic_ai import Agent
 
+import logfire
 from logfire.variables.config import (
     Rollout,
-    RolloutOverride,
     VariableConfig,
     VariablesConfig,
     Variant,
-    ValueEquals,
 )
 
-# Define variable configurations
+logfire.configure()
+
+
+class AgentConfig(BaseModel):
+    """Configuration for a customer support agent."""
+
+    instructions: str
+    model: str
+    temperature: float
+    max_tokens: int
+
+
+# For local development/testing, you can define variants in code
+# In production, you'd typically configure these in the Logfire UI
+# and configure logfire to retrieve and sync with the remotely-managed config.
 variables_config = VariablesConfig(
     variables={
-        'assistant_system_prompt': VariableConfig(
-            name='assistant_system_prompt',
+        'support-agent-config': VariableConfig(
+            name='support-agent-config',
             variants={
-                'default': Variant(
-                    key='default',
-                    serialized_value='"You are a helpful AI assistant."',
+                'v1-concise': Variant(
+                    key='v1-concise',
+                    serialized_value="""{
+                        "instructions": "You are a helpful support agent. Be brief and direct.",
+                        "model": "openai:gpt-4o-mini",
+                        "temperature": 0.7,
+                        "max_tokens": 300
+                    }""",
+                    description='Concise responses with faster model',
                 ),
-                'detailed': Variant(
-                    key='detailed',
-                    serialized_value='"You are a helpful AI assistant. Always provide detailed explanations with examples. Structure your responses with clear headings."',
-                ),
-                'concise': Variant(
-                    key='concise',
-                    serialized_value='"You are a helpful AI assistant. Be brief and direct. Avoid unnecessary elaboration."',
+                'v2-detailed': Variant(
+                    key='v2-detailed',
+                    serialized_value="""{
+                        "instructions": "You are an expert support agent. Provide thorough explanations with examples. Always acknowledge the customer's concern before providing assistance.",
+                        "model": "openai:gpt-4o",
+                        "temperature": 0.3,
+                        "max_tokens": 800
+                    }""",
+                    description='Detailed responses with more capable model',
                 ),
             },
-            # Default rollout: 80% default, 10% detailed, 10% concise
-            rollout=Rollout(variants={'default': 0.8, 'detailed': 0.1, 'concise': 0.1}),
-            overrides=[
-                # Enterprise users always get the detailed prompt
-                RolloutOverride(
-                    conditions=[ValueEquals(attribute='plan', value='enterprise')],
-                    rollout=Rollout(variants={'detailed': 1.0}),
-                ),
-            ],
-            json_schema={'type': 'string'},
+            # 50/50 A/B test
+            rollout=Rollout(variants={'v1-concise': 0.5, 'v2-detailed': 0.5}),
+            overrides=[],
+            json_schema={
+                'type': 'object',
+                'properties': {
+                    'instructions': {'type': 'string'},
+                    'model': {'type': 'string'},
+                    'temperature': {'type': 'number'},
+                    'max_tokens': {'type': 'integer'},
+                },
+            },
         ),
     }
 )
 
-# Configure Logfire with the local provider
 logfire.configure(
     variables=logfire.VariablesOptions(config=variables_config),
 )
-logfire.instrument_pydantic_ai()
 
 # Define the variable
-system_prompt = logfire.var(
-    name='assistant_system_prompt',
-    default='You are a helpful assistant.',
-    type=str,
+agent_config = logfire.var(
+    name='support-agent-config',
+    type=AgentConfig,
+    default=AgentConfig(
+        instructions='You are a helpful assistant.',
+        model='openai:gpt-4o-mini',
+        temperature=0.7,
+        max_tokens=500,
+    ),
 )
 
 
-async def run_agent(user_id: str, user_plan: str, user_message: str) -> str:
-    """Run the agent with the appropriate prompt for this user."""
-    # Get the prompt - variant selection is deterministic per user
-    # Using the context manager ensures the variant is recorded in baggage
-    with system_prompt.get(
-        targeting_key=user_id,
-        attributes={'plan': user_plan},
-    ) as details:
-        # Create the agent with the resolved prompt
-        agent = Agent('openai:gpt-4o-mini', system_prompt=details.value)
-        result = await agent.run(user_message)
+async def handle_ticket(user_id: str, message: str) -> str:
+    """Handle a support ticket with A/B tested configuration."""
+    with agent_config.get(targeting_key=user_id) as config:
+        # The variant (v1-concise or v2-detailed) is now in baggage
+        # All spans created below, including those from the call to agent.run, will be tagged with the variant
+
+        agent = Agent(config.value.model, system_prompt=config.value.instructions)
+        result = await agent.run(
+            message,
+            model_settings={
+                'temperature': config.value.temperature,
+                'max_tokens': config.value.max_tokens,
+            },
+        )
         return result.output
-
-
-async def main():
-    # Enterprise user gets the detailed prompt
-    response = await run_agent(
-        user_id='enterprise_user_1',
-        user_plan='enterprise',
-        user_message='What is Python?',
-    )
-    print(f'Enterprise user response: {response}')
-
-    # Free user gets one of the default rollout variants
-    response = await run_agent(
-        user_id='free_user_42',
-        user_plan='free',
-        user_message='What is Python?',
-    )
-    print(f'Free user response: {response}')
 ```
 
-### Variant Selection
+**Analyzing the A/B test in Logfire:**
 
-Variants are selected based on:
+After running traffic through both variants, you can:
 
-1. **Overrides**: Conditions are evaluated in order; the first matching override's rollout is used
-2. **Rollout weights**: Variants are selected probabilistically based on their weights
-3. **Targeting key**: When provided, ensures consistent selection for the same key (useful for A/B tests)
+1. Filter traces by the variant baggage to see only requests that used a specific variant
+2. Compare metrics like response latency, token usage, and error rates between variants
+3. Look at actual responses to qualitatively assess which variant performs better
+4. Make data-driven decisions about which configuration to roll out to 100%
 
-If rollout weights sum to less than 1.0, there's a chance no variant is selected and the code default is used.
+## Targeting Users and Segments
 
-## Condition Types
+### Targeting Key
 
-Overrides use conditions to match against the provided attributes. Available condition types:
+The `targeting_key` parameter ensures deterministic variant selection. The same key always produces the same variant, which is useful for:
+
+- **Consistent user experience**: You typically want users to see consistent configuration behavior within a session, or even across sessions. You may also want all users within a single tenant to receive the same variant.
+- **Debugging**: By controlling the `targeting_key`, you can deterministically get the same configuration variant that a user received. Note that this reproduces the *configuration*, not the exact behavior; if your application includes stochastic elements like LLM calls, outputs will still vary.
+
+```python
+# User-based targeting
+with agent_config.get(targeting_key=user_id) as config:
+    ...
+
+# Request-based targeting (if no targeting_key provided and there's an active trace,
+# the trace ID is used automatically)
+with agent_config.get() as config:
+    ...
+```
+
+### Attributes for Conditional Rules
+
+Pass attributes to enable condition-based targeting:
+
+```python
+with agent_config.get(
+    targeting_key=user_id,
+    attributes={
+        'plan': 'enterprise',
+        'region': 'us-east',
+        'is_beta_user': True,
+    },
+) as config:
+    ...
+```
+
+These attributes can be used in override rules to route specific segments to specific variants:
+
+```python
+from logfire.variables.config import (
+    Rollout,
+    RolloutOverride,
+    ValueEquals,
+    VariableConfig,
+    VariablesConfig,
+    Variant,
+)
+
+variables_config = VariablesConfig(
+    variables={
+        'support-agent-config': VariableConfig(
+            name='support-agent-config',
+            variants={
+                'standard': Variant(
+                    key='standard',
+                    serialized_value='{"instructions": "Be helpful and concise.", ...}',
+                ),
+                'premium': Variant(
+                    key='premium',
+                    serialized_value='{"instructions": "Provide detailed, thorough responses...", ...}',
+                ),
+            },
+            # Default: everyone gets 'standard'
+            rollout=Rollout(variants={'standard': 1.0}),
+            overrides=[
+                # Enterprise plan users always get the premium variant
+                RolloutOverride(
+                    conditions=[ValueEquals(attribute='plan', value='enterprise')],
+                    rollout=Rollout(variants={'premium': 1.0}),
+                ),
+            ],
+            json_schema={'type': 'object'},
+        ),
+    }
+)
+
+# Now when you call get() with attributes:
+with agent_config.get(
+    targeting_key=user_id,
+    attributes={'plan': 'enterprise'},  # Matches the override condition
+) as config:
+    # config.variant will be 'premium' because of the override
+    ...
+
+with agent_config.get(
+    targeting_key=user_id,
+    attributes={'plan': 'free'},  # Does not match override
+) as config:
+    # config.variant will be 'standard' (the default rollout)
+    ...
+```
+
+### Automatic Context Enrichment
+
+By default, Logfire automatically includes additional context when resolving variables:
+
+- **Resource attributes**: OpenTelemetry resource attributes (service name, version, environment)
+- **Baggage**: Values set via `logfire.set_baggage()`
+
+This means your targeting rules can match against service identity or request-scoped baggage without explicitly passing them.
+
+**Example: Plan-based targeting with baggage**
+
+If your application sets the user's plan as baggage early in the request lifecycle, you can use it for targeting without passing it explicitly to every variable resolution:
+
+```python
+# In your middleware or request handler, set the plan once
+with logfire.set_baggage(plan='enterprise'):
+    # ... later in your application code ...
+    with agent_config.get(targeting_key=user_id) as config:
+        # The variable resolution automatically sees plan='enterprise'
+        # If you have an override targeting enterprise users, it will match
+        ...
+```
+
+This is useful when you want different configurations based on user plan—for example, enterprise users might get a prompt variant that references tools only available to them.
+
+**Example: Environment-based targeting with resource attributes**
+
+Resource attributes like `deployment.environment` are automatically included, allowing you to use different configurations in different environments without code changes:
+
+- Use a more experimental prompt on staging to test changes before production
+- Enable verbose logging in development but not in production
+- Route all staging traffic to a "debug" variant that includes extra context
+
+To disable automatic context enrichment:
+
+```python
+logfire.configure(
+    variables=logfire.VariablesOptions(
+        include_resource_attributes_in_context=False,
+        include_baggage_in_context=False,
+    ),
+)
+```
+
+## Remote Variables
+
+When connected to Logfire, variables are managed through the Logfire UI. This is the recommended setup for production.
+
+To enable remote variables, you need to explicitly opt in using `VariablesOptions`:
+
+```python
+import logfire
+from logfire.variables.config import RemoteVariablesConfig
+
+# Enable remote variables
+logfire.configure(
+    variables=logfire.VariablesOptions(
+        config=RemoteVariablesConfig(),
+    ),
+)
+
+# Define your variables
+agent_config = logfire.var(
+    name='support-agent-config',
+    type=AgentConfig,
+    default=AgentConfig(...),
+)
+```
+
+!!! note "API Token Required"
+    Remote variables require an API token with the `project:read_variables` scope. This is different from the write token (`LOGFIRE_TOKEN`) used to send traces and logs. Set it via the `LOGFIRE_API_TOKEN` environment variable or pass it directly to `RemoteVariablesConfig(api_token=...)`.
+
+**How remote variables work:**
+
+1. Your application connects to Logfire using your API token
+2. Variable configurations are fetched from the Logfire API
+3. A background thread polls for updates (default: every 30 seconds)
+4. When you change a variant or rollout in the UI, running applications pick up the change automatically while polling
+
+**Configuration options:**
+
+```python
+from datetime import timedelta
+
+from logfire.variables.config import RemoteVariablesConfig
+
+logfire.configure(
+    variables=logfire.VariablesOptions(
+        config=RemoteVariablesConfig(
+            # Block until first fetch completes (default: True)
+            # Set to False if you want the app to start immediately using defaults
+            block_before_first_resolve=True,
+            # How often to poll for updates (default: 30 seconds)
+            polling_interval=timedelta(seconds=30),
+        ),
+    ),
+)
+```
+
+## Local Variables
+
+For development, testing, or self-hosted deployments, you can configure variables locally using `VariablesConfig`:
+
+```python
+import logfire
+from logfire.variables.config import (
+    Rollout,
+    RolloutOverride,
+    ValueEquals,
+    VariableConfig,
+    VariablesConfig,
+    Variant,
+)
+
+variables_config = VariablesConfig(
+    variables={
+        'support-agent-config': VariableConfig(
+            name='support-agent-config',
+            variants={
+                'default': Variant(
+                    key='default',
+                    serialized_value='{"instructions": "...", "model": "...", "temperature": 0.7, "max_tokens": 500}',
+                ),
+                'premium': Variant(
+                    key='premium',
+                    serialized_value='{"instructions": "...", "model": "...", "temperature": 0.3, "max_tokens": 1000}',
+                ),
+            },
+            # Default: everyone gets 'default'
+            rollout=Rollout(variants={'default': 1.0}),
+            overrides=[
+                # Enterprise users get 'premium'
+                RolloutOverride(
+                    conditions=[ValueEquals(attribute='plan', value='enterprise')],
+                    rollout=Rollout(variants={'premium': 1.0}),
+                ),
+            ],
+            json_schema={'type': 'object'},
+        ),
+    }
+)
+
+logfire.configure(
+    variables=logfire.VariablesOptions(config=variables_config),
+)
+```
+
+**When to use local variables:**
+
+- **Development**: Test different configurations without connecting to Logfire
+- **Testing**: Use fixed configurations in your test suite
+- **Self-hosted**: Full control over variable configuration without external dependencies
+- **Optimization harnesses**: Build automated optimization loops that monitor performance metrics and programmatically update variable values
+
+The local provider exposes methods to create, update, and delete variables and variants programmatically. This makes it possible to build optimization harnesses that:
+
+1. Run your application with different configurations
+2. Collect performance metrics from traces
+3. Use the metrics to decide on new configurations to try
+4. Update variable values via the local provider's API
+5. Repeat until optimal configuration is found
+
+This workflow is particularly useful for automated prompt optimization, where you want to systematically explore different prompt variations and measure their effectiveness.
+
+## Configuration Reference
+
+### Variants and Rollouts
+
+**VariableConfig** - Full configuration for a variable:
+
+| Field | Description |
+|-------|-------------|
+| `name` | Variable name (must match the name in `logfire.var()`) |
+| `variants` | Dict of variant key to `Variant` objects |
+| `rollout` | Default `Rollout` specifying variant weights |
+| `overrides` | List of `RolloutOverride` for conditional targeting |
+| `json_schema` | JSON Schema for validation (optional) |
+| `description` | Human-readable description (optional) |
+
+**Variant** - A single variant value:
+
+| Field | Description |
+|-------|-------------|
+| `key` | Unique identifier for this variant |
+| `serialized_value` | JSON-serialized value |
+| `description` | Human-readable description (optional) |
+
+**Rollout** - Variant selection weights:
+
+| Field | Description |
+|-------|-------------|
+| `variants` | Dict of variant key to weight (0.0-1.0). Weights should sum to 1.0 or less. |
+
+If weights sum to less than 1.0, there's a chance no variant is selected and the code default is used.
+
+### Condition Types
+
+Overrides use conditions to match against attributes:
 
 | Condition | Description |
 |-----------|-------------|
@@ -343,7 +602,7 @@ Overrides use conditions to match against the provided attributes. Available con
 | `KeyIsPresent` | Attribute key exists |
 | `KeyIsNotPresent` | Attribute key does not exist |
 
-### Example: Complex Targeting Rules
+### Override Example
 
 ```python
 from logfire.variables.config import (
@@ -355,7 +614,7 @@ from logfire.variables.config import (
 )
 
 overrides = [
-    # Beta users in US/UK get the experimental prompt
+    # Beta users in US/UK get the experimental variant
     RolloutOverride(
         conditions=[
             ValueEquals(attribute='is_beta', value=True),
@@ -363,300 +622,84 @@ overrides = [
         ],
         rollout=Rollout(variants={'experimental': 1.0}),
     ),
-    # Anyone with a custom_prompt attribute gets it used
+    # Anyone with a custom config attribute gets the custom variant
     RolloutOverride(
-        conditions=[KeyIsPresent(attribute='custom_prompt')],
+        conditions=[KeyIsPresent(attribute='custom_config')],
         rollout=Rollout(variants={'custom': 1.0}),
     ),
 ]
 ```
 
-## Automatic Context Enrichment
+Conditions within an override are AND-ed together. Overrides are evaluated in order; the first matching override's rollout is used.
 
-By default, Logfire automatically includes additional context when resolving variables:
+## Advanced Usage
 
-- **Resource attributes**: OpenTelemetry resource attributes (service name, version, etc.)
-- **Baggage**: Values set via `logfire.set_baggage()`
+### Contextual Overrides
 
-This allows you to create targeting rules based on deployment environment, service identity, or request-scoped baggage without explicitly passing these values.
-
-```python
-import logfire
-from logfire.variables.config import (
-    Rollout,
-    RolloutOverride,
-    VariableConfig,
-    VariablesConfig,
-    Variant,
-    ValueEquals,
-)
-
-variables_config = VariablesConfig(
-    variables={
-        'agent_prompt': VariableConfig(
-            name='agent_prompt',
-            variants={
-                'standard': Variant(key='standard', serialized_value='"Standard prompt"'),
-                'premium': Variant(key='premium', serialized_value='"Premium prompt"'),
-            },
-            rollout=Rollout(variants={'standard': 1.0}),
-            overrides=[
-                # This matches baggage set via logfire.set_baggage()
-                RolloutOverride(
-                    conditions=[ValueEquals(attribute='plan', value='enterprise')],
-                    rollout=Rollout(variants={'premium': 1.0}),
-                ),
-            ],
-            json_schema={'type': 'string'},
-        ),
-    }
-)
-
-logfire.configure(variables=logfire.VariablesOptions(config=variables_config))
-
-agent_prompt = logfire.var(name='agent_prompt', default='Default prompt', type=str)
-
-
-async def main():
-    # Baggage is automatically included in variable resolution
-    with logfire.set_baggage(plan='enterprise'):
-        # No need to pass attributes - baggage is included automatically
-        details = agent_prompt.get()
-        print(f'With enterprise baggage: {details.value}')
-        #> With enterprise baggage: Premium prompt
-
-    # Without matching baggage, gets the default rollout
-    details = agent_prompt.get()
-    print(f'Without baggage: {details.value}')
-    #> Without baggage: Standard prompt
-```
-
-To disable automatic context enrichment:
+Use `variable.override()` to temporarily override a variable's value within a context. This is useful for testing:
 
 ```python
-import logfire
-from logfire.variables.config import VariablesConfig
+def test_premium_config_handling():
+    """Test that premium configuration works correctly."""
+    premium_config = AgentConfig(
+        instructions='Premium instructions...',
+        model='openai:gpt-4o',
+        temperature=0.3,
+        max_tokens=1000,
+    )
 
-variables_config = VariablesConfig(variables={})
+    with agent_config.override(premium_config):
+        # Inside this context, agent_config.get() returns premium_config
+        with agent_config.get() as config:
+            assert config.value.model == 'openai:gpt-4o'
 
-logfire.configure(
-    variables=logfire.VariablesOptions(
-        config=variables_config,
-        include_resource_attributes_in_context=False,
-        include_baggage_in_context=False,
-    ),
-)
+    # Back to normal after context exits
 ```
 
-## Remote Variable Provider
+### Dynamic Override Functions
 
-!!! note "Coming Soon"
-    The `LogfireRemoteProvider` allows you to manage variables through the Logfire web interface, with automatic synchronization and real-time updates. Documentation will be added when this feature is available.
-
-    With the remote provider, you'll be able to:
-
-    - Edit prompts and configurations in the Logfire UI
-    - See which variants are being served in real-time
-    - Track the performance of different variants
-    - Roll out changes gradually with confidence
-
-## Complete Example: Support Agent with A/B Testing
-
-Here's a complete example showing a customer support agent with A/B testing on system prompts and configurable model settings:
+Override with a function that computes the value based on context:
 
 ```python
-import logfire
-from pydantic import BaseModel
-from pydantic_ai import Agent
-
-from logfire.variables.config import (
-    Rollout,
-    VariableConfig,
-    VariablesConfig,
-    Variant,
-)
+from collections.abc import Mapping
+from typing import Any
 
 
-class ModelSettings(BaseModel):
-    """Configuration for the AI model."""
-
-    model: str
-    temperature: float
-    max_tokens: int
-
-
-# Variable configuration with two prompt variants for A/B testing
-variables_config = VariablesConfig(
-    variables={
-        'support_agent_prompt': VariableConfig(
-            name='support_agent_prompt',
-            variants={
-                'v1': Variant(
-                    key='v1',
-                    serialized_value='"You are a customer support agent. Be helpful and professional."',
-                    description='Original prompt',
-                    version='1.0.0',
-                ),
-                'v2': Variant(
-                    key='v2',
-                    serialized_value='"You are an expert customer support agent. Be empathetic and solution-oriented. Always acknowledge the customer\'s concern before providing assistance."',
-                    description='Improved prompt with empathy focus',
-                    version='2.0.0',
-                ),
-            },
-            rollout=Rollout(variants={'v1': 0.5, 'v2': 0.5}),  # 50/50 A/B test
-            overrides=[],
-            json_schema={'type': 'string'},
-        ),
-        'support_model_settings': VariableConfig(
-            name='support_model_settings',
-            variants={
-                'default': Variant(
-                    key='default',
-                    serialized_value='{"model": "openai:gpt-4o-mini", "temperature": 0.3, "max_tokens": 500}',
-                ),
-            },
-            rollout=Rollout(variants={'default': 1.0}),
-            overrides=[],
-            json_schema={'type': 'object'},
-        ),
-    }
-)
-
-# Configure Logfire
-logfire.configure(variables=logfire.VariablesOptions(config=variables_config))
-logfire.instrument_pydantic_ai()
-
-# Define variables
-system_prompt = logfire.var(
-    name='support_agent_prompt',
-    default='You are a helpful assistant.',
-    type=str,
-)
-
-model_settings = logfire.var(
-    name='support_model_settings',
-    default=ModelSettings(model='openai:gpt-4o-mini', temperature=0.3, max_tokens=500),
-    type=ModelSettings,
-)
+def get_config_for_context(
+    targeting_key: str | None, attributes: Mapping[str, Any] | None
+) -> AgentConfig:
+    """Compute configuration based on context."""
+    if attributes and attributes.get('mode') == 'creative':
+        return AgentConfig(
+            instructions='Be creative and expressive...',
+            model='openai:gpt-4o',
+            temperature=1.0,
+            max_tokens=1000,
+        )
+    return AgentConfig(
+        instructions='Be precise and factual...',
+        model='openai:gpt-4o-mini',
+        temperature=0.2,
+        max_tokens=500,
+    )
 
 
-async def handle_support_request(user_id: str, message: str) -> str:
-    """Handle a customer support request with managed configuration."""
-    # Get configuration - same user always gets same variant (deterministic)
-    # Using context managers ensures variant info is recorded in baggage
-    with system_prompt.get(targeting_key=user_id) as prompt_details:
-        with model_settings.get(targeting_key=user_id) as settings_details:
-            with logfire.span(
-                'support_request',
-                user_id=user_id,
-                prompt_variant=prompt_details.variant,
-                model=settings_details.value.model,
-            ):
-                # Create and run the agent with resolved configuration
-                agent = Agent(settings_details.value.model, system_prompt=prompt_details.value)
-                result = await agent.run(message)
-                return result.output
-
-
-async def main():
-    # Handle requests from different users
-    # Each user consistently gets the same variant due to targeting_key
-    users = ['user_alice', 'user_bob', 'user_charlie', 'user_diana']
-
-    for user_id in users:
-        # Check which variant this user gets
-        details = system_prompt.get(targeting_key=user_id)
-        print(f'{user_id} -> prompt variant: {details.variant}')
-
-        # In a real app, you'd handle actual messages:
-        # response = await handle_support_request(user_id, "I need help with my order")
+with agent_config.override(get_config_for_context):
+    # Configuration will be computed based on the attributes passed to get()
+    with agent_config.get(attributes={'mode': 'creative'}) as config:
+        assert config.value.temperature == 1.0
 ```
 
-## Testing with Managed Variables
+### Refreshing Variables
 
-Use contextual overrides to test specific variable values without modifying configuration:
+Variables are automatically refreshed in the background when using the remote provider. You can also manually trigger a refresh:
 
 ```python
-import logfire
-from pydantic import BaseModel
+# Synchronous refresh
+agent_config.refresh_sync(force=True)
 
-from logfire.variables.config import (
-    Rollout,
-    VariableConfig,
-    VariablesConfig,
-    Variant,
-)
-
-
-class ModelSettings(BaseModel):
-    model: str
-    temperature: float
-
-
-variables_config = VariablesConfig(
-    variables={
-        'test_prompt': VariableConfig(
-            name='test_prompt',
-            variants={
-                'production': Variant(
-                    key='production', serialized_value='"Production prompt"'
-                ),
-            },
-            rollout=Rollout(variants={'production': 1.0}),
-            overrides=[],
-            json_schema={'type': 'string'},
-        ),
-    }
-)
-
-logfire.configure(variables=logfire.VariablesOptions(config=variables_config))
-
-system_prompt = logfire.var(name='test_prompt', default='Default prompt', type=str)
-
-model_settings = logfire.var(
-    name='model_settings',
-    default=ModelSettings(model='gpt-4o-mini', temperature=0.7),
-    type=ModelSettings,
-)
-
-
-def test_prompt_override():
-    """Test that prompt overrides work correctly."""
-    # Production value from config
-    details = system_prompt.get()
-    assert details.value == 'Production prompt'
-
-    # Override for testing
-    with system_prompt.override('Test prompt for unit tests'):
-        details = system_prompt.get()
-        assert details.value == 'Test prompt for unit tests'
-
-    # Back to production after context exits
-    details = system_prompt.get()
-    assert details.value == 'Production prompt'
-
-    print('All prompt override tests passed!')
-
-
-async def test_model_settings_override():
-    """Test overriding structured configuration."""
-    # Default value (no config for this variable)
-    details = await model_settings.get()
-    assert details.value.model == 'gpt-4o-mini'
-    assert details.value.temperature == 0.7
-
-    # Override with custom settings
-    test_settings = ModelSettings(model='gpt-4', temperature=0.0)
-    with model_settings.override(test_settings):
-        details = await model_settings.get()
-        assert details.value.model == 'gpt-4'
-        assert details.value.temperature == 0.0
-
-    print('All model settings override tests passed!')
-
-
-async def main():
-    await test_prompt_override()
-    await test_model_settings_override()
+# Async refresh
+await agent_config.refresh(force=True)
 ```
+
+The `force=True` parameter bypasses the polling interval check and fetches the latest configuration immediately.

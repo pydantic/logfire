@@ -3,7 +3,14 @@
 from importlib.util import find_spec
 from typing import TYPE_CHECKING
 
-from logfire.variables.abstract import NoOpVariableProvider, ResolvedVariable, VariableProvider
+from logfire.variables.abstract import (
+    NoOpVariableProvider,
+    ResolvedVariable,
+    VariableAlreadyExistsError,
+    VariableNotFoundError,
+    VariableProvider,
+    VariableWriteError,
+)
 
 if TYPE_CHECKING:
     # We use a TYPE_CHECKING block here because we need to do these imports lazily to prevent issues due to loading the
@@ -13,6 +20,7 @@ if TYPE_CHECKING:
         from logfire.variables.config import (
             KeyIsNotPresent,
             KeyIsPresent,
+            RemoteVariablesConfig,
             Rollout,
             RolloutOverride,
             ValueDoesNotEqual,
@@ -35,6 +43,8 @@ __all__ = [
     'LocalVariableProvider',
     'LogfireRemoteVariableProvider',
     'NoOpVariableProvider',
+    'RemoteVariablesConfig',
+    'ResolvedVariable',
     'Rollout',
     'RolloutOverride',
     'ValueDoesNotEqual',
@@ -44,10 +54,12 @@ __all__ = [
     'ValueIsNotIn',
     'ValueMatchesRegex',
     'Variable',
+    'VariableAlreadyExistsError',
     'VariableConfig',
+    'VariableNotFoundError',
     'VariableProvider',
-    'ResolvedVariable',
     'VariablesConfig',
+    'VariableWriteError',
     'Variant',
 ]
 
@@ -66,6 +78,7 @@ def __getattr__(name: str):
     from logfire.variables.config import (
         KeyIsNotPresent,
         KeyIsPresent,
+        RemoteVariablesConfig,
         Rollout,
         RolloutOverride,
         ValueDoesNotEqual,
