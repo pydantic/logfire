@@ -9,8 +9,7 @@ from typing import Any
 import pytest
 
 import logfire
-from logfire.variables.config import Rollout, VariableConfig, VariablesConfig, Variant
-from logfire.variables.push import (
+from logfire.variables.abstract import (
     ValidationReport,
     VariableChange,
     VariableDiff,
@@ -22,6 +21,7 @@ from logfire.variables.push import (
     _get_default_serialized,
     _get_json_schema,
 )
+from logfire.variables.config import Rollout, VariableConfig, VariablesConfig, Variant
 from logfire.variables.variable import Variable
 
 
