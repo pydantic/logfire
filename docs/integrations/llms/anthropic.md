@@ -1,4 +1,6 @@
 ---
+title: Pydantic Logfire Anthropic Integration
+description: "Instrument calls to Anthropic with the logfire.instrument_anthropic(), stream responses, and log Anthropic LLM calls to Amazon Bedrock."
 integration: logfire
 ---
 # Anthropic

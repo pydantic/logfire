@@ -1,3 +1,7 @@
+---
+title: "Logfire Guide to Suppressing Spans & Metrics"
+description: "Logfire provides two ways to suppress the data you are sending to Logfire: Suppress Scopes and Suppress Instrumentation."
+---
 # Suppress Spans and Metrics
 
 At **Logfire** we want to provide you with the best experience possible. We understand that sometimes you might want to

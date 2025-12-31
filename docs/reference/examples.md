@@ -1,3 +1,7 @@
+---
+title: "Logfire Examples: Practical Tracing & Metrics Demos"
+description: "Explore practical Logfire examples for Python and JavaScript. See full-stack demos for FastAPI, Flask, SQLAlchemy, and LLM agent tracing."
+---
 # Examples
 
 These are working, standalone applications and projects that you can clone, run

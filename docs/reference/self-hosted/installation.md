@@ -1,3 +1,7 @@
+---
+title: "Logfire Self-Hosted Installation: Step-by-Step Guide"
+description: "How to deploy Pydantic Logfire in a self-hosted environment, with guidance on Postgres databases, object storage, and identity provider configuration."
+---
 # Self Hosted Installation
 
 Installation of the self-hosted **Logfire** requires that you have a few prerequisites before installing.

@@ -1,3 +1,7 @@
+---
+title: "Logfire: Getting Started - Onboarding Checklist"
+description: "Get started with Logfire. This onboarding checklist guides you through initial integration, tracing setup (manual/auto), and collecting metrics data."
+---
 Welcome to the **Logfire** Onboarding Checklist! Whether you're starting a new project or integrating Logfire with an
 existing application, this guide is intended to help you quickly instrument your code and start sending as much data to
 Logfire with as little development effort as possible.

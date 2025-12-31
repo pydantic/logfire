@@ -1,3 +1,7 @@
+---
+title: "Logfire Docs: Getting Started with Pydantic Logfire"
+description: "Step by Step Guide to Getting Started with Pydantic Logfire: How to set up, install and instrument your first Logfire project."
+---
 # Getting Started
 
 <p style="text-align: center;">

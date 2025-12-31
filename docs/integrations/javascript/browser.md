@@ -1,7 +1,8 @@
 ---
+title: Pydantic Logfire Browser Integration
+description: "Guide for tracing browser activity: Learn how to set up getwebautoinstrumentations and configure a proxy to send frontend traces securely to Logfire."
 integration: logfire
 ---
-
 # Browser
 
 The `@pydantic/logfire-browser` NPM package wraps [OpenTelemetry browser tracing](https://opentelemetry.io/docs/languages/js/getting-started/browser/) with sensible defaults and provides a simple API for creating spans and reporting exceptions.

@@ -1,7 +1,8 @@
 ---
+title: "Logfire Integrations: LlamaIndex"
+description: "Guide for instrumenting LlamaIndex via the OpenTelemetry specific instrumentation provided by OpenLLMetry: opentelemetry-instrumentation-llamaindex."
 integration: otel
 ---
-
 The way we recommend instrumenting **LlamaIndex** is to use the OpenTelemetry specific instrumentation
 provided by [OpenLLMetry]: [`opentelemetry-instrumentation-llamaindex`][opentelemetry-instrumentation-llamaindex].
 

@@ -1,3 +1,7 @@
+---
+title: Pydantic Logfire Integrations
+description: "Overview of Pydantic Logfire integrations for LLM Clients & AI Frameworks by OpenAI, Anthropic, LangChain, etc., as well as web frameworks, databases & more."
+---
 # Integrations
 
 **Pydantic Logfire** supports first-class integration with many popular Python packages using a single `logfire.instrument_<package>()`

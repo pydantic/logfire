@@ -1,3 +1,7 @@
+---
+title: "Pydantic Logfire: Setup Different Environments"
+description: "Learn how to separate traces from your production, staging, and local environments. Use logfire.configure() to manage different environments easily."
+---
 As developers, we find ourselves working on different environments for a project: local,
 production, sometimes staging, and depending on your company deployment strategy... You can have even more! 😅
 

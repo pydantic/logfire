@@ -1,3 +1,7 @@
+---
+title: "Example Configurations for Self-Hosted Logfire Setups"
+description: "Exemplary Logfire configurations for different scenarios including Azure, GitHub, and Okta."
+---
 # Examples
 
 This page provides some example configuration for different scenarios.

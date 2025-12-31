@@ -1,3 +1,7 @@
+---
+title: "Logfire SQL Explorer: Query & Inspect Your Data"
+description: Run arbitrary SQL queries against traces and metric data. Use the Logfire SQL Explorer to investigate and analyze records.
+---
 With **Logfire**, you can use the Explore page to run arbitrary SQL queries against your trace and metric data to
 analyze and investigate your system.
 
