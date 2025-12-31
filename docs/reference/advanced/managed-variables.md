@@ -87,20 +87,78 @@ Here's the typical workflow using the `AgentConfig` example from above:
 
 1. **Define the variable in code** with your current configuration as the default
 2. **Deploy your application**: it starts using the default immediately
-3. **Push your variable schema** to Logfire using `logfire.push_variables()` (this makes it easier to create new variants in the UI with the correct structure)
-4. **Create variants in the Logfire UI**: for example, a "v2-detailed" variant with longer instructions and lower temperature
+3. **Create the variable in the Logfire UI** with your initial value
+4. **Add variants**: create additional variants like `v2-detailed` with different configurations
 5. **Set up a rollout**: start with 10% of traffic going to the new variant
 6. **Monitor in real-time**: filter traces by variant to compare response quality, latency, and token usage
 7. **Adjust based on data**: if v2 performs better, gradually increase to 50%, then 100%
 8. **Iterate**: create new variants, adjust rollouts, all without code changes
 
-In the Logfire UI, you can:
+## Managing Variables in the Logfire UI
 
-- Create new variants for any variable with different values
-- Set rollout percentages (e.g., 80% variant A, 20% variant B)
-- Define targeting rules (e.g., enterprise users always get variant A)
-- See which variants are being served in real-time
-- Filter and group traces by variant to compare performance
+The Logfire web UI provides a complete interface for managing your variables without any code changes. You can find it under **Settings > Variables** in your project.
+
+![Variables list](images/variables-list.png)
+
+### Creating a Variable
+
+To create a new variable, click **New variable** and fill in:
+
+- **Name**: A unique identifier using lowercase letters, numbers, and hyphens (e.g., `agent-config`, `feature-flag`)
+- **Description**: Optional text explaining what the variable controls
+- **Value Type**: Choose from:
+    - **Text**: Plain text values, ideal for prompts and messages
+    - **Number**: Numeric values for thresholds, limits, etc.
+    - **Boolean**: True/false flags for feature toggles
+    - **JSON**: Complex structured data matching your Pydantic models
+
+For JSON variables, you can optionally provide a **JSON Schema** to validate variant values.
+
+![Create variable form](images/variable-create-form.png)
+
+### Working with Variants
+
+Each variable can have multiple **variants**—different values that can be served to different users or traffic segments. When you create a variable, it starts with a single `default` variant.
+
+To add more variants:
+
+1. Click **Add Variant** in the Variants section
+2. Enter a unique key for the variant (e.g., `premium`, `experimental`, `v2-detailed`)
+3. Provide an optional description
+4. Enter the value (the format depends on your value type)
+
+Each variant tracks its version history, accessible via the **View history** button. You can also browse all variant history using **Browse All History** to see changes over time or restore previous versions.
+
+### Configuring Rollouts
+
+The **Default Rollout** section controls what percentage of requests receive each variant. The weights must sum to 1.0 or less:
+
+- Set `default` to `0.5` and `premium` to `0.5` for a 50/50 A/B test
+- Set `default` to `0.9` and `experimental` to `0.1` for a 10% canary deployment
+- If weights sum to less than 1.0, the remaining percentage uses your code's default value
+
+### Targeting with Override Rules
+
+**Rollout Overrides** let you route specific users or segments to specific variants based on attributes. Rules are evaluated in order, and the first matching rule determines the rollout.
+
+To add a targeting rule:
+
+1. Click **Add Rule** in the Rollout Overrides section
+2. Add one or more conditions (all conditions must match):
+    - Choose an attribute name (e.g., `plan`, `region`, `is_beta_user`)
+    - Select an operator (`equals`, `does not equal`, `is in`, `is not in`, `matches regex`, etc.)
+    - Enter the value to match
+3. Configure the rollout percentages when this rule matches
+
+For example, to give enterprise customers the premium variant:
+
+- Condition: `plan` equals `enterprise`
+- Rollout: `premium` = 100%
+
+![Variable edit with variants and rollout](images/variable-edit-with-variants.png)
+
+!!! important "Variable names must match"
+    The variable name in the UI must exactly match the `name` parameter in your `logfire.var()` call. If they don't match, your application will use the code default instead of the remote configuration.
 
 ## Quick Start
 
