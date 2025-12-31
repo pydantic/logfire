@@ -88,6 +88,8 @@ if TYPE_CHECKING:
     from starlette.applications import Starlette
     from starlette.requests import Request
     from starlette.websockets import WebSocket
+    from surrealdb.connections.async_template import AsyncTemplate
+    from surrealdb.connections.sync_template import SyncTemplate
     from typing_extensions import Unpack
 
     from ..integrations.aiohttp_client import (
@@ -246,20 +248,20 @@ class Logfire:
             log_internal_error()
             return NoopSpan()  # type: ignore
 
-    def _fast_span(self, name: str, attributes: otel_types.Attributes) -> FastLogfireSpan:
+    def _fast_span(self, name: str, attributes: otel_types.Attributes, **kwargs: Any) -> FastLogfireSpan:
         """A simple version of `_span` optimized for auto-tracing that doesn't support message formatting.
 
         Returns a similarly simplified version of `LogfireSpan` which must immediately be used as a context manager.
         """
         try:
-            span = self._spans_tracer.start_span(name=name, attributes=attributes)
+            span = self._spans_tracer.start_span(name=name, attributes=attributes, **kwargs)
             return FastLogfireSpan(span)
         except Exception:  # pragma: no cover
             log_internal_error()
             return NoopSpan()  # type: ignore
 
     def _instrument_span_with_args(
-        self, name: str, attributes: dict[str, otel_types.AttributeValue], function_args: dict[str, Any]
+        self, name: str, attributes: dict[str, otel_types.AttributeValue], function_args: dict[str, Any], **kwargs: Any
     ) -> FastLogfireSpan:
         """A version of `_span` used by `@instrument` with `extract_args=True`.
 
@@ -272,7 +274,7 @@ class Logfire:
             if json_schema_properties := attributes_json_schema_properties(function_args):  # pragma: no branch
                 attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
             attributes.update(prepare_otlp_attributes(function_args))
-            return self._fast_span(name, attributes)
+            return self._fast_span(name, attributes, **kwargs)
         except Exception:  # pragma: no cover
             log_internal_error()
             return NoopSpan()  # type: ignore
@@ -580,6 +582,7 @@ class Logfire:
         extract_args: bool | Iterable[str] = True,
         record_return: bool = False,
         allow_generator: bool = False,
+        new_trace: bool = False,
     ) -> Callable[[Callable[P, R]], Callable[P, R]]:
         """Decorator for instrumenting a function as a span.
 
@@ -603,6 +606,8 @@ class Logfire:
                 Ignored for generators.
             allow_generator: Set to `True` to prevent a warning when instrumenting a generator function.
                 Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
+            new_trace: Set to `True` to start a new trace with a span link to the current span
+                instead of creating a child of the current span.
         """
 
     @overload
@@ -629,6 +634,7 @@ class Logfire:
         extract_args: bool | Iterable[str] = True,
         record_return: bool = False,
         allow_generator: bool = False,
+        new_trace: bool = False,
     ) -> Callable[[Callable[P, R]], Callable[P, R]] | Callable[P, R]:
         """Decorator for instrumenting a function as a span.
 
@@ -652,11 +658,13 @@ class Logfire:
                 Ignored for generators.
             allow_generator: Set to `True` to prevent a warning when instrumenting a generator function.
                 Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
+            new_trace: Set to `True` to start a new trace with a span link to the current span
+                instead of creating a child of the current span.
         """
         if callable(msg_template):
             return self.instrument()(msg_template)
         return instrument(
-            self, tuple(self._tags), msg_template, span_name, extract_args, record_return, allow_generator
+            self, tuple(self._tags), msg_template, span_name, extract_args, record_return, allow_generator, new_trace
         )
 
     def log(
@@ -919,6 +927,21 @@ class Logfire:
 
     def _warn_if_not_initialized_for_instrumentation(self):
         self.config.warn_if_not_initialized('Instrumentation will have no effect')
+
+    def instrument_surrealdb(
+        self, obj: SyncTemplate | AsyncTemplate | type[SyncTemplate] | type[AsyncTemplate] | None = None
+    ) -> None:
+        """Instrument [SurrealDB](https://surrealdb.com/) connections, creating a span for each method.
+
+        Args:
+            obj: Pass a single connection instance to instrument only that connection.
+                Pass a connection class to instrument all instances of that class.
+                By default, all connection classes are instrumented.
+        """
+        from .integrations.surrealdb import instrument_surrealdb
+
+        self._warn_if_not_initialized_for_instrumentation()
+        instrument_surrealdb(obj, self)
 
     def instrument_mcp(self, *, propagate_otel_context: bool = True) -> None:
         """Instrument the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk).

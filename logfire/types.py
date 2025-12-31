@@ -238,6 +238,10 @@ Usage:
 
     logfire.configure(advanced=logfire.AdvancedOptions(exception_callback=my_callback))
 
+Note: When using `ProcessPoolExecutor`, the exception callback must be defined at the module level
+(not as a local function) to be picklable. Local functions will be excluded from the serialized
+configuration sent to child processes. See the [distributed tracing guide](https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#thread-and-pool-executors) for more details.
+
 Examples:
 
 Set the level:

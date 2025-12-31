@@ -82,7 +82,73 @@ Each has their own set of environment variables that can be used to configure th
 
 ### Ingress/HTTP Gateway
 
-Depending on how you want to access **Logfire**, you can use a Kubernetes Ingress, or connect directly to the Logfire Service (`logfire-service`).
+Depending on how you want to access **Logfire**, you can use a Kubernetes Ingress, a Kubernetes Gateway, or connect directly to the Logfire Service (`logfire-service`).
+
+#### Using Ingress
+
+Here's an example of using `nginx` as an ingress controller, and providing a [cert manager](https://cert-manager.io/) annotation to manage the SSL certificate:
+```yaml
+ingress:
+  enabled: true
+  tls: true
+  hostnames:
+    - logfire.example.com
+  ingressClassName: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt"
+```
+
+#### Using Gateway API
+
+As an alternative to Ingress, you can use the [Kubernetes Gateway API](https://gateway-api.sigs.k8s.io/) to expose Logfire.
+This is useful if you're using a Gateway controller like Istio, Envoy Gateway, Cilium, or any other Gateway API implementation.
+
+The chart can create both a Gateway and HTTPRoute resource for you:
+
+```yaml
+ingress:
+  # Disable the Ingress resource
+  enabled: false
+  # Still required for CORS headers and Gateway listener hostname
+  tls: true
+  hostnames:
+    - logfire.example.com
+  # TLS secret for the Gateway listener
+  secretName: logfire-tls-cert
+
+gateway:
+  enabled: true
+  # Create the Gateway resource (default: true)
+  create: true
+  # GatewayClass name (required when create is true)
+  # Common values: istio, cilium, nginx, envoy-gateway, gke-l7-rilb
+  gatewayClassName: istio
+  # Custom Gateway name (optional, defaults to "logfire-gateway")
+  name: logfire-gateway
+```
+
+When `ingress.tls` is true, the Gateway will be configured with an HTTPS listener on port 443. Otherwise, an HTTP listener on port 80 will be created.
+
+#### Using `logfire-service` directly
+
+We expose a service called `logfire-service` which will route traffic appropriately.
+
+If you don't want to use the ingress controller, you will still need to define hostnames and whether you are externally using TLS:
+
+I.e, this config will turn off the ingress resource, but still set appropriate cors headers for the `logfire-service`:
+
+```yaml
+ingress:
+  # this turns off the ingress resource
+  enabled: false
+  # used to ensure appropriate CORS headers are set.  If your browser is accessing it on https, then needs to be enabled here
+  tls: true
+  # used to ensure appropriate CORS headers are set.
+  hostnames:
+    - logfire.example.com
+```
+
+If you are *not* using kubernetes ingress, you must still set the hostnames under the `ingress` configuration.
 
 ## Initial `values.yaml`
 
@@ -100,7 +166,7 @@ Here's a checklist you can use to ensure you have all your prerequisites:
 - [ ] The 3 PostgreSQL databases set up
 - [ ] Identity Provider Configuration
 - [ ] Object Storage Configuration
-- [ ] HTTP Ingress information (i.e, hostname etc.)
+- [ ] HTTP Ingress/Gateway information (i.e, hostname etc.)
 
 Here's an example `values.yaml` to get you started:
 
@@ -154,7 +220,8 @@ objectStore:
 ingress:
   enabled: true
   tls: true
-  hostname: logfire.example.com
+  hostnames:
+    - logfire.example.com
   ingressClassName: nginx
 ```
 
@@ -270,9 +337,6 @@ logfire-dex:
 ```
 
 To use GitHub as an example, you can find general instructions for creating an OAuth app [in the GitHub docs](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app).
-It should look something like this:
-
-![GitHub OAuth App Example](https://raw.githubusercontent.com/pydantic/logfire-helm-chart/refs/heads/main/docs/images/local-github-oauth-app.png)
 
 Dex allows configuration parameters to reference environment variables.
 This can be done by using the `$` symbol.  For example, the `clientID` and `clientSecret` can be set as environment variables:
@@ -312,7 +376,7 @@ There are a number of different integrations that can be used:
 * Google Cloud Storage
 * Azure Storage
 
-Each has their own set of environment variables that can be used to configure them. However if your kubernetes service account has the appropriate credentials, that be used by setting `serviceAccountName`.
+Each has their own set of environment variables that can be used to configure them. However if your kubernetes service account has the appropriate credentials, that can be used by setting `serviceAccountName`.
 
 #### Amazon S3
 
@@ -389,41 +453,6 @@ objectStore:
 ```
 
 
-### Configure HTTP Ingress
-
-There is a hostname that is required to be set: I.e, `logfire.example.com`. Set via the `ingress.hostname` value.
-
-Here's an example of using `nginx` as an ingress controller, and providing a [cert manager](https://cert-manager.io/) annotation to manage the SSL certificate:
-```yaml
-ingress:
-  enabled: true
-  tls: true
-  hostname: logfire.example.com
-  ingressClassName: nginx
-  annotations:
-    cert-manager.io/cluster-issuer: "letsencrypt"
-```
-
-#### Using `logfire-service` directly
-
-We expose a service called `logfire-service` which will route traffic appropriately.
-
-If you don't want to use the ingress controller, you will still need to define hostnames and whether you are externally using TLS:
-
-I.e, this config will turn off the ingress resource, but still set appropriate cors headers for the `logfire-service`:
-
-```yaml
-ingress:
-  # this turns off the ingress resource
-  enabled: false
-  # used to ensure appropriate CORS headers are set.  If your browser is accessing it on https, then needs to be enabled here
-  tls: true
-  # used to ensure appropriate CORS headers are set.
-  hostname: logfire.example.com
-```
-
-If you are *not* using kubernetes ingress, you must still set the hostnames under the `ingress` configuration.
-
 ## Deploying the Helm Chart
 
 Once you have created the helm chart `values.yaml` as above, then the next step is to pull down the helm chart and deploy it.
@@ -455,15 +484,21 @@ If everything is configured correctly, you will see a list of pods deployed and 
 NAME                                             READY   STATUS    RESTARTS   AGE
 logfire-backend-6956589db6-rvt4s                 1/1     Running   0          2m9s
 logfire-dex-74f8b9d5f8-rqg9k                     1/1     Running   0          2m9s
-logfire-ff-cache-64b97f99b4-twj8v                1/1     Running   0          2m9s
-logfire-ff-conhash-cache-79bd9cf69-w7ktb         1/1     Running   0          2m9s
-logfire-ff-ingest-api-688cf4f944-274b7           1/1     Running   0          2m9s
-logfire-ff-ingest-worker-68c45668fd-mmmt9        1/1     Running   0          2m9s
+logfire-ff-cache-byte-64b97f99b4-twj8v           1/1     Running   0          2m9s
+logfire-ff-cache-filter-a1b2c3d4e5-xyz12         1/1     Running   0          2m9s
+logfire-ff-cache-ipc-f6g7h8i9j0-abc34            1/1     Running   0          2m9s
+logfire-ff-compaction-worker-k1l2m3n4-def56      1/1     Running   0          2m9s
+logfire-ff-crud-api-o5p6q7r8-ghi78               1/1     Running   0          2m9s
+logfire-ff-ingest-0                              1/1     Running   0          2m9s
+logfire-ff-ingest-processor-68c45668fd-mmmt9     1/1     Running   0          2m9s
 logfire-ff-maintenance-worker-6bc45f65f5-l5lv9   1/1     Running   0          2m9s
+logfire-ff-proxy-cache-byte-s9t0u1v2-jkl90       1/1     Running   0          2m9s
+logfire-ff-proxy-cache-filter-w3x4y5z6-mno12     1/1     Running   0          2m9s
+logfire-ff-proxy-cache-ipc-a7b8c9d0-pqr34        1/1     Running   0          2m9s
 logfire-ff-query-api-77d8798dc6-f4m67            1/1     Running   0          2m8s
+logfire-frontend-service-e1f2g3h4-stu56          1/1     Running   0          2m8s
 logfire-otel-collector-7bdcf78dd9-b9d7q          1/1     Running   0          2m8s
 logfire-redis-65fb774fc-s8xgk                    1/1     Running   0          2m9s
-logfire-scheduler-745657cc5f-954jv               1/1     Running   0          2m8s
 logfire-service-7688f7c56-q7lmk                  1/1     Running   0          2m8s
 logfire-worker-85bd6f5c47-mx8pz                  1/1     Running   0          2m8s
 ```

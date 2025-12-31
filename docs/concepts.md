@@ -102,7 +102,7 @@ reliability of your applications.
 
 ## What is a Metric?
 
-A metric a calculated value measuring your application through time.
+A metric is a calculated value measuring your application through time.
 
 - Metrics are collected at regular intervals—such as request latency, CPU load, or queue length
 - Metrics are aggregated over time

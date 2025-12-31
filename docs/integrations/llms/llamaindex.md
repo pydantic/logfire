@@ -68,7 +68,7 @@ print([pet for pet in my_pets])
 The `LlamaIndexInstrumentor` will specifically instrument the LlamaIndex library, not the LLM itself.
 If you want to instrument the LLM, you'll need to instrument it separately:
 
-- For **OpenAI**, you can use the OpenAI, you can check the [OpenAI documentation](./openai.md).
+- For **OpenAI**, you can check the [OpenAI documentation](./openai.md).
 - For **Anthropic**, you can check the [Anthropic documentation](./anthropic.md).
 
 If you are using a different LLM, and you can't find a way to instrument it, or you need any help,

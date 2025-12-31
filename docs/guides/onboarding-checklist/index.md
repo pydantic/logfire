@@ -10,7 +10,6 @@ Once you've completed the checklist, you'll be collecting all the data necessary
 fix bugs, analyze user behavior, and make data-driven decisions.
 
 !!! note
-
   If you aren't familiar with traces and spans, start with the [Tracing with Spans](../../concepts.md) page.
 
 #### Logfire Onboarding Checklist
@@ -32,7 +31,6 @@ focus of this guide is on getting data into Logfire so you can leverage it in th
 introduction to the Logfire Web UI and show you how to interact with the data you're generating.
 
 !!! note
-
   For a more comprehensive walkthrough of the Logfire Web UI and its features, you may be interested in our [Logfire Web UI Guide](../web-ui/live.md).
 
 Let's get started! :rocket:

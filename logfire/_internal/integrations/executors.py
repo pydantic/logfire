@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import pickle
 from dataclasses import asdict
 from functools import partial
 from typing import Any, Callable
 
 from logfire.propagate import ContextCarrier, attach_context, get_context
+
+from ..stack_info import warn_at_user_stacklevel
 
 try:
     # concurrent.futures does not work in pyodide
@@ -55,17 +58,40 @@ except ImportError:  # pragma: no cover
         pass
 
 
-def serialize_config() -> dict[str, Any]:
+def serialize_config() -> dict[str, Any] | None:
+    """Serialize the global config for transmission to child processes.
+
+    Returns None if the config cannot be pickled, in which case a warning is emitted.
+    See: https://github.com/pydantic/logfire/issues/1556
+    """
     from ..config import GLOBAL_CONFIG
 
     # note: since `logfire.config._LogfireConfigData` is a dataclass
     # but `LogfireConfig` is not we only get the attributes from `_LogfireConfigData`
     # which is what we want here!
-    return asdict(GLOBAL_CONFIG)
+    config_dict = asdict(GLOBAL_CONFIG)
+
+    try:
+        pickle.dumps(config_dict)
+    except Exception:
+        warn_at_user_stacklevel(
+            'The Logfire configuration cannot be pickled and will not be automatically '
+            'sent to child processes. You will need to manually call logfire.configure() '
+            'in each child process. This typically happens when using local functions '
+            'as callbacks (e.g., exception_callback).',
+            UserWarning,
+        )
+        return None
+
+    return config_dict
 
 
-def deserialize_config(config: dict[str, Any]) -> None:
+def deserialize_config(config: dict[str, Any] | None) -> None:
+    """Deserialize a config dict and apply it to the global config."""
     from ..config import GLOBAL_CONFIG, configure
+
+    if config is None:
+        return
 
     if not GLOBAL_CONFIG._initialized:  # type: ignore
         configure(**config)

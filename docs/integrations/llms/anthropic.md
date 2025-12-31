@@ -105,7 +105,7 @@ Shows up like this in Logfire:
 
 ## Amazon Bedrock
 
-You can also log Anthropic LLM calls to Amazon Bedrock using the `AmazonBedrock` and `AsyncAmazonBedrock` clients.
+You can also log Anthropic LLM calls to Amazon Bedrock using the `AnthropicBedrock` and `AsyncAnthropicBedrock` clients.
 
 ```python
 import anthropic

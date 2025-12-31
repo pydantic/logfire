@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 from dirty_equals import IsJson, IsPartialDict
 from inline_snapshot import snapshot
-from opentelemetry._events import Event, get_event_logger
+from opentelemetry._logs import LogRecord, get_logger
 from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 from opentelemetry.sdk.environment_variables import OTEL_RESOURCE_ATTRIBUTES
 from opentelemetry.trace.propagation import get_current_span
@@ -78,18 +78,18 @@ def test_scrub_attribute(exporter: TestExporter):
 
 
 def test_scrub_log_event_attribute(logs_exporter: TestLogExporter):
-    get_event_logger(__name__).emit(
-        Event(
-            name='Password: {user_password}',
-            attributes=dict(
-                user_password=['hunter2'],
-                mode='password',
-                modes='passwords',
-                Author='Alice1',
-                authors='Alice2',
-                authr='Alice3',
-                authorization='Alice4',
-            ),
+    get_logger(__name__).emit(
+        LogRecord(
+            attributes={
+                'event.name': 'Password: {user_password}',
+                'user_password': ['hunter2'],
+                'mode': 'password',
+                'modes': 'passwords',
+                'Author': 'Alice1',
+                'authors': 'Alice2',
+                'authr': 'Alice3',
+                'authorization': 'Alice4',
+            },
         )
     )
     # We redact:
@@ -104,7 +104,7 @@ def test_scrub_log_event_attribute(logs_exporter: TestLogExporter):
         [
             {
                 'body': None,
-                'severity_number': 9,
+                'severity_number': None,
                 'severity_text': None,
                 'attributes': {
                     'user_password': ("[Scrubbed due to 'password']",),
@@ -274,7 +274,9 @@ def test_scrubbing_config(exporter: TestExporter, logs_exporter: TestLogExporter
     # Note the values (or lack thereof) of each of these attributes in the exported span.
     logfire.info('hi', my_password='hunter2', other='matches_my_pattern', bad_value='the_password')
 
-    get_event_logger(__name__).emit(Event(name='hi', attributes=dict(my_password='hunter2', bad_value='the_password')))
+    get_logger(__name__).emit(
+        LogRecord(attributes={'my_password': 'hunter2', 'bad_value': 'the_password', 'event.name': 'hi'})
+    )
 
     assert exporter.exported_spans_as_dict() == snapshot(
         [
@@ -311,7 +313,7 @@ def test_scrubbing_config(exporter: TestExporter, logs_exporter: TestLogExporter
         [
             {
                 'body': None,
-                'severity_number': 9,
+                'severity_number': None,
                 'severity_text': None,
                 'attributes': {
                     'my_password': (
@@ -357,8 +359,8 @@ def test_disable_scrubbing(exporter: TestExporter, logs_exporter: TestLogExporte
     assert isinstance(config.scrubber, NoopScrubber)
 
     logfire.info('Password: {user_password}', user_password='my secret password')
-    get_event_logger(__name__).emit(
-        Event(name='Password: {user_password}', attributes=dict(user_password='my secret password'))
+    get_logger(__name__).emit(
+        LogRecord(attributes={'user_password': 'my secret password', 'event.name': 'Password: {user_password}'})
     )
     assert exporter.exported_spans_as_dict() == snapshot(
         [
@@ -386,7 +388,7 @@ def test_disable_scrubbing(exporter: TestExporter, logs_exporter: TestLogExporte
         [
             {
                 'body': None,
-                'severity_number': 9,
+                'severity_number': None,
                 'severity_text': None,
                 'attributes': {
                     'user_password': 'my secret password',

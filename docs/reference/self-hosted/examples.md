@@ -28,16 +28,16 @@ For Azure, we recommend creating an [OpenID connector](https://dexidp.io/docs/co
 It should look something like this:
 ```yaml
     logfire-dex:
-    ...
-      connectors:
-      - type: oidc
-        id: azuread
-        name: Microsoft
-        config:
-          issuer: https://login.microsoftonline.com/<tenant_id>/v2.0
-          clientID: <App client ID>
-          clientSecret: <Client secret value>
-          insecureSkipEmailVerified: true
+      config:
+        connectors:
+        - type: oidc
+          id: azuread
+          name: Microsoft
+          config:
+            issuer: https://login.microsoftonline.com/<tenant_id>/v2.0
+            clientID: <App client ID>
+            clientSecret: <Client secret value>
+            insecureSkipEmailVerified: true
 ```
 
 ### Github
@@ -60,7 +60,6 @@ For GitHub you can use the [GitHub connector](https://dexidp.io/docs/connectors/
 - On your values file:
     ```yaml
       logfire-dex:
-      ...
         config:
           connectors:
           - type: github
@@ -93,7 +92,6 @@ we recommend creating an [OpenID connector](https://dexidp.io/docs/connectors/oi
 - Now, finish the configuration on your Helm values file, it should look something like this:
     ```yaml
       logfire-dex:
-      ...
         config:
           connectors:
           - type: oidc
@@ -102,6 +100,6 @@ we recommend creating an [OpenID connector](https://dexidp.io/docs/connectors/oi
             config:
               issuer: <Issuer_URL> ### This is the URL from the Sign On tab
               clientID: <Client ID>
-              clientSecret: <Client Secret Value>
+              clientSecret: <Client secret value>
               insecureSkipEmailVerified: true
     ```

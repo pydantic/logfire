@@ -29,7 +29,7 @@ from opentelemetry.propagate import get_global_textmap
 from opentelemetry.propagators.composite import CompositePropagator
 from opentelemetry.sdk._logs import LogRecordProcessor
 from opentelemetry.sdk._logs._internal import SynchronousMultiLogRecordProcessor
-from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, LogExporter, SimpleLogRecordProcessor
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, LogRecordExporter, SimpleLogRecordProcessor
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader, PeriodicExportingMetricReader
 from opentelemetry.sdk.trace import ReadableSpan, SpanProcessor, SynchronousMultiSpanProcessor
 from opentelemetry.sdk.trace.export import (
@@ -582,7 +582,7 @@ def get_batch_span_exporter(processor: SpanProcessor) -> SpanExporter:
     return exporter  # type: ignore
 
 
-def get_batch_log_exporter(processor: LogRecordProcessor) -> LogExporter:
+def get_batch_log_exporter(processor: LogRecordProcessor) -> LogRecordExporter:
     assert isinstance(processor, BatchLogRecordProcessor)
     return processor._batch_processor._exporter  # type: ignore
 
@@ -846,6 +846,7 @@ def test_config_serializable():
         sampling=logfire.SamplingOptions(),
         scrubbing=logfire.ScrubbingOptions(),
         code_source=logfire.CodeSource(repository='https://github.com/pydantic/logfire', revision='main'),
+        advanced=logfire.AdvancedOptions(id_generator=SeededRandomIdGenerator(seed=42)),
     )
 
     for field in dataclasses.fields(GLOBAL_CONFIG):
@@ -856,9 +857,11 @@ def test_config_serializable():
         )
 
     serialized = serialize_config()
+    assert serialized is not None  # Config should be picklable in this test
     GLOBAL_CONFIG._initialized = False  # type: ignore  # ensure deserialize_config actually configures
     deserialize_config(serialized)
     serialized2 = serialize_config()
+    assert serialized2 is not None  # Config should be picklable in this test
 
     def normalize(s: dict[str, Any]) -> dict[str, Any]:
         for value in s.values():
@@ -872,6 +875,7 @@ def test_config_serializable():
     assert isinstance(GLOBAL_CONFIG.scrubbing, logfire.ScrubbingOptions)
     assert isinstance(GLOBAL_CONFIG.advanced, logfire.AdvancedOptions)
     assert isinstance(GLOBAL_CONFIG.advanced.id_generator, SeededRandomIdGenerator)
+    assert GLOBAL_CONFIG.advanced.id_generator.seed == 42
 
 
 def test_config_serializable_console_false():
@@ -880,6 +884,33 @@ def test_config_serializable_console_false():
 
     deserialize_config(serialize_config())
     assert GLOBAL_CONFIG.console is False
+
+
+def test_serialize_config_unpicklable():
+    """Test serialize_config when config cannot be pickled."""
+    from logfire._internal.tracer import record_exception
+    from logfire.types import ExceptionCallbackHelper
+
+    def local_exception_callback(helper: ExceptionCallbackHelper) -> None:
+        pass
+
+    logfire.configure(
+        send_to_logfire=False,
+        advanced=logfire.AdvancedOptions(exception_callback=local_exception_callback),
+    )
+
+    # Call the callback to cover the pass statement
+    with logfire.span('test') as span:
+        try:
+            raise ValueError('test')
+        except ValueError as e:
+            record_exception(span._span, e, callback=GLOBAL_CONFIG.advanced.exception_callback)  # type: ignore
+
+    with pytest.warns(UserWarning, match='cannot be pickled'):
+        result = serialize_config()
+
+    assert result is None
+    deserialize_config(None)
 
 
 def test_config_console_output_set():
@@ -986,7 +1017,7 @@ def test_initialize_project_use_existing_project(tmp_dir_cwd: Path, tmp_path: Pa
         ]
         assert prompt_mock.mock_calls == [
             call(
-                'Please select one of the following projects by number:\n1. fake_org/fake_project\n',
+                "Please select one of the following projects by number (requires the 'write_token' permission):\n1. fake_org/fake_project\n",
                 choices=['1'],
                 default='1',
             ),
