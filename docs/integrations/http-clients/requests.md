@@ -1,7 +1,8 @@
 ---
+title: "Logfire Requests Integration: Setup Guide"
+description: Learn how to use the logfire.instrument_requests() method to instrument requests with Logfire.
 integration: otel
 ---
-
 # Requests
 
 The [`logfire.instrument_requests()`][logfire.Logfire.instrument_requests] method can be used to

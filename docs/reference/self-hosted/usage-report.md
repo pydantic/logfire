@@ -1,3 +1,7 @@
+---
+title: "Self-Hosted Logfire: Download Usage Report"
+description: "Guide for generating and downloading a Logfire usage report for self-hosted Logfire instances."
+---
 # Download Usage Report
 
 This page shows you how to download your usage report from your self-hosted logfire instance.

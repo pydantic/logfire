@@ -1,3 +1,7 @@
+---
+title: How to use Alternative Backends with Logfire
+description: Learn how to connect Logfire to any backend that supports OpenTelemetry using environment variables.
+---
 # Alternative backends
 
 **Logfire** uses the OpenTelemetry standard. This means that you can configure the SDK to export to any backend that supports OpenTelemetry.

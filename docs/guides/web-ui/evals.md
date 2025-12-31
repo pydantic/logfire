@@ -1,3 +1,7 @@
+---
+title: "Logfire Evals: View & Analyze Evaluation Results"
+description: "Logfire Evals provides observability into how your AI systems perform. View, compare and analyze evaluation results in the Pydantic web UI."
+---
 # Evals (beta)
 
 View and analyze your evaluation results in Pydantic Logfire's web interface. Evals provide observability into how your AI systems perform across different test cases and experiments over time.

@@ -1,3 +1,7 @@
+---
+title: Logfire Guide for Writing SQL Queries for Dashboards
+description: "Practical recipes and patterns for writing SQL queries in Logfire with focus on querying the records table, which contains logs and spans."
+---
 # Writing SQL Queries for Dashboards
 
 This guide provides practical recipes and patterns for writing useful SQL queries in **Logfire**. We'll focus on querying the [`records`](../reference/sql.md#records-columns) table, which contains your logs and spans. The goal is to help you create useful dashboards, but we recommend using the Explore view to learn and experiment.

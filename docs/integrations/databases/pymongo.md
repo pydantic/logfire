@@ -1,7 +1,8 @@
 ---
+title: "Logfire PyMongo Integration & Setup Guide"
+description: "Gain observability for your PyMongo stack. Leverage Logfire to trace every insert, find, and update operation in MongoDB. Step-by-step setup guide."
 integration: otel
 ---
-
 The [`logfire.instrument_pymongo()`][logfire.Logfire.instrument_pymongo] method will create a span for every operation performed using your [PyMongo][pymongo] clients.
 
 !!! success "Also works with Motor... 🚗"

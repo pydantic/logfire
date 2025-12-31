@@ -1,7 +1,8 @@
 ---
+title: "Logfire SQLite3 Integration & Setup Guide"
+description: Guide on how to use the logfire.instrument_sqlite3() method to instrument the sqlite3 standard library module to create spans for each SQL query executed.
 integration: otel
 ---
-
 # SQLite3
 
 The [`logfire.instrument_sqlite3()`][logfire.Logfire.instrument_sqlite3] method can be used to instrument the

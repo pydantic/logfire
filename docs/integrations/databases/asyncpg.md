@@ -1,7 +1,8 @@
 ---
+title: "Logfire Asyncpg Integration & Setup Guide"
+description: "Step-by-step installation guide for instrumenting asyncpg with Logfire using the logfire.instrument_asyncpg() function."
 integration: otel
 ---
-
 # asyncpg
 
 The [`logfire.instrument_asyncpg()`][logfire.Logfire.instrument_asyncpg] function can be used to instrument the [asyncpg][asyncpg] PostgreSQL driver with **Logfire**.
