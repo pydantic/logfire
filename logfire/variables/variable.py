@@ -63,12 +63,12 @@ class Variable(Generic[T]):
 
     name: str
     """Unique name identifying this variable."""
-    description: str | None = None
-    """Description of the variable."""
-    default: T | ResolveFunction[T]
-    """Default value or function to compute the default."""
     value_type: type[T] | None = None
     """The expected type of this variable's values."""
+    default: T | ResolveFunction[T]
+    """Default value or function to compute the default."""
+    description: str | None = None
+    """Description of the variable."""
 
     logfire_instance: logfire.Logfire
     """The Logfire instance this variable is associated with."""
@@ -77,22 +77,23 @@ class Variable(Generic[T]):
         self,
         name: str,
         *,
-        default: T | ResolveFunction[T],
         type: type[T],
-        logfire_instance: logfire.Logfire,
+        default: T | ResolveFunction[T],
         description: str | None = None,
+        logfire_instance: logfire.Logfire,
     ):
         """Create a new managed variable.
 
         Args:
             name: Unique name identifying this variable.
+            type: The expected type of this variable's values, used for validation.
             default: Default value to use when no configuration is found, or a function
                 that computes the default based on targeting_key and attributes.
-            type: The expected type of this variable's values, used for validation.
-            logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
             description: Optional human-readable description of what this variable controls.
+            logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
         """
         self.name = name
+        self.value_type = type
         self.default = default
         self.description = description
 

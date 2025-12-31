@@ -2397,6 +2397,95 @@ class Logfire:
         """Get all variables registered with this Logfire instance."""
         return list(self._variables.values())
 
+    # TODO: Should we drop this method and just require users to manually write out the code it currently contains?
+    def push_variables(
+        self,
+        variables: list[Variable[Any]] | None = None,
+        *,
+        dry_run: bool = False,
+        yes: bool = False,
+        strict: bool = False,
+    ) -> bool:
+        """Push variable definitions to the configured variable provider.
+
+        This method syncs local variable definitions with the provider:
+        - Creates new variables that don't exist in the provider
+        - Updates JSON schemas for existing variables if they've changed
+        - Warns about existing variants that are incompatible with new schemas
+
+        The provider is determined by the Logfire configuration. For remote providers,
+        this requires proper authentication (via RemoteVariablesConfig or LOGFIRE_API_TOKEN).
+
+        Args:
+            variables: Variable instances to push. If None, all variables
+                registered with this Logfire instance will be pushed.
+            dry_run: If True, only show what would change without applying.
+            yes: If True, skip confirmation prompt.
+            strict: If True, fail if any existing variants are incompatible with new schemas.
+
+        Returns:
+            True if changes were applied (or would be applied in dry_run mode), False otherwise.
+
+        Example:
+            ```python
+            import logfire
+
+            feature_enabled = logfire.var(name='feature-enabled', type=bool, default=False)
+            max_retries = logfire.var(name='max-retries', type=int, default=3)
+
+            if __name__ == '__main__':
+                # Push all registered variables
+                logfire.push_variables()
+
+                # Or push specific variables only
+                logfire.push_variables([feature_enabled])
+            ```
+        """
+        if variables is None:
+            variables = self.get_variables()
+
+        provider = self.config.get_variable_provider()
+        return provider.push_variables(variables, dry_run=dry_run, yes=yes, strict=strict)
+
+    # TODO: Should we drop this method and just require users to manually write out the code it currently contains?
+    def validate_variables(
+        self,
+        variables: list[Variable[Any]] | None = None,
+    ) -> bool:
+        """Validate that provider-side variable variants match local type definitions.
+
+        This method fetches the current variable configuration from the provider and
+        validates that all variant values can be deserialized to the expected types
+        defined in the local Variable instances.
+
+        Args:
+            variables: Variable instances to validate. If None, all variables
+                registered with this Logfire instance will be validated.
+
+        Returns:
+            True if all variables validated successfully, False if there were errors.
+
+        Example:
+            ```python
+            import logfire
+
+            feature_enabled = logfire.var(name='feature-enabled', type=bool, default=False)
+            max_retries = logfire.var(name='max-retries', type=int, default=3)
+
+            if __name__ == '__main__':
+                # Validate all registered variables
+                logfire.validate_variables()
+
+                # Or validate specific variables only
+                logfire.validate_variables([feature_enabled])
+            ```
+        """
+        if variables is None:
+            variables = self.get_variables()
+
+        provider = self.config.get_variable_provider()
+        return provider.validate_variables(variables)
+
 
 class FastLogfireSpan:
     """A simple version of `LogfireSpan` optimized for auto-tracing."""
