@@ -1,7 +1,8 @@
 ---
+title: Pydantic Logfire Next.js Integration
+description: "Trace your Next.js application end-to-end. Implement both Server-Side & Client-Side instrumentation for full visibility into SSR & API routes with Logfire."
 integration: logfire
 ---
-
 # Next.js
 
 ## Server-side Instrumentation

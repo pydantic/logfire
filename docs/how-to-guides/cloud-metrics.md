@@ -1,3 +1,7 @@
+---
+title: Collecting Metrics from Cloud Providers via Logfire
+description: "Collect AWS & GCP cloud metrics via the OTel Collector. This guide outlines how to collect metrics from your cloud provider to centralize them in Logfire."
+---
 # Collecting Metrics from Cloud Providers
 
 Cloud metrics provide valuable insights into the performance, health, and usage of your cloud infrastructure. By collecting metrics from your cloud provider and centralizing them in Logfire, you can create a single pane of glass for monitoring your entire infrastructure stack.

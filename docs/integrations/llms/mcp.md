@@ -1,4 +1,6 @@
 ---
+title: Pydantic Logfire MCP Integration
+description: "Example for instrumenting the MCP Python SDK with the logfire.instrument_mcp() method using Logfire. Suitable for client- and server-side usage scenarios."
 integration: logfire
 ---
 # Model Context Protocol (MCP)

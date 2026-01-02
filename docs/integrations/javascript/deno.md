@@ -1,7 +1,8 @@
 ---
-integration: third-party
+title: Pydantic Logfire Deno Integration
+description: Learn how to configure Deno to export OpenTelemetry data to Logfire through environment variables.
+integration: "third-party"
 ---
-
 # Deno
 
 Since v2.2, Deno has

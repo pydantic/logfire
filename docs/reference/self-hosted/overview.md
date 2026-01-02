@@ -1,3 +1,7 @@
+---
+title: "Logfire Self-Hosted: How to Deploy On-Premises"
+description: "Overview of benefits and requirements for deploying Pydantic Logfire in a self-hosted environment, including client configuration instructions."
+---
 # Self Hosted Introduction
 
 Logfire can be deployed on-premises using the official [Logfire Helm Chart](https://github.com/pydantic/logfire-helm-chart). This allows organizations the ability to fully manage their own data.

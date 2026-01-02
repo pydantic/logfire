@@ -1,3 +1,7 @@
+---
+title: Pydantic Logfire Sampling Guide
+description: "Master log sampling strategies: Use head or tail sampling to control data volume and cost. Preserve Logfire span traces based on duration or error level."
+---
 # Sampling
 
 Sampling is the practice of discarding some traces or spans in order to reduce the amount of data that needs to be

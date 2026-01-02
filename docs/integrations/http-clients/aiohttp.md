@@ -1,7 +1,8 @@
 ---
+title: "Logfire AIOHTTP Client Integration: Setup Guide"
+description: Trace all AIOHTTP requests with Logfire. The logfire.instrument_celery() method will create a span for every task executed by your Celery workers.
 integration: otel
 ---
-
 # AIOHTTP Client
 
 [AIOHTTP][aiohttp] is an asynchronous HTTP client/server framework for asyncio and Python.

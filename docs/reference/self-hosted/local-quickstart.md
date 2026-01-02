@@ -1,3 +1,7 @@
+---
+title: How to set up Logfire instances on Kubernetes
+description: "This guide provides a path for setting up a local Logfire instance on Kubernetes to test, prototype and evaluate Logfire as part of an enterprise trial."
+---
 # Local Quickstart for Enterprise
 
 This guide provides a fast path for setting up a local Logfire instance on Kubernetes to test, prototype, and evaluate the product

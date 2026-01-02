@@ -1,3 +1,7 @@
+---
+title: Combining Multiple Configurations in Logfire
+description: Guide for setting up different Logfire configurations for different parts of your application via logfire.configure().
+---
 Sometimes you need different Logfire configurations for different parts of your application. You can do this with [`logfire.configure(local=True, ...)`][logfire.configure(local)].
 
 For example, here's how to disable console logging for database operations while keeping it enabled for other parts:

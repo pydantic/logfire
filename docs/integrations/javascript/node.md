@@ -1,7 +1,8 @@
 ---
+title: Pydantic Logfire Node.js Integration
+description: "Get structured logging for Node.js with Logfire. Learn how to install and configure the @pydantic/logfire-node package for Node.js applications."
 integration: logfire
 ---
-
 # Node.js
 
 Using Logfire in your Node.js script is straightforward. You need to [get a write token](https://logfire.pydantic.dev/docs/how-to-guides/create-write-tokens/), install the package, configure it, and use the provided API.
