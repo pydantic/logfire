@@ -233,11 +233,8 @@ class TestRollout:
 
     def test_validation_sum_exceeds_one(self):
         # Note: Validation only runs when using TypeAdapter (not direct instantiation)
-        from pydantic import TypeAdapter
-
-        adapter = TypeAdapter(Rollout)
         with pytest.raises(ValidationError, match='Variant proportions must not sum to more than 1'):
-            adapter.validate_python({'variants': {'v1': 0.6, 'v2': 0.6}})
+            VariableConfig.validate_python({'rollout': {'variants': {'v1': 0.6, 'v2': 0.6}}})
 
 
 # =============================================================================
