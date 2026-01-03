@@ -35,13 +35,13 @@ T_co = TypeVar('T_co', covariant=True)
 
 if not TYPE_CHECKING:
     if sys.version_info < (3, 10):
+        _dataclass = dataclass
+
         # TODO: Drop this when we drop support for python 3.9
         # Prevent errors when using kw_only with dataclasses in Python<3.10
-        def _dataclass_drop_kw_only(*args, **kwargs):
+        def dataclass(*args, **kwargs):
             kwargs.pop('kw_only', None)
-            return dataclass(*args, **kwargs)
-
-        dataclass = _dataclass_drop_kw_only
+            return _dataclass(*args, **kwargs)
 
 
 class VariableWriteError(Exception):
