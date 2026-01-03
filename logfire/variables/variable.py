@@ -27,7 +27,7 @@ T = TypeVar('T')
 T_co = TypeVar('T_co', covariant=True)
 
 
-_VARIABLE_OVERRIDES = ContextVar[dict[str, Any] | None]('_VARIABLE_OVERRIDES', default=None)
+_VARIABLE_OVERRIDES: ContextVar[dict[str, Any] | None] = ContextVar('_VARIABLE_OVERRIDES', default=None)
 
 _DEFAULT_SENTINEL = object()
 
