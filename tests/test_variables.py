@@ -428,11 +428,8 @@ class TestVariableConfig:
         assert None in keys
 
     def test_validation_invalid_variant_key(self):
-        from pydantic import TypeAdapter
-
-        adapter = TypeAdapter(VariableConfig)
         with pytest.raises(ValidationError, match='invalid lookup key'):
-            adapter.validate_python(
+            VariableConfig.validate_python(
                 {
                     'name': 'test',
                     'variants': {
@@ -444,11 +441,8 @@ class TestVariableConfig:
             )
 
     def test_validation_rollout_references_missing_variant(self):
-        from pydantic import TypeAdapter
-
-        adapter = TypeAdapter(VariableConfig)
         with pytest.raises(ValidationError, match="Variant 'missing' present in `rollout.variants` is not present"):
-            adapter.validate_python(
+            VariableConfig.validate_python(
                 {
                     'name': 'test',
                     'variants': {
@@ -460,11 +454,8 @@ class TestVariableConfig:
             )
 
     def test_validation_override_references_missing_variant(self):
-        from pydantic import TypeAdapter
-
-        adapter = TypeAdapter(VariableConfig)
         with pytest.raises(ValidationError, match="Variant 'missing' present in `overrides"):
-            adapter.validate_python(
+            VariableConfig.validate_python(
                 {
                     'name': 'test',
                     'variants': {
@@ -501,11 +492,8 @@ class TestVariablesConfig:
         assert 'my_var' in config.variables
 
     def test_validation_invalid_variable_key(self):
-        from pydantic import TypeAdapter
-
-        adapter = TypeAdapter(VariablesConfig)
         with pytest.raises(ValidationError, match='invalid lookup key'):
-            adapter.validate_python(
+            VariablesConfig.validate_python(
                 {
                     'variables': {
                         'wrong_key': {
