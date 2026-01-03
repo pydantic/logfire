@@ -85,10 +85,6 @@ class ResolvedVariable(Generic[T_co]):
     """The name of the variable."""
     value: T_co
     """The resolved value of the variable."""
-    variant: str | None = None
-    """The key of the selected variant, if any."""
-    exception: Exception | None = None
-    """Any exception that occurred during resolution."""
     _reason: Literal[
         'resolved',
         'context_override',
@@ -99,6 +95,12 @@ class ResolvedVariable(Generic[T_co]):
         'no_provider',
     ]  # we might eventually make this public, but I didn't want to yet
     """Internal field indicating how the value was resolved."""
+    # Note: I had to put _reason before fields with defaults for the sake of Python 3.9
+    # TODO: Move to the end when we drop support for 3.9
+    variant: str | None = None
+    """The key of the selected variant, if any."""
+    exception: Exception | None = None
+    """Any exception that occurred during resolution."""
 
     def __post_init__(self):
         self._exit_stack = ExitStack()
