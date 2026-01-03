@@ -2,9 +2,10 @@ from __future__ import annotations as _annotations
 
 import random
 import re
+import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Annotated, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 from pydantic import Discriminator, TypeAdapter, ValidationError, field_validator, model_validator
 from typing_extensions import TypeAliasType
@@ -29,6 +30,16 @@ __all__ = (
     'VariablesConfig',
     'Variant',
 )
+
+if not TYPE_CHECKING:
+    if sys.version_info < (3, 10):
+        # TODO: Drop this when we drop support for python 3.9
+        # Prevent errors when using kw_only with dataclasses in Python<3.10
+        def _dataclass_drop_kw_only(*args, **kwargs):
+            kwargs.pop('kw_only', None)
+            return dataclass(*args, **kwargs)
+
+        dataclass = _dataclass_drop_kw_only
 
 
 @dataclass(kw_only=True)

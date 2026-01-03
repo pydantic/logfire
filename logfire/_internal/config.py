@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from pathlib import Path
 from threading import RLock, Thread
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Literal, TypedDict, assert_type
 from urllib.parse import urljoin
 from uuid import uuid4
 
@@ -1178,32 +1178,35 @@ class LogfireConfig(_LogfireConfigData):
             )  # note: this may raise an Exception if it times out, call `logfire.shutdown` first
             self._meter_provider.set_meter_provider(meter_provider)
 
-            from logfire.variables import LocalVariableProvider, LogfireRemoteVariableProvider, VariablesConfig
-
             self._variable_provider.shutdown()
-            if isinstance(self.variables.config, VariableProvider):
-                self._variable_provider = self.variables.config
-            elif isinstance(self.variables.config, VariablesConfig):
-                self._variable_provider = LocalVariableProvider(self.variables.config)
-            elif isinstance(self.variables.config, RemoteVariablesConfig):
-                remote_config = self.variables.config
-                # Load api_token from config or environment variable
-                # Only API tokens can be used for the variables API (not write tokens)
-                api_token = remote_config.api_token or self.param_manager.load_param('api_token')
-                if not api_token:
-                    raise LogfireConfigError(
-                        'Remote variables require an API token. '
-                        'Set the LOGFIRE_API_TOKEN environment variable or pass api_token to RemoteVariablesConfig.'
-                    )
-                # Determine base URL: prefer config, then advanced settings, then infer from token
-                base_url = remote_config.base_url or self.advanced.base_url or get_base_url_from_token(api_token)
-                self._variable_provider = LogfireRemoteVariableProvider(
-                    base_url=base_url,
-                    token=api_token,
-                    config=remote_config,
-                )
-            elif self.variables.config is None:
+            if self.variables.config is None:
                 self._variable_provider = NoOpVariableProvider()
+            else:
+                # Need to move the imports here to prevent errors if pydantic is not installed
+                from logfire.variables import LocalVariableProvider, LogfireRemoteVariableProvider, VariablesConfig
+
+                if isinstance(self.variables.config, VariableProvider):
+                    self._variable_provider = self.variables.config
+                elif isinstance(self.variables.config, VariablesConfig):
+                    self._variable_provider = LocalVariableProvider(self.variables.config)
+                else:
+                    assert_type(self.variables.config, RemoteVariablesConfig)
+                    remote_config = self.variables.config
+                    # Load api_token from config or environment variable
+                    # Only API tokens can be used for the variables API (not write tokens)
+                    api_token = remote_config.api_token or self.param_manager.load_param('api_token')
+                    if not api_token:
+                        raise LogfireConfigError(
+                            'Remote variables require an API token. '
+                            'Set the LOGFIRE_API_TOKEN environment variable or pass api_token to RemoteVariablesConfig.'
+                        )
+                    # Determine base URL: prefer config, then advanced settings, then infer from token
+                    base_url = remote_config.base_url or self.advanced.base_url or get_base_url_from_token(api_token)
+                    self._variable_provider = LogfireRemoteVariableProvider(
+                        base_url=base_url,
+                        token=api_token,
+                        config=remote_config,
+                    )
 
             multi_log_processor = SynchronousMultiLogRecordProcessor()
             for processor in log_record_processors:
