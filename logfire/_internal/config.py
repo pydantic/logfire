@@ -729,7 +729,14 @@ class _LogfireConfigData:
 
         if isinstance(variables, dict):
             # This is particularly for deserializing from a dict as in executors.py
-            variables = VariablesOptions(**variables)  # type: ignore
+            config = variables.pop('config', None)  # type: ignore
+            if isinstance(config, dict):
+                if 'variables' in config:
+                    config = VariablesConfig(**config)  # type: ignore
+                else:
+                    config = RemoteVariablesConfig(**config)  # type: ignore
+            variables = VariablesOptions(config=config, **variables)  # type: ignore
+
         elif variables is None:
             variables = VariablesOptions()
         self.variables = variables
