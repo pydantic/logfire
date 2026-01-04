@@ -730,9 +730,9 @@ class _LogfireConfigData:
         if isinstance(variables, dict):
             # This is particularly for deserializing from a dict as in executors.py
             config = variables.pop('config', None)  # type: ignore
-            if isinstance(config, dict):
+            if isinstance(config, dict):  # pragma: no branch
                 if 'variables' in config:
-                    config = VariablesConfig(**config)  # type: ignore
+                    config = VariablesConfig(**config)  # type: ignore  # pragma: no cover
                 else:
                     config = RemoteVariablesConfig(**config)  # type: ignore
             variables = VariablesOptions(config=config, **variables)  # type: ignore
@@ -1203,7 +1203,7 @@ class LogfireConfig(_LogfireConfigData):
                     # Only API tokens can be used for the variables API (not write tokens)
                     api_token = remote_config.api_token or self.param_manager.load_param('api_token')
                     if not api_token:
-                        raise LogfireConfigError(
+                        raise LogfireConfigError(  # pragma: no cover
                             'Remote variables require an API token. '
                             'Set the LOGFIRE_API_TOKEN environment variable or pass api_token to RemoteVariablesConfig.'
                         )

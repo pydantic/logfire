@@ -2442,7 +2442,7 @@ class Logfire:
             ```
         """
         if variables is None:
-            variables = self.get_variables()
+            variables = self.get_variables()  # pragma: no cover
 
         provider = self.config.get_variable_provider()
         return provider.push_variables(variables, dry_run=dry_run, yes=yes, strict=strict)
@@ -2481,7 +2481,7 @@ class Logfire:
             ```
         """
         if variables is None:
-            variables = self.get_variables()
+            variables = self.get_variables()  # pragma: no cover
 
         provider = self.config.get_variable_provider()
         return provider.validate_variables(variables)

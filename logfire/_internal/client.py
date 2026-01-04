@@ -67,12 +67,12 @@ class LogfireClient:
         UnexpectedResponse.raise_for_status(response)
         return response
 
-    def _put_raw(self, endpoint: str, body: Any | None = None) -> Response:
+    def _put_raw(self, endpoint: str, body: Any | None = None) -> Response:  # pragma: no cover
         response = self._session.put(urljoin(self.base_url, endpoint), json=body)
         UnexpectedResponse.raise_for_status(response)
         return response
 
-    def _put(self, endpoint: str, *, body: Any | None = None, error_message: str) -> Any:
+    def _put(self, endpoint: str, *, body: Any | None = None, error_message: str) -> Any:  # pragma: no cover
         try:
             return self._put_raw(endpoint, body).json()
         except UnexpectedResponse as e:

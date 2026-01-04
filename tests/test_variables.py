@@ -1380,19 +1380,19 @@ class TestVariableContextEnrichment:
 class TestIsResolveFunction:
     def test_valid_resolve_function(self):
         def valid_fn(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
-            return 'value'
+            return 'value'  # pragma: no cover
 
         assert is_resolve_function(valid_fn) is True
 
     def test_invalid_param_names(self):
         def invalid_fn(key: str | None, attrs: Mapping[str, Any] | None) -> str:
-            return 'value'
+            return 'value'  # pragma: no cover
 
         assert is_resolve_function(invalid_fn) is False
 
     def test_wrong_param_count(self):
         def wrong_count(targeting_key: str | None) -> str:
-            return 'value'
+            return 'value'  # pragma: no cover
 
         assert is_resolve_function(wrong_count) is False
 
@@ -1891,7 +1891,7 @@ class TestLogfireRemoteVariableProviderWriteOperations:
 
                 # Find the POST request
                 post_request = None
-                for req in request_mocker.request_history:
+                for req in request_mocker.request_history:  # pragma: no branch
                     if req.method == 'POST':
                         post_request = req
                         break
@@ -1936,7 +1936,7 @@ class TestLogfireRemoteVariableProviderWriteOperations:
 
                 # Find the POST request
                 post_request = None
-                for req in request_mocker.request_history:
+                for req in request_mocker.request_history:  # pragma: no branch
                     if req.method == 'POST':
                         post_request = req
                         break
@@ -2034,7 +2034,7 @@ class TestBaseVariableProviderWriteMethods:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
 
         provider = MinimalProvider()
         result = provider.get_all_variables_config()
@@ -2047,7 +2047,7 @@ class TestBaseVariableProviderWriteMethods:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
 
         provider = MinimalProvider()
         config = VariableConfig(
@@ -2067,7 +2067,7 @@ class TestBaseVariableProviderWriteMethods:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
 
         provider = MinimalProvider()
         config = VariableConfig(
@@ -2087,7 +2087,7 @@ class TestBaseVariableProviderWriteMethods:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
 
         provider = MinimalProvider()
         with pytest.warns(UserWarning, match='does not persist variable writes'):
@@ -2106,7 +2106,7 @@ class TestBaseVariableProviderWriteMethods:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
 
             def get_variable_config(self, name: str) -> VariableConfig | None:
                 return self.configs.get(name)

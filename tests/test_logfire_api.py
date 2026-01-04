@@ -292,11 +292,11 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('get_variables')
 
     assert hasattr(logfire_api, 'push_variables')
-    # NOTE: We don't call push_variables because it requires server connectivity.
+    logfire_api.push_variables()
     logfire__all__.remove('push_variables')
 
     assert hasattr(logfire_api, 'validate_variables')
-    # NOTE: We don't call validate_variables because it requires server connectivity.
+    logfire_api.validate_variables()
     logfire__all__.remove('validate_variables')
 
     # If it's not empty, it means that some of the __all__ members are not tested.
