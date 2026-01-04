@@ -35,11 +35,11 @@ if not TYPE_CHECKING:
     if sys.version_info < (3, 10):
         # TODO: Drop this when we drop support for python 3.9
         # Prevent errors when using kw_only with dataclasses in Python<3.10
-        def _dataclass_drop_kw_only(*args, **kwargs):
-            kwargs.pop('kw_only', None)
-            return dataclass(*args, **kwargs)
+        _original_dataclass = dataclass
 
-        dataclass = _dataclass_drop_kw_only
+        def dataclass(*args, **kwargs):
+            kwargs.pop('kw_only', None)
+            return _original_dataclass(*args, **kwargs)
 
 
 @dataclass(kw_only=True)
