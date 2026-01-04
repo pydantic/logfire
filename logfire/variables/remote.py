@@ -50,7 +50,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._session.headers.update({'Authorization': f'bearer {token}', 'User-Agent': UA_HEADER})
         self._block_before_first_fetch = block_before_first_resolve
         self._polling_interval: timedelta = (
-            timedelta(seconds=polling_interval) if isinstance(polling_interval, float | int) else polling_interval
+            timedelta(seconds=polling_interval) if isinstance(polling_interval, (float, int)) else polling_interval
         )
 
         self._reset_once = Once()
