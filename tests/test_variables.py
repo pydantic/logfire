@@ -2243,7 +2243,7 @@ class TestPushVariables:
         """Test push_variables with a function default (no default variant)."""
 
         def resolve_fn(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
-            return 'computed'
+            return 'computed'  # pragma: no cover
 
         provider = LocalVariableProvider(VariablesConfig(variables={}))
         lf = logfire.configure(**config_kwargs)
@@ -2483,7 +2483,7 @@ class TestPushValidateErrorHandling:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
 
             def refresh(self, force: bool = False):
                 raise RuntimeError('Refresh failed!')
@@ -2508,7 +2508,7 @@ class TestPushValidateErrorHandling:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
 
             def get_all_variables_config(self) -> VariablesConfig:
                 raise RuntimeError('Config fetch failed!')
@@ -2530,7 +2530,7 @@ class TestPushValidateErrorHandling:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
 
             def get_all_variables_config(self) -> VariablesConfig:
                 return VariablesConfig(variables={})
@@ -2553,7 +2553,7 @@ class TestPushValidateErrorHandling:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
 
             def refresh(self, force: bool = False):
                 raise RuntimeError('Refresh failed!')
@@ -2587,7 +2587,7 @@ class TestPushValidateErrorHandling:
             def get_serialized_value(
                 self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
             ) -> ResolvedVariable[str | None]:
-                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
 
             def get_all_variables_config(self) -> VariablesConfig:
                 raise RuntimeError('Config fetch failed!')
