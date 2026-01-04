@@ -1465,3 +1465,957 @@ class TestLogfireVarIntegration:
         assert details.value == 'fallback'
         assert details._reason == 'other_error'
         assert isinstance(details.exception, RuntimeError)
+
+
+# =============================================================================
+# Test LocalVariableProvider Write Operations
+# =============================================================================
+
+
+class TestLocalVariableProviderWriteOperations:
+    @pytest.fixture
+    def empty_config(self) -> VariablesConfig:
+        return VariablesConfig(variables={})
+
+    @pytest.fixture
+    def config_with_var(self) -> VariablesConfig:
+        return VariablesConfig(
+            variables={
+                'existing_var': VariableConfig(
+                    name='existing_var',
+                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                ),
+            }
+        )
+
+    def test_get_variable_config_existing(self, config_with_var: VariablesConfig):
+        provider = LocalVariableProvider(config_with_var)
+        result = provider.get_variable_config('existing_var')
+        assert result is not None
+        assert result.name == 'existing_var'
+
+    def test_get_variable_config_missing(self, config_with_var: VariablesConfig):
+        provider = LocalVariableProvider(config_with_var)
+        result = provider.get_variable_config('nonexistent')
+        assert result is None
+
+    def test_get_all_variables_config(self, config_with_var: VariablesConfig):
+        provider = LocalVariableProvider(config_with_var)
+        result = provider.get_all_variables_config()
+        assert 'existing_var' in result.variables
+
+    def test_create_variable_success(self, empty_config: VariablesConfig):
+        provider = LocalVariableProvider(empty_config)
+        new_config = VariableConfig(
+            name='new_var',
+            variants={'v1': Variant(key='v1', serialized_value='"new_value"')},
+            rollout=Rollout(variants={'v1': 1.0}),
+            overrides=[],
+        )
+        result = provider.create_variable(new_config)
+        assert result.name == 'new_var'
+        assert 'new_var' in provider._config.variables
+
+    def test_create_variable_already_exists(self, config_with_var: VariablesConfig):
+        from logfire.variables.abstract import VariableAlreadyExistsError
+
+        provider = LocalVariableProvider(config_with_var)
+        duplicate_config = VariableConfig(
+            name='existing_var',
+            variants={'v1': Variant(key='v1', serialized_value='"value"')},
+            rollout=Rollout(variants={'v1': 1.0}),
+            overrides=[],
+        )
+        with pytest.raises(VariableAlreadyExistsError, match="Variable 'existing_var' already exists"):
+            provider.create_variable(duplicate_config)
+
+    def test_update_variable_success(self, config_with_var: VariablesConfig):
+        provider = LocalVariableProvider(config_with_var)
+        updated_config = VariableConfig(
+            name='existing_var',
+            variants={'v2': Variant(key='v2', serialized_value='"updated_value"')},
+            rollout=Rollout(variants={'v2': 1.0}),
+            overrides=[],
+        )
+        result = provider.update_variable('existing_var', updated_config)
+        assert result.variants['v2'].serialized_value == '"updated_value"'
+
+    def test_update_variable_not_found(self, empty_config: VariablesConfig):
+        from logfire.variables.abstract import VariableNotFoundError
+
+        provider = LocalVariableProvider(empty_config)
+        new_config = VariableConfig(
+            name='nonexistent',
+            variants={'v1': Variant(key='v1', serialized_value='"value"')},
+            rollout=Rollout(variants={'v1': 1.0}),
+            overrides=[],
+        )
+        with pytest.raises(VariableNotFoundError, match="Variable 'nonexistent' not found"):
+            provider.update_variable('nonexistent', new_config)
+
+    def test_delete_variable_success(self, config_with_var: VariablesConfig):
+        provider = LocalVariableProvider(config_with_var)
+        provider.delete_variable('existing_var')
+        assert 'existing_var' not in provider._config.variables
+
+    def test_delete_variable_not_found(self, empty_config: VariablesConfig):
+        from logfire.variables.abstract import VariableNotFoundError
+
+        provider = LocalVariableProvider(empty_config)
+        with pytest.raises(VariableNotFoundError, match="Variable 'nonexistent' not found"):
+            provider.delete_variable('nonexistent')
+
+
+# =============================================================================
+# Test LogfireRemoteVariableProvider Write Operations
+# =============================================================================
+
+
+@pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
+class TestLogfireRemoteVariableProviderWriteOperations:
+    def test_get_variable_config_existing(self) -> None:
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            json={
+                'variables': {
+                    'my_var': {
+                        'name': 'my_var',
+                        'variants': {'v1': {'key': 'v1', 'serialized_value': '"value"'}},
+                        'rollout': {'variants': {'v1': 1.0}},
+                        'overrides': [],
+                    }
+                }
+            },
+        )
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=True, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                provider.refresh(force=True)
+                result = provider.get_variable_config('my_var')
+                assert result is not None
+                assert result.name == 'my_var'
+            finally:
+                provider.shutdown()
+
+    def test_get_variable_config_missing_when_no_config(self) -> None:
+        request_mocker = requests_mock_module.Mocker()
+        # First call to get variables returns empty, so _config stays None
+        request_mocker.get('http://localhost:8000/v1/variables/', status_code=500)
+        with warnings.catch_warnings(), request_mocker:
+            warnings.simplefilter('ignore', RuntimeWarning)
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=True, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                result = provider.get_variable_config('my_var')
+                assert result is None
+            finally:
+                provider.shutdown()
+
+    def test_get_all_variables_config_when_none(self) -> None:
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', status_code=500)
+        with warnings.catch_warnings(), request_mocker:
+            warnings.simplefilter('ignore', RuntimeWarning)
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=True, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                result = provider.get_all_variables_config()
+                assert result.variables == {}
+            finally:
+                provider.shutdown()
+
+    def test_get_all_variables_config_with_data(self) -> None:
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            json={
+                'variables': {
+                    'my_var': {
+                        'name': 'my_var',
+                        'variants': {'v1': {'key': 'v1', 'serialized_value': '"value"'}},
+                        'rollout': {'variants': {'v1': 1.0}},
+                        'overrides': [],
+                    }
+                }
+            },
+        )
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=True, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                provider.refresh(force=True)
+                result = provider.get_all_variables_config()
+                assert 'my_var' in result.variables
+            finally:
+                provider.shutdown()
+
+    def test_create_variable_success(self) -> None:
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        request_mocker.post('http://localhost:8000/v1/variables/', json={'name': 'new_var'})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                config = VariableConfig(
+                    name='new_var',
+                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                    description='Test variable',
+                    json_schema={'type': 'string'},
+                )
+                result = provider.create_variable(config)
+                assert result.name == 'new_var'
+            finally:
+                provider.shutdown()
+
+    def test_create_variable_already_exists(self) -> None:
+        from logfire.variables.abstract import VariableAlreadyExistsError
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        request_mocker.post('http://localhost:8000/v1/variables/', status_code=409, json={'error': 'Conflict'})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                config = VariableConfig(
+                    name='existing_var',
+                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                )
+                with pytest.raises(VariableAlreadyExistsError, match="Variable 'existing_var' already exists"):
+                    provider.create_variable(config)
+            finally:
+                provider.shutdown()
+
+    def test_create_variable_api_error(self) -> None:
+        from logfire.variables.abstract import VariableWriteError
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        request_mocker.post('http://localhost:8000/v1/variables/', status_code=500, json={'error': 'Server error'})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                config = VariableConfig(
+                    name='new_var',
+                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                )
+                with pytest.raises(VariableWriteError, match='Failed to create variable'):
+                    provider.create_variable(config)
+            finally:
+                provider.shutdown()
+
+    def test_update_variable_success(self) -> None:
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        request_mocker.put('http://localhost:8000/v1/variables/my_var/', json={'name': 'my_var'})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                config = VariableConfig(
+                    name='my_var',
+                    variants={'v2': Variant(key='v2', serialized_value='"updated"')},
+                    rollout=Rollout(variants={'v2': 1.0}),
+                    overrides=[],
+                )
+                result = provider.update_variable('my_var', config)
+                assert result.name == 'my_var'
+            finally:
+                provider.shutdown()
+
+    def test_update_variable_not_found(self) -> None:
+        from logfire.variables.abstract import VariableNotFoundError
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        request_mocker.put('http://localhost:8000/v1/variables/nonexistent/', status_code=404)
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                config = VariableConfig(
+                    name='nonexistent',
+                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                )
+                with pytest.raises(VariableNotFoundError, match="Variable 'nonexistent' not found"):
+                    provider.update_variable('nonexistent', config)
+            finally:
+                provider.shutdown()
+
+    def test_update_variable_api_error(self) -> None:
+        from logfire.variables.abstract import VariableWriteError
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        request_mocker.put('http://localhost:8000/v1/variables/my_var/', status_code=500)
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                config = VariableConfig(
+                    name='my_var',
+                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                )
+                with pytest.raises(VariableWriteError, match='Failed to update variable'):
+                    provider.update_variable('my_var', config)
+            finally:
+                provider.shutdown()
+
+    def test_delete_variable_success(self) -> None:
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        request_mocker.delete('http://localhost:8000/v1/variables/my_var/', status_code=204)
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                provider.delete_variable('my_var')  # Should not raise
+            finally:
+                provider.shutdown()
+
+    def test_delete_variable_not_found(self) -> None:
+        from logfire.variables.abstract import VariableNotFoundError
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        request_mocker.delete('http://localhost:8000/v1/variables/nonexistent/', status_code=404)
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                with pytest.raises(VariableNotFoundError, match="Variable 'nonexistent' not found"):
+                    provider.delete_variable('nonexistent')
+            finally:
+                provider.shutdown()
+
+    def test_delete_variable_api_error(self) -> None:
+        from logfire.variables.abstract import VariableWriteError
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        request_mocker.delete('http://localhost:8000/v1/variables/my_var/', status_code=500)
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                with pytest.raises(VariableWriteError, match='Failed to delete variable'):
+                    provider.delete_variable('my_var')
+            finally:
+                provider.shutdown()
+
+    def test_config_to_api_body_with_overrides(self) -> None:
+        """Test _config_to_api_body with various condition types."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        request_mocker.post('http://localhost:8000/v1/variables/', json={'name': 'test_var'})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                config = VariableConfig(
+                    name='test_var',
+                    variants={'v1': Variant(key='v1', serialized_value='"value"', description='variant desc')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[
+                        RolloutOverride(
+                            conditions=[
+                                ValueEquals(attribute='attr1', value='val1'),
+                                ValueIsIn(attribute='attr2', values=['a', 'b']),
+                                ValueMatchesRegex(attribute='attr3', pattern=r'test.*'),
+                            ],
+                            rollout=Rollout(variants={'v1': 1.0}),
+                        )
+                    ],
+                    description='Test description',
+                    json_schema={'type': 'string'},
+                )
+                provider.create_variable(config)
+
+                # Find the POST request
+                post_request = None
+                for req in request_mocker.request_history:
+                    if req.method == 'POST':
+                        post_request = req
+                        break
+
+                assert post_request is not None
+                body = post_request.json()
+                assert body['name'] == 'test_var'
+                assert body['description'] == 'Test description'
+                assert body['json_schema'] == {'type': 'string'}
+                assert 'overrides' in body
+                assert len(body['overrides']) == 1
+            finally:
+                provider.shutdown()
+
+
+# =============================================================================
+# Test VariablesConfig Alias Cycle Detection
+# =============================================================================
+
+
+class TestVariablesConfigAliases:
+    def test_alias_resolution_success(self):
+        """Test that aliases resolve correctly."""
+        config = VariablesConfig(
+            variables={
+                'new_name': VariableConfig(
+                    name='new_name',
+                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                ),
+            },
+            aliases={'old_name': 'new_name'},
+        )
+        # Access via alias
+        result = config.resolve_serialized_value('old_name')
+        assert result.value == '"value"'
+        assert result._reason == 'resolved'
+
+    def test_alias_chain_resolution(self):
+        """Test that alias chains resolve correctly."""
+        config = VariablesConfig(
+            variables={
+                'actual_name': VariableConfig(
+                    name='actual_name',
+                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                ),
+            },
+            aliases={'alias1': 'alias2', 'alias2': 'actual_name'},
+        )
+        # Access via alias chain
+        result = config.resolve_serialized_value('alias1')
+        assert result.value == '"value"'
+
+    def test_alias_cycle_detection(self):
+        """Test that alias cycles are handled gracefully."""
+        config = VariablesConfig(
+            variables={},
+            aliases={'a': 'b', 'b': 'c', 'c': 'a'},  # Cycle: a -> b -> c -> a
+        )
+        # Should return unrecognized_variable, not crash
+        result = config.resolve_serialized_value('a')
+        assert result.value is None
+        assert result._reason == 'unrecognized_variable'
+
+    def test_alias_to_nonexistent(self):
+        """Test alias pointing to nonexistent variable."""
+        config = VariablesConfig(
+            variables={},
+            aliases={'alias': 'nonexistent'},
+        )
+        result = config.resolve_serialized_value('alias')
+        assert result.value is None
+        assert result._reason == 'unrecognized_variable'
+
+
+# =============================================================================
+# Test Base VariableProvider Write Methods (warnings)
+# =============================================================================
+
+
+class TestBaseVariableProviderWriteMethods:
+    def test_get_variable_config_returns_none(self):
+        """Test default implementation returns None."""
+        provider = NoOpVariableProvider()
+        assert provider.get_variable_config('any') is None
+
+    def test_get_all_variables_config_returns_empty(self):
+        """Test default implementation returns empty config."""
+
+        class MinimalProvider(VariableProvider):
+            def get_serialized_value(
+                self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+            ) -> ResolvedVariable[str | None]:
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')
+
+        provider = MinimalProvider()
+        result = provider.get_all_variables_config()
+        assert result.variables == {}
+
+    def test_create_variable_warns(self):
+        """Test default create_variable emits warning."""
+
+        class MinimalProvider(VariableProvider):
+            def get_serialized_value(
+                self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+            ) -> ResolvedVariable[str | None]:
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')
+
+        provider = MinimalProvider()
+        config = VariableConfig(
+            name='test',
+            variants={'v1': Variant(key='v1', serialized_value='"value"')},
+            rollout=Rollout(variants={'v1': 1.0}),
+            overrides=[],
+        )
+        with pytest.warns(UserWarning, match='does not persist variable writes'):
+            result = provider.create_variable(config)
+        assert result.name == 'test'
+
+    def test_update_variable_warns(self):
+        """Test default update_variable emits warning."""
+
+        class MinimalProvider(VariableProvider):
+            def get_serialized_value(
+                self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+            ) -> ResolvedVariable[str | None]:
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')
+
+        provider = MinimalProvider()
+        config = VariableConfig(
+            name='test',
+            variants={'v1': Variant(key='v1', serialized_value='"value"')},
+            rollout=Rollout(variants={'v1': 1.0}),
+            overrides=[],
+        )
+        with pytest.warns(UserWarning, match='does not persist variable writes'):
+            result = provider.update_variable('test', config)
+        assert result.name == 'test'
+
+    def test_delete_variable_warns(self):
+        """Test default delete_variable emits warning."""
+
+        class MinimalProvider(VariableProvider):
+            def get_serialized_value(
+                self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+            ) -> ResolvedVariable[str | None]:
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')
+
+        provider = MinimalProvider()
+        with pytest.warns(UserWarning, match='does not persist variable writes'):
+            provider.delete_variable('test')
+
+    def test_batch_update_delegates(self):
+        """Test batch_update calls individual methods."""
+
+        class TrackingProvider(VariableProvider):
+            def __init__(self):
+                self.created: list[str] = []
+                self.updated: list[str] = []
+                self.deleted: list[str] = []
+                self.configs: dict[str, VariableConfig] = {}
+
+            def get_serialized_value(
+                self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+            ) -> ResolvedVariable[str | None]:
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')
+
+            def get_variable_config(self, name: str) -> VariableConfig | None:
+                return self.configs.get(name)
+
+            def create_variable(self, config: VariableConfig) -> VariableConfig:
+                self.created.append(config.name)
+                self.configs[config.name] = config
+                return config
+
+            def update_variable(self, name: str, config: VariableConfig) -> VariableConfig:
+                self.updated.append(name)
+                self.configs[name] = config
+                return config
+
+            def delete_variable(self, name: str) -> None:
+                self.deleted.append(name)
+                self.configs.pop(name, None)
+
+        provider = TrackingProvider()
+        # Pre-create an existing var
+        provider.configs['existing'] = VariableConfig(
+            name='existing',
+            variants={'v1': Variant(key='v1', serialized_value='"old"')},
+            rollout=Rollout(variants={'v1': 1.0}),
+            overrides=[],
+        )
+
+        updates: dict[str, VariableConfig | None] = {
+            'new_var': VariableConfig(
+                name='new_var',
+                variants={'v1': Variant(key='v1', serialized_value='"new"')},
+                rollout=Rollout(variants={'v1': 1.0}),
+                overrides=[],
+            ),
+            'existing': VariableConfig(
+                name='existing',
+                variants={'v2': Variant(key='v2', serialized_value='"updated"')},
+                rollout=Rollout(variants={'v2': 1.0}),
+                overrides=[],
+            ),
+            'to_delete': None,
+        }
+        # Add to_delete to configs first
+        provider.configs['to_delete'] = VariableConfig(
+            name='to_delete',
+            variants={'v1': Variant(key='v1', serialized_value='"value"')},
+            rollout=Rollout(variants={'v1': 1.0}),
+            overrides=[],
+        )
+
+        provider.batch_update(updates)
+
+        assert 'new_var' in provider.created
+        assert 'existing' in provider.updated
+        assert 'to_delete' in provider.deleted
+
+
+# =============================================================================
+# Test NoOpVariableProvider push/validate
+# =============================================================================
+
+
+class TestNoOpVariableProviderPushValidate:
+    def test_push_variables_prints_message(self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]):
+        lf = logfire.configure(**config_kwargs)
+        provider = NoOpVariableProvider()
+        var = lf.var(name='test', default='default', type=str)
+        result = provider.push_variables([var])
+        assert result is False
+        captured = capsys.readouterr()
+        assert 'No variable provider configured' in captured.out
+
+    def test_validate_variables_prints_message(self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]):
+        lf = logfire.configure(**config_kwargs)
+        provider = NoOpVariableProvider()
+        var = lf.var(name='test', default='default', type=str)
+        result = provider.validate_variables([var])
+        assert result is True
+        captured = capsys.readouterr()
+        assert 'No variable provider configured' in captured.out
+
+
+# =============================================================================
+# Test push_variables Method
+# =============================================================================
+
+
+class TestPushVariables:
+    def test_push_variables_empty_list(self, capsys: pytest.CaptureFixture[str]):
+        """Test push_variables with empty variables list."""
+        provider = LocalVariableProvider(VariablesConfig(variables={}))
+        result = provider.push_variables([])
+        assert result is False
+        captured = capsys.readouterr()
+        assert 'No variables to push' in captured.out
+
+    def test_push_variables_no_changes(self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]):
+        """Test push_variables when server is up to date."""
+        server_config = VariablesConfig(
+            variables={
+                'my_var': VariableConfig(
+                    name='my_var',
+                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                    json_schema={'type': 'string'},
+                ),
+            }
+        )
+        provider = LocalVariableProvider(server_config)
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='my_var', default='default', type=str)
+        result = provider.push_variables([var])
+        assert result is False
+        captured = capsys.readouterr()
+        assert 'No changes needed' in captured.out
+
+    def test_push_variables_create_new(self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]):
+        """Test push_variables creating a new variable."""
+        provider = LocalVariableProvider(VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='new_var', default='default', type=str)
+        result = provider.push_variables([var], yes=True)
+        assert result is True
+        captured = capsys.readouterr()
+        assert 'Variables to CREATE' in captured.out
+        assert 'new_var' in captured.out
+        assert 'new_var' in provider._config.variables
+
+    def test_push_variables_create_with_function_default(
+        self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]
+    ):
+        """Test push_variables with a function default (no default variant)."""
+
+        def resolve_fn(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
+            return 'computed'
+
+        provider = LocalVariableProvider(VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='fn_var', default=resolve_fn, type=str)
+        result = provider.push_variables([var], yes=True)
+        assert result is True
+        captured = capsys.readouterr()
+        assert 'No default variant' in captured.out
+
+    def test_push_variables_update_schema(self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]):
+        """Test push_variables updating schema."""
+        server_config = VariablesConfig(
+            variables={
+                'my_var': VariableConfig(
+                    name='my_var',
+                    variants={'v1': Variant(key='v1', serialized_value='123')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                    json_schema={'type': 'integer'},  # Old schema
+                ),
+            }
+        )
+        provider = LocalVariableProvider(server_config)
+        lf = logfire.configure(**config_kwargs)
+        # Now we want it to be a string
+        var = lf.var(name='my_var', default='default', type=str)
+        result = provider.push_variables([var], yes=True)
+        assert result is True
+        captured = capsys.readouterr()
+        assert 'Variables to UPDATE' in captured.out
+
+    def test_push_variables_update_with_incompatible_variants(
+        self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]
+    ):
+        """Test push_variables with incompatible variants warning."""
+        server_config = VariablesConfig(
+            variables={
+                'my_var': VariableConfig(
+                    name='my_var',
+                    variants={'v1': Variant(key='v1', serialized_value='"not_an_int"')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                    json_schema={'type': 'string'},
+                ),
+            }
+        )
+        provider = LocalVariableProvider(server_config)
+        lf = logfire.configure(**config_kwargs)
+        # Changing from string to int - existing variant is incompatible
+        var = lf.var(name='my_var', default=0, type=int)
+        result = provider.push_variables([var], yes=True)
+        assert result is True
+        captured = capsys.readouterr()
+        assert 'Warning' in captured.out or 'Incompatible' in captured.out
+
+    def test_push_variables_strict_mode_fails_with_incompatible(
+        self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]
+    ):
+        """Test push_variables in strict mode fails with incompatible variants."""
+        server_config = VariablesConfig(
+            variables={
+                'my_var': VariableConfig(
+                    name='my_var',
+                    variants={'v1': Variant(key='v1', serialized_value='"not_an_int"')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                    json_schema={'type': 'string'},
+                ),
+            }
+        )
+        provider = LocalVariableProvider(server_config)
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='my_var', default=0, type=int)
+        result = provider.push_variables([var], strict=True)
+        assert result is False
+        captured = capsys.readouterr()
+        assert 'Error' in captured.err or 'strict' in captured.err.lower()
+
+    def test_push_variables_dry_run(self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]):
+        """Test push_variables dry run mode."""
+        provider = LocalVariableProvider(VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='new_var', default='default', type=str)
+        result = provider.push_variables([var], dry_run=True)
+        assert result is True
+        captured = capsys.readouterr()
+        assert 'Dry run mode' in captured.out
+        # Variable should NOT be created
+        assert 'new_var' not in provider._config.variables
+
+    def test_push_variables_orphaned_server_variables(
+        self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]
+    ):
+        """Test push_variables shows orphaned server variables."""
+        server_config = VariablesConfig(
+            variables={
+                'orphaned_var': VariableConfig(
+                    name='orphaned_var',
+                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                ),
+            }
+        )
+        provider = LocalVariableProvider(server_config)
+        lf = logfire.configure(**config_kwargs)
+        # Push a different variable, orphaned_var is not in local code
+        var = lf.var(name='local_var', default='default', type=str)
+        result = provider.push_variables([var], yes=True)
+        assert result is True
+        captured = capsys.readouterr()
+        assert 'Server-only variables' in captured.out or 'orphaned_var' in captured.out
+
+    def test_push_variables_description_differences(
+        self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]
+    ):
+        """Test push_variables shows description differences."""
+        server_config = VariablesConfig(
+            variables={
+                'my_var': VariableConfig(
+                    name='my_var',
+                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                    description='Old description',
+                    json_schema={'type': 'string'},
+                ),
+            }
+        )
+        provider = LocalVariableProvider(server_config)
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='my_var', default='default', type=str, description='New description')
+        provider.push_variables([var], yes=True)
+        captured = capsys.readouterr()
+        assert 'Description differences' in captured.out or 'description' in captured.out.lower()
+
+
+# =============================================================================
+# Test validate_variables Method
+# =============================================================================
+
+
+class TestValidateVariables:
+    def test_validate_variables_empty_list(self, capsys: pytest.CaptureFixture[str]):
+        """Test validate_variables with empty variables list."""
+        provider = LocalVariableProvider(VariablesConfig(variables={}))
+        result = provider.validate_variables([])
+        assert result is True
+        captured = capsys.readouterr()
+        assert 'No variables to validate' in captured.out
+
+    def test_validate_variables_all_valid(self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]):
+        """Test validate_variables with all valid variants."""
+        server_config = VariablesConfig(
+            variables={
+                'my_var': VariableConfig(
+                    name='my_var',
+                    variants={'v1': Variant(key='v1', serialized_value='"valid_string"')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                ),
+            }
+        )
+        provider = LocalVariableProvider(server_config)
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='my_var', default='default', type=str)
+        result = provider.validate_variables([var])
+        assert result is True
+        captured = capsys.readouterr()
+        assert 'Validation passed' in captured.out
+
+    def test_validate_variables_with_errors(self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]):
+        """Test validate_variables with validation errors."""
+        server_config = VariablesConfig(
+            variables={
+                'my_var': VariableConfig(
+                    name='my_var',
+                    variants={'v1': Variant(key='v1', serialized_value='"not_an_int"')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                ),
+            }
+        )
+        provider = LocalVariableProvider(server_config)
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='my_var', default=0, type=int)
+        result = provider.validate_variables([var])
+        assert result is False
+        captured = capsys.readouterr()
+        assert 'Validation failed' in captured.out or 'Validation Errors' in captured.out
+
+    def test_validate_variables_not_on_server(self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]):
+        """Test validate_variables with variables not on server."""
+        provider = LocalVariableProvider(VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='missing_var', default='default', type=str)
+        result = provider.validate_variables([var])
+        assert result is False
+        captured = capsys.readouterr()
+        assert 'Not Found on Server' in captured.out or 'missing_var' in captured.out
+
+    def test_validate_variables_description_differences(
+        self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]
+    ):
+        """Test validate_variables shows description differences."""
+        server_config = VariablesConfig(
+            variables={
+                'my_var': VariableConfig(
+                    name='my_var',
+                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                    description='Server description',
+                ),
+            }
+        )
+        provider = LocalVariableProvider(server_config)
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='my_var', default='default', type=str, description='Local description')
+        provider.validate_variables([var])
+        captured = capsys.readouterr()
+        assert 'Description differences' in captured.out or 'description' in captured.out.lower()
