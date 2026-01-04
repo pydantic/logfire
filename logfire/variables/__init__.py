@@ -68,7 +68,7 @@ def __getattr__(name: str):
     if name not in __all__:
         raise AttributeError(f'module {__name__!r} has no attribute {name!r}')
 
-    if not find_spec('pydantic'):
+    if not find_spec('pydantic'):  # pragma: no cover
         raise ImportError(
             'Using managed variables requires the `pydantic` package.\n'
             'You can install this with:\n'

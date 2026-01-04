@@ -1906,6 +1906,52 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             finally:
                 provider.shutdown()
 
+    def test_config_to_api_body_with_key_conditions(self) -> None:
+        """Test _config_to_api_body with KeyIsPresent/KeyIsNotPresent conditions."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        request_mocker.post('http://localhost:8000/v1/variables/', json={'name': 'test_var'})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                config = VariableConfig(
+                    name='test_var',
+                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[
+                        RolloutOverride(
+                            conditions=[
+                                KeyIsPresent(attribute='must_exist'),
+                                KeyIsNotPresent(attribute='must_not_exist'),
+                            ],
+                            rollout=Rollout(variants={'v1': 1.0}),
+                        )
+                    ],
+                )
+                provider.create_variable(config)
+
+                # Find the POST request
+                post_request = None
+                for req in request_mocker.request_history:
+                    if req.method == 'POST':
+                        post_request = req
+                        break
+
+                assert post_request is not None
+                body = post_request.json()
+                assert 'overrides' in body
+                # Check that key conditions are serialized correctly (no value/values/pattern)
+                conditions = body['overrides'][0]['conditions']
+                assert len(conditions) == 2
+                assert conditions[0]['kind'] == 'key-is-present'
+                assert conditions[1]['kind'] == 'key-is-not-present'
+            finally:
+                provider.shutdown()
+
 
 # =============================================================================
 # Test VariablesConfig Alias Cycle Detection
@@ -2182,12 +2228,13 @@ class TestPushVariables:
         """Test push_variables creating a new variable."""
         provider = LocalVariableProvider(VariablesConfig(variables={}))
         lf = logfire.configure(**config_kwargs)
-        var = lf.var(name='new_var', default='default', type=str)
+        var = lf.var(name='new_var', default='default', type=str, description='A new variable for testing')
         result = provider.push_variables([var], yes=True)
         assert result is True
         captured = capsys.readouterr()
         assert 'Variables to CREATE' in captured.out
         assert 'new_var' in captured.out
+        assert 'A new variable for testing' in captured.out or 'Description' in captured.out
         assert 'new_var' in provider._config.variables
 
     def test_push_variables_create_with_function_default(
@@ -2419,3 +2466,249 @@ class TestValidateVariables:
         provider.validate_variables([var])
         captured = capsys.readouterr()
         assert 'Description differences' in captured.out or 'description' in captured.out.lower()
+
+
+# =============================================================================
+# Test Error Handling in push_variables and validate_variables
+# =============================================================================
+
+
+class TestPushValidateErrorHandling:
+    """Test error handling in push_variables and validate_variables methods."""
+
+    def test_push_variables_refresh_error(self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]):
+        """Test push_variables handles refresh errors gracefully."""
+
+        class FailingRefreshProvider(VariableProvider):
+            def get_serialized_value(
+                self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+            ) -> ResolvedVariable[str | None]:
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')
+
+            def refresh(self, force: bool = False):
+                raise RuntimeError('Refresh failed!')
+
+            def get_all_variables_config(self) -> VariablesConfig:
+                return VariablesConfig(variables={})
+
+        provider = FailingRefreshProvider()
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='test_var', default='default', type=str)
+        # Should not crash, should print warning
+        provider.push_variables([var], yes=True)
+        captured = capsys.readouterr()
+        assert 'Could not refresh provider' in captured.err or 'Warning' in captured.err
+
+    def test_push_variables_get_all_config_error(
+        self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]
+    ):
+        """Test push_variables handles get_all_variables_config errors."""
+
+        class FailingConfigProvider(VariableProvider):
+            def get_serialized_value(
+                self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+            ) -> ResolvedVariable[str | None]:
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')
+
+            def get_all_variables_config(self) -> VariablesConfig:
+                raise RuntimeError('Config fetch failed!')
+
+        provider = FailingConfigProvider()
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='test_var', default='default', type=str)
+        result = provider.push_variables([var])
+        assert result is False
+        captured = capsys.readouterr()
+        assert 'Error fetching current config' in captured.err
+
+    def test_push_variables_apply_changes_error(
+        self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]
+    ):
+        """Test push_variables handles apply changes errors."""
+
+        class FailingApplyProvider(VariableProvider):
+            def get_serialized_value(
+                self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+            ) -> ResolvedVariable[str | None]:
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')
+
+            def get_all_variables_config(self) -> VariablesConfig:
+                return VariablesConfig(variables={})
+
+            def create_variable(self, config: VariableConfig) -> VariableConfig:
+                raise RuntimeError('Create failed!')
+
+        provider = FailingApplyProvider()
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='new_var', default='default', type=str)
+        result = provider.push_variables([var], yes=True)
+        assert result is False
+        captured = capsys.readouterr()
+        assert 'Error applying changes' in captured.err
+
+    def test_validate_variables_refresh_error(self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]):
+        """Test validate_variables handles refresh errors gracefully."""
+
+        class FailingRefreshProvider(VariableProvider):
+            def get_serialized_value(
+                self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+            ) -> ResolvedVariable[str | None]:
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')
+
+            def refresh(self, force: bool = False):
+                raise RuntimeError('Refresh failed!')
+
+            def get_all_variables_config(self) -> VariablesConfig:
+                return VariablesConfig(
+                    variables={
+                        'test_var': VariableConfig(
+                            name='test_var',
+                            variants={'v1': Variant(key='v1', serialized_value='"value"')},
+                            rollout=Rollout(variants={'v1': 1.0}),
+                            overrides=[],
+                        ),
+                    }
+                )
+
+        provider = FailingRefreshProvider()
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='test_var', default='default', type=str)
+        # Should not crash, should continue and validate
+        provider.validate_variables([var])
+        captured = capsys.readouterr()
+        assert 'Could not refresh provider' in captured.err or 'Warning' in captured.err
+
+    def test_validate_variables_get_all_config_error(
+        self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]
+    ):
+        """Test validate_variables handles get_all_variables_config errors."""
+
+        class FailingConfigProvider(VariableProvider):
+            def get_serialized_value(
+                self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+            ) -> ResolvedVariable[str | None]:
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')
+
+            def get_all_variables_config(self) -> VariablesConfig:
+                raise RuntimeError('Config fetch failed!')
+
+        provider = FailingConfigProvider()
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='test_var', default='default', type=str)
+        result = provider.validate_variables([var])
+        assert result is False
+        captured = capsys.readouterr()
+        assert 'Error fetching current config' in captured.err
+
+
+# =============================================================================
+# Test Additional Edge Cases for Coverage
+# =============================================================================
+
+
+class TestAdditionalEdgeCases:
+    def test_push_variables_with_compatible_variants(
+        self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]
+    ):
+        """Test push_variables when existing variants are compatible with the new schema."""
+        # Server has a string variable with string variants
+        server_config = VariablesConfig(
+            variables={
+                'my_var': VariableConfig(
+                    name='my_var',
+                    variants={'v1': Variant(key='v1', serialized_value='"compatible_value"')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                    json_schema={'type': 'integer'},  # Old schema is integer
+                ),
+            }
+        )
+        provider = LocalVariableProvider(server_config)
+        lf = logfire.configure(**config_kwargs)
+        # Local expects a string - variant is compatible since it's a valid JSON string
+        var = lf.var(name='my_var', default='default', type=str)
+        result = provider.push_variables([var], yes=True)
+        # This should succeed since the variant can deserialize to string
+        assert result is True
+        captured = capsys.readouterr()
+        # The variant '"compatible_value"' should be compatible with type str
+        assert 'Variables to UPDATE' in captured.out
+
+    def test_variable_get_with_active_trace(self, config_kwargs: dict[str, Any]):
+        """Test that variable.get() uses trace_id as targeting_key when in active span."""
+        from opentelemetry import trace
+
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='test_var', default='default', type=str)
+
+        # Create a real trace context using the logfire instance
+        with lf.span('test_span'):
+            current_span = trace.get_current_span()
+            trace_id = current_span.get_span_context().trace_id
+            # Verify we have an active trace
+            assert trace_id != 0
+
+            # Call get() - should use trace_id as targeting_key
+            result = var.get()
+
+            # The targeting_key should be set from the trace_id
+            # We can't easily verify the exact targeting_key used internally,
+            # but we can verify the call succeeded and the span was created
+            assert result.value == 'default'  # Falls back to default since no config
+
+    def test_format_validation_report_with_general_error(
+        self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]
+    ):
+        """Test validate_variables when there's a general error (variant_key is None)."""
+        # Create a config that will cause a general error during validation
+        server_config = VariablesConfig(variables={})
+        provider = LocalVariableProvider(server_config)
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='missing_var', default='default', type=str)
+        # This should report "not on server" which uses a different code path
+        result = provider.validate_variables([var])
+        assert result is False
+        captured = capsys.readouterr()
+        assert 'Not Found on Server' in captured.out or 'missing_var' in captured.out
+
+    def test_format_validation_report_with_many_error_lines(
+        self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]
+    ):
+        """Test validate_variables formatting when error has many lines."""
+        # Create a config where variant validation will produce a multi-line error
+        server_config = VariablesConfig(
+            variables={
+                'complex_var': VariableConfig(
+                    name='complex_var',
+                    variants={
+                        'v1': Variant(
+                            key='v1',
+                            # This JSON won't validate against a complex Pydantic model
+                            serialized_value='{"invalid": "structure", "with": "many", "fields": "that", "are": "wrong"}',
+                        )
+                    },
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                ),
+            }
+        )
+        provider = LocalVariableProvider(server_config)
+        lf = logfire.configure(**config_kwargs)
+
+        # Create a variable with a complex type that will generate multi-line errors
+        class ComplexModel(BaseModel):
+            required_field: str
+            another_required: int
+            yet_another: list[str]
+            nested: dict[str, int]
+
+        var = lf.var(
+            name='complex_var',
+            default=ComplexModel(required_field='x', another_required=1, yet_another=[], nested={}),
+            type=ComplexModel,
+        )
+        result = provider.validate_variables([var])
+        assert result is False
+        captured = capsys.readouterr()
+        # Should have validation errors in output
+        assert 'Validation' in captured.out or 'Error' in captured.out or 'complex_var' in captured.out

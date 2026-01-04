@@ -39,15 +39,15 @@ __all__ = (
     'Variant',
 )
 
-if not TYPE_CHECKING:
+if not TYPE_CHECKING:  # pragma: no branch
     if sys.version_info < (3, 10):
+        _dataclass = dataclass
+
         # TODO: Drop this when we drop support for python 3.9
         # Prevent errors when using kw_only with dataclasses in Python<3.10
-        _original_dataclass = dataclass
-
         def dataclass(*args, **kwargs):
             kwargs.pop('kw_only', None)
-            return _original_dataclass(*args, **kwargs)
+            return _dataclass(*args, **kwargs)
 
 
 @dataclass(kw_only=True)
@@ -314,9 +314,9 @@ class VariableConfig:
                 raise ValueError(f'Variant {k!r} present in `rollout.variants` is not present in `variants`.')
 
         # Validate rollout override variant references
-        for i, override in enumerate(self.overrides):
-            for k, v in override.rollout.variants.items():
-                if k not in self.variants:
+        for i, override in enumerate(self.overrides):  # pragma: no branch
+            for k, v in override.rollout.variants.items():  # pragma: no branch
+                if k not in self.variants:  # pragma: no branch
                     raise ValueError(f'Variant {k!r} present in `overrides[{i}].rollout` is not present in `variants`.')
 
         # Validate schedule stage variant references

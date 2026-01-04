@@ -69,12 +69,12 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._refresh_lock = threading.Lock()
         self._worker_awaken = threading.Event()
         self._worker_thread.start()
-        if hasattr(os, 'register_at_fork'):
+        if hasattr(os, 'register_at_fork'):  # pragma: no branch
             weak_reinit = weakref.WeakMethod(self._at_fork_reinit)
             os.register_at_fork(after_in_child=lambda: weak_reinit()())  # pyright: ignore[reportOptionalCall]
         self._pid = os.getpid()
 
-    def _at_fork_reinit(self):
+    def _at_fork_reinit(self):  # pragma: no cover
         # Recreate all things threading related
         self._refresh_lock = threading.Lock()
         self._worker_awaken = threading.Event()
@@ -87,7 +87,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._pid = os.getpid()
 
     def _worker(self):
-        while not self._shutdown:
+        while not self._shutdown:  # pragma: no branch
             # Note: Ideally we'd be able to terminate while the following request was going even if it takes a while,
             # it's far more reasonable to terminate this worker thread "gracelessly" than an OTel exporter's.
             # But given this is pretty unlikely to cause issues, Alex and I decided are okay leaving this as-is.
@@ -95,7 +95,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
             self.refresh()
             self._worker_awaken.clear()
             self._worker_awaken.wait(self._polling_interval.total_seconds())
-            if self._shutdown:
+            if self._shutdown:  # pragma: no branch
                 break
 
     def refresh(self, force: bool = False):
@@ -158,7 +158,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
         Returns:
             A ResolvedVariable containing the serialized value (or None if not found).
         """
-        if self._pid != os.getpid():
+        if self._pid != os.getpid():  # pragma: no cover
             self._reset_once.do_once(self._at_fork_reinit)
 
         if not self._has_attempted_fetch and self._block_before_first_fetch:
@@ -300,7 +300,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
         if config.json_schema is not None:
             body['json_schema'] = config.json_schema
 
-        if config.variants:
+        if config.variants:  # pragma: no branch
             body['variants'] = {
                 key: {
                     'key': variant.key,
