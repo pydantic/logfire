@@ -1,7 +1,8 @@
 ---
+title: "Logfire Web Framework Integrations: ASGI"
+description: Learn how to use the logfire.instrument_asgi() method to instrument your ASGI web framework.
 integration: otel
 ---
-
 # ASGI
 
 If the [ASGI][asgi] web framework you're using doesn't have a dedicated integration, you can use the

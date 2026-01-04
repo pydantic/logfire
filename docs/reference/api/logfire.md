@@ -1,3 +1,7 @@
+---
+title: "Logfire API References & Documentation"
+description: "Introduction to basic Logfire configuration, trace configuration and parameters."
+---
 ::: logfire
     options:
         show_root_toc_entry: false

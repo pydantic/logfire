@@ -1,3 +1,7 @@
+---
+title: "Logfire Onboarding: Adding Metrics"
+description: "Practical guide to adding Logfire metrics: Use system metrics or manual metrics to track Counter, Gauge or Callback Metrics."
+---
 **Pydantic Logfire** can be used to collect metrics from your application and send them to a metrics backend.
 
 Metrics are a great way to record numerical values where you want to see an aggregation of the data (e.g. over time),

@@ -1,3 +1,7 @@
+---
+title: "Logfire Data Regions: Choose Your Storage Location"
+description: Select your data region for Logfire. Logfire offers separate US and EU regions for optimal performance and to meet data compliance and residency needs.
+---
 # Data Regions
 
 Logfire is hosted in two separate geographic regions to provide you with options for data residency, compliance with local regulations, and optimal performance.

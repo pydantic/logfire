@@ -1,3 +1,7 @@
+---
+title: "Logfire Dashboards: Visualize Logs & Metrics"
+description: "Logfire dashboards let you visualize your observability data. Create custom SQL-powered charts and tables, or start from standard dashboards."
+---
 # Dashboards
 
 This guide explains how to use dashboards in the Logfire UI to visualize your observability data. Dashboards allow you to create custom visualizations using SQL queries.

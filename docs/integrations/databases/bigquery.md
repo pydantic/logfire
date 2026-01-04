@@ -1,7 +1,8 @@
 ---
-integration: built-in
+title: "Logfire BigQuery Integration & Setup Guide"
+description: Get automatic tracing for the BigQuery Python API. Logfire instantly captures query duration and job status without the need for extra configuration.
+integration: "built-in"
 ---
-
 # BigQuery
 
 The [Google Cloud BigQuery Python client library][bigquery-pypi] is instrumented with OpenTelemetry out of the box,

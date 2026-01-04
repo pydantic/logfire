@@ -1,3 +1,7 @@
+---
+title: "Logfire GitHub Integration Guide: Link to Code Source"
+description: Link every log and span directly to your Logfire GitHub source code. Configure the repository and revision to jump straight to the exact line of failure.
+---
 We support linking to the source code on GitHub, GitLab, and any other VCS provider that uses the same URL format.
 
 ![Link to GitHub](../images/guide/link-to-github.gif)

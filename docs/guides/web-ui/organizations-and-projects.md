@@ -1,4 +1,7 @@
-
+---
+title: "Logfire Web UI: Organizations & Projects"
+description: "Learn how Organizations and Projects provide granular access control for Admins, Members, and Guests in Logfire."
+---
 As a Logfire user, you can be part of multiple organizations, and each organization can have multiple projects.
 
 There are two types of organizations:
