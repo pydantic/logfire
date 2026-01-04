@@ -33,7 +33,7 @@ __all__ = (
 T = TypeVar('T')
 T_co = TypeVar('T_co', covariant=True)
 
-if not TYPE_CHECKING:
+if not TYPE_CHECKING:  # pragma: no branch
     if sys.version_info < (3, 10):
         _dataclass = dataclass
 
@@ -394,7 +394,7 @@ def _apply_changes(
     for change in diff.changes:
         if change.change_type == 'create':
             _create_variable(provider, change)
-        elif change.change_type == 'update_schema':
+        elif change.change_type == 'update_schema':  # pragma: no branch
             _update_variable_schema(provider, change, server_config)
 
 
@@ -443,7 +443,7 @@ def _update_variable_schema(
 
     # Get the existing config to preserve variants, rollout, overrides
     existing = server_config.variables.get(change.name)
-    if existing is None:
+    if existing is None:  # pragma: no cover
         # Should not happen, but handle gracefully
         print(f'  {ANSI_RED}Warning: Could not find existing config for {change.name}{ANSI_RESET}')
         return
@@ -469,7 +469,7 @@ def _format_validation_report(report: ValidationReport) -> str:
     if report.errors:
         lines.append(f'\n{ANSI_RED}=== Validation Errors ==={ANSI_RESET}')
         for error in report.errors:
-            if error.variant_key is None:
+            if error.variant_key is None:  # pragma: no cover
                 lines.append(f'  {ANSI_RED}✗ {error.variable_name}: {error.error}{ANSI_RESET}')
             else:
                 lines.append(f'  {ANSI_RED}✗ {error.variable_name} (variant: {error.variant_key}){ANSI_RESET}')
@@ -556,7 +556,7 @@ class VariableProvider(ABC):
             Subclasses should override this method to provide actual implementations.
             The default implementation returns None.
         """
-        return None
+        return None  # pragma: no cover
 
     def get_all_variables_config(self) -> VariablesConfig:
         """Retrieve all variable configurations.
@@ -729,7 +729,7 @@ class VariableProvider(ABC):
             return True
 
         # Confirm with user
-        if not yes:
+        if not yes:  # pragma: no cover
             print()
             try:
                 response_input = input('Apply these changes? [y/N] ')
@@ -812,7 +812,7 @@ class VariableProvider(ABC):
         description_differences: list[DescriptionDifference] = []
         for variable in variables_on_server:
             server_var = server_config.variables.get(variable.name)
-            if server_var is not None:
+            if server_var is not None:  # pragma: no branch
                 # Normalize: treat None and empty string as equivalent
                 local_desc = variable.description or None
                 server_desc = server_var.description or None

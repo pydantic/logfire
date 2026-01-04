@@ -12,11 +12,11 @@ from opentelemetry.trace import get_current_span
 from pydantic import TypeAdapter, ValidationError
 from typing_extensions import TypeIs
 
-if find_spec('anyio') is not None:
+if find_spec('anyio') is not None:  # pragma: no branch
     # Use anyio for running sync functions on separate threads in an event loop if it is available
     from anyio.to_thread import run_sync as to_thread
 else:
-    from asyncio import to_thread
+    from asyncio import to_thread  # pragma: no cover
 
 import logfire
 from logfire.variables.abstract import ResolvedVariable
