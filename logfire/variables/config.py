@@ -5,7 +5,7 @@ import re
 import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Annotated, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Union
 
 from pydantic import Discriminator, TypeAdapter, ValidationError, field_validator, model_validator
 from typing_extensions import TypeAliasType
@@ -177,14 +177,16 @@ class KeyIsNotPresent:
 Condition = TypeAliasType(
     'Condition',
     Annotated[
-        ValueEquals
-        | ValueDoesNotEqual
-        | ValueIsIn
-        | ValueIsNotIn
-        | ValueMatchesRegex
-        | ValueDoesNotMatchRegex
-        | KeyIsPresent
-        | KeyIsNotPresent,
+        Union[
+            ValueEquals,
+            ValueDoesNotEqual,
+            ValueIsIn,
+            ValueIsNotIn,
+            ValueMatchesRegex,
+            ValueDoesNotMatchRegex,
+            KeyIsPresent,
+            KeyIsNotPresent,
+        ],
         Discriminator('kind'),
     ],
 )
