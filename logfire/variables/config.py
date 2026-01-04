@@ -7,12 +7,20 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated, Any, Literal, Union
 
-from pydantic import Discriminator, TypeAdapter, ValidationError, field_validator, model_validator
+from pydantic import TypeAdapter, ValidationError, field_validator, model_validator
 from typing_extensions import TypeAliasType
 
 from logfire._internal.config import RemoteVariablesConfig as RemoteVariablesConfig
 from logfire.variables.abstract import ResolvedVariable
 from logfire.variables.variable import Variable
+
+try:
+    from pydantic import Discriminator
+except ImportError:
+    # This is only used in an annotation, so if you have Pydantic < 2.5, just treat it as a no-op
+    def Discriminator(*args: Any, **kwargs: Any) -> Any:
+        pass
+
 
 __all__ = (
     'KeyIsNotPresent',
