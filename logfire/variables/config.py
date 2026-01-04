@@ -280,14 +280,14 @@ class VariableConfig:
     # * To migrate variable names, update the "aliases" field of the outer `VariablesConfig`
     name: VariableName  # TODO: What restrictions should we add on allowed characters?
     """Unique name identifying this variable."""
-    description: str | None = None
-    """Description of the variable."""
     variants: dict[VariantKey, Variant]
     """Mapping of variant keys to their configurations."""
     rollout: Rollout
     """Default rollout configuration for variant selection."""
     overrides: list[RolloutOverride]
     """Conditional overrides evaluated in order; first match takes precedence."""
+    description: str | None = None  # TODO: Move this field immediately after `name` when we drop support for 3.9
+    """Description of the variable."""
     json_schema: dict[str, Any] | None = None
     """JSON schema describing the expected type of this variable's values."""
     # TODO: Consider adding config-based management of targeting_key, rather than requiring the value at the call-site
