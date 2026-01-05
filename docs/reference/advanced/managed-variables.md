@@ -549,6 +549,112 @@ logfire.configure(
 )
 ```
 
+### Pushing Variables from Code
+
+Instead of manually creating variables in the Logfire UI, you can push your variable definitions directly from your code using `logfire.push_variables()`.
+
+The primary benefit of pushing from code is **automatic JSON schema generation**. When you use a Pydantic model as your variable type, `push_variables()` automatically generates the JSON schema from your model definition. This means the Logfire UI will validate variant values against your schema, catching type errors before they reach production. Creating these schemas manually in the UI would be tedious and error-prone, especially for complex nested models.
+
+```python
+from pydantic import BaseModel
+
+import logfire
+from logfire.variables.config import RemoteVariablesConfig
+
+logfire.configure(
+    variables=logfire.VariablesOptions(
+        config=RemoteVariablesConfig(),
+    ),
+)
+
+
+class AgentConfig(BaseModel):
+    """Configuration for an AI agent."""
+
+    instructions: str
+    model: str
+    temperature: float
+    max_tokens: int
+
+
+# Define your variables
+agent_config = logfire.var(
+    name='agent-config',
+    type=AgentConfig,
+    default=AgentConfig(
+        instructions='You are a helpful assistant.',
+        model='openai:gpt-4o-mini',
+        temperature=0.7,
+        max_tokens=500,
+    ),
+)
+
+# Push all registered variables to the remote provider
+if __name__ == '__main__':
+    logfire.push_variables()
+```
+
+When you run this script, it will:
+
+1. Compare your local variable definitions with what exists in Logfire
+2. Show you a diff of what will be created or updated
+3. Prompt for confirmation before applying changes
+
+**Example output:**
+
+```
+=== Variables to CREATE ===
+  + agent-config
+    Default variant: {"instructions":"You are a helpful assistant.","model":"openai:gpt-4o-mini","temperature":0.7,"max_tokens":500}
+
+Apply these changes? [y/N] y
+
+Applying changes...
+Successfully applied changes.
+```
+
+**Options:**
+
+| Parameter | Description |
+|-----------|-------------|
+| `variables` | List of specific variables to push. If not provided, all registered variables are pushed. |
+| `dry_run` | If `True`, shows what would change without actually applying changes. |
+| `yes` | If `True`, skips the confirmation prompt. |
+| `strict` | If `True`, fails if any existing variants in Logfire are incompatible with your new schema. |
+
+**Pushing specific variables:**
+
+```python
+feature_flag = logfire.var(name='feature-enabled', type=bool, default=False)
+max_retries = logfire.var(name='max-retries', type=int, default=3)
+
+# Push only the feature flag
+logfire.push_variables([feature_flag])
+
+# Dry run to see what would change
+logfire.push_variables(dry_run=True)
+
+# Skip confirmation prompt (useful in CI/CD)
+logfire.push_variables(yes=True)
+```
+
+!!! note "Schema Updates"
+    When you push a variable that already exists in Logfire, `push_variables` will update the JSON schema if it has changed but will preserve existing variants and rollout configurations. If existing variant values are incompatible with the new schema, you'll see a warning (or an error if using `strict=True`).
+
+### Validating Variables
+
+You can also validate that your remote variable configurations match your local type definitions using `logfire.validate_variables()`:
+
+```python
+# Validate all registered variables
+if logfire.validate_variables():
+    print('All variables are valid!')
+else:
+    print('Some variables have invalid configurations.')
+```
+
+This is useful in CI/CD pipelines to catch configuration drift where someone may have edited a variant value in the UI that no longer matches your expected type.
+
 ## Local Variables
 
 For development, testing, or self-hosted deployments, you can configure variables locally using `VariablesConfig`:
