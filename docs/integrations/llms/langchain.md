@@ -1,7 +1,8 @@
 ---
-integration: built-in
+title: "Logfire Integrations: LangChain"
+description: "Guide for using Logfire with LangChain and LangGraph via OpenTelemetry tracing, including setup instructions and example trace output."
+integration: "built-in"
 ---
-
 # LangChain
 
 [LangChain](https://www.langchain.com/) (and thus [LangGraph](https://www.langchain.com/langgraph)) has [built-in OpenTelemetry tracing via Langsmith](https://docs.smith.langchain.com/observability/how_to_guides/trace_langchain_with_otel) which you can use with **Logfire**. It's enabled by these two environment variables:

@@ -1,3 +1,7 @@
+---
+title: Logfire Exception Tracking and Grouping via Issues
+description: "Automatically group exceptions and track Pydantic issues in your application. Identify, prioritize, and resolve errors."
+---
 # Issues
 
 !!! warning "Issues in Beta"

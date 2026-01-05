@@ -1,3 +1,7 @@
+---
+title: "Logfire OTel Collector Configuration & Setup Guide"
+description: "Detailed configuration instructions for connecting Logfire to the OpenTelemetry Collector, plus overview of use cases and benefits."
+---
 # OpenTelemetry Collector
 
 The OpenTelemetry Collector is a powerful tool that can be used to collect, process, and export telemetry data from various sources.

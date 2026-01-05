@@ -1,3 +1,7 @@
+---
+title: Pydantic Logfire SQL Reference
+description: Use Logfire to query your observability data using SQL (via PostgreSQL syntax).
+---
 # SQL
 
 ## Syntax

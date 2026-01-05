@@ -1,7 +1,8 @@
 ---
+title: "Logfire Web Framework Integrations: Django"
+description: "Guide for instrumenting Django with Pydantic Logfire. How to add tracing, logs and metrics to your Django app with just a few lines of code."
 integration: otel
 ---
-
 # Django
 
 The [`logfire.instrument_django()`][logfire.Logfire.instrument_django] method can be used to instrument the [Django][django] web framework with **Logfire**.

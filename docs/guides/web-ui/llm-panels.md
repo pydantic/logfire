@@ -1,3 +1,7 @@
+---
+title: "LLM Panels in Logfire: Inspect LLM <> App Spans"
+description: "Monitor LLM tracing and costs with the Logfire LLM Panel. View token usage, conversation history, and deep data."
+---
 # LLM Panels
 
 Use **Logfire’s LLM panels** to inspect every round‑trip between your application and a large‑language model (LLM) in real time.
