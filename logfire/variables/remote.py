@@ -124,10 +124,10 @@ class LogfireRemoteVariableProvider(VariableProvider):
             try:
                 variables_response = self._session.get(urljoin(self._base_url, '/v1/variables/'))
                 UnexpectedResponse.raise_for_status(variables_response)
-            except UnexpectedResponse:
+            except UnexpectedResponse as e:
                 # TODO: Update the following logic to be smarter
                 # TODO: Handle any error here, not just UnexpectedResponse, so we don't crash user application on failure
-                warnings.warn('Error retrieving variables', category=RuntimeWarning)
+                warnings.warn(f'Error retrieving variables: {e}', category=RuntimeWarning)
                 return
 
             variables_config_data = variables_response.json()
