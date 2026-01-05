@@ -294,8 +294,8 @@ class LogfireRemoteVariableProvider(VariableProvider):
         """
         body: dict[str, Any] = {'name': config.name}
 
-        if config.description is not None:
-            body['description'] = config.description
+        # description and overrides are always required by the API
+        body['description'] = config.description
 
         if config.json_schema is not None:
             body['json_schema'] = config.json_schema
@@ -312,17 +312,16 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
         body['rollout'] = {'variants': config.rollout.variants}
 
-        if config.overrides:
-            body['overrides'] = [
-                {
-                    'conditions': [
-                        {'kind': cond.kind, 'attribute': cond.attribute, **self._condition_extra_fields(cond)}
-                        for cond in override.conditions
-                    ],
-                    'rollout': {'variants': override.rollout.variants},
-                }
-                for override in config.overrides
-            ]
+        body['overrides'] = [
+            {
+                'conditions': [
+                    {'kind': cond.kind, 'attribute': cond.attribute, **self._condition_extra_fields(cond)}
+                    for cond in override.conditions
+                ],
+                'rollout': {'variants': override.rollout.variants},
+            }
+            for override in config.overrides
+        ]
 
         return body
 
