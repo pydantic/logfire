@@ -285,7 +285,7 @@ class VariableConfig:
 
     # A note on migrations:
     # * To migrate value types, copy the variable using a new name, update the values, and use the new variable name in updated code
-    # * To migrate variable names, update the "aliases" field of the outer `VariablesConfig`
+    # * To migrate variable names, update the "aliases" field on the VariableConfig
     name: VariableName  # TODO: What restrictions should we add on allowed characters?
     """Unique name identifying this variable."""
     variants: dict[VariantKey, Variant]
@@ -298,6 +298,10 @@ class VariableConfig:
     """Description of the variable."""
     json_schema: dict[str, Any] | None = None
     """JSON schema describing the expected type of this variable's values."""
+    aliases: list[VariableName] | None = None
+    """Alternative names that resolve to this variable; useful for name migrations."""
+    example: str | None = None
+    """JSON-serialized example value from code; used as a template when creating new variants in the UI."""
     # TODO: Consider adding config-based management of targeting_key, rather than requiring the value at the call-site
     # TODO: Should we add a validator that all variants match the provided JSON schema?
 
@@ -387,14 +391,6 @@ class VariablesConfig:
     variables: dict[VariableName, VariableConfig]
     """Mapping of variable names to their configurations."""
 
-    aliases: dict[VariableName, VariableName] | None = None
-    """Variable name aliases; useful for name migrations.
-
-    If you attempt to retrieve a variable that is not a member of the `variables` mapping, the lookup will fall back to
-    looking for the name as a key of this mapping. If present, the corresponding value will be used to look in the
-    variables mapping.
-    """
-
     @model_validator(mode='after')
     def _validate_variables(self):
         # Validate lookup keys on variants dict
@@ -402,6 +398,14 @@ class VariablesConfig:
             if v.name != k:
                 raise ValueError(f'`variables` has invalid lookup key {k!r} for value with name {v.name!r}.')
         return self
+
+    def __post_init__(self):
+        # Build alias lookup map for efficient lookups
+        self._alias_map: dict[VariableName, VariableName] = {}
+        for var_config in self.variables.values():
+            if var_config.aliases:
+                for alias in var_config.aliases:
+                    self._alias_map[alias] = var_config.name
 
     def resolve_serialized_value(
         self, name: VariableName, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
@@ -420,21 +424,16 @@ class VariablesConfig:
             )
 
     def _get_variable_config(self, name: VariableName) -> VariableConfig | None:
-        working_name: VariableName | None = name
-        config = self.variables.get(working_name)
+        # First try direct lookup
+        config = self.variables.get(name)
+        if config is not None:
+            return config
 
-        if aliases := self.aliases:
-            visited = {working_name}
-            while config is None:
-                working_name = aliases.get(working_name)
-                if working_name is None:
-                    return None
-                if working_name in visited:
-                    return None  # alias cycle
-                visited.add(working_name)
-                config = self.variables.get(working_name)
+        # Fall back to alias lookup (aliases are stored on each VariableConfig)
+        if hasattr(self, '_alias_map') and name in self._alias_map:
+            return self.variables.get(self._alias_map[name])
 
-        return config
+        return None
 
     def get_validation_errors(self, variables: list[Variable[Any]]) -> dict[str, dict[str | None, Exception]]:
         """Validate that all variable variants can be deserialized to their expected types.

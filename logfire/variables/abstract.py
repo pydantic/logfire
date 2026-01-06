@@ -348,9 +348,9 @@ def _format_diff(diff: VariableDiff) -> str:
             if change.local_description:
                 lines.append(f'    Description: {change.local_description}')
             if change.initial_variant_value:
-                lines.append(f'    Default variant: {change.initial_variant_value}')
+                lines.append(f'    Example value: {change.initial_variant_value}')
             else:
-                lines.append('    (No default variant - default is a function)')
+                lines.append('    (No example value - default is a function)')
 
     if updates:
         lines.append(f'\n{ANSI_YELLOW}=== Variables to UPDATE (schema changed) ==={ANSI_RESET}')
@@ -403,30 +403,18 @@ def _create_variable(
     change: VariableChange,
 ) -> None:
     """Create a new variable via the provider."""
-    from logfire.variables.config import Rollout, VariableConfig, Variant
+    from logfire.variables.config import Rollout, VariableConfig
 
-    if change.initial_variant_value is not None:
-        # Has a static default - create a 'default' variant with 100% rollout
-        variants = {
-            'default': Variant(
-                key='default',
-                serialized_value=change.initial_variant_value,
-                description='Default value from code',
-            )
-        }
-        rollout = Rollout(variants={'default': 1.0})
-    else:
-        # Default is a function - no server-side variant, empty rollout
-        variants = {}
-        rollout = Rollout(variants={})
-
+    # No variants are created - the code default is used when no variants exist
+    # The example field stores the serialized default for use as a template in the UI
     config = VariableConfig(
         name=change.name,
         description=change.local_description,
-        variants=variants,
-        rollout=rollout,
+        variants={},
+        rollout=Rollout(variants={}),
         overrides=[],
         json_schema=change.local_schema,
+        example=change.initial_variant_value,  # Store the code default as an example for the UI
     )
 
     provider.create_variable(config)
