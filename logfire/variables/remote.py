@@ -323,6 +323,14 @@ class LogfireRemoteVariableProvider(VariableProvider):
             for override in config.overrides
         ]
 
+        # Include aliases if present
+        if config.aliases is not None:
+            body['aliases'] = config.aliases
+
+        # Include example value if present
+        if config.example is not None:
+            body['example'] = config.example
+
         return body
 
     def _condition_extra_fields(self, condition: Any) -> dict[str, Any]:
