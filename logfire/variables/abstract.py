@@ -689,13 +689,13 @@ class VariableProvider(ABC):
         try:
             self.refresh(force=True)
         except Exception as e:
-            print(f'{ANSI_YELLOW}Warning: Could not refresh provider: {e}{ANSI_RESET}', file=sys.stderr)
+            print(f'{ANSI_YELLOW}Warning: Could not refresh provider: {e}{ANSI_RESET}')
 
         # Get current variable configs from provider
         try:
             server_config = self.get_all_variables_config()
         except Exception as e:
-            print(f'{ANSI_RED}Error fetching current config: {e}{ANSI_RESET}', file=sys.stderr)
+            print(f'{ANSI_RED}Error fetching current config: {e}{ANSI_RESET}')
             return False
 
         # Compute diff
@@ -711,18 +711,12 @@ class VariableProvider(ABC):
         # Check for incompatible variants
         incompatible_changes = [c for c in diff.changes if c.change_type == 'update_schema' and c.incompatible_variants]
         if incompatible_changes:
-            message = f'Some changes will result in variants incompatible with the new schema.\n{incompatible_changes}'
+            message = 'Some changes will result in variants incompatible with the new schema.'
             if strict:
-                print(
-                    f'\n{ANSI_RED}Error: {message}\nRemove --strict flag to proceed anyway.{ANSI_RESET}',
-                    file=sys.stderr,
-                )
+                print(f'\n{ANSI_RED}Error: {message}\nRemove --strict flag to proceed anyway.{ANSI_RESET}')
                 return False
             else:
-                print(
-                    f'\n{ANSI_YELLOW}Warning: {message}\n',
-                    file=sys.stderr,
-                )
+                print(f'\n{ANSI_YELLOW}Warning: {message}{ANSI_RESET}')
 
         if dry_run:
             print(f'\n{ANSI_YELLOW}Dry run mode - no changes applied.{ANSI_RESET}')
@@ -746,7 +740,7 @@ class VariableProvider(ABC):
         try:
             _apply_changes(self, diff, server_config)
         except Exception as e:
-            print(f'{ANSI_RED}Error applying changes: {e}{ANSI_RESET}', file=sys.stderr)
+            print(f'{ANSI_RED}Error applying changes: {e}{ANSI_RESET}')
             return False
 
         print(f'\n{ANSI_GREEN}Done! Variables synced successfully.{ANSI_RESET}')
@@ -778,13 +772,13 @@ class VariableProvider(ABC):
         try:
             self.refresh(force=True)
         except Exception as e:
-            print(f'{ANSI_YELLOW}Warning: Could not refresh provider: {e}{ANSI_RESET}', file=sys.stderr)
+            print(f'{ANSI_YELLOW}Warning: Could not refresh provider: {e}{ANSI_RESET}')
 
         # Get current variable configs from provider
         try:
             server_config = self.get_all_variables_config()
         except Exception as e:
-            print(f'{ANSI_RED}Error fetching current config: {e}{ANSI_RESET}', file=sys.stderr)
+            print(f'{ANSI_RED}Error fetching current config: {e}{ANSI_RESET}')
             return False
 
         # Find variables not on server
