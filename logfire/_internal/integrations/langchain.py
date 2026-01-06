@@ -17,6 +17,7 @@ from opentelemetry import context as context_api, trace
 from opentelemetry.trace import SpanKind
 
 from .llm_providers.semconv import (
+    CONVERSATION_ID,
     INPUT_MESSAGES,
     INPUT_TOKENS,
     OPERATION_NAME,
@@ -132,12 +133,19 @@ class LogfireLangchainCallbackHandler(_BASE_CLASS):  # type: ignore[misc]
         """Extract span name from serialized dict."""
         return serialized.get('name', serialized.get('id', [default])[-1])
 
+    def _extract_conversation_id(self, metadata: dict[str, Any] | None) -> str | None:
+        """Extract thread_id from metadata for gen_ai.conversation.id."""
+        if metadata:
+            return metadata.get('thread_id')
+        return None
+
     def _start_span(
         self,
         span_name: str,
         run_id: UUID,
         parent_run_id: UUID | None = None,
         span_kind: SpanKind = SpanKind.INTERNAL,
+        conversation_id: str | None = None,
         **span_data: Any,
     ) -> Any:
         """Start a span with proper parent linkage using parent_run_id."""
@@ -155,6 +163,8 @@ class LogfireLangchainCallbackHandler(_BASE_CLASS):  # type: ignore[misc]
                 **span_data,
             )
             span._start()
+            if conversation_id:
+                span.set_attribute(CONVERSATION_ID, conversation_id)
         finally:
             if parent_token is not None:
                 context_api.detach(parent_token)
@@ -281,7 +291,8 @@ class LogfireLangchainCallbackHandler(_BASE_CLASS):  # type: ignore[misc]
     ) -> None:
         """Called when a chain starts - creates parent span for hierarchy."""
         span_name = name or self._get_span_name(serialized, 'chain')
-        self._start_span(span_name, run_id, parent_run_id, SpanKind.INTERNAL)
+        conversation_id = self._extract_conversation_id(metadata)
+        self._start_span(span_name, run_id, parent_run_id, SpanKind.INTERNAL, conversation_id=conversation_id)
 
     def on_chain_end(
         self,
@@ -319,7 +330,8 @@ class LogfireLangchainCallbackHandler(_BASE_CLASS):  # type: ignore[misc]
     ) -> None:
         """Called when a tool starts."""
         span_name = name or self._get_span_name(serialized, 'tool')
-        self._start_span(span_name, run_id, parent_run_id, SpanKind.INTERNAL)
+        conversation_id = self._extract_conversation_id(metadata)
+        self._start_span(span_name, run_id, parent_run_id, SpanKind.INTERNAL, conversation_id=conversation_id)
 
     def on_tool_end(
         self,
@@ -355,7 +367,8 @@ class LogfireLangchainCallbackHandler(_BASE_CLASS):  # type: ignore[misc]
     ) -> None:
         """Called when a retriever starts."""
         span_name = name or self._get_span_name(serialized, 'retriever')
-        self._start_span(span_name, run_id, parent_run_id, SpanKind.INTERNAL)
+        conversation_id = self._extract_conversation_id(metadata)
+        self._start_span(span_name, run_id, parent_run_id, SpanKind.INTERNAL, conversation_id=conversation_id)
 
     def on_retriever_end(
         self,
@@ -411,7 +424,8 @@ class LogfireLangchainCallbackHandler(_BASE_CLASS):  # type: ignore[misc]
         except Exception:
             pass
 
-        self._start_span(span_name, run_id, parent_run_id, SpanKind.CLIENT, **span_data)
+        conversation_id = self._extract_conversation_id(metadata)
+        self._start_span(span_name, run_id, parent_run_id, SpanKind.CLIENT, conversation_id=conversation_id, **span_data)
 
     def on_llm_start(
         self,
@@ -438,7 +452,8 @@ class LogfireLangchainCallbackHandler(_BASE_CLASS):  # type: ignore[misc]
         if tools := self._extract_tool_definitions(kwargs):
             span_data[TOOL_DEFINITIONS] = tools
 
-        self._start_span(span_name, run_id, parent_run_id, SpanKind.CLIENT, **span_data)
+        conversation_id = self._extract_conversation_id(metadata)
+        self._start_span(span_name, run_id, parent_run_id, SpanKind.CLIENT, conversation_id=conversation_id, **span_data)
 
     def on_llm_end(
         self,

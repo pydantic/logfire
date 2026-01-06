@@ -39,3 +39,6 @@ SYSTEM_INSTRUCTIONS = 'gen_ai.system_instructions'
 
 # Tool definitions
 TOOL_DEFINITIONS = 'gen_ai.tool.definitions'
+
+# Conversation tracking
+CONVERSATION_ID = 'gen_ai.conversation.id'
