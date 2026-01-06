@@ -319,22 +319,6 @@ class VariableConfig:
                 if k not in self.variants:  # pragma: no branch
                     raise ValueError(f'Variant {k!r} present in `overrides[{i}].rollout` is not present in `variants`.')
 
-        # Validate schedule stage variant references
-        # if self.schedule is not None:
-        #     for stage_idx, stage in enumerate(self.schedule.stages):
-        #         for k, v in stage.rollout.variants.items():
-        #             if k not in self.variants:
-        #                 raise ValueError(
-        #                     f'Variant {k!r} present in `schedule.stages[{stage_idx}].rollout` is not present in `variants`.'
-        #                 )
-        #         for override_idx, override in enumerate(stage.overrides):
-        #             for k, v in override.rollout.variants.items():
-        #                 if k not in self.variants:
-        #                     raise ValueError(
-        #                         f'Variant {k!r} present in `schedule.stages[{stage_idx}].overrides[{override_idx}].rollout` '
-        #                         f'is not present in `variants`.'
-        #                     )
-
         return self
 
     def resolve_variant(
@@ -364,12 +348,6 @@ class VariableConfig:
         # Step 1: Determine the rollout and overrides to use (from schedule or base config)
         base_rollout = self.rollout
         base_overrides = self.overrides
-
-        # if self.schedule is not None:
-        #     active_stage = self.schedule.get_active_stage()
-        #     if active_stage is not None:
-        #         base_rollout = active_stage.rollout
-        #         base_overrides = active_stage.overrides
 
         # Step 2: Find the first matching override, or use the base rollout
         selected_rollout = base_rollout

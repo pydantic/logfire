@@ -825,6 +825,7 @@ class VariableProvider(ABC):
                         )
                     )
 
+        # TODO: Return the ValidationReport rather than just a boolean; maybe make it a kwarg to do something with printing?
         report = ValidationReport(
             errors=errors,
             variables_checked=len(variables),
