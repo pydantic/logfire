@@ -536,3 +536,74 @@ Then set the chart type to **Bar Chart**. Each bar represents a 'bucket' that ac
     LEFT JOIN actual_counts c ON m.bucket_index = c.bucket_index
     ORDER BY m.bucket_midpoint;
     ```
+
+## Working with histogram metrics
+
+The `metrics` table is currently more difficult to work with, especially for histogram instruments.
+If possible, just use the aggregated `histogram_*` columns, something like this:
+
+```sql
+SELECT
+    time_bucket($resolution, recorded_timestamp) AS x,
+    sum(histogram_count) as total_count,
+    sum(histogram_sum) as total_sum,
+    sum(histogram_sum) / sum(histogram_count) as average,
+    min(histogram_min) as min,
+    max(histogram_max) as max
+FROM metrics
+WHERE metric_name = '<fill in>'
+GROUP BY x
+```
+
+If you need more detailed data, here's how.
+The Logfire SDK typically uses exponential histograms rather than explicit buckets.
+A single database row contains a list of counts for buckets with mathematically defined boundaries.
+Here's how to unpack this data into a more usable form. Copy the following into the start of a query:
+
+```sql
+with indices as (
+    select *, unnest(generate_series(1, array_length(exp_histogram_positive_bucket_counts, 1)::integer)) AS bucket_index
+    from metrics
+),
+counts as (
+    select *, exp_histogram_positive_bucket_counts[bucket_index] as bucket_count
+    from indices
+),
+bounds as (
+    select
+        counts.*,
+        greatest(
+            histogram_min,
+            power(2.0, (exp_histogram_positive_bucket_counts_offset+bucket_index-1)/power(2.0, exp_histogram_scale))
+        ) as lower_bound,
+        least(
+            histogram_max,
+            power(2.0, (exp_histogram_positive_bucket_counts_offset+bucket_index  )/power(2.0, exp_histogram_scale))
+        ) as upper_bound
+    from counts
+    where bucket_count > 0
+),
+```
+
+Now you can query `bounds`. It will have the same columns as `metrics`, plus `bucket_index`, `bucket_count`, `lower_bound`, and `upper_bound`.
+Each row in `metrics` will be unpacked into multiple rows in `bounds`, one per non-empty bucket.
+
+You can unpack this further to get approximate individual items within each bucket:
+
+```sql
+bounds_with_index as (
+    select unnest(generate_series(0, bucket_count - 1)) as i, *
+    from bounds
+),
+bucket_item_approx as (
+    select
+    case
+        when bucket_count = 1 then (lower_bound + upper_bound) / 2
+        else lower_bound + i * (upper_bound - lower_bound) / (bucket_count - 1)
+    end as approx_item, *
+    from bounds_with_index
+)
+```
+
+Then `bucket_item_approx.approx_item` can be fed into e.g. percentile calculations (see the Web Server Metrics standard dashboard)
+or the histogram recipe above.
