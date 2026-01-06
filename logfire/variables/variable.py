@@ -63,11 +63,11 @@ class Variable(Generic[T]):
 
     name: str
     """Unique name identifying this variable."""
-    value_type: type[T] | None = None
+    value_type: type[T]
     """The expected type of this variable's values."""
     default: T | ResolveFunction[T]
     """Default value or function to compute the default."""
-    description: str | None = None
+    description: str | None
     """Description of the variable."""
 
     logfire_instance: logfire.Logfire
@@ -191,6 +191,7 @@ class Variable(Generic[T]):
                 return _with_value(serialized_result, default)
 
             try:
+                # TODO: Should only validate a given value once, rather than every time it is resolved
                 value = self.type_adapter.validate_json(serialized_result.value)
             except ValidationError as e:
                 default = self._get_default(targeting_key, attributes)
