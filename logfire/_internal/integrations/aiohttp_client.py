@@ -108,6 +108,7 @@ class LogfireAioHttpRequestInfo(TraceRequestStartParams, LogfireClientInfoMixin)
     def capture_headers(self):
         capture_request_or_response_headers(self.span, self.headers, 'request')
 
+    @handle_internal_errors
     def capture_body_if_text(self, attr_name: str = 'http.request.body.text'):
         frame = inspect.currentframe()
         try:
