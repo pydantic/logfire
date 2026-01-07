@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Annotated, Any
 from unittest.mock import patch
 
 import cloudpickle
+import pydantic
 import pytest
 import sqlmodel
 from dirty_equals import IsInt
@@ -1291,7 +1292,9 @@ def test_sqlmodel_pydantic_plugin(exporter: TestExporter) -> None:
                     'logfire.level_num': 9,
                     'logfire.span_type': 'span',
                     'success': True,
-                    'result': '{"id":1}',
+                    'result': '{"id":1}'
+                    if get_version(pydantic.__version__) >= get_version('2.7.0')
+                    else '"Hero(id=1)"',
                     'logfire.msg': 'Pydantic Hero validate_python succeeded',
                     'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{"type":"object"},"success":{},"result":{"type":"object","title":"Hero","x-python-datatype":"PydanticModel"}}}',
                 },

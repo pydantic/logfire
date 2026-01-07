@@ -532,7 +532,7 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             MySQLModel(s=10),
             's=10',
             # SQLModel requires pydantic 2.7+ now
-            '{"s":10}' if get_version(pydantic.__version__) >= get_version('2.5.0') else '"MySQLModel(s=10)"',
+            '{"s":10}' if get_version(pydantic.__version__) >= get_version('2.7.0') else '"MySQLModel(s=10)"',
             {'type': 'object', 'title': 'MySQLModel', 'x-python-datatype': 'PydanticModel'},
         ),
         pytest.param(
