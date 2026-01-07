@@ -317,11 +317,6 @@ class RemoteVariablesConfig:
     If not provided, will be loaded from LOGFIRE_API_TOKEN environment variable.
     This token should have the 'project:read_variables' scope.
     """
-    base_url: str | None = None
-    """Base URL for the Logfire API.
-
-    If not provided, will be inferred from the API token.
-    """
     # TODO: Decide what the behavior should be if no API token is present — error? Or the same behavior as the NoOpVariableProvider?
 
 
@@ -329,6 +324,7 @@ class RemoteVariablesConfig:
 class VariablesOptions:
     """Configuration of managed variables."""
 
+    mode: Literal['local', 'remote', 'disabled'] = 'disabled'
     config: VariablesConfig | RemoteVariablesConfig | VariableProvider | None = None
     """A local or remote variables config, or an arbitrary variable provider."""
     include_resource_attributes_in_context: bool = True
@@ -336,7 +332,7 @@ class VariablesOptions:
     include_baggage_in_context: bool = True
     """Whether to include OpenTelemetry baggage when resolving variables."""
 
-    # TODO: Add OTel-related config here
+    # TODO: Add OTel-related config here (`instrument_variables`)
 
 
 class DeprecatedKwargs(TypedDict):
@@ -1208,7 +1204,7 @@ class LogfireConfig(_LogfireConfigData):
                             'Set the LOGFIRE_API_TOKEN environment variable or pass api_token to RemoteVariablesConfig.'
                         )
                     # Determine base URL: prefer config, then advanced settings, then infer from token
-                    base_url = remote_config.base_url or self.advanced.base_url or get_base_url_from_token(api_token)
+                    base_url = self.advanced.base_url or get_base_url_from_token(api_token)
                     self._variable_provider = LogfireRemoteVariableProvider(
                         base_url=base_url,
                         token=api_token,

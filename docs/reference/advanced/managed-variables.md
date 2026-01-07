@@ -479,7 +479,7 @@ with logfire.set_baggage(plan='enterprise'):
         ...
 ```
 
-This is useful when you want different configurations based on user plan—for example, enterprise users might get a prompt variant that references tools only available to them.
+This is useful when you want different configurations based on user plan. For example, enterprise users might get a prompt variant that references tools only available to them.
 
 **Example: Environment-based targeting with resource attributes**
 

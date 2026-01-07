@@ -108,12 +108,10 @@ class LogfireRemoteVariableProvider(VariableProvider):
             # If we're already fetching, we'll get a new value, so no need to force
             force = False
 
-        # TODO: Probably makes sense to replace this with something that just polls for a version number or hash
-        #   or similar, rather than the whole config, and only grabs the whole config if that version or hash changes.
+        # Note: Eventually we may want to rework the client and server implementations to use a NotModifiedResponse
+        #  to reduce the amount of overhead from polling. We could also use a websocket/SSE to get real time updates
+        #  when the user makes changes.
         with self._refresh_lock:  # Make at most one request at a time
-            # TODO: Do we need to rethink how the force-refreshing works?
-            #   Right now if you tried to force-refresh multiple times in parallel,
-            #   it would jankily do all the requests in serial... this is presumably rare but still feels like bad implementation?
             if (
                 not force
                 and self._last_fetched_at is not None
@@ -139,7 +137,6 @@ class LogfireRemoteVariableProvider(VariableProvider):
             finally:
                 self._has_attempted_fetch = True
 
-            # TODO: Should we set `_last_fetched_at` even on failure?
             self._last_fetched_at = datetime.now(tz=timezone.utc)
 
     def get_serialized_value(
@@ -163,10 +160,6 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
         if not self._has_attempted_fetch and self._block_before_first_fetch:
             # Block while waiting for the request to be sent
-            # TODO: Should we have an async version of this method that doesn't block the event loop?
-            #   Note that we could add a force_refresh option to both this method and the async one to force it to eagerly get the latest value, perhaps useful during development..
-            # TODO: What's a good way to force the request to happen now and block until it's done?
-            #   The following should work thanks to the refresh_lock and the early exiting, but it feels like there's got to be a cleaner way to do all this?
             self.refresh()
 
         if self._config is None:
@@ -300,15 +293,14 @@ class LogfireRemoteVariableProvider(VariableProvider):
         if config.json_schema is not None:
             body['json_schema'] = config.json_schema
 
-        if config.variants:  # pragma: no branch
-            body['variants'] = {
-                key: {
-                    'key': variant.key,
-                    'serialized_value': variant.serialized_value,
-                    **({'description': variant.description} if variant.description else {}),
-                }
-                for key, variant in config.variants.items()
+        body['variants'] = {
+            key: {
+                'key': variant.key,
+                'serialized_value': variant.serialized_value,
+                **({'description': variant.description} if variant.description else {}),
             }
+            for key, variant in config.variants.items()
+        }
 
         body['rollout'] = {'variants': config.rollout.variants}
 

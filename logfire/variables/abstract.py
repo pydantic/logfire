@@ -41,8 +41,8 @@ if not TYPE_CHECKING:  # pragma: no branch
     if sys.version_info < (3, 10):
         _dataclass = dataclass
 
-        # TODO: Drop this when we drop support for python 3.9
         # Prevent errors when using kw_only with dataclasses in Python<3.10
+        # Note: When we drop support for python 3.9, drop this
         def dataclass(*args, **kwargs):
             kwargs.pop('kw_only', None)
             return _dataclass(*args, **kwargs)
@@ -99,8 +99,8 @@ class ResolvedVariable(Generic[T_co]):
         'no_provider',
     ]  # we might eventually make this public, but I didn't want to yet
     """Internal field indicating how the value was resolved."""
-    # Note: I had to put _reason before fields with defaults for the sake of Python 3.9
-    # TODO: Move to the end when we drop support for 3.9
+    # Note: I had to put _reason before fields with defaults due to lack of kw_only
+    # Note: When we drop support for python 3.9, move _reason to the end
     variant: str | None = None
     """The key of the selected variant, if any."""
     exception: Exception | None = None

@@ -2,7 +2,7 @@ from __future__ import annotations as _annotations
 
 import inspect
 from collections.abc import Iterator, Mapping
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 from contextvars import ContextVar
 from dataclasses import replace
 from importlib.util import find_spec
@@ -156,23 +156,29 @@ class Variable(Generic[T]):
         # it'll still be low cardinality. This also prevents it from being scrubbed from the message.
         # Don't inline the f-string to avoid f-string magic.
         span_name = f'Resolve variable {self.name}'
-        with self.logfire_instance.span(
-            span_name,
-            name=self.name,
-            targeting_key=targeting_key,
-            attributes=merged_attributes,
-        ) as span:
-            result = self._resolve(targeting_key, merged_attributes)
-            span.set_attributes(
-                {
-                    'name': result.name,
-                    'value': result.value,
-                    'variant': result.variant,
-                    'reason': result._reason,  # pyright: ignore[reportPrivateUsage]
-                }
+        with ExitStack() as stack:
+            span: logfire.LogfireSpan | None = None
+            # TODO: Use `if self.logfire_instance.config.variables.instrument_resolution:`
+            span = stack.enter_context(
+                self.logfire_instance.span(
+                    span_name,
+                    name=self.name,
+                    targeting_key=targeting_key,
+                    attributes=merged_attributes,
+                )
             )
-            if result.exception:
-                span.record_exception(result.exception)
+            result = self._resolve(targeting_key, merged_attributes)
+            if span is not None:
+                span.set_attributes(
+                    {
+                        'name': result.name,
+                        'value': result.value,
+                        'variant': result.variant,
+                        'reason': result._reason,  # pyright: ignore[reportPrivateUsage]
+                    }
+                )
+                if result.exception:
+                    span.record_exception(result.exception)
             return result
 
     def _resolve(

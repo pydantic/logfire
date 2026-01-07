@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal, Union
 
-from pydantic import TypeAdapter, ValidationError, field_validator, model_validator
+from pydantic import TypeAdapter, ValidationError, field_validator, model_validator, Field
 from typing_extensions import TypeAliasType
 
 from logfire._internal.config import RemoteVariablesConfig as RemoteVariablesConfig
@@ -49,13 +49,14 @@ if not TYPE_CHECKING:  # pragma: no branch
     if sys.version_info < (3, 10):
         _dataclass = dataclass
 
-        # TODO: Drop this when we drop support for python 3.9
+        # Note: When we drop support for python 3.9, drop this
         # Prevent errors when using kw_only with dataclasses in Python<3.10
         def dataclass(*args, **kwargs):
             kwargs.pop('kw_only', None)
             return _dataclass(*args, **kwargs)
 
 
+# TODO: Convert these all to BaseModel
 @dataclass(kw_only=True)
 class ValueEquals:
     """Condition that matches when an attribute equals a specific value."""
@@ -206,8 +207,14 @@ Condition = TypeAliasType(
 )
 
 
-VariantKey = str
-VariableName = str
+VariantKey = Annotated[str, Field(pattern=r'^[a-zA-Z_][a-zA-Z0-9_]*$')]
+"""The identifier of a variant value for a variable.
+
+At least for now, must be a valid Python identifier."""
+VariableName = Annotated[str, Field(pattern=r'^[a-zA-Z_][a-zA-Z0-9_]*$')]
+"""The name of a variable.
+
+At least for now, must be a valid Python identifier."""
 
 # TODO: Do we need to make the following dataclasses into pydantic dataclasses or BaseModels so the validators run when
 #  initializing (and not just when deserializing with a TypeAdapter)?
@@ -272,7 +279,6 @@ class Variant:
     """Unique identifier for this variant."""
     serialized_value: str
     """The JSON-serialized value for this variant."""
-    # format: Literal['json', 'yaml']  # TODO: Consider supporting yaml, and not just JSON; allows comments and better formatting
     description: str | None = None
     """Optional human-readable description of this variant."""
     version: int | None = None  # TODO: should this be required? should this be `str`?
@@ -342,7 +348,7 @@ class VariableConfig:
     """Default rollout configuration for variant selection."""
     overrides: list[RolloutOverride]
     """Conditional overrides evaluated in order; first match takes precedence."""
-    description: str | None = None  # TODO: Move this field immediately after `name` when we drop support for 3.9
+    description: str | None = None  # Note: When we drop support for python 3.9, move this field immediately after `name`
     """Description of the variable."""
     json_schema: dict[str, Any] | None = None
     """JSON schema describing the expected type of this variable's values."""
@@ -351,7 +357,6 @@ class VariableConfig:
     example: str | None = None
     """JSON-serialized example value from code; used as a template when creating new variants in the UI."""
     # TODO: Consider adding config-based management of targeting_key, rather than requiring the value at the call-site
-    # TODO: Should we add a validator that all variants match the provided JSON schema?
 
     @model_validator(mode='after')
     def _validate_variants(self):
