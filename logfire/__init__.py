@@ -97,6 +97,9 @@ var = DEFAULT_LOGFIRE_INSTANCE.var
 get_variables = DEFAULT_LOGFIRE_INSTANCE.get_variables
 push_variables = DEFAULT_LOGFIRE_INSTANCE.push_variables
 validate_variables = DEFAULT_LOGFIRE_INSTANCE.validate_variables
+sync_config = DEFAULT_LOGFIRE_INSTANCE.sync_config
+pull_config = DEFAULT_LOGFIRE_INSTANCE.pull_config
+generate_config = DEFAULT_LOGFIRE_INSTANCE.generate_config
 
 
 def loguru_handler() -> Any:
@@ -188,6 +191,9 @@ __all__ = (
     'get_variables',
     'push_variables',
     'validate_variables',
+    'sync_config',
+    'pull_config',
+    'generate_config',
     'logfire_info',
     'get_baggage',
     'set_baggage',

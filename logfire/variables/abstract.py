@@ -9,6 +9,8 @@ from contextlib import ExitStack
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar
 
+SyncMode = Literal['merge', 'replace']
+
 if TYPE_CHECKING:
     from logfire.variables.config import VariableConfig, VariablesConfig
     from logfire.variables.variable import Variable
@@ -23,6 +25,8 @@ ANSI_GRAY = '\033[90m'
 
 __all__ = (
     'ResolvedVariable',
+    'SyncMode',
+    'ValidationReport',
     'VariableProvider',
     'NoOpVariableProvider',
     'VariableWriteError',
@@ -182,17 +186,102 @@ class DescriptionDifference:
 
 @dataclass
 class ValidationReport:
-    """Report of variable validation results."""
+    """Report of variable validation results.
+
+    This class contains the results of validating variable definitions against
+    a provider's configuration. It can be used to check for errors programmatically
+    or formatted for human-readable output.
+
+    Example:
+        ```python
+        report = provider.validate_variables(variables)
+        if report.has_errors:
+            print(report.format())
+            sys.exit(1)
+        ```
+    """
 
     errors: list[VariantValidationError]
+    """List of validation errors found."""
     variables_checked: int
+    """Total number of variables that were checked."""
     variables_not_on_server: list[str]
+    """Names of variables that exist locally but not on the server."""
     description_differences: list[DescriptionDifference]
+    """List of variables where local and server descriptions differ."""
 
     @property
     def has_errors(self) -> bool:
-        """Return True if there are any validation errors."""
+        """Return True if there are any validation errors.
+
+        This includes both variant validation errors and variables not found on server.
+        """
         return len(self.errors) > 0 or len(self.variables_not_on_server) > 0
+
+    @property
+    def is_valid(self) -> bool:
+        """Return True if validation passed (no errors)."""
+        return not self.has_errors
+
+    def format(self, *, colors: bool = True) -> str:
+        """Format the validation report for human-readable output.
+
+        Args:
+            colors: If True, include ANSI color codes in output.
+
+        Returns:
+            A formatted string representation of the report.
+        """
+        reset = ANSI_RESET if colors else ''
+        red = ANSI_RED if colors else ''
+        green = ANSI_GREEN if colors else ''
+        yellow = ANSI_YELLOW if colors else ''
+        cyan = ANSI_CYAN if colors else ''
+
+        lines: list[str] = []
+
+        if self.errors:
+            lines.append(f'\n{red}=== Validation Errors ==={reset}')
+            for error in self.errors:
+                if error.variant_key is None:  # pragma: no cover
+                    lines.append(f'  {red}✗ {error.variable_name}: {error.error}{reset}')
+                else:
+                    lines.append(f'  {red}✗ {error.variable_name} (variant: {error.variant_key}){reset}')
+                    # Format the error message, indenting each line
+                    error_lines = str(error.error).split('\n')
+                    for line in error_lines[:5]:  # Limit to first 5 lines
+                        lines.append(f'      {line}')
+                    if len(error_lines) > 5:
+                        lines.append(f'      ... ({len(error_lines) - 5} more lines)')
+
+        if self.variables_not_on_server:
+            lines.append(f'\n{yellow}=== Variables Not Found on Server ==={reset}')
+            for name in self.variables_not_on_server:
+                lines.append(f'  {yellow}? {name}{reset}')
+
+        valid_count = self.variables_checked - len(self.errors) - len(self.variables_not_on_server)
+        if valid_count > 0:
+            lines.append(f'\n{green}=== Valid ({valid_count} variables) ==={reset}')
+
+        # Show description differences as informational warnings
+        if self.description_differences:
+            lines.append(f'\n{cyan}=== Description differences (informational) ==={reset}')
+            lines.append(f'{cyan}Note: Different descriptions may be intentional for different codebases.{reset}')
+            for diff in self.description_differences:
+                lines.append(f'  {cyan}! {diff.variable_name}{reset}')
+                local_desc = diff.local_description or '(none)'
+                server_desc = diff.server_description or '(none)'
+                lines.append(f'    Local:  {local_desc}')
+                lines.append(f'    Server: {server_desc}')
+
+        # Summary line
+        if self.has_errors:
+            error_count = len(self.errors) + len(self.variables_not_on_server)
+            lines.append(f'\n{red}Validation failed: {error_count} error(s) found.{reset}')
+        else:
+            lines.append(f'\n{green}Validation passed: All {self.variables_checked} variable(s) are valid.{reset}')
+
+        return '\n'.join(lines)
 
 
 # --- Helper functions for push/validate operations ---
@@ -450,47 +539,6 @@ def _update_variable_schema(
     print(f'  {ANSI_YELLOW}Updated schema: {change.name}{ANSI_RESET}')
 
 
-def _format_validation_report(report: ValidationReport) -> str:
-    """Format a validation report for display to the user."""
-    lines: list[str] = []
-
-    if report.errors:
-        lines.append(f'\n{ANSI_RED}=== Validation Errors ==={ANSI_RESET}')
-        for error in report.errors:
-            if error.variant_key is None:  # pragma: no cover
-                lines.append(f'  {ANSI_RED}✗ {error.variable_name}: {error.error}{ANSI_RESET}')
-            else:
-                lines.append(f'  {ANSI_RED}✗ {error.variable_name} (variant: {error.variant_key}){ANSI_RESET}')
-                # Format the error message, indenting each line
-                error_lines = str(error.error).split('\n')
-                for line in error_lines[:5]:  # Limit to first 5 lines
-                    lines.append(f'      {line}')
-                if len(error_lines) > 5:
-                    lines.append(f'      ... ({len(error_lines) - 5} more lines)')
-
-    if report.variables_not_on_server:
-        lines.append(f'\n{ANSI_YELLOW}=== Variables Not Found on Server ==={ANSI_RESET}')
-        for name in report.variables_not_on_server:
-            lines.append(f'  {ANSI_YELLOW}? {name}{ANSI_RESET}')
-
-    valid_count = report.variables_checked - len(report.errors) - len(report.variables_not_on_server)
-    if valid_count > 0:
-        lines.append(f'\n{ANSI_GREEN}=== Valid ({valid_count} variables) ==={ANSI_RESET}')
-
-    # Show description differences as informational warnings
-    if report.description_differences:
-        lines.append(f'\n{ANSI_CYAN}=== Description differences (informational) ==={ANSI_RESET}')
-        lines.append(f'{ANSI_CYAN}Note: Different descriptions may be intentional for different codebases.{ANSI_RESET}')
-        for diff in report.description_differences:
-            lines.append(f'  {ANSI_CYAN}! {diff.variable_name}{ANSI_RESET}')
-            local_desc = diff.local_description or '(none)'
-            server_desc = diff.server_description or '(none)'
-            lines.append(f'    Local:  {local_desc}')
-            lines.append(f'    Server: {server_desc}')
-
-    return '\n'.join(lines)
-
-
 class VariableProvider(ABC):
     """Abstract base class for variable value providers."""
 
@@ -643,6 +691,154 @@ class VariableProvider(ABC):
             else:
                 self.update_variable(name, config)
 
+    def sync_config(
+        self,
+        config: VariablesConfig,
+        *,
+        mode: SyncMode = 'merge',
+        dry_run: bool = False,
+        yes: bool = False,
+    ) -> bool:
+        """Synchronize a VariablesConfig with this provider.
+
+        This method pushes a complete VariablesConfig (including variants and rollouts)
+        to the provider. It's useful for:
+        - Pushing configs generated or modified locally
+        - Syncing configs read from files
+        - Partial updates (merge mode) or full replacement (replace mode)
+
+        Args:
+            config: The VariablesConfig to sync.
+            mode: 'merge' updates/creates only variables in config (leaves others unchanged).
+                  'replace' makes the server match the config exactly (deletes missing variables).
+            dry_run: If True, only show what would change without applying.
+            yes: If True, skip confirmation prompt.
+
+        Returns:
+            True if changes were applied (or would be applied in dry_run mode), False otherwise.
+        """
+        if not config.variables:
+            print('No variables in config to sync.')
+            return False
+
+        print(f'Using provider: {type(self).__name__}')
+
+        # Refresh the provider to ensure we have the latest config
+        try:
+            self.refresh(force=True)
+        except Exception as e:
+            print(f'{ANSI_YELLOW}Warning: Could not refresh provider: {e}{ANSI_RESET}')
+
+        # Get current variable configs from provider
+        try:
+            server_config = self.get_all_variables_config()
+        except Exception as e:
+            print(f'{ANSI_RED}Error fetching current config: {e}{ANSI_RESET}')
+            return False
+
+        # Compute changes
+        creates: list[str] = []
+        updates: list[str] = []
+        deletes: list[str] = []
+        unchanged: list[str] = []
+
+        for name, var_config in config.variables.items():
+            server_var = server_config.variables.get(name)
+            if server_var is None:
+                creates.append(name)
+            elif var_config.to_dict() != server_var.to_dict():
+                updates.append(name)
+            else:
+                unchanged.append(name)
+
+        # In replace mode, variables on server but not in config should be deleted
+        if mode == 'replace':
+            for name in server_config.variables:
+                if name not in config.variables:
+                    deletes.append(name)
+
+        # Show diff
+        lines: list[str] = []
+
+        if creates:
+            lines.append(f'\n{ANSI_GREEN}=== Variables to CREATE ==={ANSI_RESET}')
+            for name in creates:
+                lines.append(f'  {ANSI_GREEN}+ {name}{ANSI_RESET}')
+                var_config = config.variables[name]
+                if var_config.description:
+                    lines.append(f'    Description: {var_config.description}')
+                if var_config.variants:
+                    lines.append(f'    Variants: {", ".join(var_config.variants.keys())}')
+
+        if updates:
+            lines.append(f'\n{ANSI_YELLOW}=== Variables to UPDATE ==={ANSI_RESET}')
+            for name in updates:
+                lines.append(f'  {ANSI_YELLOW}~ {name}{ANSI_RESET}')
+
+        if deletes:
+            lines.append(f'\n{ANSI_RED}=== Variables to DELETE ==={ANSI_RESET}')
+            for name in deletes:
+                lines.append(f'  {ANSI_RED}- {name}{ANSI_RESET}')
+
+        if unchanged:
+            lines.append(f'\n{ANSI_GRAY}=== No changes needed ({len(unchanged)} variables) ==={ANSI_RESET}')
+            for name in unchanged:
+                lines.append(f'  {ANSI_GRAY}  {name}{ANSI_RESET}')
+
+        print('\n'.join(lines))
+
+        has_changes = bool(creates or updates or deletes)
+        if not has_changes:
+            print(f'\n{ANSI_GREEN}No changes needed. Provider is up to date.{ANSI_RESET}')
+            return False
+
+        if dry_run:
+            print(f'\n{ANSI_YELLOW}Dry run mode - no changes applied.{ANSI_RESET}')
+            return True
+
+        # Confirm with user
+        if not yes:  # pragma: no cover
+            print()
+            try:
+                response_input = input('Apply these changes? [y/N] ')
+            except (EOFError, KeyboardInterrupt):
+                print('\nAborted.')
+                return False
+
+            if response_input.lower() not in ('y', 'yes'):
+                print('Aborted.')
+                return False
+
+        # Apply changes
+        print('\nApplying changes...')
+        try:
+            # Build batch update map
+            batch: dict[str, VariableConfig | None] = {}
+            for name in creates + updates:
+                batch[name] = config.variables[name]
+            for name in deletes:
+                batch[name] = None
+
+            self.batch_update(batch)
+        except Exception as e:
+            print(f'{ANSI_RED}Error applying changes: {e}{ANSI_RESET}')
+            return False
+
+        print(f'\n{ANSI_GREEN}Done! Variables synced successfully.{ANSI_RESET}')
+        return True
+
+    def pull_config(self) -> VariablesConfig:
+        """Pull the current variable configuration from the provider.
+
+        This method fetches the complete configuration from the provider,
+        useful for generating local copies of the config that can be modified.
+
+        Returns:
+            The current VariablesConfig from the provider.
+        """
+        self.refresh(force=True)
+        return self.get_all_variables_config()
+
     def push_variables(
         self,
         variables: list[Variable[Any]],
@@ -737,7 +933,7 @@ class VariableProvider(ABC):
     def validate_variables(
         self,
         variables: list[Variable[Any]],
-    ) -> bool:
+    ) -> ValidationReport:
         """Validate that provider-side variable variants match local type definitions.
 
         This method fetches the current variable configuration from the provider and
@@ -748,26 +944,30 @@ class VariableProvider(ABC):
             variables: Variable instances to validate.
 
         Returns:
-            True if all variables validated successfully, False if there were errors.
+            A ValidationReport containing any errors found. Use `report.is_valid` to check
+            if validation passed, and `report.format()` to get a human-readable summary.
+
+        Example:
+            ```python
+            report = provider.validate_variables(variables)
+            if not report.is_valid:
+                print(report.format())
+                sys.exit(1)
+            ```
         """
         if not variables:
-            print('No variables to validate. Create variables using logfire.var() first.')
-            return True  # No variables to validate is not an error
-
-        print(f'Using provider: {type(self).__name__}')
+            return ValidationReport(
+                errors=[],
+                variables_checked=0,
+                variables_not_on_server=[],
+                description_differences=[],
+            )
 
         # Refresh the provider to ensure we have the latest config
-        try:
-            self.refresh(force=True)
-        except Exception as e:
-            print(f'{ANSI_YELLOW}Warning: Could not refresh provider: {e}{ANSI_RESET}')
+        self.refresh(force=True)
 
         # Get current variable configs from provider
-        try:
-            server_config = self.get_all_variables_config()
-        except Exception as e:
-            print(f'{ANSI_RED}Error fetching current config: {e}{ANSI_RESET}')
-            return False
+        server_config = self.get_all_variables_config()
 
         # Find variables not on server
         variables_not_on_server = [v.name for v in variables if v.name not in server_config.variables]
@@ -807,24 +1007,12 @@ class VariableProvider(ABC):
                         )
                     )
 
-        # TODO: Return the ValidationReport rather than just a boolean; maybe make it a kwarg to do something with printing?
-        report = ValidationReport(
+        return ValidationReport(
             errors=errors,
             variables_checked=len(variables),
             variables_not_on_server=variables_not_on_server,
             description_differences=description_differences,
         )
-
-        # Print report
-        print(_format_validation_report(report))
-
-        if report.has_errors:
-            error_count = len(report.errors) + len(report.variables_not_on_server)
-            print(f'\n{ANSI_RED}Validation failed: {error_count} error(s) found.{ANSI_RESET}')
-            return False
-        else:
-            print(f'\n{ANSI_GREEN}Validation passed: All {report.variables_checked} variable(s) are valid.{ANSI_RESET}')
-            return True
 
 
 @dataclass
@@ -879,11 +1067,15 @@ class NoOpVariableProvider(VariableProvider):
     def validate_variables(
         self,
         variables: list[Variable[Any]],
-    ) -> bool:
-        """No-op implementation that prints a message about missing provider configuration.
+    ) -> ValidationReport:
+        """No-op implementation that returns an empty validation report.
 
         Returns:
-            Always True since there's nothing to validate without a provider.
+            An empty ValidationReport since there's no provider to validate against.
         """
-        print('No variable provider configured. Configure a provider using logfire.configure(variables=...).')
-        return True
+        return ValidationReport(
+            errors=[],
+            variables_checked=0,
+            variables_not_on_server=[],
+            description_differences=[],
+        )

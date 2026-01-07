@@ -6,11 +6,14 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import replace
 from importlib.util import find_spec
-from typing import Any, Generic, Protocol, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar
 
 from opentelemetry.trace import get_current_span
 from pydantic import TypeAdapter, ValidationError
 from typing_extensions import TypeIs
+
+if TYPE_CHECKING:
+    from logfire.variables.config import VariableConfig
 
 if find_spec('anyio') is not None:  # pragma: no branch
     # Use anyio for running sync functions on separate threads in an event loop if it is available
@@ -217,6 +220,35 @@ class Variable(Generic[T]):
         if variables_options.include_resource_attributes_in_context:
             result.update(self.logfire_instance.resource_attributes)
         return result
+
+    def to_config(self) -> VariableConfig:
+        """Create a VariableConfig from this Variable instance.
+
+        This creates a minimal config with just the name, schema, and example.
+        No variants are created - use this to generate a template config that can be edited.
+
+        Returns:
+            A VariableConfig with minimal configuration.
+        """
+        from logfire.variables.config import Rollout, VariableConfig
+
+        # Get JSON schema from the type adapter
+        json_schema = self.type_adapter.json_schema()
+
+        # Get the serialized default value as an example (if not a function)
+        example: str | None = None
+        if not is_resolve_function(self.default):
+            example = self.type_adapter.dump_json(self.default).decode('utf-8')
+
+        return VariableConfig(
+            name=self.name,
+            description=self.description,
+            variants={},
+            rollout=Rollout(variants={}),
+            overrides=[],
+            json_schema=json_schema,
+            example=example,
+        )
 
 
 def _with_value(details: ResolvedVariable[Any], new_value: T) -> ResolvedVariable[T]:

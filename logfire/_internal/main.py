@@ -111,6 +111,7 @@ if TYPE_CHECKING:
     from ..integrations.redis import RequestHook as RedisRequestHook, ResponseHook as RedisResponseHook
     from ..integrations.sqlalchemy import CommenterOptions as SQLAlchemyCommenterOptions
     from ..integrations.wsgi import RequestHook as WSGIRequestHook, ResponseHook as WSGIResponseHook
+    from ..variables.config import VariablesConfig
     from ..variables.variable import ResolveFunction, Variable
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
     from .integrations.aws_lambda import LambdaEvent, LambdaHandler
@@ -2484,7 +2485,109 @@ class Logfire:
             variables = self.get_variables()  # pragma: no cover
 
         provider = self.config.get_variable_provider()
-        return provider.validate_variables(variables)
+        report = provider.validate_variables(variables)
+        return report.is_valid
+
+    def sync_config(
+        self,
+        config: VariablesConfig,
+        *,
+        mode: Literal['merge', 'replace'] = 'merge',
+        dry_run: bool = False,
+        yes: bool = False,
+    ) -> bool:
+        """Synchronize a VariablesConfig with the configured provider.
+
+        This method pushes a complete VariablesConfig (including variants and rollouts)
+        to the provider. It's useful for:
+        - Pushing configs generated or modified locally
+        - Syncing configs read from files
+        - Partial updates (merge mode) or full replacement (replace mode)
+
+        Args:
+            config: The VariablesConfig to sync.
+            mode: 'merge' updates/creates only variables in config (leaves others unchanged).
+                  'replace' makes the server match the config exactly (deletes missing variables).
+            dry_run: If True, only show what would change without applying.
+            yes: If True, skip confirmation prompt.
+
+        Returns:
+            True if changes were applied (or would be applied in dry_run mode), False otherwise.
+
+        Example:
+            ```python
+            import logfire
+            from logfire.variables import VariablesConfig
+
+            # Read config from file and push to server
+            config = VariablesConfig.read('variables.yaml')
+            logfire.sync_config(config)
+
+            # Or merge just a subset of variables
+            logfire.sync_config(config, mode='merge')
+            ```
+        """
+        provider = self.config.get_variable_provider()
+        return provider.sync_config(config, mode=mode, dry_run=dry_run, yes=yes)
+
+    def pull_config(self) -> VariablesConfig:
+        """Pull the current variable configuration from the provider.
+
+        This method fetches the complete configuration from the provider,
+        useful for generating local copies of the config that can be modified.
+
+        Returns:
+            The current VariablesConfig from the provider.
+
+        Example:
+            ```python
+            import logfire
+
+            # Pull config and save to file
+            config = logfire.pull_config()
+            config.write('variables.yaml')
+            ```
+        """
+        provider = self.config.get_variable_provider()
+        return provider.pull_config()
+
+    def generate_config(
+        self,
+        variables: list[Variable[Any]] | None = None,
+    ) -> VariablesConfig:
+        """Generate a VariablesConfig from registered Variable instances.
+
+        This creates a minimal config with just the name, schema, and example for each variable.
+        No variants are created - use this to generate a template config that can be edited.
+
+        Args:
+            variables: Variable instances to include. If None, uses all registered variables.
+
+        Returns:
+            A VariablesConfig with minimal configs for each variable.
+
+        Example:
+            ```python
+            import logfire
+
+            feature_enabled = logfire.var(name='feature-enabled', type=bool, default=False)
+            max_retries = logfire.var(name='max-retries', type=int, default=3)
+
+            # Generate config and save to file
+            config = logfire.generate_config()
+            config.write('variables.yaml')
+
+            # Edit the file to add variants, then push
+            config = VariablesConfig.read('variables.yaml')
+            logfire.sync_config(config)
+            ```
+        """
+        if variables is None:
+            variables = self.get_variables()  # pragma: no cover
+
+        from logfire.variables.config import VariablesConfig
+
+        return VariablesConfig.from_variables(variables)
 
 
 class FastLogfireSpan:

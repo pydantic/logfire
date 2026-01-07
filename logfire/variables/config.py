@@ -1,10 +1,13 @@
 from __future__ import annotations as _annotations
 
+import json
+import os
 import random
 import re
 import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal, Union
 
 from pydantic import TypeAdapter, ValidationError, field_validator, model_validator
@@ -13,6 +16,8 @@ from typing_extensions import TypeAliasType
 from logfire._internal.config import RemoteVariablesConfig as RemoteVariablesConfig
 from logfire.variables.abstract import ResolvedVariable
 from logfire.variables.variable import Variable
+
+VariablesConfigFormat = Literal['json', 'yaml']
 
 try:
     from pydantic import Discriminator
@@ -37,6 +42,7 @@ __all__ = (
     'VariableConfig',
     'VariablesConfig',
     'Variant',
+    'VariablesConfigFormat',
 )
 
 if not TYPE_CHECKING:  # pragma: no branch
@@ -253,6 +259,10 @@ class Rollout:
         rand = random.Random(seed)
         return rand.choices(self._population, self._weights)[0]
 
+    def to_dict(self) -> dict[str, Any]:
+        """Convert this rollout to a dictionary representation."""
+        return {'variants': self.variants}
+
 
 @dataclass(kw_only=True)
 class Variant:
@@ -268,6 +278,18 @@ class Variant:
     version: int | None = None  # TODO: should this be required? should this be `str`?
     """Optional version identifier for this variant."""
 
+    def to_dict(self) -> dict[str, Any]:
+        """Convert this variant to a dictionary representation."""
+        result: dict[str, Any] = {
+            'key': self.key,
+            'serialized_value': self.serialized_value,
+        }
+        if self.description is not None:
+            result['description'] = self.description
+        if self.version is not None:
+            result['version'] = self.version
+        return result
+
 
 @dataclass(kw_only=True)
 class RolloutOverride:
@@ -277,6 +299,32 @@ class RolloutOverride:
     """List of conditions that must all match for this override to apply."""
     rollout: Rollout
     """The rollout configuration to use when all conditions match."""
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert this rollout override to a dictionary representation."""
+        return {
+            'conditions': [_condition_to_dict(c) for c in self.conditions],
+            'rollout': self.rollout.to_dict(),
+        }
+
+
+def _condition_to_dict(condition: Condition) -> dict[str, Any]:
+    """Convert a condition to a dictionary representation."""
+    result: dict[str, Any] = {'kind': condition.kind, 'attribute': condition.attribute}
+
+    # Handle conditions with 'value' field
+    if isinstance(condition, (ValueEquals, ValueDoesNotEqual)):
+        result['value'] = condition.value
+    # Handle conditions with 'values' field
+    elif isinstance(condition, (ValueIsIn, ValueIsNotIn)):
+        result['values'] = list(condition.values)
+    # Handle conditions with 'pattern' field
+    elif isinstance(condition, (ValueMatchesRegex, ValueDoesNotMatchRegex)):
+        pattern = condition.pattern
+        result['pattern'] = pattern.pattern if isinstance(pattern, re.Pattern) else pattern
+    # KeyIsPresent and KeyIsNotPresent only have 'attribute' and 'kind'
+
+    return result
 
 
 @dataclass(kw_only=True)
@@ -380,6 +428,27 @@ class VariableConfig:
         """
         return _VariableConfigAdapter.validate_python(data)
 
+    def to_dict(self) -> dict[str, Any]:
+        """Convert this variable config to a dictionary representation.
+
+        This can be used to serialize the config to JSON or YAML.
+        """
+        result: dict[str, Any] = {
+            'name': self.name,
+            'variants': {k: v.to_dict() for k, v in self.variants.items()},
+            'rollout': self.rollout.to_dict(),
+            'overrides': [o.to_dict() for o in self.overrides],
+        }
+        if self.description is not None:
+            result['description'] = self.description
+        if self.json_schema is not None:
+            result['json_schema'] = self.json_schema
+        if self.aliases is not None:
+            result['aliases'] = self.aliases
+        if self.example is not None:
+            result['example'] = self.example
+        return result
+
 
 _VariableConfigAdapter = TypeAdapter(VariableConfig)
 
@@ -470,6 +539,187 @@ class VariablesConfig:
             A validated VariablesConfig instance.
         """
         return _VariablesConfigAdapter.validate_python(data)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert this variables config to a dictionary representation.
+
+        Returns:
+            A dict with the variables configuration.
+        """
+        return {'variables': {k: v.to_dict() for k, v in self.variables.items()}}
+
+    def to_json(self, *, indent: int | None = 2) -> str:
+        """Convert this variables config to a JSON string.
+
+        Args:
+            indent: Indentation level for pretty printing. Default is 2.
+
+        Returns:
+            A JSON string representation of the config.
+        """
+        return json.dumps(self.to_dict(), indent=indent)
+
+    def to_yaml(self) -> str:
+        """Convert this variables config to a YAML string.
+
+        Returns:
+            A YAML string representation of the config.
+
+        Raises:
+            ImportError: If PyYAML is not installed.
+        """
+        try:
+            import yaml
+        except ImportError as e:
+            raise ImportError('PyYAML is required for YAML support. Install with: pip install pyyaml') from e
+
+        return yaml.safe_dump(self.to_dict(), default_flow_style=False, sort_keys=False)
+
+    @staticmethod
+    def from_json(data: str) -> VariablesConfig:
+        """Parse a VariablesConfig from a JSON string.
+
+        Args:
+            data: A JSON string to parse.
+
+        Returns:
+            A validated VariablesConfig instance.
+        """
+        return VariablesConfig.validate_python(json.loads(data))
+
+    @staticmethod
+    def from_yaml(data: str) -> VariablesConfig:
+        """Parse a VariablesConfig from a YAML string.
+
+        Args:
+            data: A YAML string to parse.
+
+        Returns:
+            A validated VariablesConfig instance.
+
+        Raises:
+            ImportError: If PyYAML is not installed.
+        """
+        try:
+            import yaml
+        except ImportError as e:
+            raise ImportError('PyYAML is required for YAML support. Install with: pip install pyyaml') from e
+
+        return VariablesConfig.validate_python(yaml.safe_load(data))
+
+    def write(self, path: str | os.PathLike[str], format: VariablesConfigFormat | None = None) -> None:
+        """Write the variables config to a file.
+
+        Args:
+            path: Path to write the config to.
+            format: The format to use ('json' or 'yaml'). If not specified, inferred from the file extension.
+
+        Raises:
+            ValueError: If the format cannot be determined.
+        """
+        path = Path(path)
+        if format is None:
+            suffix = path.suffix.lower()
+            if suffix in ('.yaml', '.yml'):
+                format = 'yaml'
+            elif suffix == '.json':
+                format = 'json'
+            else:
+                raise ValueError(
+                    f"Cannot determine format from extension '{suffix}'. Use format='json' or format='yaml'."
+                )
+
+        if format == 'yaml':
+            content = self.to_yaml()
+        else:
+            content = self.to_json()
+
+        path.write_text(content)
+
+    @staticmethod
+    def read(path: str | os.PathLike[str], format: VariablesConfigFormat | None = None) -> VariablesConfig:
+        """Read a variables config from a file.
+
+        Args:
+            path: Path to the config file.
+            format: The format of the file ('json' or 'yaml'). If not specified, inferred from the file extension.
+
+        Returns:
+            A validated VariablesConfig instance.
+
+        Raises:
+            ValueError: If the format cannot be determined.
+        """
+        path = Path(path)
+        if format is None:
+            suffix = path.suffix.lower()
+            if suffix in ('.yaml', '.yml'):
+                format = 'yaml'
+            elif suffix == '.json':
+                format = 'json'
+            else:
+                raise ValueError(
+                    f"Cannot determine format from extension '{suffix}'. Use format='json' or format='yaml'."
+                )
+
+        content = path.read_text()
+        if format == 'yaml':
+            return VariablesConfig.from_yaml(content)
+        else:
+            return VariablesConfig.from_json(content)
+
+    @staticmethod
+    def from_variables(variables: list[Variable[Any]]) -> VariablesConfig:
+        """Create a VariablesConfig from a list of Variable instances.
+
+        This creates a minimal config with just the name, schema, and example for each variable.
+        No variants are created - use this to generate a template config that can be edited.
+
+        Args:
+            variables: List of Variable instances to create configs from.
+
+        Returns:
+            A VariablesConfig with minimal configs for each variable.
+        """
+        from logfire.variables.variable import is_resolve_function
+
+        variable_configs: dict[VariableName, VariableConfig] = {}
+        for variable in variables:
+            # Get JSON schema from the type adapter
+            json_schema = variable.type_adapter.json_schema()
+
+            # Get the serialized default value as an example (if not a function)
+            example: str | None = None
+            if not is_resolve_function(variable.default):
+                example = variable.type_adapter.dump_json(variable.default).decode('utf-8')
+
+            config = VariableConfig(
+                name=variable.name,
+                description=variable.description,
+                variants={},
+                rollout=Rollout(variants={}),
+                overrides=[],
+                json_schema=json_schema,
+                example=example,
+            )
+            variable_configs[variable.name] = config
+
+        return VariablesConfig(variables=variable_configs)
+
+    def merge(self, other: VariablesConfig) -> VariablesConfig:
+        """Merge another VariablesConfig into this one.
+
+        Variables in `other` will override variables with the same name in this config.
+
+        Args:
+            other: Another VariablesConfig to merge.
+
+        Returns:
+            A new VariablesConfig with variables from both configs.
+        """
+        merged_variables = dict(self.variables)
+        merged_variables.update(other.variables)
+        return VariablesConfig(variables=merged_variables)
 
 
 _VariablesConfigAdapter = TypeAdapter(VariablesConfig)
