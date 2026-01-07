@@ -159,8 +159,6 @@ class ManagedVarsEvaluateAdapterWrapper(AdapterWrapper[DataInst, Trajectory, Rol
                         if var.value_type is str:
                             value = raw_value
                         else:
-                            # TODO var.value_type isn't set
-                            value = raw_value
-                            # raise
+                            raise
                     stack.enter_context(var.override(value))
             return super().evaluate(batch, candidate, capture_traces)
