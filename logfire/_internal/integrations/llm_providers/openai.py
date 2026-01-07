@@ -183,7 +183,9 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         on_response(response.parse(), span)  # type: ignore
         return cast('ResponseT', response)
 
-    span.set_attribute('gen_ai.system', 'openai')
+    model_provider: str = cast(str, (span.attributes or {}).get('_overriden_model_provider', "openai"))
+
+    span.set_attribute('gen_ai.system', model_provider)
 
     if isinstance(response_model := getattr(response, 'model', None), str):
         span.set_attribute('gen_ai.response.model', response_model)
@@ -194,7 +196,7 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
             response_data = response.model_dump()  # type: ignore
             usage_data = extract_usage(
                 response_data,
-                provider_id='openai',
+                provider_id=model_provider,
                 api_flavor='responses' if isinstance(response, Response) else 'chat',
             )
             span.set_attribute(

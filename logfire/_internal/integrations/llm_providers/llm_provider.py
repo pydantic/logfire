@@ -26,6 +26,7 @@ def instrument_llm_provider(
     get_endpoint_config_fn: Callable[[Any], EndpointConfig],
     on_response_fn: Callable[[Any, LogfireSpan], Any],
     is_async_client_fn: Callable[[type[Any]], bool],
+    model_provider: str | None = None,
 ) -> AbstractContextManager[None]:
     """Instruments the provided `client` (or clients) with `logfire`.
 
@@ -124,6 +125,7 @@ def instrument_llm_provider(
 
                     kwargs['stream_cls'] = LogfireInstrumentedStream
 
+            span_data['_overriden_model_provider'] = model_provider
             return message_template, span_data, kwargs
         except Exception:  # pragma: no cover
             log_internal_error()
