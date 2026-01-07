@@ -201,7 +201,7 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
             )
             span.set_attribute(
                 'operation.cost',
-                float(calc_price(usage_data.usage, model_ref=response_model, provider_id='openai').total_price),
+                float(calc_price(usage_data.usage, model_ref=response_model, provider_id=model_provider).total_price),
             )
         except Exception:
             pass
