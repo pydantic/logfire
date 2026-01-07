@@ -17,12 +17,12 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v7
         with:
-          version: "0.6.2"
+          version: "7.2.0"
           enable-cache: true
 
       - name: Install dependencies
@@ -34,12 +34,12 @@ jobs:
   docs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v7
         with:
-          version: "0.6.2"
+          version: "7.2.0"
           enable-cache: true
 
       - run: uv sync --python 3.12 --frozen --group docs
@@ -75,7 +75,7 @@ jobs:
     env:
       PYTHON: ${{ matrix.python-version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Ensure requests to production domains fail
         if: runner.os == 'Linux'
@@ -85,9 +85,9 @@ jobs:
           echo "203.0.113.0 logfire.pydantic.dev" | sudo tee -a /etc/hosts
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v7
         with:
-          version: "0.6.2"
+          version: "7.2.0"
           enable-cache: true
 
       - run: uv sync --python ${{ matrix.python-version }}
@@ -117,12 +117,12 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ test ]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v7
         with:
-          version: "0.6.2"
+          version: "7.2.0"
           enable-cache: true
 
       - name: Create venv
@@ -152,12 +152,12 @@ jobs:
     name: test on Pyodide
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v7
         with:
-          version: "0.6.2"
+          version: "7.2.0"
           enable-cache: true
 
       - uses: actions/setup-node@v4
@@ -189,12 +189,12 @@ jobs:
       id-token: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v7
         with:
-          version: "0.6.2"
+          version: "7.2.0"
           enable-cache: true
 
       - name: Set up Python 3.12
