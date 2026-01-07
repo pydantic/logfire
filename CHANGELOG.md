@@ -1,5 +1,13 @@
 # Release Notes
 
+## [v4.17.0] (2026-01-07)
+
+* `logfire.instrument_surrealdb` by @alexmojaki in [#1573](https://github.com/pydantic/logfire/pull/1573)
+* feat(config): allow custom Views in MetricOptions by @cyberksh in [#1552](https://github.com/pydantic/logfire/pull/1552)
+* Handle unpicklable configuration in `ProcessPoolExecutor` patch #1556 by @pipinstalled in [#1567](https://github.com/pydantic/logfire/pull/1567)
+* Maintain original LLM request context when logging the streaming response by @yiphei in [#1566](https://github.com/pydantic/logfire/pull/1566)
+* Add note about `write_token` permission in `logfire projects` commands by @Viicos in [#1545](https://github.com/pydantic/logfire/pull/1545)
+
 ## [v4.16.0] (2025-12-04)
 
 * Support OpenTelemetry 1.39.0, drop support for earlier versions, stop using the OTel events API/SDK by @alexmojaki in [#1562](https://github.com/pydantic/logfire/pull/1562)
@@ -985,3 +993,4 @@ First release from new repo!
 [v4.15.0]: https://github.com/pydantic/logfire/compare/v4.14.2...v4.15.0
 [v4.15.1]: https://github.com/pydantic/logfire/compare/v4.15.0...v4.15.1
 [v4.16.0]: https://github.com/pydantic/logfire/compare/v4.15.1...v4.16.0
+[v4.17.0]: https://github.com/pydantic/logfire/compare/v4.16.0...v4.17.0
