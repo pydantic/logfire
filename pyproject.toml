@@ -185,6 +185,7 @@ dev = [
     "litellm != 1.80.9",
     "pip >= 0",
     "surrealdb >= 0",
+    "gepa >= 0; python_version >= '3.10'"
 ]
 docs = [
     "black>=23.12.0",
