@@ -15,9 +15,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
-        pydantic-version: ['main']
-        otel-version: ['1']  # i.e. the latest
+        python-version: [ "3.9", "3.10", "3.11", "3.12", "3.13", "3.14" ]
+        pydantic-version: [ 'main' ]
+        otel-version: [ '1' ]  # i.e. the latest
         include:
           # Pydantic versions
           - python-version: '3.12'
@@ -41,14 +41,14 @@ jobs:
           - python-version: '3.13'
             pydantic-version: '2.10'
             otel-version: '1'
-          - python-version: '3.13'
+          - python-version: '3.14'
             pydantic-version: '2.11'
             otel-version: '1'
           # OpenTelemetry versions
           # Uncomment when we support multiple versions of OTel again
-#          - python-version: '3.13'
-#            pydantic-version: 'main'
-#            otel-version: '1.39'
+    #          - python-version: '3.14'
+    #            pydantic-version: 'main'
+    #            otel-version: '1.39'
     env:
       PYTHON: ${{ matrix.python-version }}
     steps:
@@ -57,9 +57,9 @@ jobs:
       - name: Ensure requests to production domains fail
         if: runner.os == 'Linux'
         run: |
-            echo "203.0.113.0 logfire.dev" | sudo tee -a /etc/hosts
-            echo "203.0.113.0 logfire-api.pydantic.dev" | sudo tee -a /etc/hosts
-            echo "203.0.113.0 logfire.pydantic.dev" | sudo tee -a /etc/hosts
+          echo "203.0.113.0 logfire.dev" | sudo tee -a /etc/hosts
+          echo "203.0.113.0 logfire-api.pydantic.dev" | sudo tee -a /etc/hosts
+          echo "203.0.113.0 logfire.pydantic.dev" | sudo tee -a /etc/hosts
 
       - name: Install uv
         uses: astral-sh/setup-uv@v3
