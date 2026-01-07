@@ -199,7 +199,10 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
 
     assert hasattr(logfire_api, 'instrument_google_genai')
     if get_version(pydantic_version) >= get_version('2.7.0'):
-        logfire_api.instrument_google_genai()
+        with warnings.catch_warnings():
+            if sys.version_info[:2] <= (3, 9):
+                warnings.simplefilter('ignore', category=FutureWarning)
+            logfire_api.instrument_google_genai()
     logfire__all__.remove('instrument_google_genai')
 
     assert hasattr(logfire_api, 'instrument_litellm')
