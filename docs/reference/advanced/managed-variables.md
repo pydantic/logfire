@@ -118,16 +118,22 @@ For JSON variables, you can optionally provide a **JSON Schema** to validate var
 
 ### Working with Variants
 
-Each variable can have multiple **variants**—different values that can be served to different users or traffic segments. When you create a variable, it starts with a single `default` variant.
+Each variable can have multiple **variants**—different values that can be served to different users or traffic segments.
 
-To add more variants:
+To add variants:
 
 1. Click **Add Variant** in the Variants section
 2. Enter a unique key for the variant (e.g., `premium`, `experimental`, `v2-detailed`)
 3. Provide an optional description
 4. Enter the value (the format depends on your value type)
 
+!!! tip "Using the example value"
+    When you push a variable from code using `logfire.push_variables()`, the code's default value is stored as an "example". This example appears pre-filled when you create a new variant in the UI, making it easy to start from a working configuration and modify it.
+
 Each variant tracks its version history, accessible via the **View history** button. You can also browse all variant history using **Browse All History** to see changes over time or restore previous versions.
+
+!!! note "No variants = code default"
+    If a variable has no variants configured, your application uses the code default value. This is the expected state immediately after `push_variables()`. You create variants in the UI when you want to serve different values to different users or run experiments.
 
 ### Configuring Rollouts
 
@@ -600,12 +606,15 @@ When you run this script, it will:
 2. Show you a diff of what will be created or updated
 3. Prompt for confirmation before applying changes
 
+!!! note "No variants created by push_variables"
+    When `push_variables()` creates a new variable, it does **not** create any variants. Instead, it stores your code's default value as an "example" that can be used as a template when creating variants in the Logfire UI. Until you create variants, your application will use the code default.
+
 **Example output:**
 
 ```
 === Variables to CREATE ===
   + agent-config
-    Default variant: {"instructions":"You are a helpful assistant.","model":"openai:gpt-4o-mini","temperature":0.7,"max_tokens":500}
+    Example value: {"instructions":"You are a helpful assistant.","model":"openai:gpt-4o-mini","temperature":0.7,"max_tokens":500}
 
 Apply these changes? [y/N] y
 
@@ -643,17 +652,174 @@ logfire.push_variables(yes=True)
 
 ### Validating Variables
 
-You can also validate that your remote variable configurations match your local type definitions using `logfire.validate_variables()`:
+You can validate that your remote variable configurations match your local type definitions using `logfire.validate_variables()`:
 
 ```python
+from logfire.variables import ValidationReport
+
 # Validate all registered variables
-if logfire.validate_variables():
-    print('All variables are valid!')
+report: ValidationReport = logfire.validate_variables()
+
+if report.has_errors:
+    print('Validation errors found:')
+    print(report.format())
 else:
-    print('Some variables have invalid configurations.')
+    print('All variables are valid!')
+
+# Check specific issues
+if report.variables_not_on_server:
+    print(f'Variables missing from server: {report.variables_not_on_server}')
 ```
 
+The `ValidationReport` provides detailed information about validation results:
+
+| Property | Description |
+|----------|-------------|
+| `has_errors` | `True` if any validation errors were found |
+| `errors` | List of variant validation errors with details |
+| `variables_checked` | Number of variables that were validated |
+| `variables_not_on_server` | Names of local variables not found on the server |
+| `description_differences` | Variables where local and server descriptions differ |
+| `format()` | Returns a human-readable string of the validation results |
+
 This is useful in CI/CD pipelines to catch configuration drift where someone may have edited a variant value in the UI that no longer matches your expected type.
+
+### Config File Workflow
+
+For more control over your variable configurations, you can work with config files directly. This workflow allows you to:
+
+- Generate a template config from your code
+- Edit the config locally (add variants, rollouts, overrides)
+- Push the complete config to Logfire
+- Pull existing configs for backup or migration
+
+**Generating a config template:**
+
+```python
+import logfire
+from logfire.variables import VariablesConfig
+
+# Define your variables
+agent_config = logfire.var(name='agent-config', type=AgentConfig, default=AgentConfig(...))
+feature_flag = logfire.var(name='feature-enabled', type=bool, default=False)
+
+# Generate a config with name, schema, and example for each variable
+config = logfire.generate_config()
+
+# Save to a YAML file (JSON also supported)
+config.write('variables.yaml')
+```
+
+The generated file will look like:
+
+```yaml
+variables:
+  agent-config:
+    name: agent-config
+    variants: {}
+    rollout:
+      variants: {}
+    overrides: []
+    json_schema:
+      type: object
+      properties:
+        instructions: {type: string}
+        model: {type: string}
+        temperature: {type: number}
+        max_tokens: {type: integer}
+    example: '{"instructions":"You are a helpful assistant.","model":"openai:gpt-4o-mini","temperature":0.7,"max_tokens":500}'
+  feature-enabled:
+    name: feature-enabled
+    variants: {}
+    rollout:
+      variants: {}
+    overrides: []
+    json_schema: {type: boolean}
+    example: 'false'
+```
+
+**Editing and syncing:**
+
+Edit the YAML file to add variants and rollouts:
+
+```yaml
+variables:
+  agent-config:
+    name: agent-config
+    variants:
+      concise:
+        key: concise
+        serialized_value: '{"instructions":"Be brief.","model":"openai:gpt-4o-mini","temperature":0.7,"max_tokens":300}'
+      detailed:
+        key: detailed
+        serialized_value: '{"instructions":"Provide thorough explanations.","model":"openai:gpt-4o","temperature":0.3,"max_tokens":1000}'
+    rollout:
+      variants:
+        concise: 0.8
+        detailed: 0.2
+    overrides: []
+    json_schema: {...}
+```
+
+Then sync to Logfire:
+
+```python
+from logfire.variables import VariablesConfig
+
+# Read the edited config
+config = VariablesConfig.read('variables.yaml')
+
+# Sync to the server
+logfire.sync_config(config)
+```
+
+**Sync modes:**
+
+| Mode | Description |
+|------|-------------|
+| `'merge'` (default) | Only create/update variables in the config. Other variables on the server are unchanged. |
+| `'replace'` | Make the server match the config exactly. Variables not in the config will be deleted. |
+
+```python
+# Partial sync - only update variables in the config
+logfire.sync_config(config, mode='merge')
+
+# Full sync - delete server variables not in config
+logfire.sync_config(config, mode='replace')
+
+# Preview changes without applying
+logfire.sync_config(config, dry_run=True)
+```
+
+**Pulling existing config:**
+
+```python
+# Fetch current config from server
+server_config = logfire.pull_config()
+
+# Save for backup or migration
+server_config.write('backup.yaml')
+
+# Merge with local changes
+merged = server_config.merge(local_config)
+```
+
+**VariablesConfig methods:**
+
+| Method | Description |
+|--------|-------------|
+| `VariablesConfig.read(path)` | Read config from JSON or YAML file |
+| `config.write(path)` | Write config to JSON or YAML file |
+| `VariablesConfig.from_json(string)` | Parse from JSON string |
+| `VariablesConfig.from_yaml(string)` | Parse from YAML string |
+| `config.to_json()` | Convert to JSON string |
+| `config.to_yaml()` | Convert to YAML string |
+| `config.to_dict()` | Convert to dictionary |
+| `config.merge(other)` | Merge with another config (other takes precedence) |
+| `VariablesConfig.from_variables(vars)` | Create minimal config from Variable instances |
+
+!!! tip "YAML vs JSON"
+    YAML is recommended for config files because it's more readable and supports comments. JSON is available for programmatic use. The format is auto-detected from the file extension (`.yaml`, `.yml`, or `.json`).
 
 ## Local Variables
 
@@ -734,6 +900,8 @@ This workflow is particularly useful for automated prompt optimization, where yo
 | `overrides` | List of `RolloutOverride` for conditional targeting |
 | `json_schema` | JSON Schema for validation (optional) |
 | `description` | Human-readable description (optional) |
+| `aliases` | Alternative names that resolve to this variable (optional, for migrations) |
+| `example` | JSON-serialized example value, used as template in UI (optional) |
 
 **Variant** - A single variant value:
 

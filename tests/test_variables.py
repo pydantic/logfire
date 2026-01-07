@@ -6,6 +6,7 @@ from __future__ import annotations
 import warnings
 from collections.abc import Mapping
 from datetime import timedelta
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -2193,14 +2194,16 @@ class TestNoOpVariableProviderPushValidate:
         captured = capsys.readouterr()
         assert 'No variable provider configured' in captured.out
 
-    def test_validate_variables_prints_message(self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]):
+    def test_validate_variables_returns_empty_report(self, config_kwargs: dict[str, Any]):
         lf = logfire.configure(**config_kwargs)
         provider = NoOpVariableProvider()
         var = lf.var(name='test', default='default', type=str)
         result = provider.validate_variables([var])
-        assert result is True
-        captured = capsys.readouterr()
-        assert 'No variable provider configured' in captured.out
+        # NoOpVariableProvider returns an empty report (is_valid=True, no variables checked)
+        assert result.is_valid
+        assert result.variables_checked == 0
+        assert result.errors == []
+        assert result.variables_not_on_server == []
 
 
 # =============================================================================
@@ -2403,15 +2406,16 @@ class TestPushVariables:
 
 
 class TestValidateVariables:
-    def test_validate_variables_empty_list(self, capsys: pytest.CaptureFixture[str]):
+    def test_validate_variables_empty_list(self):
         """Test validate_variables with empty variables list."""
         provider = LocalVariableProvider(VariablesConfig(variables={}))
         result = provider.validate_variables([])
-        assert result is True
-        captured = capsys.readouterr()
-        assert 'No variables to validate' in captured.out
+        assert result.is_valid
+        assert result.variables_checked == 0
+        assert result.errors == []
+        assert result.variables_not_on_server == []
 
-    def test_validate_variables_all_valid(self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]):
+    def test_validate_variables_all_valid(self, config_kwargs: dict[str, Any]):
         """Test validate_variables with all valid variants."""
         server_config = VariablesConfig(
             variables={
@@ -2427,11 +2431,12 @@ class TestValidateVariables:
         lf = logfire.configure(**config_kwargs)
         var = lf.var(name='my_var', default='default', type=str)
         result = provider.validate_variables([var])
-        assert result is True
-        captured = capsys.readouterr()
-        assert 'Validation passed' in captured.out
+        assert result.is_valid
+        assert result.variables_checked == 1
+        assert result.errors == []
+        assert result.variables_not_on_server == []
 
-    def test_validate_variables_with_errors(self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]):
+    def test_validate_variables_with_errors(self, config_kwargs: dict[str, Any]):
         """Test validate_variables with validation errors."""
         server_config = VariablesConfig(
             variables={
@@ -2447,23 +2452,31 @@ class TestValidateVariables:
         lf = logfire.configure(**config_kwargs)
         var = lf.var(name='my_var', default=0, type=int)
         result = provider.validate_variables([var])
-        assert result is False
-        captured = capsys.readouterr()
-        assert 'Validation failed' in captured.out or 'Validation Errors' in captured.out
+        assert not result.is_valid
+        assert result.has_errors
+        assert len(result.errors) == 1
+        assert result.errors[0].variable_name == 'my_var'
+        assert result.errors[0].variant_key == 'v1'
+        # Check that format() produces output about the error
+        formatted = result.format(colors=False)
+        assert 'my_var' in formatted
+        assert 'v1' in formatted
 
-    def test_validate_variables_not_on_server(self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]):
+    def test_validate_variables_not_on_server(self, config_kwargs: dict[str, Any]):
         """Test validate_variables with variables not on server."""
         provider = LocalVariableProvider(VariablesConfig(variables={}))
         lf = logfire.configure(**config_kwargs)
         var = lf.var(name='missing_var', default='default', type=str)
         result = provider.validate_variables([var])
-        assert result is False
-        captured = capsys.readouterr()
-        assert 'Not Found on Server' in captured.out or 'missing_var' in captured.out
+        assert not result.is_valid
+        assert result.has_errors
+        assert 'missing_var' in result.variables_not_on_server
+        # Check that format() produces output about missing variable
+        formatted = result.format(colors=False)
+        assert 'missing_var' in formatted
+        assert 'Not Found' in formatted or 'not on server' in formatted.lower()
 
-    def test_validate_variables_description_differences(
-        self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]
-    ):
+    def test_validate_variables_description_differences(self, config_kwargs: dict[str, Any]):
         """Test validate_variables shows description differences."""
         server_config = VariablesConfig(
             variables={
@@ -2479,9 +2492,16 @@ class TestValidateVariables:
         provider = LocalVariableProvider(server_config)
         lf = logfire.configure(**config_kwargs)
         var = lf.var(name='my_var', default='default', type=str, description='Local description')
-        provider.validate_variables([var])
-        captured = capsys.readouterr()
-        assert 'Description differences' in captured.out or 'description' in captured.out.lower()
+        result = provider.validate_variables([var])
+        # The variable is valid (variants match) but has description differences
+        assert result.is_valid  # No validation errors
+        assert len(result.description_differences) == 1
+        assert result.description_differences[0].variable_name == 'my_var'
+        assert result.description_differences[0].local_description == 'Local description'
+        assert result.description_differences[0].server_description == 'Server description'
+        # Check that format() produces output about description differences
+        formatted = result.format(colors=False)
+        assert 'description' in formatted.lower() or 'my_var' in formatted
 
 
 # =============================================================================
@@ -2568,8 +2588,8 @@ class TestPushValidateErrorHandling:
         all_output = captured.out + captured.err
         assert 'Error applying changes' in all_output
 
-    def test_validate_variables_refresh_error(self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]):
-        """Test validate_variables handles refresh errors gracefully."""
+    def test_validate_variables_refresh_error(self, config_kwargs: dict[str, Any]):
+        """Test validate_variables propagates refresh errors."""
 
         class FailingRefreshProvider(VariableProvider):
             def get_serialized_value(
@@ -2581,31 +2601,17 @@ class TestPushValidateErrorHandling:
                 raise RuntimeError('Refresh failed!')
 
             def get_all_variables_config(self) -> VariablesConfig:
-                return VariablesConfig(
-                    variables={
-                        'test_var': VariableConfig(
-                            name='test_var',
-                            variants={'v1': Variant(key='v1', serialized_value='"value"')},
-                            rollout=Rollout(variants={'v1': 1.0}),
-                            overrides=[],
-                        ),
-                    }
-                )
+                return VariablesConfig(variables={})  # pragma: no cover
 
         provider = FailingRefreshProvider()
         lf = logfire.configure(**config_kwargs)
         var = lf.var(name='test_var', default='default', type=str)
-        # Should not crash, should continue and validate
-        provider.validate_variables([var])
-        captured = capsys.readouterr()
-        # Output may go to stdout or stderr depending on implementation
-        all_output = captured.out + captured.err
-        assert 'Could not refresh provider' in all_output or 'Warning' in all_output
+        # Exception should propagate for CI automation
+        with pytest.raises(RuntimeError, match='Refresh failed'):
+            provider.validate_variables([var])
 
-    def test_validate_variables_get_all_config_error(
-        self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]
-    ):
-        """Test validate_variables handles get_all_variables_config errors."""
+    def test_validate_variables_get_all_config_error(self, config_kwargs: dict[str, Any]):
+        """Test validate_variables propagates get_all_variables_config errors."""
 
         class FailingConfigProvider(VariableProvider):
             def get_serialized_value(
@@ -2619,12 +2625,9 @@ class TestPushValidateErrorHandling:
         provider = FailingConfigProvider()
         lf = logfire.configure(**config_kwargs)
         var = lf.var(name='test_var', default='default', type=str)
-        result = provider.validate_variables([var])
-        assert result is False
-        captured = capsys.readouterr()
-        # Output may go to stdout or stderr depending on implementation
-        all_output = captured.out + captured.err
-        assert 'Error fetching current config' in all_output
+        # Exception should propagate for CI automation
+        with pytest.raises(RuntimeError, match='Config fetch failed'):
+            provider.validate_variables([var])
 
 
 # =============================================================================
@@ -2682,24 +2685,21 @@ class TestAdditionalEdgeCases:
             # but we can verify the call succeeded and the span was created
             assert result.value == 'default'  # Falls back to default since no config
 
-    def test_format_validation_report_with_general_error(
-        self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]
-    ):
-        """Test validate_variables when there's a general error (variant_key is None)."""
-        # Create a config that will cause a general error during validation
+    def test_format_validation_report_with_missing_variable(self, config_kwargs: dict[str, Any]):
+        """Test validate_variables when variable is not on server."""
+        # Create a config that will report "not on server"
         server_config = VariablesConfig(variables={})
         provider = LocalVariableProvider(server_config)
         lf = logfire.configure(**config_kwargs)
         var = lf.var(name='missing_var', default='default', type=str)
-        # This should report "not on server" which uses a different code path
         result = provider.validate_variables([var])
-        assert result is False
-        captured = capsys.readouterr()
-        assert 'Not Found on Server' in captured.out or 'missing_var' in captured.out
+        assert not result.is_valid
+        assert 'missing_var' in result.variables_not_on_server
+        # Test formatting
+        formatted = result.format(colors=False)
+        assert 'missing_var' in formatted
 
-    def test_format_validation_report_with_many_error_lines(
-        self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]
-    ):
+    def test_format_validation_report_with_many_error_lines(self, config_kwargs: dict[str, Any]):
         """Test validate_variables formatting when error has many lines."""
         # Create a config where variant validation will produce a multi-line error
         server_config = VariablesConfig(
@@ -2734,7 +2734,304 @@ class TestAdditionalEdgeCases:
             type=ComplexModel,
         )
         result = provider.validate_variables([var])
-        assert result is False
-        captured = capsys.readouterr()
-        # Should have validation errors in output
-        assert 'Validation' in captured.out or 'Error' in captured.out or 'complex_var' in captured.out
+        assert not result.is_valid
+        assert result.has_errors
+        assert len(result.errors) > 0
+        # Check formatting with multi-line error
+        formatted = result.format(colors=False)
+        assert 'complex_var' in formatted
+        assert 'v1' in formatted
+
+
+# =============================================================================
+# Test VariablesConfig Serialization
+# =============================================================================
+
+
+class TestVariablesConfigSerialization:
+    """Tests for VariablesConfig serialization methods."""
+
+    def test_to_dict(self):
+        """Test converting VariablesConfig to dict."""
+        config = VariablesConfig(
+            variables={
+                'my_var': VariableConfig(
+                    name='my_var',
+                    description='A test variable',
+                    variants={
+                        'v1': Variant(key='v1', serialized_value='"hello"'),
+                        'v2': Variant(key='v2', serialized_value='"world"'),
+                    },
+                    rollout=Rollout(variants={'v1': 0.5, 'v2': 0.5}),
+                    overrides=[],
+                    example='"default"',
+                ),
+            }
+        )
+        result = config.to_dict()
+        assert 'variables' in result
+        assert 'my_var' in result['variables']
+        assert result['variables']['my_var']['name'] == 'my_var'
+        assert result['variables']['my_var']['description'] == 'A test variable'
+        assert 'v1' in result['variables']['my_var']['variants']
+        assert result['variables']['my_var']['example'] == '"default"'
+
+    def test_to_json_and_from_json(self):
+        """Test JSON serialization roundtrip."""
+        config = VariablesConfig(
+            variables={
+                'test_var': VariableConfig(
+                    name='test_var',
+                    variants={'v1': Variant(key='v1', serialized_value='true')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                ),
+            }
+        )
+        json_str = config.to_json()
+        restored = VariablesConfig.from_json(json_str)
+        assert restored.variables['test_var'].name == 'test_var'
+        assert restored.variables['test_var'].variants['v1'].serialized_value == 'true'
+
+    def test_to_yaml_and_from_yaml(self):
+        """Test YAML serialization roundtrip."""
+        pytest.importorskip('yaml')
+        config = VariablesConfig(
+            variables={
+                'yaml_var': VariableConfig(
+                    name='yaml_var',
+                    description='YAML test',
+                    variants={'default': Variant(key='default', serialized_value='42')},
+                    rollout=Rollout(variants={'default': 1.0}),
+                    overrides=[],
+                ),
+            }
+        )
+        yaml_str = config.to_yaml()
+        restored = VariablesConfig.from_yaml(yaml_str)
+        assert restored.variables['yaml_var'].name == 'yaml_var'
+        assert restored.variables['yaml_var'].description == 'YAML test'
+
+    def test_write_and_read_json(self, tmp_path: Path):
+        """Test writing and reading JSON file."""
+        config = VariablesConfig(
+            variables={
+                'file_var': VariableConfig(
+                    name='file_var',
+                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                ),
+            }
+        )
+        path = tmp_path / 'config.json'
+        config.write(path)
+        restored = VariablesConfig.read(path)
+        assert restored.variables['file_var'].name == 'file_var'
+
+    def test_write_and_read_yaml(self, tmp_path: Path):
+        """Test writing and reading YAML file."""
+        pytest.importorskip('yaml')
+        config = VariablesConfig(
+            variables={
+                'yaml_file_var': VariableConfig(
+                    name='yaml_file_var',
+                    variants={'v1': Variant(key='v1', serialized_value='"yaml_value"')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                ),
+            }
+        )
+        path = tmp_path / 'config.yaml'
+        config.write(path)
+        restored = VariablesConfig.read(path)
+        assert restored.variables['yaml_file_var'].name == 'yaml_file_var'
+
+    def test_format_detection_from_extension(self, tmp_path: Path):
+        """Test that format is detected from file extension."""
+        pytest.importorskip('yaml')
+        config = VariablesConfig(
+            variables={
+                'ext_var': VariableConfig(
+                    name='ext_var',
+                    variants={},
+                    rollout=Rollout(variants={}),
+                    overrides=[],
+                ),
+            }
+        )
+        # Test .yml extension
+        yml_path = tmp_path / 'config.yml'
+        config.write(yml_path)
+        restored = VariablesConfig.read(yml_path)
+        assert restored.variables['ext_var'].name == 'ext_var'
+
+    def test_unknown_extension_raises_error(self, tmp_path: Path):
+        """Test that unknown file extension raises ValueError."""
+        config = VariablesConfig(variables={})
+        path = tmp_path / 'config.txt'
+        with pytest.raises(ValueError, match='Cannot determine format'):
+            config.write(path)
+
+    def test_from_variables(self, config_kwargs: dict[str, Any]):
+        """Test creating config from Variable instances."""
+        lf = logfire.configure(**config_kwargs)
+        var1 = lf.var(name='bool_var', type=bool, default=True, description='A boolean')
+        var2 = lf.var(name='int_var', type=int, default=42)
+
+        config = VariablesConfig.from_variables([var1, var2])
+        assert 'bool_var' in config.variables
+        assert 'int_var' in config.variables
+        assert config.variables['bool_var'].description == 'A boolean'
+        assert config.variables['bool_var'].example == 'true'
+        assert config.variables['int_var'].example == '42'
+        # Should have empty variants (minimal config)
+        assert config.variables['bool_var'].variants == {}
+
+    def test_merge(self):
+        """Test merging two VariablesConfig instances."""
+        config1 = VariablesConfig(
+            variables={
+                'var1': VariableConfig(
+                    name='var1',
+                    variants={'v1': Variant(key='v1', serialized_value='"original"')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                ),
+                'var2': VariableConfig(
+                    name='var2',
+                    variants={},
+                    rollout=Rollout(variants={}),
+                    overrides=[],
+                ),
+            }
+        )
+        config2 = VariablesConfig(
+            variables={
+                'var1': VariableConfig(
+                    name='var1',
+                    variants={'v1': Variant(key='v1', serialized_value='"updated"')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                ),
+                'var3': VariableConfig(
+                    name='var3',
+                    variants={},
+                    rollout=Rollout(variants={}),
+                    overrides=[],
+                ),
+            }
+        )
+        merged = config1.merge(config2)
+        # var1 should be from config2 (updated)
+        assert merged.variables['var1'].variants['v1'].serialized_value == '"updated"'
+        # var2 should be from config1
+        assert 'var2' in merged.variables
+        # var3 should be from config2
+        assert 'var3' in merged.variables
+
+
+class TestVariableToConfig:
+    """Tests for Variable.to_config() method."""
+
+    def test_to_config(self, config_kwargs: dict[str, Any]):
+        """Test converting a Variable to VariableConfig."""
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='my_var', type=str, default='hello', description='Test desc')
+        config = var.to_config()
+        assert config.name == 'my_var'
+        assert config.description == 'Test desc'
+        assert config.example == '"hello"'
+        assert config.variants == {}
+        assert config.rollout.variants == {}
+        assert config.overrides == []
+
+    def test_to_config_with_function_default(self, config_kwargs: dict[str, Any]):
+        """Test to_config when default is a function."""
+        lf = logfire.configure(**config_kwargs)
+
+        def my_resolver(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> int:
+            return 99
+
+        var = lf.var(name='func_var', type=int, default=my_resolver)
+        config = var.to_config()
+        assert config.name == 'func_var'
+        # Example should be None when default is a function
+        assert config.example is None
+
+
+class TestVariantToDict:
+    """Tests for Variant.to_dict() method."""
+
+    def test_basic_variant(self):
+        """Test basic variant serialization."""
+        variant = Variant(key='v1', serialized_value='"test"')
+        result = variant.to_dict()
+        assert result == {'key': 'v1', 'serialized_value': '"test"'}
+
+    def test_variant_with_description(self):
+        """Test variant with description."""
+        variant = Variant(key='v1', serialized_value='"test"', description='A variant')
+        result = variant.to_dict()
+        assert result['description'] == 'A variant'
+
+    def test_variant_with_version(self):
+        """Test variant with version."""
+        variant = Variant(key='v1', serialized_value='"test"', version=2)
+        result = variant.to_dict()
+        assert result['version'] == 2
+
+
+class TestRolloutOverrideToDict:
+    """Tests for RolloutOverride.to_dict() method."""
+
+    def test_rollout_override_with_conditions(self):
+        """Test serializing rollout override with various conditions."""
+        override = RolloutOverride(
+            conditions=[
+                ValueEquals(attribute='plan', value='enterprise'),
+                ValueIsIn(attribute='region', values=['us', 'eu']),
+            ],
+            rollout=Rollout(variants={'v1': 0.8, 'v2': 0.2}),
+        )
+        result = override.to_dict()
+        assert len(result['conditions']) == 2
+        assert result['conditions'][0]['kind'] == 'value-equals'
+        assert result['conditions'][0]['value'] == 'enterprise'
+        assert result['conditions'][1]['kind'] == 'value-is-in'
+        assert result['conditions'][1]['values'] == ['us', 'eu']
+        assert result['rollout']['variants'] == {'v1': 0.8, 'v2': 0.2}
+
+
+class TestVariableConfigToDict:
+    """Tests for VariableConfig.to_dict() method."""
+
+    def test_full_config(self):
+        """Test serializing a complete VariableConfig."""
+        config = VariableConfig(
+            name='full_var',
+            description='Full test',
+            variants={
+                'v1': Variant(key='v1', serialized_value='"value1"'),
+                'v2': Variant(key='v2', serialized_value='"value2"'),
+            },
+            rollout=Rollout(variants={'v1': 0.6, 'v2': 0.4}),
+            overrides=[
+                RolloutOverride(
+                    conditions=[ValueEquals(attribute='plan', value='pro')],
+                    rollout=Rollout(variants={'v2': 1.0}),
+                )
+            ],
+            json_schema={'type': 'string'},
+            aliases=['old_name'],
+            example='"default"',
+        )
+        result = config.to_dict()
+        assert result['name'] == 'full_var'
+        assert result['description'] == 'Full test'
+        assert 'v1' in result['variants']
+        assert result['rollout']['variants'] == {'v1': 0.6, 'v2': 0.4}
+        assert len(result['overrides']) == 1
+        assert result['json_schema'] == {'type': 'string'}
+        assert result['aliases'] == ['old_name']
+        assert result['example'] == '"default"'

@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 from logfire.variables.abstract import (
     NoOpVariableProvider,
     ResolvedVariable,
+    SyncMode,
+    ValidationReport,
     VariableAlreadyExistsError,
     VariableNotFoundError,
     VariableProvider,
@@ -31,6 +33,7 @@ if TYPE_CHECKING:
             ValueMatchesRegex,
             VariableConfig,
             VariablesConfig,
+            VariablesConfigFormat,
             Variant,
         )
         from logfire.variables.local import LocalVariableProvider
@@ -47,6 +50,8 @@ __all__ = [
     'ResolvedVariable',
     'Rollout',
     'RolloutOverride',
+    'SyncMode',
+    'ValidationReport',
     'ValueDoesNotEqual',
     'ValueDoesNotMatchRegex',
     'ValueEquals',
@@ -59,6 +64,7 @@ __all__ = [
     'VariableNotFoundError',
     'VariableProvider',
     'VariablesConfig',
+    'VariablesConfigFormat',
     'VariableWriteError',
     'Variant',
 ]
@@ -89,6 +95,7 @@ def __getattr__(name: str):
         ValueMatchesRegex,
         VariableConfig,
         VariablesConfig,
+        VariablesConfigFormat,
         Variant,
     )
     from logfire.variables.local import LocalVariableProvider

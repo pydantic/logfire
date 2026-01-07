@@ -17,7 +17,6 @@ from logfire.variables.abstract import (
     _check_variant_compatibility,
     _compute_diff,
     _format_diff,
-    _format_validation_report,
     _get_default_serialized,
     _get_json_schema,
 )
@@ -405,7 +404,7 @@ def test_format_validation_report_with_errors() -> None:
         variables_not_on_server=[],
         description_differences=[],
     )
-    output = _format_validation_report(report)
+    output = report.format()
     assert 'Validation Errors' in output
     assert 'my-feature' in output
     assert 'default' in output
@@ -419,7 +418,7 @@ def test_format_validation_report_with_missing() -> None:
         variables_not_on_server=['missing-feature'],
         description_differences=[],
     )
-    output = _format_validation_report(report)
+    output = report.format()
     assert 'Not Found on Server' in output
     assert 'missing-feature' in output
 
@@ -432,7 +431,7 @@ def test_format_validation_report_all_valid() -> None:
         variables_not_on_server=[],
         description_differences=[],
     )
-    output = _format_validation_report(report)
+    output = report.format()
     assert 'Valid (3 variables)' in output
 
 
