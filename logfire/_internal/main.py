@@ -1171,7 +1171,7 @@ class Logfire:
         | None = None,
         *,
         suppress_other_instrumentation: bool = True,
-        model_provider: str | None = None,
+        model_provider: str = "openai",
     ) -> AbstractContextManager[None]:
         """Instrument an OpenAI client so that spans are automatically created for each request.
 
@@ -1238,6 +1238,7 @@ class Logfire:
             get_endpoint_config,
             on_response,
             is_async_client,
+            model_provider,
         )
 
     def instrument_openai_agents(self) -> None:

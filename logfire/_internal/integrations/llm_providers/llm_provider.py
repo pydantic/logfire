@@ -94,6 +94,8 @@ def instrument_llm_provider(
                 return None, None, kwargs
 
             span_data['async'] = is_async
+            if model_provider is not None:
+                span_data['_overriden_model_provider'] = model_provider
 
             if kwargs.get('stream') and stream_state_cls:
                 stream_cls = kwargs['stream_cls']
@@ -125,7 +127,6 @@ def instrument_llm_provider(
 
                     kwargs['stream_cls'] = LogfireInstrumentedStream
 
-            span_data['_overriden_model_provider'] = model_provider
             return message_template, span_data, kwargs
         except Exception:  # pragma: no cover
             log_internal_error()
