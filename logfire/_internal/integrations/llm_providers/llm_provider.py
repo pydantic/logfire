@@ -95,7 +95,7 @@ def instrument_llm_provider(
 
             span_data['async'] = is_async
             if model_provider is not None:
-                span_data['_overriden_model_provider'] = model_provider
+                span_data['overridden_model_provider'] = model_provider
 
             if kwargs.get('stream') and stream_state_cls:
                 stream_cls = kwargs['stream_cls']

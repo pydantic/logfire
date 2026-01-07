@@ -183,7 +183,7 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         on_response(response.parse(), span)  # type: ignore
         return cast('ResponseT', response)
 
-    model_provider: str = cast(str, (span.attributes or {}).get('_overriden_model_provider', "openai"))
+    model_provider: str = cast(str, (span.attributes or {}).get('overridden_model_provider', "openai"))
 
     span.set_attribute('gen_ai.system', model_provider)
 
