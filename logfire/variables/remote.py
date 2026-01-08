@@ -69,6 +69,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._shutdown_timeout_exceeded = False
         self._refresh_lock = threading.Lock()
         self._worker_awaken = threading.Event()
+        self._force_next_refresh = False  # Set by SSE listener to force immediate refresh
 
         # SSE listener for real-time updates
         self._sse_connected = False
@@ -203,9 +204,10 @@ class LogfireRemoteVariableProvider(VariableProvider):
                             try:
                                 event_data = json.loads(data_str)
                                 event_type = event_data.get('event')
-                                # On any variable event, trigger a refresh
+                                # On any variable event, trigger a forced refresh
                                 if event_type in ('created', 'updated', 'deleted'):
-                                    # Wake up the worker to refresh immediately
+                                    # Set flag to force refresh and wake up the worker
+                                    self._force_next_refresh = True
                                     self._worker_awaken.set()
                             except (json.JSONDecodeError, TypeError):
                                 # Invalid JSON, ignore
@@ -233,7 +235,12 @@ class LogfireRemoteVariableProvider(VariableProvider):
             # it's far more reasonable to terminate this worker thread "gracelessly" than an OTel exporter's.
             # But given this is pretty unlikely to cause issues, Alex and I decided are okay leaving this as-is.
             # We can change this if we run into issues, but it doesn't seem to be causing any now.
-            self.refresh()
+
+            # Check if SSE event requested a forced refresh
+            force = self._force_next_refresh
+            self._force_next_refresh = False
+
+            self.refresh(force=force)
             self._worker_awaken.clear()
             self._worker_awaken.wait(self._polling_interval.total_seconds())
             if self._shutdown:  # pragma: no branch
