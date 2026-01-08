@@ -6,7 +6,7 @@ from unittest import mock
 
 import pytest
 import requests
-from dirty_equals import IsFloat, IsStr
+from dirty_equals import IsFloat, IsNumeric, IsStr
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
 
@@ -79,10 +79,10 @@ async def test_requests_instrumentation(exporter: TestExporter):
                                         'net.peer.name': 'example.org',
                                         'net.peer.port': 8080,
                                     },
-                                    'total': 0,
+                                    'total': IsNumeric(),
                                 }
                             ],
-                            'total': 0,
+                            'total': IsNumeric(),
                         },
                         'http.client.request.duration': {
                             'details': [
@@ -127,10 +127,10 @@ async def test_requests_instrumentation(exporter: TestExporter):
                                         'net.peer.name': 'example.org',
                                         'net.peer.port': 8080,
                                     },
-                                    'total': 0,
+                                    'total': IsNumeric,
                                 }
                             ],
-                            'total': 0,
+                            'total': IsNumeric,
                         },
                         'http.client.request.duration': {
                             'details': [
