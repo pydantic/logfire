@@ -27,7 +27,7 @@ from logfire.variables.abstract import ResolvedVariable
 
 __all__ = ('ResolveFunction', 'is_resolve_function', 'Variable', 'targeting_context')
 
-T = TypeVar('T')
+T = TypeVar('T', covariant=True)
 T_co = TypeVar('T_co', covariant=True)
 
 

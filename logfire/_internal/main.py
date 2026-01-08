@@ -11,13 +11,15 @@ from contextvars import Token
 from enum import Enum
 from functools import cached_property
 from time import time
-from typing import (
+from typing import (  # NOQA UP035
     TYPE_CHECKING,
     Any,
     Callable,
     Literal,
+    Type,
     TypeVar,
     Union,
+    cast,
     overload,
 )
 
@@ -2379,21 +2381,37 @@ class Logfire:
 
         return (start - time()) < timeout_millis
 
+    @overload
     def var(
         self,
         name: str,
         *,
-        type: type[T] | Sequence[type[T]],
+        default: T,
+        description: str | None = None,
+    ) -> Variable[T]: ...
+
+    @overload
+    def var(
+        self,
+        name: str,
+        *,
+        type: type[T],
+        default: T | ResolveFunction[T],
+        description: str | None = None,
+    ) -> Variable[T]: ...
+
+    def var(
+        self,
+        name: str,
+        *,
+        type: type[T] | None = None,
         default: T | ResolveFunction[T],
         description: str | None = None,
     ) -> Variable[T]:
         from logfire.variables.variable import Variable
 
-        tp: type[T]
-        if isinstance(type, Sequence):
-            tp = Union[tuple(type)]  # pyright: ignore[reportAssignmentType]
-        else:
-            tp = type
+        tp = cast(Type[T], default.__class__ if type is None else type)  # noqa UP006
+
         variable = Variable[T](name, default=default, type=tp, logfire_instance=self, description=description)
         self._variables[name] = variable
         return variable

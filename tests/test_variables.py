@@ -1976,8 +1976,8 @@ class TestLogfireVarIntegration:
         )
         lf = logfire.configure(**config_kwargs)
 
-        # Using sequence of types creates a Union
-        var = lf.var(name='union_var', default='default', type=[str, int])
+        # not specifying type of default uses the type of the default
+        var = lf.var(name='default_var', default='default')
         assert var.get().value == 'string_value'
 
     def test_exception_handling_in_get_details(self, config_kwargs: dict[str, Any]):
