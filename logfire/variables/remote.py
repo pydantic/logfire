@@ -155,7 +155,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
     def _sse_listener(self):  # pragma: no cover
         """Listen for SSE updates from the server and trigger refresh on events."""
-        sse_url = urljoin(self._base_url, '/v1/variables/updates/')
+        sse_url = urljoin(self._base_url, '/v1/variable-updates/')
         reconnect_delay = 1.0  # Start with 1 second delay
         max_reconnect_delay = 60.0  # Max 60 seconds between reconnects
 
