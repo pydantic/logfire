@@ -27,7 +27,6 @@ from logfire.variables.abstract import ResolvedVariable
 
 __all__ = ('ResolveFunction', 'is_resolve_function', 'Variable', 'targeting_context')
 
-T = TypeVar('T', covariant=True)
 T_co = TypeVar('T_co', covariant=True)
 
 
@@ -73,14 +72,14 @@ def is_resolve_function(f: Any) -> TypeIs[ResolveFunction[Any]]:
     return False
 
 
-class Variable(Generic[T]):
+class Variable(Generic[T_co]):
     """A managed variable that can be resolved dynamically based on configuration."""
 
     name: str
     """Unique name identifying this variable."""
-    value_type: type[T]
+    value_type: type[T_co]
     """The expected type of this variable's values."""
-    default: T | ResolveFunction[T]
+    default: T_co | ResolveFunction[T_co]
     """Default value or function to compute the default."""
     description: str | None
     """Description of the variable."""
@@ -92,8 +91,8 @@ class Variable(Generic[T]):
         self,
         name: str,
         *,
-        type: type[T],
-        default: T | ResolveFunction[T],
+        type: type[T_co],
+        default: T_co | ResolveFunction[T_co],
         description: str | None = None,
         logfire_instance: logfire.Logfire,
     ):
@@ -113,12 +112,12 @@ class Variable(Generic[T]):
         self.description = description
 
         self.logfire_instance = logfire_instance.with_settings(custom_scope_suffix='variables')
-        self.type_adapter = TypeAdapter[T](type)
+        self.type_adapter = TypeAdapter[T_co](type)
 
         # Create a cached deserialization function for this variable instance.
         # Returns T | Exception to cache both successful deserializations and errors.
         @lru_cache(maxsize=128)
-        def _deserialize_cached(serialized_value: str) -> T | Exception:
+        def _deserialize_cached(serialized_value: str) -> T_co | Exception:
             try:
                 return self.type_adapter.validate_json(serialized_value)
             except Exception as e:
@@ -127,7 +126,7 @@ class Variable(Generic[T]):
         self._deserialize_cached = _deserialize_cached
 
     @contextmanager
-    def override(self, value: T | ResolveFunction[T]) -> Iterator[None]:
+    def override(self, value: T_co | ResolveFunction[T_co]) -> Iterator[None]:
         """Context manager to temporarily override this variable's value.
 
         Args:
@@ -149,7 +148,9 @@ class Variable(Generic[T]):
         """Synchronously refresh the variable."""
         self.logfire_instance.config.get_variable_provider().refresh(force=force)
 
-    def get(self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None) -> ResolvedVariable[T]:
+    def get(
+        self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+    ) -> ResolvedVariable[T_co]:
         """Resolve the variable and return full details including variant and any errors.
 
         Args:
@@ -203,7 +204,7 @@ class Variable(Generic[T]):
 
     def _resolve(
         self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
-    ) -> ResolvedVariable[T]:
+    ) -> ResolvedVariable[T_co]:
         try:
             if (context_overrides := _VARIABLE_OVERRIDES.get()) is not None and (
                 context_value := context_overrides.get(self.name)
@@ -234,7 +235,9 @@ class Variable(Generic[T]):
             default = self._get_default(targeting_key, attributes)
             return ResolvedVariable(name=self.name, value=default, exception=e, _reason='other_error')
 
-    def _get_default(self, targeting_key: str | None = None, merged_attributes: Mapping[str, Any] | None = None) -> T:
+    def _get_default(
+        self, targeting_key: str | None = None, merged_attributes: Mapping[str, Any] | None = None
+    ) -> T_co:
         if is_resolve_function(self.default):
             return self.default(targeting_key, merged_attributes)
         else:
@@ -279,7 +282,7 @@ class Variable(Generic[T]):
         )
 
 
-def _with_value(details: ResolvedVariable[Any], new_value: T) -> ResolvedVariable[T]:
+def _with_value(details: ResolvedVariable[Any], new_value: T_co) -> ResolvedVariable[T_co]:
     """Return a copy of the provided resolution details, just with a different value.
 
     Args:
