@@ -1,5 +1,6 @@
 from __future__ import annotations as _annotations
 
+import json
 import os
 import threading
 import warnings
@@ -46,6 +47,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
         polling_interval = config.polling_interval
 
         self._base_url = base_url
+        self._token = token
         self._session = Session()
         self._session.headers.update({'Authorization': f'bearer {token}', 'User-Agent': UA_HEADER})
         self._block_before_first_fetch = block_before_first_resolve
@@ -69,6 +71,12 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._refresh_lock = threading.Lock()
         self._worker_awaken = threading.Event()
         self._worker_thread.start()
+
+        # SSE listener for real-time updates
+        self._sse_connected = False
+        self._sse_thread: threading.Thread | None = None
+        self._start_sse_listener()
+
         if hasattr(os, 'register_at_fork'):  # pragma: no branch
             weak_reinit = weakref.WeakMethod(self._at_fork_reinit)
             os.register_at_fork(after_in_child=lambda: weak_reinit()())  # pyright: ignore[reportOptionalCall]
@@ -84,7 +92,96 @@ class LogfireRemoteVariableProvider(VariableProvider):
             daemon=True,
         )
         self._worker_thread.start()
+        # Restart SSE listener
+        self._sse_connected = False
+        self._start_sse_listener()
         self._pid = os.getpid()
+
+    def _start_sse_listener(self):
+        """Start the SSE listener thread for real-time updates."""
+        if self._sse_thread is not None and self._sse_thread.is_alive():
+            return  # Already running
+
+        self._sse_thread = threading.Thread(
+            name='LogfireRemoteProviderSSE',
+            target=self._sse_listener,
+            daemon=True,
+        )
+        self._sse_thread.start()
+
+    def _sse_listener(self):
+        """Listen for SSE updates from the server and trigger refresh on events."""
+        sse_url = urljoin(self._base_url, '/v1/variables/updates/')
+        reconnect_delay = 1.0  # Start with 1 second delay
+        max_reconnect_delay = 60.0  # Max 60 seconds between reconnects
+
+        while not self._shutdown:
+            try:
+                # Use a separate session for SSE to avoid conflicts with polling
+                with Session() as sse_session:
+                    sse_session.headers.update(
+                        {
+                            'Authorization': f'bearer {self._token}',
+                            'User-Agent': UA_HEADER,
+                            'Accept': 'text/event-stream',
+                            'Cache-Control': 'no-cache',
+                        }
+                    )
+
+                    # Open streaming connection
+                    response = sse_session.get(sse_url, stream=True, timeout=(10, None))
+                    if response.status_code != 200:
+                        # Server doesn't support SSE or auth failed, back off
+                        self._sse_connected = False
+                        self._wait_for_reconnect(reconnect_delay)
+                        reconnect_delay = min(reconnect_delay * 2, max_reconnect_delay)
+                        continue
+
+                    # Connected successfully, reset delay
+                    self._sse_connected = True
+                    reconnect_delay = 1.0
+
+                    # Process SSE events
+                    for line in response.iter_lines(decode_unicode=True):
+                        if self._shutdown:
+                            break
+
+                        if line is None:
+                            continue
+
+                        line = line.strip()
+                        if not line:
+                            continue
+
+                        # SSE format: "data: {...json...}"
+                        if line.startswith('data:'):
+                            data_str = line[5:].strip()
+                            try:
+                                event_data = json.loads(data_str)
+                                event_type = event_data.get('event')
+                                # On any variable event, trigger a refresh
+                                if event_type in ('created', 'updated', 'deleted'):
+                                    # Wake up the worker to refresh immediately
+                                    self._worker_awaken.set()
+                            except (json.JSONDecodeError, TypeError):
+                                # Invalid JSON, ignore
+                                pass
+
+            except Exception:
+                # Connection error, will retry
+                self._sse_connected = False
+                if not self._shutdown:
+                    self._wait_for_reconnect(reconnect_delay)
+                    reconnect_delay = min(reconnect_delay * 2, max_reconnect_delay)
+
+    def _wait_for_reconnect(self, delay: float):
+        """Wait for a delay before reconnecting, checking for shutdown."""
+        # Wait in small increments to allow quick shutdown
+        elapsed = 0.0
+        while elapsed < delay and not self._shutdown:
+            wait_time = min(0.5, delay - elapsed)
+            threading.Event().wait(wait_time)
+            elapsed += wait_time
 
     def _worker(self):
         while not self._shutdown:  # pragma: no branch
@@ -174,9 +271,11 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._shutdown = True
         self._worker_awaken.set()
 
-        # Join the thread so that resources get cleaned up in tests
+        # Join the threads so that resources get cleaned up in tests
         # It might be reasonable to modify this so this _only_ happens in tests, but for now it seems fine.
         self._worker_thread.join(timeout=5)
+        if self._sse_thread is not None:
+            self._sse_thread.join(timeout=2)
 
     def get_variable_config(self, name: str) -> VariableConfig | None:
         """Retrieve the full configuration for a variable from the cached config.

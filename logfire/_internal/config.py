@@ -331,8 +331,8 @@ class VariablesOptions:
     """Whether to include OpenTelemetry resource attributes when resolving variables."""
     include_baggage_in_context: bool = True
     """Whether to include OpenTelemetry baggage when resolving variables."""
-
-    # TODO: Add OTel-related config here (`instrument_variables`)
+    instrument: bool = True
+    """Whether to create spans when resolving variables."""
 
 
 class DeprecatedKwargs(TypedDict):

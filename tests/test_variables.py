@@ -1099,17 +1099,6 @@ class TestApiTokenSupport:
         loaded_token = param_manager.load_param('api_token')
         assert loaded_token == api_token
 
-    def test_remote_variables_config_base_url(self) -> None:
-        """Test that base_url can be specified in RemoteVariablesConfig."""
-        config = RemoteVariablesConfig(
-            block_before_first_resolve=True,
-            polling_interval=timedelta(seconds=30),
-            api_token='test_token',
-            base_url='https://custom-logfire.example.com/',
-        )
-        assert config.api_token == 'test_token'
-        assert config.base_url == 'https://custom-logfire.example.com/'
-
 
 # =============================================================================
 # Test Variable

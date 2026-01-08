@@ -2,7 +2,7 @@ from __future__ import annotations as _annotations
 
 import inspect
 from collections.abc import Iterator, Mapping
-from contextlib import contextmanager, ExitStack
+from contextlib import ExitStack, contextmanager
 from contextvars import ContextVar
 from dataclasses import replace
 from importlib.util import find_spec
@@ -158,15 +158,15 @@ class Variable(Generic[T]):
         span_name = f'Resolve variable {self.name}'
         with ExitStack() as stack:
             span: logfire.LogfireSpan | None = None
-            # TODO: Use `if self.logfire_instance.config.variables.instrument_resolution:`
-            span = stack.enter_context(
-                self.logfire_instance.span(
-                    span_name,
-                    name=self.name,
-                    targeting_key=targeting_key,
-                    attributes=merged_attributes,
+            if self.logfire_instance.config.variables.instrument:
+                span = stack.enter_context(
+                    self.logfire_instance.span(
+                        span_name,
+                        name=self.name,
+                        targeting_key=targeting_key,
+                        attributes=merged_attributes,
+                    )
                 )
-            )
             result = self._resolve(targeting_key, merged_attributes)
             if span is not None:
                 span.set_attributes(

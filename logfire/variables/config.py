@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal, Union
 
-from pydantic import TypeAdapter, ValidationError, field_validator, model_validator, Field
+from pydantic import Field, TypeAdapter, ValidationError, field_validator, model_validator
 from typing_extensions import TypeAliasType
 
 from logfire._internal.config import RemoteVariablesConfig as RemoteVariablesConfig
@@ -348,7 +348,9 @@ class VariableConfig:
     """Default rollout configuration for variant selection."""
     overrides: list[RolloutOverride]
     """Conditional overrides evaluated in order; first match takes precedence."""
-    description: str | None = None  # Note: When we drop support for python 3.9, move this field immediately after `name`
+    description: str | None = (
+        None  # Note: When we drop support for python 3.9, move this field immediately after `name`
+    )
     """Description of the variable."""
     json_schema: dict[str, Any] | None = None
     """JSON schema describing the expected type of this variable's values."""
