@@ -188,7 +188,7 @@ class Variable(Generic[T_co]):
                         attributes=merged_attributes,
                     )
                 )
-            result = self._resolve(targeting_key, merged_attributes)
+            result = self._resolve(targeting_key, merged_attributes, span)
             if span is not None:
                 span.set_attributes(
                     {
@@ -199,12 +199,15 @@ class Variable(Generic[T_co]):
                     }
                 )
                 if result.exception:
-                    span.record_exception(result.exception)
+                    span.record_exception(
+                        result.exception,
+                    )
             return result
 
     def _resolve(
-        self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+        self, targeting_key: str | None, attributes: Mapping[str, Any] | None, span: logfire.LogfireSpan | None
     ) -> ResolvedVariable[T_co]:
+        serialized_result: ResolvedVariable[str | None] | None = None
         try:
             if (context_overrides := _VARIABLE_OVERRIDES.get()) is not None and (
                 context_value := context_overrides.get(self.name)
@@ -223,6 +226,9 @@ class Variable(Generic[T_co]):
             # Use cached deserialization - returns T | Exception
             value_or_exc = self._deserialize_cached(serialized_result.value)
             if isinstance(value_or_exc, Exception):
+                if span:
+                    span.set_attribute('invalid_serialized_variant', serialized_result.variant)
+                    span.set_attribute('invalid_serialized_value', serialized_result.value)
                 default = self._get_default(targeting_key, attributes)
                 reason: str = 'validation_error' if isinstance(value_or_exc, ValidationError) else 'other_error'
                 return ResolvedVariable(name=self.name, value=default, exception=value_or_exc, _reason=reason)
@@ -232,6 +238,9 @@ class Variable(Generic[T_co]):
             )
 
         except Exception as e:
+            if span and serialized_result is not None:
+                span.set_attribute('invalid_serialized_variant', serialized_result.variant)
+                span.set_attribute('invalid_serialized_value', serialized_result.value)
             default = self._get_default(targeting_key, attributes)
             return ResolvedVariable(name=self.name, value=default, exception=e, _reason='other_error')
 

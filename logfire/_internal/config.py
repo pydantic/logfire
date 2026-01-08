@@ -311,13 +311,12 @@ class RemoteVariablesConfig:
     """Whether the remote variables should be fetched before first resolving a value."""
     polling_interval: timedelta | float = timedelta(seconds=30)
     """The time interval for polling for updates to the variables config."""
-    api_token: str | None = None
-    """API token for accessing the variables endpoint.
+    api_key: str | None = None
+    """API key for accessing the variables endpoint.
 
-    If not provided, will be loaded from LOGFIRE_API_TOKEN environment variable.
-    This token should have the 'project:read_variables' scope.
+    If not provided, will be loaded from LOGFIRE_API_KEY environment variable.
+    This key should have at least the 'project:read_variables' scope.
     """
-    # TODO: Decide what the behavior should be if no API token is present — error? Or the same behavior as the NoOpVariableProvider?
 
 
 @dataclass
@@ -594,7 +593,7 @@ class _LogfireConfigData:
     """Whether to send logs and spans to Logfire."""
 
     token: str | None
-    """The Logfire API token to use."""
+    """The Logfire write token to use."""
 
     service_name: str
     """The name of this service."""
@@ -1201,19 +1200,19 @@ class LogfireConfig(_LogfireConfigData):
                 else:
                     assert_type(self.variables.config, RemoteVariablesConfig)
                     remote_config = self.variables.config
-                    # Load api_token from config or environment variable
-                    # Only API tokens can be used for the variables API (not write tokens)
-                    api_token = remote_config.api_token or self.param_manager.load_param('api_token')
-                    if not api_token:
+                    # Load api_key from config or environment variable
+                    # Only API keys can be used for the variables API (not write tokens)
+                    api_key = remote_config.api_key or self.param_manager.load_param('api_key')
+                    if not api_key:
                         raise LogfireConfigError(  # pragma: no cover
-                            'Remote variables require an API token. '
-                            'Set the LOGFIRE_API_TOKEN environment variable or pass api_token to RemoteVariablesConfig.'
+                            'Remote variables require an API key. '
+                            'Set the LOGFIRE_API_KEY environment variable or pass api_key to RemoteVariablesConfig.'
                         )
                     # Determine base URL: prefer config, then advanced settings, then infer from token
-                    base_url = self.advanced.base_url or get_base_url_from_token(api_token)
+                    base_url = self.advanced.base_url or get_base_url_from_token(api_key)
                     self._variable_provider = LogfireRemoteVariableProvider(
                         base_url=base_url,
-                        token=api_token,
+                        token=api_key,
                         config=remote_config,
                     )
 
@@ -1420,7 +1419,7 @@ class LogfireCredentials:
     """Credentials for logfire.dev."""
 
     token: str
-    """The Logfire API token to use."""
+    """The Logfire write token to use."""
     project_name: str
     """The name of the project."""
     project_url: str

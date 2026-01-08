@@ -59,8 +59,8 @@ MIN_LEVEL = ConfigParam(env_vars=['LOGFIRE_MIN_LEVEL'], allow_file_config=True, 
 """Minimum log level for logs and spans to be created. By default, all logs and spans are created."""
 TOKEN = ConfigParam(env_vars=['LOGFIRE_TOKEN'])
 """Token for sending application telemetry data to Logfire, also known as a "write token"."""
-API_TOKEN = ConfigParam(env_vars=['LOGFIRE_API_TOKEN'])
-"""API token for Logfire API access (used for managed variables and other public APIs)."""
+API_KEY = ConfigParam(env_vars=['LOGFIRE_API_KEY'])
+"""API key for Logfire API access (used for managed variables and other public APIs)."""
 SERVICE_NAME = ConfigParam(env_vars=['LOGFIRE_SERVICE_NAME', OTEL_SERVICE_NAME], allow_file_config=True, default='')
 """Name of the service emitting spans. For further details, please refer to the [Service section](https://opentelemetry.io/docs/specs/semconv/resource/#service)."""
 SERVICE_VERSION = ConfigParam(env_vars=['LOGFIRE_SERVICE_VERSION', 'OTEL_SERVICE_VERSION'], allow_file_config=True)
@@ -119,7 +119,7 @@ CONFIG_PARAMS = {
     'send_to_logfire': SEND_TO_LOGFIRE,
     'min_level': MIN_LEVEL,
     'token': TOKEN,
-    'api_token': API_TOKEN,
+    'api_key': API_KEY,
     'service_name': SERVICE_NAME,
     'service_version': SERVICE_VERSION,
     'environment': ENVIRONMENT,

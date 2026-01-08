@@ -2420,7 +2420,6 @@ class Logfire:
         """Get all variables registered with this Logfire instance."""
         return list(self._variables.values())
 
-    # TODO: Should we drop this method and just require users to manually write out the code it currently contains?
     def push_variables(
         self,
         variables: list[Variable[Any]] | None = None,
@@ -2437,7 +2436,7 @@ class Logfire:
         - Warns about existing variants that are incompatible with new schemas
 
         The provider is determined by the Logfire configuration. For remote providers,
-        this requires proper authentication (via RemoteVariablesConfig or LOGFIRE_API_TOKEN).
+        this requires proper authentication (via RemoteVariablesConfig or LOGFIRE_API_KEY).
 
         Args:
             variables: Variable instances to push. If None, all variables

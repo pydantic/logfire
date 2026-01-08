@@ -598,12 +598,12 @@ agent_config = logfire.var(
 )
 ```
 
-!!! note "API Token Required"
-    Remote variables require an API token with the `project:read_variables` scope. This is different from the write token (`LOGFIRE_TOKEN`) used to send traces and logs. Set it via the `LOGFIRE_API_TOKEN` environment variable or pass it directly to `RemoteVariablesConfig(api_token=...)`.
+!!! note "API Key Required"
+    Remote variables require an API key with the `project:read_variables` scope. This is different from the write token (`LOGFIRE_TOKEN`) used to send traces and logs. Set the API key via the `LOGFIRE_API_KEY` environment variable or pass it directly to `RemoteVariablesConfig(api_key=...)`.
 
 **How remote variables work:**
 
-1. Your application connects to Logfire using your API token
+1. Your application connects to Logfire using your API key
 2. Variable configurations are fetched from the Logfire API
 3. A background thread polls for updates (default: every 30 seconds)
 4. When you change a variant or rollout in the UI, running applications pick up the change automatically while polling

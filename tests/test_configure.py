@@ -853,7 +853,7 @@ def test_config_serializable():
             scrubbing=logfire.ScrubbingOptions(),
             code_source=logfire.CodeSource(repository='https://github.com/pydantic/logfire', revision='main'),
             variables=logfire.VariablesOptions(
-                config=RemoteVariablesConfig(block_before_first_resolve=False, api_token='test_api_token'),
+                config=RemoteVariablesConfig(block_before_first_resolve=False, api_key='test_api_key'),
                 include_baggage_in_context=False,
             ),
             advanced=logfire.AdvancedOptions(id_generator=SeededRandomIdGenerator(seed=42)),

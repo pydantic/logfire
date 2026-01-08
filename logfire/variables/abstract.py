@@ -4,7 +4,7 @@ import json
 import sys
 import warnings
 from abc import ABC, abstractmethod
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from contextlib import ExitStack
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar
@@ -288,12 +288,12 @@ class ValidationReport:
 # --- Helper functions for push/validate operations ---
 
 
-def _get_json_schema(variable: Variable[Any]) -> dict[str, Any]:
+def _get_json_schema(variable: Variable[object]) -> dict[str, Any]:
     """Get the JSON schema for a variable's type."""
     return variable.type_adapter.json_schema()
 
 
-def _get_default_serialized(variable: Variable[Any]) -> str | None:
+def _get_default_serialized(variable: Variable[object]) -> str | None:
     """Get the serialized default value for a variable.
 
     Returns None if the default is a ResolveFunction (can't serialize a function).
@@ -307,7 +307,7 @@ def _get_default_serialized(variable: Variable[Any]) -> str | None:
 
 
 def _check_variant_compatibility(
-    variable: Variable[Any],
+    variable: Variable[object],
     variant_key: str,
     serialized_value: str,
 ) -> VariantCompatibility:
@@ -331,7 +331,7 @@ def _check_variant_compatibility(
 
 
 def _compute_diff(
-    variables: list[Variable[Any]],
+    variables: Sequence[Variable[object]],
     server_config: VariablesConfig,
 ) -> VariableDiff:
     """Compute the diff between local variables and server config.
@@ -853,7 +853,7 @@ class VariableProvider(ABC):
 
     def push_variables(
         self,
-        variables: list[Variable[Any]],
+        variables: Sequence[Variable[object]],
         *,
         dry_run: bool = False,
         yes: bool = False,
@@ -942,7 +942,7 @@ class VariableProvider(ABC):
 
     def validate_variables(
         self,
-        variables: list[Variable[Any]],
+        variables: Sequence[Variable[object]],
     ) -> ValidationReport:
         """Validate that provider-side variable variants match local type definitions.
 
@@ -1060,7 +1060,7 @@ class NoOpVariableProvider(VariableProvider):
 
     def push_variables(
         self,
-        variables: list[Variable[Any]],
+        variables: Sequence[Variable[Any]],
         *,
         dry_run: bool = False,
         yes: bool = False,
@@ -1076,7 +1076,7 @@ class NoOpVariableProvider(VariableProvider):
 
     def validate_variables(
         self,
-        variables: list[Variable[Any]],
+        variables: Sequence[Variable[Any]],
     ) -> ValidationReport:
         """No-op implementation that returns an empty validation report.
 
