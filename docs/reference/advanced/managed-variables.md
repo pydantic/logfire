@@ -1,5 +1,8 @@
 # Managed Variables
 
+!!! warning "Early Access"
+    The Logfire web UI functionality for managed variables is currently behind a feature flag and not yet generally available. This includes everything related to `RemoteVariablesConfig` — creating and managing variables in the UI, configuring variants and rollouts remotely, and syncing configuration from the server. You can still use managed variables locally with `VariablesConfig` without the feature flag. If you'd like access to the remote functionality, please reach out to us on [Slack][slack] for instructions on how to enable it.
+
 Managed variables let you define and reference configuration in your code, but control the runtime values from the Logfire UI without redeploying.
 
 Define a variable once with a sensible default, deploy your application, then iterate on the values in production. You can target specific populations (opted-in beta users, internal developers, enterprise customers, etc.) using flexible targeting rules that integrate with your existing OpenTelemetry attributes.
@@ -1146,3 +1149,5 @@ config = VariablesConfig(
     }
 )
 ```
+
+[slack]: https://logfire.pydantic.dev/docs/join-slack/
