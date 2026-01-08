@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import time
 import warnings
 from collections.abc import Mapping
 from datetime import timedelta
@@ -1246,19 +1247,27 @@ class TestLogfireRemoteVariableProviderStart:
                 ),
             )
             try:
+                assert adapter.call_count == 0
                 provider.start(None)
+                # Starting should result in a call in a background thread, so we need to wait for it
+                start_time = time.time()
+                while adapter.call_count < 1:
+                    if time.time() - start_time > 5:
+                        raise AssertionError(f'Timed out waiting for call_count to reach 1, got {adapter.call_count}')
+                    time.sleep(0.01)
+                assert adapter.call_count == 1
 
                 # First refresh should make a request
                 provider.refresh(force=True)
-                assert adapter.call_count == 1
+                assert adapter.call_count == 2
 
                 # Second refresh without force should skip (recently fetched)
                 provider.refresh(force=False)
-                assert adapter.call_count == 1  # No additional request
+                assert adapter.call_count == 2  # No additional request
 
                 # Third refresh with force should make a request
                 provider.refresh(force=True)
-                assert adapter.call_count == 2
+                assert adapter.call_count == 3
             finally:
                 provider.shutdown()
 

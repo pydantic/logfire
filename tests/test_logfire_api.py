@@ -12,6 +12,7 @@ import pytest
 from pydantic import __version__ as pydantic_version
 
 from logfire._internal.utils import get_version
+from logfire.variables import VariablesConfig
 
 pydantic_pre_2_5 = get_version(pydantic_version) < get_version('2.5.0')
 
@@ -300,7 +301,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('validate_variables')
 
     assert hasattr(logfire_api, 'sync_config')
-    logfire_api.sync_config()
+    logfire_api.sync_config(VariablesConfig(variables={}))
     logfire__all__.remove('sync_config')
 
     assert hasattr(logfire_api, 'pull_config')
