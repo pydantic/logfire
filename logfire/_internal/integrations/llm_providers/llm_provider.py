@@ -26,7 +26,7 @@ def instrument_llm_provider(
     get_endpoint_config_fn: Callable[[Any], EndpointConfig],
     on_response_fn: Callable[[Any, LogfireSpan], Any],
     is_async_client_fn: Callable[[type[Any]], bool],
-    provider: str | None = None,
+    override_provider: str | None = None,
 ) -> AbstractContextManager[None]:
     """Instruments the provided `client` (or clients) with `logfire`.
 
@@ -94,8 +94,8 @@ def instrument_llm_provider(
                 return None, None, kwargs
 
             span_data['async'] = is_async
-            if provider is not None:
-                span_data['gen_ai.system'] = provider
+            if override_provider is not None:
+                span_data['gen_ai.system'] = override_provider
 
             if kwargs.get('stream') and stream_state_cls:
                 stream_cls = kwargs['stream_cls']
