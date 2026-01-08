@@ -212,17 +212,9 @@ class ValidationReport:
     """List of variables where local and server descriptions differ."""
 
     @property
-    def has_errors(self) -> bool:
-        """Return True if there are any validation errors.
-
-        This includes both variant validation errors and variables not found on server.
-        """
-        return len(self.errors) > 0 or len(self.variables_not_on_server) > 0
-
-    @property
     def is_valid(self) -> bool:
-        """Return True if validation passed (no errors)."""
-        return not self.has_errors
+        """Return False if there are any validation errors or any variables not defined in the (possibly remote) config."""
+        return len(self.errors) == 0 and len(self.variables_not_on_server) == 0
 
     def format(self, *, colors: bool = True) -> str:
         """Format the validation report for human-readable output.
@@ -276,7 +268,7 @@ class ValidationReport:
                 lines.append(f'    Server: {server_desc}')
 
         # Summary line
-        if self.has_errors:
+        if not self.is_valid:
             error_count = len(self.errors) + len(self.variables_not_on_server)
             lines.append(f'\n{red}Validation failed: {error_count} error(s) found.{reset}')
         else:

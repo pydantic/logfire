@@ -351,8 +351,8 @@ def test_get_variables_returns_all_registered() -> None:
 # --- Validation tests ---
 
 
-def test_validation_report_has_errors_true_with_errors() -> None:
-    """Test has_errors when there are validation errors."""
+def test_validation_report_is_valid_false_with_errors() -> None:
+    """Test is_valid when there are validation errors."""
     report = ValidationReport(
         errors=[
             VariantValidationError(
@@ -365,29 +365,29 @@ def test_validation_report_has_errors_true_with_errors() -> None:
         variables_not_on_server=[],
         description_differences=[],
     )
-    assert report.has_errors is True
+    assert not report.is_valid
 
 
-def test_validation_report_has_errors_true_with_missing() -> None:
-    """Test has_errors when there are missing variables."""
+def test_validation_report_is_valid_false_with_missing() -> None:
+    """Test is_valid when there are missing variables."""
     report = ValidationReport(
         errors=[],
         variables_checked=1,
         variables_not_on_server=['missing-var'],
         description_differences=[],
     )
-    assert report.has_errors is True
+    assert not report.is_valid
 
 
-def test_validation_report_has_errors_false() -> None:
-    """Test has_errors when there are no errors."""
+def test_validation_report_is_valid_true() -> None:
+    """Test is_valid when there are no errors."""
     report = ValidationReport(
         errors=[],
         variables_checked=2,
         variables_not_on_server=[],
         description_differences=[],
     )
-    assert report.has_errors is False
+    assert report.is_valid
 
 
 def test_format_validation_report_with_errors() -> None:

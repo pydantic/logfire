@@ -37,7 +37,7 @@ if TYPE_CHECKING:
         )
         from logfire.variables.local import LocalVariableProvider
         from logfire.variables.remote import LogfireRemoteVariableProvider
-        from logfire.variables.variable import Variable, targeting_context
+        from logfire.variables.variable import ResolveFunction, Variable, targeting_context
 
 __all__ = [
     'KeyIsNotPresent',
@@ -46,6 +46,7 @@ __all__ = [
     'LogfireRemoteVariableProvider',
     'NoOpVariableProvider',
     'RemoteVariablesConfig',
+    'ResolveFunction',
     'ResolvedVariable',
     'Rollout',
     'RolloutOverride',

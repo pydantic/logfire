@@ -283,7 +283,7 @@ class VariableConfig(BaseModel):
     example: str | None = None
     """JSON-serialized example value from code; used as a template when creating new variants in the UI."""
     # NOTE: Context-based targeting_key can be set via targeting_context() from logfire.variables.
-    # TODO: Consider adding remotely-managed targeting_key_attribute for automatic attribute-based targeting.
+    # TODO(DavidM): Consider adding remotely-managed targeting_key_attribute for automatic attribute-based targeting.
 
     @model_validator(mode='after')
     def _validate_variants(self):

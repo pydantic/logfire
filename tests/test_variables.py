@@ -3018,7 +3018,6 @@ class TestValidateVariables:
         var = lf.var(name='my_var', default=0, type=int)
         result = provider.validate_variables([var])
         assert not result.is_valid
-        assert result.has_errors
         assert len(result.errors) == 1
         assert result.errors[0].variable_name == 'my_var'
         assert result.errors[0].variant_key == 'v1'
@@ -3034,7 +3033,6 @@ class TestValidateVariables:
         var = lf.var(name='missing_var', default='default', type=str)
         result = provider.validate_variables([var])
         assert not result.is_valid
-        assert result.has_errors
         assert 'missing_var' in result.variables_not_on_server
         # Check that format() produces output about missing variable
         formatted = result.format(colors=False)
@@ -3300,7 +3298,6 @@ class TestAdditionalEdgeCases:
         )
         result = provider.validate_variables([var])
         assert not result.is_valid
-        assert result.has_errors
         assert len(result.errors) > 0
         # Check formatting with multi-line error
         formatted = result.format(colors=False)

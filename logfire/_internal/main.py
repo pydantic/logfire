@@ -113,8 +113,7 @@ if TYPE_CHECKING:
     from ..integrations.redis import RequestHook as RedisRequestHook, ResponseHook as RedisResponseHook
     from ..integrations.sqlalchemy import CommenterOptions as SQLAlchemyCommenterOptions
     from ..integrations.wsgi import RequestHook as WSGIRequestHook, ResponseHook as WSGIResponseHook
-    from ..variables.config import VariablesConfig
-    from ..variables.variable import ResolveFunction, Variable
+    from ..variables import ResolveFunction, ValidationReport, Variable, VariablesConfig
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
     from .integrations.aws_lambda import LambdaEvent, LambdaHandler
     from .integrations.mysql import MySQLConnection
@@ -2469,11 +2468,10 @@ class Logfire:
         provider = self.config.get_variable_provider()
         return provider.push_variables(variables, dry_run=dry_run, yes=yes, strict=strict)
 
-    # TODO: Should we drop this method and just require users to manually write out the code it currently contains?
     def validate_variables(
         self,
         variables: list[Variable[Any]] | None = None,
-    ) -> bool:
+    ) -> ValidationReport:
         """Validate that provider-side variable variants match local type definitions.
 
         This method fetches the current variable configuration from the provider and
@@ -2499,15 +2497,15 @@ class Logfire:
                 logfire.validate_variables()
 
                 # Or validate specific variables only
-                logfire.validate_variables([feature_enabled])
+                report = logfire.validate_variables([feature_enabled])
+                assert report.is_valid
             ```
         """
         if variables is None:
             variables = self.get_variables()  # pragma: no cover
 
         provider = self.config.get_variable_provider()
-        report = provider.validate_variables(variables)
-        return report.is_valid
+        return provider.validate_variables(variables)
 
     def sync_config(
         self,
