@@ -1,3 +1,7 @@
+---
+title: Pydantic Logfire OTel Baggage Reference
+description: "Propagate contextual data across your microservices. Use Logfire's set_baggage and get_baggage to carry key-value pairs (like user IDs) through traces."
+---
 # Baggage
 
 In OpenTelemetry, [Baggage](https://opentelemetry.io/docs/concepts/signals/baggage/) is a key-value store that can be

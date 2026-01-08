@@ -1,4 +1,6 @@
 ---
+title: Pydantic Logfire Anthropic Integration
+description: "Instrument calls to Anthropic with the logfire.instrument_anthropic(), stream responses, and log Anthropic LLM calls to Amazon Bedrock."
 integration: logfire
 ---
 # Anthropic
@@ -103,7 +105,7 @@ Shows up like this in Logfire:
 
 ## Amazon Bedrock
 
-You can also log Anthropic LLM calls to Amazon Bedrock using the `AmazonBedrock` and `AsyncAmazonBedrock` clients.
+You can also log Anthropic LLM calls to Amazon Bedrock using the `AnthropicBedrock` and `AsyncAnthropicBedrock` clients.
 
 ```python
 import anthropic

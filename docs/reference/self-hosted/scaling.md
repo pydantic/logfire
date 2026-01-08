@@ -1,3 +1,7 @@
+---
+title: "Guide: Scale Your Self-Hosted Logfire Deployment"
+description: "Guide to scaling Logfire self-hosted deployments. Adjust Kubernetes replicas and PostgreSQL settings to handle high ingestion or query traffic efficiently."
+---
 # Scaling Self Hosted
 
 **Logfire** is designed to be horizontally scalable, and can handle a lot of traffic. Depending on your usage patterns, however, you may be required to scale certain pods in order to maintain performance.
@@ -56,12 +60,12 @@ Each service can have standard kubernetes replicas, resource limits and autoscal
   # -- POD Disruption Budget
   pdb:
     maxUnavailable: 1
-    minAvaliable: 1
+    minAvailable: 1
 ```
 
 ## Recommended Starting Values
 
-By default, the helm chart only includes a single replica for all pods, and no configured resource limits.  When bringing self hosted to production, you will need to adjust the scaling of each service.  This is depenent on the usage patterns of your instance.
+By default, the helm chart only includes a single replica for all pods, and no configured resource limits.  When bringing self hosted to production, you will need to adjust the scaling of each service.  This is dependent on the usage patterns of your instance.
 
 I.e, if a lot of querying is going on, or there are a high number of dashboards, then you may need to scale up the query api and cache.  Conversely, if you are write heavy, but don't query as much, you may need to scale up ingest.  You can use the CPU and memory resources to gauge how busy certain aspects of Logfire are.
 

@@ -306,7 +306,7 @@ class DeprecatedKwargs(TypedDict):
     pass
 
 
-def configure(  # noqa: D417
+def configure(
     *,
     local: bool = False,
     send_to_logfire: bool | Literal['if-token-present'] | None = None,

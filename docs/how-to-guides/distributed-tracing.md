@@ -1,3 +1,7 @@
+---
+title: "Logfire Distributed Tracing: Trace Across Services"
+description: Master Logfire distributed tracing. Automatically propagate context across services using the traceparent header to connect every related span into one view.
+---
 **Logfire** builds on OpenTelemetry, which keeps track of *context* to determine the parent trace/span of a new span/log and whether it should be included by sampling. *Context propagation* is when this context is serialized and sent to another process, so that tracing can be distributed across services while allowing the full tree of spans to be cleanly reconstructed and viewed together.
 
 ## Manual Context Propagation

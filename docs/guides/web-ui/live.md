@@ -1,3 +1,7 @@
+---
+title: "Logfire: Live View - Monitor Spans & Traces in Real Time"
+description: "Use Logfire Live View to watch traces and logs in real time. Pivot into the SQL search pane to deep-dive and explore your traces."
+---
 # Live View
 
 The live view is the focal point of **Logfire**, where you can see traces arrive in real-time.

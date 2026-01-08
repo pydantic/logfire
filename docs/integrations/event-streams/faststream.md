@@ -1,7 +1,8 @@
 ---
-integration: built-in
+title: Logfire FastStream Integration via OpenTelemetry
+description: Guide on instrumenting FastStream with OpenTelemetry via middleware.
+integration: "built-in"
 ---
-
 # FastStream
 
 To instrument [FastStream][faststream] with OpenTelemetry, you need to:

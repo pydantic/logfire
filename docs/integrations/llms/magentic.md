@@ -1,7 +1,8 @@
 ---
-integration: third-party
+title: "Pydantic Logfire Integrations: Magentic"
+description: Guide for instrumenting Magentic. Magentic instrumentation requires no additional setup beyond configuring Logfire itself.
+integration: "third-party"
 ---
-
 [Magentic](https://github.com/jackmpcollins/magentic) is a lightweight library for working with
 structured output from LLMs, built around standard python type annotations and **Pydantic**. It
 integrates with **Logfire** to provide observability into prompt-templating, retries, tool/function

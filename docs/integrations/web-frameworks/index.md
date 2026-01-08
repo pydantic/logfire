@@ -1,3 +1,7 @@
+---
+title: Logfire Web Framework Integrations
+description: "Instrumentation for web apps. How to capture HTTP server request and response headers, query HTTP requests duration per percentile and exclude URLs."
+---
 # Web Frameworks
 
 Here are some tips for instrumenting your web applications.
@@ -98,7 +102,7 @@ Some methods (e.g. `logfire.instrument_fastapi()`) allow you to pass the argumen
 
 You can set one of two environment variables to exclude URLs from tracing:
 
-- `OTEL_PYTHON_EXCLUDED_URLS`, which will also apply to all instrumentations for which excluded URLs apply).
+- `OTEL_PYTHON_EXCLUDED_URLS`, which will also apply to all instrumentations for which excluded URLs apply.
 - `OTEL_PYTHON_FASTAPI_EXCLUDED_URLS`, for example, which will only apply to FastAPI instrumentation. You can replace `FASTAPI` with the name of the framework you're using.
 
 If you'd like to trace all URLs except the base `/` URL, you can use the following regex for `excluded_urls`: `^https?://[^/]+/$`

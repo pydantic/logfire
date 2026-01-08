@@ -49,6 +49,8 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.applications import Starlette
 from starlette.requests import Request as Request
 from starlette.websockets import WebSocket as WebSocket
+from surrealdb.connections.async_template import AsyncTemplate
+from surrealdb.connections.sync_template import SyncTemplate
 from types import ModuleType
 from typing import Any, Callable, Literal, TypeVar, overload
 from typing_extensions import LiteralString, ParamSpec, Unpack
@@ -402,6 +404,14 @@ class Logfire:
             check_imported_modules: If this is `'error'` (the default), then an exception will be raised if any of the
                 modules in `sys.modules` (i.e. modules that have already been imported) match the modules to trace.
                 Set to `'warn'` to issue a warning instead, or `'ignore'` to skip the check.
+        """
+    def instrument_surrealdb(self, obj: SyncTemplate | AsyncTemplate | type[SyncTemplate] | type[AsyncTemplate] | None = None) -> None:
+        """Instrument [SurrealDB](https://surrealdb.com/) connections, creating a span for each method.
+
+        Args:
+            obj: Pass a single connection instance to instrument only that connection.
+                Pass a connection class to instrument all instances of that class.
+                By default, all connection classes are instrumented.
         """
     def instrument_mcp(self, *, propagate_otel_context: bool = True) -> None:
         """Instrument the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk).

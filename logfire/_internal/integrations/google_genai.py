@@ -29,7 +29,7 @@ try:
     def wrapped_flatten_compound_value(key: str, value: Any, *args: Any, **kwargs: Any):
         try:
             return original_flatten_compound_value(key, value, *args, **kwargs)
-        except Exception:
+        except Exception:  # pragma: no cover
             return {key: safe_repr(value)}
 
     dict_util._flatten_compound_value = wrapped_flatten_compound_value  # type: ignore
@@ -48,7 +48,7 @@ try:
     def wrapped_to_dict(obj: object) -> object:
         try:
             return original_to_dict(obj)
-        except Exception:
+        except Exception:  # pragma: no cover
             try:
                 return ANY_ADAPTER.dump_python(obj, mode='json')
             except Exception:  # pragma: no cover
@@ -82,7 +82,7 @@ class SpanEventLogger(Logger):
         else:
             if 'content' in body:  # pragma: no branch
                 if isinstance(body['content'], (list, tuple, set)):
-                    body['content'] = [transform_part(part) for part in body['content']]  # type: ignore
+                    body['content'] = [transform_part(part) for part in body['content']]  # type: ignore  # pragma: no cover
                 else:
                     body['content'] = transform_part(body['content'])
             body['role'] = body.get('role', record.event_name.split('.')[1])

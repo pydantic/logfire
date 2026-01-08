@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "4.16.0"
+version = "4.17.0"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.9"
 authors = [
@@ -30,6 +30,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Intended Audience :: Developers",
     "Intended Audience :: Information Technology",
     "Intended Audience :: System Administrators",
@@ -102,7 +103,7 @@ dev = [
     "aiohttp >= 3.10.9",
     "redis >= 5.1.1",
     "pymongo >= 4.10.1",
-    "fastapi >= 0.115.0",
+    "fastapi != 0.124.3, != 0.124.4",
     "Flask >= 3.0.3",
     "django >= 4.2.16",
     "dirty-equals >= 0.8.0",
@@ -167,7 +168,8 @@ dev = [
     "uvicorn>=0.30.6",
     "logfire-api",
     "setuptools>=75.3.0",
-    "aiosqlite>=0.20.0",
+    # https://github.com/omnilib/aiosqlite/issues/369
+    "aiosqlite!=0.22.*",
     "boto3 >= 1.28.57",
     "botocore >= 1.31.57",
     "greenlet >= 3.1.1",
@@ -182,6 +184,7 @@ dev = [
     "openinference-instrumentation-litellm >= 0",
     "litellm != 1.80.9",
     "pip >= 0",
+    "surrealdb >= 0",
 ]
 docs = [
     "black>=23.12.0",

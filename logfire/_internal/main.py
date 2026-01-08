@@ -88,6 +88,8 @@ if TYPE_CHECKING:
     from starlette.applications import Starlette
     from starlette.requests import Request
     from starlette.websockets import WebSocket
+    from surrealdb.connections.async_template import AsyncTemplate
+    from surrealdb.connections.sync_template import SyncTemplate
     from typing_extensions import Unpack
 
     from ..integrations.aiohttp_client import (
@@ -925,6 +927,21 @@ class Logfire:
 
     def _warn_if_not_initialized_for_instrumentation(self):
         self.config.warn_if_not_initialized('Instrumentation will have no effect')
+
+    def instrument_surrealdb(
+        self, obj: SyncTemplate | AsyncTemplate | type[SyncTemplate] | type[AsyncTemplate] | None = None
+    ) -> None:
+        """Instrument [SurrealDB](https://surrealdb.com/) connections, creating a span for each method.
+
+        Args:
+            obj: Pass a single connection instance to instrument only that connection.
+                Pass a connection class to instrument all instances of that class.
+                By default, all connection classes are instrumented.
+        """
+        from .integrations.surrealdb import instrument_surrealdb
+
+        self._warn_if_not_initialized_for_instrumentation()
+        instrument_surrealdb(obj, self)
 
     def instrument_mcp(self, *, propagate_otel_context: bool = True) -> None:
         """Instrument the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk).
@@ -1811,7 +1828,9 @@ class Logfire:
     def instrument_aiohttp_client(
         self,
         *,
+        capture_all: bool | None = None,
         capture_headers: bool = False,
+        capture_request_body: bool = False,
         capture_response_body: bool = False,
         request_hook: AiohttpClientRequestHook | None = None,
         response_hook: AiohttpClientResponseHook | None = None,
@@ -1828,6 +1847,8 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_aiohttp_client(
             self,
+            capture_all=capture_all,
+            capture_request_body=capture_request_body,
             capture_response_body=capture_response_body,
             capture_headers=capture_headers,
             request_hook=request_hook,

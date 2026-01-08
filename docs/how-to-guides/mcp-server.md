@@ -1,3 +1,7 @@
+---
+title: Logfire MCP Server Setup Guide
+description: Learn how to use an MCP to allow LLMs to access OpenTelemetry traces and metrics through Logfire. Detailed configuration guide for Cursor and Claude.
+---
 # Logfire MCP Server
 
 An [MCP (Model Context Protocol) server](https://modelcontextprotocol.io/introduction) that provides

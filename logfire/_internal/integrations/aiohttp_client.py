@@ -1,13 +1,21 @@
 from __future__ import annotations
 
 import functools
-from typing import TYPE_CHECKING, Any, Callable, Literal
+import inspect
+from email.headerregistry import ContentTypeHeader
+from email.policy import EmailPolicy
+from functools import cache
+from typing import TYPE_CHECKING, Any, Callable, Literal, cast
 
 import attr
+from aiohttp.client import ClientSession
 from aiohttp.client_reqrep import ClientResponse
 from aiohttp.tracing import TraceRequestEndParams, TraceRequestExceptionParams, TraceRequestStartParams
 from opentelemetry.trace import NonRecordingSpan, Span, use_span
 from yarl import URL
+
+from logfire._internal.config import GLOBAL_CONFIG
+from logfire._internal.main import set_user_attributes_on_raw_span
 
 try:
     from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
@@ -19,6 +27,7 @@ except ImportError:
     )
 
 from logfire import Logfire, LogfireSpan
+from logfire._internal.stack_info import warn_at_user_stacklevel
 from logfire._internal.utils import handle_internal_errors
 from logfire.integrations.aiohttp_client import AioHttpRequestHeaders, AioHttpResponseHeaders, RequestHook, ResponseHook
 
@@ -30,6 +39,8 @@ if TYPE_CHECKING:
 
 def instrument_aiohttp_client(
     logfire_instance: Logfire,
+    capture_all: bool | None,
+    capture_request_body: bool,
     capture_response_body: bool,
     capture_headers: bool,
     request_hook: RequestHook | None,
@@ -40,17 +51,28 @@ def instrument_aiohttp_client(
 
     See the `Logfire.instrument_aiohttp_client` method for details.
     """
+    if capture_all and (capture_headers or capture_request_body or capture_response_body):
+        warn_at_user_stacklevel(
+            'You should use either `capture_all` or the specific capture parameters, not both.', UserWarning
+        )
+
+    capture_all = cast(bool, GLOBAL_CONFIG.param_manager.load_param('aiohttp_client_capture_all', capture_all))
+
+    should_capture_headers = capture_headers or capture_all
+    should_capture_request_body = capture_request_body or capture_all
+    should_capture_response_body = capture_response_body or capture_all
+
     logfire_instance = logfire_instance.with_settings(custom_scope_suffix='aiohttp_client')
 
     AioHttpClientInstrumentor().instrument(
         **{
             'tracer_provider': logfire_instance.config.get_tracer_provider(),
-            'request_hook': make_request_hook(request_hook, capture_headers),
+            'request_hook': make_request_hook(request_hook, should_capture_headers, should_capture_request_body),
             'response_hook': make_response_hook(
                 response_hook,
                 logfire_instance,
-                capture_headers,
-                capture_response_body,
+                should_capture_headers,
+                should_capture_response_body,
             ),
             'meter_provider': logfire_instance.config.get_meter_provider(),
             **kwargs,
@@ -59,7 +81,24 @@ def instrument_aiohttp_client(
 
 
 class LogfireClientInfoMixin:
+    """Mixin providing content-type header parsing for charset detection."""
+
     headers: AioHttpRequestHeaders
+
+    @property
+    def content_type_header_object(self) -> ContentTypeHeader:
+        """Parse the Content-Type header into a structured object."""
+        return _content_type_header_from_string(self.content_type_header_string)
+
+    @property
+    def content_type_header_string(self) -> str:
+        """Get the raw Content-Type header value."""
+        return self.headers.get('content-type', '')
+
+    @property
+    def content_type_charset(self) -> str:
+        """Extract charset from Content-Type header, defaulting to utf-8."""
+        return self.content_type_header_object.params.get('charset', 'utf-8')
 
 
 @attr.s(auto_attribs=True, frozen=True, slots=True)
@@ -68,6 +107,46 @@ class LogfireAioHttpRequestInfo(TraceRequestStartParams, LogfireClientInfoMixin)
 
     def capture_headers(self):
         capture_request_or_response_headers(self.span, self.headers, 'request')
+
+    @handle_internal_errors
+    def capture_body_if_text(self, attr_name: str = 'http.request.body.text'):
+        frame = inspect.currentframe()
+        try:
+            while frame is not None:
+                if frame.f_code in CODES_FOR_METHODS_WITH_DATA_OR_JSON_PARAM:
+                    json_data = frame.f_locals.get('json')
+                    data = frame.f_locals.get('data')
+
+                    if json_data is not None:
+                        self._set_complex_span_attributes({attr_name: json_data})
+                        return
+
+                    if data is not None:
+                        self._capture_data_body(data, attr_name)
+                        return
+
+                frame = frame.f_back
+        finally:
+            del frame
+
+    def _capture_data_body(self, data: Any, attr_name: str) -> None:
+        if isinstance(data, bytes):
+            try:
+                text = data.decode(self.content_type_charset)
+            except (UnicodeDecodeError, LookupError):
+                return
+            self._capture_text_as_json(attr_name, text)
+        elif isinstance(data, str):
+            self._capture_text_as_json(attr_name, data)
+        elif isinstance(data, dict):
+            self._set_complex_span_attributes({'http.request.body.form': data})
+
+    def _capture_text_as_json(self, attr_name: str, text: str) -> None:
+        self._set_complex_span_attributes({attr_name: {}})
+        self.span.set_attribute(attr_name, text)
+
+    def _set_complex_span_attributes(self, attributes: dict[str, Any]) -> None:
+        set_user_attributes_on_raw_span(self.span, attributes)  # type: ignore
 
 
 @attr.s(auto_attribs=True, slots=True)
@@ -136,13 +215,15 @@ class LogfireAioHttpResponseInfo(LogfireClientInfoMixin):
         )
 
 
-def make_request_hook(hook: RequestHook | None, capture_headers: bool) -> RequestHook | None:
-    if not (capture_headers or hook):
+def make_request_hook(
+    hook: RequestHook | None, capture_headers: bool, capture_request_body: bool
+) -> RequestHook | None:
+    if not (capture_headers or capture_request_body or hook):
         return None
 
     def new_hook(span: Span, request: TraceRequestStartParams) -> None:
         with handle_internal_errors:
-            capture_request(span, request, capture_headers)
+            capture_request(span, request, capture_headers, capture_request_body)
             run_hook(hook, span, request)
 
     return new_hook
@@ -175,11 +256,15 @@ def capture_request(
     span: Span,
     request: TraceRequestStartParams,
     capture_headers: bool,
+    capture_request_body: bool,
 ) -> LogfireAioHttpRequestInfo:
     request_info = LogfireAioHttpRequestInfo(method=request.method, url=request.url, headers=request.headers, span=span)
 
     if capture_headers:
         request_info.capture_headers()
+
+    if capture_request_body:
+        request_info.capture_body_if_text()
 
     return request_info
 
@@ -220,3 +305,13 @@ def capture_request_or_response_headers(
             for header_name in headers.keys()
         }
     )
+
+
+CODES_FOR_METHODS_WITH_DATA_OR_JSON_PARAM = [
+    inspect.unwrap(ClientSession._request).__code__,  # type: ignore
+]
+
+
+@cache
+def _content_type_header_from_string(content_type: str) -> ContentTypeHeader:
+    return EmailPolicy.header_factory('content-type', content_type)

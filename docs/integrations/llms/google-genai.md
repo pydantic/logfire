@@ -1,4 +1,6 @@
 ---
+title: "Logfire Integrations: Google Gen AI"
+description: "Instrument the Google GenAI SDK for Gemini models. Configure OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT to trace prompts, completions & token usage."
 integration: logfire
 ---
 # Google Gen AI SDK

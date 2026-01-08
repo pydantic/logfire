@@ -5,6 +5,7 @@ import os
 from typing import Annotated, Any
 from unittest import mock
 
+import pydantic
 import pytest
 from dirty_equals import IsFloat, IsInt, IsJson
 from fastapi import BackgroundTasks, FastAPI, Response, WebSocket
@@ -23,7 +24,14 @@ import logfire._internal
 import logfire._internal.integrations
 import logfire._internal.integrations.fastapi
 from logfire._internal.main import set_user_attributes_on_raw_span
+from logfire._internal.utils import get_version
 from logfire.testing import TestExporter
+
+pytestmark = [
+    pytest.mark.skipif(
+        get_version(pydantic.__version__) < get_version('2.7.0'), reason='Requires newer pydantic version'
+    ),
+]
 
 
 def test_missing_opentelemetry_dependency() -> None:
