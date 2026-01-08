@@ -1171,7 +1171,7 @@ class Logfire:
         | None = None,
         *,
         suppress_other_instrumentation: bool = True,
-        override_provider: None| str = None,
+        override_provider: None | str = None,
     ) -> AbstractContextManager[None]:
         """Instrument an OpenAI client so that spans are automatically created for each request.
 
