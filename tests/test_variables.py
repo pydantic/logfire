@@ -6,7 +6,6 @@ from __future__ import annotations
 import warnings
 from collections.abc import Mapping
 from datetime import timedelta
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -235,7 +234,7 @@ class TestRollout:
     def test_validation_sum_exceeds_one(self):
         # Note: Validation only runs when using TypeAdapter (not direct instantiation)
         with pytest.raises(ValidationError, match='Variant proportions must not sum to more than 1'):
-            VariableConfig.validate_python({'rollout': {'variants': {'v1': 0.6, 'v2': 0.6}}})
+            VariableConfig.model_validate({'rollout': {'variants': {'v1': 0.6, 'v2': 0.6}}})
 
 
 # =============================================================================
@@ -427,7 +426,7 @@ class TestVariableConfig:
 
     def test_validation_invalid_variant_key(self):
         with pytest.raises(ValidationError, match='invalid lookup key'):
-            VariableConfig.validate_python(
+            VariableConfig.model_validate(
                 {
                     'name': 'test',
                     'variants': {
@@ -440,7 +439,7 @@ class TestVariableConfig:
 
     def test_validation_rollout_references_missing_variant(self):
         with pytest.raises(ValidationError, match="Variant 'missing' present in `rollout.variants` is not present"):
-            VariableConfig.validate_python(
+            VariableConfig.model_validate(
                 {
                     'name': 'test',
                     'variants': {
@@ -453,7 +452,7 @@ class TestVariableConfig:
 
     def test_validation_override_references_missing_variant(self):
         with pytest.raises(ValidationError, match="Variant 'missing' present in `overrides"):
-            VariableConfig.validate_python(
+            VariableConfig.model_validate(
                 {
                     'name': 'test',
                     'variants': {
@@ -491,7 +490,7 @@ class TestVariablesConfig:
 
     def test_validation_invalid_variable_key(self):
         with pytest.raises(ValidationError, match='invalid lookup key'):
-            VariablesConfig.validate_python(
+            VariablesConfig.model_validate(
                 {
                     'variables': {
                         'wrong_key': {
@@ -505,7 +504,7 @@ class TestVariablesConfig:
             )
 
     def test_validate_python(self):
-        config = VariablesConfig.validate_python(
+        config = VariablesConfig.model_validate(
             {
                 'variables': {
                     'my_var': {
@@ -2732,194 +2731,6 @@ class TestAdditionalEdgeCases:
         assert 'v1' in formatted
 
 
-# =============================================================================
-# Test VariablesConfig Serialization
-# =============================================================================
-
-
-class TestVariablesConfigSerialization:
-    """Tests for VariablesConfig serialization methods."""
-
-    def test_to_dict(self):
-        """Test converting VariablesConfig to dict."""
-        config = VariablesConfig(
-            variables={
-                'my_var': VariableConfig(
-                    name='my_var',
-                    description='A test variable',
-                    variants={
-                        'v1': Variant(key='v1', serialized_value='"hello"'),
-                        'v2': Variant(key='v2', serialized_value='"world"'),
-                    },
-                    rollout=Rollout(variants={'v1': 0.5, 'v2': 0.5}),
-                    overrides=[],
-                    example='"default"',
-                ),
-            }
-        )
-        result = config.to_dict()
-        assert 'variables' in result
-        assert 'my_var' in result['variables']
-        assert result['variables']['my_var']['name'] == 'my_var'
-        assert result['variables']['my_var']['description'] == 'A test variable'
-        assert 'v1' in result['variables']['my_var']['variants']
-        assert result['variables']['my_var']['example'] == '"default"'
-
-    def test_to_json_and_from_json(self):
-        """Test JSON serialization roundtrip."""
-        config = VariablesConfig(
-            variables={
-                'test_var': VariableConfig(
-                    name='test_var',
-                    variants={'v1': Variant(key='v1', serialized_value='true')},
-                    rollout=Rollout(variants={'v1': 1.0}),
-                    overrides=[],
-                ),
-            }
-        )
-        json_str = config.to_json()
-        restored = VariablesConfig.from_json(json_str)
-        assert restored.variables['test_var'].name == 'test_var'
-        assert restored.variables['test_var'].variants['v1'].serialized_value == 'true'
-
-    def test_to_yaml_and_from_yaml(self):
-        """Test YAML serialization roundtrip."""
-        pytest.importorskip('yaml')
-        config = VariablesConfig(
-            variables={
-                'yaml_var': VariableConfig(
-                    name='yaml_var',
-                    description='YAML test',
-                    variants={'default': Variant(key='default', serialized_value='42')},
-                    rollout=Rollout(variants={'default': 1.0}),
-                    overrides=[],
-                ),
-            }
-        )
-        yaml_str = config.to_yaml()
-        restored = VariablesConfig.from_yaml(yaml_str)
-        assert restored.variables['yaml_var'].name == 'yaml_var'
-        assert restored.variables['yaml_var'].description == 'YAML test'
-
-    def test_write_and_read_json(self, tmp_path: Path):
-        """Test writing and reading JSON file."""
-        config = VariablesConfig(
-            variables={
-                'file_var': VariableConfig(
-                    name='file_var',
-                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
-                    overrides=[],
-                ),
-            }
-        )
-        path = tmp_path / 'config.json'
-        config.write(path)
-        restored = VariablesConfig.read(path)
-        assert restored.variables['file_var'].name == 'file_var'
-
-    def test_write_and_read_yaml(self, tmp_path: Path):
-        """Test writing and reading YAML file."""
-        pytest.importorskip('yaml')
-        config = VariablesConfig(
-            variables={
-                'yaml_file_var': VariableConfig(
-                    name='yaml_file_var',
-                    variants={'v1': Variant(key='v1', serialized_value='"yaml_value"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
-                    overrides=[],
-                ),
-            }
-        )
-        path = tmp_path / 'config.yaml'
-        config.write(path)
-        restored = VariablesConfig.read(path)
-        assert restored.variables['yaml_file_var'].name == 'yaml_file_var'
-
-    def test_format_detection_from_extension(self, tmp_path: Path):
-        """Test that format is detected from file extension."""
-        pytest.importorskip('yaml')
-        config = VariablesConfig(
-            variables={
-                'ext_var': VariableConfig(
-                    name='ext_var',
-                    variants={},
-                    rollout=Rollout(variants={}),
-                    overrides=[],
-                ),
-            }
-        )
-        # Test .yml extension
-        yml_path = tmp_path / 'config.yml'
-        config.write(yml_path)
-        restored = VariablesConfig.read(yml_path)
-        assert restored.variables['ext_var'].name == 'ext_var'
-
-    def test_unknown_extension_raises_error(self, tmp_path: Path):
-        """Test that unknown file extension raises ValueError."""
-        config = VariablesConfig(variables={})
-        path = tmp_path / 'config.txt'
-        with pytest.raises(ValueError, match='Cannot determine format'):
-            config.write(path)
-
-    def test_from_variables(self, config_kwargs: dict[str, Any]):
-        """Test creating config from Variable instances."""
-        lf = logfire.configure(**config_kwargs)
-        var1 = lf.var(name='bool_var', type=bool, default=True, description='A boolean')
-        var2 = lf.var(name='int_var', type=int, default=42)
-
-        config = VariablesConfig.from_variables([var1, var2])
-        assert 'bool_var' in config.variables
-        assert 'int_var' in config.variables
-        assert config.variables['bool_var'].description == 'A boolean'
-        assert config.variables['bool_var'].example == 'true'
-        assert config.variables['int_var'].example == '42'
-        # Should have empty variants (minimal config)
-        assert config.variables['bool_var'].variants == {}
-
-    def test_merge(self):
-        """Test merging two VariablesConfig instances."""
-        config1 = VariablesConfig(
-            variables={
-                'var1': VariableConfig(
-                    name='var1',
-                    variants={'v1': Variant(key='v1', serialized_value='"original"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
-                    overrides=[],
-                ),
-                'var2': VariableConfig(
-                    name='var2',
-                    variants={},
-                    rollout=Rollout(variants={}),
-                    overrides=[],
-                ),
-            }
-        )
-        config2 = VariablesConfig(
-            variables={
-                'var1': VariableConfig(
-                    name='var1',
-                    variants={'v1': Variant(key='v1', serialized_value='"updated"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
-                    overrides=[],
-                ),
-                'var3': VariableConfig(
-                    name='var3',
-                    variants={},
-                    rollout=Rollout(variants={}),
-                    overrides=[],
-                ),
-            }
-        )
-        merged = config1.merge(config2)
-        # var1 should be from config2 (updated)
-        assert merged.variables['var1'].variants['v1'].serialized_value == '"updated"'
-        # var2 should be from config1
-        assert 'var2' in merged.variables
-        # var3 should be from config2
-        assert 'var3' in merged.variables
-
-
 class TestVariableToConfig:
     """Tests for Variable.to_config() method."""
 
@@ -2947,80 +2758,3 @@ class TestVariableToConfig:
         assert config.name == 'func_var'
         # Example should be None when default is a function
         assert config.example is None
-
-
-class TestVariantToDict:
-    """Tests for Variant.to_dict() method."""
-
-    def test_basic_variant(self):
-        """Test basic variant serialization."""
-        variant = Variant(key='v1', serialized_value='"test"')
-        result = variant.to_dict()
-        assert result == {'key': 'v1', 'serialized_value': '"test"'}
-
-    def test_variant_with_description(self):
-        """Test variant with description."""
-        variant = Variant(key='v1', serialized_value='"test"', description='A variant')
-        result = variant.to_dict()
-        assert result['description'] == 'A variant'
-
-    def test_variant_with_version(self):
-        """Test variant with version."""
-        variant = Variant(key='v1', serialized_value='"test"', version=2)
-        result = variant.to_dict()
-        assert result['version'] == 2
-
-
-class TestRolloutOverrideToDict:
-    """Tests for RolloutOverride.to_dict() method."""
-
-    def test_rollout_override_with_conditions(self):
-        """Test serializing rollout override with various conditions."""
-        override = RolloutOverride(
-            conditions=[
-                ValueEquals(attribute='plan', value='enterprise'),
-                ValueIsIn(attribute='region', values=['us', 'eu']),
-            ],
-            rollout=Rollout(variants={'v1': 0.8, 'v2': 0.2}),
-        )
-        result = override.to_dict()
-        assert len(result['conditions']) == 2
-        assert result['conditions'][0]['kind'] == 'value-equals'
-        assert result['conditions'][0]['value'] == 'enterprise'
-        assert result['conditions'][1]['kind'] == 'value-is-in'
-        assert result['conditions'][1]['values'] == ['us', 'eu']
-        assert result['rollout']['variants'] == {'v1': 0.8, 'v2': 0.2}
-
-
-class TestVariableConfigToDict:
-    """Tests for VariableConfig.to_dict() method."""
-
-    def test_full_config(self):
-        """Test serializing a complete VariableConfig."""
-        config = VariableConfig(
-            name='full_var',
-            description='Full test',
-            variants={
-                'v1': Variant(key='v1', serialized_value='"value1"'),
-                'v2': Variant(key='v2', serialized_value='"value2"'),
-            },
-            rollout=Rollout(variants={'v1': 0.6, 'v2': 0.4}),
-            overrides=[
-                RolloutOverride(
-                    conditions=[ValueEquals(attribute='plan', value='pro')],
-                    rollout=Rollout(variants={'v2': 1.0}),
-                )
-            ],
-            json_schema={'type': 'string'},
-            aliases=['old_name'],
-            example='"default"',
-        )
-        result = config.to_dict()
-        assert result['name'] == 'full_var'
-        assert result['description'] == 'Full test'
-        assert 'v1' in result['variants']
-        assert result['rollout']['variants'] == {'v1': 0.6, 'v2': 0.4}
-        assert len(result['overrides']) == 1
-        assert result['json_schema'] == {'type': 'string'}
-        assert result['aliases'] == ['old_name']
-        assert result['example'] == '"default"'

@@ -1,23 +1,17 @@
 from __future__ import annotations as _annotations
 
-import json
-import os
 import random
 import re
-import sys
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
-from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Literal, Union
+from functools import cached_property
+from typing import Annotated, Any, Literal, Union
 
-from pydantic import Field, TypeAdapter, ValidationError, field_validator, model_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 from typing_extensions import TypeAliasType
 
 from logfire._internal.config import RemoteVariablesConfig as RemoteVariablesConfig
 from logfire.variables.abstract import ResolvedVariable
 from logfire.variables.variable import Variable
-
-VariablesConfigFormat = Literal['json', 'yaml']
 
 try:
     from pydantic import Discriminator
@@ -42,23 +36,10 @@ __all__ = (
     'VariableConfig',
     'VariablesConfig',
     'Variant',
-    'VariablesConfigFormat',
 )
 
-if not TYPE_CHECKING:  # pragma: no branch
-    if sys.version_info < (3, 10):
-        _dataclass = dataclass
 
-        # Note: When we drop support for python 3.9, drop this
-        # Prevent errors when using kw_only with dataclasses in Python<3.10
-        def dataclass(*args, **kwargs):
-            kwargs.pop('kw_only', None)
-            return _dataclass(*args, **kwargs)
-
-
-# TODO: Convert these all to BaseModel
-@dataclass(kw_only=True)
-class ValueEquals:
+class ValueEquals(BaseModel):
     """Condition that matches when an attribute equals a specific value."""
 
     attribute: str
@@ -73,8 +54,7 @@ class ValueEquals:
         return attributes.get(self.attribute, object()) == self.value
 
 
-@dataclass(kw_only=True)
-class ValueDoesNotEqual:
+class ValueDoesNotEqual(BaseModel):
     """Condition that matches when an attribute does not equal a specific value."""
 
     attribute: str
@@ -89,8 +69,7 @@ class ValueDoesNotEqual:
         return attributes.get(self.attribute, object()) != self.value
 
 
-@dataclass(kw_only=True)
-class ValueIsIn:
+class ValueIsIn(BaseModel):
     """Condition that matches when an attribute value is in a set of values."""
 
     attribute: str
@@ -106,8 +85,7 @@ class ValueIsIn:
         return value in self.values
 
 
-@dataclass(kw_only=True)
-class ValueIsNotIn:
+class ValueIsNotIn(BaseModel):
     """Condition that matches when an attribute value is not in a set of values."""
 
     attribute: str
@@ -123,8 +101,7 @@ class ValueIsNotIn:
         return value not in self.values
 
 
-@dataclass(kw_only=True)
-class ValueMatchesRegex:
+class ValueMatchesRegex(BaseModel):
     """Condition that matches when an attribute value matches a regex pattern."""
 
     attribute: str
@@ -142,8 +119,7 @@ class ValueMatchesRegex:
         return bool(re.search(self.pattern, value))
 
 
-@dataclass(kw_only=True)
-class ValueDoesNotMatchRegex:
+class ValueDoesNotMatchRegex(BaseModel):
     """Condition that matches when an attribute value does not match a regex pattern."""
 
     attribute: str
@@ -161,8 +137,7 @@ class ValueDoesNotMatchRegex:
         return not re.search(self.pattern, value)
 
 
-@dataclass(kw_only=True)
-class KeyIsPresent:
+class KeyIsPresent(BaseModel):
     """Condition that matches when an attribute key is present."""
 
     attribute: str
@@ -175,8 +150,7 @@ class KeyIsPresent:
         return self.attribute in attributes
 
 
-@dataclass(kw_only=True)
-class KeyIsNotPresent:
+class KeyIsNotPresent(BaseModel):
     """Condition that matches when an attribute key is not present."""
 
     attribute: str
@@ -216,20 +190,16 @@ VariableName = Annotated[str, Field(pattern=r'^[a-zA-Z_][a-zA-Z0-9_]*$')]
 
 At least for now, must be a valid Python identifier."""
 
-# TODO: Do we need to make the following dataclasses into pydantic dataclasses or BaseModels so the validators run when
-#  initializing (and not just when deserializing with a TypeAdapter)?
 
-
-@dataclass(kw_only=True)
-class Rollout:
+class Rollout(BaseModel):
     """Configuration for variant selection with weighted probabilities."""
 
     variants: dict[VariantKey, float]
     """Mapping of variant keys to their selection weights (must sum to at most 1.0)."""
 
-    def __post_init__(self):
-        # pre-compute the population and weights.
-        # Note that this means that the `variants` field should be treated as immutable
+    @cached_property
+    def _population_and_weights(self) -> tuple[list[VariantKey | None], list[float]]:
+        # Note that the caching means that the `variants` field should be treated as immutable
         population: list[VariantKey | None] = []
         weights: list[float] = []
         for k, v in self.variants.items():
@@ -240,9 +210,7 @@ class Rollout:
         if p_code_default > 0:
             population.append(None)
             weights.append(p_code_default)
-
-        self._population = population
-        self._weights = weights
+        return population, weights
 
     @field_validator('variants')
     @classmethod
@@ -264,15 +232,15 @@ class Rollout:
             The key of the selected variant, or None if no variant is selected (when weights sum to less than 1.0).
         """
         rand = random.Random(seed)
-        return rand.choices(self._population, self._weights)[0]
+        population, weights = self._population_and_weights
+        return rand.choices(population, weights)[0]
 
     def to_dict(self) -> dict[str, Any]:
         """Convert this rollout to a dictionary representation."""
         return {'variants': self.variants}
 
 
-@dataclass(kw_only=True)
-class Variant:
+class Variant(BaseModel):
     """A specific variant of a managed variable with its serialized value."""
 
     key: VariantKey
@@ -297,8 +265,7 @@ class Variant:
         return result
 
 
-@dataclass(kw_only=True)
-class RolloutOverride:
+class RolloutOverride(BaseModel):
     """An override of the default rollout when specific conditions are met."""
 
     conditions: list[Condition]
@@ -333,14 +300,13 @@ def _condition_to_dict(condition: Condition) -> dict[str, Any]:
     return result
 
 
-@dataclass(kw_only=True)
-class VariableConfig:
+class VariableConfig(BaseModel):
     """Configuration for a single managed variable including variants and rollout rules."""
 
     # A note on migrations:
     # * To migrate value types, copy the variable using a new name, update the values, and use the new variable name in updated code
     # * To migrate variable names, update the "aliases" field on the VariableConfig
-    name: VariableName  # TODO: What restrictions should we add on allowed characters?
+    name: VariableName
     """Unique name identifying this variable."""
     variants: dict[VariantKey, Variant]
     """Mapping of variant keys to their configurations."""
@@ -423,45 +389,8 @@ class VariableConfig:
 
         return self.variants[selected_variant_key]
 
-    @staticmethod
-    def validate_python(data: Any) -> VariableConfig:
-        """Parse and validate a VariablesConfig from a Python object.
 
-        Args:
-            data: A Python object (typically a dict) to validate as a VariablesConfig.
-
-        Returns:
-            A validated VariablesConfig instance.
-        """
-        return _VariableConfigAdapter.validate_python(data)
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert this variable config to a dictionary representation.
-
-        This can be used to serialize the config to JSON or YAML.
-        """
-        result: dict[str, Any] = {
-            'name': self.name,
-            'variants': {k: v.to_dict() for k, v in self.variants.items()},
-            'rollout': self.rollout.to_dict(),
-            'overrides': [o.to_dict() for o in self.overrides],
-        }
-        if self.description is not None:
-            result['description'] = self.description
-        if self.json_schema is not None:
-            result['json_schema'] = self.json_schema
-        if self.aliases is not None:
-            result['aliases'] = self.aliases
-        if self.example is not None:
-            result['example'] = self.example
-        return result
-
-
-_VariableConfigAdapter = TypeAdapter(VariableConfig)
-
-
-@dataclass(kw_only=True)
-class VariablesConfig:
+class VariablesConfig(BaseModel):
     """Container for all managed variable configurations."""
 
     variables: dict[VariableName, VariableConfig]
@@ -475,13 +404,15 @@ class VariablesConfig:
                 raise ValueError(f'`variables` has invalid lookup key {k!r} for value with name {v.name!r}.')
         return self
 
-    def __post_init__(self):
+    @cached_property
+    def _alias_map(self) -> dict[VariableName, str]:
         # Build alias lookup map for efficient lookups
-        self._alias_map: dict[VariableName, VariableName] = {}
+        alias_map: dict[VariableName, VariableName] = {}
         for var_config in self.variables.values():
             if var_config.aliases:
                 for alias in var_config.aliases:
-                    self._alias_map[alias] = var_config.name
+                    alias_map[alias] = var_config.name
+        return alias_map
 
     def resolve_serialized_value(
         self, name: VariableName, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
@@ -506,7 +437,7 @@ class VariablesConfig:
             return config
 
         # Fall back to alias lookup (aliases are stored on each VariableConfig)
-        if hasattr(self, '_alias_map') and name in self._alias_map:
+        if name in self._alias_map:
             return self.variables.get(self._alias_map[name])
 
         return None
@@ -534,146 +465,6 @@ class VariablesConfig:
             except Exception as e:
                 errors.setdefault(variable.name, {})[None] = e
         return errors
-
-    @staticmethod
-    def validate_python(data: Any) -> VariablesConfig:
-        """Parse and validate a VariablesConfig from a Python object.
-
-        Args:
-            data: A Python object (typically a dict) to validate as a VariablesConfig.
-
-        Returns:
-            A validated VariablesConfig instance.
-        """
-        return _VariablesConfigAdapter.validate_python(data)
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert this variables config to a dictionary representation.
-
-        Returns:
-            A dict with the variables configuration.
-        """
-        return {'variables': {k: v.to_dict() for k, v in self.variables.items()}}
-
-    def to_json(self, *, indent: int | None = 2) -> str:
-        """Convert this variables config to a JSON string.
-
-        Args:
-            indent: Indentation level for pretty printing. Default is 2.
-
-        Returns:
-            A JSON string representation of the config.
-        """
-        return json.dumps(self.to_dict(), indent=indent)
-
-    def to_yaml(self) -> str:
-        """Convert this variables config to a YAML string.
-
-        Returns:
-            A YAML string representation of the config.
-
-        Raises:
-            ImportError: If PyYAML is not installed.
-        """
-        try:
-            import yaml
-        except ImportError as e:
-            raise ImportError('PyYAML is required for YAML support. Install with: pip install pyyaml') from e
-
-        return yaml.safe_dump(self.to_dict(), default_flow_style=False, sort_keys=False)
-
-    @staticmethod
-    def from_json(data: str) -> VariablesConfig:
-        """Parse a VariablesConfig from a JSON string.
-
-        Args:
-            data: A JSON string to parse.
-
-        Returns:
-            A validated VariablesConfig instance.
-        """
-        return VariablesConfig.validate_python(json.loads(data))
-
-    @staticmethod
-    def from_yaml(data: str) -> VariablesConfig:
-        """Parse a VariablesConfig from a YAML string.
-
-        Args:
-            data: A YAML string to parse.
-
-        Returns:
-            A validated VariablesConfig instance.
-
-        Raises:
-            ImportError: If PyYAML is not installed.
-        """
-        try:
-            import yaml
-        except ImportError as e:
-            raise ImportError('PyYAML is required for YAML support. Install with: pip install pyyaml') from e
-
-        return VariablesConfig.validate_python(yaml.safe_load(data))
-
-    def write(self, path: str | os.PathLike[str], format: VariablesConfigFormat | None = None) -> None:
-        """Write the variables config to a file.
-
-        Args:
-            path: Path to write the config to.
-            format: The format to use ('json' or 'yaml'). If not specified, inferred from the file extension.
-
-        Raises:
-            ValueError: If the format cannot be determined.
-        """
-        path = Path(path)
-        if format is None:
-            suffix = path.suffix.lower()
-            if suffix in ('.yaml', '.yml'):
-                format = 'yaml'
-            elif suffix == '.json':
-                format = 'json'
-            else:
-                raise ValueError(
-                    f"Cannot determine format from extension '{suffix}'. Use format='json' or format='yaml'."
-                )
-
-        if format == 'yaml':
-            content = self.to_yaml()
-        else:
-            content = self.to_json()
-
-        path.write_text(content)
-
-    @staticmethod
-    def read(path: str | os.PathLike[str], format: VariablesConfigFormat | None = None) -> VariablesConfig:
-        """Read a variables config from a file.
-
-        Args:
-            path: Path to the config file.
-            format: The format of the file ('json' or 'yaml'). If not specified, inferred from the file extension.
-
-        Returns:
-            A validated VariablesConfig instance.
-
-        Raises:
-            ValueError: If the format cannot be determined.
-        """
-        path = Path(path)
-        if format is None:
-            suffix = path.suffix.lower()
-            if suffix in ('.yaml', '.yml'):
-                format = 'yaml'
-            elif suffix == '.json':
-                format = 'json'
-            else:
-                raise ValueError(
-                    f"Cannot determine format from extension '{suffix}'. Use format='json' or format='yaml'."
-                )
-
-        content = path.read_text()
-        if format == 'yaml':
-            return VariablesConfig.from_yaml(content)
-        else:
-            return VariablesConfig.from_json(content)
 
     @staticmethod
     def from_variables(variables: list[Variable[Any]]) -> VariablesConfig:
@@ -727,9 +518,6 @@ class VariablesConfig:
         merged_variables = dict(self.variables)
         merged_variables.update(other.variables)
         return VariablesConfig(variables=merged_variables)
-
-
-_VariablesConfigAdapter = TypeAdapter(VariablesConfig)
 
 
 def _matches_all_conditions(conditions: list[Condition], attributes: Mapping[str, Any]) -> bool:

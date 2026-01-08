@@ -299,6 +299,18 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire_api.validate_variables()
     logfire__all__.remove('validate_variables')
 
+    assert hasattr(logfire_api, 'sync_config')
+    # NOTE: We don't call sync_config, to avoid side effects with the variables provider.
+    logfire__all__.remove('sync_config')
+
+    assert hasattr(logfire_api, 'pull_config')
+    # NOTE: We don't call pull_config, to avoid side effects with the variables provider.
+    logfire__all__.remove('pull_config')
+
+    assert hasattr(logfire_api, 'generate_config')
+    logfire_api.generate_config()
+    logfire__all__.remove('generate_config')
+
     # If it's not empty, it means that some of the __all__ members are not tested.
     assert logfire__all__ == set(), logfire__all__
 

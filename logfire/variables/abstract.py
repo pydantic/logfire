@@ -746,7 +746,7 @@ class VariableProvider(ABC):
             server_var = server_config.variables.get(name)
             if server_var is None:
                 creates.append(name)
-            elif var_config.to_dict() != server_var.to_dict():
+            elif var_config.model_dump() != server_var.model_dump():
                 updates.append(name)
             else:
                 unchanged.append(name)

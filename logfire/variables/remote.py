@@ -227,7 +227,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
             variables_config_data = variables_response.json()
             try:
-                self._config = VariablesConfig.validate_python(variables_config_data)
+                self._config = VariablesConfig.model_validate(variables_config_data)
             except ValidationError as e:
                 # TODO: Update the following logic to be smarter
                 warnings.warn(str(e), category=RuntimeWarning)

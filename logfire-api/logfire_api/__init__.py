@@ -207,6 +207,14 @@ except ImportError:
             def get_variables(self, *args, **kwargs) -> list[Any]:
                 return []
 
+            def sync_config(self, *args, **kwargs) -> None: ...
+
+            def pull_config(self, *args, **kwargs) -> Any:
+                return MagicMock()
+
+            def generate_config(self, *args, **kwargs) -> Any:
+                return MagicMock()
+
         DEFAULT_LOGFIRE_INSTANCE = Logfire()
         span = DEFAULT_LOGFIRE_INSTANCE.span
         log = DEFAULT_LOGFIRE_INSTANCE.log
@@ -259,6 +267,9 @@ except ImportError:
         suppress_scopes = DEFAULT_LOGFIRE_INSTANCE.suppress_scopes
         var = DEFAULT_LOGFIRE_INSTANCE.var
         get_variables = DEFAULT_LOGFIRE_INSTANCE.get_variables
+        sync_config = DEFAULT_LOGFIRE_INSTANCE.sync_config
+        pull_config = DEFAULT_LOGFIRE_INSTANCE.pull_config
+        generate_config = DEFAULT_LOGFIRE_INSTANCE.generate_config
 
         def push_variables(*args, **kwargs) -> bool:
             return False
