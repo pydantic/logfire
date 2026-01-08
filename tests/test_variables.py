@@ -14,6 +14,7 @@ from pydantic import BaseModel, ValidationError
 
 import logfire
 from logfire._internal.config import RemoteVariablesConfig, VariablesOptions
+from logfire.testing import TestExporter
 from logfire.variables.abstract import NoOpVariableProvider, ResolvedVariable, VariableProvider
 from logfire.variables.config import (
     KeyIsNotPresent,
@@ -564,6 +565,92 @@ class TestVariablesConfig:
         assert 'my_var' in errors
         assert 'v1' in errors['my_var']
 
+    def test_from_variables(self, config_kwargs: dict[str, Any]):
+        """Test that from_variables creates minimal configs from Variable instances."""
+        lf = logfire.configure(**config_kwargs)
+        var1 = lf.var(name='str_var', default='hello', type=str, description='A string variable')
+        var2 = lf.var(name='int_var', default=42, type=int)
+
+        config = VariablesConfig.from_variables([var1, var2])
+
+        # Check that configs were created for both variables
+        assert 'str_var' in config.variables
+        assert 'int_var' in config.variables
+
+        # Check that the configs have the right structure
+        str_config = config.variables['str_var']
+        assert str_config.name == 'str_var'
+        assert str_config.description == 'A string variable'
+        assert str_config.variants == {}  # No variants created
+        assert str_config.rollout.variants == {}  # Empty rollout
+        assert str_config.json_schema is not None
+        assert str_config.example == '"hello"'  # Default value as example
+
+        int_config = config.variables['int_var']
+        assert int_config.name == 'int_var'
+        assert int_config.example == '42'
+
+    def test_from_variables_with_function_default(self, config_kwargs: dict[str, Any]):
+        """Test that from_variables handles function defaults (no example)."""
+        lf = logfire.configure(**config_kwargs)
+
+        def resolve_default(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
+            return 'computed'
+
+        var = lf.var(name='fn_var', default=resolve_default, type=str)
+
+        config = VariablesConfig.from_variables([var])
+
+        fn_config = config.variables['fn_var']
+        assert fn_config.example is None  # No example for function defaults
+
+    def test_merge_basic(self):
+        """Test that merge combines two configs with other taking precedence."""
+        config1 = VariablesConfig(
+            variables={
+                'var_a': VariableConfig(
+                    name='var_a',
+                    variants={'v1': Variant(key='v1', serialized_value='"value_a1"')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                ),
+                'var_b': VariableConfig(
+                    name='var_b',
+                    variants={'v1': Variant(key='v1', serialized_value='"value_b1"')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                ),
+            }
+        )
+        config2 = VariablesConfig(
+            variables={
+                'var_b': VariableConfig(
+                    name='var_b',
+                    variants={'v2': Variant(key='v2', serialized_value='"value_b2"')},
+                    rollout=Rollout(variants={'v2': 1.0}),
+                    overrides=[],
+                ),
+                'var_c': VariableConfig(
+                    name='var_c',
+                    variants={'v1': Variant(key='v1', serialized_value='"value_c1"')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                ),
+            }
+        )
+
+        merged = config1.merge(config2)
+
+        # Should have all three variables
+        assert len(merged.variables) == 3
+        assert 'var_a' in merged.variables
+        assert 'var_b' in merged.variables
+        assert 'var_c' in merged.variables
+
+        # var_b should be from config2 (overwritten)
+        assert 'v2' in merged.variables['var_b'].variants
+        assert 'v1' not in merged.variables['var_b'].variants
+
 
 # =============================================================================
 # Test NoOpVariableProvider
@@ -1036,6 +1123,147 @@ class TestLogfireRemoteVariableProviderErrors:
 
 
 # =============================================================================
+# Test LogfireRemoteVariableProvider start() method
+# =============================================================================
+
+
+@pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
+class TestLogfireRemoteVariableProviderStart:
+    """Tests for the start() method of LogfireRemoteVariableProvider."""
+
+    def test_start_called_twice_is_noop(self) -> None:
+        """Calling start() twice should be a no-op (early return)."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            json={'variables': {}},
+        )
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            try:
+                # First start
+                provider.start(None)
+                assert provider._started is True
+                worker_thread = provider._worker_thread
+
+                # Second start should be a no-op
+                provider.start(None)
+                assert provider._worker_thread is worker_thread  # Same thread
+            finally:
+                provider.shutdown()
+
+    def test_start_with_logfire_instance(self, config_kwargs: dict[str, Any]) -> None:
+        """start() with a logfire instance should set up error logging via logfire."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            json={'variables': {}},
+        )
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            try:
+                # Create a logfire instance
+                lf = logfire.configure(**config_kwargs)
+
+                # Start with the logfire instance
+                provider.start(lf)
+
+                # Verify logfire instance is set
+                assert provider._logfire is not None
+                assert provider._started is True
+            finally:
+                provider.shutdown()
+
+    def test_error_logged_via_logfire_when_instrumented(self, config_kwargs: dict[str, Any]) -> None:
+        """When started with a logfire instance, _log_error should call logfire.error()."""
+        from unittest.mock import MagicMock
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            json={'variables': {}},
+        )
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            try:
+                # Create a logfire instance and start the provider
+                lf = logfire.configure(**config_kwargs)
+                provider.start(lf)
+
+                # Mock the logfire error method
+                mock_error = MagicMock()
+                provider._logfire.error = mock_error  # type: ignore
+
+                # Directly call _log_error to test the logfire.error path
+                test_exc = ValueError('Test error')
+                provider._log_error('Test message', test_exc)
+
+                # Verify logfire.error was called
+                mock_error.assert_called_once()
+                call_args = mock_error.call_args
+                assert call_args[0][0] == '{message}: {error}'
+                assert call_args[1]['message'] == 'Test message'
+                assert call_args[1]['error'] == 'Test error'
+                assert call_args[1]['_exc_info'] is test_exc
+            finally:
+                provider.shutdown()
+
+    def test_refresh_skips_when_recently_fetched(self) -> None:
+        """refresh() should skip if we've fetched recently and force=False."""
+        request_mocker = requests_mock_module.Mocker()
+        adapter = request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            json={'variables': {}},
+        )
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),  # Long polling interval
+                ),
+            )
+            try:
+                provider.start(None)
+
+                # First refresh should make a request
+                provider.refresh(force=True)
+                assert adapter.call_count == 1
+
+                # Second refresh without force should skip (recently fetched)
+                provider.refresh(force=False)
+                assert adapter.call_count == 1  # No additional request
+
+                # Third refresh with force should make a request
+                provider.refresh(force=True)
+                assert adapter.call_count == 2
+            finally:
+                provider.shutdown()
+
+
+# =============================================================================
 # Test API Token Support
 # =============================================================================
 
@@ -1286,6 +1514,80 @@ class TestVariable:
 
         var = lf.var(name='string_var', default='default_value', type=str)
         await var.refresh()  # Should not raise
+
+    def test_get_creates_span_when_instrumented(
+        self, config_kwargs: dict[str, Any], variables_config: VariablesConfig, exporter: TestExporter
+    ):
+        """Test that var.get() creates a span when instrument=True."""
+        config_kwargs['variables'] = VariablesOptions(config=variables_config, instrument=True)
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='string_var', default='default_value', type=str)
+        exporter.clear()  # Clear any spans from configure
+
+        details = var.get()
+
+        # Verify the variable was resolved correctly
+        assert details.value == 'hello'
+        assert details.variant == 'default'
+
+        # Verify a "Resolve variable string_var" span was created
+        spans = exporter.exported_spans
+        resolve_spans = [s for s in spans if s.name == 'Resolve variable string_var']
+        assert len(resolve_spans) >= 1
+        span = resolve_spans[-1]  # Get the most recent one
+        # Verify span attributes
+        attrs = dict(span.attributes or {})
+        assert attrs.get('name') == 'string_var'
+        assert attrs.get('value') == 'hello'
+        assert attrs.get('variant') == 'default'
+
+    def test_get_records_exception_on_span_when_validation_error(
+        self, config_kwargs: dict[str, Any], variables_config: VariablesConfig, exporter: TestExporter
+    ):
+        """Test that validation errors are recorded on the span when instrument=True."""
+        config_kwargs['variables'] = VariablesOptions(config=variables_config, instrument=True)
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='invalid_var', default=999, type=int)
+        exporter.clear()  # Clear any spans from configure
+
+        details = var.get()
+
+        # Verify fallback to default
+        assert details.value == 999
+        assert details.exception is not None
+
+        # Verify the span was created and has the exception recorded
+        spans = exporter.exported_spans
+        resolve_spans = [s for s in spans if s.name == 'Resolve variable invalid_var']
+        assert len(resolve_spans) >= 1
+        span = resolve_spans[-1]  # Get the most recent one
+        # Check that an exception event was recorded
+        events = span.events or []
+        exception_events = [e for e in events if e.name == 'exception']
+        assert len(exception_events) == 1
+
+    def test_get_no_span_when_not_instrumented(
+        self, config_kwargs: dict[str, Any], variables_config: VariablesConfig, exporter: TestExporter
+    ):
+        """Test that var.get() does NOT create a span when instrument=False."""
+        config_kwargs['variables'] = VariablesOptions(config=variables_config, instrument=False)
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='string_var', default='default_value', type=str)
+        exporter.clear()  # Clear any spans from configure
+
+        details = var.get()
+
+        # Verify the variable was resolved correctly
+        assert details.value == 'hello'
+        assert details.variant == 'default'
+
+        # Verify NO "Resolve variable" span was created
+        spans = exporter.exported_spans
+        resolve_spans = [s for s in spans if s.name.startswith('Resolve variable')]
+        assert len(resolve_spans) == 0
 
 
 # =============================================================================
@@ -1907,6 +2209,39 @@ class TestLogfireRemoteVariableProviderWriteOperations:
                 )
                 result = provider.create_variable(config)
                 assert result.name == 'new_var'
+            finally:
+                provider.shutdown()
+
+    def test_create_variable_with_aliases_and_example(self) -> None:
+        """Test creating a variable with aliases and example fields."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        post_adapter = request_mocker.post('http://localhost:8000/v1/variables/', json={'name': 'new_var'})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                config = VariableConfig(
+                    name='new_var',
+                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                    description='Test variable',
+                    json_schema={'type': 'string'},
+                    aliases=['old_name', 'legacy_name'],
+                    example='"example_value"',
+                )
+                result = provider.create_variable(config)
+                assert result.name == 'new_var'
+
+                # Verify the request body included aliases and example
+                assert post_adapter.last_request is not None
+                request_body = post_adapter.last_request.json()
+                assert request_body['aliases'] == ['old_name', 'legacy_name']
+                assert request_body['example'] == '"example_value"'
             finally:
                 provider.shutdown()
 

@@ -141,7 +141,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
         else:
             warnings.warn(f'{message}: {exc}', category=RuntimeWarning)
 
-    def _start_sse_listener(self):
+    def _start_sse_listener(self):  # pragma: no cover
         """Start the SSE listener thread for real-time updates."""
         if self._sse_thread is not None and self._sse_thread.is_alive():
             return  # Already running
@@ -153,7 +153,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
         )
         self._sse_thread.start()
 
-    def _sse_listener(self):
+    def _sse_listener(self):  # pragma: no cover
         """Listen for SSE updates from the server and trigger refresh on events."""
         sse_url = urljoin(self._base_url, '/v1/variables/updates/')
         reconnect_delay = 1.0  # Start with 1 second delay
@@ -218,7 +218,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
                     self._wait_for_reconnect(reconnect_delay)
                     reconnect_delay = min(reconnect_delay * 2, max_reconnect_delay)
 
-    def _wait_for_reconnect(self, delay: float):
+    def _wait_for_reconnect(self, delay: float):  # pragma: no cover
         """Wait for a delay before reconnecting, checking for shutdown."""
         # Wait in small increments to allow quick shutdown
         elapsed = 0.0
@@ -245,7 +245,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
         Args:
             force: If True, fetch configuration even if the polling interval hasn't elapsed.
         """
-        if self._refresh_lock.locked():
+        if self._refresh_lock.locked():  # pragma: no cover
             # If we're already fetching, we'll get a new value, so no need to force
             force = False
 

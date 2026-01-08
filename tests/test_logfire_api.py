@@ -300,11 +300,11 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('validate_variables')
 
     assert hasattr(logfire_api, 'sync_config')
-    # NOTE: We don't call sync_config, to avoid side effects with the variables provider.
+    logfire_api.sync_config()
     logfire__all__.remove('sync_config')
 
     assert hasattr(logfire_api, 'pull_config')
-    # NOTE: We don't call pull_config, to avoid side effects with the variables provider.
+    logfire_api.pull_config()
     logfire__all__.remove('pull_config')
 
     assert hasattr(logfire_api, 'generate_config')

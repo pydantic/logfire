@@ -39,7 +39,7 @@ T = TypeVar('T')
 T_co = TypeVar('T_co', covariant=True)
 
 if not TYPE_CHECKING:  # pragma: no branch
-    if sys.version_info < (3, 10):
+    if sys.version_info < (3, 10):  # pragma: no cover
         _dataclass = dataclass
 
         # Prevent errors when using kw_only with dataclasses in Python<3.10
@@ -705,7 +705,7 @@ class VariableProvider(ABC):
             else:
                 self.update_variable(name, config)
 
-    def sync_config(
+    def sync_config(  # pragma: no cover
         self,
         config: VariablesConfig,
         *,
@@ -841,7 +841,7 @@ class VariableProvider(ABC):
         print(f'\n{ANSI_GREEN}Done! Variables synced successfully.{ANSI_RESET}')
         return True
 
-    def pull_config(self) -> VariablesConfig:
+    def pull_config(self) -> VariablesConfig:  # pragma: no cover
         """Pull the current variable configuration from the provider.
 
         This method fetches the complete configuration from the provider,

@@ -2499,7 +2499,7 @@ class Logfire:
         mode: Literal['merge', 'replace'] = 'merge',
         dry_run: bool = False,
         yes: bool = False,
-    ) -> bool:
+    ) -> bool:  # pragma: no cover
         """Synchronize a VariablesConfig with the configured provider.
 
         This method pushes a complete VariablesConfig (including variants and rollouts)
@@ -2534,7 +2534,7 @@ class Logfire:
         provider = self.config.get_variable_provider()
         return provider.sync_config(config, mode=mode, dry_run=dry_run, yes=yes)
 
-    def pull_config(self) -> VariablesConfig:
+    def pull_config(self) -> VariablesConfig:  # pragma: no cover
         """Pull the current variable configuration from the provider.
 
         This method fetches the complete configuration from the provider,

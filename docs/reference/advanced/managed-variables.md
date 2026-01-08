@@ -878,18 +878,8 @@ merged = server_config.merge(local_config)
 
 | Method | Description |
 |--------|-------------|
-| `VariablesConfig.read(path)` | Read config from JSON or YAML file |
-| `config.write(path)` | Write config to JSON or YAML file |
-| `VariablesConfig.from_json(string)` | Parse from JSON string |
-| `VariablesConfig.from_yaml(string)` | Parse from YAML string |
-| `config.to_json()` | Convert to JSON string |
-| `config.to_yaml()` | Convert to YAML string |
-| `config.to_dict()` | Convert to dictionary |
 | `config.merge(other)` | Merge with another config (other takes precedence) |
 | `VariablesConfig.from_variables(vars)` | Create minimal config from Variable instances |
-
-!!! tip "YAML vs JSON"
-    YAML is recommended for config files because it's more readable and supports comments. JSON is available for programmatic use. The format is auto-detected from the file extension (`.yaml`, `.yml`, or `.json`).
 
 ## Local Variables
 

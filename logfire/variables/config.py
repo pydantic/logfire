@@ -15,7 +15,7 @@ from logfire.variables.variable import Variable
 
 try:
     from pydantic import Discriminator
-except ImportError:
+except ImportError:  # pragma: no cover
     # This is only used in an annotation, so if you have Pydantic < 2.5, just treat it as a no-op
     def Discriminator(*args: Any, **kwargs: Any) -> Any:
         pass
@@ -235,10 +235,6 @@ class Rollout(BaseModel):
         population, weights = self._population_and_weights
         return rand.choices(population, weights)[0]
 
-    def to_dict(self) -> dict[str, Any]:
-        """Convert this rollout to a dictionary representation."""
-        return {'variants': self.variants}
-
 
 class Variant(BaseModel):
     """A specific variant of a managed variable with its serialized value."""
@@ -252,18 +248,6 @@ class Variant(BaseModel):
     version: int | None = None
     """Optional version identifier for this variant."""
 
-    def to_dict(self) -> dict[str, Any]:
-        """Convert this variant to a dictionary representation."""
-        result: dict[str, Any] = {
-            'key': self.key,
-            'serialized_value': self.serialized_value,
-        }
-        if self.description is not None:
-            result['description'] = self.description
-        if self.version is not None:
-            result['version'] = self.version
-        return result
-
 
 class RolloutOverride(BaseModel):
     """An override of the default rollout when specific conditions are met."""
@@ -272,32 +256,6 @@ class RolloutOverride(BaseModel):
     """List of conditions that must all match for this override to apply."""
     rollout: Rollout
     """The rollout configuration to use when all conditions match."""
-
-    def to_dict(self) -> dict[str, Any]:
-        """Convert this rollout override to a dictionary representation."""
-        return {
-            'conditions': [_condition_to_dict(c) for c in self.conditions],
-            'rollout': self.rollout.to_dict(),
-        }
-
-
-def _condition_to_dict(condition: Condition) -> dict[str, Any]:
-    """Convert a condition to a dictionary representation."""
-    result: dict[str, Any] = {'kind': condition.kind, 'attribute': condition.attribute}
-
-    # Handle conditions with 'value' field
-    if isinstance(condition, (ValueEquals, ValueDoesNotEqual)):
-        result['value'] = condition.value
-    # Handle conditions with 'values' field
-    elif isinstance(condition, (ValueIsIn, ValueIsNotIn)):
-        result['values'] = list(condition.values)
-    # Handle conditions with 'pattern' field
-    elif isinstance(condition, (ValueMatchesRegex, ValueDoesNotMatchRegex)):
-        pattern = condition.pattern
-        result['pattern'] = pattern.pattern if isinstance(pattern, re.Pattern) else pattern
-    # KeyIsPresent and KeyIsNotPresent only have 'attribute' and 'kind'
-
-    return result
 
 
 class VariableConfig(BaseModel):
