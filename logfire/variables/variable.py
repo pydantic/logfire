@@ -5,6 +5,7 @@ from collections.abc import Iterator, Mapping
 from contextlib import ExitStack, contextmanager
 from contextvars import ContextVar
 from dataclasses import replace
+from functools import lru_cache
 from importlib.util import find_spec
 from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar
 
@@ -31,8 +32,6 @@ T_co = TypeVar('T_co', covariant=True)
 
 
 _VARIABLE_OVERRIDES: ContextVar[dict[str, Any] | None] = ContextVar('_VARIABLE_OVERRIDES', default=None)
-
-_DEFAULT_SENTINEL = object()
 
 
 class ResolveFunction(Protocol[T_co]):
@@ -102,6 +101,17 @@ class Variable(Generic[T]):
 
         self.logfire_instance = logfire_instance.with_settings(custom_scope_suffix='variables')
         self.type_adapter = TypeAdapter[T](type)
+
+        # Create a cached deserialization function for this variable instance.
+        # Returns T | Exception to cache both successful deserializations and errors.
+        @lru_cache(maxsize=128)
+        def _deserialize_cached(serialized_value: str) -> T | Exception:
+            try:
+                return self.type_adapter.validate_json(serialized_value)
+            except Exception as e:
+                return e
+
+        self._deserialize_cached = _deserialize_cached
 
     @contextmanager
     def override(self, value: T | ResolveFunction[T]) -> Iterator[None]:
@@ -193,14 +203,16 @@ class Variable(Generic[T]):
                 default = self._get_default(targeting_key, attributes)
                 return _with_value(serialized_result, default)
 
-            try:
-                # TODO: Should only validate a given value once, rather than every time it is resolved
-                value = self.type_adapter.validate_json(serialized_result.value)
-            except ValidationError as e:
+            # Use cached deserialization - returns T | Exception
+            value_or_exc = self._deserialize_cached(serialized_result.value)
+            if isinstance(value_or_exc, Exception):
                 default = self._get_default(targeting_key, attributes)
-                return ResolvedVariable(name=self.name, value=default, exception=e, _reason='validation_error')
+                reason: str = 'validation_error' if isinstance(value_or_exc, ValidationError) else 'other_error'
+                return ResolvedVariable(name=self.name, value=default, exception=value_or_exc, _reason=reason)
 
-            return ResolvedVariable(name=self.name, value=value, variant=serialized_result.variant, _reason='resolved')
+            return ResolvedVariable(
+                name=self.name, value=value_or_exc, variant=serialized_result.variant, _reason='resolved'
+            )
 
         except Exception as e:
             default = self._get_default(targeting_key, attributes)
