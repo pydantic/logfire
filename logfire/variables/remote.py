@@ -219,9 +219,10 @@ class LogfireRemoteVariableProvider(VariableProvider):
             try:
                 variables_response = self._session.get(urljoin(self._base_url, '/v1/variables/'))
                 UnexpectedResponse.raise_for_status(variables_response)
-            except UnexpectedResponse as e:
-                # TODO: Update the following logic to be smarter
-                # TODO: Handle any error here, not just UnexpectedResponse, so we don't crash user application on failure
+            except Exception as e:
+                # Catch all request exceptions (ConnectionError, Timeout, UnexpectedResponse, etc.)
+                # to prevent crashing the user's application on network/HTTP failures.
+                # TODO: we should emit a logfire error if instrumentation for variables is enabled.
                 warnings.warn(f'Error retrieving variables: {e}', category=RuntimeWarning)
                 return
 
@@ -229,8 +230,11 @@ class LogfireRemoteVariableProvider(VariableProvider):
             try:
                 self._config = VariablesConfig.model_validate(variables_config_data)
             except ValidationError as e:
-                # TODO: Update the following logic to be smarter
-                warnings.warn(str(e), category=RuntimeWarning)
+                # TODO: we should emit a logfire error if instrumentation for variables is enabled.
+                warnings.warn(
+                    f'Failed to parse variables configuration from Logfire API. Validation error: {e}',
+                    category=RuntimeWarning,
+                )
             finally:
                 self._has_attempted_fetch = True
 

@@ -249,7 +249,7 @@ class Variant(BaseModel):
     """The JSON-serialized value for this variant."""
     description: str | None = None
     """Optional human-readable description of this variant."""
-    version: int | None = None  # TODO: should this be required? should this be `str`?
+    version: int | None = None
     """Optional version identifier for this variant."""
 
     def to_dict(self) -> dict[str, Any]:

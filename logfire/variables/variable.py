@@ -139,12 +139,6 @@ class Variable(Generic[T]):
             A ResolvedVariable object containing the resolved value, selected variant,
             and any errors that occurred.
         """
-        # TODO:
-        #  * Should we include the serialized value as an attribute here?
-        #  * Should we _not_ include the deserialized value as an attribute here?
-        #  * Should some/all of the above be configurable? On a logfire/variable/call-site-specific basis?
-        #   TODO: Alex says "i think the most important part is that it should be possible to globally disable creating these spans entirely, or have them off by default and allow globally enabling them."
-
         merged_attributes = self._get_merged_attributes(attributes)
 
         # Set the targeting key based on the current trace ID if appropriate
