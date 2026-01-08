@@ -596,7 +596,7 @@ class TestVariablesConfig:
         lf = logfire.configure(**config_kwargs)
 
         def resolve_default(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
-            return 'computed'
+            return 'computed'  # pragma: no cover
 
         var = lf.var(name='fn_var', default=resolve_default, type=str)
 
@@ -1252,9 +1252,10 @@ class TestLogfireRemoteVariableProviderStart:
                 # Starting should result in a call in a background thread, so we need to wait for it
                 start_time = time.time()
                 while adapter.call_count < 1:
-                    if time.time() - start_time > 5:
+                    if time.time() - start_time > 5:  # pragma: no cover
                         raise AssertionError(f'Timed out waiting for call_count to reach 1, got {adapter.call_count}')
-                    time.sleep(0.01)
+                    # Need the below or it can be flaky
+                    time.sleep(0.01)  # pragma: no cover
                 assert adapter.call_count == 1
 
                 # First refresh should make a request
@@ -2457,7 +2458,7 @@ class TestLogfireRemoteVariableProviderWriteOperations:
                 # Find the POST request
                 post_request = None
                 for req in request_mocker.request_history:  # pragma: no branch
-                    if req.method == 'POST':
+                    if req.method == 'POST':  # pragma: no branch
                         post_request = req
                         break
 
@@ -2502,7 +2503,7 @@ class TestLogfireRemoteVariableProviderWriteOperations:
                 # Find the POST request
                 post_request = None
                 for req in request_mocker.request_history:  # pragma: no branch
-                    if req.method == 'POST':
+                    if req.method == 'POST':  # pragma: no branch
                         post_request = req
                         break
 
@@ -3327,7 +3328,7 @@ class TestVariableToConfig:
         lf = logfire.configure(**config_kwargs)
 
         def my_resolver(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> int:
-            return 99
+            return 99  # pragma: no cover
 
         var = lf.var(name='func_var', type=int, default=my_resolver)
         config = var.to_config()
