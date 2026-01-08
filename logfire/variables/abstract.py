@@ -735,8 +735,6 @@ class VariableProvider(ABC):
             print('No variables in config to sync.')
             return False
 
-        print(f'Using provider: {type(self).__name__}')
-
         # Refresh the provider to ensure we have the latest config
         try:
             self.refresh(force=True)
@@ -880,8 +878,6 @@ class VariableProvider(ABC):
         if not variables:
             print('No variables to push. Create variables using logfire.var() first.')
             return False
-
-        print(f'Using provider: {type(self).__name__}')
 
         # Refresh the provider to ensure we have the latest config
         try:

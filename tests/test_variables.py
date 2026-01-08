@@ -1961,12 +1961,12 @@ class TestLazyImports:
 
 
 class TestLogfireVarIntegration:
-    def test_var_with_sequence_type(self, config_kwargs: dict[str, Any]):
+    def test_var_with_implicit_type(self, config_kwargs: dict[str, Any]):
         config_kwargs['variables'] = VariablesOptions(
             config=VariablesConfig(
                 variables={
-                    'union_var': VariableConfig(
-                        name='union_var',
+                    'default_var': VariableConfig(
+                        name='default_var',
                         variants={'v1': Variant(key='v1', serialized_value='"string_value"')},
                         rollout=Rollout(variants={'v1': 1.0}),
                         overrides=[],
