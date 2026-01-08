@@ -1035,3 +1035,54 @@ await agent_config.refresh(force=True)
 ```
 
 The `force=True` parameter bypasses the polling interval check and fetches the latest configuration immediately.
+
+### Migrating Variable Names
+
+Variable names serve as the identifier used to reference the variable in your code, so they cannot be changed directly. However, you can migrate to a new name using **aliases**.
+
+Aliases allow a variable to be found by alternative names. When your code requests a variable by name, if that name isn't found directly, the system checks if it matches any alias of an existing variable and returns that variable's value instead.
+
+**Migration workflow:**
+
+1. **Create the new variable** with your desired name and copy the configuration (variants, rollouts, overrides) from the old variable
+2. **Add the old name as an alias** on the new variable
+3. **Update your code** to use the new variable name
+4. **Deploy gradually**: Applications using the old name will still work because the alias resolves to the new variable
+5. **Delete the old variable** once all code has been updated and deployed
+6. **Remove the alias** (optional) once you're confident no code uses the old name
+
+**Example:**
+
+Suppose you have a variable named `agent-config` and want to rename it to `support-agent-config`:
+
+1. Create `support-agent-config` with the same variants and rollout configuration
+2. Add `agent-config` as an alias on `support-agent-config`
+3. Old code using `logfire.var(name='agent-config', ...)` continues to work
+4. Update your code to use `name='support-agent-config'`
+5. After deployment, delete the old `agent-config` variable
+6. Optionally remove `agent-config` from the aliases list
+
+This approach ensures zero-downtime migrations—existing deployed applications continue to receive the correct configuration while you update and redeploy.
+
+**In the UI:**
+
+You can manage aliases in the **Aliases** section at the bottom of the variable create/edit form. Add the old variable name(s) that should resolve to this variable.
+
+**In code (local config):**
+
+```python
+from logfire.variables.config import VariableConfig, VariablesConfig
+
+config = VariablesConfig(
+    variables={
+        'support-agent-config': VariableConfig(
+            name='support-agent-config',
+            variants={...},
+            rollout=Rollout(variants={...}),
+            overrides=[],
+            # Old name resolves to this variable
+            aliases=['agent-config'],
+        ),
+    }
+)
+```
