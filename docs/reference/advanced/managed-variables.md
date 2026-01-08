@@ -384,6 +384,76 @@ with agent_config.get() as config:
     ...
 ```
 
+### Setting Targeting Key via Context
+
+Instead of passing `targeting_key` to every `.get()` call, you can set it once at a higher level using `targeting_context`. This is useful when you want to set the targeting key early in your request lifecycle (e.g., in middleware) and have it apply to all variable resolutions within that context:
+
+```python
+from logfire.variables import targeting_context
+
+async def handle_request(user_id: str, message: str) -> str:
+    # Set targeting key once for all variables in this context
+    with targeting_context(user_id):
+        # All variable resolutions here use user_id as the targeting key
+        with agent_config.get() as config:
+            ...
+        with another_variable.get() as other:
+            ...
+```
+
+**Variable-specific targeting:**
+
+Different variables may need different targeting strategies. For example, you might want to target by `user_id` for personalization features but by `organization_id` for billing-related features. You can specify which variables a targeting context applies to:
+
+```python
+from logfire.variables import targeting_context
+
+# Define variables
+personalization_config = logfire.var(name='personalization', type=PersonalizationConfig, default=...)
+billing_config = logfire.var(name='billing', type=BillingConfig, default=...)
+
+async def handle_request(user_id: str, org_id: str) -> None:
+    # Set different targeting keys for different variables
+    with targeting_context(org_id, variables=[billing_config]):
+        with targeting_context(user_id, variables=[personalization_config]):
+            # billing_config uses org_id as targeting key
+            # personalization_config uses user_id as targeting key
+            with billing_config.get() as billing:
+                ...
+            with personalization_config.get() as personalization:
+                ...
+```
+
+**Combining default and variable-specific targeting:**
+
+You can set a default targeting key for all variables while overriding it for specific ones. Variable-specific targeting always takes precedence over the default, regardless of nesting order:
+
+```python
+from logfire.variables import targeting_context
+
+# Set default targeting for all variables, but use org_id for billing
+with targeting_context(user_id):  # default for all variables
+    with targeting_context(org_id, variables=[billing_config]):  # specific override
+        # billing_config uses org_id
+        # all other variables use user_id
+        ...
+
+# Order doesn't matter - specific always wins
+with targeting_context(org_id, variables=[billing_config]):
+    with targeting_context(user_id):
+        # Same result: billing_config uses org_id, others use user_id
+        ...
+```
+
+**Priority order:**
+
+When resolving the targeting key for a variable, the following priority order is used:
+
+1. **Call-site explicit**: `variable.get(targeting_key='explicit')` - always wins
+2. **Variable-specific context**: Set via `targeting_context(key, variables=[var])`
+3. **Default context**: Set via `targeting_context(key)` without specifying variables
+4. **Trace ID fallback**: If there's an active trace and no targeting key is set, the trace ID is used
+
 ### Attributes for Conditional Rules
 
 Pass attributes to enable condition-based targeting:

@@ -37,7 +37,7 @@ if TYPE_CHECKING:
         )
         from logfire.variables.local import LocalVariableProvider
         from logfire.variables.remote import LogfireRemoteVariableProvider
-        from logfire.variables.variable import Variable
+        from logfire.variables.variable import Variable, targeting_context
 
 __all__ = [
     'KeyIsNotPresent',
@@ -65,6 +65,7 @@ __all__ = [
     'VariablesConfig',
     'VariableWriteError',
     'Variant',
+    'targeting_context',
 ]
 
 
@@ -97,6 +98,6 @@ def __getattr__(name: str):
     )
     from logfire.variables.local import LocalVariableProvider
     from logfire.variables.remote import LogfireRemoteVariableProvider
-    from logfire.variables.variable import Variable
+    from logfire.variables.variable import Variable, targeting_context
 
     return locals()[name]

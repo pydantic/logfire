@@ -324,7 +324,8 @@ class VariableConfig(BaseModel):
     """Alternative names that resolve to this variable; useful for name migrations."""
     example: str | None = None
     """JSON-serialized example value from code; used as a template when creating new variants in the UI."""
-    # TODO: Consider adding config-based management of targeting_key, rather than requiring the value at the call-site
+    # NOTE: Context-based targeting_key can be set via targeting_context() from logfire.variables.
+    # TODO: Consider adding remotely-managed targeting_key_attribute for automatic attribute-based targeting.
 
     @model_validator(mode='after')
     def _validate_variants(self):

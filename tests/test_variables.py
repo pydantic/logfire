@@ -1289,6 +1289,238 @@ class TestVariable:
 
 
 # =============================================================================
+# Test targeting_context
+# =============================================================================
+
+
+class TestTargetingContext:
+    """Tests for the targeting_context context manager."""
+
+    @pytest.fixture
+    def rollout_config(self) -> VariablesConfig:
+        """Config with deterministic rollout based on targeting_key."""
+        return VariablesConfig(
+            variables={
+                'var_a': VariableConfig(
+                    name='var_a',
+                    variants={
+                        'v1': Variant(key='v1', serialized_value='"value_1"'),
+                        'v2': Variant(key='v2', serialized_value='"value_2"'),
+                    },
+                    # 50/50 split - targeting_key determines which variant
+                    rollout=Rollout(variants={'v1': 0.5, 'v2': 0.5}),
+                    overrides=[],
+                ),
+                'var_b': VariableConfig(
+                    name='var_b',
+                    variants={
+                        'v1': Variant(key='v1', serialized_value='"b_value_1"'),
+                        'v2': Variant(key='v2', serialized_value='"b_value_2"'),
+                    },
+                    rollout=Rollout(variants={'v1': 0.5, 'v2': 0.5}),
+                    overrides=[],
+                ),
+            }
+        )
+
+    def test_targeting_context_default_for_all_variables(
+        self, config_kwargs: dict[str, Any], rollout_config: VariablesConfig
+    ):
+        """targeting_context without variables sets targeting for all variables."""
+        from logfire.variables.variable import targeting_context
+
+        config_kwargs['variables'] = VariablesOptions(config=rollout_config)
+        lf = logfire.configure(**config_kwargs)
+
+        var_a = lf.var(name='var_a', default='default', type=str)
+        var_b = lf.var(name='var_b', default='default', type=str)
+
+        # Without targeting_context, each call may get different results (trace-based or random)
+        # With targeting_context, both variables use the same targeting_key
+        with targeting_context('user123'):
+            result_a = var_a.get()
+            result_b = var_b.get()
+
+        # Verify targeting_key was used (results should be consistent for same key)
+        with targeting_context('user123'):
+            assert var_a.get().value == result_a.value
+            assert var_b.get().value == result_b.value
+
+    def test_targeting_context_for_specific_variables(
+        self, config_kwargs: dict[str, Any], rollout_config: VariablesConfig
+    ):
+        """targeting_context with variables list only affects those variables."""
+        from logfire.variables.variable import targeting_context
+
+        config_kwargs['variables'] = VariablesOptions(config=rollout_config)
+        lf = logfire.configure(**config_kwargs)
+
+        var_a = lf.var(name='var_a', default='default', type=str)
+
+        # Set targeting only for var_a
+        with targeting_context('user123', variables=[var_a]):
+            # var_a should use the targeting_key
+            result_a_1 = var_a.get()
+            result_a_2 = var_a.get()
+            # Should be consistent
+            assert result_a_1.value == result_a_2.value
+
+    def test_targeting_context_nested_specific_wins_over_default(
+        self, config_kwargs: dict[str, Any], rollout_config: VariablesConfig
+    ):
+        """Variable-specific targeting wins over default, regardless of nesting order."""
+        from logfire.variables.variable import targeting_context
+
+        config_kwargs['variables'] = VariablesOptions(config=rollout_config)
+        lf = logfire.configure(**config_kwargs)
+
+        var_a = lf.var(name='var_a', default='default', type=str)
+        var_b = lf.var(name='var_b', default='default', type=str)
+
+        # Get expected results for each targeting_key
+        with targeting_context('user_default'):
+            expected_b_default = var_b.get().value
+        with targeting_context('org456'):
+            expected_specific = var_a.get().value
+
+        # Nested: default first, then specific
+        with targeting_context('user_default'):
+            with targeting_context('org456', variables=[var_a]):
+                # var_a uses specific targeting (org456)
+                assert var_a.get().value == expected_specific
+                # var_b uses default targeting (user_default)
+                assert var_b.get().value == expected_b_default
+
+    def test_targeting_context_reverse_nesting_order(
+        self, config_kwargs: dict[str, Any], rollout_config: VariablesConfig
+    ):
+        """Specific targeting wins even when set before default in nesting."""
+        from logfire.variables.variable import targeting_context
+
+        config_kwargs['variables'] = VariablesOptions(config=rollout_config)
+        lf = logfire.configure(**config_kwargs)
+
+        var_a = lf.var(name='var_a', default='default', type=str)
+        var_b = lf.var(name='var_b', default='default', type=str)
+
+        # Get expected results
+        with targeting_context('org456'):
+            expected_specific = var_a.get().value
+        with targeting_context('user_default'):
+            expected_default = var_b.get().value
+
+        # Reverse nesting: specific first, then default
+        with targeting_context('org456', variables=[var_a]):
+            with targeting_context('user_default'):
+                # var_a still uses specific targeting (org456)
+                assert var_a.get().value == expected_specific
+                # var_b uses default targeting (user_default)
+                assert var_b.get().value == expected_default
+
+    def test_targeting_context_call_site_wins(self, config_kwargs: dict[str, Any], rollout_config: VariablesConfig):
+        """Call-site targeting_key overrides contextvar targeting."""
+        from logfire.variables.variable import targeting_context
+
+        config_kwargs['variables'] = VariablesOptions(config=rollout_config)
+        lf = logfire.configure(**config_kwargs)
+
+        var_a = lf.var(name='var_a', default='default', type=str)
+
+        # Get expected result for call-site key
+        result_for_explicit = var_a.get(targeting_key='explicit_key').value
+
+        with targeting_context('context_key'):
+            # Call-site targeting_key should win
+            assert var_a.get(targeting_key='explicit_key').value == result_for_explicit
+
+    def test_targeting_context_multiple_specific_variables(
+        self, config_kwargs: dict[str, Any], rollout_config: VariablesConfig
+    ):
+        """Multiple variables can have specific targeting set."""
+        from logfire.variables.variable import targeting_context
+
+        config_kwargs['variables'] = VariablesOptions(config=rollout_config)
+        lf = logfire.configure(**config_kwargs)
+
+        var_a = lf.var(name='var_a', default='default', type=str)
+        var_b = lf.var(name='var_b', default='default', type=str)
+
+        # Get expected results
+        with targeting_context('key_for_both'):
+            expected_a = var_a.get().value
+            expected_b = var_b.get().value
+
+        # Set same targeting for both variables explicitly
+        with targeting_context('key_for_both', variables=[var_a, var_b]):
+            assert var_a.get().value == expected_a
+            assert var_b.get().value == expected_b
+
+    def test_targeting_context_different_keys_for_different_variables(
+        self, config_kwargs: dict[str, Any], rollout_config: VariablesConfig
+    ):
+        """Different variables can have different targeting keys."""
+        from logfire.variables.variable import targeting_context
+
+        config_kwargs['variables'] = VariablesOptions(config=rollout_config)
+        lf = logfire.configure(**config_kwargs)
+
+        var_a = lf.var(name='var_a', default='default', type=str)
+        var_b = lf.var(name='var_b', default='default', type=str)
+
+        # Get expected results
+        with targeting_context('key_a'):
+            expected_a = var_a.get().value
+        with targeting_context('key_b'):
+            expected_b = var_b.get().value
+
+        # Nest specific contexts for different variables
+        with targeting_context('key_a', variables=[var_a]):
+            with targeting_context('key_b', variables=[var_b]):
+                assert var_a.get().value == expected_a
+                assert var_b.get().value == expected_b
+
+    def test_targeting_context_resets_after_exit(self, config_kwargs: dict[str, Any], rollout_config: VariablesConfig):
+        """Targeting context is properly reset after exiting the context manager."""
+        from logfire.variables.variable import _get_contextvar_targeting_key, targeting_context
+
+        config_kwargs['variables'] = VariablesOptions(config=rollout_config)
+        logfire.configure(**config_kwargs)
+
+        # No context set initially
+        assert _get_contextvar_targeting_key('var_a') is None
+
+        with targeting_context('user123'):
+            assert _get_contextvar_targeting_key('var_a') == 'user123'
+
+        # Context is reset after exit
+        assert _get_contextvar_targeting_key('var_a') is None
+
+    def test_targeting_context_specific_resets_after_exit(
+        self, config_kwargs: dict[str, Any], rollout_config: VariablesConfig
+    ):
+        """Variable-specific targeting is properly reset after exiting."""
+        from logfire.variables.variable import _get_contextvar_targeting_key, targeting_context
+
+        config_kwargs['variables'] = VariablesOptions(config=rollout_config)
+        lf = logfire.configure(**config_kwargs)
+        var_a = lf.var(name='var_a', default='default', type=str)
+
+        with targeting_context('default_key'):
+            assert _get_contextvar_targeting_key('var_a') == 'default_key'
+
+            with targeting_context('specific_key', variables=[var_a]):
+                assert _get_contextvar_targeting_key('var_a') == 'specific_key'
+                # Other variables still get default
+                assert _get_contextvar_targeting_key('var_b') == 'default_key'
+
+            # After exiting specific context, var_a goes back to default
+            assert _get_contextvar_targeting_key('var_a') == 'default_key'
+
+        # After exiting all contexts
+        assert _get_contextvar_targeting_key('var_a') is None
+
+
+# =============================================================================
 # Test Variable with Baggage and Resource Attributes
 # =============================================================================
 

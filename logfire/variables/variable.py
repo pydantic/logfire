@@ -1,10 +1,10 @@
 from __future__ import annotations as _annotations
 
 import inspect
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import ExitStack, contextmanager
 from contextvars import ContextVar
-from dataclasses import replace
+from dataclasses import dataclass, field, replace
 from functools import lru_cache
 from importlib.util import find_spec
 from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar
@@ -25,13 +25,26 @@ else:
 import logfire
 from logfire.variables.abstract import ResolvedVariable
 
-__all__ = ('ResolveFunction', 'is_resolve_function', 'Variable')
+__all__ = ('ResolveFunction', 'is_resolve_function', 'Variable', 'targeting_context')
 
 T = TypeVar('T')
 T_co = TypeVar('T_co', covariant=True)
 
 
 _VARIABLE_OVERRIDES: ContextVar[dict[str, Any] | None] = ContextVar('_VARIABLE_OVERRIDES', default=None)
+
+
+@dataclass
+class _TargetingContextData:
+    """Internal data structure for targeting context."""
+
+    default: str | None = None
+    """Default targeting key for all variables."""
+    by_variable: dict[str, str] = field(default_factory=dict[str, str])
+    """Variable-specific targeting keys (variable name -> targeting key)."""
+
+
+_TARGETING_CONTEXT: ContextVar[_TargetingContextData | None] = ContextVar('_TARGETING_CONTEXT', default=None)
 
 
 class ResolveFunction(Protocol[T_co]):
@@ -141,8 +154,8 @@ class Variable(Generic[T]):
 
         Args:
             targeting_key: Optional key for deterministic variant selection (e.g., user ID).
-                If not provided and there is an active trace, its trace ID is used to ensure
-                the same value is used throughout a single trace.
+                If not provided, falls back to contextvar targeting key (set via targeting_context),
+                then to the current trace ID if there is an active trace.
             attributes: Optional attributes for condition-based targeting rules.
 
         Returns:
@@ -151,7 +164,10 @@ class Variable(Generic[T]):
         """
         merged_attributes = self._get_merged_attributes(attributes)
 
-        # Set the targeting key based on the current trace ID if appropriate
+        # Targeting key resolution: call-site > contextvar > trace_id
+        if targeting_key is None:
+            targeting_key = _get_contextvar_targeting_key(self.name)
+
         if targeting_key is None and (current_trace_id := get_current_span().get_span_context().trace_id):
             # If there is no active trace, the current_trace_id will be zero
             targeting_key = f'trace_id:{current_trace_id:032x}'
@@ -274,3 +290,76 @@ def _with_value(details: ResolvedVariable[Any], new_value: T) -> ResolvedVariabl
         A new ResolvedVariable with the given value.
     """
     return replace(details, value=new_value)
+
+
+@contextmanager
+def targeting_context(
+    targeting_key: str,
+    variables: Sequence[Variable[Any]] | None = None,
+) -> Iterator[None]:
+    """Set the targeting key for variable resolution within this context.
+
+    The targeting key is used for deterministic variant selection - the same targeting key
+    will always resolve to the same variant for a given variable configuration.
+
+    Args:
+        targeting_key: The targeting key to use for deterministic variant selection
+            (e.g., user ID, organization ID).
+        variables: If provided, only apply this targeting key to these specific variables.
+            If not provided, this becomes the default targeting key for all variables.
+
+    Variable-specific targeting always takes precedence over the default, regardless
+    of nesting order. Call-site explicit targeting_key still wins over everything.
+
+    Example:
+        # Set default targeting for all variables
+        with targeting_context("user123"):
+            value = my_variable.get()  # uses "user123"
+
+        # Set targeting for specific variables
+        with targeting_context("org456", variables=[org_variable]):
+            org_value = org_variable.get()  # uses "org456"
+            other_value = other_variable.get()  # uses default or trace_id
+
+        # Combine default and specific - order doesn't matter for precedence
+        with targeting_context("user123"):
+            with targeting_context("org456", variables=[org_variable]):
+                org_value = org_variable.get()  # uses "org456" (specific wins)
+                other_value = other_variable.get()  # uses "user123" (default)
+    """
+    current = _TARGETING_CONTEXT.get()
+
+    # Build new context by merging with current
+    new_data = _TargetingContextData(
+        default=current.default if current else None,
+        by_variable=dict(current.by_variable) if current else {},
+    )
+
+    if variables is None:
+        new_data.default = targeting_key
+    else:
+        for var in variables:
+            new_data.by_variable[var.name] = targeting_key
+
+    token = _TARGETING_CONTEXT.set(new_data)
+    try:
+        yield
+    finally:
+        _TARGETING_CONTEXT.reset(token)
+
+
+def _get_contextvar_targeting_key(variable_name: str) -> str | None:
+    """Get the targeting key from context for a specific variable.
+
+    Args:
+        variable_name: The name of the variable to get the targeting key for.
+
+    Returns:
+        The targeting key if one is set in context, None otherwise.
+        Variable-specific targeting takes precedence over the default.
+    """
+    ctx = _TARGETING_CONTEXT.get()
+    if ctx is None:
+        return None
+    # Variable-specific takes precedence over default
+    return ctx.by_variable.get(variable_name, ctx.default)
