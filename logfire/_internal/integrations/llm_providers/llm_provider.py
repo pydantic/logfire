@@ -28,7 +28,7 @@ def instrument_llm_provider(
     is_async_client_fn: Callable[[type[Any]], bool],
     provider: str | None = None,
 ) -> AbstractContextManager[None]:
-    """Instruments the provided `client` (or clients) with `logfire`
+    """Instruments the provided `client` (or clients) with `logfire`.
 
     The `client` argument can be:
     - a single client instance, e.g. an instance of `openai.OpenAI`,
