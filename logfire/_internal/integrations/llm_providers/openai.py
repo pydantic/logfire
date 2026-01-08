@@ -183,7 +183,7 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         on_response(response.parse(), span)  # type: ignore
         return cast('ResponseT', response)
 
-    if getattr(span, 'attributes', None) is None or span.attributes.get('gen_ai.system', None) is None:
+    if getattr(span, 'attributes', None) is None or (span.attributes or {}).get('gen_ai.system', None) is None:
         span.set_attribute('gen_ai.system', "openai")
 
     if isinstance(response_model := getattr(response, 'model', None), str):
