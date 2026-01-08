@@ -91,7 +91,7 @@ Here's the typical workflow using the `AgentConfig` example from above:
 1. **Define the variable in code** with your current configuration as the default
 2. **Deploy your application**: it starts using the default immediately
 3. **Create the variable in the Logfire UI** with your initial value
-4. **Add variants**: create additional variants like `v2-detailed` with different configurations
+4. **Add variants**: create additional variants like `v2_detailed` with different configurations
 5. **Set up a rollout**: start with 10% of traffic going to the new variant
 6. **Monitor in real-time**: filter traces by variant to compare response quality, latency, and token usage
 7. **Adjust based on data**: if v2 performs better, gradually increase to 50%, then 100%
@@ -107,7 +107,7 @@ The Logfire web UI provides a complete interface for managing your variables wit
 
 To create a new variable, click **New variable** and fill in:
 
-- **Name**: A unique identifier using lowercase letters, numbers, and hyphens (e.g., `agent-config`, `feature-flag`)
+- **Name**: A valid Python identifier (e.g., `agent_config`, `feature_flag`)
 - **Description**: Optional text explaining what the variable controls
 - **Value Type**: Choose from:
     - **Text**: Plain text values, ideal for prompts and messages
@@ -126,7 +126,7 @@ Each variable can have multiple **variants**—different values that can be serv
 To add variants:
 
 1. Click **Add Variant** in the Variants section
-2. Enter a unique key for the variant (e.g., `premium`, `experimental`, `v2-detailed`)
+2. Enter a unique key for the variant (e.g., `premium`, `experimental`, `v2_detailed`)
 3. Provide an optional description
 4. Enter the value (the format depends on your value type)
 
@@ -194,7 +194,7 @@ class AgentConfig(BaseModel):
 
 # Define the variable with a sensible default
 agent_config = logfire.var(
-    name='support-agent-config',
+    name='support_agent_config',
     type=AgentConfig,
     default=AgentConfig(
         instructions='You are a helpful customer support agent. Be friendly and concise.',
@@ -223,7 +223,7 @@ async def handle_support_ticket(user_id: str, message: str) -> str:
     # Get the configuration - same user always gets the same variant
     with agent_config.get(targeting_key=user_id) as config:
         # Inside this context, baggage is set:
-        # logfire.variables.support-agent-config = <variant_name>
+        # logfire.variables.support_agent_config = <variant_name>
 
         agent = Agent(
             config.value.model,
@@ -284,11 +284,11 @@ class AgentConfig(BaseModel):
 # and configure logfire to retrieve and sync with the remotely-managed config.
 variables_config = VariablesConfig(
     variables={
-        'support-agent-config': VariableConfig(
-            name='support-agent-config',
+        'support_agent_config': VariableConfig(
+            name='support_agent_config',
             variants={
-                'v1-concise': Variant(
-                    key='v1-concise',
+                'v1_concise': Variant(
+                    key='v1_concise',
                     serialized_value="""{
                         "instructions": "You are a helpful support agent. Be brief and direct.",
                         "model": "openai:gpt-4o-mini",
@@ -309,7 +309,7 @@ variables_config = VariablesConfig(
                 ),
             },
             # 50/50 A/B test
-            rollout=Rollout(variants={'v1-concise': 0.5, 'v2-detailed': 0.5}),
+            rollout=Rollout(variants={'v1_concise': 0.5, 'v2_detailed': 0.5}),
             overrides=[],
             json_schema={
                 'type': 'object',
@@ -330,7 +330,7 @@ logfire.configure(
 
 # Define the variable
 agent_config = logfire.var(
-    name='support-agent-config',
+    name='support_agent_config',
     type=AgentConfig,
     default=AgentConfig(
         instructions='You are a helpful assistant.',
@@ -344,7 +344,7 @@ agent_config = logfire.var(
 async def handle_ticket(user_id: str, message: str) -> str:
     """Handle a support ticket with A/B tested configuration."""
     with agent_config.get(targeting_key=user_id) as config:
-        # The variant (v1-concise or v2-detailed) is now in baggage
+        # The variant (v1_concise or v2-detailed) is now in baggage
         # All spans created below, including those from the call to agent.run, will be tagged with the variant
 
         agent = Agent(config.value.model, system_prompt=config.value.instructions)
@@ -487,8 +487,8 @@ from logfire.variables.config import (
 
 variables_config = VariablesConfig(
     variables={
-        'support-agent-config': VariableConfig(
-            name='support-agent-config',
+        'support_agent_config': VariableConfig(
+            name='support_agent_config',
             variants={
                 'standard': Variant(
                     key='standard',
@@ -592,7 +592,7 @@ logfire.configure(
 
 # Define your variables
 agent_config = logfire.var(
-    name='support-agent-config',
+    name='support_agent_config',
     type=AgentConfig,
     default=AgentConfig(...),
 )
@@ -901,8 +901,8 @@ from logfire.variables.config import (
 
 variables_config = VariablesConfig(
     variables={
-        'support-agent-config': VariableConfig(
-            name='support-agent-config',
+        'support_agent_config': VariableConfig(
+            name='support_agent_config',
             variants={
                 'default': Variant(
                     key='default',
@@ -1116,12 +1116,12 @@ Aliases allow a variable to be found by alternative names. When your code reques
 
 **Example:**
 
-Suppose you have a variable named `agent-config` and want to rename it to `support-agent-config`:
+Suppose you have a variable named `agent-config` and want to rename it to `support_agent_config`:
 
-1. Create `support-agent-config` with the same variants and rollout configuration
-2. Add `agent-config` as an alias on `support-agent-config`
+1. Create `support_agent_config` with the same variants and rollout configuration
+2. Add `agent-config` as an alias on `support_agent_config`
 3. Old code using `logfire.var(name='agent-config', ...)` continues to work
-4. Update your code to use `name='support-agent-config'`
+4. Update your code to use `name='support_agent_config'`
 5. After deployment, delete the old `agent-config` variable
 6. Optionally remove `agent-config` from the aliases list
 
@@ -1138,8 +1138,8 @@ from logfire.variables.config import VariableConfig, VariablesConfig
 
 config = VariablesConfig(
     variables={
-        'support-agent-config': VariableConfig(
-            name='support-agent-config',
+        'support_agent_config': VariableConfig(
+            name='support_agent_config',
             variants={...},
             rollout=Rollout(variants={...}),
             overrides=[],

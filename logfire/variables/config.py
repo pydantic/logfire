@@ -6,7 +6,7 @@ from collections.abc import Mapping, Sequence
 from functools import cached_property
 from typing import Annotated, Any, Literal, Union
 
-from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
+from pydantic import BaseModel, Field, ValidationError, WithJsonSchema, field_validator, model_validator
 from typing_extensions import TypeAliasType
 
 from logfire._internal.config import RemoteVariablesConfig as RemoteVariablesConfig
@@ -181,11 +181,13 @@ Condition = TypeAliasType(
 )
 
 
-VariantKey = Annotated[str, Field(pattern=r'^[a-zA-Z_][a-zA-Z0-9_]*$')]
+# Note: We've added the WithJsonSchema to simplify the schema to just {"type": "string"}
+# to work around shortcomings in some API client generators.
+VariantKey = Annotated[str, Field(pattern=r'^[a-zA-Z_][a-zA-Z0-9_]*$'), WithJsonSchema({'type': 'string'})]
 """The identifier of a variant value for a variable.
 
 At least for now, must be a valid Python identifier."""
-VariableName = Annotated[str, Field(pattern=r'^[a-zA-Z_][a-zA-Z0-9_]*$')]
+VariableName = Annotated[str, Field(pattern=r'^[a-zA-Z_][a-zA-Z0-9_]*$'), WithJsonSchema({'type': 'string'})]
 """The name of a variable.
 
 At least for now, must be a valid Python identifier."""
