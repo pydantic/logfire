@@ -1,6 +1,6 @@
 ---
 title: "Logfire AIOHTTP Client Integration: Setup Guide"
-description: "Instrument AIOHTTP for full observability with Pydantic Logfire. Trace HTTP calls, headers, and request bodies for async clients."
+description: "Instrument AIOHTTP for full observability with Pydantic Logfire. Trace HTTP calls, headers, and bodies for async clients."
 integration: otel
 ---
 # AIOHTTP Client
