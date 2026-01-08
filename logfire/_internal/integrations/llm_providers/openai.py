@@ -183,9 +183,8 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         on_response(response.parse(), span)  # type: ignore
         return cast('ResponseT', response)
 
-    model_provider: str = cast(str, (span.attributes or {}).get('overridden_model_provider', "openai"))
-
-    span.set_attribute('gen_ai.system', model_provider)
+    if getattr(span, 'attributes', None) is None or span.attributes.get('gen_ai.system', None) is None:
+        span.set_attribute('gen_ai.system', "openai")
 
     if isinstance(response_model := getattr(response, 'model', None), str):
         span.set_attribute('gen_ai.response.model', response_model)
@@ -196,12 +195,12 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
             response_data = response.model_dump()  # type: ignore
             usage_data = extract_usage(
                 response_data,
-                provider_id=model_provider,
+                provider_id='openai',
                 api_flavor='responses' if isinstance(response, Response) else 'chat',
             )
             span.set_attribute(
                 'operation.cost',
-                float(calc_price(usage_data.usage, model_ref=response_model, provider_id=model_provider).total_price),
+                float(calc_price(usage_data.usage, model_ref=response_model, provider_id='openai').total_price),
             )
         except Exception:
             pass
