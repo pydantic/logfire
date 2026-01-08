@@ -110,6 +110,8 @@ DISTRIBUTED_TRACING = ConfigParam(env_vars=['LOGFIRE_DISTRIBUTED_TRACING'], allo
 # Instrumentation packages parameters
 HTTPX_CAPTURE_ALL = ConfigParam(env_vars=['LOGFIRE_HTTPX_CAPTURE_ALL'], allow_file_config=True, default=False, tp=bool)
 """Whether to capture all HTTP headers, request and response bodies when using `logfire.instrument_httpx()`"""
+AIOHTTP_CLIENT_CAPTURE_ALL = ConfigParam(env_vars=['LOGFIRE_AIOHTTP_CLIENT_CAPTURE_ALL'], allow_file_config=True, default=False, tp=bool)
+"""Whether to capture all HTTP headers, request and response bodies when using `logfire.instrument_aiohttp_client()`"""
 # fmt: on
 
 CONFIG_PARAMS = {
@@ -139,6 +141,7 @@ CONFIG_PARAMS = {
     'distributed_tracing': DISTRIBUTED_TRACING,
     # Instrumentation packages parameters
     'httpx_capture_all': HTTPX_CAPTURE_ALL,
+    'aiohttp_client_capture_all': AIOHTTP_CLIENT_CAPTURE_ALL,
 }
 
 
