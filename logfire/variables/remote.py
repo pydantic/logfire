@@ -7,7 +7,7 @@ import warnings
 import weakref
 from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin
 
 from opentelemetry.util._once import Once
@@ -25,6 +25,10 @@ from logfire.variables.abstract import (
     VariableWriteError,
 )
 from logfire.variables.config import VariableConfig, VariablesConfig
+
+if TYPE_CHECKING:
+    import logfire
+
 
 __all__ = ('LogfireRemoteVariableProvider',)
 
@@ -60,42 +64,82 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._last_fetched_at: datetime | None = None
 
         self._config: VariablesConfig | None = None
-        self._worker_thread = threading.Thread(
-            name='LogfireRemoteProvider',
-            target=self._worker,
-            daemon=True,
-        )
 
         self._shutdown = False
         self._shutdown_timeout_exceeded = False
         self._refresh_lock = threading.Lock()
         self._worker_awaken = threading.Event()
-        self._worker_thread.start()
 
         # SSE listener for real-time updates
         self._sse_connected = False
         self._sse_thread: threading.Thread | None = None
-        self._start_sse_listener()
 
-        if hasattr(os, 'register_at_fork'):  # pragma: no branch
-            weak_reinit = weakref.WeakMethod(self._at_fork_reinit)
-            os.register_at_fork(after_in_child=lambda: weak_reinit()())  # pyright: ignore[reportOptionalCall]
+        # Logfire instance for error logging, set via start()
+        # If None, errors are reported via warnings instead.
+        self._logfire: logfire.Logfire | None = None
+        self._started = False
+
+        # Worker thread is created but not started until start() is called
+        self._worker_thread: threading.Thread | None = None
         self._pid = os.getpid()
 
     def _at_fork_reinit(self):  # pragma: no cover
         # Recreate all things threading related
         self._refresh_lock = threading.Lock()
         self._worker_awaken = threading.Event()
+        # Only restart threads if we were started before the fork
+        if self._started:
+            self._worker_thread = threading.Thread(
+                name='LogfireRemoteProvider',
+                target=self._worker,
+                daemon=True,
+            )
+            self._worker_thread.start()
+            # Restart SSE listener
+            self._sse_connected = False
+            self._start_sse_listener()
+        self._pid = os.getpid()
+
+    def start(self, logfire_instance: logfire.Logfire | None) -> None:
+        """Start background polling with the given logfire instance for error logging.
+
+        Args:
+            logfire_instance: The Logfire instance to use for error logging, or None if
+                variable instrumentation is disabled (errors will be reported via warnings).
+        """
+        if self._started:
+            return
+        self._started = True
+        if logfire_instance is not None:
+            self._logfire = logfire_instance.with_settings(custom_scope_suffix='variables.provider')
+
+        # Start the worker thread
         self._worker_thread = threading.Thread(
             name='LogfireRemoteProvider',
             target=self._worker,
             daemon=True,
         )
         self._worker_thread.start()
-        # Restart SSE listener
-        self._sse_connected = False
+
+        # Start the SSE listener
         self._start_sse_listener()
-        self._pid = os.getpid()
+
+        # Register at_fork handler
+        if hasattr(os, 'register_at_fork'):  # pragma: no branch
+            weak_reinit = weakref.WeakMethod(self._at_fork_reinit)
+            os.register_at_fork(after_in_child=lambda: weak_reinit()())  # pyright: ignore[reportOptionalCall]
+
+    def _log_error(self, message: str, exc: Exception) -> None:
+        """Log an error using logfire if available, otherwise warnings.
+
+        Args:
+            message: The error message.
+            exc: The exception that occurred.
+        """
+        if self._logfire is not None:
+            self._logfire.error('{message}: {error}', message=message, error=str(exc), _exc_info=exc)
+        else:
+            warnings.warn(f'{message}: {exc}', category=RuntimeWarning)
 
     def _start_sse_listener(self):
         """Start the SSE listener thread for real-time updates."""
@@ -222,19 +266,14 @@ class LogfireRemoteVariableProvider(VariableProvider):
             except Exception as e:
                 # Catch all request exceptions (ConnectionError, Timeout, UnexpectedResponse, etc.)
                 # to prevent crashing the user's application on network/HTTP failures.
-                # TODO: we should emit a logfire error if instrumentation for variables is enabled.
-                warnings.warn(f'Error retrieving variables: {e}', category=RuntimeWarning)
+                self._log_error('Error retrieving variables', e)
                 return
 
             variables_config_data = variables_response.json()
             try:
                 self._config = VariablesConfig.model_validate(variables_config_data)
             except ValidationError as e:
-                # TODO: we should emit a logfire error if instrumentation for variables is enabled.
-                warnings.warn(
-                    f'Failed to parse variables configuration from Logfire API. Validation error: {e}',
-                    category=RuntimeWarning,
-                )
+                self._log_error('Failed to parse variables configuration from Logfire API', e)
             finally:
                 self._has_attempted_fetch = True
 
@@ -277,7 +316,8 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
         # Join the threads so that resources get cleaned up in tests
         # It might be reasonable to modify this so this _only_ happens in tests, but for now it seems fine.
-        self._worker_thread.join(timeout=5)
+        if self._worker_thread is not None:
+            self._worker_thread.join(timeout=5)
         if self._sse_thread is not None:
             self._sse_thread.join(timeout=2)
 

@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar
 SyncMode = Literal['merge', 'replace']
 
 if TYPE_CHECKING:
+    import logfire
     from logfire.variables.config import VariableConfig, VariablesConfig
     from logfire.variables.variable import Variable
 
@@ -577,6 +578,19 @@ class VariableProvider(ABC):
 
     def shutdown(self):
         """Clean up any resources used by the provider."""
+        pass
+
+    def start(self, logfire_instance: logfire.Logfire | None) -> None:
+        """Start any background tasks for this provider.
+
+        This is called after the provider is created and the Logfire instance is available.
+        Providers that need to run background tasks (like polling) should override this method
+        to start those tasks, using the provided logfire instance for error logging.
+
+        Args:
+            logfire_instance: The Logfire instance to use for error logging, or None if
+                variable instrumentation is disabled.
+        """
         pass
 
     def get_variable_config(self, name: str) -> VariableConfig | None:

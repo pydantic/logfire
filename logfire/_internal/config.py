@@ -567,9 +567,15 @@ def configure(
     )
 
     if local:
-        return Logfire(config=config)
+        logfire_instance = Logfire(config=config)
     else:
-        return DEFAULT_LOGFIRE_INSTANCE
+        logfire_instance = DEFAULT_LOGFIRE_INSTANCE
+
+    # Start the variable provider now that we have the logfire instance
+    # Pass None if instrumentation is disabled to avoid logging errors via logfire
+    config.get_variable_provider().start(logfire_instance if config.variables.instrument else None)
+
+    return logfire_instance
 
 
 @dataclasses.dataclass
