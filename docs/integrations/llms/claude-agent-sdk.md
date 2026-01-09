@@ -78,6 +78,9 @@ async def main():
 asyncio.run(main())
 ```
 
+!!! warning
+    Only the `ClaudeSDKClient` is instrumented, not the top-level `claude_agent_sdk.query()` function.
+
 The resulting trace looks like this in Logfire:
 
 ![Logfire Claude Agent SDK Trace](../../images/logfire-screenshot-claude-agent-sdk.png)
