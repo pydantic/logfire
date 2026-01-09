@@ -48,7 +48,11 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
 
         return EndpointConfig(
             message_template='Chat Completion with {request_data[model]!r}',
-            span_data={'request_data': json_data, 'gen_ai.request.model': json_data['model']},
+            span_data={
+                'request_data': json_data,
+                'gen_ai.request.model': json_data.get('model'),
+                'gen_ai.operation.name': 'chat',
+            },
             stream_state_cls=OpenaiChatCompletionStreamState,
         )
     elif url == '/responses':
@@ -57,10 +61,11 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
 
         stream = json_data.get('stream', False)  # type: ignore
         span_data: dict[str, Any] = {
-            'gen_ai.request.model': json_data['model'],
-            'request_data': {'model': json_data['model'], 'stream': stream},
+            'gen_ai.request.model': json_data.get('model'),
+            'gen_ai.operation.name': 'chat',
+            'request_data': {'model': json_data.get('model'), 'stream': stream},
             'events': inputs_to_events(
-                json_data['input'],  # type: ignore
+                json_data.get('input'),  # type: ignore
                 json_data.get('instructions'),  # type: ignore
             ),
         }
@@ -73,18 +78,30 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
     elif url == '/completions':
         return EndpointConfig(
             message_template='Completion with {request_data[model]!r}',
-            span_data={'request_data': json_data, 'gen_ai.request.model': json_data['model']},
+            span_data={
+                'request_data': json_data,
+                'gen_ai.request.model': json_data.get('model'),
+                'gen_ai.operation.name': 'text_completion',
+            },
             stream_state_cls=OpenaiCompletionStreamState,
         )
     elif url == '/embeddings':
         return EndpointConfig(
             message_template='Embedding Creation with {request_data[model]!r}',
-            span_data={'request_data': json_data, 'gen_ai.request.model': json_data['model']},
+            span_data={
+                'request_data': json_data,
+                'gen_ai.request.model': json_data.get('model'),
+                'gen_ai.operation.name': 'embeddings',
+            },
         )
     elif url == '/images/generations':
         return EndpointConfig(
             message_template='Image Generation with {request_data[model]!r}',
-            span_data={'request_data': json_data, 'gen_ai.request.model': json_data['model']},
+            span_data={
+                'request_data': json_data,
+                'gen_ai.request.model': json_data.get('model'),
+                'gen_ai.operation.name': 'image_generation',
+            },
         )
     else:
         span_data = {'request_data': json_data, 'url': url}
@@ -183,7 +200,8 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         on_response(response.parse(), span)  # type: ignore
         return cast('ResponseT', response)
 
-    span.set_attribute('gen_ai.system', 'openai')
+    # Note: gen_ai.system is deprecated in favor of gen_ai.provider.name
+    # It was removed as a breaking change for OTel GenAI semantic convention compliance
 
     if isinstance(response_model := getattr(response, 'model', None), str):
         span.set_attribute('gen_ai.response.model', response_model)

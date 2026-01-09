@@ -33,7 +33,11 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
     if url == '/v1/messages':
         return EndpointConfig(
             message_template='Message with {request_data[model]!r}',
-            span_data={'request_data': json_data},
+            span_data={
+                'request_data': json_data,
+                'gen_ai.request.model': json_data.get('model'),
+                'gen_ai.operation.name': 'chat',
+            },
             stream_state_cls=AnthropicMessageStreamState,
         )
     else:

@@ -141,7 +141,7 @@ def test_sync_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
-                'name': 'Message with {request_data[model]!r}',
+                'name': 'chat claude-3-haiku-20240307',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
@@ -160,6 +160,8 @@ def test_sync_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                             }
                         )
                     ),
+                    'gen_ai.request.model': 'claude-3-haiku-20240307',
+                    'gen_ai.operation.name': 'chat',
                     'async': False,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
                     'logfire.msg': "Message with 'claude-3-haiku-20240307'",
@@ -192,6 +194,8 @@ def test_sync_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                                 'type': 'object',
                                 'properties': {
                                     'request_data': {'type': 'object'},
+                                    'gen_ai.request.model': {},
+                                    'gen_ai.operation.name': {},
                                     'async': {},
                                     'response_data': {
                                         'type': 'object',
@@ -207,6 +211,7 @@ def test_sync_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                             }
                         )
                     ),
+                    'gen_ai.response.model': 'claude-3-haiku-20240307',
                 },
             }
         ]
@@ -225,7 +230,7 @@ async def test_async_messages(instrumented_async_client: anthropic.AsyncAnthropi
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
-                'name': 'Message with {request_data[model]!r}',
+                'name': 'chat claude-3-haiku-20240307',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
@@ -242,6 +247,8 @@ async def test_async_messages(instrumented_async_client: anthropic.AsyncAnthropi
                             'model': 'claude-3-haiku-20240307',
                         }
                     ),
+                    'gen_ai.request.model': 'claude-3-haiku-20240307',
+                    'gen_ai.operation.name': 'chat',
                     'async': True,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
                     'logfire.msg': "Message with 'claude-3-haiku-20240307'",
@@ -273,6 +280,8 @@ async def test_async_messages(instrumented_async_client: anthropic.AsyncAnthropi
                             'type': 'object',
                             'properties': {
                                 'request_data': {'type': 'object'},
+                                'gen_ai.request.model': {},
+                                'gen_ai.operation.name': {},
                                 'async': {},
                                 'response_data': {
                                     'type': 'object',
@@ -287,6 +296,7 @@ async def test_async_messages(instrumented_async_client: anthropic.AsyncAnthropi
                             },
                         },
                     ),
+                    'gen_ai.response.model': 'claude-3-haiku-20240307',
                 },
             }
         ]
@@ -306,7 +316,7 @@ def test_sync_message_empty_response_chunk(instrumented_client: anthropic.Anthro
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
-                'name': 'Message with {request_data[model]!r}',
+                'name': 'chat claude-3-haiku-20240307',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
@@ -316,12 +326,15 @@ def test_sync_message_empty_response_chunk(instrumented_client: anthropic.Anthro
                     'code.function': 'test_sync_message_empty_response_chunk',
                     'code.lineno': 123,
                     'request_data': '{"max_tokens":1000,"messages":[],"model":"claude-3-haiku-20240307","stream":true,"system":"empty response chunk"}',
+                    'gen_ai.request.model': 'claude-3-haiku-20240307',
+                    'gen_ai.operation.name': 'chat',
                     'async': False,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
                     'logfire.msg': "Message with 'claude-3-haiku-20240307'",
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"gen_ai.request.model":{},"gen_ai.operation.name":{},"async":{}}}',
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
+                    'gen_ai.response.model': 'claude-3-haiku-20240307',
                 },
             },
             {
@@ -340,10 +353,13 @@ def test_sync_message_empty_response_chunk(instrumented_client: anthropic.Anthro
                     'code.lineno': 123,
                     'logfire.msg': "streaming response from 'claude-3-haiku-20240307' took 1.00s",
                     'logfire.span_type': 'log',
+                    'gen_ai.request.model': 'claude-3-haiku-20240307',
+                    'gen_ai.operation.name': 'chat',
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
                     'response_data': '{"combined_chunk_content":"","chunk_count":0}',
-                    'logfire.json_schema': '{"type":"object","properties":{"duration":{},"request_data":{"type":"object"},"async":{},"response_data":{"type":"object"}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"duration":{},"request_data":{"type":"object"},"gen_ai.request.model":{},"gen_ai.operation.name":{},"async":{},"response_data":{"type":"object"}}}',
+                    'gen_ai.response.model': 'claude-3-haiku-20240307',
                 },
             },
         ]
@@ -368,7 +384,7 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
-                'name': 'Message with {request_data[model]!r}',
+                'name': 'chat claude-3-haiku-20240307',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
@@ -378,12 +394,15 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
                     'code.function': 'test_sync_messages_stream',
                     'code.lineno': 123,
                     'request_data': '{"max_tokens":1000,"messages":[{"role":"user","content":"What is four plus five?"}],"model":"claude-3-haiku-20240307","stream":true,"system":"You are a helpful assistant."}',
+                    'gen_ai.request.model': 'claude-3-haiku-20240307',
+                    'gen_ai.operation.name': 'chat',
                     'async': False,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
                     'logfire.msg': "Message with 'claude-3-haiku-20240307'",
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"gen_ai.request.model":{},"gen_ai.operation.name":{},"async":{}}}',
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
+                    'gen_ai.response.model': 'claude-3-haiku-20240307',
                 },
             },
             {
@@ -402,10 +421,13 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
                     'code.lineno': 123,
                     'logfire.msg': "streaming response from 'claude-3-haiku-20240307' took 1.00s",
                     'logfire.span_type': 'log',
+                    'gen_ai.request.model': 'claude-3-haiku-20240307',
+                    'gen_ai.operation.name': 'chat',
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
                     'response_data': '{"combined_chunk_content":"The answer is secret","chunk_count":2}',
-                    'logfire.json_schema': '{"type":"object","properties":{"duration":{},"request_data":{"type":"object"},"async":{},"response_data":{"type":"object"}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"duration":{},"request_data":{"type":"object"},"gen_ai.request.model":{},"gen_ai.operation.name":{},"async":{},"response_data":{"type":"object"}}}',
+                    'gen_ai.response.model': 'claude-3-haiku-20240307',
                 },
             },
         ]
@@ -433,7 +455,7 @@ async def test_async_messages_stream(
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
-                'name': 'Message with {request_data[model]!r}',
+                'name': 'chat claude-3-haiku-20240307',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
@@ -443,12 +465,15 @@ async def test_async_messages_stream(
                     'code.function': 'test_async_messages_stream',
                     'code.lineno': 123,
                     'request_data': '{"max_tokens":1000,"messages":[{"role":"user","content":"What is four plus five?"}],"model":"claude-3-haiku-20240307","stream":true,"system":"You are a helpful assistant."}',
+                    'gen_ai.request.model': 'claude-3-haiku-20240307',
+                    'gen_ai.operation.name': 'chat',
                     'async': True,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
                     'logfire.msg': "Message with 'claude-3-haiku-20240307'",
-                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"async":{}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"request_data":{"type":"object"},"gen_ai.request.model":{},"gen_ai.operation.name":{},"async":{}}}',
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
+                    'gen_ai.response.model': 'claude-3-haiku-20240307',
                 },
             },
             {
@@ -467,10 +492,13 @@ async def test_async_messages_stream(
                     'code.lineno': 123,
                     'logfire.msg': "streaming response from 'claude-3-haiku-20240307' took 1.00s",
                     'logfire.span_type': 'log',
+                    'gen_ai.request.model': 'claude-3-haiku-20240307',
+                    'gen_ai.operation.name': 'chat',
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
                     'response_data': '{"combined_chunk_content":"The answer is secret","chunk_count":2}',
-                    'logfire.json_schema': '{"type":"object","properties":{"duration":{},"request_data":{"type":"object"},"async":{},"response_data":{"type":"object"}}}',
+                    'logfire.json_schema': '{"type":"object","properties":{"duration":{},"request_data":{"type":"object"},"gen_ai.request.model":{},"gen_ai.operation.name":{},"async":{},"response_data":{"type":"object"}}}',
+                    'gen_ai.response.model': 'claude-3-haiku-20240307',
                 },
             },
         ]
@@ -489,7 +517,7 @@ def test_tool_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
-                'name': 'Message with {request_data[model]!r}',
+                'name': 'chat claude-3-haiku-20240307',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
@@ -504,6 +532,8 @@ def test_tool_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                         'model': 'claude-3-haiku-20240307',
                         'system': 'tool response',
                     },
+                    'gen_ai.request.model': 'claude-3-haiku-20240307',
+                    'gen_ai.operation.name': 'chat',
                     'async': False,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
                     'logfire.msg': "Message with 'claude-3-haiku-20240307'",
@@ -530,6 +560,8 @@ def test_tool_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
+                            'gen_ai.request.model': {},
+                            'gen_ai.operation.name': {},
                             'async': {},
                             'response_data': {
                                 'type': 'object',
@@ -539,6 +571,7 @@ def test_tool_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                             },
                         },
                     },
+                    'gen_ai.response.model': 'claude-3-haiku-20240307',
                 },
             }
         ]
