@@ -439,4 +439,4 @@ def test_validate_variables_no_variables() -> None:
     """Test validate_variables with no variables."""
     # Use an explicit empty list to avoid picking up variables from the global DEFAULT_LOGFIRE_INSTANCE
     result = logfire.validate_variables([])
-    assert result is True  # No variables to validate is success
+    assert result.errors == []  # No variables to validate means no errors

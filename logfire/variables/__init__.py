@@ -99,6 +99,6 @@ def __getattr__(name: str):
     )
     from logfire.variables.local import LocalVariableProvider
     from logfire.variables.remote import LogfireRemoteVariableProvider
-    from logfire.variables.variable import Variable, targeting_context
+    from logfire.variables.variable import ResolveFunction, Variable, targeting_context
 
     return locals()[name]
