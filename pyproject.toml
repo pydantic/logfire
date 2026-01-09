@@ -158,7 +158,7 @@ dev = [
     "mypy>=1.10.0",
     "celery>=5.4.0",
     # https://github.com/testcontainers/testcontainers-python/issues/874
-    "testcontainers!=4.13.*",
+    "testcontainers<4.13",
     "mysql-connector-python~=8.0",
     "pyarrow>=17.0.0; python_version < '3.13'",
     "pyarrow>=18.1.0; python_version >= '3.13'",
