@@ -10,7 +10,7 @@ import json
 from contextlib import AbstractContextManager, contextmanager
 from contextvars import Token
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from uuid import UUID
 
 from opentelemetry import context as context_api
@@ -105,7 +105,7 @@ class LogfireLangchainCallbackHandler(_BASE_CLASS):
     """
 
     def __init__(self, logfire: Logfire):
-        super().__init__()
+        super().__init__()  # pyright: ignore[reportUnknownMemberType]
         self.run_inline = True
         self._logfire = logfire
         self._run_span_mapping: dict[str, SpanWithToken] = {}
@@ -187,8 +187,8 @@ class LogfireLangchainCallbackHandler(_BASE_CLASS):
 
     def _extract_tool_definitions(self, kwargs: dict[str, Any]) -> list[dict[str, Any]]:
         """Extract tool definitions from invocation_params.tools."""
-        raw_tools = kwargs.get('invocation_params', {}).get('tools', [])
-        tools = []
+        raw_tools = cast(list[Any], kwargs.get('invocation_params', {}).get('tools', []))
+        tools: list[dict[str, Any]] = []
         for raw_tool in raw_tools:
             if raw_tool.get('type') == 'function':
                 tools.append(raw_tool)
@@ -205,9 +205,7 @@ class LogfireLangchainCallbackHandler(_BASE_CLASS):
                 )
         return tools
 
-    def _convert_messages_to_otel(
-        self, messages: list[list[Any]]
-    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    def _convert_messages_to_otel(self, messages: list[list[Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         """Convert LangChain messages to OTel GenAI format."""
         input_msgs: list[dict[str, Any]] = []
         system_instructions: list[dict[str, Any]] = []
@@ -221,25 +219,30 @@ class LogfireLangchainCallbackHandler(_BASE_CLASS):
                     if isinstance(content, str):
                         system_instructions.append({'type': 'text', 'content': content})
                     elif isinstance(content, list):
-                        for item in content:
+                        for item in cast(list[Any], content):
                             if isinstance(item, dict):
-                                if 'text' in item and 'content' not in item:
-                                    system_instructions.append({
-                                        'type': item.get('type', 'text'),
-                                        'content': item['text'],
-                                    })
+                                item_dict = cast(dict[str, Any], item)
+                                if 'text' in item_dict and 'content' not in item_dict:
+                                    system_instructions.append(
+                                        {
+                                            'type': item_dict.get('type', 'text'),
+                                            'content': item_dict['text'],
+                                        }
+                                    )
                                 else:
-                                    system_instructions.append(item)
+                                    system_instructions.append(item_dict)
                             elif isinstance(item, str):
                                 system_instructions.append({'type': 'text', 'content': item})
                 elif msg_type == 'tool':
                     tool_call_id = getattr(msg, 'tool_call_id', None)
                     response_content = content if isinstance(content, str) else str(content)
-                    parts: list[dict[str, Any]] = [{
-                        'type': 'tool_call_response',
-                        'id': tool_call_id,
-                        'response': response_content,
-                    }]
+                    parts: list[dict[str, Any]] = [
+                        {
+                            'type': 'tool_call_response',
+                            'id': tool_call_id,
+                            'response': response_content,
+                        }
+                    ]
                     input_msgs.append({'role': 'tool', 'parts': parts})
                 else:
                     otel_role = {'human': 'user', 'ai': 'assistant'}.get(msg_type, msg_type)
@@ -248,23 +251,27 @@ class LogfireLangchainCallbackHandler(_BASE_CLASS):
                     if isinstance(content, str):
                         parts.append({'type': 'text', 'content': content})
                     elif isinstance(content, list):
-                        for item in content:
+                        for item in cast(list[Any], content):
                             if isinstance(item, dict):
-                                if item.get('type') == 'tool_use':
+                                item_dict = cast(dict[str, Any], item)
+                                if item_dict.get('type') == 'tool_use':
                                     continue
-                                parts.append(_normalize_content_block(item))
+                                parts.append(_normalize_content_block(item_dict))
                             elif isinstance(item, str):
                                 parts.append({'type': 'text', 'content': item})
 
                     if tool_calls := getattr(msg, 'tool_calls', None):
-                        for tc in tool_calls:
+                        for tc in cast(list[Any], tool_calls):
                             if isinstance(tc, dict):
-                                parts.append({
-                                    'type': 'tool_call',
-                                    'id': tc.get('id'),
-                                    'name': tc.get('name'),
-                                    'arguments': tc.get('args'),
-                                })
+                                tc_dict = cast(dict[str, Any], tc)
+                                parts.append(
+                                    {
+                                        'type': 'tool_call',
+                                        'id': tc_dict.get('id'),
+                                        'name': tc_dict.get('name'),
+                                        'arguments': tc_dict.get('args'),
+                                    }
+                                )
 
                     input_msgs.append({'role': otel_role, 'parts': parts})
 
@@ -419,7 +426,9 @@ class LogfireLangchainCallbackHandler(_BASE_CLASS):
             pass
 
         conversation_id = self._extract_conversation_id(metadata)
-        self._start_span(span_name, run_id, parent_run_id, SpanKind.CLIENT, conversation_id=conversation_id, **span_data)
+        self._start_span(
+            span_name, run_id, parent_run_id, SpanKind.CLIENT, conversation_id=conversation_id, **span_data
+        )
 
     def on_llm_start(
         self,
@@ -447,7 +456,9 @@ class LogfireLangchainCallbackHandler(_BASE_CLASS):
             span_data[TOOL_DEFINITIONS] = tools
 
         conversation_id = self._extract_conversation_id(metadata)
-        self._start_span(span_name, run_id, parent_run_id, SpanKind.CLIENT, conversation_id=conversation_id, **span_data)
+        self._start_span(
+            span_name, run_id, parent_run_id, SpanKind.CLIENT, conversation_id=conversation_id, **span_data
+        )
 
     def on_llm_end(
         self,
@@ -480,30 +491,32 @@ class LogfireLangchainCallbackHandler(_BASE_CLASS):
                     if isinstance(content, str):
                         output_msg['parts'].append({'type': 'text', 'content': content})
                     elif isinstance(content, list):
-                        for item in content:
+                        for item in cast(list[Any], content):
                             if isinstance(item, dict):
-                                if item.get('type') == 'tool_use':
+                                item_dict = cast(dict[str, Any], item)
+                                if item_dict.get('type') == 'tool_use':
                                     continue
-                                output_msg['parts'].append(_normalize_content_block(item))
+                                output_msg['parts'].append(_normalize_content_block(item_dict))
                             elif isinstance(item, str):
                                 output_msg['parts'].append({'type': 'text', 'content': item})
 
                     if tool_calls := getattr(message, 'tool_calls', None):
-                        for tc in tool_calls:
+                        for tc in cast(list[Any], tool_calls):
                             if isinstance(tc, dict):
+                                tc_dict = cast(dict[str, Any], tc)
                                 output_msg['parts'].append(
                                     {
                                         'type': 'tool_call',
-                                        'id': tc.get('id'),
-                                        'name': tc.get('name'),
-                                        'arguments': tc.get('args'),
+                                        'id': tc_dict.get('id'),
+                                        'name': tc_dict.get('name'),
+                                        'arguments': tc_dict.get('args'),
                                     }
                                 )
 
                     span.set_attribute(OUTPUT_MESSAGES, [output_msg])
 
-            llm_output = getattr(response, 'llm_output', {}) or {}
-            usage = llm_output.get('usage') or llm_output.get('token_usage') or {}
+            llm_output = cast(dict[str, Any], getattr(response, 'llm_output', {}) or {})
+            usage = cast(dict[str, Any], llm_output.get('usage') or llm_output.get('token_usage') or {})
             if input_tokens := usage.get('input_tokens', usage.get('prompt_tokens')):
                 span.set_attribute(INPUT_TOKENS, input_tokens)
             if output_tokens := usage.get('output_tokens', usage.get('completion_tokens')):
