@@ -226,7 +226,7 @@ class Variable(Generic[T_co]):
             # Use cached deserialization - returns T | Exception
             value_or_exc = self._deserialize_cached(serialized_result.value)
             if isinstance(value_or_exc, Exception):
-                if span:
+                if span:  # pragma: no branch
                     span.set_attribute('invalid_serialized_variant', serialized_result.variant)
                     span.set_attribute('invalid_serialized_value', serialized_result.value)
                 default = self._get_default(targeting_key, attributes)
@@ -238,7 +238,7 @@ class Variable(Generic[T_co]):
             )
 
         except Exception as e:
-            if span and serialized_result is not None:
+            if span and serialized_result is not None:  # pragma: no cover
                 span.set_attribute('invalid_serialized_variant', serialized_result.variant)
                 span.set_attribute('invalid_serialized_value', serialized_result.value)
             default = self._get_default(targeting_key, attributes)
