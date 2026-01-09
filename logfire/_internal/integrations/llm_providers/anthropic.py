@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import anthropic
 from anthropic.types import Message, TextBlock, TextDelta
@@ -56,10 +56,11 @@ def _extract_request_parameters(json_data: dict[str, Any], span_data: dict[str, 
 def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
     """Returns the endpoint config for Anthropic or Bedrock depending on the url."""
     url = options.url
-    json_data = options.json_data
-    if not isinstance(json_data, dict):  # pragma: no cover
+    raw_json_data = options.json_data
+    if not isinstance(raw_json_data, dict):  # pragma: no cover
         # Ensure that `{request_data[model]!r}` doesn't raise an error, just a warning about `model` missing.
-        json_data = {}
+        raw_json_data = {}
+    json_data = cast('dict[str, Any]', raw_json_data)
 
     if url == '/v1/messages':
         span_data: dict[str, Any] = {

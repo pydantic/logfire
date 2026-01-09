@@ -1632,6 +1632,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                     'events': [
                         {'event.name': 'gen_ai.user.message', 'content': 'What is four plus five?', 'role': 'user'}
                     ],
+                    'gen_ai.provider.name': 'openai',
                     'async': False,
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.msg': "Responses API with 'gpt-4.1'",
@@ -1641,6 +1642,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
                             'events': {'type': 'array'},
+                            'gen_ai.provider.name': {},
                             'async': {},
                         },
                     },
@@ -1667,6 +1669,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                     'gen_ai.request.model': 'gpt-4.1',
                     'async': False,
                     'duration': 1.0,
+                    'gen_ai.provider.name': 'openai',
                     'events': [
                         {
                             'event.name': 'gen_ai.user.message',
@@ -1686,6 +1689,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                             'gen_ai.request.model': {},
                             'async': {},
                             'events': {'type': 'array'},
+                            'gen_ai.provider.name': {},
                             'duration': {},
                         },
                     },
@@ -2396,6 +2400,25 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'code.lineno': 123,
                     'async': False,
                     'request_data': {'model': 'gpt-4.1', 'stream': False},
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.tool.definitions': [
+                        {
+                            'type': 'function',
+                            'name': 'get_weather',
+                            'description': 'Get current temperature for a given location.',
+                            'parameters': {
+                                'type': 'object',
+                                'properties': {
+                                    'location': {
+                                        'type': 'string',
+                                        'description': 'City and country e.g. Bogotá, Colombia',
+                                    }
+                                },
+                                'required': ['location'],
+                                'additionalProperties': False,
+                            },
+                        }
+                    ],
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.msg': "Responses API with 'gpt-4.1'",
                     'logfire.tags': ('LLM',),
@@ -2431,6 +2454,8 @@ def test_responses_api(exporter: TestExporter) -> None:
                             'gen_ai.request.model': {},
                             'request_data': {'type': 'object'},
                             'events': {'type': 'array'},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.tool.definitions': {},
                             'async': {},
                             'gen_ai.system': {},
                             'gen_ai.response.model': {},
@@ -2453,6 +2478,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'code.lineno': 123,
                     'async': False,
                     'request_data': {'model': 'gpt-4.1', 'stream': False},
+                    'gen_ai.provider.name': 'openai',
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.msg': "Responses API with 'gpt-4.1'",
                     'logfire.tags': ('LLM',),
@@ -2499,6 +2525,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                             'gen_ai.request.model': {},
                             'request_data': {'type': 'object'},
                             'events': {'type': 'array'},
+                            'gen_ai.provider.name': {},
                             'async': {},
                             'gen_ai.system': {},
                             'gen_ai.response.model': {},
@@ -2558,12 +2585,18 @@ def test_openrouter_streaming_reasoning(exporter: TestExporter) -> None:
                         'stream': True,
                     },
                     'gen_ai.request.model': 'google/gemini-2.5-flash',
+                    'gen_ai.provider.name': 'openai',
                     'async': False,
                     'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
                     'logfire.msg': "Chat Completion with 'google/gemini-2.5-flash'",
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {'request_data': {'type': 'object'}, 'gen_ai.request.model': {}, 'async': {}},
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.request.model': {},
+                            'gen_ai.provider.name': {},
+                            'async': {},
+                        },
                     },
                     'logfire.tags': ('LLM',),
                     'logfire.span_type': 'span',
@@ -2591,6 +2624,7 @@ def test_openrouter_streaming_reasoning(exporter: TestExporter) -> None:
                     },
                     'gen_ai.request.model': 'google/gemini-2.5-flash',
                     'async': False,
+                    'gen_ai.provider.name': 'openai',
                     'duration': 1.0,
                     'response_data': {
                         'message': {
@@ -2645,6 +2679,7 @@ I'm zeroing in on the core of the query. The "how are you" is basic, but the "tr
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
                             'async': {},
+                            'gen_ai.provider.name': {},
                             'duration': {},
                             'response_data': {
                                 'type': 'object',
