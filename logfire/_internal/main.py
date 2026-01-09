@@ -2409,12 +2409,14 @@ class LogfireSpan(ReadableSpan):
     def _start(self):
         if self._span is not None:
             return
-        self._span = self._tracer.start_span(
-            name=self._span_name,
-            attributes=self._otlp_attributes,
-            links=self._links,
-            kind=self._span_kind,
-        )
+        kwargs: dict[str, Any] = {
+            'name': self._span_name,
+            'attributes': self._otlp_attributes,
+            'links': self._links,
+        }
+        if self._span_kind is not None:
+            kwargs['kind'] = self._span_kind
+        self._span = self._tracer.start_span(**kwargs)
 
     @handle_internal_errors
     def _attach(self):
