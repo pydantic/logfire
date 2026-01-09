@@ -2704,3 +2704,69 @@ I'm zeroing in on the core of the query. The "how are you" is basic, but the "tr
             },
         ]
     )
+
+
+def test_request_parameters(instrumented_client: openai.Client, exporter: TestExporter) -> None:
+    """Test that all request parameters are extracted and added to span attributes."""
+    response = instrumented_client.chat.completions.create(
+        model='gpt-4',
+        messages=[
+            {'role': 'system', 'content': 'You are a helpful assistant.'},
+            {'role': 'user', 'content': 'What is four plus five?'},
+        ],
+        max_tokens=1000,
+        temperature=0.7,
+        top_p=0.9,
+        stop=['END', 'STOP'],
+        seed=42,
+        frequency_penalty=0.5,
+        presence_penalty=0.6,
+    )
+    assert response.choices[0].message.content == 'Nine'
+
+    spans = exporter.exported_spans_as_dict()
+    assert len(spans) == 1
+    attributes = spans[0]['attributes']
+
+    # Verify all request parameters are present
+    assert attributes['gen_ai.request.max_tokens'] == 1000
+    assert attributes['gen_ai.request.temperature'] == 0.7
+    assert attributes['gen_ai.request.top_p'] == 0.9
+    assert attributes['gen_ai.request.stop_sequences'] == '["END", "STOP"]'
+    assert attributes['gen_ai.request.seed'] == 42
+    assert attributes['gen_ai.request.frequency_penalty'] == 0.5
+    assert attributes['gen_ai.request.presence_penalty'] == 0.6
+
+
+def test_request_parameters_stop_string(instrumented_client: openai.Client, exporter: TestExporter) -> None:
+    """Test that stop as a string is properly converted to a list."""
+    response = instrumented_client.chat.completions.create(
+        model='gpt-4',
+        messages=[
+            {'role': 'system', 'content': 'You are a helpful assistant.'},
+            {'role': 'user', 'content': 'What is four plus five?'},
+        ],
+        stop='END',
+    )
+    assert response.choices[0].message.content == 'Nine'
+
+    spans = exporter.exported_spans_as_dict()
+    assert len(spans) == 1
+    attributes = spans[0]['attributes']
+
+    # Verify stop is converted to a list
+    assert attributes['gen_ai.request.stop_sequences'] == '["END"]'
+
+
+def test_extract_request_parameters_max_output_tokens() -> None:
+    """Test _extract_request_parameters with max_output_tokens instead of max_tokens (covers line 52)."""
+    from logfire._internal.integrations.llm_providers.openai import (
+        _extract_request_parameters,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    # Test with max_output_tokens instead of max_tokens
+    json_data: dict[str, Any] = {'max_output_tokens': 500}
+    span_data: dict[str, Any] = {}
+    _extract_request_parameters(json_data, span_data)
+
+    assert span_data.get('gen_ai.request.max_tokens') == 500

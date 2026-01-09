@@ -2,7 +2,7 @@ from __future__ import annotations as _annotations
 
 import json
 from collections.abc import AsyncIterator, Iterator
-from typing import Any
+from typing import Any, cast
 
 import anthropic
 import httpx
@@ -597,3 +597,58 @@ def test_unknown_method(instrumented_client: anthropic.Anthropic, exporter: Test
             }
         ]
     )
+
+
+def test_request_parameters(instrumented_client: anthropic.Anthropic, exporter: TestExporter) -> None:
+    """Test that all request parameters are extracted and added to span attributes."""
+    tools: list[Any] = [
+        {
+            'name': 'get_weather',
+            'description': 'Get the current weather',
+            'input_schema': {
+                'type': 'object',
+                'properties': {'location': {'type': 'string'}},
+                'required': ['location'],
+            },
+        }
+    ]
+    response = instrumented_client.messages.create(
+        max_tokens=1000,
+        model='claude-3-haiku-20240307',
+        system='You are a helpful assistant.',
+        messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+        temperature=0.7,
+        top_p=0.9,
+        top_k=40,
+        stop_sequences=['END', 'STOP'],
+        tools=cast(Any, tools),
+    )
+    assert isinstance(response.content[0], TextBlock)
+    assert response.content[0].text == 'Nine'
+
+    spans = exporter.exported_spans_as_dict()
+    assert len(spans) == 1
+    attributes = spans[0]['attributes']
+
+    # Verify all request parameters are present
+    assert attributes['gen_ai.request.max_tokens'] == 1000
+    assert attributes['gen_ai.request.temperature'] == 0.7
+    assert attributes['gen_ai.request.top_p'] == 0.9
+    assert attributes['gen_ai.request.top_k'] == 40
+    assert attributes['gen_ai.request.stop_sequences'] == '["END", "STOP"]'
+    assert json.loads(attributes['gen_ai.tool.definitions']) == tools
+
+
+def test_extract_request_parameters_without_max_tokens() -> None:
+    """Test _extract_request_parameters when max_tokens is not in json_data (covers branch 37->40)."""
+    from logfire._internal.integrations.llm_providers.anthropic import (
+        _extract_request_parameters,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    # Test with no max_tokens - covers the branch where max_tokens is None
+    json_data: dict[str, Any] = {'temperature': 0.5}
+    span_data: dict[str, Any] = {}
+    _extract_request_parameters(json_data, span_data)
+
+    assert span_data.get('gen_ai.request.temperature') == 0.5
+    assert 'gen_ai.request.max_tokens' not in span_data
