@@ -12,6 +12,7 @@ import pytest
 from pydantic import __version__ as pydantic_version
 
 from logfire._internal.utils import get_version
+from logfire.variables import VariablesConfig
 
 pydantic_pre_2_5 = get_version(pydantic_version) < get_version('2.5.0')
 
@@ -127,6 +128,14 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     assert hasattr(logfire_api, 'ConsoleOptions')
     logfire_api.ConsoleOptions(colors='auto')
     logfire__all__.remove('ConsoleOptions')
+
+    assert hasattr(logfire_api, 'VariablesOptions')
+    logfire_api.VariablesOptions()
+    logfire__all__.remove('VariablesOptions')
+
+    assert hasattr(logfire_api, 'var')
+    logfire_api.var(name='test_var', default='default', type=str)
+    logfire__all__.remove('var')
 
     assert hasattr(logfire_api, 'PydanticPlugin')
     logfire_api.PydanticPlugin()
@@ -278,6 +287,30 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     with logfire_api.attach_context({'traceparent': '00-d1b9e555b056907ee20b0daebf62282c-7dcd821387246e1c-01'}):
         pass
     logfire__all__.remove('attach_context')
+
+    assert hasattr(logfire_api, 'get_variables')
+    assert isinstance(logfire_api.get_variables(), list)
+    logfire__all__.remove('get_variables')
+
+    assert hasattr(logfire_api, 'push_variables')
+    logfire_api.push_variables()
+    logfire__all__.remove('push_variables')
+
+    assert hasattr(logfire_api, 'validate_variables')
+    logfire_api.validate_variables()
+    logfire__all__.remove('validate_variables')
+
+    assert hasattr(logfire_api, 'sync_config')
+    logfire_api.sync_config(VariablesConfig(variables={}))
+    logfire__all__.remove('sync_config')
+
+    assert hasattr(logfire_api, 'pull_config')
+    logfire_api.pull_config()
+    logfire__all__.remove('pull_config')
+
+    assert hasattr(logfire_api, 'generate_config')
+    logfire_api.generate_config()
+    logfire__all__.remove('generate_config')
 
     # If it's not empty, it means that some of the __all__ members are not tested.
     assert logfire__all__ == set(), logfire__all__

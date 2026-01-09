@@ -5,19 +5,21 @@ import inspect
 import json
 import sys
 import warnings
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from contextlib import AbstractContextManager
 from contextvars import Token
 from enum import Enum
 from functools import cached_property
 from time import time
-from typing import (
+from typing import (  # NOQA UP035
     TYPE_CHECKING,
     Any,
     Callable,
     Literal,
+    Type,
     TypeVar,
     Union,
+    cast,
     overload,
 )
 
@@ -111,6 +113,7 @@ if TYPE_CHECKING:
     from ..integrations.redis import RequestHook as RedisRequestHook, ResponseHook as RedisResponseHook
     from ..integrations.sqlalchemy import CommenterOptions as SQLAlchemyCommenterOptions
     from ..integrations.wsgi import RequestHook as WSGIRequestHook, ResponseHook as WSGIResponseHook
+    from ..variables import ResolveFunction, ValidationReport, Variable, VariablesConfig
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
     from .integrations.aws_lambda import LambdaEvent, LambdaHandler
     from .integrations.mysql import MySQLConnection
@@ -126,6 +129,8 @@ if TYPE_CHECKING:
     # 2. It mirrors the exc_info argument of the stdlib logging methods
     # 3. The argument name exc_info is very suggestive of the sys function.
     ExcInfo = Union[SysExcInfo, BaseException, bool, None]
+
+T = TypeVar('T')
 
 
 class Logfire:
@@ -145,10 +150,15 @@ class Logfire:
         self._sample_rate = sample_rate
         self._console_log = console_log
         self._otel_scope = otel_scope
+        self._variables: dict[str, Variable[Any]] = {}
 
     @property
     def config(self) -> LogfireConfig:
         return self._config
+
+    @property
+    def resource_attributes(self) -> Mapping[str, Any]:
+        return self._tracer_provider.resource.attributes
 
     @cached_property
     def _tracer_provider(self) -> ProxyTracerProvider:
@@ -2340,23 +2350,263 @@ class Logfire:
             `False` if the timeout was reached before the shutdown was completed, `True` otherwise.
         """
         start = time()
+
+        self.config.get_variable_provider().shutdown()
+        remaining = max(0, timeout_millis - (time() - start))
+        if not remaining:  # pragma: no cover
+            return False
+
         if flush:  # pragma: no branch
             self._tracer_provider.force_flush(timeout_millis)
-        remaining = max(0, timeout_millis - (time() - start))
-        if not remaining:  # pragma: no cover
-            return False
-        self._tracer_provider.shutdown()
+            remaining = max(0, timeout_millis - (time() - start))
+            if not remaining:  # pragma: no cover
+                return False
 
+        self._tracer_provider.shutdown()
         remaining = max(0, timeout_millis - (time() - start))
         if not remaining:  # pragma: no cover
             return False
+
         if flush:  # pragma: no branch
             self._meter_provider.force_flush(remaining)
+            remaining = max(0, timeout_millis - (time() - start))
+            if not remaining:  # pragma: no cover
+                return False
+
+        self._meter_provider.shutdown(remaining)
         remaining = max(0, timeout_millis - (time() - start))
         if not remaining:  # pragma: no cover
             return False
-        self._meter_provider.shutdown(remaining)
+
         return (start - time()) < timeout_millis
+
+    @overload
+    def var(
+        self,
+        name: str,
+        *,
+        default: T,
+        description: str | None = None,
+    ) -> Variable[T]: ...
+
+    @overload
+    def var(
+        self,
+        name: str,
+        *,
+        type: type[T],
+        default: T | ResolveFunction[T],
+        description: str | None = None,
+    ) -> Variable[T]: ...
+
+    def var(
+        self,
+        name: str,
+        *,
+        type: type[T] | None = None,
+        default: T | ResolveFunction[T],
+        description: str | None = None,
+    ) -> Variable[T]:
+        from logfire.variables.variable import Variable
+
+        tp = cast(Type[T], default.__class__ if type is None else type)  # noqa UP006
+
+        variable = Variable[T](name, default=default, type=tp, logfire_instance=self, description=description)
+        self._variables[name] = variable
+        return variable
+
+    def get_variables(self) -> list[Variable[Any]]:
+        """Get all variables registered with this Logfire instance."""
+        return list(self._variables.values())
+
+    def push_variables(
+        self,
+        variables: list[Variable[Any]] | None = None,
+        *,
+        dry_run: bool = False,
+        yes: bool = False,
+        strict: bool = False,
+    ) -> bool:
+        """Push variable definitions to the configured variable provider.
+
+        This method syncs local variable definitions with the provider:
+        - Creates new variables that don't exist in the provider
+        - Updates JSON schemas for existing variables if they've changed
+        - Warns about existing variants that are incompatible with new schemas
+
+        The provider is determined by the Logfire configuration. For remote providers,
+        this requires proper authentication (via RemoteVariablesConfig or LOGFIRE_API_KEY).
+
+        Args:
+            variables: Variable instances to push. If None, all variables
+                registered with this Logfire instance will be pushed.
+            dry_run: If True, only show what would change without applying.
+            yes: If True, skip confirmation prompt.
+            strict: If True, fail if any existing variants are incompatible with new schemas.
+
+        Returns:
+            True if changes were applied (or would be applied in dry_run mode), False otherwise.
+
+        Example:
+            ```python
+            import logfire
+
+            feature_enabled = logfire.var(name='feature-enabled', type=bool, default=False)
+            max_retries = logfire.var(name='max-retries', type=int, default=3)
+
+            if __name__ == '__main__':
+                # Push all registered variables
+                logfire.push_variables()
+
+                # Or push specific variables only
+                logfire.push_variables([feature_enabled])
+            ```
+        """
+        if variables is None:
+            variables = self.get_variables()  # pragma: no cover
+
+        provider = self.config.get_variable_provider()
+        return provider.push_variables(variables, dry_run=dry_run, yes=yes, strict=strict)
+
+    def validate_variables(
+        self,
+        variables: list[Variable[Any]] | None = None,
+    ) -> ValidationReport:
+        """Validate that provider-side variable variants match local type definitions.
+
+        This method fetches the current variable configuration from the provider and
+        validates that all variant values can be deserialized to the expected types
+        defined in the local Variable instances.
+
+        Args:
+            variables: Variable instances to validate. If None, all variables
+                registered with this Logfire instance will be validated.
+
+        Returns:
+            True if all variables validated successfully, False if there were errors.
+
+        Example:
+            ```python
+            import logfire
+
+            feature_enabled = logfire.var(name='feature-enabled', type=bool, default=False)
+            max_retries = logfire.var(name='max-retries', type=int, default=3)
+
+            if __name__ == '__main__':
+                # Validate all registered variables
+                logfire.validate_variables()
+
+                # Or validate specific variables only
+                report = logfire.validate_variables([feature_enabled])
+                assert report.is_valid
+            ```
+        """
+        if variables is None:
+            variables = self.get_variables()  # pragma: no cover
+
+        provider = self.config.get_variable_provider()
+        return provider.validate_variables(variables)
+
+    def sync_config(
+        self,
+        config: VariablesConfig,
+        *,
+        mode: Literal['merge', 'replace'] = 'merge',
+        dry_run: bool = False,
+        yes: bool = False,
+    ) -> bool:  # pragma: no cover
+        """Synchronize a VariablesConfig with the configured provider.
+
+        This method pushes a complete VariablesConfig (including variants and rollouts)
+        to the provider. It's useful for:
+        - Pushing configs generated or modified locally
+        - Syncing configs read from files
+        - Partial updates (merge mode) or full replacement (replace mode)
+
+        Args:
+            config: The VariablesConfig to sync.
+            mode: 'merge' updates/creates only variables in config (leaves others unchanged).
+                  'replace' makes the server match the config exactly (deletes missing variables).
+            dry_run: If True, only show what would change without applying.
+            yes: If True, skip confirmation prompt.
+
+        Returns:
+            True if changes were applied (or would be applied in dry_run mode), False otherwise.
+
+        Example:
+            ```python
+            import logfire
+            from logfire.variables import VariablesConfig
+
+            # Read config from file and push to server
+            config = VariablesConfig.read('variables.yaml')
+            logfire.sync_config(config)
+
+            # Or merge just a subset of variables
+            logfire.sync_config(config, mode='merge')
+            ```
+        """
+        provider = self.config.get_variable_provider()
+        return provider.sync_config(config, mode=mode, dry_run=dry_run, yes=yes)
+
+    def pull_config(self) -> VariablesConfig:  # pragma: no cover
+        """Pull the current variable configuration from the provider.
+
+        This method fetches the complete configuration from the provider,
+        useful for generating local copies of the config that can be modified.
+
+        Returns:
+            The current VariablesConfig from the provider.
+
+        Example:
+            ```python
+            import logfire
+
+            # Pull config and save to file
+            config = logfire.pull_config()
+            config.write('variables.yaml')
+            ```
+        """
+        provider = self.config.get_variable_provider()
+        return provider.pull_config()
+
+    def generate_config(
+        self,
+        variables: list[Variable[Any]] | None = None,
+    ) -> VariablesConfig:
+        """Generate a VariablesConfig from registered Variable instances.
+
+        This creates a minimal config with just the name, schema, and example for each variable.
+        No variants are created - use this to generate a template config that can be edited.
+
+        Args:
+            variables: Variable instances to include. If None, uses all registered variables.
+
+        Returns:
+            A VariablesConfig with minimal configs for each variable.
+
+        Example:
+            ```python
+            import logfire
+
+            feature_enabled = logfire.var(name='feature-enabled', type=bool, default=False)
+            max_retries = logfire.var(name='max-retries', type=int, default=3)
+
+            # Generate config and save to file
+            config = logfire.generate_config()
+            config.write('variables.yaml')
+
+            # Edit the file to add variants, then push
+            config = VariablesConfig.read('variables.yaml')
+            logfire.sync_config(config)
+            ```
+        """
+        if variables is None:
+            variables = self.get_variables()  # pragma: no cover
+
+        from logfire.variables.config import VariablesConfig
+
+        return VariablesConfig.from_variables(variables)
 
 
 class FastLogfireSpan:

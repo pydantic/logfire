@@ -11,7 +11,15 @@ from ._internal.auto_trace import AutoTraceModule
 from ._internal.auto_trace.rewrite_ast import no_auto_trace
 from ._internal.baggage import get_baggage, set_baggage
 from ._internal.cli import logfire_info
-from ._internal.config import AdvancedOptions, CodeSource, ConsoleOptions, MetricsOptions, PydanticPlugin, configure
+from ._internal.config import (
+    AdvancedOptions,
+    CodeSource,
+    ConsoleOptions,
+    MetricsOptions,
+    PydanticPlugin,
+    VariablesOptions,
+    configure,
+)
 from ._internal.constants import LevelName
 from ._internal.main import Logfire, LogfireSpan
 from ._internal.scrubbing import ScrubbingOptions, ScrubMatch
@@ -83,6 +91,15 @@ metric_gauge = DEFAULT_LOGFIRE_INSTANCE.metric_gauge
 metric_counter_callback = DEFAULT_LOGFIRE_INSTANCE.metric_counter_callback
 metric_gauge_callback = DEFAULT_LOGFIRE_INSTANCE.metric_gauge_callback
 metric_up_down_counter_callback = DEFAULT_LOGFIRE_INSTANCE.metric_up_down_counter_callback
+
+# Variables
+var = DEFAULT_LOGFIRE_INSTANCE.var
+get_variables = DEFAULT_LOGFIRE_INSTANCE.get_variables
+push_variables = DEFAULT_LOGFIRE_INSTANCE.push_variables
+validate_variables = DEFAULT_LOGFIRE_INSTANCE.validate_variables
+sync_config = DEFAULT_LOGFIRE_INSTANCE.sync_config
+pull_config = DEFAULT_LOGFIRE_INSTANCE.pull_config
+generate_config = DEFAULT_LOGFIRE_INSTANCE.generate_config
 
 
 def loguru_handler() -> Any:
@@ -169,6 +186,14 @@ __all__ = (
     'loguru_handler',
     'SamplingOptions',
     'MetricsOptions',
+    'VariablesOptions',
+    'var',
+    'get_variables',
+    'push_variables',
+    'validate_variables',
+    'sync_config',
+    'pull_config',
+    'generate_config',
     'logfire_info',
     'get_baggage',
     'set_baggage',
