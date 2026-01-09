@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING, Any
 
 import anthropic
@@ -7,6 +8,15 @@ from anthropic.types import Message, TextBlock, TextDelta
 
 from logfire._internal.utils import handle_internal_errors
 
+from .semconv import (
+    PROVIDER_NAME,
+    REQUEST_MAX_TOKENS,
+    REQUEST_STOP_SEQUENCES,
+    REQUEST_TEMPERATURE,
+    REQUEST_TOP_K,
+    REQUEST_TOP_P,
+    TOOL_DEFINITIONS,
+)
 from .types import EndpointConfig, StreamState
 
 if TYPE_CHECKING:
@@ -22,6 +32,27 @@ __all__ = (
 )
 
 
+def _extract_request_parameters(json_data: dict[str, Any], span_data: dict[str, Any]) -> None:
+    """Extract request parameters from json_data and add to span_data."""
+    if (max_tokens := json_data.get('max_tokens')) is not None:
+        span_data[REQUEST_MAX_TOKENS] = max_tokens
+
+    if (temperature := json_data.get('temperature')) is not None:
+        span_data[REQUEST_TEMPERATURE] = temperature
+
+    if (top_p := json_data.get('top_p')) is not None:
+        span_data[REQUEST_TOP_P] = top_p
+
+    if (top_k := json_data.get('top_k')) is not None:
+        span_data[REQUEST_TOP_K] = top_k
+
+    if (stop_sequences := json_data.get('stop_sequences')) is not None:
+        span_data[REQUEST_STOP_SEQUENCES] = json.dumps(stop_sequences)
+
+    if (tools := json_data.get('tools')) is not None:
+        span_data[TOOL_DEFINITIONS] = json.dumps(tools)
+
+
 def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
     """Returns the endpoint config for Anthropic or Bedrock depending on the url."""
     url = options.url
@@ -31,15 +62,26 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         json_data = {}
 
     if url == '/v1/messages':
+        span_data: dict[str, Any] = {
+            'request_data': json_data,
+            PROVIDER_NAME: 'anthropic',
+        }
+        _extract_request_parameters(json_data, span_data)
+
         return EndpointConfig(
             message_template='Message with {request_data[model]!r}',
-            span_data={'request_data': json_data},
+            span_data=span_data,
             stream_state_cls=AnthropicMessageStreamState,
         )
     else:
+        span_data = {
+            'request_data': json_data,
+            'url': url,
+            PROVIDER_NAME: 'anthropic',
+        }
         return EndpointConfig(
             message_template='Anthropic API call to {url!r}',
-            span_data={'request_data': json_data, 'url': url},
+            span_data=span_data,
         )
 
 
