@@ -373,8 +373,6 @@ def _transform_langchain_span(span: ReadableSpanDict):
 def _transform_langsmith_span_attributes(
     attributes: Mapping[str, Any], parsed_attributes: dict[str, Any]
 ) -> tuple[Mapping[str, Any], dict[str, Any]]:
-    if attributes.get('logfire.span_type') != 'pending_span':  # pragma: no cover
-        print(f'assert _transform_langsmith_span_attributes({attributes}, {parsed_attributes}) == snapshot()')
     new_attributes: dict[str, Any] = {}
 
     # OTel semconv attributes, needed for displaying costs.
@@ -416,6 +414,8 @@ def _transform_langsmith_span_attributes(
                 input_messages.append({'role': 'system', 'content': input_attribute['system']})
             if 'prompt' in input_attribute:
                 input_messages.append({'role': 'user', 'content': input_attribute['prompt']})
+        if not input_messages:
+            raise ValueError
         message_events = [_transform_langchain_message(old_message) for old_message in input_messages]
 
         # If we fail to parse output messages, fine, but only try if we've succeeded to parse input messages.
@@ -489,7 +489,7 @@ def _transform_langchain_message(old_message: dict[str, Any]) -> dict[str, Any]:
     else:
         result.pop('tool_calls', None)
         if role == 'tool' and 'content' in result and 'id' in result:
-            result['name'] = ''  # dummy value which makes the frontend happy
+            result.setdefault('name', '')  # dummy value which makes the frontend happy
 
     return result
 
