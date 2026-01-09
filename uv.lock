@@ -1710,6 +1710,15 @@ wheels = [
 ]
 
 [[package]]
+name = "gepa"
+version = "0.0.24"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/bc/2c/8f249827bcdc56212a445f4f671ee2201b864e433d2c88428933bd4b08f3/gepa-0.0.24.tar.gz", hash = "sha256:8035d1a0877661b6a63db457dc935b4878ee76acf7da1e488d7e6209bb32c054", size = 135673, upload-time = "2026-01-05T16:45:30.553Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7e/b1/33b035ff1aaf22d4e104c5b15ba48fe5050639764457048e967c20d6317a/gepa-0.0.24-py3-none-any.whl", hash = "sha256:6d8b16699e7b24ed01435dea7bbbc89156a88cbb4b877b14d90e7455db2b0032", size = 137539, upload-time = "2026-01-05T16:45:29.244Z" },
+]
+
+[[package]]
 name = "ghp-import"
 version = "2.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3022,6 +3031,7 @@ dev = [
     { name = "eval-type-backport" },
     { name = "fastapi" },
     { name = "flask" },
+    { name = "gepa", marker = "python_full_version >= '3.10'" },
     { name = "google-genai", version = "1.47.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "google-genai", version = "1.57.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "greenlet", version = "3.2.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
@@ -3179,6 +3189,7 @@ dev = [
     { name = "eval-type-backport", specifier = ">=0.2.0" },
     { name = "fastapi", specifier = "!=0.124.3,!=0.124.4" },
     { name = "flask", specifier = ">=3.0.3" },
+    { name = "gepa", marker = "python_full_version >= '3.10'", specifier = ">=0" },
     { name = "google-genai", specifier = ">=0" },
     { name = "greenlet", specifier = ">=3.1.1" },
     { name = "httpx", specifier = ">=0.27.2" },
