@@ -7,6 +7,9 @@ integration: "third-party"
 
 You can instrument the Python [Claude Agent SDK](https://platform.claude.com/docs/en/agent-sdk/overview) using **Logfire** and [Langsmith](https://docs.langchain.com/langsmith/trace-claude-agent-sdk).
 
+!!! note
+    This is separate from the [`anthropic` integration](../llms/anthropic.md). The Claude Agent SDK doesn't actually use the `anthropic` package under the hood.
+
 First, install dependencies:
 
 ```bash
