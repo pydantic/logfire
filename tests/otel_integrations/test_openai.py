@@ -1528,7 +1528,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
-                'name': 'Responses API with {gen_ai.request.model!r}',
+                'name': 'chat gpt-4.1',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
@@ -1538,6 +1538,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                     'code.function': 'test_responses_stream',
                     'code.lineno': 123,
                     'request_data': {'model': 'gpt-4.1', 'stream': True},
+                    'gen_ai.operation.name': 'chat',
                     'gen_ai.request.model': 'gpt-4.1',
                     'events': [
                         {'event.name': 'gen_ai.user.message', 'content': 'What is four plus five?', 'role': 'user'}
@@ -1549,6 +1550,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
+                            'gen_ai.operation.name': {},
                             'gen_ai.request.model': {},
                             'events': {'type': 'array'},
                             'async': {},
@@ -1575,6 +1577,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                     'code.lineno': 123,
                     'request_data': {'model': 'gpt-4.1', 'stream': True},
                     'gen_ai.request.model': 'gpt-4.1',
+                    'gen_ai.operation.name': 'chat',
                     'async': False,
                     'duration': 1.0,
                     'events': [
@@ -1594,6 +1597,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
+                            'gen_ai.operation.name': {},
                             'async': {},
                             'events': {'type': 'array'},
                             'duration': {},
@@ -2259,7 +2263,7 @@ def test_responses_api(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
-                'name': 'Responses API with {gen_ai.request.model!r}',
+                'name': 'chat gpt-4.1',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
@@ -2269,12 +2273,12 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'code.function': 'test_responses_api',
                     'code.lineno': 123,
                     'async': False,
+                    'gen_ai.operation.name': 'chat',
                     'request_data': {'model': 'gpt-4.1', 'stream': False},
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.msg': "Responses API with 'gpt-4.1'",
                     'logfire.tags': ('LLM',),
                     'logfire.span_type': 'span',
-                    'gen_ai.system': 'openai',
                     'gen_ai.request.model': 'gpt-4.1',
                     'gen_ai.response.model': 'gpt-4.1-2025-04-14',
                     'gen_ai.usage.input_tokens': 65,
@@ -2303,10 +2307,10 @@ def test_responses_api(exporter: TestExporter) -> None:
                         'type': 'object',
                         'properties': {
                             'gen_ai.request.model': {},
+                            'gen_ai.operation.name': {},
                             'request_data': {'type': 'object'},
                             'events': {'type': 'array'},
                             'async': {},
-                            'gen_ai.system': {},
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
@@ -2316,7 +2320,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': 'Responses API with {gen_ai.request.model!r}',
+                'name': 'chat gpt-4.1',
                 'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
                 'parent': None,
                 'start_time': 3000000000,
@@ -2326,12 +2330,12 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'code.function': 'test_responses_api',
                     'code.lineno': 123,
                     'async': False,
+                    'gen_ai.operation.name': 'chat',
                     'request_data': {'model': 'gpt-4.1', 'stream': False},
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.msg': "Responses API with 'gpt-4.1'",
                     'logfire.tags': ('LLM',),
                     'logfire.span_type': 'span',
-                    'gen_ai.system': 'openai',
                     'gen_ai.request.model': 'gpt-4.1',
                     'gen_ai.response.model': 'gpt-4.1-2025-04-14',
                     'gen_ai.usage.input_tokens': 43,
@@ -2371,10 +2375,10 @@ def test_responses_api(exporter: TestExporter) -> None:
                         'type': 'object',
                         'properties': {
                             'gen_ai.request.model': {},
+                            'gen_ai.operation.name': {},
                             'request_data': {'type': 'object'},
                             'events': {'type': 'array'},
                             'async': {},
-                            'gen_ai.system': {},
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
@@ -2417,7 +2421,7 @@ def test_openrouter_streaming_reasoning(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
-                'name': 'Chat Completion with {request_data[model]!r}',
+                'name': 'chat google/gemini-2.5-flash',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
@@ -2432,12 +2436,18 @@ def test_openrouter_streaming_reasoning(exporter: TestExporter) -> None:
                         'stream': True,
                     },
                     'gen_ai.request.model': 'google/gemini-2.5-flash',
+                    'gen_ai.operation.name': 'chat',
                     'async': False,
                     'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
                     'logfire.msg': "Chat Completion with 'google/gemini-2.5-flash'",
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {'request_data': {'type': 'object'}, 'gen_ai.request.model': {}, 'async': {}},
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.request.model': {},
+                            'gen_ai.operation.name': {},
+                            'async': {},
+                        },
                     },
                     'logfire.tags': ('LLM',),
                     'logfire.span_type': 'span',
@@ -2465,6 +2475,7 @@ def test_openrouter_streaming_reasoning(exporter: TestExporter) -> None:
                     },
                     'gen_ai.request.model': 'google/gemini-2.5-flash',
                     'async': False,
+                    'gen_ai.operation.name': 'chat',
                     'duration': 1.0,
                     'response_data': {
                         'message': {
@@ -2519,6 +2530,7 @@ I'm zeroing in on the core of the query. The "how are you" is basic, but the "tr
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
                             'async': {},
+                            'gen_ai.operation.name': {},
                             'duration': {},
                             'response_data': {
                                 'type': 'object',

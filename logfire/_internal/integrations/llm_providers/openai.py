@@ -37,10 +37,11 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
     """Returns the endpoint config for OpenAI depending on the url."""
     url = options.url
 
-    json_data = options.json_data
-    if not isinstance(json_data, dict):  # pragma: no cover
+    raw_json_data = options.json_data
+    if not isinstance(raw_json_data, dict):  # pragma: no cover
         # Ensure that `{request_data[model]!r}` doesn't raise an error, just a warning about `model` missing.
-        json_data = {}
+        raw_json_data = {}
+    json_data = cast('dict[str, Any]', raw_json_data)
 
     if url == '/chat/completions':
         if is_current_agent_span('Chat completion with {gen_ai.request.model!r}'):
@@ -59,14 +60,14 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         if is_current_agent_span('Responses API', 'Responses API with {gen_ai.request.model!r}'):
             return EndpointConfig(message_template='', span_data={})
 
-        stream = json_data.get('stream', False)  # type: ignore
+        stream = json_data.get('stream', False)
         span_data: dict[str, Any] = {
             'gen_ai.request.model': json_data.get('model'),
             'gen_ai.operation.name': 'chat',
             'request_data': {'model': json_data.get('model'), 'stream': stream},
             'events': inputs_to_events(
-                json_data.get('input'),  # type: ignore
-                json_data.get('instructions'),  # type: ignore
+                json_data.get('input'),
+                json_data.get('instructions'),
             ),
         }
 
