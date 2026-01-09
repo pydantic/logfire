@@ -41,7 +41,7 @@ class AgentConfig(BaseModel):
 
 # Create a managed variable with this structured type
 agent_config = logfire.var(
-    name='agent-config',
+    name='agent_config',
     type=AgentConfig,
     default=AgentConfig(
         instructions='You are a helpful assistant.',
@@ -297,8 +297,8 @@ variables_config = VariablesConfig(
                     }""",
                     description='Concise responses with faster model',
                 ),
-                'v2-detailed': Variant(
-                    key='v2-detailed',
+                'v2_detailed': Variant(
+                    key='v2_detailed',
                     serialized_value="""{
                         "instructions": "You are an expert support agent. Provide thorough explanations with examples. Always acknowledge the customer's concern before providing assistance.",
                         "model": "openai:gpt-4o",
@@ -344,7 +344,7 @@ agent_config = logfire.var(
 async def handle_ticket(user_id: str, message: str) -> str:
     """Handle a support ticket with A/B tested configuration."""
     with agent_config.get(targeting_key=user_id) as config:
-        # The variant (v1_concise or v2-detailed) is now in baggage
+        # The variant (v1_concise or v2_detailed) is now in baggage
         # All spans created below, including those from the call to agent.run, will be tagged with the variant
 
         agent = Agent(config.value.model, system_prompt=config.value.instructions)
@@ -658,7 +658,7 @@ class AgentConfig(BaseModel):
 
 # Define your variables
 agent_config = logfire.var(
-    name='agent-config',
+    name='agent_config',
     type=AgentConfig,
     default=AgentConfig(
         instructions='You are a helpful assistant.',
@@ -686,7 +686,7 @@ When you run this script, it will:
 
 ```
 === Variables to CREATE ===
-  + agent-config
+  + agent_config
     Example value: {"instructions":"You are a helpful assistant.","model":"openai:gpt-4o-mini","temperature":0.7,"max_tokens":500}
 
 Apply these changes? [y/N] y
@@ -773,7 +773,7 @@ import logfire
 from logfire.variables import VariablesConfig
 
 # Define your variables
-agent_config = logfire.var(name='agent-config', type=AgentConfig, default=AgentConfig(...))
+agent_config = logfire.var(name='agent_config', type=AgentConfig, default=AgentConfig(...))
 feature_flag = logfire.var(name='feature-enabled', type=bool, default=False)
 
 # Generate a config with name, schema, and example for each variable
@@ -787,8 +787,8 @@ The generated file will look like:
 
 ```yaml
 variables:
-  agent-config:
-    name: agent-config
+  agent_config:
+    name: agent_config
     variants: {}
     rollout:
       variants: {}
@@ -817,8 +817,8 @@ Edit the YAML file to add variants and rollouts:
 
 ```yaml
 variables:
-  agent-config:
-    name: agent-config
+  agent_config:
+    name: agent_config
     variants:
       concise:
         key: concise
@@ -1116,14 +1116,14 @@ Aliases allow a variable to be found by alternative names. When your code reques
 
 **Example:**
 
-Suppose you have a variable named `agent-config` and want to rename it to `support_agent_config`:
+Suppose you have a variable named `agent_config` and want to rename it to `support_agent_config`:
 
 1. Create `support_agent_config` with the same variants and rollout configuration
-2. Add `agent-config` as an alias on `support_agent_config`
-3. Old code using `logfire.var(name='agent-config', ...)` continues to work
+2. Add `agent_config` as an alias on `support_agent_config`
+3. Old code using `logfire.var(name='agent_config', ...)` continues to work
 4. Update your code to use `name='support_agent_config'`
-5. After deployment, delete the old `agent-config` variable
-6. Optionally remove `agent-config` from the aliases list
+5. After deployment, delete the old `agent_config` variable
+6. Optionally remove `agent_config` from the aliases list
 
 This approach ensures zero-downtime migrations—existing deployed applications continue to receive the correct configuration while you update and redeploy.
 
@@ -1144,7 +1144,7 @@ config = VariablesConfig(
             rollout=Rollout(variants={...}),
             overrides=[],
             # Old name resolves to this variable
-            aliases=['agent-config'],
+            aliases=['agent_config'],
         ),
     }
 )
