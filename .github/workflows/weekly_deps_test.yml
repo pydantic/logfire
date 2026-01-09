@@ -70,6 +70,10 @@ jobs:
         # upgrade deps to the latest versions for this test
       - run: uv sync --python ${{ matrix.python-version }} --upgrade
 
+      - name: Install pydantic main
+        if: matrix.pydantic-version == 'main'
+        run: uv pip install git+https://github.com/pydantic/pydantic.git
+
       - name: Install pydantic ${{ matrix.pydantic-version }}
         if: matrix.pydantic-version != 'main'
         # installs the most recent patch on the minor version's track, ex 2.6.0 -> 2.6.4
