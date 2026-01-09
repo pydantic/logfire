@@ -13,11 +13,12 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-from opentelemetry import context as context_api, trace
+from opentelemetry import context as context_api
+from opentelemetry.context import Context
 from opentelemetry.trace import SpanKind
 
 if TYPE_CHECKING:
-    from ..main import Logfire, LogfireSpan
+    from ..main import Logfire
 
 # GenAI semantic convention attribute names (inline to keep LangChain instrumentation self-contained)
 OPERATION_NAME = 'gen_ai.operation.name'
@@ -36,9 +37,9 @@ CONVERSATION_ID = 'gen_ai.conversation.id'
 try:
     from langchain_core.callbacks.base import BaseCallbackHandler
 
-    _BASE_CLASS = BaseCallbackHandler
+    _BASE_CLASS: type[Any] = BaseCallbackHandler
 except ImportError:
-    _BASE_CLASS = object
+    _BASE_CLASS: type[Any] = object  # pyright: ignore[reportConstantRedefinition]
 
 
 @dataclass
@@ -46,16 +47,10 @@ class SpanWithToken:
     """Container for span and its context token."""
 
     span: Any
-    token: Token | None = None
+    token: Token[Context] | None = None
 
 
-def _set_span_in_context(span: LogfireSpan) -> Token:
-    """Attach span to context and return token for later detachment."""
-    otel_context = trace.set_span_in_context(span._span)
-    return context_api.attach(otel_context)
-
-
-def _detach_span_from_context(token: Token) -> None:
+def _detach_span_from_context(token: Token[Context]) -> None:
     """Detach span from context using token."""
     try:
         context_api.detach(token)
@@ -97,7 +92,7 @@ def _normalize_content_block(block: dict[str, Any]) -> dict[str, Any]:
     return block
 
 
-class LogfireLangchainCallbackHandler(_BASE_CLASS):  # type: ignore[misc]
+class LogfireLangchainCallbackHandler(_BASE_CLASS):
     """LangChain callback handler that captures full execution hierarchy.
 
     This handler captures:
@@ -151,8 +146,8 @@ class LogfireLangchainCallbackHandler(_BASE_CLASS):  # type: ignore[misc]
         parent_span = self._get_parent_span(parent_run_id)
 
         parent_token = None
-        if parent_span and parent_span._span:
-            parent_context = trace.set_span_in_context(parent_span._span)
+        parent_context = parent_span.get_context() if parent_span else None
+        if parent_context:
             parent_token = context_api.attach(parent_context)
 
         try:
@@ -161,7 +156,7 @@ class LogfireLangchainCallbackHandler(_BASE_CLASS):  # type: ignore[misc]
                 _span_kind=span_kind,
                 **span_data,
             )
-            span._start()
+            span.start()
             if conversation_id:
                 span.set_attribute(CONVERSATION_ID, conversation_id)
         finally:
@@ -183,9 +178,9 @@ class LogfireLangchainCallbackHandler(_BASE_CLASS):  # type: ignore[misc]
             return
 
         try:
-            if error and st.span._span and st.span._span.is_recording():
-                st.span._span.record_exception(error, escaped=True)
-            st.span._end()
+            if error and st.span.is_recording():
+                st.span.record_exception(error, escaped=True)
+            st.span.end()
         finally:
             if st.token:
                 _detach_span_from_context(st.token)

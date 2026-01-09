@@ -2445,12 +2445,14 @@ class LogfireSpan(ReadableSpan):
     def _start(self):
         if self._span is not None:
             return
-        self._span = self._tracer.start_span(
-            name=self._span_name,
-            attributes=self._otlp_attributes,
-            links=self._links,
-            kind=self._span_kind,
-        )
+        kwargs: dict[str, Any] = {
+            'name': self._span_name,
+            'attributes': self._otlp_attributes,
+            'links': self._links,
+        }
+        if self._span_kind is not None:
+            kwargs['kind'] = self._span_kind
+        self._span = self._tracer.start_span(**kwargs)
 
     @handle_internal_errors
     def _attach(self):
@@ -2484,6 +2486,49 @@ class LogfireSpan(ReadableSpan):
         if self._span and self._span.is_recording() and isinstance(exc_value, BaseException):
             self._span.record_exception(exc_value, escaped=True)
         self._end()
+
+    def start(self) -> None:
+        """Start the span without entering a context manager.
+
+        Use this for callback-based instrumentation where spans are started
+        and ended at different callback points rather than using `with` blocks.
+
+        Note: You must call `end()` to properly close the span.
+        """
+        self._start()
+
+    def end(self) -> None:
+        """End the span without exiting a context manager.
+
+        Use this for callback-based instrumentation where spans are started
+        and ended at different callback points rather than using `with` blocks.
+
+        Note: This does NOT detach the span from context. If you attached
+        the span to context, you must detach it separately.
+        """
+        self._end()
+
+    def get_context(self) -> Context | None:
+        """Get the OpenTelemetry context with this span.
+
+        Returns the context that can be used to create child spans
+        with this span as parent. Returns None if span not started.
+
+        Example:
+            parent_span = logfire.span("parent")
+            parent_span.start()
+            if ctx := parent_span.get_context():
+                token = context_api.attach(ctx)
+                try:
+                    # Child spans created here will have parent_span as parent
+                    child_span = logfire.span("child")
+                    ...
+                finally:
+                    context_api.detach(token)
+        """
+        if self._span is None:
+            return None
+        return trace_api.set_span_in_context(self._span)
 
     @property
     def message_template(self) -> str | None:  # pragma: no cover
