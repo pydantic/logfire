@@ -26,7 +26,7 @@ import opentelemetry.trace as trace_api
 from opentelemetry.context import Context
 from opentelemetry.metrics import CallbackT, Counter, Histogram, UpDownCounter
 from opentelemetry.sdk.trace import ReadableSpan, Span
-from opentelemetry.trace import SpanContext
+from opentelemetry.trace import SpanContext, SpanKind
 from opentelemetry.util import types as otel_types
 from typing_extensions import LiteralString, ParamSpec
 
@@ -188,6 +188,7 @@ class Logfire:
         _span_name: str | None = None,
         _level: LevelName | int | None = None,
         _links: Sequence[tuple[SpanContext, otel_types.Attributes]] = (),
+        _span_kind: SpanKind | None = None,
     ) -> LogfireSpan:
         try:
             if _level is not None:
@@ -243,6 +244,7 @@ class Logfire:
                 self._spans_tracer,
                 json_schema_properties,
                 links=_links,
+                span_kind=_span_kind,
             )
         except Exception:
             log_internal_error()
@@ -540,6 +542,7 @@ class Logfire:
         _span_name: str | None = None,
         _level: LevelName | None = None,
         _links: Sequence[tuple[SpanContext, otel_types.Attributes]] = (),
+        _span_kind: SpanKind | None = None,
         **attributes: Any,
     ) -> LogfireSpan:
         """Context manager for creating a span.
@@ -559,6 +562,7 @@ class Logfire:
             _tags: An optional sequence of tags to include in the span.
             _level: An optional log level name.
             _links: An optional sequence of links to other spans. Each link is a tuple of a span context and attributes.
+            _span_kind: An optional span kind (e.g., SpanKind.CLIENT for external calls).
             attributes: The arguments to include in the span and format the message template with.
                 Attributes starting with an underscore are not allowed.
         """
@@ -571,6 +575,7 @@ class Logfire:
             _span_name=_span_name,
             _level=_level,
             _links=_links,
+            _span_kind=_span_kind,
         )
 
     @overload
@@ -1366,6 +1371,42 @@ class Logfire:
 
         self._warn_if_not_initialized_for_instrumentation()
         instrument_litellm(self, **kwargs)
+
+    def instrument_langchain(self) -> AbstractContextManager[None]:
+        """Instrument LangChain to capture full execution hierarchy with tool definitions.
+
+        This patches LangChain's BaseCallbackManager to inject a callback handler
+        that captures the complete execution hierarchy including chains, tools,
+        retrievers, and LLM calls with tool definitions.
+
+        The instrumentation complements LangSmith's OTEL integration by adding:
+        - Tool definitions (gen_ai.tool.definitions)
+        - Input/output messages in OTel GenAI format
+        - System instructions
+        - Conversation tracking via thread_id
+
+        Example usage:
+
+        ```python
+        import logfire
+        from langchain_anthropic import ChatAnthropic
+        from langchain_core.messages import HumanMessage
+
+        logfire.configure()
+        logfire.instrument_langchain()
+
+        model = ChatAnthropic(model='claude-3-haiku-20240307')
+        response = model.invoke([HumanMessage(content='Hello!')])
+        ```
+
+        Returns:
+            A context manager that will revert the instrumentation when exited.
+                Use of this context manager is optional.
+        """
+        from .integrations.langchain import instrument_langchain
+
+        self._warn_if_not_initialized_for_instrumentation()
+        return instrument_langchain(self)
 
     def instrument_print(self) -> AbstractContextManager[None]:
         """Instrument the built-in `print` function so that calls to it are logged.
@@ -2386,12 +2427,14 @@ class LogfireSpan(ReadableSpan):
         tracer: _ProxyTracer,
         json_schema_properties: JsonSchemaProperties,
         links: Sequence[tuple[SpanContext, otel_types.Attributes]],
+        span_kind: SpanKind | None = None,
     ) -> None:
         self._span_name = span_name
         self._otlp_attributes = otlp_attributes
         self._tracer = tracer
         self._json_schema_properties = json_schema_properties
         self._links = list(trace_api.Link(context=context, attributes=attributes) for context, attributes in links)
+        self._span_kind = span_kind
 
         self._added_attributes = False
         self._token: None | Token[Context] = None
@@ -2406,11 +2449,14 @@ class LogfireSpan(ReadableSpan):
     def _start(self):
         if self._span is not None:
             return
-        self._span = self._tracer.start_span(
-            name=self._span_name,
-            attributes=self._otlp_attributes,
-            links=self._links,
-        )
+        kwargs: dict[str, Any] = {
+            'name': self._span_name,
+            'attributes': self._otlp_attributes,
+            'links': self._links,
+        }
+        if self._span_kind is not None:
+            kwargs['kind'] = self._span_kind
+        self._span = self._tracer.start_span(**kwargs)
 
     @handle_internal_errors
     def _attach(self):
@@ -2444,6 +2490,49 @@ class LogfireSpan(ReadableSpan):
         if self._span and self._span.is_recording() and isinstance(exc_value, BaseException):
             self._span.record_exception(exc_value, escaped=True)
         self._end()
+
+    def start(self) -> None:
+        """Start the span without entering a context manager.
+
+        Use this for callback-based instrumentation where spans are started
+        and ended at different callback points rather than using `with` blocks.
+
+        Note: You must call `end()` to properly close the span.
+        """
+        self._start()
+
+    def end(self) -> None:
+        """End the span without exiting a context manager.
+
+        Use this for callback-based instrumentation where spans are started
+        and ended at different callback points rather than using `with` blocks.
+
+        Note: This does NOT detach the span from context. If you attached
+        the span to context, you must detach it separately.
+        """
+        self._end()
+
+    def get_context(self) -> Context | None:
+        """Get the OpenTelemetry context with this span.
+
+        Returns the context that can be used to create child spans
+        with this span as parent. Returns None if span not started.
+
+        Example:
+            parent_span = logfire.span("parent")
+            parent_span.start()
+            if ctx := parent_span.get_context():
+                token = context_api.attach(ctx)
+                try:
+                    # Child spans created here will have parent_span as parent
+                    child_span = logfire.span("child")
+                    ...
+                finally:
+                    context_api.detach(token)
+        """
+        if self._span is None:
+            return None
+        return trace_api.set_span_in_context(self._span)
 
     @property
     def message_template(self) -> str | None:  # pragma: no cover
