@@ -175,3 +175,71 @@ async def test_async_streaming_preserves_original_context(exporter: TestExporter
     assert streaming['context']['trace_id'] == expected_trace_id
     assert request['parent']['span_id'] == expected_span_id
     assert streaming['parent']['span_id'] == expected_span_id
+
+
+def test_override_provider_sets_gen_ai_system(exporter: TestExporter) -> None:
+    """Test that override_provider parameter sets the gen_ai.system attribute."""
+    client = MockSyncClient()
+    instrument_llm_provider(
+        logfire=logfire.DEFAULT_LOGFIRE_INSTANCE,
+        client=client,
+        suppress_otel=False,
+        scope_suffix='test',
+        get_endpoint_config_fn=get_endpoint_config,
+        on_response_fn=on_response,
+        is_async_client_fn=is_async_client,
+        override_provider='openrouter',
+    )
+
+    client.request(options=MockOptions())
+
+    spans = exporter.exported_spans_as_dict()
+    request = next(s for s in spans if 'Test with' in s['name'])
+
+    assert request['attributes']['gen_ai.system'] == 'openrouter'
+
+
+def test_override_provider_not_set_defaults_to_no_gen_ai_system(exporter: TestExporter) -> None:
+    """Test that when override_provider is None, gen_ai.system is not set by instrument_llm_provider."""
+    client = MockSyncClient()
+    instrument_llm_provider(
+        logfire=logfire.DEFAULT_LOGFIRE_INSTANCE,
+        client=client,
+        suppress_otel=False,
+        scope_suffix='test',
+        get_endpoint_config_fn=get_endpoint_config,
+        on_response_fn=on_response,
+        is_async_client_fn=is_async_client,
+        override_provider=None,
+    )
+
+    client.request(options=MockOptions())
+
+    spans = exporter.exported_spans_as_dict()
+    request = next(s for s in spans if 'Test with' in s['name'])
+
+    # When override_provider is None, gen_ai.system should not be set by instrument_llm_provider
+    # (it would be set later by on_response for OpenAI)
+    assert 'gen_ai.system' not in request['attributes']
+
+
+async def test_override_provider_async_client(exporter: TestExporter) -> None:
+    """Test that override_provider works with async clients."""
+    client = MockAsyncClient()
+    instrument_llm_provider(
+        logfire=logfire.DEFAULT_LOGFIRE_INSTANCE,
+        client=client,
+        suppress_otel=False,
+        scope_suffix='test',
+        get_endpoint_config_fn=get_endpoint_config,
+        on_response_fn=on_response,
+        is_async_client_fn=is_async_client,
+        override_provider='custom-provider',
+    )
+
+    await client.request(options=MockOptions())
+
+    spans = exporter.exported_spans_as_dict()
+    request = next(s for s in spans if 'Test with' in s['name'])
+
+    assert request['attributes']['gen_ai.system'] == 'custom-provider'
