@@ -370,9 +370,9 @@ def _convert_to_otel_message(msg: dict[str, Any]) -> dict[str, Any]:
         if isinstance(content, str):
             otel_msg['parts'].append({'type': 'text', 'content': content})
         elif isinstance(content, list):
-            for block in content:
+            for block in cast(list[Any], content):
                 if isinstance(block, dict):
-                    otel_msg['parts'].append(_normalize_content_block(block))
+                    otel_msg['parts'].append(_normalize_content_block(cast('dict[str, Any]', block)))
     if tool_calls := msg.get('tool_calls'):
         for tc in tool_calls:
             otel_msg['parts'].append(
@@ -494,9 +494,9 @@ def _transform_langchain_span(span: ReadableSpanDict):
         properties['all_messages_events'] = {'type': 'array'}
 
         # Extract OTel GenAI formatted messages
-        input_msgs = []
-        output_msgs = []
-        system_instructions = []
+        input_msgs: list[dict[str, Any]] = []
+        output_msgs: list[dict[str, Any]] = []
+        system_instructions: list[Any] = []
         for msg in message_events:
             role = msg.get('role')
             if role == 'system':
@@ -504,7 +504,7 @@ def _transform_langchain_span(span: ReadableSpanDict):
                 if isinstance(content, str):
                     system_instructions.append({'type': 'text', 'content': content})
                 elif isinstance(content, list):
-                    system_instructions.extend(content)
+                    system_instructions.extend(cast(list[Any], content))
             elif role == 'assistant':
                 output_msgs.append(_convert_to_otel_message(msg))
             else:

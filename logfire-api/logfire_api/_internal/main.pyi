@@ -606,6 +606,17 @@ class Logfire:
         [`openinference-instrumentation-litellm`](https://pypi.org/project/openinference-instrumentation-litellm/)
         package, to which it passes `**kwargs`.
         """
+    def instrument_langchain(self) -> AbstractContextManager[None]:
+        """Instrument LangChain to capture full execution hierarchy with tool definitions.
+
+        This patches LangChain's BaseCallbackManager to inject a callback handler
+        that captures the complete execution hierarchy including chains, tools,
+        retrievers, and LLM calls with tool definitions.
+
+        Returns:
+            A context manager that will revert the instrumentation when exited.
+                Use of this context manager is optional.
+        """
     def instrument_print(self) -> AbstractContextManager[None]:
         """Instrument the built-in `print` function so that calls to it are logged.
 
