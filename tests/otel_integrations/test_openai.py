@@ -4,6 +4,7 @@ import json
 from collections.abc import AsyncIterator, Iterator
 from io import BytesIO
 from typing import Any
+from unittest.mock import MagicMock
 
 import httpx
 import openai
@@ -24,7 +25,6 @@ from openai.types import (
 )
 from openai.types.chat import chat_completion, chat_completion_chunk as cc_chunk, chat_completion_message
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
-from unittest.mock import MagicMock
 
 import logfire
 from logfire._internal.integrations.llm_providers.openai import on_response
