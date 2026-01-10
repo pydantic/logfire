@@ -1220,6 +1220,9 @@ class Logfire:
                 enabled. In reality, this means the HTTPX instrumentation, which could otherwise be called since
                 OpenAI uses HTTPX to make HTTP requests.
 
+            override_provider: If provided, override the provider name for the instrumented client, e.g. 'openrouter'.
+                The default provider is 'openai'.
+
         Returns:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
