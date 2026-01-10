@@ -2536,27 +2536,6 @@ async def test_override_provider_async(exporter: TestExporter) -> None:
     assert spans[0]['attributes']['gen_ai.system'] == 'custom-provider'
 
 
-def test_override_provider_not_overwritten_by_on_response(exporter: TestExporter) -> None:
-    """Test that gen_ai.system set by override_provider is not overwritten by on_response."""
-    with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
-        openai_client = openai.Client(api_key='foobar', http_client=httpx_client)
-        # Using override_provider should set gen_ai.system which should NOT be overwritten
-        logfire.instrument_openai(openai_client, override_provider='openrouter')
-
-        response = openai_client.chat.completions.create(
-            model='gpt-4',
-            messages=[
-                {'role': 'system', 'content': 'You are a helpful assistant.'},
-                {'role': 'user', 'content': 'What is four plus five?'},
-            ],
-        )
-
-    assert response.choices[0].message.content == 'Nine'
-    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-    # The gen_ai.system should remain 'openrouter', not be overwritten to 'openai'
-    assert spans[0]['attributes']['gen_ai.system'] == 'openrouter'
-
-
 def test_override_provider_streaming(exporter: TestExporter) -> None:
     """Test that override_provider works correctly with streaming responses."""
     with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
@@ -2602,10 +2581,20 @@ def test_default_provider_is_openai(exporter: TestExporter) -> None:
     assert spans[0]['attributes']['gen_ai.system'] == 'openai'
 
 
-def test_on_response_sets_gen_ai_system_when_not_present() -> None:
-    """Test that on_response sets gen_ai.system to 'openai' when attributes don't have it."""
+@pytest.mark.parametrize(
+    ('span_attributes', 'should_set_gen_ai_system'),
+    [
+        pytest.param({}, True, id='empty_attributes_sets_openai'),
+        pytest.param(None, True, id='none_attributes_sets_openai'),
+        pytest.param({'gen_ai.system': 'openrouter'}, False, id='existing_value_not_overwritten'),
+    ],
+)
+def test_on_response_gen_ai_system_behavior(
+    span_attributes: dict[str, str] | None, should_set_gen_ai_system: bool
+) -> None:
+    """Test that on_response sets gen_ai.system to 'openai' only when not already present."""
     mock_span = MagicMock()
-    mock_span.attributes = {}  # No gen_ai.system
+    mock_span.attributes = span_attributes
 
     response = chat_completion.ChatCompletion(
         id='test_id',
@@ -2631,72 +2620,12 @@ def test_on_response_sets_gen_ai_system_when_not_present() -> None:
 
     on_response(response, mock_span)
 
-    # Should set gen_ai.system to 'openai'
-    mock_span.set_attribute.assert_any_call('gen_ai.system', 'openai')
-
-
-def test_on_response_does_not_overwrite_existing_gen_ai_system() -> None:
-    """Test that on_response does NOT overwrite gen_ai.system when it's already set."""
-    mock_span = MagicMock()
-    mock_span.attributes = {'gen_ai.system': 'openrouter'}  # Already set
-
-    response = chat_completion.ChatCompletion(
-        id='test_id',
-        choices=[
-            chat_completion.Choice(
-                finish_reason='stop',
-                index=0,
-                message=chat_completion_message.ChatCompletionMessage(
-                    content='Test response',
-                    role='assistant',
-                ),
-            ),
-        ],
-        created=1634720000,
-        model='gpt-4',
-        object='chat.completion',
-        usage=completion_usage.CompletionUsage(
-            completion_tokens=1,
-            prompt_tokens=2,
-            total_tokens=3,
-        ),
-    )
-
-    on_response(response, mock_span)
-
-    # Should NOT call set_attribute with 'gen_ai.system' since it's already set
-    calls = [call for call in mock_span.set_attribute.call_args_list if call[0][0] == 'gen_ai.system']
-    assert len(calls) == 0, f"Expected no calls to set_attribute with 'gen_ai.system', got {calls}"
-
-
-def test_on_response_sets_gen_ai_system_when_attributes_is_none() -> None:
-    """Test that on_response sets gen_ai.system when span.attributes is None."""
-    mock_span = MagicMock()
-    mock_span.attributes = None  # None attributes
-
-    response = chat_completion.ChatCompletion(
-        id='test_id',
-        choices=[
-            chat_completion.Choice(
-                finish_reason='stop',
-                index=0,
-                message=chat_completion_message.ChatCompletionMessage(
-                    content='Test response',
-                    role='assistant',
-                ),
-            ),
-        ],
-        created=1634720000,
-        model='gpt-4',
-        object='chat.completion',
-        usage=completion_usage.CompletionUsage(
-            completion_tokens=1,
-            prompt_tokens=2,
-            total_tokens=3,
-        ),
-    )
-
-    on_response(response, mock_span)
-
-    # Should set gen_ai.system to 'openai'
-    mock_span.set_attribute.assert_any_call('gen_ai.system', 'openai')
+    gen_ai_system_calls = [call for call in mock_span.set_attribute.call_args_list if call[0][0] == 'gen_ai.system']
+    if should_set_gen_ai_system:
+        assert any(call[0] == ('gen_ai.system', 'openai') for call in gen_ai_system_calls), (
+            f"Expected set_attribute('gen_ai.system', 'openai') to be called, got {gen_ai_system_calls}"
+        )
+    else:
+        assert len(gen_ai_system_calls) == 0, (
+            f"Expected no calls to set_attribute with 'gen_ai.system', got {gen_ai_system_calls}"
+        )

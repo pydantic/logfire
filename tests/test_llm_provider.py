@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any
 from unittest.mock import Mock
 
+import pytest
 from opentelemetry import trace
 
 import logfire
@@ -177,8 +178,17 @@ async def test_async_streaming_preserves_original_context(exporter: TestExporter
     assert streaming['parent']['span_id'] == expected_span_id
 
 
-def test_override_provider_sets_gen_ai_system(exporter: TestExporter) -> None:
-    """Test that override_provider parameter sets the gen_ai.system attribute."""
+@pytest.mark.parametrize(
+    ('override_provider', 'expected_gen_ai_system'),
+    [
+        pytest.param('openrouter', 'openrouter', id='sets_custom_provider'),
+        pytest.param(None, None, id='none_does_not_set_attribute'),
+    ],
+)
+def test_override_provider_sync(
+    exporter: TestExporter, override_provider: str | None, expected_gen_ai_system: str | None
+) -> None:
+    """Test that override_provider parameter controls the gen_ai.system attribute for sync clients."""
     client = MockSyncClient()
     instrument_llm_provider(
         logfire=logfire.DEFAULT_LOGFIRE_INSTANCE,
@@ -188,7 +198,7 @@ def test_override_provider_sets_gen_ai_system(exporter: TestExporter) -> None:
         get_endpoint_config_fn=get_endpoint_config,
         on_response_fn=on_response,
         is_async_client_fn=is_async_client,
-        override_provider='openrouter',
+        override_provider=override_provider,
     )
 
     client.request(options=MockOptions())
@@ -196,35 +206,25 @@ def test_override_provider_sets_gen_ai_system(exporter: TestExporter) -> None:
     spans = exporter.exported_spans_as_dict()
     request = next(s for s in spans if 'Test with' in s['name'])
 
-    assert request['attributes']['gen_ai.system'] == 'openrouter'
+    if expected_gen_ai_system is None:
+        # When override_provider is None, gen_ai.system should not be set by instrument_llm_provider
+        # (it would be set later by on_response for OpenAI)
+        assert 'gen_ai.system' not in request['attributes']
+    else:
+        assert request['attributes']['gen_ai.system'] == expected_gen_ai_system
 
 
-def test_override_provider_not_set_defaults_to_no_gen_ai_system(exporter: TestExporter) -> None:
-    """Test that when override_provider is None, gen_ai.system is not set by instrument_llm_provider."""
-    client = MockSyncClient()
-    instrument_llm_provider(
-        logfire=logfire.DEFAULT_LOGFIRE_INSTANCE,
-        client=client,
-        suppress_otel=False,
-        scope_suffix='test',
-        get_endpoint_config_fn=get_endpoint_config,
-        on_response_fn=on_response,
-        is_async_client_fn=is_async_client,
-        override_provider=None,
-    )
-
-    client.request(options=MockOptions())
-
-    spans = exporter.exported_spans_as_dict()
-    request = next(s for s in spans if 'Test with' in s['name'])
-
-    # When override_provider is None, gen_ai.system should not be set by instrument_llm_provider
-    # (it would be set later by on_response for OpenAI)
-    assert 'gen_ai.system' not in request['attributes']
-
-
-async def test_override_provider_async_client(exporter: TestExporter) -> None:
-    """Test that override_provider works with async clients."""
+@pytest.mark.parametrize(
+    ('override_provider', 'expected_gen_ai_system'),
+    [
+        pytest.param('openrouter', 'openrouter', id='sets_custom_provider'),
+        pytest.param(None, None, id='none_does_not_set_attribute'),
+    ],
+)
+async def test_override_provider_async(
+    exporter: TestExporter, override_provider: str | None, expected_gen_ai_system: str | None
+) -> None:
+    """Test that override_provider parameter controls the gen_ai.system attribute for async clients."""
     client = MockAsyncClient()
     instrument_llm_provider(
         logfire=logfire.DEFAULT_LOGFIRE_INSTANCE,
@@ -234,7 +234,7 @@ async def test_override_provider_async_client(exporter: TestExporter) -> None:
         get_endpoint_config_fn=get_endpoint_config,
         on_response_fn=on_response,
         is_async_client_fn=is_async_client,
-        override_provider='custom-provider',
+        override_provider=override_provider,
     )
 
     await client.request(options=MockOptions())
@@ -242,4 +242,7 @@ async def test_override_provider_async_client(exporter: TestExporter) -> None:
     spans = exporter.exported_spans_as_dict()
     request = next(s for s in spans if 'Test with' in s['name'])
 
-    assert request['attributes']['gen_ai.system'] == 'custom-provider'
+    if expected_gen_ai_system is None:
+        assert 'gen_ai.system' not in request['attributes']
+    else:
+        assert request['attributes']['gen_ai.system'] == expected_gen_ai_system
