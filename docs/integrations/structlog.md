@@ -1,7 +1,8 @@
 ---
+title: Logfire Structlog Setup Guide
+description: Guide for integrating Structlog events directly into Pydantic Logfire via the custom StructlogProcessor.
 integration: logfire
 ---
-
 # Structlog
 
 **Logfire** has a built-in [structlog][structlog] processor that can be used to emit Logfire logs for every structlog event.

@@ -1,7 +1,8 @@
 ---
+title: "Logfire Logging: Standard Library Logging"
+description: "Guide to standard library logging via Logfire: Use LogfireLoggingHandler for simple, centralized Python logging and observability."
 integration: logfire
 ---
-
 # Standard Library Logging
 
 **Logfire** can act as a sink for [standard library logging][logging] by emitting a **Logfire** log for
@@ -26,6 +27,7 @@ every standard library log record.
 === "Using [`dictConfig()`][logging.config.dictConfig]"
 
     ```py title="main.py"
+    from logging import getLogger
     from logging.config import dictConfig
 
     import logfire

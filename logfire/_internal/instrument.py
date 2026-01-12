@@ -8,6 +8,7 @@ from collections.abc import Iterable, Sequence
 from contextlib import AbstractContextManager, asynccontextmanager, contextmanager
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
+from opentelemetry import trace
 from opentelemetry.util import types as otel_types
 from typing_extensions import LiteralString, ParamSpec
 
@@ -50,6 +51,7 @@ def instrument(
     extract_args: bool | Iterable[str],
     record_return: bool,
     allow_generator: bool,
+    new_trace: bool,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     from .main import set_user_attributes_on_raw_span
 
@@ -61,7 +63,7 @@ def instrument(
             )
 
         attributes = get_attributes(func, msg_template, tags)
-        open_span = get_open_span(logfire, attributes, span_name, extract_args, func)
+        open_span = get_open_span(logfire, attributes, span_name, extract_args, func, new_trace)
 
         if inspect.isgeneratorfunction(func):
             if not allow_generator:
@@ -119,21 +121,53 @@ def get_open_span(
     span_name: str | None,
     extract_args: bool | Iterable[str],
     func: Callable[P, R],
+    new_trace: bool,
 ) -> Callable[P, AbstractContextManager[Any]]:
     final_span_name: str = span_name or attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
 
+    def get_logfire():
+        # This avoids having a `logfire` closure variable, which would make the instrumented
+        # function unpicklable with cloudpickle.
+        # This is only possible when using `logfire.instrument` on the global instance, i.e. on the module,
+        # but that's the common case.
+        from logfire import DEFAULT_LOGFIRE_INSTANCE
+
+        return DEFAULT_LOGFIRE_INSTANCE
+
+    if get_logfire() != logfire:
+
+        def get_logfire():
+            return logfire
+
+    if new_trace:
+
+        def extra_span_kwargs() -> dict[str, Any]:
+            prev_context = trace.get_current_span().get_span_context()
+            if not prev_context.is_valid:
+                return {}
+            return {
+                'links': [trace.Link(prev_context)],
+                'context': trace.set_span_in_context(trace.INVALID_SPAN),
+            }
+    else:
+
+        def extra_span_kwargs() -> dict[str, Any]:
+            return {}
+
     # This is the fast case for when there are no arguments to extract
     def open_span(*_: P.args, **__: P.kwargs):  # type: ignore
-        return logfire._fast_span(final_span_name, attributes)  # type: ignore
+        return get_logfire()._fast_span(final_span_name, attributes, **extra_span_kwargs())  # type: ignore
 
     if extract_args is True:
         sig = inspect.signature(func)
         if sig.parameters:  # only extract args if there are any
 
             def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
-                args_dict = sig.bind(*func_args, **func_kwargs).arguments
-                return logfire._instrument_span_with_args(  # type: ignore
-                    final_span_name, attributes, args_dict
+                bound = sig.bind(*func_args, **func_kwargs)
+                bound.apply_defaults()
+                args_dict = bound.arguments
+                return get_logfire()._instrument_span_with_args(  # type: ignore
+                    final_span_name, attributes, args_dict, **extra_span_kwargs()
                 )
 
         return open_span
@@ -156,13 +190,15 @@ def get_open_span(
         if extract_args_final:  # check that there are still arguments to extract
 
             def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
-                args_dict = sig.bind(*func_args, **func_kwargs).arguments
+                bound = sig.bind(*func_args, **func_kwargs)
+                bound.apply_defaults()
+                args_dict = bound.arguments
 
                 # This line is the only difference from the extract_args=True case
                 args_dict = {k: args_dict[k] for k in extract_args_final}
 
-                return logfire._instrument_span_with_args(  # type: ignore
-                    final_span_name, attributes, args_dict
+                return get_logfire()._instrument_span_with_args(  # type: ignore
+                    final_span_name, attributes, args_dict, **extra_span_kwargs()
                 )
 
     return open_span

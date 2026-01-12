@@ -1,3 +1,7 @@
+---
+title: Pydantic Logfire Sampling Guide
+description: "Master log sampling strategies: Use head or tail sampling to control data volume and cost. Preserve Logfire span traces based on duration or error level."
+---
 # Sampling
 
 Sampling is the practice of discarding some traces or spans in order to reduce the amount of data that needs to be
@@ -246,16 +250,16 @@ uvicorn.run(app)
 ```
 
 A workaround is to explicitly put the new spans in their own trace using [
-`attach_context`][logfire.propagate.attach_context]:
+`attach_context`][logfire.attach_context]:
 
 ```python
-from logfire.propagate import attach_context
+import logfire
 
 
 async def background_task():
    # `attach_context({})` forgets existing context
    # so that spans within start a new trace.
-   with attach_context({}):
+   with logfire.attach_context({}):
       with logfire.span('new trace'):
          await asyncio.sleep(0.2)
          logfire.info('background')
@@ -326,7 +330,7 @@ for i in range(5):
 for i in range(270):
     with logfire.span('include me minimally'):
         logfire.info(f'minimal sample {i}')
-        
+
 with logfire.span('exclude me'):
     logfire.info('excluded child')
 ```

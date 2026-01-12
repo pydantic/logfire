@@ -1,3 +1,7 @@
+---
+title: "Logfire: Getting Started - Onboarding Checklist"
+description: "Get started with Logfire. This onboarding checklist guides you through initial integration, tracing setup (manual/auto), and collecting metrics data."
+---
 Welcome to the **Logfire** Onboarding Checklist! Whether you're starting a new project or integrating Logfire with an
 existing application, this guide is intended to help you quickly instrument your code and start sending as much data to
 Logfire with as little development effort as possible.
@@ -6,7 +10,6 @@ Once you've completed the checklist, you'll be collecting all the data necessary
 fix bugs, analyze user behavior, and make data-driven decisions.
 
 !!! note
-
   If you aren't familiar with traces and spans, start with the [Tracing with Spans](../../concepts.md) page.
 
 #### Logfire Onboarding Checklist
@@ -28,7 +31,6 @@ focus of this guide is on getting data into Logfire so you can leverage it in th
 introduction to the Logfire Web UI and show you how to interact with the data you're generating.
 
 !!! note
-
   For a more comprehensive walkthrough of the Logfire Web UI and its features, you may be interested in our [Logfire Web UI Guide](../web-ui/live.md).
 
 Let's get started! :rocket:

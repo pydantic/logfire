@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import openai
 from openai._legacy_response import LegacyAPIResponse
+from openai.lib.streaming.responses import ResponseStreamState
 from openai.types.chat.chat_completion import ChatCompletion
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.completion import Completion
@@ -54,15 +55,20 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         if is_current_agent_span('Responses API', 'Responses API with {gen_ai.request.model!r}'):
             return EndpointConfig(message_template='', span_data={})
 
+        stream = json_data.get('stream', False)  # type: ignore
+        span_data: dict[str, Any] = {
+            'gen_ai.request.model': json_data['model'],
+            'request_data': {'model': json_data['model'], 'stream': stream},
+            'events': inputs_to_events(
+                json_data['input'],  # type: ignore
+                json_data.get('instructions'),  # type: ignore
+            ),
+        }
+
         return EndpointConfig(
             message_template='Responses API with {gen_ai.request.model!r}',
-            span_data={
-                'gen_ai.request.model': json_data['model'],
-                'events': inputs_to_events(
-                    json_data['input'],  # type: ignore
-                    json_data.get('instructions'),  # type: ignore
-                ),
-            },
+            span_data=span_data,
+            stream_state_cls=OpenaiResponsesStreamState,
         )
     elif url == '/completions':
         return EndpointConfig(
@@ -81,7 +87,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             span_data={'request_data': json_data, 'gen_ai.request.model': json_data['model']},
         )
     else:
-        span_data: dict[str, Any] = {'request_data': json_data, 'url': url}
+        span_data = {'request_data': json_data, 'url': url}
         if 'model' in json_data:
             span_data['gen_ai.request.model'] = json_data['model']
         return EndpointConfig(
@@ -119,18 +125,33 @@ class OpenaiCompletionStreamState(StreamState):
         return {'combined_chunk_content': ''.join(self._content), 'chunk_count': len(self._content)}
 
 
+class OpenaiResponsesStreamState(StreamState):
+    def __init__(self):
+        self._state = ResponseStreamState(input_tools=openai.omit, text_format=openai.omit)
+
+    def record_chunk(self, chunk: Any) -> None:
+        self._state.handle_event(chunk)
+
+    def get_response_data(self) -> Any:
+        response = self._state._completed_response  # pyright: ignore[reportPrivateUsage]
+        if not response:  # pragma: no cover
+            raise RuntimeError("Didn't receive a `response.completed` event.")
+
+        return response
+
+    def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
+        response = self.get_response_data()
+        span_data['events'] = span_data['events'] + responses_output_events(response)
+        return span_data
+
+
 try:
     # ChatCompletionStreamState only exists in openai>=1.40.0
     from openai.lib.streaming.chat._completions import ChatCompletionStreamState
 
     class OpenaiChatCompletionStreamState(StreamState):
         def __init__(self):
-            self._stream_state = ChatCompletionStreamState(
-                # We do not need the response to be parsed into Python objects so can skip
-                # providing the `response_format` and `input_tools` arguments.
-                input_tools=openai.NOT_GIVEN,
-                response_format=openai.NOT_GIVEN,
-            )
+            self._stream_state = ChatCompletionStreamState()
 
         def record_chunk(self, chunk: ChatCompletionChunk) -> None:
             try:
@@ -166,6 +187,22 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
 
     if isinstance(response_model := getattr(response, 'model', None), str):
         span.set_attribute('gen_ai.response.model', response_model)
+
+        try:
+            from genai_prices import calc_price, extract_usage
+
+            response_data = response.model_dump()  # type: ignore
+            usage_data = extract_usage(
+                response_data,
+                provider_id='openai',
+                api_flavor='responses' if isinstance(response, Response) else 'chat',
+            )
+            span.set_attribute(
+                'operation.cost',
+                float(calc_price(usage_data.usage, model_ref=response_model, provider_id='openai').total_price),
+            )
+        except Exception:
+            pass
 
     usage = getattr(response, 'usage', None)
     input_tokens = getattr(usage, 'prompt_tokens', getattr(usage, 'input_tokens', None))

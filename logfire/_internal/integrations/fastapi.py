@@ -30,7 +30,7 @@ try:
     from .asgi import tweak_asgi_spans_tracer_provider
 except ImportError:
     raise RuntimeError(
-        'The `logfire.instrument_fastapi()` requires the `opentelemetry-instrumentation-fastapi` package.\n'
+        'The `logfire.instrument_fastapi()` method requires the `opentelemetry-instrumentation-fastapi` package.\n'
         'You can install this with:\n'
         "    pip install 'logfire[fastapi]'"
     )
@@ -197,7 +197,7 @@ class FastAPIInstrumentation:
                 # Record the end timestamp before recording exceptions.
                 set_timestamp('end_timestamp')
         except Exception as exc:
-            root_span.record_exception(exc)
+            root_span.record_exception(exc, attributes={'recorded_by_logfire_fastapi': True})
             raise
 
     async def solve_dependencies(self, request: Request | WebSocket, original: Awaitable[Any]) -> Any:

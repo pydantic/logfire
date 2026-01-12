@@ -1,7 +1,8 @@
 ---
+title: "Logfire Stripe Integration: Setup Guide"
+description: Instrument the Stripe Python client for tracing. Logfire integrates with requests/httpx to monitor payments and API calls.
 integration: otel
 ---
-
 # Stripe
 
 [Stripe] is a popular payment gateway that allows businesses to accept payments online.

@@ -1,7 +1,8 @@
 ---
+title: "Logfire Web Framework Integrations: FastAPI"
+description: Connect Logfire to your FastAPI app. Follow our simple install flow using Uvicorn.
 integration: otel
 ---
-
 # FastAPI
 
 **Logfire** combines custom and third-party instrumentation for [FastAPI][fastapi]
@@ -23,7 +24,7 @@ pip install uvicorn
 
 You can run it with `python main.py`:
 
-```py title="main.py"
+```py title="main.py" hl_lines="6-7"
 import logfire
 from fastapi import FastAPI
 

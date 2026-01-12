@@ -14,8 +14,9 @@ from datetime import datetime
 from textwrap import indent as indent_text
 from typing import Any, Literal, TextIO, cast
 
-from opentelemetry.sdk._logs import LogData, LogRecord
-from opentelemetry.sdk._logs.export import LogExporter, LogExportResult
+from opentelemetry._logs import LogRecord
+from opentelemetry.sdk._logs import ReadableLogRecord
+from opentelemetry.sdk._logs.export import LogRecordExporter, LogRecordExportResult
 from opentelemetry.sdk.trace import Event, ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from rich.columns import Columns
@@ -492,14 +493,14 @@ def _pending_span_parent(attributes: Mapping[str, object]) -> int | None:
 
 
 @dataclass
-class ConsoleLogExporter(LogExporter):
+class ConsoleLogExporter(LogRecordExporter):
     span_exporter: SimpleConsoleSpanExporter
 
-    def export(self, batch: Sequence[LogData]) -> LogExportResult:  # type: ignore
+    def export(self, batch: Sequence[ReadableLogRecord]) -> LogRecordExportResult:
         for log_data in batch:
             self.span_exporter.export_record(Record.from_log(log_data.log_record))
 
-        return LogExportResult.SUCCESS
+        return LogRecordExportResult.SUCCESS
 
     def shutdown(self):
         self.span_exporter.shutdown()

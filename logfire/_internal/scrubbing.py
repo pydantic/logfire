@@ -9,8 +9,8 @@ from dataclasses import dataclass
 from typing import Any, Callable, TypedDict, cast
 
 import typing_extensions
+from opentelemetry._logs import LogRecord
 from opentelemetry.attributes import BoundedAttributes
-from opentelemetry.sdk._logs import LogRecord
 from opentelemetry.sdk.trace import Event
 from opentelemetry.trace import Link
 
@@ -26,10 +26,11 @@ from .constants import (
     ATTRIBUTES_SCRUBBED_KEY,
     ATTRIBUTES_SPAN_TYPE_KEY,
     ATTRIBUTES_TAGS_KEY,
+    MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT,
     RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS,
 )
 from .stack_info import STACK_INFO_KEYS
-from .utils import ReadableSpanDict
+from .utils import ReadableSpanDict, truncate_string
 
 DEFAULT_PATTERNS = [
     'password',
@@ -44,6 +45,7 @@ DEFAULT_PATTERNS = [
     'cookie',
     'social[._ -]?security',
     'credit[._ -]?card',
+    'logfire[._ -]?token',
     *[
         # Require these to be surrounded by word boundaries or underscores,
         # to reduce the chance of accidentally matching them in a big blob of random chars, e.g. base64.
@@ -125,6 +127,7 @@ class BaseScrubber(ABC):
         'exception.stacktrace',
         'exception.type',
         'exception.message',
+        'error.type',
         'http.method',
         'http.status_code',
         'http.scheme',
@@ -133,6 +136,8 @@ class BaseScrubber(ABC):
         'http.route',
         'db.statement',
         'db.plan',
+        'fastapi.route.name',
+        'fastapi.route.operation_id',
         # Newer semantic conventions
         'url.full',
         'url.path',
@@ -141,16 +146,25 @@ class BaseScrubber(ABC):
         'agent_session_id',
         'do_not_scrub',
         'binary_content',
+        'gen_ai.input.messages',
+        'gen_ai.output.messages',
+        'gen_ai.system_instructions',
+        'pydantic_ai.all_messages',
+        'gen_ai.tool.name',
+        'gen_ai.tool.call.id',
+        'rpc.method',
+        'gen_ai.system',
+        'model_request_parameters',
     }
 
     @abstractmethod
-    def scrub_span(self, span: ReadableSpanDict): ...  # pragma: no cover
+    def scrub_span(self, span: ReadableSpanDict): ...
 
     @abstractmethod
-    def scrub_log(self, log: LogRecord) -> LogRecord: ...  # pragma: no cover
+    def scrub_log(self, log: LogRecord) -> LogRecord: ...
 
     @abstractmethod
-    def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]: ...  # pragma: no cover
+    def scrub_value(self, path: JsonPath, value: Any) -> tuple[Any, list[ScrubbedNote]]: ...
 
 
 class NoopScrubber(BaseScrubber):
@@ -313,3 +327,50 @@ class SpanScrubber:
         matched_substring = match.pattern_match.group(0)
         self.scrubbed.append(ScrubbedNote(path=match.path, matched_substring=matched_substring))
         return f'[Scrubbed due to {matched_substring!r}]'
+
+
+class MessageValueCleaner:
+    """Scrubs and truncates formatted field values to be included in the message attribute.
+
+    Use to construct the message for a single span, e.g:
+
+        cleaner = MessageValueCleaner(scrubber, check_keys=...)
+        message_parts = [cleaner.clean_value(field_name, str(value)) for field_name, value in fields]
+        message = <construct from message parts>
+        attributes = {**other_attributes, **cleaner.extra_attrs(), ATTRIBUTES_MESSAGE_KEY: message}
+
+    check_keys determines whether the key should be accounted for in scrubbing.
+    Set to False if the user explicitly provided the key, e.g. `logfire.info(f'... {password} ...')`
+    means that the password is clearly expected to be logged.
+    The password will therefore not be scrubbed here and will appear in the message.
+    However it may still be scrubbed out of the attributes, just because that process is independent.
+    """
+
+    def __init__(self, scrubber: BaseScrubber, *, check_keys: bool):
+        self.scrubber = scrubber
+        self.scrubbed: list[ScrubbedNote] = []
+        self.check_keys = check_keys
+
+    def clean_value(self, field_name: str, value: str) -> str:
+        # Scrub before truncating so that the scrubber can see the full value.
+        # For example, if the value contains 'password=123' and 'password' is replaced by '...'
+        # because of truncation, then that leaves '=123' in the message, which is not good.
+        if field_name not in self.scrubber.SAFE_KEYS:
+            if self.check_keys:
+                # Scrubbing a dict with only one key is a simple way to check that key during the scrubbing.
+                scrubbed_value, scrubbed_notes = self.scrubber.scrub_value(('message',), {field_name: value})
+                value = scrubbed_value[field_name]
+            else:
+                # Whereas having the key in the path doesn't affect the scrubbing result,
+                # so this only looks at `value` itself.
+                value, scrubbed_notes = self.scrubber.scrub_value(('message', field_name), value)
+            self.scrubbed.extend(scrubbed_notes)
+        return self.truncate(value)
+
+    def truncate(self, value: str) -> str:
+        return truncate_string(value, max_length=MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT)
+
+    def extra_attrs(self) -> dict[str, Any]:
+        if self.scrubbed:
+            return {ATTRIBUTES_SCRUBBED_KEY: json.dumps(self.scrubbed)}
+        return {}

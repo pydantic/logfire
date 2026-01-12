@@ -5,6 +5,7 @@ import os
 from typing import Annotated, Any
 from unittest import mock
 
+import pydantic
 import pytest
 from dirty_equals import IsFloat, IsInt, IsJson
 from fastapi import BackgroundTasks, FastAPI, Response, WebSocket
@@ -22,9 +23,15 @@ import logfire
 import logfire._internal
 import logfire._internal.integrations
 import logfire._internal.integrations.fastapi
-from logfire._internal.constants import LEVEL_NUMBERS
 from logfire._internal.main import set_user_attributes_on_raw_span
+from logfire._internal.utils import get_version
 from logfire.testing import TestExporter
+
+pytestmark = [
+    pytest.mark.skipif(
+        get_version(pydantic.__version__) < get_version('2.7.0'), reason='Requires newer pydantic version'
+    ),
+]
 
 
 def test_missing_opentelemetry_dependency() -> None:
@@ -32,7 +39,7 @@ def test_missing_opentelemetry_dependency() -> None:
         with pytest.raises(RuntimeError) as exc_info:
             importlib.reload(logfire._internal.integrations.fastapi)
         assert str(exc_info.value) == snapshot("""\
-The `logfire.instrument_fastapi()` requires the `opentelemetry-instrumentation-fastapi` package.
+The `logfire.instrument_fastapi()` method requires the `opentelemetry-instrumentation-fastapi` package.
 You can install this with:
     pip install 'logfire[fastapi]'\
 """)
@@ -74,8 +81,8 @@ async def echo_body(request: Request):
     return await request.body()
 
 
-async def bad_request_error():
-    raise HTTPException(400)
+async def http_exception(code: int):
+    raise HTTPException(code)
 
 
 async def websocket_endpoint(websocket: WebSocket, name: str):
@@ -109,7 +116,7 @@ def app():
     app.get('/other', name='other_route_name', operation_id='other_route_operation_id')(other_route)
     app.get('/exception')(exception)
     app.get('/validation_error')(validation_error)
-    app.get('/bad_request_error')(bad_request_error)
+    app.get('/http_exception/{code}')(http_exception)
     app.get('/with_path_param/{param}')(with_path_param)
     app.get('/secret/{path_param}', name='secret')(get_secret)
     app.get('/bad_dependency_route/{good}')(bad_dependency_route)
@@ -186,8 +193,8 @@ def test_bad_dependency_route(client: TestClient, exporter: TestExporter) -> Non
                 'name': 'GET /bad_dependency_route/{good} http send response.start',
                 'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 8000000000,
-                'end_time': 9000000000,
+                'start_time': 9000000000,
+                'end_time': 10000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET /bad_dependency_route/{good} http send response.start',
@@ -202,8 +209,8 @@ def test_bad_dependency_route(client: TestClient, exporter: TestExporter) -> Non
                 'name': 'GET /bad_dependency_route/{good} http send response.body',
                 'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 10000000000,
-                'end_time': 11000000000,
+                'start_time': 11000000000,
+                'end_time': 12000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET /bad_dependency_route/{good} http send response.body',
@@ -216,7 +223,7 @@ def test_bad_dependency_route(client: TestClient, exporter: TestExporter) -> Non
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
-                'end_time': 12000000000,
+                'end_time': 13000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET /bad_dependency_route/good_value',
@@ -249,6 +256,7 @@ def test_bad_dependency_route(client: TestClient, exporter: TestExporter) -> Non
                     },
                     'fastapi.arguments.start_timestamp': '1970-01-01T00:00:03.000000Z',
                     'fastapi.arguments.end_timestamp': '1970-01-01T00:00:04.000000Z',
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                     'http.status_code': 500,
                     'http.response.status_code': 500,
                     'error.type': '500',
@@ -257,7 +265,7 @@ def test_bad_dependency_route(client: TestClient, exporter: TestExporter) -> Non
                 'events': [
                     {
                         'name': 'exception',
-                        'timestamp': 5000000000,
+                        'timestamp': 8000000000,
                         'attributes': {
                             'exception.type': 'ValueError',
                             'exception.message': 'bad dependency',
@@ -342,13 +350,183 @@ def test_404(client: TestClient, exporter: TestExporter) -> None:
     )
 
 
-def test_400(client: TestClient, exporter: TestExporter) -> None:
-    response = client.get('/bad_request_error')
-    assert response.status_code == 400
+def test_http_exceptions(client: TestClient, exporter: TestExporter) -> None:
+    assert client.get('/http_exception/200').status_code == 200
+    assert client.get('/http_exception/400').status_code == 400
+    assert client.get('/http_exception/500').status_code == 500
 
-    for span in exporter.exported_spans:
-        if span.events:
-            assert span.attributes and span.attributes['logfire.level_num'] == LEVEL_NUMBERS['warn']
+    assert [
+        span for span in exporter.exported_spans_as_dict() if span['name'] == 'GET /http_exception/{code}'
+    ] == snapshot(
+        [
+            {
+                'name': 'GET /http_exception/{code}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 16000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /http_exception/200',
+                    'http.scheme': 'http',
+                    'url.scheme': 'http',
+                    'http.host': 'testserver',
+                    'server.address': 'testserver',
+                    'net.host.port': 80,
+                    'server.port': 80,
+                    'http.flavor': '1.1',
+                    'network.protocol.version': '1.1',
+                    'http.target': '/http_exception/200',
+                    'url.path': '/http_exception/200',
+                    'http.url': 'http://testserver/http_exception/200',
+                    'http.method': 'GET',
+                    'http.request.method': 'GET',
+                    'http.server_name': 'testserver',
+                    'http.user_agent': 'testclient',
+                    'user_agent.original': 'testclient',
+                    'net.peer.ip': 'testclient',
+                    'client.address': 'testclient',
+                    'net.peer.port': 50000,
+                    'client.port': 50000,
+                    'http.route': '/http_exception/{code}',
+                    'fastapi.route.name': 'http_exception',
+                    'fastapi.route.operation_id': 'null',
+                    'logfire.json_schema': '{"type":"object","properties":{"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"}}}',
+                    'fastapi.arguments.start_timestamp': '1970-01-01T00:00:03.000000Z',
+                    'fastapi.arguments.end_timestamp': '1970-01-01T00:00:04.000000Z',
+                    'fastapi.endpoint_function.start_timestamp': '1970-01-01T00:00:07.000000Z',
+                    'fastapi.endpoint_function.end_timestamp': '1970-01-01T00:00:08.000000Z',
+                    'http.status_code': 200,
+                    'http.response.status_code': 200,
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 9000000000,
+                        'attributes': {
+                            'exception.type': 'fastapi.exceptions.HTTPException',
+                            'exception.message': '200: OK',
+                            'exception.stacktrace': 'fastapi.exceptions.HTTPException: 200: OK',
+                            'exception.escaped': 'False',
+                            'recorded_by_logfire_fastapi': True,
+                        },
+                    }
+                ],
+            },
+            {
+                'name': 'GET /http_exception/{code}',
+                'context': {'trace_id': 2, 'span_id': 11, 'is_remote': False},
+                'parent': None,
+                'start_time': 17000000000,
+                'end_time': 32000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /http_exception/400',
+                    'http.scheme': 'http',
+                    'url.scheme': 'http',
+                    'http.host': 'testserver',
+                    'server.address': 'testserver',
+                    'net.host.port': 80,
+                    'server.port': 80,
+                    'http.flavor': '1.1',
+                    'network.protocol.version': '1.1',
+                    'http.target': '/http_exception/400',
+                    'url.path': '/http_exception/400',
+                    'http.url': 'http://testserver/http_exception/400',
+                    'http.method': 'GET',
+                    'http.request.method': 'GET',
+                    'http.server_name': 'testserver',
+                    'http.user_agent': 'testclient',
+                    'user_agent.original': 'testclient',
+                    'net.peer.ip': 'testclient',
+                    'client.address': 'testclient',
+                    'net.peer.port': 50000,
+                    'client.port': 50000,
+                    'http.route': '/http_exception/{code}',
+                    'fastapi.route.name': 'http_exception',
+                    'fastapi.route.operation_id': 'null',
+                    'logfire.json_schema': '{"type":"object","properties":{"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"}}}',
+                    'fastapi.arguments.start_timestamp': '1970-01-01T00:00:19.000000Z',
+                    'fastapi.arguments.end_timestamp': '1970-01-01T00:00:20.000000Z',
+                    'fastapi.endpoint_function.start_timestamp': '1970-01-01T00:00:23.000000Z',
+                    'fastapi.endpoint_function.end_timestamp': '1970-01-01T00:00:24.000000Z',
+                    'logfire.level_num': 13,
+                    'http.status_code': 400,
+                    'http.response.status_code': 400,
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 25000000000,
+                        'attributes': {
+                            'exception.type': 'fastapi.exceptions.HTTPException',
+                            'exception.message': '400: Bad Request',
+                            'exception.stacktrace': 'fastapi.exceptions.HTTPException: 400: Bad Request',
+                            'exception.escaped': 'False',
+                            'recorded_by_logfire_fastapi': True,
+                        },
+                    }
+                ],
+            },
+            {
+                'name': 'GET /http_exception/{code}',
+                'context': {'trace_id': 3, 'span_id': 21, 'is_remote': False},
+                'parent': None,
+                'start_time': 33000000000,
+                'end_time': 48000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'GET /http_exception/500',
+                    'http.scheme': 'http',
+                    'url.scheme': 'http',
+                    'http.host': 'testserver',
+                    'server.address': 'testserver',
+                    'net.host.port': 80,
+                    'server.port': 80,
+                    'http.flavor': '1.1',
+                    'network.protocol.version': '1.1',
+                    'http.target': '/http_exception/500',
+                    'url.path': '/http_exception/500',
+                    'http.url': 'http://testserver/http_exception/500',
+                    'http.method': 'GET',
+                    'http.request.method': 'GET',
+                    'http.server_name': 'testserver',
+                    'http.user_agent': 'testclient',
+                    'user_agent.original': 'testclient',
+                    'net.peer.ip': 'testclient',
+                    'client.address': 'testclient',
+                    'net.peer.port': 50000,
+                    'client.port': 50000,
+                    'http.route': '/http_exception/{code}',
+                    'fastapi.route.name': 'http_exception',
+                    'fastapi.route.operation_id': 'null',
+                    'logfire.json_schema': '{"type":"object","properties":{"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"}}}',
+                    'fastapi.arguments.start_timestamp': '1970-01-01T00:00:35.000000Z',
+                    'fastapi.arguments.end_timestamp': '1970-01-01T00:00:36.000000Z',
+                    'fastapi.endpoint_function.start_timestamp': '1970-01-01T00:00:39.000000Z',
+                    'fastapi.endpoint_function.end_timestamp': '1970-01-01T00:00:40.000000Z',
+                    'http.status_code': 500,
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
+                    'http.response.status_code': 500,
+                    'error.type': '500',
+                    'logfire.level_num': 17,
+                },
+                'events': [
+                    {
+                        'name': 'exception',
+                        'timestamp': 41000000000,
+                        'attributes': {
+                            'exception.type': 'fastapi.exceptions.HTTPException',
+                            'exception.message': '500: Internal Server Error',
+                            'exception.stacktrace': 'fastapi.exceptions.HTTPException: 500: Internal Server Error',
+                            'exception.escaped': 'False',
+                            'recorded_by_logfire_fastapi': True,
+                        },
+                    }
+                ],
+            },
+        ]
+    )
 
 
 def test_path_param(client: TestClient, exporter: TestExporter) -> None:
@@ -1491,8 +1669,8 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
                 'name': 'GET /exception http send response.start',
                 'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 12000000000,
-                'end_time': 13000000000,
+                'start_time': 13000000000,
+                'end_time': 14000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET /exception http send response.start',
@@ -1507,8 +1685,8 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
                 'name': 'GET /exception http send response.body',
                 'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 14000000000,
-                'end_time': 15000000000,
+                'start_time': 15000000000,
+                'end_time': 16000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET /exception http send response.body',
@@ -1521,7 +1699,7 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
-                'end_time': 16000000000,
+                'end_time': 17000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'GET /exception',
@@ -1553,6 +1731,7 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
                     'fastapi.arguments.end_timestamp': '1970-01-01T00:00:04.000000Z',
                     'fastapi.endpoint_function.start_timestamp': '1970-01-01T00:00:07.000000Z',
                     'fastapi.endpoint_function.end_timestamp': '1970-01-01T00:00:08.000000Z',
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                     'http.status_code': 500,
                     'http.response.status_code': 500,
                     'error.type': '500',
@@ -1561,7 +1740,7 @@ def test_fastapi_unhandled_exception(client: TestClient, exporter: TestExporter)
                 'events': [
                     {
                         'name': 'exception',
-                        'timestamp': 9000000000,
+                        'timestamp': 12000000000,
                         'attributes': {
                             'exception.type': 'ValueError',
                             'exception.message': 'test exception',
@@ -1625,8 +1804,8 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                         'timestamp': 10000000000,
                         'attributes': {
                             'exception.type': 'fastapi.exceptions.RequestValidationError',
-                            'exception.message': '[]',
-                            'exception.stacktrace': 'fastapi.exceptions.RequestValidationError: []',
+                            'exception.message': '0 validation errors:',
+                            'exception.stacktrace': 'fastapi.exceptions.RequestValidationError: 0 validation errors:',
                             'exception.escaped': 'True',
                         },
                     }
@@ -1706,9 +1885,10 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                         'timestamp': 9000000000,
                         'attributes': {
                             'exception.type': 'fastapi.exceptions.RequestValidationError',
-                            'exception.message': '[]',
-                            'exception.stacktrace': 'fastapi.exceptions.RequestValidationError: []',
+                            'exception.message': '0 validation errors:',
+                            'exception.stacktrace': 'fastapi.exceptions.RequestValidationError: 0 validation errors:',
                             'exception.escaped': 'False',
+                            'recorded_by_logfire_fastapi': True,
                         },
                     }
                 ],
@@ -1892,6 +2072,7 @@ def make_request_hook_spans(record_send_receive: bool):
     def server_request_hook(span: Any, _scope: dict[str, Any]):
         logfire.info('server_request_hook')
         set_user_attributes_on_raw_span(span, {'attr_key': 'attr_val'})
+        span.add_event('server_request_hook')
 
     with logfire.instrument_fastapi(
         app,
@@ -1930,8 +2111,8 @@ def test_request_hooks_without_send_receiev_spans(exporter: TestExporter):
                 'name': 'client_request_hook',
                 'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 6000000000,
-                'end_time': 6000000000,
+                'start_time': 7000000000,
+                'end_time': 7000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
@@ -1946,8 +2127,8 @@ def test_request_hooks_without_send_receiev_spans(exporter: TestExporter):
                 'name': 'client_response_hook',
                 'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 8000000000,
-                'end_time': 8000000000,
+                'start_time': 9000000000,
+                'end_time': 9000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
@@ -1962,8 +2143,8 @@ def test_request_hooks_without_send_receiev_spans(exporter: TestExporter):
                 'name': 'client_response_hook',
                 'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 9000000000,
-                'end_time': 9000000000,
+                'start_time': 10000000000,
+                'end_time': 10000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
@@ -1979,7 +2160,7 @@ def test_request_hooks_without_send_receiev_spans(exporter: TestExporter):
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
-                'end_time': 10000000000,
+                'end_time': 11000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'POST /echo_body',
@@ -2007,16 +2188,17 @@ def test_request_hooks_without_send_receiev_spans(exporter: TestExporter):
                     'attr_key': 'attr_val',
                     'fastapi.route.name': 'echo_body',
                     'fastapi.route.operation_id': 'null',
-                    'fastapi.arguments.start_timestamp': '1970-01-01T00:00:03.000000Z',
-                    'fastapi.arguments.end_timestamp': '1970-01-01T00:00:04.000000Z',
+                    'fastapi.arguments.start_timestamp': '1970-01-01T00:00:04.000000Z',
+                    'fastapi.arguments.end_timestamp': '1970-01-01T00:00:05.000000Z',
                     'fastapi.arguments.values': '{}',
                     'fastapi.arguments.errors': '[]',
-                    'fastapi.endpoint_function.start_timestamp': '1970-01-01T00:00:05.000000Z',
-                    'fastapi.endpoint_function.end_timestamp': '1970-01-01T00:00:07.000000Z',
+                    'fastapi.endpoint_function.start_timestamp': '1970-01-01T00:00:06.000000Z',
+                    'fastapi.endpoint_function.end_timestamp': '1970-01-01T00:00:08.000000Z',
                     'logfire.json_schema': '{"type":"object","properties":{"attr_key":{},"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"},"fastapi.arguments.values":{"type":"object"},"fastapi.arguments.errors":{"type":"array"}}}',
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                 },
+                'events': [{'name': 'server_request_hook', 'timestamp': 3000000000}],
             },
         ]
     )
@@ -2046,8 +2228,8 @@ def test_request_hooks_with_send_receive_spans(exporter: TestExporter):
                 'name': 'client_request_hook',
                 'context': {'trace_id': 1, 'span_id': 6, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
-                'start_time': 7000000000,
-                'end_time': 7000000000,
+                'start_time': 8000000000,
+                'end_time': 8000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
@@ -2062,8 +2244,8 @@ def test_request_hooks_with_send_receive_spans(exporter: TestExporter):
                 'name': 'POST /echo_body http receive request',
                 'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 6000000000,
-                'end_time': 8000000000,
+                'start_time': 7000000000,
+                'end_time': 9000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'POST /echo_body http receive request',
@@ -2075,8 +2257,8 @@ def test_request_hooks_with_send_receive_spans(exporter: TestExporter):
                 'name': 'client_response_hook',
                 'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
-                'start_time': 11000000000,
-                'end_time': 11000000000,
+                'start_time': 12000000000,
+                'end_time': 12000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
@@ -2091,8 +2273,8 @@ def test_request_hooks_with_send_receive_spans(exporter: TestExporter):
                 'name': 'POST /echo_body http send response.start',
                 'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 10000000000,
-                'end_time': 12000000000,
+                'start_time': 11000000000,
+                'end_time': 13000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'POST /echo_body http send response.start',
@@ -2106,8 +2288,8 @@ def test_request_hooks_with_send_receive_spans(exporter: TestExporter):
                 'name': 'client_response_hook',
                 'context': {'trace_id': 1, 'span_id': 12, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 10, 'is_remote': False},
-                'start_time': 14000000000,
-                'end_time': 14000000000,
+                'start_time': 15000000000,
+                'end_time': 15000000000,
                 'attributes': {
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
@@ -2122,8 +2304,8 @@ def test_request_hooks_with_send_receive_spans(exporter: TestExporter):
                 'name': 'POST /echo_body http send response.body',
                 'context': {'trace_id': 1, 'span_id': 10, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 13000000000,
-                'end_time': 15000000000,
+                'start_time': 14000000000,
+                'end_time': 16000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'POST /echo_body http send response.body',
@@ -2136,7 +2318,7 @@ def test_request_hooks_with_send_receive_spans(exporter: TestExporter):
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
-                'end_time': 16000000000,
+                'end_time': 17000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'POST /echo_body',
@@ -2164,16 +2346,22 @@ def test_request_hooks_with_send_receive_spans(exporter: TestExporter):
                     'attr_key': 'attr_val',
                     'fastapi.route.name': 'echo_body',
                     'fastapi.route.operation_id': 'null',
-                    'fastapi.arguments.start_timestamp': '1970-01-01T00:00:03.000000Z',
-                    'fastapi.arguments.end_timestamp': '1970-01-01T00:00:04.000000Z',
+                    'fastapi.arguments.start_timestamp': '1970-01-01T00:00:04.000000Z',
+                    'fastapi.arguments.end_timestamp': '1970-01-01T00:00:05.000000Z',
                     'fastapi.arguments.values': '{}',
                     'fastapi.arguments.errors': '[]',
-                    'fastapi.endpoint_function.start_timestamp': '1970-01-01T00:00:05.000000Z',
-                    'fastapi.endpoint_function.end_timestamp': '1970-01-01T00:00:09.000000Z',
+                    'fastapi.endpoint_function.start_timestamp': '1970-01-01T00:00:06.000000Z',
+                    'fastapi.endpoint_function.end_timestamp': '1970-01-01T00:00:10.000000Z',
                     'logfire.json_schema': '{"type":"object","properties":{"attr_key":{},"fastapi.route.name":{},"fastapi.route.operation_id":{"type":"null"},"fastapi.arguments.values":{"type":"object"},"fastapi.arguments.errors":{"type":"array"}}}',
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                 },
+                'events': [
+                    {
+                        'name': 'server_request_hook',
+                        'timestamp': 3000000000,
+                    }
+                ],
             },
         ]
     )

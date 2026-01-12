@@ -1,3 +1,7 @@
+---
+title: "Logfire SDK CLI: SDK Command Line Interface Guide"
+description: "Use the Logfire CLI to simplify project management. Use commands to authenticate, logfire login, create new projects, and manage read/write tokens."
+---
 # SDK Command Line Interface
 
 **Logfire** comes with a CLI used for authentication and project management:
@@ -21,7 +25,11 @@ logfire auth
 ```
 
 You will be prompted to select a [data region](./data-regions.md) (EU or US). To specify this
-via the cli instead of interactively, use `logfire --region eu auth` or `logfire --region eu auth`
+via the cli instead of interactively, use `logfire --region eu auth` or `logfire --region us auth`
+
+!!! note
+    If you're using a [self-hosted Logfire instance](./self-hosted/overview.md), you can authenticate by specifying your instance's URL using the `--base-url` flag:
+    `logfire --base-url="https://<your_logfire_hostname>" auth`
 
 Then you will be given the option to open logfire in your browser:
 ![Terminal screenshot with Logfire auth command](../images/cli/terminal-screenshot-auth-1.png)

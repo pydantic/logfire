@@ -17,11 +17,12 @@ from uuid import UUID
 
 import numpy
 import pandas
+import pydantic
 import pytest
 from attrs import define
 from dirty_equals import IsJson, IsStr
 from inline_snapshot import snapshot
-from pydantic import AnyUrl, BaseModel, ConfigDict, FilePath, NameEmail, SecretBytes, SecretStr
+from pydantic import AnyUrl, BaseModel, ConfigDict, FilePath, NameEmail, RootModel, SecretBytes, SecretStr
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 from sqlalchemy import String, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
@@ -30,13 +31,16 @@ from sqlalchemy.sql.schema import ForeignKey
 from sqlmodel import SQLModel
 
 import logfire
+from logfire._internal.utils import get_version
 from logfire.testing import TestExporter
 
 if sys.version_info >= (3, 11):  # pragma: no branch
-    from enum import StrEnum
+    from enum import IntEnum, StrEnum
 else:  # pragma: no cover
 
     class StrEnum(str, Enum): ...
+
+    class IntEnum(int, Enum): ...
 
 
 pandas.set_option('display.max_columns', 10)
@@ -527,7 +531,8 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
         pytest.param(
             MySQLModel(s=10),
             's=10',
-            '{"s":10}',
+            # SQLModel requires pydantic 2.7+ now
+            '{"s":10}' if get_version(pydantic.__version__) >= get_version('2.7.0') else '"MySQLModel(s=10)"',
             {'type': 'object', 'title': 'MySQLModel', 'x-python-datatype': 'PydanticModel'},
         ),
         pytest.param(
@@ -1378,6 +1383,126 @@ def test_to_dict(exporter: TestExporter):
             }
         ]
     )
+
+
+def test_pydantic_root_model(exporter: TestExporter):
+    class Model(BaseModel):
+        name: str
+
+    class Color(StrEnum):
+        red = 'RED'
+
+    class Order(IntEnum):
+        one = 1
+
+    RootWithModel = RootModel[Model]
+    RootWithStr = RootModel[str]
+    RootWithInt = RootModel[int]
+    RootWithFloat = RootModel[float]
+    RootWithBool = RootModel[bool]
+    RootWithNone = RootModel[None]
+    # enums (which are subclasses of their base types)
+    RootWithColor = RootModel[Color]
+    RootWithOrder = RootModel[Order]
+
+    model = Model(name='with_model')
+    root_with_model = RootWithModel(root=model)
+    root_with_str = RootWithStr('with_str')
+    root_with_int = RootWithInt(-150)
+    root_with_float = RootWithFloat(2.0)
+    root_with_bool = RootWithBool(False)
+    root_with_none = RootWithNone(None)
+    root_with_color = RootWithColor(Color.red)
+    root_with_order = RootWithOrder(Order.one)
+
+    logfire.info(
+        'hi',
+        with_model=root_with_model,
+        with_str=root_with_str,
+        with_str_inner=root_with_str.root,
+        with_int=root_with_int,
+        with_int_inner=root_with_int.root,
+        with_float=root_with_float,
+        with_float_inner=root_with_float.root,
+        with_bool=root_with_bool,
+        with_bool_inner=root_with_bool.root,
+        with_none=root_with_none,
+        with_none_inner=root_with_none.root,
+        with_color=root_with_color,
+        with_color_inner=root_with_color.root,
+        with_order=root_with_order,
+        with_order_inner=root_with_order.root,
+    )
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == [
+        {
+            'name': 'hi',
+            'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+            'parent': None,
+            'start_time': 1000000000,
+            'end_time': 1000000000,
+            'attributes': {
+                'logfire.span_type': 'log',
+                'logfire.level_num': 9,
+                'logfire.msg_template': 'hi',
+                'logfire.msg': 'hi',
+                'code.filepath': 'test_json_args.py',
+                'code.function': 'test_pydantic_root_model',
+                'code.lineno': 123,
+                'with_model': {'name': 'with_model'},
+                # the model's string literal will be wrapped in single quotes to ensure it's logged properly on parsing
+                'with_str': '"with_str"',
+                'with_str_inner': 'with_str',
+                # int, float and bool in string format with non-trivial schema are aptly parsed by dashboard
+                'with_int': '-150',
+                'with_int_inner': -150,
+                'with_float': '2.0',
+                'with_float_inner': 2.0,
+                'with_bool': 'false',
+                'with_bool_inner': False,
+                'with_none': 'null',
+                'with_none_inner': 'null',
+                'with_color': '"RED"',
+                'with_color_inner': '"RED"',
+                'with_order': '1',
+                'with_order_inner': '1',
+                'logfire.json_schema': {
+                    'type': 'object',
+                    'properties': {
+                        'with_model': {
+                            'type': 'object',
+                            'title': 'Model',
+                            'x-python-datatype': 'PydanticModel',
+                        },
+                        'with_str': {'type': 'string', 'x-python-datatype': 'str'},
+                        'with_str_inner': {},
+                        'with_int': {'type': 'integer', 'x-python-datatype': 'int'},
+                        'with_int_inner': {},
+                        'with_float': {'type': 'number', 'x-python-datatype': 'float'},
+                        'with_float_inner': {},
+                        'with_bool': {'type': 'boolean', 'x-python-datatype': None},
+                        'with_bool_inner': {},
+                        'with_none': {'type': 'null'},
+                        'with_none_inner': {'type': 'null'},
+                        'with_color': {'type': 'string', 'x-python-datatype': 'str', 'title': 'Color'},
+                        'with_color_inner': {
+                            'type': 'string',
+                            'title': 'Color',
+                            'x-python-datatype': 'Enum',
+                            'enum': ['RED'],
+                        },
+                        'with_order': {'type': 'integer', 'x-python-datatype': 'int', 'title': 'Order'},
+                        'with_order_inner': {
+                            'type': 'integer',
+                            'title': 'Order',
+                            'x-python-datatype': 'Enum',
+                            'enum': [1],
+                        },
+                    },
+                },
+            },
+        }
+    ]
 
 
 def test_mock(exporter: TestExporter):

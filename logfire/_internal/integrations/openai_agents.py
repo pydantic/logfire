@@ -222,13 +222,13 @@ class LogfireWrapperBase(Generic[T]):
             self.detach()
 
     @abstractmethod
-    def on_ending(self): ...  # pragma: no cover
+    def on_ending(self): ...
 
     @abstractmethod
-    def attach(self): ...  # pragma: no cover
+    def attach(self): ...
 
     @abstractmethod
-    def detach(self): ...  # pragma: no cover
+    def detach(self): ...
 
     def __getattr__(self, item: str):
         return getattr(self.wrapped, item)
@@ -261,6 +261,10 @@ class LogfireTraceWrapper(LogfireWrapperBase[Trace], Trace):
     @property
     def name(self) -> str:
         return self.wrapped.name
+
+    @property
+    def tracing_api_key(self) -> str | None:
+        return self.wrapped.tracing_api_key
 
     def export(self) -> dict[str, Any] | None:
         return self.wrapped.export()
@@ -339,6 +343,10 @@ class LogfireSpanWrapper(LogfireWrapperBase[Span[TSpanData]], Span[TSpanData]):
     @property
     def ended_at(self) -> str | None:
         return self.wrapped.ended_at
+
+    @property
+    def tracing_api_key(self) -> str | None:
+        return self.wrapped.tracing_api_key
 
 
 def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[str, Any]:

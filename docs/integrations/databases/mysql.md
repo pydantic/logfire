@@ -1,7 +1,8 @@
 ---
+title: "Logfire MySQL Integration & Setup Guide"
+description: Trace every MySQL query with Logfire SQL logging. Set up the connection using our Docker example and automatically capture database query spans.
 integration: otel
 ---
-
 # MySQL
 
 The [`logfire.instrument_mysql()`][logfire.Logfire.instrument_mysql] method can be used to instrument the [MySQL Connector/Python][mysql-connector] database driver with **Logfire**, creating a span for every query.

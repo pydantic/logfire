@@ -1,6 +1,7 @@
 import dataclasses
 import requests
 from ..propagate import NoExtractTraceContextPropagator as NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator as WarnOnExtractTraceContextPropagator
+from ..types import ExceptionCallback as ExceptionCallback
 from .client import InvalidProjectName as InvalidProjectName, LogfireClient as LogfireClient, ProjectAlreadyExists as ProjectAlreadyExists
 from .config_params import ParamManager as ParamManager, PydanticPluginRecordValues as PydanticPluginRecordValues
 from .constants import LEVEL_NUMBERS as LEVEL_NUMBERS, LevelName as LevelName, RESOURCE_ATTRIBUTES_CODE_ROOT_PATH as RESOURCE_ATTRIBUTES_CODE_ROOT_PATH, RESOURCE_ATTRIBUTES_CODE_WORK_DIR as RESOURCE_ATTRIBUTES_CODE_WORK_DIR, RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME as RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME, RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION as RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION, RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL as RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL
@@ -29,13 +30,13 @@ from logfire.exceptions import LogfireConfigError as LogfireConfigError
 from logfire.sampling import SamplingOptions as SamplingOptions
 from logfire.sampling._tail_sampling import TailSamplingProcessor as TailSamplingProcessor
 from logfire.version import VERSION as VERSION
-from opentelemetry._events import EventLoggerProvider
 from opentelemetry.sdk._logs import LogRecordProcessor as LogRecordProcessor
 from opentelemetry.sdk.metrics.export import MetricReader as MetricReader
+from opentelemetry.sdk.metrics.view import View
 from opentelemetry.sdk.trace import SpanProcessor
 from opentelemetry.sdk.trace.id_generator import IdGenerator
 from pathlib import Path
-from typing import Any, Callable, Literal, TypedDict
+from typing import Any, Callable, ClassVar, Literal, TextIO, TypedDict
 from typing_extensions import Self, Unpack
 
 CREDENTIALS_FILENAME: str
@@ -53,6 +54,7 @@ class ConsoleOptions:
     verbose: bool = ...
     min_log_level: LevelName = ...
     show_project_link: bool = ...
+    output: TextIO | None = ...
 
 @dataclass
 class AdvancedOptions:
@@ -61,6 +63,7 @@ class AdvancedOptions:
     id_generator: IdGenerator = dataclasses.field(default_factory=Incomplete)
     ns_timestamp_generator: Callable[[], int] = ...
     log_record_processors: Sequence[LogRecordProcessor] = ...
+    exception_callback: ExceptionCallback | None = ...
     def generate_base_url(self, token: str) -> str: ...
 
 @dataclass
@@ -76,8 +79,10 @@ class PydanticPlugin:
 @dataclass
 class MetricsOptions:
     """Configuration of metrics."""
+    DEFAULT_VIEWS: ClassVar[Sequence[View]] = ...
     additional_readers: Sequence[MetricReader] = ...
     collect_in_spans: bool = ...
+    views: Sequence[View] = field(default_factory=Incomplete)
 
 @dataclass
 class CodeSource:
@@ -134,6 +139,8 @@ def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-
             If `None` uses the `LOGFIRE_INSPECT_ARGUMENTS` environment variable.
 
             Defaults to `True` if and only if the Python version is at least 3.11.
+
+            Also enables magic argument inspection in [`logfire.instrument_print()`][logfire.Logfire.instrument_print].
 
         min_level:
             Minimum log level for logs and spans to be created. By default, all logs and spans are created.
@@ -227,14 +234,6 @@ class LogfireConfig(_LogfireConfigData):
 
         Returns:
             The logger provider.
-        """
-    def get_event_logger_provider(self) -> EventLoggerProvider | None:
-        """Get an event logger provider from this `LogfireConfig`.
-
-        This is used internally and should not be called by users of the SDK.
-
-        Returns:
-            The event logger provider.
         """
     def warn_if_not_initialized(self, message: str): ...
     def suppress_scopes(self, *scopes: str) -> None: ...

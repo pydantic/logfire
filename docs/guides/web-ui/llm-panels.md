@@ -1,3 +1,7 @@
+---
+title: "LLM Panels in Logfire: Inspect LLM <> App Spans"
+description: "Monitor LLM tracing and costs with the Logfire LLM Panel. View token usage, conversation history, and deep data."
+---
 # LLM Panels
 
 Use **Logfire’s LLM panels** to inspect every round‑trip between your application and a large‑language model (LLM) in real time.
@@ -45,7 +49,9 @@ Click an LLM span to open the details panel.
 |---------------------------------------------------------------------------------------|--------------|-------|-------------------|
 | [Pydantic AI](../../integrations/llms/pydanticai.md)                                  | ✅            | ✅     | ✅                 |
 | [OpenAI](../../integrations/llms/openai.md)                                           | ✅            | ✅     | ✅                 |
+| [Google Gen AI](../../integrations/llms/google-genai.md)                              | ✅            | ✅     | ✅                 |
 | [LangChain](../../integrations/llms/langchain.md)                                     | ✅            | ✅     | ✅                 |
+| [LiteLLM](../../integrations/llms/litellm.md)                                         | ✅            | ✅     | ✅                 |
 | [Anthropic](../../integrations/llms/anthropic.md)                                     |              |       | ✅                 |
 | [Google ADK](https://github.com/pydantic/logfire/issues/1201#issuecomment-3012423974) | ✅            |       |                   |
 

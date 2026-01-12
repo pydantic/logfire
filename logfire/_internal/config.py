@@ -14,7 +14,7 @@ from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 from threading import RLock, Thread
-from typing import TYPE_CHECKING, Any, Callable, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Literal, TypedDict
 from urllib.parse import urljoin
 from uuid import uuid4
 
@@ -66,6 +66,7 @@ from logfire.sampling._tail_sampling import TailSamplingProcessor
 from logfire.version import VERSION
 
 from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
+from ..types import ExceptionCallback
 from .client import InvalidProjectName, LogfireClient, ProjectAlreadyExists
 from .config_params import ParamManager, PydanticPluginRecordValues
 from .constants import (
@@ -112,7 +113,7 @@ from .utils import (
 )
 
 if TYPE_CHECKING:
-    from opentelemetry._events import EventLoggerProvider
+    from typing import TextIO
 
     from .main import Logfire
 
@@ -158,6 +159,8 @@ class ConsoleOptions:
 
     show_project_link: bool = True
     """Whether to print the URL of the Logfire project after initialization."""
+    output: TextIO | None = None
+    """The output stream to write console output to (default: stdout)."""
 
 
 @dataclass
@@ -181,6 +184,16 @@ class AdvancedOptions:
 
     log_record_processors: Sequence[LogRecordProcessor] = ()
     """Configuration for OpenTelemetry logging. This is experimental and may be removed."""
+
+    exception_callback: ExceptionCallback | None = None
+    """Callback function that is called when an exception is recorded on a span.
+
+    This is experimental and may be modified or removed.
+
+    Note: When using `ProcessPoolExecutor`, this callback must be defined at the module level
+    (not as a local function) to be picklable. Local functions will be excluded from the
+    serialized configuration sent to child processes. See the [distributed tracing guide](https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#thread-and-pool-executors) for more details.
+    """
 
     def generate_base_url(self, token: str) -> str:
         if self.base_url is not None:
@@ -216,11 +229,51 @@ class PydanticPlugin:
 class MetricsOptions:
     """Configuration of metrics."""
 
+    DEFAULT_VIEWS: ClassVar[Sequence[View]] = (
+        View(
+            instrument_type=Histogram,
+            aggregation=ExponentialBucketHistogramAggregation(),
+        ),
+        View(
+            instrument_type=UpDownCounter,
+            instrument_name='http.server.active_requests',
+            attribute_keys={
+                'url.scheme',
+                'http.scheme',
+                'http.flavor',
+                'http.method',
+                'http.request.method',
+            },
+        ),
+    )
+    """The default OpenTelemetry metric views applied by Logfire.
+
+    This class variable is provided for reference so you can extend the defaults when configuring
+    custom views: `MetricsOptions(views=[*MetricsOptions.DEFAULT_VIEWS, View(...), View(...)])`
+
+    The default views include:
+
+    - **Exponential bucket histogram aggregation** for all `Histogram` instruments, which provides
+      better resolution and smaller payload sizes compared to fixed-bucket histograms.
+    - **Attribute filtering** for the `http.server.active_requests` `UpDownCounter`, limiting
+      attributes to `url.scheme`, `http.scheme`, `http.flavor`, `http.method`, and `http.request.method`
+      to reduce cardinality.
+    """
+
     additional_readers: Sequence[MetricReader] = ()
     """Sequence of metric readers to be used in addition to the default which exports metrics to Logfire's API."""
 
     collect_in_spans: bool = False
     """Experimental setting to add up the values of counter and histogram metrics in active spans."""
+
+    views: Sequence[View] = field(default_factory=lambda: MetricsOptions.DEFAULT_VIEWS)
+    """Sequence of OpenTelemetry metric views to apply during metric collection.
+
+    Defaults to `DEFAULT_VIEWS`. To add custom views while keeping the defaults, use:
+    `MetricsOptions(views=[*MetricsOptions.DEFAULT_VIEWS, View(...), View(...)])`
+
+    To replace the defaults entirely, pass your own sequence of views.
+    """
 
 
 @dataclass
@@ -253,7 +306,7 @@ class DeprecatedKwargs(TypedDict):
     pass
 
 
-def configure(  # noqa: D417
+def configure(
     *,
     local: bool = False,
     send_to_logfire: bool | Literal['if-token-present'] | None = None,
@@ -321,6 +374,8 @@ def configure(  # noqa: D417
             If `None` uses the `LOGFIRE_INSPECT_ARGUMENTS` environment variable.
 
             Defaults to `True` if and only if the Python version is at least 3.11.
+
+            Also enables magic argument inspection in [`logfire.instrument_print()`][logfire.Logfire.instrument_print].
 
         min_level:
             Minimum log level for logs and spans to be created. By default, all logs and spans are created.
@@ -709,12 +764,6 @@ class LogfireConfig(_LogfireConfigData):
         # thus it "shuts down" when it's gc'ed
         self._meter_provider = ProxyMeterProvider(NoOpMeterProvider())
         self._logger_provider = ProxyLoggerProvider(NoOpLoggerProvider())
-        try:
-            from opentelemetry.sdk._events import EventLoggerProvider as SDKEventLoggerProvider
-
-            self._event_logger_provider = SDKEventLoggerProvider(self._logger_provider)  # type: ignore
-        except ImportError:
-            self._event_logger_provider = None
         # This ensures that we only call OTEL's global set_tracer_provider once to avoid warnings.
         self._has_set_providers = False
         self._initialized = False
@@ -812,11 +861,7 @@ class LogfireConfig(_LogfireConfigData):
             ):
                 otel_resource_attributes[RESOURCE_ATTRIBUTES_CODE_WORK_DIR] = os.getcwd()
 
-            if emscripten:  # pragma: no cover
-                # Resource.create creates a thread pool which fails in Pyodide / Emscripten
-                resource = Resource(otel_resource_attributes)
-            else:
-                resource = Resource.create(otel_resource_attributes)
+            resource = Resource.create(otel_resource_attributes)
 
             # Set service instance ID to a random UUID if it hasn't been set already.
             # Setting it above would have also mostly worked and allowed overriding via OTEL_RESOURCE_ATTRIBUTES,
@@ -886,6 +931,7 @@ class LogfireConfig(_LogfireConfigData):
                     include_tags=self.console.include_tags,
                     verbose=self.console.verbose,
                     min_log_level=self.console.min_log_level,
+                    output=self.console.output,
                 )
                 add_span_processor(SimpleSpanProcessor(console_span_exporter))
                 log_record_processors.append(SimpleLogRecordProcessor(ConsoleLogExporter(console_span_exporter)))
@@ -895,30 +941,52 @@ class LogfireConfig(_LogfireConfigData):
                 metric_readers = list(self.metrics.additional_readers)
 
             if self.send_to_logfire:
-                credentials: LogfireCredentials | None = None
                 show_project_link: bool = self.console and self.console.show_project_link or False
 
-                # try loading credentials (and thus token) from file if a token is not already available
-                # this takes the lowest priority, behind the token passed to `configure` and the environment variable
-                if not self.token:
+                # Try loading credentials from a file.
+                # If that works, we can use it to immediately print the project link.
+                try:
                     credentials = LogfireCredentials.load_creds_file(self.data_dir)
+                except Exception:
+                    # If we have a token configured by other means, e.g. the env, no need to worry about the creds file.
+                    if not self.token:
+                        raise
+                    credentials = None
 
-                    # if we still don't have a token, try initializing a new project and writing a new creds file
+                if not self.token and self.send_to_logfire is True and credentials is None:
+                    # If we don't have a token or credentials from a file,
+                    # try initializing a new project and writing a new creds file.
                     # note, we only do this if `send_to_logfire` is explicitly `True`, not 'if-token-present'
-                    if self.send_to_logfire is True and credentials is None:
-                        client = LogfireClient.from_url(self.advanced.base_url)
-                        credentials = LogfireCredentials.initialize_project(client=client)
-                        credentials.write_creds_file(self.data_dir)
+                    client = LogfireClient.from_url(self.advanced.base_url)
+                    credentials = LogfireCredentials.initialize_project(client=client)
+                    credentials.write_creds_file(self.data_dir)
 
-                    if credentials is not None:
-                        self.token = credentials.token
-                        self.advanced.base_url = self.advanced.base_url or credentials.logfire_api_url
+                if credentials is not None:
+                    # Get token and base_url from credentials if not already set.
+                    # This means that e.g. a token in an env var takes priority over a token in a creds file.
+                    self.token = self.token or credentials.token
+                    self.advanced.base_url = self.advanced.base_url or credentials.logfire_api_url
 
                 if self.token:
+                    if credentials and self.token == credentials.token and show_project_link:
+                        # The creds file contains the project link, so we can display it immediately.
+                        # We do this if the token comes from the creds file or if it was explicitly configured
+                        # and happens to match the creds file anyway.
+                        credentials.print_token_summary()
+                        # Don't print it again in check_token below.
+                        show_project_link = False
+
+                    # Regardless of where the token comes from, check that it's valid.
+                    # Even if it comes from a creds file, it could be revoked or expired.
+                    # If it's valid and we haven't already printed a project link, print it here.
+                    # This may happen some time later in a background thread which can be annoying,
+                    # hence we try to print it eagerly above.
+                    # But we only have the link if we have a creds file, otherwise we only know the token at this point.
 
                     def check_token():
                         assert self.token is not None
-                        validated_credentials = self._initialize_credentials_from_token(self.token)
+                        with suppress_instrumentation():
+                            validated_credentials = self._initialize_credentials_from_token(self.token)
                         if show_project_link and validated_credentials is not None:
                             validated_credentials.print_token_summary()
 
@@ -931,11 +999,11 @@ class LogfireConfig(_LogfireConfigData):
                     base_url = self.advanced.generate_base_url(self.token)
                     headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': self.token}
                     session = OTLPExporterHttpSession()
-                    session.headers.update(headers)
                     span_exporter = BodySizeCheckingOTLPSpanExporter(
                         endpoint=urljoin(base_url, '/v1/traces'),
                         session=session,
                         compression=Compression.Gzip,
+                        headers=headers,
                     )
                     span_exporter = QuietSpanExporter(span_exporter)
                     span_exporter = RetryFewerSpansSpanExporter(span_exporter)
@@ -971,6 +1039,7 @@ class LogfireConfig(_LogfireConfigData):
                     log_exporter = OTLPLogExporter(
                         endpoint=urljoin(base_url, '/v1/logs'),
                         session=session,
+                        headers=headers,
                         compression=Compression.Gzip,
                     )
                     log_exporter = QuietLogExporter(log_exporter)
@@ -981,6 +1050,11 @@ class LogfireConfig(_LogfireConfigData):
                     else:
                         logfire_log_processor = BatchLogRecordProcessor(log_exporter)
                     log_record_processors.append(logfire_log_processor)
+
+                    # Forgetting to include `headers=headers` in all exporters previously allowed
+                    # env vars like OTEL_EXPORTER_OTLP_HEADERS to override ours since one session is shared.
+                    # This line is just to make sure.
+                    session.headers.update(headers)
 
             if processors_with_pending_spans:
                 pending_multiprocessor = SynchronousMultiSpanProcessor()
@@ -1020,26 +1094,11 @@ class LogfireConfig(_LogfireConfigData):
                 log_record_processors.append(logfire_log_processor)
 
             if metric_readers is not None:
+                assert isinstance(self.metrics, MetricsOptions)
                 meter_provider = MeterProvider(
                     metric_readers=metric_readers,
                     resource=resource,
-                    views=[
-                        View(
-                            instrument_type=Histogram,
-                            aggregation=ExponentialBucketHistogramAggregation(),
-                        ),
-                        View(
-                            instrument_type=UpDownCounter,
-                            instrument_name='http.server.active_requests',
-                            attribute_keys={
-                                'url.scheme',
-                                'http.scheme',
-                                'http.flavor',
-                                'http.method',
-                                'http.request.method',
-                            },
-                        ),
-                    ],
+                    views=self.metrics.views,
                 )
             else:
                 meter_provider = NoOpMeterProvider()
@@ -1070,12 +1129,7 @@ class LogfireConfig(_LogfireConfigData):
             )
             logger_provider = SDKLoggerProvider(resource)
             logger_provider.add_log_record_processor(root_log_processor)
-
-            if self._event_logger_provider:
-                # This also shuts down the underlying self._logger_provider
-                self._event_logger_provider.shutdown()
-            else:
-                self._logger_provider.shutdown()
+            self._logger_provider.shutdown()
 
             self._logger_provider.set_provider(logger_provider)
             self._logger_provider.set_min_level(self.min_level)
@@ -1085,10 +1139,6 @@ class LogfireConfig(_LogfireConfigData):
                 trace.set_tracer_provider(self._tracer_provider)
                 set_meter_provider(self._meter_provider)
                 set_logger_provider(self._logger_provider)
-                if self._event_logger_provider:
-                    from opentelemetry._events import set_event_logger_provider
-
-                    set_event_logger_provider(self._event_logger_provider)
 
             @atexit.register
             def exit_open_spans():  # pragma: no cover
@@ -1149,8 +1199,6 @@ class LogfireConfig(_LogfireConfigData):
         """
         self._meter_provider.force_flush(timeout_millis)
         self._logger_provider.force_flush(timeout_millis)
-        if self._event_logger_provider:
-            self._event_logger_provider.force_flush(timeout_millis)
         return self._tracer_provider.force_flush(timeout_millis)
 
     def get_tracer_provider(self) -> ProxyTracerProvider:
@@ -1183,18 +1231,10 @@ class LogfireConfig(_LogfireConfigData):
         """
         return self._logger_provider
 
-    def get_event_logger_provider(self) -> EventLoggerProvider | None:
-        """Get an event logger provider from this `LogfireConfig`.
-
-        This is used internally and should not be called by users of the SDK.
-
-        Returns:
-            The event logger provider.
-        """
-        return self._event_logger_provider
-
     def warn_if_not_initialized(self, message: str):
-        if not self._initialized and not self.ignore_no_config:
+        ignore_no_config_env = os.getenv('LOGFIRE_IGNORE_NO_CONFIG', '')
+        ignore_no_config = ignore_no_config_env.lower() in ('1', 'true', 't') or self.ignore_no_config
+        if not self._initialized and not ignore_no_config:
             warn_at_user_stacklevel(
                 f'{message} until `logfire.configure()` has been called. '
                 f'Set the environment variable LOGFIRE_IGNORE_NO_CONFIG=1 or add ignore_no_config=true in pyproject.toml to suppress this warning.',
@@ -1439,7 +1479,7 @@ class LogfireCredentials:
                 [f'{index}. {item[0]}/{item[1]}' for index, item in project_choices.items()]
             )
             selected_project_key = Prompt.ask(
-                f'Please select one of the following projects by number:\n{project_choices_str}\n',
+                f"Please select one of the following projects by number (requires the 'write_token' permission):\n{project_choices_str}\n",
                 choices=list(project_choices.keys()),
                 default='1',
             )

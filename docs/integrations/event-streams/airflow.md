@@ -1,7 +1,8 @@
 ---
-integration: built-in
+title: Logfire Airflow Integration via OpenTelemetry
+description: "Guide for instrumenting Apache Airflow OTEL tracing. Configure the native Airflow OpenTelemetry settings to send metrics & Airflow Pydantic data to Logfire"
+integration: "built-in"
 ---
-
 # Airflow
 
 **Airflow** has a native OpenTelemetry integration for [traces] and [metrics], which involves creating

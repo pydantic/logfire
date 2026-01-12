@@ -1,3 +1,7 @@
+---
+title: "Logfire: Live View - Monitor Spans & Traces in Real Time"
+description: "Use Logfire Live View to watch traces and logs in real time. Pivot into the SQL search pane to deep-dive and explore your traces."
+---
 # Live View
 
 The live view is the focal point of **Logfire**, where you can see traces arrive in real-time.
@@ -23,40 +27,9 @@ keyboard shortcut `cmd+enter` (or `ctrl+enter` on Windows/Linux).
 
 Note: you can run more complex queries on the [explore screen](explore.md)
 
-The schema for the records table is:
+The records table fields are documented in the [SQL reference](../../reference/sql.md).
 
-```sql
-CREATE TABLE records AS (
-    start_timestamp timestamp with time zone,
-    created_at timestamp with time zone,
-    trace_id text,
-    span_id text,
-    parent_span_id text,
-    kind span_kind,
-    end_timestamp timestamp with time zone,
-    level smallint,
-    span_name text,
-    message text,
-    attributes_json_schema text,
-    attributes jsonb,
-    tags text[],
-    otel_links jsonb,
-    otel_events jsonb,
-    is_exception boolean,
-    otel_status_code status_code,
-    otel_status_message text,
-    otel_scope_name text,
-    otel_scope_version text,
-    otel_scope_attributes jsonb,
-    service_namespace text,
-    service_name text,
-    service_version text,
-    service_instance_id text,
-    process_pid integer
-)
-```
-
-You can search for any of these in the `Reference` list:
+You can search for any of them in the `Reference` list:
 
 ![Search box reference](../../images/guide/live-view-reference.png)
 

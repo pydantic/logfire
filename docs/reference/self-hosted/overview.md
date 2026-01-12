@@ -1,6 +1,10 @@
+---
+title: "Logfire Self-Hosted: How to Deploy On-Premises"
+description: "Overview of benefits and requirements for deploying Pydantic Logfire in a self-hosted environment, including client configuration instructions."
+---
 # Self Hosted Introduction
 
-Logfire can be deployed on-premises using the official [Logifre Helm Chart](https://github.com/pydantic/logfire-helm-chart). This allows organizations the ability to fully manage their own data.
+Logfire can be deployed on-premises using the official [Logfire Helm Chart](https://github.com/pydantic/logfire-helm-chart). This allows organizations the ability to fully manage their own data.
 
 This chart is included in our [Enterprise plan](../../enterprise.md). Contact us at [sales@pydantic.dev](mailto:sales@pydantic.dev) for details.
 
@@ -18,12 +22,13 @@ This chart is included in our [Enterprise plan](../../enterprise.md). Contact us
 
 With that in mind, here are some minimum requirements that you will need to deploy logfire self-hosted:
 
-- A **Kubernetes** Cluster version `1.32` or greater
+- A **Kubernetes** Cluster
 - A **PostgreSQL** Database version `16` or greater
 - **Object Storage** such as Amazon S3, Azure Blob Storage or Google Cloud Storage
 - At least `512GB` or more local SSD scratch disk for ingest, compaction and caching
 - A **DNS/Hostname** to serve Logfire on. This does not need to be Internet accessible, but will need to be accessed over HTTP from any client.
 - An **Identity Provider** for Authenticating Users such as Github, Google or Microsoft.  **Logfire** uses [Dex for authentication](https://dexidp.io/docs/connectors/)
+- (Optional) **Kubernetes Gateway API** for advanced traffic management (instead of Ingress)
 
 Please view [installation](./installation.md) to find out how each of these are used.
 
@@ -39,6 +44,16 @@ logfire.configure(
     advanced=logfire.AdvancedOptions(base_url="https://<your_logfire_hostname>")
 )
 ```
+
+### CLI Authentication
+
+You can also authenticate with your self-hosted instance using the CLI:
+
+```bash
+logfire --base-url="https://<your_logfire_hostname>" auth
+```
+
+This will authenticate you against your self-hosted domain and store the credentials locally.
 
 ## Service Architecture
 
@@ -56,8 +71,9 @@ graph
     RD[logfire-redis:6379]
     FIA[logfire-ff-ingest:8012]
     FQA[logfire-ff-query-api:8011]
-    FCC[logfire-ff-cache:9001]
-    MW[logfire-maintenance-worker]
+    FC[logfire-ff-cache]
+    MW[logfire-ff-maintenance-worker]
+    CW[logfire-ff-compaction-worker]
 
     OS[(Object Storage)]
     PG[(Postgres DB)]
@@ -66,7 +82,7 @@ graph
     LS --> LB
     LS --> FIA
 
-    FQA --> FCC
+    FQA --> FC
     FQA --> PG
     FQA --> RD
     FQA --> OS
@@ -78,10 +94,13 @@ graph
     FIA --> RD
     FIA --> OS
 
-    FCC --> OS
+    FC --> OS
 
     MW --> PG
     MW --> OS
+
+    CW --> PG
+    CW --> OS
 
 
 ```
@@ -89,13 +108,19 @@ graph
 ### Service Descriptions
 
 #### Entry Point
-- `logfire-service` (Port 8080): Main entry point for the system
+- `logfire-service` (Port 8080): Main entry point/proxy for the system
 
 #### Core Services
 - `logfire-backend` (Port 8000): Backend service handling business logic, frontend and authentication
 - `logfire-ff-ingest` (Port 8012): API for data ingestion
+- `logfire-ff-ingest-processor`: Processes ingested data
 - `logfire-ff-query-api` (Port 8011): API for querying data
-- `logfire-ff-maintenance-worker`: Maintenance Jobs
-- `logfire-ff-compaction-worker`: Compaction Jobs
+- `logfire-ff-crud-api`: CRUD operations API
+- `logfire-ff-maintenance-worker`: Maintenance jobs
+- `logfire-ff-compaction-worker`: Data compaction jobs
 - `logfire-redis`: Live query streaming and autocomplete cache
-- `logfire-ff-cache` (Port 9001 via `logfire-ff-conhash-cache` consistent hashing): Cache service
+- `logfire-ff-cache-*`: Cache services (byte, ipc, filter) with corresponding proxy caches for consistent hashing
+- `logfire-otel-collector`: OpenTelemetry collector for internal telemetry
+- `logfire-frontend-service`: Frontend static assets
+- `logfire-worker`: Background worker for async tasks
+- `logfire-dex`: Identity provider service

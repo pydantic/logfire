@@ -1,3 +1,7 @@
+---
+title: "Pydantic Logfire: Setup Different Environments"
+description: "Learn how to separate traces from your production, staging, and local environments. Use logfire.configure() to manage different environments easily."
+---
 As developers, we find ourselves working on different environments for a project: local,
 production, sometimes staging, and depending on your company deployment strategy... You can have even more! 😅
 
@@ -56,5 +60,5 @@ environment name.
 ## Should I use environments or projects?
 
 Environments are more lightweight than projects. Projects give you the ability to assign specific
-user groups and permissions levels (see this [organization structure diagram](../reference/organization-structure.md)
+user groups and permissions levels (see this [organization and projects](../guides/web-ui/organizations-and-projects.md) documentation
 for details). So if you need to allow different team members to view dev vs. prod traces, then projects would be a better fit.

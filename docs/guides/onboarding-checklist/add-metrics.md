@@ -1,3 +1,7 @@
+---
+title: "Logfire Onboarding: Adding Metrics"
+description: "Practical guide to adding Logfire metrics: Use system metrics or manual metrics to track Counter, Gauge or Callback Metrics."
+---
 **Pydantic Logfire** can be used to collect metrics from your application and send them to a metrics backend.
 
 Metrics are a great way to record numerical values where you want to see an aggregation of the data (e.g. over time),
@@ -162,13 +166,15 @@ a background thread.
 To create a counter callback metric, use the [`logfire.metric_counter_callback`][logfire.Logfire.metric_counter_callback] function:
 
 ```py
+from typing import Iterable
+
 import logfire
-from opentelemetry.metrics import CallbackOptions, Observable
+from opentelemetry.metrics import CallbackOptions, Observation
 
 
 def cpu_time_callback(options: CallbackOptions) -> Iterable[Observation]:
     observations = []
-    with open("/proc/stat") as procstat:
+    with open("/proc/stat") as procstat: # (1)!
         procstat.readline()  # skip the first line
         for line in procstat:
             if not line.startswith("cpu"):
@@ -193,6 +199,8 @@ logfire.metric_counter_callback(
 )
 ```
 
+1. This is a Linux-specific example that will not work on macOS and Windows.
+
 You can read more about the Counter metric in the [OpenTelemetry documentation][counter-callback-metric].
 
 #### Gauge Callback
@@ -203,7 +211,10 @@ or event in your application. Unlike the counter metric, the gauge metric does n
 To create a gauge callback metric, use the [`logfire.metric_gauge_callback`][logfire.Logfire.metric_gauge_callback] function:
 
 ```py
+from typing import Iterable
+
 import logfire
+from opentelemetry.metrics import CallbackOptions, Observation
 
 
 def get_temperature(room: str) -> float:
@@ -234,7 +245,10 @@ To create an up-down counter callback metric, use the
 [`logfire.metric_up_down_counter_callback`][logfire.Logfire.metric_up_down_counter_callback] function:
 
 ```py
+from typing import Iterable
+
 import logfire
+from opentelemetry.metrics import CallbackOptions, Observation
 
 
 def get_active_users() -> int:

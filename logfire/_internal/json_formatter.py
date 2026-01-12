@@ -19,6 +19,9 @@ class JsonArgsValueFormatter:
         self._indent_step = indent
         self._newlines = indent != 0
         self._data_type_map: dict[DataType, Callable[[int, Any, JSONSchema | None], None]] = {
+            'str': self._format_string,
+            'int': self._format_number,
+            'float': self._format_number,
             'PydanticModel': partial(self._format_items, '(', '=', ')', False),
             'dataclass': partial(self._format_items, '(', '=', ')', False),
             'Mapping': partial(self._format_items, '({', ': ', '})', True),
@@ -202,6 +205,38 @@ class JsonArgsValueFormatter:
         """
         cls = schema and schema.get('title')
         output = f'{cls}({value})' if cls else value
+        self._stream.write(output)
+
+    def _format_string(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
+        """Format string value.
+
+        Examples:
+            >>> value = 'hello'
+            >>> schema = {'type': 'string', 'x-python-datatype': 'str'}
+            >>> _format_string(0, value, schema)
+            "hello"
+            >>> schema = {'type': 'string', 'x-python-datatype': 'str', 'title': 'MyString'}
+            >>> _format_string(0, value, schema)
+            MyString("hello")
+        """
+        cls = schema and schema.get('title')
+        output = f'{cls}({repr(value)})' if cls else repr(value)
+        self._stream.write(output)
+
+    def _format_number(self, _indent_current: int, value: Any, schema: JSONSchema | None) -> None:
+        """Format number value. Supports both integer and float types.
+
+        Examples:
+            >>> value = 42
+            >>> schema = {'type': 'integer', 'x-python-datatype': 'int'}
+            >>> _format_number(0, value, schema)
+            42
+            >>> schema = {'type': 'number', 'x-python-datatype': 'float', 'title': 'MyNumber'}
+            >>> _format_number(0, value, schema)
+            MyNumber(42)
+        """
+        cls = schema and schema.get('title')
+        output = f'{cls}({value})' if cls else str(value)
         self._stream.write(output)
 
     def _format_table(

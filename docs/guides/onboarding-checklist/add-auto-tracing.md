@@ -1,3 +1,7 @@
+---
+title: "Logfire Onboarding: Adding Auto-Tracing"
+description: "Enable Logfire auto-tracing to add tracing without code changes. Filter functions by duration to capture high-overhead performance bottlenecks."
+---
 # Auto-tracing
 
 The [`logfire.install_auto_tracing()`][logfire.Logfire.install_auto_tracing] method
@@ -64,7 +68,7 @@ def should_trace(module: logfire.AutoTraceModule) -> bool:
     return not module.filename.startswith(PYTHON_LIB_ROOT)
 
 
-logfire.install_auto_tracing(should_trace)
+logfire.install_auto_tracing(should_trace, min_duration=0)
 ```
 
 ## Excluding functions from tracing

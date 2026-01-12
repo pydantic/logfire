@@ -1,3 +1,7 @@
+---
+title: Pydantic Logfire Slack Alerts Setup Guide
+description: "Need to send alerts to Slack from Logfire? This guide shows how to create a Slack webhook and define SQL-based alert criteria for your Slack alert system."
+---
 # Setup Slack Alerts
 
 **Logfire** allows you to send alerts via **Slack** based upon the configured alert criteria.

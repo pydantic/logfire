@@ -1,11 +1,12 @@
 import ast
 import executing
 import types
-from .constants import ATTRIBUTES_SCRUBBED_KEY as ATTRIBUTES_SCRUBBED_KEY, MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT as MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT
-from .scrubbing import BaseScrubber as BaseScrubber, NOOP_SCRUBBER as NOOP_SCRUBBER, ScrubbedNote as ScrubbedNote
+from .ast_utils import CallNodeFinder as CallNodeFinder, get_node_source_text as get_node_source_text
+from .scrubbing import BaseScrubber as BaseScrubber, MessageValueCleaner as MessageValueCleaner, NOOP_SCRUBBER as NOOP_SCRUBBER
 from .stack_info import warn_at_user_stacklevel as warn_at_user_stacklevel
-from .utils import log_internal_error as log_internal_error, truncate_string as truncate_string
+from .utils import log_internal_error as log_internal_error
 from _typeshed import Incomplete
+from collections.abc import Iterator
 from functools import lru_cache
 from string import Formatter
 from types import CodeType as CodeType
@@ -36,19 +37,6 @@ def compile_formatted_value(node: ast.FormattedValue, ex_source: executing.Sourc
     2. A compiled code object which can be evaluated to calculate the value.
     3. Another code object which formats the value.
     """
-def get_node_source_text(node: ast.AST, ex_source: executing.Source):
-    """Returns some Python source code representing `node`.
-
-    Preferably the actual original code given by `ast.get_source_segment`,
-    but falling back to `ast.unparse(node)` if the former is incorrect.
-    This happens sometimes due to Python bugs (especially for older Python versions)
-    in the source positions of AST nodes inside f-strings.
-    """
-def get_stacklevel(frame: types.FrameType): ...
-
-class InspectArgumentsFailedWarning(Warning): ...
-
-def warn_inspect_arguments(msg: str, stacklevel: int): ...
 
 class KnownFormattingError(Exception):
     """An error raised when there's something wrong with a format string or the field values.
@@ -66,3 +54,9 @@ class FormattingFailedWarning(UserWarning): ...
 
 def warn_formatting(msg: str): ...
 def warn_fstring_await(msg: str): ...
+
+class FormattingCallNodeFinder(CallNodeFinder):
+    """Finds the call node corresponding to a call like `logfire.span` or `logfire.info`."""
+    def heuristic_main_nodes(self) -> Iterator[ast.AST]: ...
+    def heuristic_call_node_filter(self, node: ast.Call) -> bool: ...
+    def warn_inspect_arguments_middle(self): ...

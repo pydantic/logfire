@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import inspect
+import os
 import re
 import sys
+import warnings
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
@@ -11,6 +13,7 @@ from logging import getLogger
 from typing import Any, Callable
 from unittest.mock import patch
 
+import cloudpickle
 import pytest
 from dirty_equals import IsInt, IsJson, IsStr
 from inline_snapshot import Is, snapshot
@@ -25,7 +28,8 @@ from pydantic_core import ValidationError
 
 import logfire
 from logfire import Logfire, suppress_instrumentation
-from logfire._internal.config import LogfireConfig, LogfireNotConfiguredWarning, configure
+from logfire._internal.ast_utils import InspectArgumentsFailedWarning
+from logfire._internal.config import GLOBAL_CONFIG, LogfireConfig, LogfireNotConfiguredWarning, configure
 from logfire._internal.constants import (
     ATTRIBUTES_MESSAGE_KEY,
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
@@ -34,7 +38,8 @@ from logfire._internal.constants import (
     LEVEL_NUMBERS,
     LevelName,
 )
-from logfire._internal.formatter import FormattingFailedWarning, InspectArgumentsFailedWarning
+from logfire._internal.formatter import FormattingFailedWarning
+from logfire._internal.integrations.executors import serialize_config
 from logfire._internal.main import NoopSpan
 from logfire._internal.tracer import record_exception
 from logfire._internal.utils import SeededRandomIdGenerator, is_instrumentation_suppressed
@@ -65,6 +70,8 @@ def test_instrument_with_no_args(exporter: TestExporter) -> None:
     def foo(x: int):
         return x * 2
 
+    foo = cloudpickle.loads(cloudpickle.dumps(foo))  # type: ignore
+
     assert foo(2) == 4
     assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
         [
@@ -93,6 +100,8 @@ def test_instrument_with_no_parameters(exporter: TestExporter) -> None:
     @logfire.instrument
     def foo(x: int):
         return x * 2
+
+    foo = cloudpickle.loads(cloudpickle.dumps(foo))  # type: ignore
 
     assert foo(2) == 4
     assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
@@ -123,6 +132,8 @@ def test_instrument_func_with_no_params(exporter: TestExporter) -> None:
     def foo():
         return 4
 
+    foo = cloudpickle.loads(cloudpickle.dumps(foo))  # type: ignore
+
     assert foo() == 4
     assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
         [
@@ -146,11 +157,13 @@ def test_instrument_func_with_no_params(exporter: TestExporter) -> None:
 
 
 def test_instrument_extract_args_list(exporter: TestExporter) -> None:
-    @logfire.instrument(extract_args=['a', 'b'])
-    def foo(a: int, b: int, c: int):
-        return a + b + c
+    @logfire.instrument(extract_args=['a', 'b', 'optional', 'optional_kw'])
+    def foo(a: int, b: int, c: int, optional: int = 10, *, optional_kw: int = 5) -> int:
+        return a + b + c + optional + optional_kw
 
-    assert foo(1, 2, 3) == 6
+    foo = cloudpickle.loads(cloudpickle.dumps(foo))  # type: ignore
+
+    assert foo(1, 2, 3) == 21
     assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
         [
             {
@@ -168,7 +181,44 @@ def test_instrument_extract_args_list(exporter: TestExporter) -> None:
                     'logfire.msg': 'Calling tests.test_logfire.test_instrument_extract_args_list.<locals>.foo',
                     'a': 1,
                     'b': 2,
-                    'logfire.json_schema': '{"type":"object","properties":{"a":{},"b":{}}}',
+                    'optional': 10,
+                    'optional_kw': 5,
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{},"b":{},"optional":{},"optional_kw":{}}}',
+                },
+            }
+        ]
+    )
+
+
+def test_instrument_optional_args(exporter: TestExporter) -> None:
+    @logfire.instrument('Calling foo {optional=}')
+    def foo(a: int, b: int, c: int, optional: int = 10, *, optional_kw: int = 5) -> int:
+        return a + b + c + optional + optional_kw
+
+    foo = cloudpickle.loads(cloudpickle.dumps(foo))  # type: ignore
+
+    assert foo(1, 2, 3) == 21
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'Calling foo {optional=}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_instrument_optional_args.<locals>.foo',
+                    'logfire.msg_template': 'Calling foo {optional=}',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'Calling foo optional=10',
+                    'a': 1,
+                    'b': 2,
+                    'c': 3,
+                    'optional': 10,
+                    'optional_kw': 5,
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{},"b":{},"c":{},"optional":{},"optional_kw":{}}}',
                 },
             }
         ]
@@ -185,6 +235,8 @@ def test_instrument_missing_all_extract_args(exporter: TestExporter) -> None:
     assert len(warnings) == 1
     assert str(warnings[0].message) == snapshot('Ignoring missing arguments to extract: bar')
     assert warnings[0].lineno == inspect.currentframe().f_lineno - 4  # type: ignore
+
+    foo = cloudpickle.loads(cloudpickle.dumps(foo))  # type: ignore
 
     assert foo() == 4
     assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
@@ -208,12 +260,14 @@ def test_instrument_missing_all_extract_args(exporter: TestExporter) -> None:
     )
 
 
-def test_instrument_missing_some_extract_args(exporter: TestExporter) -> None:
+def test_instrument_missing_some_extract_args(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
+    lf = logfire.configure(local=True, **config_kwargs)
+
     def foo(a: int, d: int, e: int):
         return a + d + e
 
     with pytest.warns(UserWarning) as warnings:
-        foo = logfire.instrument(extract_args=['a', 'b', 'c'])(foo)
+        foo = lf.instrument(extract_args=['a', 'b', 'c'])(foo)
 
     assert len(warnings) == 1
     assert str(warnings[0].message) == snapshot('Ignoring missing arguments to extract: b, c')
@@ -710,6 +764,471 @@ def test_instrument(exporter: TestExporter):
     )
 
 
+def test_instrument_with_parent(exporter: TestExporter) -> None:
+    tagged = logfire.with_tags('test_instrument')
+
+    @tagged.instrument('hello-world {a=}', record_return=True)
+    def hello_world(a: int) -> str:
+        return f'hello {a}'
+
+    @tagged.instrument('parent', record_return=True)
+    def parent() -> str:
+        return hello_world(5)
+
+    assert parent() == 'hello 5'
+
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True, _strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'parent',
+                'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_instrument_with_parent.<locals>.parent',
+                    'logfire.msg': 'parent',
+                    'logfire.msg_template': 'parent',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                    'logfire.tags': ('test_instrument',),
+                },
+            },
+            {
+                'name': 'hello-world {a=}',
+                'context': {'trace_id': 1, 'span_id': 4, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_instrument_with_parent.<locals>.hello_world',
+                    'a': 5,
+                    'logfire.msg_template': 'hello-world {a=}',
+                    'logfire.msg': 'hello-world a=5',
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000001',
+                    'logfire.tags': ('test_instrument',),
+                },
+            },
+            {
+                'attributes': {
+                    'a': 5,
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_instrument_with_parent.<locals>.hello_world',
+                    'code.lineno': 123,
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{},"return":{}}}',
+                    'logfire.msg': 'hello-world a=5',
+                    'logfire.msg_template': 'hello-world {a=}',
+                    'logfire.span_type': 'span',
+                    'logfire.tags': ('test_instrument',),
+                    'return': 'hello 5',
+                },
+                'context': {
+                    'is_remote': False,
+                    'span_id': 3,
+                    'trace_id': 1,
+                },
+                'end_time': 3000000000,
+                'name': 'hello-world {a=}',
+                'parent': {
+                    'is_remote': False,
+                    'span_id': 1,
+                    'trace_id': 1,
+                },
+                'start_time': 2000000000,
+            },
+            {
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_instrument_with_parent.<locals>.parent',
+                    'code.lineno': 123,
+                    'logfire.json_schema': '{"type":"object","properties":{"return":{}}}',
+                    'logfire.msg': 'parent',
+                    'logfire.msg_template': 'parent',
+                    'logfire.span_type': 'span',
+                    'logfire.tags': ('test_instrument',),
+                    'return': 'hello 5',
+                },
+                'context': {
+                    'is_remote': False,
+                    'span_id': 1,
+                    'trace_id': 1,
+                },
+                'end_time': 4000000000,
+                'name': 'parent',
+                'parent': None,
+                'start_time': 1000000000,
+            },
+        ]
+    )
+
+
+def test_instrument_new_trace(exporter: TestExporter) -> None:
+    tagged = logfire.with_tags('test_instrument')
+
+    @tagged.instrument('hello-world {a=}', record_return=True, new_trace=True)
+    def hello_world(a: int) -> str:
+        return f'hello {a}'
+
+    @tagged.instrument('parent', record_return=True)
+    def parent() -> str:
+        return hello_world(5)
+
+    assert parent() == 'hello 5'
+
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True, _strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'parent',
+                'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_instrument_new_trace.<locals>.parent',
+                    'logfire.msg': 'parent',
+                    'logfire.msg_template': 'parent',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                    'logfire.tags': ('test_instrument',),
+                },
+            },
+            {
+                'name': 'hello-world {a=}',
+                'context': {'trace_id': 2, 'span_id': 4, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_instrument_new_trace.<locals>.hello_world',
+                    'a': 5,
+                    'logfire.msg_template': 'hello-world {a=}',
+                    'logfire.msg': 'hello-world a=5',
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                    'logfire.tags': ('test_instrument',),
+                },
+                'links': [{'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False}, 'attributes': {}}],
+            },
+            {
+                'attributes': {
+                    'a': 5,
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_instrument_new_trace.<locals>.hello_world',
+                    'code.lineno': 123,
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{},"return":{}}}',
+                    'logfire.msg': 'hello-world a=5',
+                    'logfire.msg_template': 'hello-world {a=}',
+                    'logfire.span_type': 'span',
+                    'logfire.tags': ('test_instrument',),
+                    'return': 'hello 5',
+                },
+                'context': {
+                    'is_remote': False,
+                    'span_id': 3,
+                    'trace_id': 2,
+                },
+                'end_time': 3000000000,
+                'links': [
+                    {
+                        'attributes': {},
+                        'context': {
+                            'is_remote': False,
+                            'span_id': 1,
+                            'trace_id': 1,
+                        },
+                    },
+                ],
+                'name': 'hello-world {a=}',
+                'parent': None,
+                'start_time': 2000000000,
+            },
+            {
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_instrument_new_trace.<locals>.parent',
+                    'code.lineno': 123,
+                    'logfire.json_schema': '{"type":"object","properties":{"return":{}}}',
+                    'logfire.msg': 'parent',
+                    'logfire.msg_template': 'parent',
+                    'logfire.span_type': 'span',
+                    'logfire.tags': ('test_instrument',),
+                    'return': 'hello 5',
+                },
+                'context': {
+                    'is_remote': False,
+                    'span_id': 1,
+                    'trace_id': 1,
+                },
+                'end_time': 4000000000,
+                'name': 'parent',
+                'parent': None,
+                'start_time': 1000000000,
+            },
+        ]
+    )
+
+
+def test_instrument_new_trace_no_extract(exporter: TestExporter) -> None:
+    tagged = logfire.with_tags('test_instrument')
+
+    @tagged.instrument('hello-world', record_return=True, new_trace=True, extract_args=False)
+    def hello_world(a: int) -> str:
+        return f'hello {a}'
+
+    @tagged.instrument('parent', record_return=True)
+    def parent() -> str:
+        return hello_world(5)
+
+    assert parent() == 'hello 5'
+
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True, _strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'parent',
+                'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_instrument_new_trace_no_extract.<locals>.parent',
+                    'logfire.msg': 'parent',
+                    'logfire.msg_template': 'parent',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                    'logfire.tags': ('test_instrument',),
+                },
+            },
+            {
+                'name': 'hello-world',
+                'context': {'trace_id': 2, 'span_id': 4, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_instrument_new_trace_no_extract.<locals>.hello_world',
+                    'logfire.msg_template': 'hello-world',
+                    'logfire.msg': 'hello-world',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                    'logfire.tags': ('test_instrument',),
+                },
+                'links': [{'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False}, 'attributes': {}}],
+            },
+            {
+                'context': {
+                    'is_remote': False,
+                    'span_id': 3,
+                    'trace_id': 2,
+                },
+                'end_time': 3000000000,
+                'links': [
+                    {
+                        'attributes': {},
+                        'context': {
+                            'is_remote': False,
+                            'span_id': 1,
+                            'trace_id': 1,
+                        },
+                    },
+                ],
+                'name': 'hello-world',
+                'parent': None,
+                'attributes': {
+                    'code.function': 'test_instrument_new_trace_no_extract.<locals>.hello_world',
+                    'logfire.msg_template': 'hello-world',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.tags': ('test_instrument',),
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'hello-world',
+                    'return': 'hello 5',
+                    'logfire.json_schema': '{"type":"object","properties":{"return":{}}}',
+                },
+                'start_time': 2000000000,
+            },
+            {
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_instrument_new_trace_no_extract.<locals>.parent',
+                    'code.lineno': 123,
+                    'logfire.json_schema': '{"type":"object","properties":{"return":{}}}',
+                    'logfire.msg': 'parent',
+                    'logfire.msg_template': 'parent',
+                    'logfire.span_type': 'span',
+                    'logfire.tags': ('test_instrument',),
+                    'return': 'hello 5',
+                },
+                'context': {
+                    'is_remote': False,
+                    'span_id': 1,
+                    'trace_id': 1,
+                },
+                'end_time': 4000000000,
+                'name': 'parent',
+                'parent': None,
+                'start_time': 1000000000,
+            },
+        ]
+    )
+
+
+def test_instrument_new_trace_no_parent(exporter: TestExporter) -> None:
+    @logfire.instrument(new_trace=True)
+    def hello_world(a: int, b: int) -> str:
+        return f'hello {a} {b}'
+
+    assert hello_world(5, 10) == 'hello 5 10'
+
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'Calling tests.test_logfire.test_instrument_new_trace_no_parent.<locals>.hello_world',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'test_instrument_new_trace_no_parent.<locals>.hello_world',
+                    'logfire.msg_template': 'Calling tests.test_logfire.test_instrument_new_trace_no_parent.<locals>.hello_world',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.msg': 'Calling tests.test_logfire.test_instrument_new_trace_no_parent.<locals>.hello_world',
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{},"b":{}}}',
+                    'a': 5,
+                    'b': 10,
+                    'logfire.span_type': 'span',
+                },
+            }
+        ]
+    )
+
+
+def test_instrument_new_trace_some_args(exporter: TestExporter) -> None:
+    tagged = logfire.with_tags('test_instrument')
+
+    @tagged.instrument('hello-world {a=}', record_return=True, new_trace=True, extract_args=['a'])
+    def hello_world(a: int, b: int) -> str:
+        return f'hello {a} {b}'
+
+    @tagged.instrument('parent', record_return=True)
+    def parent() -> str:
+        return hello_world(5, 10)
+
+    assert parent() == 'hello 5 10'
+
+    assert exporter.exported_spans_as_dict(_include_pending_spans=True, _strip_function_qualname=False) == snapshot(
+        [
+            {
+                'name': 'parent',
+                'context': {'trace_id': 1, 'span_id': 2, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_instrument_new_trace_some_args.<locals>.parent',
+                    'logfire.msg': 'parent',
+                    'logfire.msg_template': 'parent',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                    'logfire.tags': ('test_instrument',),
+                },
+            },
+            {
+                'name': 'hello-world {a=}',
+                'context': {'trace_id': 2, 'span_id': 4, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.lineno': 123,
+                    'code.function': 'test_instrument_new_trace_some_args.<locals>.hello_world',
+                    'a': 5,
+                    'logfire.msg_template': 'hello-world {a=}',
+                    'logfire.msg': 'hello-world a=5',
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{}}}',
+                    'logfire.span_type': 'pending_span',
+                    'logfire.pending_parent_id': '0000000000000000',
+                    'logfire.tags': ('test_instrument',),
+                },
+                'links': [{'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False}, 'attributes': {}}],
+            },
+            {
+                'attributes': {
+                    'a': 5,
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_instrument_new_trace_some_args.<locals>.hello_world',
+                    'code.lineno': 123,
+                    'logfire.json_schema': '{"type":"object","properties":{"a":{},"return":{}}}',
+                    'logfire.msg': 'hello-world a=5',
+                    'logfire.msg_template': 'hello-world {a=}',
+                    'logfire.span_type': 'span',
+                    'logfire.tags': ('test_instrument',),
+                    'return': 'hello 5 10',
+                },
+                'context': {
+                    'is_remote': False,
+                    'span_id': 3,
+                    'trace_id': 2,
+                },
+                'end_time': 3000000000,
+                'links': [
+                    {
+                        'attributes': {},
+                        'context': {
+                            'is_remote': False,
+                            'span_id': 1,
+                            'trace_id': 1,
+                        },
+                    },
+                ],
+                'name': 'hello-world {a=}',
+                'parent': None,
+                'start_time': 2000000000,
+            },
+            {
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_instrument_new_trace_some_args.<locals>.parent',
+                    'code.lineno': 123,
+                    'logfire.json_schema': '{"type":"object","properties":{"return":{}}}',
+                    'logfire.msg': 'parent',
+                    'logfire.msg_template': 'parent',
+                    'logfire.span_type': 'span',
+                    'logfire.tags': ('test_instrument',),
+                    'return': 'hello 5 10',
+                },
+                'context': {
+                    'is_remote': False,
+                    'span_id': 1,
+                    'trace_id': 1,
+                },
+                'end_time': 4000000000,
+                'name': 'parent',
+                'parent': None,
+                'start_time': 1000000000,
+            },
+        ]
+    )
+
+
 def test_instrument_other_callable(exporter: TestExporter):
     class Instrumented:
         def __call__(self, a: int) -> str:
@@ -1201,6 +1720,7 @@ def test_validation_error_on_instrument(exporter: TestExporter):
                             }
                         ]
                     ),
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                 },
                 'events': [
                     {
@@ -1272,6 +1792,7 @@ def test_validation_error_on_span(exporter: TestExporter) -> None:
                             }
                         ]
                     ),
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                 },
                 'events': [
                     {
@@ -1724,6 +2245,57 @@ def test_config_preserved_across_thread_or_process(
     with executor_factory() as executor:
         executor.submit(check_service_name, 'foobar!')
         executor.shutdown(wait=True)
+
+
+def _test_helper_function() -> int:
+    """Helper function for test_process_pool_executor_with_exception_callback."""
+    return 42
+
+
+def test_process_pool_executor_with_exception_callback() -> None:
+    """Test ProcessPoolExecutor with local exception_callback function.
+
+    See: https://github.com/pydantic/logfire/issues/1556
+    """
+    from logfire.types import ExceptionCallbackHelper
+
+    callback_called = False
+
+    def setup_logfire():
+        def exception_callback(helper: ExceptionCallbackHelper) -> None:
+            nonlocal callback_called
+            callback_called = True
+
+        logfire.configure(
+            send_to_logfire=False,
+            console=False,
+            advanced=logfire.AdvancedOptions(exception_callback=exception_callback),
+        )
+
+    setup_logfire()
+
+    assert _test_helper_function() == 42
+
+    with logfire.span('test') as span:
+        try:
+            raise ValueError('test exception')
+        except ValueError as e:
+            record_exception(span._span, e, callback=GLOBAL_CONFIG.advanced.exception_callback)  # type: ignore
+
+    assert callback_called
+
+    with pytest.warns(UserWarning, match='cannot be pickled'):
+        result = serialize_config()
+    assert result is None
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', category=DeprecationWarning, message='.*fork.*')
+        with pytest.warns(UserWarning, match='cannot be pickled'):
+            with ProcessPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(_test_helper_function)
+                result = future.result()
+                assert result == 42
+                executor.shutdown(wait=True)
 
 
 def test_kwarg_with_dot_in_name(exporter: TestExporter) -> None:
@@ -3202,10 +3774,7 @@ def test_logfire_span_records_exceptions_once(exporter: TestExporter):
 
         return record_exception(*args, **kwargs)
 
-    with (
-        patch('logfire._internal.tracer.record_exception', patched_record_exception),
-        patch('logfire._internal.main.record_exception', patched_record_exception),
-    ):
+    with patch('logfire._internal.tracer.record_exception', patched_record_exception):
         with pytest.raises(RuntimeError):
             with logfire.span('foo'):
                 raise RuntimeError('error')
@@ -3227,6 +3796,7 @@ def test_logfire_span_records_exceptions_once(exporter: TestExporter):
                     'logfire.msg': 'foo',
                     'logfire.span_type': 'span',
                     'logfire.level_num': 17,
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                 },
                 'events': [
                     {
@@ -3254,10 +3824,7 @@ def test_logfire_span_records_exceptions_manually_once(exporter: TestExporter):
 
         return record_exception(*args, **kwargs)
 
-    with (
-        patch('logfire._internal.tracer.record_exception', patched_record_exception),
-        patch('logfire._internal.main.record_exception', patched_record_exception),
-    ):
+    with patch('logfire._internal.tracer.record_exception', patched_record_exception):
         with logfire.span('foo') as span:
             span.record_exception(RuntimeError('error'))
 
@@ -3269,7 +3836,7 @@ def test_logfire_span_records_exceptions_manually_once(exporter: TestExporter):
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
-                'end_time': 2000000000,
+                'end_time': 3000000000,
                 'attributes': {
                     'code.filepath': 'test_logfire.py',
                     'code.function': 'test_logfire_span_records_exceptions_manually_once',
@@ -3277,11 +3844,12 @@ def test_logfire_span_records_exceptions_manually_once(exporter: TestExporter):
                     'logfire.msg_template': 'foo',
                     'logfire.msg': 'foo',
                     'logfire.span_type': 'span',
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                 },
                 'events': [
                     {
                         'name': 'exception',
-                        'timestamp': IsInt(),
+                        'timestamp': 2000000000,
                         'attributes': {
                             'exception.type': 'RuntimeError',
                             'exception.message': 'error',
@@ -3440,3 +4008,70 @@ def test_min_level(exporter: TestExporter, config_kwargs: dict[str, Any]) -> Non
     assert [span['name'] for span in exporter.exported_spans_as_dict()] == snapshot(
         ['warning span', 'notice message', 'warn message', 'default span']
     )
+
+
+def test_warn_if_not_initialized():
+    """Test that warnings are properly issued when logfire is not initialized."""
+
+    config = LogfireConfig()
+
+    with pytest.warns(LogfireNotConfiguredWarning) as warnings_list:
+        config.warn_if_not_initialized('Test message')
+
+        assert str(warnings_list[0].message) == (
+            'Test message until `logfire.configure()` has been called. '
+            'Set the environment variable LOGFIRE_IGNORE_NO_CONFIG=1 or add ignore_no_config=true in pyproject.toml to suppress this warning.'
+        )
+
+    with patch.dict(os.environ, {'LOGFIRE_IGNORE_NO_CONFIG': '1'}):
+        config.warn_if_not_initialized('Should not warn with env var')
+
+    with patch.dict(os.environ, {'LOGFIRE_IGNORE_NO_CONFIG': '0'}):
+        with pytest.warns(LogfireNotConfiguredWarning) as warnings_list:
+            config.warn_if_not_initialized('Should warn with env var 0')
+
+            assert str(warnings_list[0].message) == (
+                'Should warn with env var 0 until `logfire.configure()` has been called. '
+                'Set the environment variable LOGFIRE_IGNORE_NO_CONFIG=1 or add ignore_no_config=true in pyproject.toml to suppress this warning.'
+            )
+
+    with patch.dict(os.environ, {'LOGFIRE_IGNORE_NO_CONFIG': ''}):
+        with pytest.warns(LogfireNotConfiguredWarning) as warnings_list:
+            config.warn_if_not_initialized('Should warn with empty env var')
+
+            assert str(warnings_list[0].message) == (
+                'Should warn with empty env var until `logfire.configure()` has been called. '
+                'Set the environment variable LOGFIRE_IGNORE_NO_CONFIG=1 or add ignore_no_config=true in pyproject.toml to suppress this warning.'
+            )
+            assert len(warnings_list) == 1
+
+
+def test_warn_if_not_initialized_with_file_config():
+    """Test that warnings are suppressed when ignore_no_config is set in config file."""
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        config_dir = Path(temp_dir)
+        pyproject_toml = config_dir / 'pyproject.toml'
+        pyproject_toml.write_text('[tool.logfire]\nignore_no_config = true\n')
+
+        config = LogfireConfig(config_dir=config_dir)
+
+        with warnings.catch_warnings(record=True) as warning_list:
+            warnings.simplefilter('always')
+            config.warn_if_not_initialized('Should not warn due to config file')
+
+            logfire_warnings = [w for w in warning_list if issubclass(w.category, LogfireNotConfiguredWarning)]
+            assert len(logfire_warnings) == 0
+
+
+def test_warn_if_not_initialized_category():
+    """Test that the warning has the correct category."""
+    config = LogfireConfig()
+
+    with pytest.warns(LogfireNotConfiguredWarning) as warnings_list:
+        config.warn_if_not_initialized('Test message')
+
+        assert warnings_list[0].category == LogfireNotConfiguredWarning
+        assert issubclass(LogfireNotConfiguredWarning, UserWarning)

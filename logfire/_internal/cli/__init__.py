@@ -7,27 +7,27 @@ import functools
 import logging
 import platform
 import sys
-import webbrowser
+import warnings
 from collections.abc import Sequence
 from operator import itemgetter
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
 
 import requests
 from opentelemetry import trace
 from rich.console import Console
 
-from logfire._internal.cli.prompt import parse_prompt
 from logfire.exceptions import LogfireConfigError
 from logfire.propagate import ContextCarrier, get_context
 
 from ...version import VERSION
-from ..auth import DEFAULT_FILE, HOME_LOGFIRE, UserTokenCollection, poll_for_token, request_device_code
+from ..auth import HOME_LOGFIRE
 from ..client import LogfireClient
 from ..config import REGIONS, LogfireCredentials, get_base_url_from_token
 from ..config_params import ParamManager
 from ..tracer import SDKTracerProvider
+from .auth import parse_auth
+from .prompt import parse_prompt
 from .run import collect_instrumentation_context, parse_run, print_otel_summary
 
 BASE_OTEL_INTEGRATION_URL = 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/'
@@ -116,74 +116,13 @@ def parse_inspect(args: argparse.Namespace) -> None:
         console.print('No recommended packages found. You are all set!', style='green')  # pragma: no cover
 
 
-def parse_auth(args: argparse.Namespace) -> None:
-    """Authenticate with Logfire.
-
-    This will authenticate your machine with Logfire and store the credentials.
-    """
-    logfire_url: str | None = args.logfire_url
-
-    tokens_collection = UserTokenCollection()
-    logged_in = tokens_collection.is_logged_in(logfire_url)
-
-    if logged_in:
-        sys.stderr.writelines(
-            (
-                f'You are already logged in. (Your credentials are stored in {DEFAULT_FILE})\n',
-                'If you would like to log in using a different account, use the --region argument:\n',
-                'logfire --region <region> auth\n',
-            )
-        )
-        return
-
-    sys.stderr.writelines(
-        (
-            '\n',
-            'Welcome to Logfire! 🔥\n',
-            'Before you can send data to Logfire, we need to authenticate you.\n',
-            '\n',
-        )
-    )
-    if not logfire_url:
-        selected_region = -1
-        while not (1 <= selected_region <= len(REGIONS)):
-            sys.stderr.write('Logfire is available in multiple data regions. Please select one:\n')
-            for i, (region_id, region_data) in enumerate(REGIONS.items(), start=1):
-                sys.stderr.write(f'{i}. {region_id.upper()} (GCP region: {region_data["gcp_region"]})\n')
-
-            try:
-                selected_region = int(
-                    input(f'Selected region [{"/".join(str(i) for i in range(1, len(REGIONS) + 1))}]: ')
-                )
-            except ValueError:
-                selected_region = -1
-        logfire_url = list(REGIONS.values())[selected_region - 1]['base_url']
-
-    device_code, frontend_auth_url = request_device_code(args._session, logfire_url)
-    frontend_host = urlparse(frontend_auth_url).netloc
-    input(f'Press Enter to open {frontend_host} in your browser...')
-    try:
-        webbrowser.open(frontend_auth_url, new=2)
-    except webbrowser.Error:
-        pass
-    sys.stderr.writelines(
-        (
-            f"Please open {frontend_auth_url} in your browser to authenticate if it hasn't already.\n",
-            'Waiting for you to authenticate with Logfire...\n',
-        )
-    )
-
-    tokens_collection.add_token(logfire_url, poll_for_token(args._session, device_code, logfire_url))
-    sys.stderr.write('Successfully authenticated!\n')
-    sys.stderr.write(f'\nYour Logfire credentials are stored in {DEFAULT_FILE}\n')
-
-
 def parse_list_projects(args: argparse.Namespace) -> None:
     """List user projects."""
     client = LogfireClient.from_url(args.logfire_url)
 
     projects = client.get_user_projects()
     if projects:
+        sys.stderr.write("List of the projects you have write access to (requires the 'write_token' permission):\n\n")
         sys.stderr.write(
             _pretty_table(
                 ['Organization', 'Project'],
@@ -369,6 +308,9 @@ def _main(args: list[str] | None = None) -> None:
     global_opts = parser.add_argument_group(title='global options')
     url_or_region_grp = global_opts.add_mutually_exclusive_group()
     url_or_region_grp.add_argument('--logfire-url', help=argparse.SUPPRESS)
+    url_or_region_grp.add_argument(
+        '--base-url', help='the base URL for self-hosted Logfire instances (e.g., http://localhost:8080)'
+    )
     url_or_region_grp.add_argument('--region', choices=REGIONS, help='the region to use')
     parser.set_defaults(func=lambda _: parser.print_help())  # type: ignore
     subparsers = parser.add_subparsers(title='commands', metavar='')
@@ -423,6 +365,11 @@ def _main(args: list[str] | None = None) -> None:
     cmd_read_tokens_create.set_defaults(func=parse_create_read_token)
 
     cmd_prompt = subparsers.add_parser('prompt', help=parse_prompt.__doc__)
+    agent_code_argument_group = cmd_prompt.add_argument_group(title='code agentic specific options')
+    agent_code_group = agent_code_argument_group.add_mutually_exclusive_group()
+    agent_code_group.add_argument('--claude', action='store_true', help='verify the Claude Code setup')
+    agent_code_group.add_argument('--codex', action='store_true', help='verify the Cursor setup')
+    agent_code_group.add_argument('--opencode', action='store_true', help='verify the OpenCode setup')
     cmd_prompt.add_argument('--project', action=OrgProjectAction, help='project in the format <org>/<project>')
     cmd_prompt.add_argument('issue', nargs='?', help='the issue to get a prompt for')
     cmd_prompt.set_defaults(func=parse_prompt)
@@ -446,6 +393,15 @@ def _main(args: list[str] | None = None) -> None:
         namespace.script_and_args = unknown_args + (namespace.script_and_args or [])
     else:
         namespace = parser.parse_args(args)
+
+    if namespace.logfire_url:
+        warnings.warn(
+            'The `--logfire-url` argument is deprecated. Use `--base-url` instead.',
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
+    namespace.logfire_url = namespace.logfire_url or namespace.base_url
     namespace.logfire_url = _get_logfire_url(namespace.logfire_url, namespace.region)
 
     trace.set_tracer_provider(tracer_provider=SDKTracerProvider())

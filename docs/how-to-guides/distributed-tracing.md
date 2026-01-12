@@ -1,3 +1,7 @@
+---
+title: "Logfire Distributed Tracing: Trace Across Services"
+description: Master Logfire distributed tracing. Automatically propagate context across services using the traceparent header to connect every related span into one view.
+---
 **Logfire** builds on OpenTelemetry, which keeps track of *context* to determine the parent trace/span of a new span/log and whether it should be included by sampling. *Context propagation* is when this context is serialized and sent to another process, so that tracing can be distributed across services while allowing the full tree of spans to be cleanly reconstructed and viewed together.
 
 ## Manual Context Propagation
@@ -5,18 +9,17 @@
 **Logfire** provides a thin wrapper around the OpenTelemetry context propagation API to make manual distributed tracing easier. You shouldn't usually need to do this yourself, but it demonstrates the concept nicely. Here's an example:
 
 ```python
-from logfire.propagate import attach_context, get_context
 import logfire
 
 logfire.configure()
 
 with logfire.span('parent'):
-    ctx = get_context()
+    ctx = logfire.get_context()
 
 print(ctx)
 
 # Attach the context in another execution environment
-with attach_context(ctx):
+with logfire.attach_context(ctx):
     logfire.info('child')  # This log will be a child of the parent span.
 ```
 
@@ -65,6 +68,9 @@ with logfire.span("Doubling everything") as span:
     span.set_attribute("results", results)
 ```
 
+!!! note "`ProcessPoolExecutor` and exception_callback"
+    When using [`ProcessPoolExecutor`][concurrent.futures.ProcessPoolExecutor], the configuration is serialized and sent to child processes. If this fails because of something unpicklable (e.g. a function defined in another function passed as a callback) then a warning is emitted and no configuration is passed on. If possible, try to define callbacks at the module level. If the configuration still can't be serialized, you will have to call `logfire.configure` at the start of child processes.
+
 ## Unintentional Distributed Tracing
 
 Because instrumented web servers automatically extract the `traceparent` header by default, your spans can accidentally pick up the wrong context from an externally instrumented client, or from your cloud provider such as Google Cloud Run. This can lead to:
@@ -78,4 +84,4 @@ By default, **Logfire** warns you when trace context is extracted, e.g. when ser
 - Setting to `False` will prevent trace context from being extracted. This is recommended for web services exposed to the public internet. You can still attach/inject context to propagate to other services and create distributed traces with the web service as the root.
 - Setting to `True` implies that the context propagation is intentional and will silence the warning.
 
-The `distributed_tracing` configuration (including the warning by default) only applies when the raw OpenTelemetry API is used to extract context, as this is typically done by third-party libraries. By default, [`logfire.propagate.attach_context`][logfire.propagate.attach_context] assumes that context propagation is intended by the application. If you are writing a library, use `attach_context(context, third_party=True)` to respect the `distributed_tracing` configuration.
+The `distributed_tracing` configuration (including the warning by default) only applies when the raw OpenTelemetry API is used to extract context, as this is typically done by third-party libraries. By default, [`logfire.attach_context`][logfire.attach_context] assumes that context propagation is intended by the application. If you are writing a library, use `attach_context(context, third_party=True)` to respect the `distributed_tracing` configuration.

@@ -6,7 +6,7 @@ from collections import deque
 from collections.abc import Mapping, Sequence
 from functools import cached_property
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk._logs import LogData as LogData
+from opentelemetry.sdk._logs import ReadableLogRecord as ReadableLogRecord
 from opentelemetry.sdk.trace import ReadableSpan as ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExportResult
 from pathlib import Path
@@ -30,11 +30,12 @@ def raise_for_retryable_status(response: requests.Response): ...
 class DiskRetryer:
     """Retries requests failed by OTLPExporterHttpSession, saving the request body to disk to save memory."""
     MAX_DELAY: int
-    MAX_TASKS: int
+    MAX_TASK_SIZE: Incomplete
     LOG_INTERVAL: int
     lock: Incomplete
     thread: Thread | None
     tasks: deque[tuple[Path, dict[str, Any]]]
+    total_size: int
     session: Incomplete
     dir: Incomplete
     last_log_time: Incomplete
@@ -59,4 +60,4 @@ class QuietSpanExporter(WrapperSpanExporter):
 
 class QuietLogExporter(WrapperLogExporter):
     """A LogExporter that catches request exceptions to prevent OTEL from logging a huge traceback."""
-    def export(self, batch: Sequence[LogData]): ...
+    def export(self, batch: Sequence[ReadableLogRecord]): ...

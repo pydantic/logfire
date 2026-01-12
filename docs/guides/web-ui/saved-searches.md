@@ -1,3 +1,7 @@
+---
+title: "Logfire Saved Searches: Access, Organize & Share Queries"
+description: Share and access key trace queries. Logfire Saved Searches allow you to securely store and share critical log filters with your team.
+---
 # Saved Searches
 
 Logfire's **Saved Searches** feature allows you to quickly access, organize, and share your most useful queries in the web UI. This feature is available on the Live page, and can be tested on the [public demo](https://logfire-eu.pydantic.dev/demo/logfire-demo).

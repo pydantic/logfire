@@ -53,6 +53,9 @@ MetricName: type[
         'process.memory.virtual',
         'process.thread.count',
         'process.runtime.gc_count',
+        'cpython.gc.collected_objects',
+        'cpython.gc.collections',
+        'cpython.gc.uncollectable_objects',
     ]
 ] = Literal[  # type: ignore  # but pyright doesn't like it
     'system.cpu.simple_utilization',
@@ -80,6 +83,9 @@ MetricName: type[
     'process.memory.virtual',
     'process.thread.count',
     'process.runtime.gc_count',
+    'cpython.gc.collected_objects',
+    'cpython.gc.collections',
+    'cpython.gc.uncollectable_objects',
 ]
 
 Config = dict[MetricName, Optional[Iterable[str]]]

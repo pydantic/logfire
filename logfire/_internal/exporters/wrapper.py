@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any
 
 from opentelemetry import context
-from opentelemetry.sdk._logs import LogData, LogRecordProcessor
-from opentelemetry.sdk._logs.export import LogExporter, LogExportResult
+from opentelemetry.sdk._logs import LogRecordProcessor, ReadableLogRecord, ReadWriteLogRecord
+from opentelemetry.sdk._logs.export import LogRecordExporter, LogRecordExportResult
 from opentelemetry.sdk.metrics.export import AggregationTemporality, MetricExporter, MetricExportResult, MetricsData
 from opentelemetry.sdk.metrics.view import Aggregation
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
@@ -75,13 +75,13 @@ class WrapperSpanProcessor(SpanProcessor):
 
 
 @dataclass
-class WrapperLogExporter(LogExporter):
+class WrapperLogExporter(LogRecordExporter):
     """A base class for LogExporters that wrap another exporter."""
 
-    exporter: LogExporter
+    exporter: LogRecordExporter
 
-    def export(self, batch: Sequence[LogData]) -> LogExportResult:  # type: ignore
-        return cast(LogExportResult, self.exporter.export(batch))
+    def export(self, batch: Sequence[ReadableLogRecord]) -> LogRecordExportResult:
+        return self.exporter.export(batch)
 
     def shutdown(self):
         return self.exporter.shutdown()
@@ -93,18 +93,8 @@ class WrapperLogProcessor(LogRecordProcessor):
 
     processor: LogRecordProcessor
 
-    if hasattr(LogRecordProcessor, 'on_emit'):
-
-        def on_emit(self, log_data: LogData) -> None:
-            return self.processor.on_emit(log_data)
-
-        emit = on_emit
-    else:
-
-        def emit(self, log_data: LogData) -> None:
-            return self.processor.emit(log_data)  # type: ignore
-
-        on_emit = emit
+    def on_emit(self, log_record: ReadWriteLogRecord) -> None:
+        return self.processor.on_emit(log_record)
 
     def shutdown(self):
         return self.processor.shutdown()

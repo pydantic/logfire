@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import os
+import sys
+import unittest.mock
 from pathlib import Path
 from typing import Any
 
@@ -24,12 +26,24 @@ from logfire.testing import IncrementalIdGenerator, TestExporter, TimeGenerator
 # Emit both new and old semantic convention attribute names
 os.environ['OTEL_SEMCONV_STABILITY_OPT_IN'] = 'http/dup'
 
-# Ensure that LOGFIRE_TOKEN in the environment doesn't interfere
+# Ensure that these variables in the environment don't interfere
 os.environ['LOGFIRE_TOKEN'] = ''
+os.environ.pop('OPENAI_BASE_URL', None)
 
+# https://github.com/openai/openai-python/issues/2644
+sys.modules['openai.resources.evals'] = unittest.mock.MagicMock()
 
 get_trace_provider().shutdown()
 get_trace_provider().set_processors([])
+
+logfire.configure(send_to_logfire=False)
+
+try:
+    # This is just a simple way to perform this once.
+    # There are multiple tests that use it and we don't currently have a way to uninstrument.
+    logfire.instrument_mcp()
+except ImportError:
+    pass
 
 
 @pytest.fixture(scope='session', autouse=True)
@@ -173,6 +187,37 @@ def multiple_credentials(tmp_path: Path) -> Path:
     return auth_file
 
 
+SENSITIVE_HEADERS = [
+    # All sensitive headers should be lower case as
+    # that's how they are presented by VCR.
+    'authorization',
+    'cookie',
+    'set-cookie',
+    'x-goog-api-key',
+    'openai-organization',
+    'openai-project',
+    'x-request-id',
+    'cf-ray',
+]
+
+
+def scrub_headers(response: dict[str, Any]) -> dict[str, Any]:
+    """Remove sensitive headers from the response.
+
+    Parameters:
+        response: The response dictionary to scrub.
+
+    Returns:
+        The scrubbed response dictionary with sensitive headers removed.
+    """
+    response['headers'] = {k: v for k, v in response.get('headers', {}).items() if k.lower() not in SENSITIVE_HEADERS}
+
+    return response
+
+
 @pytest.fixture(scope='module')
-def vcr_config():
-    return {'filter_headers': ['authorization', 'cookie', 'Set-Cookie', 'x-goog-api-key']}
+def vcr_config() -> dict[str, Any]:
+    return {
+        'filter_headers': SENSITIVE_HEADERS,
+        'before_record_response': scrub_headers,
+    }

@@ -1,4 +1,5 @@
 import sys
+from typing import Callable
 
 import pytest
 from inline_snapshot import snapshot
@@ -241,4 +242,79 @@ tests.test_canonicalize_exception.test_cyclic_exception_group
 <repeated exception>
 
 </ExceptionGroup>
+""")
+
+
+def test_canonicalize_no_traceback():
+    try:
+        raise ValueError('oops')
+    except Exception as e:
+        e.__traceback__ = None
+        canonicalized = canonicalize_exception_traceback(e)
+        assert canonicalized.replace(__file__, '__file__') == snapshot("""\
+
+builtins.ValueError
+----\
+""")
+
+
+def test_recursion():
+    def foo(b: Callable[[], None]):
+        b()
+        foo(b)
+
+    def foo2():
+        foo(foo2)
+
+    def bar():
+        baz()
+
+    def baz():
+        pass
+
+    try:
+        foo(bar)
+    except Exception as e:
+        assert canonicalize_exception_traceback(e).replace(__file__, '__file__') == snapshot("""\
+
+builtins.RecursionError
+----
+tests.test_canonicalize_exception.test_recursion
+   foo(bar)
+tests.test_canonicalize_exception.foo
+   foo(b)
+
+<recursion detected>\
+""")
+
+    try:
+        foo(baz)
+    except Exception as e:
+        assert canonicalize_exception_traceback(e).replace(__file__, '__file__') == snapshot("""\
+
+builtins.RecursionError
+----
+tests.test_canonicalize_exception.test_recursion
+   foo(baz)
+tests.test_canonicalize_exception.foo
+   foo(b)
+
+<recursion detected>\
+""")
+
+    try:
+        foo2()
+    except Exception as e:
+        assert canonicalize_exception_traceback(e).replace(__file__, '__file__') == snapshot("""\
+
+builtins.RecursionError
+----
+tests.test_canonicalize_exception.test_recursion
+   foo2()
+tests.test_canonicalize_exception.foo2
+   foo(foo2)
+tests.test_canonicalize_exception.foo
+   b()
+
+<recursion detected>\
 """)

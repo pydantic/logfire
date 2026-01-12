@@ -6,9 +6,12 @@ import json
 import os
 import re
 import shlex
+import shutil
+import subprocess
 import sys
 import types
 import webbrowser
+from collections.abc import Generator
 from contextlib import ExitStack
 from pathlib import Path
 from unittest.mock import Mock, call, patch
@@ -47,7 +50,7 @@ def logfire_credentials() -> LogfireCredentials:
 
 def test_no_args(capsys: pytest.CaptureFixture[str]) -> None:
     main([])
-    assert 'usage: logfire [-h] [--version] [--region {us,eu}]  ...' in capsys.readouterr().out
+    assert 'usage: logfire [-h] [--version] [--base-url BASE_URL | --region {us,eu}]  ...' in capsys.readouterr().out
 
 
 def test_version(capsys: pytest.CaptureFixture[str]) -> None:
@@ -100,7 +103,7 @@ def test_whoami(tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, caps
         with pytest.warns(
             UserWarning, match='Logfire API returned status code 500, you may have trouble sending data.'
         ):
-            main(shlex.split(f'--logfire-url=http://localhost:0 whoami --data-dir {tmp_dir_cwd}'))
+            main(shlex.split(f'--base-url=http://localhost:0 whoami --data-dir {tmp_dir_cwd}'))
 
         assert len(request_mocker.request_history) == 1
         assert capsys.readouterr().err.splitlines() == snapshot(
@@ -118,7 +121,7 @@ def test_whoami_without_data(tmp_dir_cwd: Path, capsys: pytest.CaptureFixture[st
     current_dir = os.getcwd()
     os.chdir(tmp_dir_cwd)
     try:
-        main(['--logfire-url=http://localhost:0', 'whoami'])
+        main(['--base-url=http://localhost:0', 'whoami'])
     except SystemExit as e:
         assert e.code == 1
         assert capsys.readouterr().err.splitlines() == snapshot(
@@ -148,7 +151,7 @@ def test_whoami_logged_in(
 
         m.get('http://localhost/v1/account/me', json={'name': 'test-user'})
 
-        main(shlex.split(f'--logfire-url=http://localhost:0 whoami --data-dir {tmp_dir_cwd}'))
+        main(shlex.split(f'--base-url=http://localhost:0 whoami --data-dir {tmp_dir_cwd}'))
     assert capsys.readouterr().err.splitlines() == snapshot(
         [
             'Logged in as: test-user',
@@ -163,7 +166,7 @@ def test_whoami_default_dir(
     tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, capsys: pytest.CaptureFixture[str]
 ) -> None:
     logfire_credentials.write_creds_file(tmp_dir_cwd / '.logfire')
-    main(['--logfire-url=http://localhost:0', 'whoami'])
+    main(['--base-url=http://localhost:0', 'whoami'])
     assert capsys.readouterr().err.splitlines() == snapshot(
         [
             'Not logged in. Run `logfire auth` to log in.',
@@ -331,8 +334,8 @@ def test_auth(tmp_path: Path, webbrowser_error: bool, capsys: pytest.CaptureFixt
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
         # Necessary to assert that credentials are written to the `auth_file` (which happens from the `cli` module)
-        stack.enter_context(patch('logfire._internal.cli.DEFAULT_FILE', auth_file))
-        stack.enter_context(patch('logfire._internal.cli.input'))
+        stack.enter_context(patch('logfire._internal.cli.auth.DEFAULT_FILE', auth_file))
+        stack.enter_context(patch('logfire._internal.cli.auth.input'))
         webbrowser_open = stack.enter_context(
             patch('webbrowser.open', side_effect=webbrowser.Error if webbrowser_error is True else None)
         )
@@ -367,6 +370,7 @@ expiration = "fake_exp"
                 'Welcome to Logfire! 🔥',
                 'Before you can send data to Logfire, we need to authenticate you.',
                 '',
+                'Press Enter to open example.com in your browser...',
                 "Please open http://example.com/auth in your browser to authenticate if it hasn't already.",
                 'Waiting for you to authenticate with Logfire...',
                 'Successfully authenticated!',
@@ -382,8 +386,8 @@ def test_auth_temp_failure(tmp_path: Path) -> None:
     auth_file = tmp_path / 'default.toml'
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
-        stack.enter_context(patch('logfire._internal.cli.input'))
-        stack.enter_context(patch('logfire._internal.cli.webbrowser.open'))
+        stack.enter_context(patch('logfire._internal.cli.auth.input'))
+        stack.enter_context(patch('logfire._internal.cli.auth.webbrowser.open'))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
@@ -407,8 +411,8 @@ def test_auth_permanent_failure(tmp_path: Path) -> None:
     auth_file = tmp_path / 'default.toml'
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
-        stack.enter_context(patch('logfire._internal.cli.input'))
-        stack.enter_context(patch('logfire._internal.cli.webbrowser.open'))
+        stack.enter_context(patch('logfire._internal.cli.auth.input'))
+        stack.enter_context(patch('logfire._internal.cli.auth.webbrowser.open'))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
@@ -437,11 +441,11 @@ def test_auth_no_region_specified(tmp_path: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
         # Necessary to assert that credentials are written to the `auth_file` (which happens from the `cli` module)
-        stack.enter_context(patch('logfire._internal.cli.DEFAULT_FILE', auth_file))
+        stack.enter_context(patch('logfire._internal.cli.auth.DEFAULT_FILE', auth_file))
         # 'not_an_int' is used as the first input to test that invalid inputs are supported,
         # '2' will result in the EU region being used:
-        stack.enter_context(patch('logfire._internal.cli.input', side_effect=['not_an_int', '2', '']))
-        stack.enter_context(patch('logfire._internal.cli.webbrowser.open'))
+        stack.enter_context(patch('logfire._internal.cli.auth.input', side_effect=['not_an_int', '2', '']))
+        stack.enter_context(patch('logfire._internal.cli.auth.webbrowser.open'))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
@@ -488,7 +492,7 @@ def test_projects_list(default_credentials: Path, capsys: pytest.CaptureFixture[
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get(
-            'https://logfire-us.pydantic.dev/v1/projects/',
+            'https://logfire-us.pydantic.dev/v1/writable-projects/',
             json=[{'organization_name': 'test-org', 'project_name': 'test-pr'}],
         )
 
@@ -497,6 +501,8 @@ def test_projects_list(default_credentials: Path, capsys: pytest.CaptureFixture[
         output = capsys.readouterr().err
         assert output.splitlines() == snapshot(
             [
+                "List of the projects you have write access to (requires the 'write_token' permission):",
+                '',
                 ' Organization   | Project',
                 '----------------|--------',
                 ' test-org       | test-pr',
@@ -517,7 +523,7 @@ def test_projects_list_no_project(default_credentials: Path, capsys: pytest.Capt
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        m.get('https://logfire-us.pydantic.dev/v1/projects/', json=[])
+        m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
 
         main(['projects', 'list'])
 
@@ -543,8 +549,11 @@ def test_projects_new_with_project_name_and_org(
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        m.get('https://logfire-us.pydantic.dev/v1/projects/', json=[])
-        m.get('https://logfire-us.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
+        m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
+        )
         create_project_response = {
             'json': {
                 'project_name': 'myproject',
@@ -586,8 +595,11 @@ def test_projects_new_with_project_name_without_org(
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        m.get('https://logfire-us.pydantic.dev/v1/projects/', json=[])
-        m.get('https://logfire-us.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
+        m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
+        )
         create_project_response = {
             'json': {
                 'project_name': 'myproject',
@@ -631,8 +643,11 @@ def test_projects_new_with_project_name_and_wrong_org(
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        m.get('https://logfire-us.pydantic.dev/v1/projects/', json=[])
-        m.get('https://logfire-us.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
+        m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
+        )
         create_project_response = {
             'json': {
                 'project_name': 'myproject',
@@ -674,8 +689,11 @@ def test_projects_new_with_project_name_and_default_org(
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        m.get('https://logfire-us.pydantic.dev/v1/projects/', json=[])
-        m.get('https://logfire-us.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
+        m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
+        )
         create_project_response = {
             'json': {
                 'project_name': 'myproject',
@@ -715,9 +733,9 @@ def test_projects_new_with_project_name_multiple_organizations(
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        m.get('https://logfire-us.pydantic.dev/v1/projects/', json=[])
+        m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
         m.get(
-            'https://logfire-us.pydantic.dev/v1/organizations/',
+            'https://logfire-us.pydantic.dev/v1/organizations/available-for-projects/',
             json=[{'organization_name': 'fake_org'}, {'organization_name': 'fake_default_org'}],
         )
         m.get(
@@ -771,9 +789,9 @@ def test_projects_new_with_project_name_and_default_org_multiple_organizations(
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        m.get('https://logfire-us.pydantic.dev/v1/projects/', json=[])
+        m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
         m.get(
-            'https://logfire-us.pydantic.dev/v1/organizations/',
+            'https://logfire-us.pydantic.dev/v1/organizations/available-for-projects/',
             json=[{'organization_name': 'fake_org'}, {'organization_name': 'fake_default_org'}],
         )
         m.get(
@@ -820,8 +838,11 @@ def test_projects_new_without_project_name(
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        m.get('https://logfire-us.pydantic.dev/v1/projects/', json=[])
-        m.get('https://logfire-us.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
+        m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
+        )
         create_project_response = {
             'json': {
                 'project_name': 'myproject',
@@ -865,8 +886,11 @@ def test_projects_new_invalid_project_name(
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        m.get('https://logfire-us.pydantic.dev/v1/projects/', json=[])
-        m.get('https://logfire-us.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
+        m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
+        )
         create_project_response = {
             'json': {
                 'project_name': 'myproject',
@@ -915,8 +939,11 @@ def test_projects_new_error(tmp_dir_cwd: Path, default_credentials: Path) -> Non
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        m.get('https://logfire-us.pydantic.dev/v1/projects/', json=[])
-        m.get('https://logfire-us.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
+        m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
+        )
         create_project_response = {
             'json': {
                 'project_name': 'myproject',
@@ -950,8 +977,11 @@ def test_projects_without_project_name_without_org(
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        m.get('https://logfire-us.pydantic.dev/v1/projects/', json=[])
-        m.get('https://logfire-us.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
+        m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
+        )
         create_project_response = {
             'json': {
                 'project_name': 'myproject',
@@ -995,7 +1025,7 @@ def test_projects_new_get_organizations_error(tmp_dir_cwd: Path, default_credent
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        m.get('https://logfire-us.pydantic.dev/v1/organizations/', text='Error', status_code=500)
+        m.get('https://logfire-us.pydantic.dev/v1/organizations/available-for-projects/', text='Error', status_code=500)
 
         with pytest.raises(LogfireConfigError, match='Error retrieving list of organizations'):
             main(['projects', 'new'])
@@ -1014,9 +1044,9 @@ def test_projects_new_get_user_info_error(tmp_dir_cwd: Path, default_credentials
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        m.get('https://logfire-us.pydantic.dev/v1/projects/', json=[])
+        m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
         m.get(
-            'https://logfire-us.pydantic.dev/v1/organizations/',
+            'https://logfire-us.pydantic.dev/v1/organizations/available-for-projects/',
             json=[{'organization_name': 'fake_org'}, {'organization_name': 'fake_default_org'}],
         )
         m.get('https://logfire-us.pydantic.dev/v1/account/me', text='Error', status_code=500)
@@ -1039,8 +1069,11 @@ def test_projects_new_create_project_error(tmp_dir_cwd: Path, default_credential
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
-        m.get('https://logfire-us.pydantic.dev/v1/projects/', json=[])
-        m.get('https://logfire-us.pydantic.dev/v1/organizations/', json=[{'organization_name': 'fake_org'}])
+        m.get('https://logfire-us.pydantic.dev/v1/writable-projects/', json=[])
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/organizations/available-for-projects/',
+            json=[{'organization_name': 'fake_org'}],
+        )
         m.post('https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects', text='Error', status_code=500)
 
         with pytest.raises(LogfireConfigError, match='Error creating new project'):
@@ -1109,7 +1142,7 @@ def test_projects_use(tmp_dir_cwd: Path, default_credentials: Path, capsys: pyte
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get(
-            'https://logfire-us.pydantic.dev/v1/projects/',
+            'https://logfire-us.pydantic.dev/v1/writable-projects/',
             json=[
                 {'organization_name': 'fake_org', 'project_name': 'myproject'},
                 {'organization_name': 'fake_org', 'project_name': 'otherproject'},
@@ -1155,7 +1188,7 @@ def test_projects_use_without_project_name(
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get(
-            'https://logfire-us.pydantic.dev/v1/projects/',
+            'https://logfire-us.pydantic.dev/v1/writable-projects/',
             json=[
                 {'organization_name': 'fake_org', 'project_name': 'myproject'},
                 {'organization_name': 'fake_org', 'project_name': 'otherproject'},
@@ -1178,7 +1211,7 @@ def test_projects_use_without_project_name(
         assert prompt_mock.mock_calls == [
             call(
                 (
-                    'Please select one of the following projects by number:\n'
+                    "Please select one of the following projects by number (requires the 'write_token' permission):\n"
                     '1. fake_org/myproject\n'
                     '2. fake_org/otherproject\n'
                 ),
@@ -1214,7 +1247,7 @@ def test_projects_use_multiple(
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get(
-            'https://logfire-us.pydantic.dev/v1/projects/',
+            'https://logfire-us.pydantic.dev/v1/writable-projects/',
             json=[
                 {'organization_name': 'fake_org', 'project_name': 'myproject'},
                 {'organization_name': 'other_org', 'project_name': 'myproject'},
@@ -1246,7 +1279,7 @@ def test_projects_use_multiple(
         assert prompt_mock.mock_calls == [
             call(
                 (
-                    'Please select one of the following projects by number:\n'
+                    "Please select one of the following projects by number (requires the 'write_token' permission):\n"
                     '1. fake_org/myproject\n'
                     '2. other_org/myproject\n'
                 ),
@@ -1277,7 +1310,7 @@ def test_projects_use_multiple_with_org(
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get(
-            'https://logfire-us.pydantic.dev/v1/projects/',
+            'https://logfire-us.pydantic.dev/v1/writable-projects/',
             json=[
                 {'organization_name': 'fake_org', 'project_name': 'myproject'},
                 {'organization_name': 'other_org', 'project_name': 'myproject'},
@@ -1323,7 +1356,7 @@ def test_projects_use_wrong_project(
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get(
-            'https://logfire-us.pydantic.dev/v1/projects/',
+            'https://logfire-us.pydantic.dev/v1/writable-projects/',
             json=[{'organization_name': 'fake_org', 'project_name': 'myproject'}],
         )
         create_project_response = {
@@ -1347,7 +1380,7 @@ def test_projects_use_wrong_project(
                 default='y',
             ),
             call(
-                'Please select one of the following projects by number:\n1. fake_org/myproject\n',
+                "Please select one of the following projects by number (requires the 'write_token' permission):\n1. fake_org/myproject\n",
                 choices=['1'],
                 default='1',
             ),
@@ -1380,7 +1413,7 @@ def test_projects_use_wrong_project_give_up(
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get(
-            'https://logfire-us.pydantic.dev/v1/projects/',
+            'https://logfire-us.pydantic.dev/v1/writable-projects/',
             json=[{'organization_name': 'fake_org', 'project_name': 'myproject'}],
         )
 
@@ -1414,7 +1447,7 @@ def test_projects_use_without_projects(tmp_dir_cwd: Path, capsys: pytest.Capture
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get(
-            'https://logfire-us.pydantic.dev/v1/projects/',
+            'https://logfire-us.pydantic.dev/v1/writable-projects/',
             json=[],
         )
 
@@ -1441,7 +1474,7 @@ def test_projects_use_error(tmp_dir_cwd: Path, default_credentials: Path) -> Non
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get(
-            'https://logfire-us.pydantic.dev/v1/projects/',
+            'https://logfire-us.pydantic.dev/v1/writable-projects/',
             json=[{'organization_name': 'fake_org', 'project_name': 'myproject'}],
         )
         create_project_response = {
@@ -1475,7 +1508,7 @@ def test_projects_use_write_token_error(tmp_dir_cwd: Path, default_credentials: 
         m = requests_mock.Mocker()
         stack.enter_context(m)
         m.get(
-            'https://logfire-us.pydantic.dev/v1/projects/',
+            'https://logfire-us.pydantic.dev/v1/writable-projects/',
             json=[{'organization_name': 'fake_org', 'project_name': 'myproject'}],
         )
         m.post(
@@ -1713,3 +1746,299 @@ def test_parse_run_module(
     assert configure_mock.call_count == 1
     assert capsys.readouterr().out == snapshot('hi from run_script_test.py\n')
     assert instrument_package_mock.call_args_list == [(('openai',),)]
+
+
+@pytest.fixture()
+def prompt_http_calls() -> Generator[None]:
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(
+                    token='', base_url='https://logfire-us.pydantic.dev', expiration='2099-12-31T23:59:59'
+                ),
+            )
+        )
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects/myproject/prompts',
+            response_list=[
+                {
+                    'json': {'prompt': 'This is the prompt\n'},
+                }
+            ],
+        )
+
+        m.post(
+            'https://logfire-us.pydantic.dev/v1/organizations/fake_org/projects/myproject/read-tokens',
+            json={'token': 'fake_token'},
+        )
+
+        yield
+
+
+def test_parse_prompt(prompt_http_calls: None, capsys: pytest.CaptureFixture[str]) -> None:
+    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123'])
+
+    assert capsys.readouterr().out == snapshot('This is the prompt\n')
+
+
+def test_parse_prompt_codex(
+    prompt_http_calls: None, capsys: pytest.CaptureFixture[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+
+    codex_path = tmp_path / 'codex'
+    codex_path.mkdir()
+    codex_config_path = codex_path / 'config.toml'
+    codex_config_path.write_text('')
+
+    with patch.dict(os.environ, {'CODEX_HOME': str(codex_path)}):
+        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--codex'])
+
+    assert codex_config_path.read_text() == snapshot("""\
+
+[mcp_servers.logfire]
+command = "uvx"
+args = ["logfire-mcp@latest"]
+env = { "LOGFIRE_READ_TOKEN" = "fake_token" }
+""")
+    out, err = capsys.readouterr()
+    assert out == snapshot('This is the prompt\n')
+    assert err == snapshot("""\
+Logfire MCP server not found. Creating a read token...
+Logfire MCP server added to Codex.
+""")
+
+
+def test_parse_prompt_codex_not_installed(
+    prompt_http_calls: None, capsys: pytest.CaptureFixture[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: False)  # type: ignore
+
+    with pytest.raises(SystemExit):
+        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--codex'])
+
+    assert capsys.readouterr().err == snapshot("""\
+codex is not installed. Install `codex`, or remove the `--codex` flag.
+""")
+
+
+def test_parse_prompt_codex_config_not_found(
+    prompt_http_calls: None, capsys: pytest.CaptureFixture[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+
+    codex_path = tmp_path / 'codex'
+    codex_path.mkdir()
+
+    with patch.dict(os.environ, {'CODEX_HOME': str(codex_path)}), pytest.raises(SystemExit):
+        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--codex'])
+
+    assert capsys.readouterr().err == snapshot(
+        'Codex config file not found. Install `codex`, or remove the `--codex` flag.\n'
+    )
+
+
+def test_parse_prompt_codex_logfire_mcp_installed(
+    prompt_http_calls: None, capsys: pytest.CaptureFixture[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+
+    codex_path = tmp_path / 'codex'
+    codex_path.mkdir()
+    codex_config_path = codex_path / 'config.toml'
+    codex_config_path.write_text('logfire-mcp is installed')
+
+    with patch.dict(os.environ, {'CODEX_HOME': str(codex_path)}):
+        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--codex'])
+
+    assert capsys.readouterr().out == snapshot('This is the prompt\n')
+
+
+def test_parse_prompt_claude(
+    prompt_http_calls: None, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+
+    def logfire_mcp_installed(_: list[str]) -> bytes:
+        return b'logfire-mcp is installed'
+
+    monkeypatch.setattr(subprocess, 'check_output', logfire_mcp_installed)
+    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--claude'])
+
+    assert capsys.readouterr().out == snapshot('This is the prompt\n')
+
+
+def test_parse_prompt_claude_not_installed(
+    prompt_http_calls: None, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: False)  # type: ignore
+
+    with pytest.raises(SystemExit):
+        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--claude'])
+
+    assert capsys.readouterr().err == snapshot("""\
+claude is not installed. Install `claude`, or remove the `--claude` flag.
+""")
+
+
+def test_parse_prompt_claude_no_mcp(
+    prompt_http_calls: None, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+
+    def logfire_mcp_installed(_: list[str]) -> bytes:
+        return b'not installed'
+
+    monkeypatch.setattr(subprocess, 'check_output', logfire_mcp_installed)
+    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--claude'])
+
+    out, err = capsys.readouterr()
+    assert out == snapshot('This is the prompt\n')
+    assert err == snapshot("""\
+Logfire MCP server not found. Creating a read token...
+Logfire MCP server added to Claude.
+""")
+
+
+def test_parse_prompt_opencode(
+    prompt_http_calls: None,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
+
+    def check_output(x: list[str]) -> bytes:
+        return tmp_path.as_posix().encode('utf-8')
+
+    monkeypatch.setattr(subprocess, 'check_output', check_output)
+
+    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--opencode'])
+
+    out, err = capsys.readouterr()
+    assert out == snapshot("""\
+This is the prompt
+""")
+    assert err == snapshot("""\
+Logfire MCP server not found. Creating a read token...
+Logfire MCP server added to OpenCode.
+""")
+
+
+def test_parse_prompt_opencode_no_git(
+    prompt_http_calls: None,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
+
+    def check_output(x: list[str]) -> bytes:
+        raise subprocess.CalledProcessError(1, x)
+
+    monkeypatch.setattr(subprocess, 'check_output', check_output)
+
+    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--opencode'])
+
+    out, err = capsys.readouterr()
+    assert out == snapshot("""\
+This is the prompt
+""")
+    assert err == snapshot("""\
+Logfire MCP server not found. Creating a read token...
+Logfire MCP server added to OpenCode.
+""")
+
+
+def test_parse_prompt_opencode_not_installed(
+    prompt_http_calls: None,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: False)  # type: ignore
+    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
+
+    with pytest.raises(SystemExit):
+        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--opencode'])
+
+    out, err = capsys.readouterr()
+    assert out == snapshot('')
+    assert err == snapshot("""\
+opencode is not installed. Install `opencode`, or remove the `--opencode` flag.
+""")
+
+
+def test_parse_prompt_opencode_logfire_mcp_installed(
+    prompt_http_calls: None,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
+
+    (tmp_path / 'opencode.jsonc').write_text("""
+{
+    "mcp": {
+        "logfire-mcp": {
+            "command": "uvx",
+            "args": ["logfire-mcp@latest"],
+            "env": {"LOGFIRE_READ_TOKEN": "fake_token"}
+        }
+    }
+}
+""")
+
+    def check_output(x: list[str]) -> bytes:
+        return tmp_path.as_posix().encode('utf-8')
+
+    monkeypatch.setattr(subprocess, 'check_output', check_output)
+
+    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--opencode'])
+
+    out, err = capsys.readouterr()
+    assert out == snapshot('This is the prompt\n')
+    assert err == snapshot('')
+
+
+def test_parse_opencode_logfire_mcp_not_installed_with_existing_config(
+    prompt_http_calls: None,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
+
+    (tmp_path / 'opencode.jsonc').write_text('{}')
+
+    def check_output(x: list[str]) -> bytes:
+        return tmp_path.as_posix().encode('utf-8')
+
+    monkeypatch.setattr(subprocess, 'check_output', check_output)
+
+    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--opencode'])
+
+    out, err = capsys.readouterr()
+    assert out == snapshot('This is the prompt\n')
+    assert err == snapshot("""\
+Logfire MCP server not found. Creating a read token...
+Logfire MCP server added to OpenCode.
+""")
+
+
+def test_base_url_and_logfire_url(
+    tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, capsys: pytest.CaptureFixture[str]
+):
+    logfire_credentials.write_creds_file(tmp_dir_cwd / '.logfire')
+    with pytest.warns(
+        DeprecationWarning, match='The `--logfire-url` argument is deprecated. Use `--base-url` instead.'
+    ):
+        main(['--logfire-url', 'https://logfire-us.pydantic.dev', 'whoami'])

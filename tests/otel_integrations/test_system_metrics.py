@@ -39,6 +39,9 @@ def test_all_system_metrics_collection(metrics_reader: InMemoryMetricReader) -> 
     logfire.instrument_system_metrics(base='full')
     assert get_collected_metric_names(metrics_reader) == snapshot(
         [
+            'cpython.gc.collected_objects',
+            'cpython.gc.collections',
+            'cpython.gc.uncollectable_objects',
             'process.context_switches',
             'process.cpu.core_utilization',
             'process.cpu.time',
@@ -163,6 +166,9 @@ def test_full_base():
         'process.cpu.core_utilization': None,
         'process.thread.count': None,
         'process.context_switches': ['involuntary', 'voluntary'],
+        'cpython.gc.collected_objects': None,
+        'cpython.gc.collections': None,
+        'cpython.gc.uncollectable_objects': None,
     }, 'Docs and the MetricName type need to be updated if this test fails'
 
 

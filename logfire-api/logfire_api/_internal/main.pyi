@@ -6,6 +6,7 @@ import pydantic_ai
 import pydantic_ai.models
 import requests
 from . import async_ as async_
+from ..integrations.aiohttp_client import RequestHook as AiohttpClientRequestHook, ResponseHook as AiohttpClientResponseHook
 from ..integrations.flask import CommenterOptions as FlaskCommenterOptions, RequestHook as FlaskRequestHook, ResponseHook as FlaskResponseHook
 from ..integrations.httpx import AsyncRequestHook as HttpxAsyncRequestHook, AsyncResponseHook as HttpxAsyncResponseHook, RequestHook as HttpxRequestHook, ResponseHook as HttpxResponseHook
 from ..integrations.psycopg import CommenterOptions as PsycopgCommenterOptions
@@ -29,7 +30,7 @@ from .json_encoder import logfire_json_dumps as logfire_json_dumps
 from .json_schema import JsonSchemaProperties as JsonSchemaProperties, attributes_json_schema as attributes_json_schema, attributes_json_schema_properties as attributes_json_schema_properties, create_json_schema as create_json_schema
 from .metrics import ProxyMeterProvider as ProxyMeterProvider
 from .stack_info import get_user_stack_info as get_user_stack_info
-from .tracer import ProxyTracerProvider as ProxyTracerProvider, record_exception as record_exception, set_exception_status as set_exception_status
+from .tracer import ProxyTracerProvider as ProxyTracerProvider, _ProxyTracer, set_exception_status as set_exception_status
 from .utils import SysExcInfo as SysExcInfo, get_version as get_version, handle_internal_errors as handle_internal_errors, log_internal_error as log_internal_error, uniquify_sequence as uniquify_sequence
 from collections.abc import Iterable, Sequence
 from contextlib import AbstractContextManager
@@ -40,7 +41,7 @@ from opentelemetry.context import Context as Context
 from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
 from opentelemetry.metrics import CallbackT as CallbackT, Counter, Histogram, UpDownCounter, _Gauge as Gauge
 from opentelemetry.sdk.trace import ReadableSpan, Span
-from opentelemetry.trace import SpanContext, Tracer
+from opentelemetry.trace import SpanContext
 from opentelemetry.util import types as otel_types
 from pymongo.monitoring import CommandFailedEvent as CommandFailedEvent, CommandStartedEvent as CommandStartedEvent, CommandSucceededEvent as CommandSucceededEvent
 from sqlalchemy import Engine
@@ -48,6 +49,8 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.applications import Starlette
 from starlette.requests import Request as Request
 from starlette.websockets import WebSocket as WebSocket
+from surrealdb.connections.async_template import AsyncTemplate
+from surrealdb.connections.sync_template import SyncTemplate
 from types import ModuleType
 from typing import Any, Callable, Literal, TypeVar, overload
 from typing_extensions import LiteralString, ParamSpec, Unpack
@@ -237,7 +240,7 @@ class Logfire:
                 Attributes starting with an underscore are not allowed.
         """
     @overload
-    def instrument(self, msg_template: LiteralString | None = None, *, span_name: str | None = None, extract_args: bool | Iterable[str] = True, record_return: bool = False, allow_generator: bool = False) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    def instrument(self, msg_template: LiteralString | None = None, *, span_name: str | None = None, extract_args: bool | Iterable[str] = True, record_return: bool = False, allow_generator: bool = False, new_trace: bool = False) -> Callable[[Callable[P, R]], Callable[P, R]]:
         """Decorator for instrumenting a function as a span.
 
         ```py
@@ -260,6 +263,8 @@ class Logfire:
                 Ignored for generators.
             allow_generator: Set to `True` to prevent a warning when instrumenting a generator function.
                 Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
+            new_trace: Set to `True` to start a new trace with a span link to the current span
+                instead of creating a child of the current span.
         """
     @overload
     def instrument(self, func: Callable[P, R]) -> Callable[P, R]:
@@ -328,14 +333,11 @@ class Logfire:
         Returns:
             A new Logfire instance with the sampling ratio applied.
         """
-    def with_settings(self, *, tags: Sequence[str] = (), stack_offset: int | None = None, console_log: bool | None = None, custom_scope_suffix: str | None = None) -> Logfire:
+    def with_settings(self, *, tags: Sequence[str] = (), console_log: bool | None = None, custom_scope_suffix: str | None = None) -> Logfire:
         """A new Logfire instance which uses the given settings.
 
         Args:
             tags: Sequence of tags to include in the log.
-            stack_offset: The stack level offset to use when collecting stack info, also affects the warning which
-                message formatting might emit, defaults to `0` which means the stack info will be collected from the
-                position where [`logfire.log`][logfire.Logfire.log] was called.
             console_log: Whether to log to the console, defaults to `True`.
             custom_scope_suffix: A custom suffix to append to `logfire.` e.g. `logfire.loguru`.
 
@@ -403,11 +405,23 @@ class Logfire:
                 modules in `sys.modules` (i.e. modules that have already been imported) match the modules to trace.
                 Set to `'warn'` to issue a warning instead, or `'ignore'` to skip the check.
         """
-    def instrument_mcp(self, *, propagate_otel_context: bool = True) -> None:
-        """Instrument [MCP](https://modelcontextprotocol.io/) requests such as tool calls.
+    def instrument_surrealdb(self, obj: SyncTemplate | AsyncTemplate | type[SyncTemplate] | type[AsyncTemplate] | None = None) -> None:
+        """Instrument [SurrealDB](https://surrealdb.com/) connections, creating a span for each method.
 
         Args:
-            propagate_otel_context: Whether to enable propagation of the OpenTelemetry context.
+            obj: Pass a single connection instance to instrument only that connection.
+                Pass a connection class to instrument all instances of that class.
+                By default, all connection classes are instrumented.
+        """
+    def instrument_mcp(self, *, propagate_otel_context: bool = True) -> None:
+        """Instrument the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk).
+
+        Instruments both the client and server side. If possible, calling this in both the client and server
+        processes is recommended for nice distributed traces.
+
+        Args:
+            propagate_otel_context: Whether to enable propagation of the OpenTelemetry context
+                for distributed tracing.
                 Set to False to prevent setting extra fields like `traceparent` on the metadata of requests.
         """
     def instrument_pydantic(self, record: PydanticPluginRecordValues = 'all', include: Iterable[str] = (), exclude: Iterable[str] = ()) -> None:
@@ -429,9 +443,9 @@ class Logfire:
                 Exclude specific modules from instrumentation.
         """
     @overload
-    def instrument_pydantic_ai(self, obj: pydantic_ai.Agent | None = None, /, *, event_mode: Literal['attributes', 'logs'] = 'attributes', include_binary_content: bool | None = None, **kwargs: Any) -> None: ...
+    def instrument_pydantic_ai(self, obj: pydantic_ai.Agent | None = None, /, *, include_binary_content: bool | None = None, include_content: bool | None = None, version: Literal[1, 2, 3] | None = None, event_mode: Literal['attributes', 'logs'] | None = None, **kwargs: Any) -> None: ...
     @overload
-    def instrument_pydantic_ai(self, obj: pydantic_ai.models.Model, /, *, event_mode: Literal['attributes', 'logs'] = 'attributes', include_binary_content: bool | None = None, **kwargs: Any) -> pydantic_ai.models.Model: ...
+    def instrument_pydantic_ai(self, obj: pydantic_ai.models.Model, /, *, include_binary_content: bool | None = None, include_content: bool | None = None, version: Literal[1, 2, 3] | None = None, event_mode: Literal['attributes', 'logs'] | None = None, **kwargs: Any) -> pydantic_ai.models.Model: ...
     def instrument_fastapi(self, app: FastAPI, *, capture_headers: bool = False, request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None] | None = None, excluded_urls: str | Iterable[str] | None = None, record_send_receive: bool = False, extra_spans: bool = False, **opentelemetry_kwargs: Any) -> AbstractContextManager[None]:
         """Instrument a FastAPI app so that spans and logs are automatically created for each request.
 
@@ -580,8 +594,46 @@ class Logfire:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
         """
-    def instrument_google_genai(self) -> None: ...
-    def instrument_litellm(self, **kwargs: Any): ...
+    def instrument_google_genai(self, **kwargs: Any):
+        """Instrument the [Google Gen AI SDK (`google-genai`)](https://googleapis.github.io/python-genai/).
+
+        !!! note
+            To capture message contents (i.e. prompts and completions), set the environment variable
+            `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` to `true`.
+
+        Uses the `GoogleGenAiSdkInstrumentor().instrument()` method of the
+        [`opentelemetry-instrumentation-google-genai`](https://pypi.org/project/opentelemetry-instrumentation-google-genai/)
+        package, to which it passes `**kwargs`.
+        """
+    def instrument_litellm(self, **kwargs: Any):
+        """Instrument the [LiteLLM](https://docs.litellm.ai/) Python SDK.
+
+        !!! warning
+            This currently works best if all arguments of instrumented methods are passed as keyword arguments,
+            e.g. `litellm.completion(model=model, messages=messages)`.
+
+        Uses the `LiteLLMInstrumentor().instrument()` method of the
+        [`openinference-instrumentation-litellm`](https://pypi.org/project/openinference-instrumentation-litellm/)
+        package, to which it passes `**kwargs`.
+        """
+    def instrument_print(self) -> AbstractContextManager[None]:
+        """Instrument the built-in `print` function so that calls to it are logged.
+
+        If Logfire is configured with [`inspect_arguments=True`][logfire.configure(inspect_arguments)],
+        the names of the arguments passed to `print` will be included in the log attributes
+        and will be used for scrubbing.
+
+        The fallback attribute name `logfire.print_args` will be used if:
+
+         - `inspect_arguments` is `False`
+         - Inspection fails for any reason
+         - Multiple starred arguments are used (e.g. `print(*args1, *args2)`)
+            in which case names can't be unambiguously determined.
+
+        Returns:
+            A context manager that will revert the instrumentation when exited.
+                Use of this context manager is optional.
+        """
     def instrument_asyncpg(self, **kwargs: Any) -> None:
         """Instrument the `asyncpg` module so that spans are automatically created for each query."""
     @overload
@@ -723,7 +775,7 @@ class Logfire:
         Returns:
             The instrumented WSGI application.
         """
-    def instrument_aiohttp_client(self, **kwargs: Any) -> None:
+    def instrument_aiohttp_client(self, *, capture_headers: bool = False, capture_response_body: bool = False, request_hook: AiohttpClientRequestHook | None = None, response_hook: AiohttpClientResponseHook | None = None, **kwargs: Any) -> None:
         """Instrument the `aiohttp` module so that spans are automatically created for each client request.
 
         Uses the
@@ -737,7 +789,7 @@ class Logfire:
         [OpenTelemetry aiohttp server Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aiohttp_server/aiohttp_server.html)
         library, specifically `AioHttpServerInstrumentor().instrument()`, to which it passes `**kwargs`.
         """
-    def instrument_sqlalchemy(self, engine: AsyncEngine | Engine | None = None, enable_commenter: bool = False, commenter_options: SQLAlchemyCommenterOptions | None = None, **kwargs: Any) -> None:
+    def instrument_sqlalchemy(self, engine: AsyncEngine | Engine | None = None, engines: Iterable[AsyncEngine | Engine] | None = None, enable_commenter: bool = False, commenter_options: SQLAlchemyCommenterOptions | None = None, **kwargs: Any) -> None:
         """Instrument the `sqlalchemy` module so that spans are automatically created for each query.
 
         Uses the
@@ -745,7 +797,8 @@ class Logfire:
         library, specifically `SQLAlchemyInstrumentor().instrument()`, to which it passes `**kwargs`.
 
         Args:
-            engine: The `sqlalchemy` engine to instrument, or `None` to instrument all engines.
+            engine: The `sqlalchemy` engine to instrument.
+            engines: An iterable of `sqlalchemy` engines to instrument.
             enable_commenter: Adds comments to SQL queries performed by SQLAlchemy, so that database logs have additional context.
             commenter_options: Configure the tags to be added to the SQL comments.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods.
@@ -1083,7 +1136,7 @@ class FastLogfireSpan:
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None: ...
 
 class LogfireSpan(ReadableSpan):
-    def __init__(self, span_name: str, otlp_attributes: dict[str, otel_types.AttributeValue], tracer: Tracer, json_schema_properties: JsonSchemaProperties, links: Sequence[tuple[SpanContext, otel_types.Attributes]]) -> None: ...
+    def __init__(self, span_name: str, otlp_attributes: dict[str, otel_types.AttributeValue], tracer: _ProxyTracer, json_schema_properties: JsonSchemaProperties, links: Sequence[tuple[SpanContext, otel_types.Attributes]]) -> None: ...
     def __getattr__(self, name: str) -> Any: ...
     def __enter__(self) -> LogfireSpan: ...
     @handle_internal_errors

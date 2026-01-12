@@ -1,3 +1,7 @@
+---
+title: "Logfire Configuration Guide & Environment Variables"
+description: "Overview of configuring Pydantic Logfire: Programmatically, by using environment variables or by using a configuration file."
+---
 You can use the following ways to configure Logfire:
 
 1. Programmatically via [`logfire.configure()`][logfire.configure]

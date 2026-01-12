@@ -6,6 +6,7 @@ from contextlib import contextmanager, nullcontext
 from typing import Any, ContextManager, Literal, TYPE_CHECKING, Sequence
 from unittest.mock import MagicMock
 
+
 try:
     logfire_module = importlib.import_module('logfire')
     sys.modules[__name__] = logfire_module
@@ -167,6 +168,8 @@ except ImportError:
 
             def instrument_psycopg(self, *args, **kwargs) -> None: ...
 
+            def instrument_surrealdb(self, *args, **kwargs) -> None: ...
+
             def instrument_requests(self, *args, **kwargs) -> None: ...
 
             def instrument_httpx(self, *args, **kwargs) -> None: ...
@@ -177,6 +180,9 @@ except ImportError:
                 return nullcontext()
 
             def instrument_openai(self, *args, **kwargs) -> ContextManager[None]:
+                return nullcontext()
+
+            def instrument_print(self, *args, **kwargs) -> ContextManager[None]:
                 return nullcontext()
 
             def instrument_openai_agents(self, *args, **kwargs) -> None: ...
@@ -224,9 +230,11 @@ except ImportError:
         instrument_google_genai = DEFAULT_LOGFIRE_INSTANCE.instrument_google_genai
         instrument_litellm = DEFAULT_LOGFIRE_INSTANCE.instrument_litellm
         instrument_asyncpg = DEFAULT_LOGFIRE_INSTANCE.instrument_asyncpg
+        instrument_print = DEFAULT_LOGFIRE_INSTANCE.instrument_print
         instrument_celery = DEFAULT_LOGFIRE_INSTANCE.instrument_celery
         instrument_httpx = DEFAULT_LOGFIRE_INSTANCE.instrument_httpx
         instrument_requests = DEFAULT_LOGFIRE_INSTANCE.instrument_requests
+        instrument_surrealdb = DEFAULT_LOGFIRE_INSTANCE.instrument_surrealdb
         instrument_psycopg = DEFAULT_LOGFIRE_INSTANCE.instrument_psycopg
         instrument_django = DEFAULT_LOGFIRE_INSTANCE.instrument_django
         instrument_flask = DEFAULT_LOGFIRE_INSTANCE.instrument_flask
@@ -244,7 +252,8 @@ except ImportError:
         shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
         suppress_scopes = DEFAULT_LOGFIRE_INSTANCE.suppress_scopes
 
-        def loguru_handler() -> dict[str, Any]: ...
+        def loguru_handler() -> dict[str, Any]:
+            return {}
 
         def no_auto_trace(x):
             return x
@@ -292,7 +301,14 @@ except ImportError:
             """Show versions of logfire, OS and related packages."""
             return 'logfire_info() is not implement by logfire-api'
 
-        def get_baggage(*args, **kwargs) -> dict[str, str]:...
+        def get_baggage(*args, **kwargs) -> dict[str, str]:
+            return {}
 
         def set_baggage(*args, **kwargs) -> ContextManager[None]:
+            return nullcontext()
+
+        def get_context(*args, **kwargs) -> dict[str, Any]:
+            return {}
+
+        def attach_context(*args, **kwargs)-> ContextManager[None]:
             return nullcontext()

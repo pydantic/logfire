@@ -1,3 +1,7 @@
+---
+title: "Introducing Pydantic Logfire: What sets Logfire apart"
+description: "Logfire unifies metrics, tracing, and structured data logging into one simple platform. End-to-end general and AI observability powered by Pydantic."
+---
 # Introducing Pydantic Logfire
 
 From the team behind Pydantic Validation, **Pydantic Logfire** is an observability platform built on the same belief as our open source library — that the most powerful tools can be easy to use.
@@ -26,9 +30,7 @@ From the team behind Pydantic Validation, **Pydantic Logfire** is an observabili
 
   ***
 
-  Understand the data flowing through your Pydantic Validation models and get built-in analytics on validations.
-
-  Pydantic Logfire helps you instrument your applications with less code, less time, and better understanding.
+  Understand the data flowing through your Pydantic Validation models and get built-in analytics on validations. Pydantic Logfire helps you instrument your applications with less code, less time, and better understanding.
 
   [:octicons-arrow-right-24: Read more](#pydantic-integration)
 
@@ -127,7 +129,7 @@ user = User(name='Anne', country_code='USA', dob='2000-01-01')
 logfire.info('user processed: {user!r}', user=user)  # (1)!
 ```
 
-1. This will show `user processed: User(name='Anne', country_code='US', dob=datetime.date(2000, 1, 1))`, but also allow you to see a "pretty" view of the model within the Logfire Platform.
+1. This will show `user processed: User(name='Anne', country_code='USA', dob=datetime.date(2000, 1, 1))`, but also allow you to see a "pretty" view of the model within the Logfire Platform.
 
 ![Logfire pydantic manual screenshot](images/index/logfire-screenshot-pydantic-manual.png)
 

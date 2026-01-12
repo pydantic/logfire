@@ -1,3 +1,7 @@
+---
+title: "Public Traces in Logfire: Share & Manage Public Traces"
+description: "Public Traces: Learn how to provide external teams with full trace data, including all nested spans and span links, without granting full access."
+---
 # Public Traces
 
 Public Traces lets you to create shareable links for specific traces. Perfect for collaborating with anyone who doesn't have Logfire access, or sharing debugging information.
@@ -18,12 +22,8 @@ When you create a public trace link, anyone with access to the link can view the
 
 ![Private button](../../images/public-traces/private-button.png)
 
-4. Configure the link expiration 
-5. If you want the link to navigate to the inner span you've selected, use **This span selected**, otherwise uncheck this and the public link will point to root span of the trace.
-6. Click **Create** to generate the shareable link
-
-!!! warning
-    Due to data retention limits, the shared data might expire before the selected expiration.
+4. Configure the link expiration
+5. Click **Create** to generate the shareable link
 
 ## Managing Public Traces
 

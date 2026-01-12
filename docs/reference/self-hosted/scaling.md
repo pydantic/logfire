@@ -1,3 +1,7 @@
+---
+title: "Guide: Scale Your Self-Hosted Logfire Deployment"
+description: "Guide to scaling Logfire self-hosted deployments. Adjust Kubernetes replicas and PostgreSQL settings to handle high ingestion or query traffic efficiently."
+---
 # Scaling Self Hosted
 
 **Logfire** is designed to be horizontally scalable, and can handle a lot of traffic. Depending on your usage patterns, however, you may be required to scale certain pods in order to maintain performance.
@@ -41,8 +45,6 @@ Each service can have standard kubernetes replicas, resource limits and autoscal
 
 ```yaml
 <service_name>:
-  # -- Number of pod replicas
-  replicas: 1
   # -- Resource limits and allocations
   resources:
     cpu: "1"
@@ -51,17 +53,19 @@ Each service can have standard kubernetes replicas, resource limits and autoscal
   autoscaling:
     minReplicas: 2
     maxReplicas: 4
-    memAverage: 65
-    cpuAverage: 20
+    hpa:
+      enabled: true
+      memAverage: 65
+      cpuAverage: 20
   # -- POD Disruption Budget
   pdb:
     maxUnavailable: 1
-    minAvaliable: 1
+    minAvailable: 1
 ```
 
 ## Recommended Starting Values
 
-By default, the helm chart only includes a single replica for all pods, and no configured resource limits.  When bringing self hosted to production, you will need to adjust the scaling of each service.  This is depenent on the usage patterns of your instance.
+By default, the helm chart only includes a single replica for all pods, and no configured resource limits.  When bringing self hosted to production, you will need to adjust the scaling of each service.  This is dependent on the usage patterns of your instance.
 
 I.e, if a lot of querying is going on, or there are a high number of dashboards, then you may need to scale up the query api and cache.  Conversely, if you are write heavy, but don't query as much, you may need to scale up ingest.  You can use the CPU and memory resources to gauge how busy certain aspects of Logfire are.
 
@@ -71,39 +75,63 @@ Here are some recommended values to get you started:
 
 ```yaml
 logfire-backend:
-  replicas: 2
   resources:
-    cpu: "2"
-    memory: "2Gi"
+    cpu: "600m"
+    memory: "1Gi"
   autoscaling:
     minReplicas: 2
     maxReplicas: 4
-    memAverage: 65
-    cpuAverage: 20
+    hpa:
+      enabled: true
+      memAverage: 65
+      cpuAverage: 40
+  pdb:
+    minAvailable: 1
 
 logfire-ff-query-api:
-  replicas: 2
   resources:
-    cpu: "2"
+    cpu: "500m"
     memory: "2Gi"
   autoscaling:
     minReplicas: 2
     maxReplicas: 8
-    memAverage: 65
-    cpuAverage: 20
+    hpa:
+      enabled: true
+      memAverage: 70
+      cpuAverage: 60
+  pdb:
+    minAvailable: 1
 
-logfire-ff-cache:
-  replicas: 2
-  cacheStorage: "256Gi"
+logfire-ff-cache-byte:
   resources:
-    cpu: "4"
+    cpu: "2"
     memory: "8Gi"
+  autoscaling:
+    minReplicas: 1
+    maxReplicas: 2
+    hpa:
+      enabled: true
+      memAverage: 65
+      cpuAverage: 20
+  scratchVolume:
+    storageClassName: my-storage-class
+    storage: 256Gi
+  pdb:
+    minAvailable: 1
 
-logfire-ff-conhash-cache:
-  replicas: 2
+logfire-ff-cache-ipc:
   resources:
-    cpu: "1"
-    memory: "1Gi"
+    cpu: "2"
+    memory: "8Gi"
+  autoscaling:
+    minReplicas: 1
+    maxReplicas: 3
+    hpa:
+      enabled: true
+      memAverage: 65
+      cpuAverage: 40
+  pdb:
+    minAvailable: 1
 
 logfire-ff-ingest:
   volumeClaimTemplates:
@@ -113,30 +141,54 @@ logfire-ff-ingest:
     cpu: "2"
     memory: "4Gi"
   autoscaling:
-    minReplicas: 6
+    minReplicas: 2
     maxReplicas: 24
-    memAverage: 25
-    cpuAverage: 15
+    hpa:
+      enabled: true
+      memAverage: 40
+      cpuAverage: 60
+  pdb:
+    minAvailable: 1
+
+logfire-ff-ingest-processor:
+  resources:
+    cpu: "2"
+    memory: "4Gi"
+  autoscaling:
+    minReplicas: 2
+    maxReplicas: 24
+    hpa:
+      enabled: true
+      memAverage: 40
+      cpuAverage: 60
+  pdb:
+    minAvailable: 1
 
 logfire-ff-compaction-worker:
-  replicas: 2
   resources:
-    cpu: "4"
+    cpu: "2"
     memory: "8Gi"
   autoscaling:
-    minReplicas: 2
-    maxReplicas: 4
-    memAverage: 50
-    cpuAverage: 50
+    minReplicas: 1
+    maxReplicas: 5
+    hpa:
+      enabled: true
+      memAverage: 50
+      cpuAverage: 80
+  pdb:
+    minAvailable: 1
 
 logfire-ff-maintenance-worker:
-  replicas: 2
   resources:
-    cpu: "4"
+    cpu: "2"
     memory: "8Gi"
   autoscaling:
-    minReplicas: 2
+    minReplicas: 1
     maxReplicas: 4
-    memAverage: 50
-    cpuAverage: 50
+    hpa:
+      enabled: true
+      memAverage: 50
+      cpuAverage: 50
+  pdb:
+    minAvailable: 1
 ```

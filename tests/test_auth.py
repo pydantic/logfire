@@ -84,7 +84,7 @@ def test_get_user_token_empty_credentials(tmp_path: Path) -> None:
 
     token_collection = UserTokenCollection(empty_auth_file)
     with inline_snapshot.extra.raises(
-        snapshot('LogfireConfigError: No user tokens are available. Please run `logfire auth` to authenticate.')
+        snapshot('LogfireConfigError: You are not logged into Logfire. Please run `logfire auth` to authenticate.')
     ):
         token_collection.get_token()
 

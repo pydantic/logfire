@@ -1,8 +1,8 @@
-name: Daily CI Job
+name: Weekly CI Job
 
 on:
   schedule:
-    - cron: '0 12 * * *' # Daily at midnight UTC
+    - cron: '0 12 * * MON' # Every monday noon UTC
 
   # Can be triggered manually from the actions tab, if needed
   workflow_dispatch:
@@ -15,9 +15,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
-        pydantic-version: ['main']
-        otel-version: ['1']  # i.e. the latest
+        python-version: [ "3.9", "3.10", "3.11", "3.12", "3.13", "3.14" ]
+        pydantic-version: [ 'main' ]
+        otel-version: [ '1' ]  # i.e. the latest
         include:
           # Pydantic versions
           - python-version: '3.12'
@@ -45,18 +45,10 @@ jobs:
             pydantic-version: '2.11'
             otel-version: '1'
           # OpenTelemetry versions
-          - python-version: '3.13'
-            pydantic-version: 'main'
-            otel-version: '1.33'
-          - python-version: '3.13'
-            pydantic-version: 'main'
-            otel-version: '1.32'
-          - python-version: '3.13'
-            pydantic-version: 'main'
-            otel-version: '1.31'
-          - python-version: '3.13'
-            pydantic-version: 'main'
-            otel-version: '1.30'
+          # Uncomment when we support multiple versions of OTel again
+    #          - python-version: '3.14'
+    #            pydantic-version: 'main'
+    #            otel-version: '1.39'
     env:
       PYTHON: ${{ matrix.python-version }}
     steps:
@@ -65,9 +57,9 @@ jobs:
       - name: Ensure requests to production domains fail
         if: runner.os == 'Linux'
         run: |
-            echo "203.0.113.0 logfire.dev" | sudo tee -a /etc/hosts
-            echo "203.0.113.0 logfire-api.pydantic.dev" | sudo tee -a /etc/hosts
-            echo "203.0.113.0 logfire.pydantic.dev" | sudo tee -a /etc/hosts
+          echo "203.0.113.0 logfire.dev" | sudo tee -a /etc/hosts
+          echo "203.0.113.0 logfire-api.pydantic.dev" | sudo tee -a /etc/hosts
+          echo "203.0.113.0 logfire.pydantic.dev" | sudo tee -a /etc/hosts
 
       - name: Install uv
         uses: astral-sh/setup-uv@v3
@@ -75,8 +67,12 @@ jobs:
           version: "0.6.2"
           enable-cache: true
 
-        # upgrade deps to the latest versions for this daily test
+        # upgrade deps to the latest versions for this test
       - run: uv sync --python ${{ matrix.python-version }} --upgrade
+
+      - name: Install pydantic main
+        if: matrix.pydantic-version == 'main'
+        run: uv pip install git+https://github.com/pydantic/pydantic.git
 
       - name: Install pydantic ${{ matrix.pydantic-version }}
         if: matrix.pydantic-version != 'main'
@@ -105,5 +101,5 @@ jobs:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           webhook-type: webhook-trigger
           payload: |
-            heading: Logfire daily CI deps test ${{github.repository}} failed!
+            heading: Logfire Weekly CI deps test ${{github.repository}} failed!
             body: See details at ${{github.server_url}}/${{github.repository}}/actions/runs/${{github.run_id}}

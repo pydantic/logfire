@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Annotated, Any
 from unittest.mock import patch
 
 import cloudpickle
+import pydantic
 import pytest
 import sqlmodel
 from dirty_equals import IsInt
@@ -876,6 +877,7 @@ def test_pydantic_plugin_python_exception(exporter: TestExporter) -> None:
                     'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{"type":"object"},"success":{}}}',
                     'validation_method': 'validate_python',
                     'input_data': '{"x":1}',
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                     'success': False,
                 },
                 'events': [
@@ -925,6 +927,7 @@ def test_pydantic_plugin_python_exception_record_failure(exporter: TestExporter)
                     'schema_name': 'MyModel',
                     'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"exception_type":{}}}',
                     'exception_type': 'TypeError',
+                    'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                 },
                 'events': [
                     {
@@ -1035,6 +1038,7 @@ def test_old_plugin_style(exporter: TestExporter) -> None:
                         'success': False,
                         'logfire.msg': 'Pydantic MyModel validate_python raised TypeError',
                         'logfire.level_num': 17,
+                        'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                         'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{"type":"object"},"success":{}}}',
                     },
                     'events': [
@@ -1220,7 +1224,7 @@ def test_record_metrics_env_var(metrics_reader: InMemoryMetricReader) -> None:
             x: int
 
         MyModel(x=1)
-        assert metrics_reader.get_metrics_data() is None  # type: ignore
+        assert metrics_reader.get_metrics_data() is None
 
         GLOBAL_CONFIG._initialized = True  # type: ignore
 
@@ -1288,7 +1292,9 @@ def test_sqlmodel_pydantic_plugin(exporter: TestExporter) -> None:
                     'logfire.level_num': 9,
                     'logfire.span_type': 'span',
                     'success': True,
-                    'result': '{"id":1}',
+                    'result': '{"id":1}'
+                    if get_version(pydantic.__version__) >= get_version('2.7.0')
+                    else '"Hero(id=1)"',
                     'logfire.msg': 'Pydantic Hero validate_python succeeded',
                     'logfire.json_schema': '{"type":"object","properties":{"schema_name":{},"validation_method":{},"input_data":{"type":"object"},"success":{},"result":{"type":"object","title":"Hero","x-python-datatype":"PydanticModel"}}}',
                 },

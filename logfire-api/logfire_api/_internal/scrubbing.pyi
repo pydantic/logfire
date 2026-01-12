@@ -1,13 +1,13 @@
 import re
 import typing_extensions
-from .constants import ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY, ATTRIBUTES_LOGGING_NAME as ATTRIBUTES_LOGGING_NAME, ATTRIBUTES_LOG_LEVEL_NAME_KEY as ATTRIBUTES_LOG_LEVEL_NAME_KEY, ATTRIBUTES_LOG_LEVEL_NUM_KEY as ATTRIBUTES_LOG_LEVEL_NUM_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY as ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SCRUBBED_KEY as ATTRIBUTES_SCRUBBED_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_TAGS_KEY as ATTRIBUTES_TAGS_KEY, RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS as RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS
+from .constants import ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY, ATTRIBUTES_LOGGING_NAME as ATTRIBUTES_LOGGING_NAME, ATTRIBUTES_LOG_LEVEL_NAME_KEY as ATTRIBUTES_LOG_LEVEL_NAME_KEY, ATTRIBUTES_LOG_LEVEL_NUM_KEY as ATTRIBUTES_LOG_LEVEL_NUM_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY as ATTRIBUTES_PENDING_SPAN_REAL_PARENT_KEY, ATTRIBUTES_SAMPLE_RATE_KEY as ATTRIBUTES_SAMPLE_RATE_KEY, ATTRIBUTES_SCRUBBED_KEY as ATTRIBUTES_SCRUBBED_KEY, ATTRIBUTES_SPAN_TYPE_KEY as ATTRIBUTES_SPAN_TYPE_KEY, ATTRIBUTES_TAGS_KEY as ATTRIBUTES_TAGS_KEY, MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT as MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT, RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS as RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS
 from .stack_info import STACK_INFO_KEYS as STACK_INFO_KEYS
-from .utils import ReadableSpanDict as ReadableSpanDict
+from .utils import ReadableSpanDict as ReadableSpanDict, truncate_string as truncate_string
 from _typeshed import Incomplete
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
-from opentelemetry.sdk._logs import LogRecord
+from opentelemetry._logs import LogRecord
 from opentelemetry.sdk.trace import Event
 from typing import Any, Callable, TypedDict
 
@@ -73,3 +73,27 @@ class SpanScrubber:
         `path` is a list of keys and indices leading to `value` in the span.
         Similar to the truncation code, it should use the field names in the frontend, e.g. `otel_events`.
         """
+
+class MessageValueCleaner:
+    """Scrubs and truncates formatted field values to be included in the message attribute.
+
+    Use to construct the message for a single span, e.g:
+
+        cleaner = MessageValueCleaner(scrubber, check_keys=...)
+        message_parts = [cleaner.clean_value(field_name, str(value)) for field_name, value in fields]
+        message = <construct from message parts>
+        attributes = {**other_attributes, **cleaner.extra_attrs(), ATTRIBUTES_MESSAGE_KEY: message}
+
+    check_keys determines whether the key should be accounted for in scrubbing.
+    Set to False if the user explicitly provided the key, e.g. `logfire.info(f'... {password} ...')`
+    means that the password is clearly expected to be logged.
+    The password will therefore not be scrubbed here and will appear in the message.
+    However it may still be scrubbed out of the attributes, just because that process is independent.
+    """
+    scrubber: Incomplete
+    scrubbed: list[ScrubbedNote]
+    check_keys: Incomplete
+    def __init__(self, scrubber: BaseScrubber, *, check_keys: bool) -> None: ...
+    def clean_value(self, field_name: str, value: str) -> str: ...
+    def truncate(self, value: str) -> str: ...
+    def extra_attrs(self) -> dict[str, Any]: ...

@@ -1,3 +1,7 @@
+---
+title: "Troubleshooting Self-Hosted Logfire Installations"
+description: "Troubleshooting guide for self-hosted Logfire Deployments. Access the Meta Organization for issue resolution."
+---
 # Troubleshooting Self Hosted
 
 There are occasions when you need to troubleshoot the installation.  Since Logfire sends its own internal logs to the `logfire-meta` organisation, this is a good place to start.
@@ -18,6 +22,10 @@ Follow these steps to access the meta organisation:
   ```
   https://<your-logfire-hostname>/logfire-meta/logfire-meta#token=<logfire-meta-frontend-token>
   ```
+
+* !!! note
+    We recommend generating an invite link to the Meta organization so you can access with your own user afterwards.
+    You can easily do this by going to **Settings** > **Invite** and set **Admin** as the Organization role
 
 You should be able to see a stream of traces come through from each service.
 
@@ -60,20 +68,6 @@ If you are seeing Image pull issues on your logfire pods, make sure you have:
 * You set the right secret name at `Values.imagePullSecrets`
 * Both secret and the release are installed on the same namespace
 
-## ff-conhash-cache errors
-
-If you see errors on your conhash-cache pods that look like ```ERROR panic: Failed to build listeners``` or some message like ```Address family not supported by protocol```
-
-This might be due to your hosts having IPv6 disabled.
-To fix this, you can add the following to your values file
-```
-logfire-ff-conhash-cache:
-  env:
-    - name: HOST
-      value: "0.0.0.0"
-```
-
-Which will make the cache pod bind only to the IPv4 interface and fix the issue.
 
 ## Troubleshooting and support
 

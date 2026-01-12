@@ -1,7 +1,8 @@
 ---
+title: "Logfire System Metrics: Monitor CPU, Memory Usage & More"
+description: "Collect detailed system metrics (CPU, memory, disk I/O usage) with Logfire Metrics. Visualize real-time performance on a dedicated system metrics dashboard."
 integration: logfire
 ---
-
 The [`logfire.instrument_system_metrics()`][logfire.Logfire.instrument_system_metrics] method can be used to collect system metrics with **Logfire**, such as CPU and memory usage.
 
 ## Installation
@@ -78,6 +79,9 @@ logfire.instrument_system_metrics({
     'process.memory.usage': None,
     'process.memory.virtual': None,
     'process.thread.count': None,
+    'cpython.gc.collected_objects': None,
+    'cpython.gc.collections': None,
+    'cpython.gc.uncollectable_objects': None,
 })
 ```
 
