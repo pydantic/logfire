@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import anthropic
 from anthropic.types import Message, TextBlock, TextDelta
@@ -25,15 +25,20 @@ __all__ = (
 def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
     """Returns the endpoint config for Anthropic or Bedrock depending on the url."""
     url = options.url
-    json_data = options.json_data
-    if not isinstance(json_data, dict):  # pragma: no cover
+    raw_json_data = options.json_data
+    if not isinstance(raw_json_data, dict):  # pragma: no cover
         # Ensure that `{request_data[model]!r}` doesn't raise an error, just a warning about `model` missing.
-        json_data = {}
+        raw_json_data = {}
+    json_data = cast('dict[str, Any]', raw_json_data)
 
     if url == '/v1/messages':
         return EndpointConfig(
             message_template='Message with {request_data[model]!r}',
-            span_data={'request_data': json_data},
+            span_data={
+                'request_data': json_data,
+                'gen_ai.request.model': json_data.get('model'),
+                'gen_ai.operation.name': 'chat',
+            },
             stream_state_cls=AnthropicMessageStreamState,
         )
     else:

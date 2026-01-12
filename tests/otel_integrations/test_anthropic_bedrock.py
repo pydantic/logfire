@@ -72,7 +72,7 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
     assert exporter.exported_spans_as_dict() == snapshot(
         [
             {
-                'name': 'Message with {request_data[model]!r}',
+                'name': 'chat anthropic.claude-3-haiku-20240307-v1:0',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
@@ -89,6 +89,8 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                             'model': model_id,
                         }
                     ),
+                    'gen_ai.request.model': 'anthropic.claude-3-haiku-20240307-v1:0',
+                    'gen_ai.operation.name': 'chat',
                     'async': False,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
                     'logfire.msg': f"Message with '{model_id}'",
@@ -120,6 +122,8 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                             'type': 'object',
                             'properties': {
                                 'request_data': {'type': 'object'},
+                                'gen_ai.request.model': {},
+                                'gen_ai.operation.name': {},
                                 'async': {},
                                 'response_data': {
                                     'type': 'object',
@@ -134,6 +138,7 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                             },
                         }
                     ),
+                    'gen_ai.response.model': 'anthropic.claude-3-haiku-20240307-v1:0',
                 },
             }
         ]
