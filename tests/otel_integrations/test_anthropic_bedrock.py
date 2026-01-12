@@ -90,6 +90,7 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                         }
                     ),
                     'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.operation.name': 'chat',
                     'gen_ai.request.max_tokens': 1000,
                     'async': False,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
@@ -123,6 +124,7 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                             'properties': {
                                 'request_data': {'type': 'object'},
                                 'gen_ai.provider.name': {},
+                                'gen_ai.operation.name': {},
                                 'gen_ai.request.max_tokens': {},
                                 'async': {},
                                 'response_data': {

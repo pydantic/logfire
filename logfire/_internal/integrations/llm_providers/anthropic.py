@@ -9,6 +9,7 @@ from anthropic.types import Message, TextBlock, TextDelta
 from logfire._internal.utils import handle_internal_errors
 
 from .semconv import (
+    OPERATION_NAME,
     PROVIDER_NAME,
     REQUEST_MAX_TOKENS,
     REQUEST_STOP_SEQUENCES,
@@ -66,6 +67,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         span_data: dict[str, Any] = {
             'request_data': json_data,
             PROVIDER_NAME: 'anthropic',
+            OPERATION_NAME: 'chat',
         }
         _extract_request_parameters(json_data, span_data)
 

@@ -19,6 +19,7 @@ from logfire import LogfireSpan
 
 from ...utils import handle_internal_errors, log_internal_error
 from .semconv import (
+    OPERATION_NAME,
     PROVIDER_NAME,
     REQUEST_FREQUENCY_PENALTY,
     REQUEST_MAX_TOKENS,
@@ -95,6 +96,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             'request_data': json_data,
             'gen_ai.request.model': json_data.get('model'),
             PROVIDER_NAME: 'openai',
+            OPERATION_NAME: 'chat',
         }
         _extract_request_parameters(json_data, span_data)
 
@@ -116,6 +118,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
                 json_data.get('instructions'),
             ),
             PROVIDER_NAME: 'openai',
+            OPERATION_NAME: 'chat',
         }
         _extract_request_parameters(json_data, span_data)
 
@@ -129,6 +132,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             'request_data': json_data,
             'gen_ai.request.model': json_data.get('model'),
             PROVIDER_NAME: 'openai',
+            OPERATION_NAME: 'text_completion',
         }
         _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
@@ -141,6 +145,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             'request_data': json_data,
             'gen_ai.request.model': json_data.get('model'),
             PROVIDER_NAME: 'openai',
+            OPERATION_NAME: 'embeddings',
         }
         _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
@@ -152,6 +157,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             'request_data': json_data,
             'gen_ai.request.model': json_data.get('model'),
             PROVIDER_NAME: 'openai',
+            OPERATION_NAME: 'image_generation',
         }
         _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
