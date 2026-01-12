@@ -3,6 +3,7 @@ from unittest import mock
 
 import pytest
 from inline_snapshot import snapshot
+from opentelemetry.trace import Tracer, TracerProvider
 
 import logfire
 from logfire.testing import TestExporter
@@ -35,8 +36,8 @@ def test_instrument_dspy_calls_instrumentor() -> None:
 
 def test_instrument_dspy_exports_span(exporter: TestExporter) -> None:
     class FakeInstrumentor:
-        def instrument(self, tracer_provider, **kwargs) -> None:
-            tracer = tracer_provider.get_tracer('openinference.instrumentation.dspy')
+        def instrument(self, tracer_provider: TracerProvider, **kwargs: object) -> None:
+            tracer: Tracer = tracer_provider.get_tracer('openinference.instrumentation.dspy')
             with tracer.start_as_current_span('dspy.predict') as span:
                 span.set_attribute('dspy.test', True)
 
