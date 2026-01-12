@@ -2947,6 +2947,10 @@ django = [
     { name = "opentelemetry-instrumentation-asgi" },
     { name = "opentelemetry-instrumentation-django" },
 ]
+dspy = [
+    { name = "openinference-instrumentation-dspy", version = "0.1.31", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "openinference-instrumentation-dspy", version = "0.1.33", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+]
 fastapi = [
     { name = "opentelemetry-instrumentation-fastapi" },
 ]
@@ -3120,6 +3124,7 @@ docs = [
 [package.metadata]
 requires-dist = [
     { name = "executing", specifier = ">=2.0.1" },
+    { name = "openinference-instrumentation-dspy", marker = "extra == 'dspy'", specifier = ">=0" },
     { name = "openinference-instrumentation-litellm", marker = "extra == 'litellm'", specifier = ">=0" },
     { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.39.0,<1.40.0" },
     { name = "opentelemetry-instrumentation", specifier = ">=0.41b0" },
@@ -3155,7 +3160,7 @@ requires-dist = [
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0.1" },
     { name = "typing-extensions", specifier = ">=4.1.0" },
 ]
-provides-extras = ["system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "aws-lambda", "google-genai", "litellm"]
+provides-extras = ["system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "aws-lambda", "google-genai", "litellm", "dspy"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -4263,6 +4268,53 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/00/d0/b19061a21fd6127d2857c77744a36073bba9c1502d1d5e8517b708eb8b7c/openinference_instrumentation-0.1.42.tar.gz", hash = "sha256:2275babc34022e151b5492cfba41d3b12e28377f8e08cb45e5d64fe2d9d7fe37", size = 23954, upload-time = "2025-11-05T01:37:46.869Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c3/71/43ee4616fc95dbd2f560550f199c6652a5eb93f84e8aa0039bc95c19cfe0/openinference_instrumentation-0.1.42-py3-none-any.whl", hash = "sha256:e7521ff90833ef7cc65db526a2f59b76a496180abeaaee30ec6abbbc0b43f8ec", size = 30086, upload-time = "2025-11-05T01:37:43.866Z" },
+]
+
+[[package]]
+name = "openinference-instrumentation-dspy"
+version = "0.1.31"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version < '3.10' and platform_python_implementation == 'PyPy'",
+    "python_full_version < '3.10' and platform_python_implementation != 'PyPy'",
+]
+dependencies = [
+    { name = "openinference-instrumentation", marker = "python_full_version < '3.10'" },
+    { name = "openinference-semantic-conventions", marker = "python_full_version < '3.10'" },
+    { name = "opentelemetry-api", marker = "python_full_version < '3.10'" },
+    { name = "opentelemetry-instrumentation", marker = "python_full_version < '3.10'" },
+    { name = "opentelemetry-semantic-conventions", marker = "python_full_version < '3.10'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.10'" },
+    { name = "wrapt", marker = "python_full_version < '3.10'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/eb/c9/38683b43255166fad37e3fba3735ea71bfe1f4a08981c7c18d7831483ea2/openinference_instrumentation_dspy-0.1.31.tar.gz", hash = "sha256:a595e70e3281ec30c5eb6da78b017c79567f3cd259abbb2ad244b56f93cc3255", size = 26032, upload-time = "2025-12-04T19:58:37.838Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b8/1f/942401c997ed2fcde899a1de46de01e8a227c990a2a9c2c6e2c22e7993c3/openinference_instrumentation_dspy-0.1.31-py3-none-any.whl", hash = "sha256:4bcebf9b3f41d65595232c4c2d1d74dd4aba41166a66969864fb00e6c1d3a217", size = 14845, upload-time = "2025-12-04T19:58:35.503Z" },
+]
+
+[[package]]
+name = "openinference-instrumentation-dspy"
+version = "0.1.33"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.14'",
+    "python_full_version == '3.13.*'",
+    "python_full_version == '3.12.*'",
+    "python_full_version == '3.11.*'",
+    "python_full_version == '3.10.*'",
+]
+dependencies = [
+    { name = "openinference-instrumentation", marker = "python_full_version >= '3.10'" },
+    { name = "openinference-semantic-conventions", marker = "python_full_version >= '3.10'" },
+    { name = "opentelemetry-api", marker = "python_full_version >= '3.10'" },
+    { name = "opentelemetry-instrumentation", marker = "python_full_version >= '3.10'" },
+    { name = "opentelemetry-semantic-conventions", marker = "python_full_version >= '3.10'" },
+    { name = "typing-extensions", marker = "python_full_version >= '3.10'" },
+    { name = "wrapt", marker = "python_full_version >= '3.10'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1c/0e/814f43679ace2de68c4b91eab24db08623dc3da447cd935caca7205d3b65/openinference_instrumentation_dspy-0.1.33.tar.gz", hash = "sha256:b4079a564b2866dfb37c71a9ba36661b8312141959e1110eb13db27e248e2cd8", size = 26803, upload-time = "2026-01-08T03:52:04.056Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/03/3c/7695eb832ffe7667e07911ad8ca8e92520e5c91562809ebbc2d8e15409c3/openinference_instrumentation_dspy-0.1.33-py3-none-any.whl", hash = "sha256:a0713d6c49f3f0178ff11acbe36785f2c09fdffa46e6442ca1d1c38b96d97526", size = 15360, upload-time = "2026-01-08T03:52:01.67Z" },
 ]
 
 [[package]]
