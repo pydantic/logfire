@@ -120,6 +120,7 @@ nav:
           - Anthropic: integrations/llms/anthropic.md
           - LangChain: integrations/llms/langchain.md
           - LiteLLM: integrations/llms/litellm.md
+          - DSPy: integrations/llms/dspy.md
           - MCP: integrations/llms/mcp.md
           - Claude Agent SDK: integrations/llms/claude-agent-sdk.md
           - LLamaIndex: integrations/llms/llamaindex.md

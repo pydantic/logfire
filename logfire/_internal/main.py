@@ -1367,6 +1367,18 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         instrument_litellm(self, **kwargs)
 
+    def instrument_dspy(self, **kwargs: Any):
+        """Instrument [DSPy](https://dspy.ai/).
+
+        Uses the `DSPyInstrumentor().instrument()` method of the
+        [`openinference-instrumentation-dspy`](https://pypi.org/project/openinference-instrumentation-dspy/)
+        package, to which it passes `**kwargs`.
+        """
+        from .integrations.dspy import instrument_dspy
+
+        self._warn_if_not_initialized_for_instrumentation()
+        instrument_dspy(self, **kwargs)
+
     def instrument_print(self) -> AbstractContextManager[None]:
         """Instrument the built-in `print` function so that calls to it are logged.
 
