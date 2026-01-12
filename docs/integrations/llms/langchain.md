@@ -5,10 +5,11 @@ integration: "built-in"
 ---
 # LangChain
 
-[LangChain](https://www.langchain.com/) (and thus [LangGraph](https://www.langchain.com/langgraph)) has [built-in OpenTelemetry tracing via Langsmith](https://docs.smith.langchain.com/observability/how_to_guides/trace_langchain_with_otel) which you can use with **Logfire**. It's enabled by these two environment variables:
+[LangChain](https://www.langchain.com/) (and thus [LangGraph](https://www.langchain.com/langgraph)) has [built-in OpenTelemetry tracing via Langsmith](https://docs.smith.langchain.com/observability/how_to_guides/trace_langchain_with_otel) which you can use with **Logfire**. It's enabled by these environment variables:
 
 ```
 LANGSMITH_OTEL_ENABLED=true
+LANGSMITH_OTEL_ONLY=true
 LANGSMITH_TRACING=true
 ```
 
@@ -21,6 +22,7 @@ import logfire
 
 # These environment variables need to be set before importing langchain or langgraph
 os.environ['LANGSMITH_OTEL_ENABLED'] = 'true'
+os.environ["LANGSMITH_OTEL_ONLY"] = 'true'
 os.environ['LANGSMITH_TRACING'] = 'true'
 
 from langchain.agents import create_agent
