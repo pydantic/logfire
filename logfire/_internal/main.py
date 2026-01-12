@@ -1221,6 +1221,10 @@ class Logfire:
                 OpenAI uses HTTPX to make HTTP requests.
 
             override_provider: If provided, override the provider name for the instrumented client, e.g. 'openrouter'.
+                Do this to get:
+                - Correct attribution in span attributes like `gen_ai.system`
+                - Cost calculation in the span attribute `operation.cost`, subject to `genai_prices` package support
+                - Cost calculation in the Logfire UI
                 The default provider is 'openai'.
 
         Returns:
