@@ -358,7 +358,7 @@ plugins:
         "how-to-guides/otel-collector.md": "how-to-guides/otel-collector/otel-collector-overview.md"
         "reference/organization-structure.md": "guides/web-ui/organizations-and-projects.md"
   - llmstxt:
-      enabled: !ENV [ CI, false ]
+      enabled: !ENV [CI, false]
       full_output: llms-full.txt
       markdown_description: |-
         From the team behind Pydantic, Logfire is an observability platform built on the same belief as our

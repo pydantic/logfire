@@ -14,7 +14,6 @@ os.environ['LANGSMITH_OTEL_ENABLED'] = 'true'
 os.environ['LANGSMITH_TRACING'] = 'true'
 os.environ['LANGSMITH_OTEL_ONLY'] = 'true'
 
-
 pytestmark = [
     pytest.mark.skipif(
         get_version(pydantic.__version__) < get_version('2.11.0'),
