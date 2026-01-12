@@ -45,6 +45,9 @@ With that you get:
 
 ## Methods covered
 
+!!! note
+    This is separate from [Claude Agent SDK instrumentation](../llms/claude-agent-sdk.md). The Claude Agent SDK doesn't actually use the `anthropic` package under the hood.
+
 The following Anthropic methods are covered:
 
 - [`client.messages.create`](https://docs.anthropic.com/en/api/messages)

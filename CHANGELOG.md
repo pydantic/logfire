@@ -1,5 +1,10 @@
 # Release Notes
 
+## [v4.18.0] (2026-01-12)
+
+* Adds `aiohttp` request body capture. by @adtyavrdhn in [#1595](https://github.com/pydantic/logfire/pull/1595)
+* Claude SDK instrumentation by @alexmojaki in [#1618](https://github.com/pydantic/logfire/pull/1618)
+
 ## [v4.17.0] (2026-01-07)
 
 * `logfire.instrument_surrealdb` by @alexmojaki in [#1573](https://github.com/pydantic/logfire/pull/1573)
@@ -994,3 +999,4 @@ First release from new repo!
 [v4.15.1]: https://github.com/pydantic/logfire/compare/v4.15.0...v4.15.1
 [v4.16.0]: https://github.com/pydantic/logfire/compare/v4.15.1...v4.16.0
 [v4.17.0]: https://github.com/pydantic/logfire/compare/v4.16.0...v4.17.0
+[v4.18.0]: https://github.com/pydantic/logfire/compare/v4.17.0...v4.18.0

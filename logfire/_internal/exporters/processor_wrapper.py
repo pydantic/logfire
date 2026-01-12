@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from contextlib import suppress
 from dataclasses import dataclass
 from typing import Any, cast
@@ -347,7 +348,8 @@ def _transform_langchain_span(span: ReadableSpanDict):
     if existing_json_schema:  # pragma: no cover
         return
 
-    properties = JsonSchemaProperties({})
+    properties = JsonSchemaProperties({'all_messages_events': {'type': 'array'}})
+
     parsed_attributes: dict[str, Any] = {}
     for key, value in attributes.items():
         if not isinstance(value, str) or not value.startswith(('{"', '[')):
@@ -359,6 +361,18 @@ def _transform_langchain_span(span: ReadableSpanDict):
         # Tell the Logfire backend to parse this attribute as JSON.
         properties[key] = {'type': 'object' if value.startswith('{') else 'array'}
 
+    attributes, new_attributes = _transform_langsmith_span_attributes(attributes, parsed_attributes)
+
+    span['attributes'] = {
+        **attributes,
+        ATTRIBUTES_JSON_SCHEMA_KEY: attributes_json_schema(properties),
+        **new_attributes,
+    }
+
+
+def _transform_langsmith_span_attributes(
+    attributes: Mapping[str, Any], parsed_attributes: dict[str, Any]
+) -> tuple[Mapping[str, Any], dict[str, Any]]:
     new_attributes: dict[str, Any] = {}
 
     # OTel semconv attributes, needed for displaying costs.
@@ -370,7 +384,7 @@ def _transform_langchain_span(span: ReadableSpanDict):
         ]
         new_attributes.setdefault('gen_ai.request.model', model)
 
-    request_model: str = attributes.get('gen_ai.request.model') or new_attributes.get('gen_ai.request.model', '')  # type: ignore
+    request_model: str = attributes.get('gen_ai.request.model') or new_attributes.get('gen_ai.request.model', '')
 
     if not request_model and 'gen_ai.usage.input_tokens' in attributes:  # pragma: no cover
         # Only keep usage attributes on spans with actual token usage, i.e. model requests,
@@ -389,18 +403,31 @@ def _transform_langchain_span(span: ReadableSpanDict):
 
     # Add `all_messages_events`
     with suppress(Exception):
-        input_messages = parsed_attributes.get('input.value', parsed_attributes.get('gen_ai.prompt', {}))['messages']
-        if len(input_messages) == 1 and isinstance(input_messages[0], list):
-            [input_messages] = input_messages
-
+        input_attribute = parsed_attributes.get('input.value', parsed_attributes.get('gen_ai.prompt', {}))
+        if 'messages' in input_attribute:
+            input_messages = input_attribute['messages']
+            if len(input_messages) == 1 and isinstance(input_messages[0], list):
+                [input_messages] = input_messages
+        else:
+            input_messages: list[Any] = []
+            if 'system' in input_attribute:
+                input_messages.append({'role': 'system', 'content': input_attribute['system']})
+            if 'prompt' in input_attribute:
+                input_messages.append({'role': 'user', 'content': input_attribute['prompt']})
+        if not input_messages:
+            raise ValueError
         message_events = [_transform_langchain_message(old_message) for old_message in input_messages]
 
         # If we fail to parse output messages, fine, but only try if we've succeeded to parse input messages.
         with suppress(Exception):
             output_value = parsed_attributes.get('output.value', parsed_attributes.get('gen_ai.completion', {}))
+            # This weird issubclass usage is because pyright can't deal with missing type arguments of dict sensibly.
+            if issubclass(type(output_value), dict) and 'content' in output_value and 'role' in output_value:
+                output_value = cast(Any, {'messages': [output_value]})
             try:
                 # Multiple generations mean multiple choices, we can only display one.
-                message_events += [_transform_langchain_message(output_value['generations'][0][0]['message'])]
+                old_message = output_value['generations'][0][0]['message']
+                message_events += [_transform_langchain_message(old_message)]
             except Exception:
                 try:
                     output_message_events = [_transform_langchain_message(m) for m in output_value['messages']]
@@ -420,13 +447,8 @@ def _transform_langchain_span(span: ReadableSpanDict):
                     message_events += [_transform_langchain_message(output_value['output'])]
 
         new_attributes['all_messages_events'] = json.dumps(message_events)
-        properties['all_messages_events'] = {'type': 'array'}
 
-    span['attributes'] = {
-        **attributes,
-        ATTRIBUTES_JSON_SCHEMA_KEY: attributes_json_schema(properties),
-        **new_attributes,
-    }
+    return attributes, new_attributes
 
 
 def _transform_langchain_message(old_message: dict[str, Any]) -> dict[str, Any]:
@@ -446,6 +468,9 @@ def _transform_langchain_message(old_message: dict[str, Any]) -> dict[str, Any]:
         'role': role,
     }
 
+    if 'tool_call_id' in result:
+        result['id'] = result.pop('tool_call_id')
+
     if tool_calls := result.get('tool_calls'):
         for tool_call in tool_calls:
             if (
@@ -463,9 +488,9 @@ def _transform_langchain_message(old_message: dict[str, Any]) -> dict[str, Any]:
                 )
     else:
         result.pop('tool_calls', None)
+        if role == 'tool' and 'content' in result and 'id' in result:
+            result.setdefault('name', '')  # dummy value which makes the frontend happy
 
-    if 'tool_call_id' in result:
-        result['id'] = result.pop('tool_call_id')
     return result
 
 

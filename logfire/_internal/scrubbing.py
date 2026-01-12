@@ -155,6 +155,8 @@ class BaseScrubber(ABC):
         'rpc.method',
         'gen_ai.system',
         'model_request_parameters',
+        'langsmith.metadata.session_id',
+        'langsmith.trace.session_name',
     }
 
     @abstractmethod
