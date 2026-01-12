@@ -188,7 +188,7 @@ class Logfire:
         _span_name: str | None = None,
         _level: LevelName | int | None = None,
         _links: Sequence[tuple[SpanContext, otel_types.Attributes]] = (),
-        _span_kind: SpanKind | None = None,
+        _span_kind: SpanKind = SpanKind.INTERNAL,
     ) -> LogfireSpan:
         try:
             if _level is not None:
@@ -542,7 +542,7 @@ class Logfire:
         _span_name: str | None = None,
         _level: LevelName | None = None,
         _links: Sequence[tuple[SpanContext, otel_types.Attributes]] = (),
-        _span_kind: SpanKind | None = None,
+        _span_kind: SpanKind = SpanKind.INTERNAL,
         **attributes: Any,
     ) -> LogfireSpan:
         """Context manager for creating a span.
@@ -562,7 +562,10 @@ class Logfire:
             _tags: An optional sequence of tags to include in the span.
             _level: An optional log level name.
             _links: An optional sequence of links to other spans. Each link is a tuple of a span context and attributes.
-            _span_kind: The span kind. If not provided, defaults to INTERNAL.
+            _span_kind: The [OpenTelemetry span kind](https://opentelemetry.io/docs/concepts/signals/traces/#span-kind).
+                If not provided, defaults to `INTERNAL`.
+                Users don't typically need to set this.
+                Not related to the `kind` column of the `records` table in Logfire.
             attributes: The arguments to include in the span and format the message template with.
                 Attributes starting with an underscore are not allowed.
         """
@@ -2387,7 +2390,7 @@ class LogfireSpan(ReadableSpan):
         tracer: _ProxyTracer,
         json_schema_properties: JsonSchemaProperties,
         links: Sequence[tuple[SpanContext, otel_types.Attributes]],
-        span_kind: SpanKind | None = None,
+        span_kind: SpanKind = SpanKind.INTERNAL,
     ) -> None:
         self._span_name = span_name
         self._otlp_attributes = otlp_attributes
@@ -2409,14 +2412,12 @@ class LogfireSpan(ReadableSpan):
     def _start(self):
         if self._span is not None:
             return
-        kwargs: dict[str, Any] = {
-            'name': self._span_name,
-            'attributes': self._otlp_attributes,
-            'links': self._links,
-        }
-        if self._span_kind is not None:
-            kwargs['kind'] = self._span_kind
-        self._span = self._tracer.start_span(**kwargs)
+        self._span = self._tracer.start_span(
+            name=self._span_name,
+            attributes=self._otlp_attributes,
+            links=self._links,
+            kind=self._span_kind,
+        )
 
     @handle_internal_errors
     def _attach(self):

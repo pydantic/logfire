@@ -22,6 +22,7 @@ from .semconv import (
     PROVIDER_NAME,
     REQUEST_FREQUENCY_PENALTY,
     REQUEST_MAX_TOKENS,
+    REQUEST_MODEL,
     REQUEST_PRESENCE_PENALTY,
     REQUEST_SEED,
     REQUEST_STOP_SEQUENCES,
@@ -129,6 +130,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             'gen_ai.request.model': json_data.get('model'),
             PROVIDER_NAME: 'openai',
         }
+        _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='Completion with {request_data[model]!r}',
             span_data=span_data,
@@ -140,6 +142,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             'gen_ai.request.model': json_data.get('model'),
             PROVIDER_NAME: 'openai',
         }
+        _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='Embedding Creation with {request_data[model]!r}',
             span_data=span_data,
@@ -150,6 +153,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             'gen_ai.request.model': json_data.get('model'),
             PROVIDER_NAME: 'openai',
         }
+        _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='Image Generation with {request_data[model]!r}',
             span_data=span_data,
@@ -161,7 +165,8 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             PROVIDER_NAME: 'openai',
         }
         if 'model' in json_data:
-            span_data['gen_ai.request.model'] = json_data['model']
+            span_data[REQUEST_MODEL] = json_data['model']
+        _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='OpenAI API call to {url!r}',
             span_data=span_data,
