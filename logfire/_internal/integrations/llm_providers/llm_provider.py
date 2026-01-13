@@ -9,6 +9,9 @@ from opentelemetry.trace import SpanKind
 from logfire import attach_context, get_context
 from logfire.propagate import ContextCarrier
 
+from .semconv import (
+    PROVIDER_NAME,
+)
 from ...constants import ONE_SECOND_IN_NANOSECONDS
 from ...utils import is_instrumentation_suppressed, log_internal_error, suppress_instrumentation
 
@@ -98,6 +101,7 @@ def instrument_llm_provider(
             span_data['async'] = is_async
             if override_provider is not None:
                 span_data['gen_ai.system'] = override_provider
+                span_data[PROVIDER_NAME] = override_provider
 
             if kwargs.get('stream') and stream_state_cls:
                 stream_cls = kwargs['stream_cls']
