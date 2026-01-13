@@ -1857,10 +1857,15 @@ def test_parse_prompt_claude_no_mcp(
 ) -> None:
     monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
 
-    def logfire_mcp_installed(_: list[str]) -> bytes:
-        return b'not installed'
+    captured_commands: list[list[str]] = []
 
-    monkeypatch.setattr(subprocess, 'check_output', logfire_mcp_installed)
+    def mock_check_output(cmd: list[str]) -> bytes:
+        captured_commands.append(cmd)
+        if cmd[:3] == ['claude', 'mcp', 'list']:
+            return b'not installed'
+        return b''
+
+    monkeypatch.setattr(subprocess, 'check_output', mock_check_output)
     main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--claude'])
 
     out, err = capsys.readouterr()
@@ -1869,6 +1874,13 @@ def test_parse_prompt_claude_no_mcp(
 Logfire MCP server not found. Creating a read token...
 Logfire MCP server added to Claude.
 """)
+
+    assert len(captured_commands) == 2
+    assert captured_commands[0] == ['claude', 'mcp', 'list']
+    add_cmd = captured_commands[1]
+    assert add_cmd == snapshot(
+        ['claude', 'mcp', 'add', 'logfire', '-e', 'LOGFIRE_READ_TOKEN=fake_token', '--', 'uvx', 'logfire-mcp@latest']
+    )
 
 
 def test_parse_prompt_opencode(
@@ -1886,6 +1898,20 @@ def test_parse_prompt_opencode(
     monkeypatch.setattr(subprocess, 'check_output', check_output)
 
     main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--opencode'])
+
+    opencode_config = tmp_path / 'opencode.jsonc'
+    config_content = json.loads(opencode_config.read_text())
+    assert config_content == snapshot(
+        {
+            'mcp': {
+                'logfire-mcp': {
+                    'type': 'local',
+                    'command': ['uvx', 'logfire-mcp@latest'],
+                    'environment': {'LOGFIRE_READ_TOKEN': 'fake_token'},
+                }
+            }
+        }
+    )
 
     out, err = capsys.readouterr()
     assert out == snapshot("""\
@@ -2092,9 +2118,23 @@ Logfire MCP server added to Claude.
 """)
 
     assert len(captured_commands) == 2
+    assert captured_commands[0] == ['claude', 'mcp', 'list']
     add_cmd = captured_commands[1]
-    assert 'LOGFIRE_READ_TOKEN=fake_token' in ' '.join(add_cmd)
-    assert 'LOGFIRE_BASE_URL=https://logfire.prod.klue.io' in ' '.join(add_cmd)
+    assert add_cmd == snapshot(
+        [
+            'claude',
+            'mcp',
+            'add',
+            'logfire',
+            '-e',
+            'LOGFIRE_READ_TOKEN=fake_token',
+            '-e',
+            'LOGFIRE_BASE_URL=https://logfire.prod.klue.io',
+            '--',
+            'uvx',
+            'logfire-mcp@latest',
+        ]
+    )
 
 
 def test_parse_prompt_codex_with_base_url(
