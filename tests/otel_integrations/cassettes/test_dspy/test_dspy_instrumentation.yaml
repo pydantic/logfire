@@ -1,0 +1,56 @@
+interactions:
+- request:
+    body: '{"messages":[{"role":"user","content":"Your input fields are:\n1. `question`
+      (str):\n\nYour output fields are:\n1. `answer` (str): often between 1 and 5
+      words\n\n---\n\nFollow the following format.\n\nQuestion: ${question}\nAnswer:
+      often between 1 and 5 words\n\n---\n\nQuestion: What is the capital of France?\nAnswer:\n\nRespond
+      with a JSON object in the following order of fields: `answer`."}],"model":"gpt-4o-mini","response_format":{"type":"json_object"}}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      connection:
+      - keep-alive
+      content-length:
+      - '456'
+      content-type:
+      - application/json
+      host:
+      - api.openai.com
+      user-agent:
+      - OpenAI/Python 1.93.1
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: '{"id":"chatcmpl-test123","object":"chat.completion","created":1736780000,"model":"gpt-4o-mini-2024-07-18","choices":[{"index":0,"message":{"role":"assistant","content":"{\"answer\":\"Paris\"}"},"logprobs":null,"finish_reason":"stop"}],"usage":{"prompt_tokens":100,"completion_tokens":10,"total_tokens":110},"system_fingerprint":"fp_test"}'
+    headers:
+      CF-RAY:
+      - test-ray-id
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Mon, 13 Jan 2026 12:00:00 GMT
+      Server:
+      - cloudflare
+      X-Content-Type-Options:
+      - nosniff
+      openai-organization:
+      - test-org
+      openai-processing-ms:
+      - '500'
+      openai-version:
+      - '2020-10-01'
+      x-ratelimit-limit-requests:
+      - '10000'
+      x-ratelimit-remaining-requests:
+      - '9999'
+      x-request-id:
+      - req_test123
+    status:
+      code: 200
+      message: OK
+version: 1

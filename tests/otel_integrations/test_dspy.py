@@ -9,6 +9,13 @@ from opentelemetry.trace import Tracer, TracerProvider
 import logfire
 from logfire.testing import TestExporter
 
+pytestmark = [
+    pytest.mark.skipif(
+        sys.version_info < (3, 10),
+        reason='DSPy instrumentation requires Python 3.10+',
+    ),
+]
+
 
 def test_missing_openinference_dependency() -> None:
     with mock.patch.dict('sys.modules', {'openinference.instrumentation.dspy': None}):
@@ -21,7 +28,6 @@ You can install this with:
 """)
 
 
-@pytest.mark.skipif(sys.version_info < (3, 10), reason='DSPy instrumentation requires Python 3.10+')
 def test_instrument_dspy_calls_instrumentor() -> None:
     instrumentor = mock.Mock()
     module = ModuleType('openinference.instrumentation.dspy')
@@ -36,7 +42,6 @@ def test_instrument_dspy_calls_instrumentor() -> None:
     instrumentor.instrument.assert_called_once()
 
 
-@pytest.mark.skipif(sys.version_info < (3, 10), reason='DSPy instrumentation requires Python 3.10+')
 def test_instrument_dspy_exports_span(exporter: TestExporter) -> None:
     class FakeInstrumentor:
         def instrument(self, tracer_provider: TracerProvider, **kwargs: object) -> None:
@@ -65,3 +70,52 @@ def test_instrument_dspy_exports_span(exporter: TestExporter) -> None:
             }
         ]
     )
+
+
+@pytest.mark.vcr()
+def test_dspy_instrumentation(exporter: TestExporter) -> None:
+    import os
+
+    import dspy
+
+    # Temporarily set API key for test
+    original_key = os.environ.get('OPENAI_API_KEY')
+    if not original_key:
+        os.environ['OPENAI_API_KEY'] = 'test-api-key'
+
+    try:
+        logfire.instrument_dspy()
+
+        # Configure DSPy with OpenAI
+        lm = dspy.LM('openai/gpt-4o-mini')
+        dspy.configure(lm=lm)  # type: ignore[reportUnknownMemberType]
+
+        # Define a simple signature
+        class BasicQA(dspy.Signature):
+            """Answer questions with short factoid answers."""
+
+            question = dspy.InputField()  # type: ignore[reportUnknownMemberType]
+            answer = dspy.OutputField(desc='often between 1 and 5 words')  # type: ignore[reportUnknownMemberType]
+
+        # Create a predictor
+        generate_answer = dspy.Predict(BasicQA)
+
+        # Execute the prediction
+        prediction = generate_answer(question='What is the capital of France?')
+
+        assert prediction.answer == snapshot('Paris')  # type: ignore[reportUnknownMemberType]
+
+        # Verify spans were exported
+        spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+        assert len(spans) > 0
+
+        # Check for DSPy or LLM-related spans (DSPy uses OpenAI/LiteLLM underneath)
+        span_names = [span['name'] for span in spans]
+        assert any(
+            'dspy' in name.lower() or 'completion' in name.lower() or 'predict' in name.lower() for name in span_names
+        ), f'No DSPy-related spans found. Got: {span_names}'
+    finally:
+        if not original_key:
+            os.environ.pop('OPENAI_API_KEY', None)
+        else:
+            os.environ['OPENAI_API_KEY'] = original_key
