@@ -2,11 +2,13 @@ import sys
 from types import ModuleType
 from unittest import mock
 
+import pydantic
 import pytest
 from inline_snapshot import snapshot
 from opentelemetry.trace import Tracer, TracerProvider
 
 import logfire
+from logfire._internal.utils import get_version
 from logfire.testing import TestExporter
 
 pytestmark = [
@@ -73,10 +75,19 @@ def test_instrument_dspy_exports_span(exporter: TestExporter) -> None:
 
 
 @pytest.mark.vcr()
+@pytest.mark.skipif(
+    sys.version_info >= (3, 14),
+    reason='DSPy has compatibility issues with Python 3.14 asyncio deprecation warnings',
+)
+@pytest.mark.skipif(
+    get_version(pydantic.__version__) < get_version('2.5.0'),
+    reason='DSPy/LiteLLM requires Pydantic >= 2.5 for Discriminator import',
+)
 def test_dspy_instrumentation(exporter: TestExporter) -> None:
     import os
 
-    import dspy
+    # Skip test if dspy can't be imported due to compatibility issues
+    dspy = pytest.importorskip('dspy', reason='DSPy import failed due to environment incompatibility')
 
     # Temporarily set API key for test
     original_key = os.environ.get('OPENAI_API_KEY')
@@ -88,14 +99,14 @@ def test_dspy_instrumentation(exporter: TestExporter) -> None:
 
         # Configure DSPy with OpenAI
         lm = dspy.LM('openai/gpt-4o-mini')
-        dspy.configure(lm=lm)  # type: ignore[reportUnknownMemberType]
+        dspy.configure(lm=lm)
 
         # Define a simple signature
         class BasicQA(dspy.Signature):
             """Answer questions with short factoid answers."""
 
-            question = dspy.InputField()  # type: ignore[reportUnknownMemberType]
-            answer = dspy.OutputField(desc='often between 1 and 5 words')  # type: ignore[reportUnknownMemberType]
+            question = dspy.InputField()
+            answer = dspy.OutputField(desc='often between 1 and 5 words')
 
         # Create a predictor
         generate_answer = dspy.Predict(BasicQA)
@@ -103,7 +114,7 @@ def test_dspy_instrumentation(exporter: TestExporter) -> None:
         # Execute the prediction
         prediction = generate_answer(question='What is the capital of France?')
 
-        assert prediction.answer == snapshot('Paris')  # type: ignore[reportUnknownMemberType]
+        assert prediction.answer == snapshot('Paris')
 
         # Verify spans were exported
         spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
