@@ -123,27 +123,24 @@ def configure_opencode(
 
     if 'logfire-mcp' not in opencode_config_content:
         token = _create_read_token(client, organization, project, console)
+        mcp_entry = _opencode_mcp_entry(token, base_url)
         if not opencode_config_content:
-            opencode_config.write_text(json.dumps(_opencode_mcp_json(token, base_url), indent=2))
+            opencode_config.write_text(json.dumps({'mcp': {'logfire-mcp': mcp_entry}}, indent=2))
         else:
             opencode_config_json = json.loads(opencode_config_content)
             opencode_config_json.setdefault('mcp', {})
-            opencode_config_json['mcp'] = {'logfire-mcp': _opencode_mcp_json(token, base_url)}
+            opencode_config_json['mcp']['logfire-mcp'] = mcp_entry
             opencode_config.write_text(json.dumps(opencode_config_json, indent=2))
         console.print('Logfire MCP server added to OpenCode.', style='green')
 
 
-def _opencode_mcp_json(token: str, base_url: str | None) -> dict[str, Any]:
-    """Generate JSON configuration for the Logfire MCP server (OpenCode format)."""
+def _opencode_mcp_entry(token: str, base_url: str | None) -> dict[str, Any]:
+    """Generate the logfire-mcp entry for OpenCode configuration."""
     env: dict[str, str] = {'LOGFIRE_READ_TOKEN': token}
     if base_url:
         env['LOGFIRE_BASE_URL'] = base_url
     return {
-        'mcp': {
-            'logfire-mcp': {
-                'type': 'local',
-                'command': ['uvx', 'logfire-mcp@latest'],
-                'environment': env,
-            }
-        }
+        'type': 'local',
+        'command': ['uvx', 'logfire-mcp@latest'],
+        'environment': env,
     }

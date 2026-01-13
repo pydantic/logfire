@@ -1984,7 +1984,7 @@ def test_parse_opencode_logfire_mcp_not_installed_with_existing_config(
     monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
     monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
 
-    (tmp_path / 'opencode.jsonc').write_text('{}')
+    (tmp_path / 'opencode.jsonc').write_text('{"existing": "config"}')
 
     def check_output(x: list[str]) -> bytes:
         return tmp_path.as_posix().encode('utf-8')
@@ -1992,6 +1992,21 @@ def test_parse_opencode_logfire_mcp_not_installed_with_existing_config(
     monkeypatch.setattr(subprocess, 'check_output', check_output)
 
     main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--opencode'])
+
+    opencode_config = tmp_path / 'opencode.jsonc'
+    config_content = json.loads(opencode_config.read_text())
+    assert config_content == snapshot(
+        {
+            'existing': 'config',
+            'mcp': {
+                'logfire-mcp': {
+                    'type': 'local',
+                    'command': ['uvx', 'logfire-mcp@latest'],
+                    'environment': {'LOGFIRE_READ_TOKEN': 'fake_token'},
+                }
+            },
+        }
+    )
 
     out, err = capsys.readouterr()
     assert out == snapshot('This is the prompt\n')
@@ -2165,6 +2180,61 @@ def test_parse_prompt_opencode_with_base_url(
                     },
                 }
             }
+        }
+    )
+    out, err = capsys.readouterr()
+    assert out == snapshot('This is the prompt\n')
+    assert err == snapshot("""\
+Logfire MCP server not found. Creating a read token...
+Logfire MCP server added to OpenCode.
+""")
+
+
+def test_parse_prompt_opencode_with_existing_config_and_base_url(
+    prompt_http_calls_custom_base_url: None,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that LOGFIRE_BASE_URL is included and existing config preserved when merging."""
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
+
+    (tmp_path / 'opencode.jsonc').write_text('{"existing": "config", "mcp": {"other-server": {"type": "remote"}}}')
+
+    def check_output(x: list[str]) -> bytes:
+        return tmp_path.as_posix().encode('utf-8')
+
+    monkeypatch.setattr(subprocess, 'check_output', check_output)
+
+    main(
+        [
+            '--base-url',
+            'https://logfire.example.com',
+            'prompt',
+            '--project',
+            'fake_org/myproject',
+            'fix-span-issue:123',
+            '--opencode',
+        ]
+    )
+
+    opencode_config = tmp_path / 'opencode.jsonc'
+    config_content = json.loads(opencode_config.read_text())
+    assert config_content == snapshot(
+        {
+            'existing': 'config',
+            'mcp': {
+                'other-server': {'type': 'remote'},
+                'logfire-mcp': {
+                    'type': 'local',
+                    'command': ['uvx', 'logfire-mcp@latest'],
+                    'environment': {
+                        'LOGFIRE_READ_TOKEN': 'fake_token',
+                        'LOGFIRE_BASE_URL': 'https://logfire.example.com',
+                    },
+                },
+            },
         }
     )
     out, err = capsys.readouterr()
