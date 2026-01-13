@@ -1,3 +1,4 @@
+import sys
 from types import ModuleType
 from unittest import mock
 
@@ -20,20 +21,22 @@ You can install this with:
 """)
 
 
+@pytest.mark.skipif(sys.version_info < (3, 10), reason='DSPy instrumentation requires Python 3.10+')
 def test_instrument_dspy_calls_instrumentor() -> None:
     instrumentor = mock.Mock()
     module = ModuleType('openinference.instrumentation.dspy')
     module.DSPyInstrumentor = mock.Mock(return_value=instrumentor)  # type: ignore[attr-defined]
 
     with (
+        mock.patch.dict('sys.modules', {'openinference.instrumentation.dspy': module}),
         mock.patch('logfire._internal.integrations.dspy.util.find_spec', return_value=object()),
-        mock.patch('logfire._internal.integrations.dspy.import_module', return_value=module),
     ):
         logfire.instrument_dspy()
 
     instrumentor.instrument.assert_called_once()
 
 
+@pytest.mark.skipif(sys.version_info < (3, 10), reason='DSPy instrumentation requires Python 3.10+')
 def test_instrument_dspy_exports_span(exporter: TestExporter) -> None:
     class FakeInstrumentor:
         def instrument(self, tracer_provider: TracerProvider, **kwargs: object) -> None:
@@ -45,8 +48,8 @@ def test_instrument_dspy_exports_span(exporter: TestExporter) -> None:
     module.DSPyInstrumentor = FakeInstrumentor  # type: ignore[attr-defined]
 
     with (
+        mock.patch.dict('sys.modules', {'openinference.instrumentation.dspy': module}),
         mock.patch('logfire._internal.integrations.dspy.util.find_spec', return_value=object()),
-        mock.patch('logfire._internal.integrations.dspy.import_module', return_value=module),
     ):
         logfire.instrument_dspy()
 

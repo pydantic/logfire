@@ -184,6 +184,8 @@ dev = [
     "google-genai >= 0",
     "openinference-instrumentation-litellm >= 0",
     "litellm != 1.80.9",
+    "openinference-instrumentation-dspy >= 0; python_version >= '3.10'",
+    "dspy >= 0; python_version >= '3.10'",
     "pip >= 0",
     "surrealdb >= 0",
 ]
