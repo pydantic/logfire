@@ -1,3 +1,7 @@
+---
+title: Logfire OTel Integration with Alternative Clients
+description: "Guide on how to use the standard OpenTelemetry SDK to export Node.js, Rust or Go data to Logfire."
+---
 # Alternative clients
 
 **Logfire** uses the OpenTelemetry standard. This means that you can configure standard OpenTelemetry SDKs

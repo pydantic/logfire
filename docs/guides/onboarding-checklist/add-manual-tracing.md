@@ -1,3 +1,7 @@
+---
+title: "Logfire Onboarding: Adding Manual Tracing"
+description: "Intro to manual tracing with Logfire. Learn about recording attributes, tracking exceptions, and f-strings."
+---
 ## Spans, logs, and traces
 
 Here's a simple example of using Logfire:

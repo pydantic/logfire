@@ -1,3 +1,7 @@
+---
+title: "Logfire OTel Collector: Advanced Scrubbing Guide"
+description: "Data scrubbing with the Logfire OTel Collector: Remove attributes by key, mask sensitive values, or implement conditional scrubbing to guard sensitive data."
+---
 # Advanced scrubbing with the OTel Collector
 
 The Logfire SDK already comes with powerful, [built-in scrubbing](../scrubbing.md) to automatically protect sensitive data within your application.

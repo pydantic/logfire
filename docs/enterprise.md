@@ -1,3 +1,7 @@
+---
+title: Pydantic Logfire Enterprise Plan Overview
+description: "The Logfire Enterprise Plan includes custom SSO, guaranteed SLAs, custom BAAs, and priority 24/7 support. Choose between cloud and self-hosted options."
+---
 # Pydantic Logfire Enterprise
 
 ## Overview

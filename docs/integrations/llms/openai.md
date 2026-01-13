@@ -1,7 +1,8 @@
 ---
+title: Pydantic Logfire OpenAI Integration
+description: "Logfire supports instrumenting via the standard OpenAI SDK package and OpenAI \"agents\" framework. Track tool calls, token usage, and conversation flow."
 integration: logfire
 ---
-
 We support instrumenting both the [standard OpenAI SDK](https://github.com/openai/openai-python) package and [OpenAI "agents"](https://github.com/openai/openai-agents-python) framework.
 
 ## OpenAI SDK

@@ -1,7 +1,8 @@
 ---
+title: Logfire Express Application Integration
+description: Guide for instrumenting an Express application with Logfire. Learn how to use the logfire package to set up logging and monitoring for Express routes.
 integration: logfire
 ---
-
 # Express
 
 Instrumenting an Express application with Logfire is straightforward. You can use the `logfire` package to set up logging and monitoring for your Express routes.

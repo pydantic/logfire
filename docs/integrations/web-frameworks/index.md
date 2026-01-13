@@ -1,3 +1,7 @@
+---
+title: Logfire Web Framework Integrations
+description: "Instrumentation for web apps. How to capture HTTP server request and response headers, query HTTP requests duration per percentile and exclude URLs."
+---
 # Web Frameworks
 
 Here are some tips for instrumenting your web applications.

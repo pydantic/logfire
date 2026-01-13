@@ -1,3 +1,7 @@
+---
+title: "Guide: Scale Your Self-Hosted Logfire Deployment"
+description: "Guide to scaling Logfire self-hosted deployments. Adjust Kubernetes replicas and PostgreSQL settings to handle high ingestion or query traffic efficiently."
+---
 # Scaling Self Hosted
 
 **Logfire** is designed to be horizontally scalable, and can handle a lot of traffic. Depending on your usage patterns, however, you may be required to scale certain pods in order to maintain performance.

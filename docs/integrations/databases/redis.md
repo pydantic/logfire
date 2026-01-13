@@ -1,7 +1,8 @@
 ---
+title: "Logfire Redis Integration & Setup Guide"
+description: "Integrate Pydantic Redis instrumentation. Logfire creates a span for every Redis command executed, offering granular tracing of your data layer."
 integration: otel
 ---
-
 # Redis
 
 The [`logfire.instrument_redis()`][logfire.Logfire.instrument_redis] method will create a span for every command executed by your [Redis][redis] clients.

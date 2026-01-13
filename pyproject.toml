@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "4.16.0"
+version = "4.18.0"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.9"
 authors = [
@@ -30,6 +30,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Intended Audience :: Developers",
     "Intended Audience :: Information Technology",
     "Intended Audience :: System Administrators",
@@ -109,7 +110,7 @@ dev = [
     "pytest >= 8.3.4",
     "pytest-django >= 4.6.0",
     "pytest-pretty >= 1.2.0",
-    "pydantic @ git+https://github.com/pydantic/pydantic",
+    "pydantic >= 2.11.0",
     "requests >= 2.31.0",
     "sqlalchemy >= 1.4.54",
     "pandas>=2.1.2",
@@ -156,7 +157,7 @@ dev = [
     "mypy>=1.10.0",
     "celery>=5.4.0",
     # https://github.com/testcontainers/testcontainers-python/issues/874
-    "testcontainers!=4.13.*",
+    "testcontainers<4.13",
     "mysql-connector-python~=8.0",
     "pyarrow>=17.0.0; python_version < '3.13'",
     "pyarrow>=18.1.0; python_version >= '3.13'",
@@ -167,7 +168,8 @@ dev = [
     "uvicorn>=0.30.6",
     "logfire-api",
     "setuptools>=75.3.0",
-    "aiosqlite!=0.22.0",
+    # https://github.com/omnilib/aiosqlite/issues/369
+    "aiosqlite!=0.22.*",
     "boto3 >= 1.28.57",
     "botocore >= 1.31.57",
     "greenlet >= 3.1.1",

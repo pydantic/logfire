@@ -1,4 +1,6 @@
 ---
+title: Pydantic Logfire Anthropic Integration
+description: "Instrument calls to Anthropic with the logfire.instrument_anthropic(), stream responses, and log Anthropic LLM calls to Amazon Bedrock."
 integration: logfire
 ---
 # Anthropic
@@ -42,6 +44,9 @@ With that you get:
 </figure>
 
 ## Methods covered
+
+!!! note
+    This is separate from [Claude Agent SDK instrumentation](../llms/claude-agent-sdk.md). The Claude Agent SDK doesn't actually use the `anthropic` package under the hood.
 
 The following Anthropic methods are covered:
 

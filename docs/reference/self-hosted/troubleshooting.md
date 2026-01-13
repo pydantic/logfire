@@ -1,3 +1,7 @@
+---
+title: "Troubleshooting Self-Hosted Logfire Installations"
+description: "Troubleshooting guide for self-hosted Logfire Deployments. Access the Meta Organization for issue resolution."
+---
 # Troubleshooting Self Hosted
 
 There are occasions when you need to troubleshoot the installation.  Since Logfire sends its own internal logs to the `logfire-meta` organisation, this is a good place to start.

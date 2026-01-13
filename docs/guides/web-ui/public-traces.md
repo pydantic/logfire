@@ -1,3 +1,7 @@
+---
+title: "Public Traces in Logfire: Share & Manage Public Traces"
+description: "Public Traces: Learn how to provide external teams with full trace data, including all nested spans and span links, without granting full access."
+---
 # Public Traces
 
 Public Traces lets you to create shareable links for specific traces. Perfect for collaborating with anyone who doesn't have Logfire access, or sharing debugging information.
