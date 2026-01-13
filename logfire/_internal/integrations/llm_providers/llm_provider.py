@@ -57,6 +57,7 @@ def instrument_llm_provider(
                 get_endpoint_config_fn,
                 on_response_fn,
                 is_async_client_fn,
+                override_provider,
             )
             for c in cast('Iterable[Any]', client)
         ]

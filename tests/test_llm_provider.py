@@ -251,3 +251,62 @@ async def test_override_provider_async(
     else:
         assert request['attributes']['gen_ai.system'] == expected_gen_ai_system
         assert request['attributes'][PROVIDER_NAME] == expected_gen_ai_system
+
+
+async def test_override_provider_with_tuple_of_client_instances(exporter: TestExporter) -> None:
+    """Test that override_provider is passed through when instrumenting a tuple of client instances."""
+    sync_client = MockSyncClient()
+    async_client = MockAsyncClient()
+
+    instrument_llm_provider(
+        logfire=logfire.DEFAULT_LOGFIRE_INSTANCE,
+        client=(sync_client, async_client),
+        suppress_otel=False,
+        scope_suffix='test',
+        get_endpoint_config_fn=get_endpoint_config,
+        on_response_fn=on_response,
+        is_async_client_fn=is_async_client,
+        override_provider='openrouter',
+    )
+
+    # Test sync client
+    sync_client.request(options=MockOptions())
+
+    # Test async client
+    await async_client.request(options=MockOptions())
+
+    spans = exporter.exported_spans_as_dict()
+    request_spans = [s for s in spans if 'Test with' in s['name']]
+
+    assert len(request_spans) == 2
+
+    for span in request_spans:
+        assert span['attributes']['gen_ai.system'] == 'openrouter'
+        assert span['attributes'][PROVIDER_NAME] == 'openrouter'
+
+
+def test_override_provider_with_tuple_of_client_classes(exporter: TestExporter) -> None:
+    """Test that override_provider is passed through when instrumenting a tuple of client classes (like instrument_openai with client=None)."""
+    # This simulates what happens when you call instrument_openai(client=None)
+    # which internally passes (openai.OpenAI, openai.AsyncOpenAI)
+    instrument_llm_provider(
+        logfire=logfire.DEFAULT_LOGFIRE_INSTANCE,
+        client=(MockSyncClient, MockAsyncClient),
+        suppress_otel=False,
+        scope_suffix='test',
+        get_endpoint_config_fn=get_endpoint_config,
+        on_response_fn=on_response,
+        is_async_client_fn=is_async_client,
+        override_provider='openrouter',
+    )
+
+    # Create new instances - the class itself is instrumented
+    sync_client = MockSyncClient()
+    sync_client.request(options=MockOptions())
+
+    spans = exporter.exported_spans_as_dict()
+    request_spans = [s for s in spans if 'Test with' in s['name']]
+
+    assert len(request_spans) == 1
+    assert request_spans[0]['attributes']['gen_ai.system'] == 'openrouter'
+    assert request_spans[0]['attributes'][PROVIDER_NAME] == 'openrouter'

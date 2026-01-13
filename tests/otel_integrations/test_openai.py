@@ -2998,3 +2998,27 @@ def test_on_response_calc_price_uses_correct_provider(
             f"Expected calc_price to be called with provider_id='{expected_provider_id}', "
             f"but got provider_id='{call_kwargs.kwargs.get('provider_id')}'"
         )
+
+
+def test_override_provider_with_client_none(exporter: TestExporter) -> None:
+    """Test that override_provider works when client=None (instrumenting both OpenAI and AsyncOpenAI classes)."""
+    with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
+        # Instrument both classes via the tuple path (client=None defaults to (openai.OpenAI, openai.AsyncOpenAI))
+        with logfire.instrument_openai(openai_client=None, override_provider='openrouter'):
+            # Create a new client instance after instrumenting the class
+            openai_client = openai.Client(api_key='foobar', http_client=httpx_client)
+
+            response = openai_client.chat.completions.create(
+                model='gpt-4',
+                messages=[
+                    {'role': 'system', 'content': 'You are a helpful assistant.'},
+                    {'role': 'user', 'content': 'What is four plus five?'},
+                ],
+            )
+
+    assert response.choices[0].message.content == 'Nine'
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) == 1
+    # Verify that override_provider was passed through to the class instrumentation
+    assert spans[0]['attributes']['gen_ai.system'] == 'openrouter'
+    assert spans[0]['attributes']['gen_ai.provider.name'] == 'openrouter'
