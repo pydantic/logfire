@@ -18,6 +18,19 @@ from opentelemetry.trace import get_current_span
 from logfire import LogfireSpan
 
 from ...utils import handle_internal_errors, log_internal_error
+from .semconv import (
+    OPERATION_NAME,
+    PROVIDER_NAME,
+    REQUEST_FREQUENCY_PENALTY,
+    REQUEST_MAX_TOKENS,
+    REQUEST_MODEL,
+    REQUEST_PRESENCE_PENALTY,
+    REQUEST_SEED,
+    REQUEST_STOP_SEQUENCES,
+    REQUEST_TEMPERATURE,
+    REQUEST_TOP_P,
+    TOOL_DEFINITIONS,
+)
 from .types import EndpointConfig, StreamState
 
 if TYPE_CHECKING:
@@ -33,37 +46,81 @@ __all__ = (
 )
 
 
+def _extract_request_parameters(json_data: dict[str, Any], span_data: dict[str, Any]) -> None:
+    """Extract request parameters from json_data and add to span_data."""
+    if (max_tokens := json_data.get('max_tokens')) is not None:
+        span_data[REQUEST_MAX_TOKENS] = max_tokens
+    elif (max_output_tokens := json_data.get('max_output_tokens')) is not None:
+        span_data[REQUEST_MAX_TOKENS] = max_output_tokens
+
+    if (temperature := json_data.get('temperature')) is not None:
+        span_data[REQUEST_TEMPERATURE] = temperature
+
+    if (top_p := json_data.get('top_p')) is not None:
+        span_data[REQUEST_TOP_P] = top_p
+
+    if (stop := json_data.get('stop')) is not None:
+        if isinstance(stop, str):
+            span_data[REQUEST_STOP_SEQUENCES] = json.dumps([stop])
+        else:
+            span_data[REQUEST_STOP_SEQUENCES] = json.dumps(stop)
+
+    if (seed := json_data.get('seed')) is not None:
+        span_data[REQUEST_SEED] = seed
+
+    if (frequency_penalty := json_data.get('frequency_penalty')) is not None:
+        span_data[REQUEST_FREQUENCY_PENALTY] = frequency_penalty
+
+    if (presence_penalty := json_data.get('presence_penalty')) is not None:
+        span_data[REQUEST_PRESENCE_PENALTY] = presence_penalty
+
+    if (tools := json_data.get('tools')) is not None:
+        span_data[TOOL_DEFINITIONS] = json.dumps(tools)
+
+
 def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
     """Returns the endpoint config for OpenAI depending on the url."""
     url = options.url
 
-    json_data = options.json_data
-    if not isinstance(json_data, dict):  # pragma: no cover
+    raw_json_data = options.json_data
+    if not isinstance(raw_json_data, dict):  # pragma: no cover
         # Ensure that `{request_data[model]!r}` doesn't raise an error, just a warning about `model` missing.
-        json_data = {}
+        raw_json_data = {}
+    json_data = cast('dict[str, Any]', raw_json_data)
 
     if url == '/chat/completions':
         if is_current_agent_span('Chat completion with {gen_ai.request.model!r}'):
             return EndpointConfig(message_template='', span_data={})
 
+        span_data: dict[str, Any] = {
+            'request_data': json_data,
+            'gen_ai.request.model': json_data.get('model'),
+            PROVIDER_NAME: 'openai',
+            OPERATION_NAME: 'chat',
+        }
+        _extract_request_parameters(json_data, span_data)
+
         return EndpointConfig(
             message_template='Chat Completion with {request_data[model]!r}',
-            span_data={'request_data': json_data, 'gen_ai.request.model': json_data['model']},
+            span_data=span_data,
             stream_state_cls=OpenaiChatCompletionStreamState,
         )
     elif url == '/responses':
         if is_current_agent_span('Responses API', 'Responses API with {gen_ai.request.model!r}'):
             return EndpointConfig(message_template='', span_data={})
 
-        stream = json_data.get('stream', False)  # type: ignore
-        span_data: dict[str, Any] = {
-            'gen_ai.request.model': json_data['model'],
-            'request_data': {'model': json_data['model'], 'stream': stream},
+        stream = json_data.get('stream', False)
+        span_data = {
+            'gen_ai.request.model': json_data.get('model'),
+            'request_data': {'model': json_data.get('model'), 'stream': stream},
             'events': inputs_to_events(
-                json_data['input'],  # type: ignore
-                json_data.get('instructions'),  # type: ignore
+                json_data.get('input'),
+                json_data.get('instructions'),
             ),
+            PROVIDER_NAME: 'openai',
+            OPERATION_NAME: 'chat',
         }
+        _extract_request_parameters(json_data, span_data)
 
         return EndpointConfig(
             message_template='Responses API with {gen_ai.request.model!r}',
@@ -71,25 +128,51 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             stream_state_cls=OpenaiResponsesStreamState,
         )
     elif url == '/completions':
+        span_data = {
+            'request_data': json_data,
+            'gen_ai.request.model': json_data.get('model'),
+            PROVIDER_NAME: 'openai',
+            OPERATION_NAME: 'text_completion',
+        }
+        _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='Completion with {request_data[model]!r}',
-            span_data={'request_data': json_data, 'gen_ai.request.model': json_data['model']},
+            span_data=span_data,
             stream_state_cls=OpenaiCompletionStreamState,
         )
     elif url == '/embeddings':
+        span_data = {
+            'request_data': json_data,
+            'gen_ai.request.model': json_data.get('model'),
+            PROVIDER_NAME: 'openai',
+            OPERATION_NAME: 'embeddings',
+        }
+        _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='Embedding Creation with {request_data[model]!r}',
-            span_data={'request_data': json_data, 'gen_ai.request.model': json_data['model']},
+            span_data=span_data,
         )
     elif url == '/images/generations':
+        span_data = {
+            'request_data': json_data,
+            'gen_ai.request.model': json_data.get('model'),
+            PROVIDER_NAME: 'openai',
+            OPERATION_NAME: 'image_generation',
+        }
+        _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='Image Generation with {request_data[model]!r}',
-            span_data={'request_data': json_data, 'gen_ai.request.model': json_data['model']},
+            span_data=span_data,
         )
     else:
-        span_data = {'request_data': json_data, 'url': url}
+        span_data = {
+            'request_data': json_data,
+            'url': url,
+            PROVIDER_NAME: 'openai',
+        }
         if 'model' in json_data:
-            span_data['gen_ai.request.model'] = json_data['model']
+            span_data[REQUEST_MODEL] = json_data['model']
+        _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='OpenAI API call to {url!r}',
             span_data=span_data,
