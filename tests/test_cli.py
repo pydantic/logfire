@@ -2009,3 +2009,167 @@ def test_base_url_and_logfire_url(
         DeprecationWarning, match='The `--logfire-url` argument is deprecated. Use `--base-url` instead.'
     ):
         main(['--logfire-url', 'https://logfire-us.pydantic.dev', 'whoami'])
+
+
+@pytest.fixture()
+def prompt_http_calls_custom_base_url() -> Generator[None]:
+    """Fixture for testing MCP configuration with a custom base URL."""
+    custom_base_url = 'https://logfire.prod.klue.io'
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                'logfire._internal.auth.UserTokenCollection.get_token',
+                return_value=UserToken(token='', base_url=custom_base_url, expiration='2099-12-31T23:59:59'),
+            )
+        )
+
+        m = requests_mock.Mocker()
+        stack.enter_context(m)
+        m.get(
+            f'{custom_base_url}/v1/organizations/fake_org/projects/myproject/prompts',
+            response_list=[
+                {
+                    'json': {'prompt': 'This is the prompt\n'},
+                }
+            ],
+        )
+
+        m.post(
+            f'{custom_base_url}/v1/organizations/fake_org/projects/myproject/read-tokens',
+            json={'token': 'fake_token'},
+        )
+
+        yield
+
+
+def test_parse_prompt_claude_no_mcp_with_base_url(
+    prompt_http_calls_custom_base_url: None, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that LOGFIRE_BASE_URL is passed to Claude MCP configuration when using --base-url."""
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+
+    captured_commands: list[list[str]] = []
+
+    def mock_check_output(cmd: list[str]) -> bytes:
+        captured_commands.append(cmd)
+        if cmd[:3] == ['claude', 'mcp', 'list']:
+            return b'not installed'
+        return b''
+
+    monkeypatch.setattr(subprocess, 'check_output', mock_check_output)
+    main(
+        [
+            '--base-url',
+            'https://logfire.prod.klue.io',
+            'prompt',
+            '--project',
+            'fake_org/myproject',
+            'fix-span-issue:123',
+            '--claude',
+        ]
+    )
+
+    out, err = capsys.readouterr()
+    assert out == snapshot('This is the prompt\n')
+    assert err == snapshot("""\
+Logfire MCP server not found. Creating a read token...
+Logfire MCP server added to Claude.
+""")
+
+    assert len(captured_commands) == 2
+    add_cmd = captured_commands[1]
+    assert 'LOGFIRE_READ_TOKEN=fake_token' in ' '.join(add_cmd)
+    assert 'LOGFIRE_BASE_URL=https://logfire.prod.klue.io' in ' '.join(add_cmd)
+
+
+def test_parse_prompt_codex_with_base_url(
+    prompt_http_calls_custom_base_url: None,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that LOGFIRE_BASE_URL is included in Codex TOML config when using --base-url."""
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+
+    codex_path = tmp_path / 'codex'
+    codex_path.mkdir()
+    codex_config_path = codex_path / 'config.toml'
+    codex_config_path.write_text('')
+
+    with patch.dict(os.environ, {'CODEX_HOME': str(codex_path)}):
+        main(
+            [
+                '--base-url',
+                'https://logfire.prod.klue.io',
+                'prompt',
+                '--project',
+                'fake_org/myproject',
+                'fix-span-issue:123',
+                '--codex',
+            ]
+        )
+
+    assert codex_config_path.read_text() == snapshot("""\
+
+[mcp_servers.logfire]
+command = "uvx"
+args = ["logfire-mcp@latest"]
+env = { "LOGFIRE_READ_TOKEN" = "fake_token", "LOGFIRE_BASE_URL" = "https://logfire.prod.klue.io" }
+""")
+    out, err = capsys.readouterr()
+    assert out == snapshot('This is the prompt\n')
+    assert err == snapshot("""\
+Logfire MCP server not found. Creating a read token...
+Logfire MCP server added to Codex.
+""")
+
+
+def test_parse_prompt_opencode_with_base_url(
+    prompt_http_calls_custom_base_url: None,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that LOGFIRE_BASE_URL is included in OpenCode JSON config when using --base-url."""
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
+
+    def check_output(x: list[str]) -> bytes:
+        return tmp_path.as_posix().encode('utf-8')
+
+    monkeypatch.setattr(subprocess, 'check_output', check_output)
+
+    main(
+        [
+            '--base-url',
+            'https://logfire.prod.klue.io',
+            'prompt',
+            '--project',
+            'fake_org/myproject',
+            'fix-span-issue:123',
+            '--opencode',
+        ]
+    )
+
+    opencode_config = tmp_path / 'opencode.jsonc'
+    config_content = json.loads(opencode_config.read_text())
+    assert config_content == snapshot(
+        {
+            'mcp': {
+                'logfire-mcp': {
+                    'type': 'local',
+                    'command': ['uvx', 'logfire-mcp@latest'],
+                    'environment': {
+                        'LOGFIRE_READ_TOKEN': 'fake_token',
+                        'LOGFIRE_BASE_URL': 'https://logfire.prod.klue.io',
+                    },
+                }
+            }
+        }
+    )
+    out, err = capsys.readouterr()
+    assert out == snapshot('This is the prompt\n')
+    assert err == snapshot("""\
+Logfire MCP server not found. Creating a read token...
+Logfire MCP server added to OpenCode.
+""")
