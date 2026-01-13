@@ -2940,3 +2940,61 @@ def test_on_response_gen_ai_system_behavior(
         assert len(gen_ai_system_calls) == 0, (
             f"Expected no calls to set_attribute with 'gen_ai.system', got {gen_ai_system_calls}"
         )
+
+
+@pytest.mark.parametrize(
+    ('span_attributes', 'expected_provider_id'),
+    [
+        pytest.param({}, 'openai', id='no_system_uses_openai'),
+        pytest.param(None, 'openai', id='none_attributes_uses_openai'),
+        pytest.param({'gen_ai.system': 'openai'}, 'openai', id='openai_system_uses_openai'),
+        pytest.param({'gen_ai.system': 'openrouter'}, 'openrouter', id='openrouter_system_uses_openrouter'),
+        pytest.param({'gen_ai.system': 'azure'}, 'azure', id='azure_system_uses_azure'),
+    ],
+)
+def test_on_response_calc_price_uses_correct_provider(
+    span_attributes: dict[str, str] | None, expected_provider_id: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that on_response uses the correct provider_id when calculating price."""
+    from unittest.mock import patch
+
+    mock_span = MagicMock()
+    mock_span.attributes = span_attributes
+
+    response = chat_completion.ChatCompletion(
+        id='test_id',
+        choices=[
+            chat_completion.Choice(
+                finish_reason='stop',
+                index=0,
+                message=chat_completion_message.ChatCompletionMessage(
+                    content='Test response',
+                    role='assistant',
+                ),
+            ),
+        ],
+        created=1634720000,
+        model='gpt-4',
+        object='chat.completion',
+        usage=completion_usage.CompletionUsage(
+            completion_tokens=10,
+            prompt_tokens=20,
+            total_tokens=30,
+        ),
+    )
+
+    with patch('genai_prices.calc_price') as mock_calc_price:
+        # Setup mock to return a valid price result
+        mock_price_result = MagicMock()
+        mock_price_result.total_price = 0.001
+        mock_calc_price.return_value = mock_price_result
+
+        on_response(response, mock_span)
+
+        # Verify calc_price was called with the expected provider_id
+        assert mock_calc_price.called, 'calc_price should have been called'
+        call_kwargs = mock_calc_price.call_args
+        assert call_kwargs.kwargs.get('provider_id') == expected_provider_id, (
+            f"Expected calc_price to be called with provider_id='{expected_provider_id}', "
+            f"but got provider_id='{call_kwargs.kwargs.get('provider_id')}'"
+        )

@@ -15,6 +15,7 @@ from logfire._internal.integrations.llm_providers.llm_provider import (
     instrument_llm_provider,
     record_streaming,
 )
+from logfire._internal.integrations.llm_providers.semconv import PROVIDER_NAME
 from logfire._internal.integrations.llm_providers.types import EndpointConfig, StreamState
 from logfire.propagate import get_context
 from logfire.testing import TestExporter
@@ -188,7 +189,7 @@ async def test_async_streaming_preserves_original_context(exporter: TestExporter
 def test_override_provider_sync(
     exporter: TestExporter, override_provider: str | None, expected_gen_ai_system: str | None
 ) -> None:
-    """Test that override_provider parameter controls the gen_ai.system attribute for sync clients."""
+    """Test that override_provider parameter controls the gen_ai.system and gen_ai.provider.name attributes for sync clients."""
     client = MockSyncClient()
     instrument_llm_provider(
         logfire=logfire.DEFAULT_LOGFIRE_INSTANCE,
@@ -210,8 +211,10 @@ def test_override_provider_sync(
         # When override_provider is None, gen_ai.system should not be set by instrument_llm_provider
         # (it would be set later by on_response for OpenAI)
         assert 'gen_ai.system' not in request['attributes']
+        assert PROVIDER_NAME not in request['attributes']
     else:
         assert request['attributes']['gen_ai.system'] == expected_gen_ai_system
+        assert request['attributes'][PROVIDER_NAME] == expected_gen_ai_system
 
 
 @pytest.mark.parametrize(
@@ -224,7 +227,7 @@ def test_override_provider_sync(
 async def test_override_provider_async(
     exporter: TestExporter, override_provider: str | None, expected_gen_ai_system: str | None
 ) -> None:
-    """Test that override_provider parameter controls the gen_ai.system attribute for async clients."""
+    """Test that override_provider parameter controls the gen_ai.system and gen_ai.provider.name attributes for async clients."""
     client = MockAsyncClient()
     instrument_llm_provider(
         logfire=logfire.DEFAULT_LOGFIRE_INSTANCE,
@@ -244,5 +247,7 @@ async def test_override_provider_async(
 
     if expected_gen_ai_system is None:
         assert 'gen_ai.system' not in request['attributes']
+        assert PROVIDER_NAME not in request['attributes']
     else:
         assert request['attributes']['gen_ai.system'] == expected_gen_ai_system
+        assert request['attributes'][PROVIDER_NAME] == expected_gen_ai_system
