@@ -9,11 +9,11 @@ from opentelemetry.trace import SpanKind
 from logfire import attach_context, get_context
 from logfire.propagate import ContextCarrier
 
+from ...constants import ONE_SECOND_IN_NANOSECONDS
+from ...utils import is_instrumentation_suppressed, log_internal_error, suppress_instrumentation
 from .semconv import (
     PROVIDER_NAME,
 )
-from ...constants import ONE_SECOND_IN_NANOSECONDS
-from ...utils import is_instrumentation_suppressed, log_internal_error, suppress_instrumentation
 
 if TYPE_CHECKING:
     from ...main import Logfire, LogfireSpan
