@@ -10,6 +10,7 @@ from openai.lib.streaming.responses import ResponseStreamState
 from openai.types.chat.chat_completion import ChatCompletion
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.completion import Completion
+from openai.types.conversations import Conversation
 from openai.types.create_embedding_response import CreateEmbeddingResponse
 from openai.types.images_response import ImagesResponse
 from openai.types.responses import Response
@@ -19,6 +20,7 @@ from logfire import LogfireSpan
 
 from ...utils import handle_internal_errors, log_internal_error
 from .semconv import (
+    CONVERSATION_ID,
     OPERATION_NAME,
     PROVIDER_NAME,
     REQUEST_FREQUENCY_PENALTY,
@@ -122,6 +124,12 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         }
         _extract_request_parameters(json_data, span_data)
 
+        if (conversation := json_data.get('conversation')) is not None:
+            if isinstance(conversation, str):
+                span_data[CONVERSATION_ID] = conversation
+            elif isinstance(conversation, dict) and 'id' in conversation:
+                span_data[CONVERSATION_ID] = conversation['id']
+
         return EndpointConfig(
             message_template='Responses API with {gen_ai.request.model!r}',
             span_data=span_data,
@@ -162,6 +170,17 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='Image Generation with {request_data[model]!r}',
+            span_data=span_data,
+        )
+    elif url == '/conversations':
+        span_data = {
+            'request_data': json_data,
+            'url': url,
+            PROVIDER_NAME: 'openai',
+            OPERATION_NAME: 'conversation',
+        }
+        return EndpointConfig(
+            message_template='OpenAI Conversation Create',
             span_data=span_data,
         )
     else:
@@ -225,6 +244,10 @@ class OpenaiResponsesStreamState(StreamState):
     def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
         response = self.get_response_data()
         span_data['events'] = span_data['events'] + responses_output_events(response)
+
+        if response.conversation:
+            span_data[CONVERSATION_ID] = response.conversation.id
+
         return span_data
 
 
@@ -311,6 +334,9 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
     elif isinstance(response, ImagesResponse):
         span.set_attribute('response_data', {'images': response.data})
     elif isinstance(response, Response):  # pragma: no branch
+        if response.conversation:
+            span.set_attribute(CONVERSATION_ID, response.conversation.id)
+
         try:
             events = json.loads(span.attributes['events'])  # type: ignore
         except Exception:
@@ -318,6 +344,9 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         else:
             events += responses_output_events(response)
             span.set_attribute('events', events)
+
+    if isinstance(response, Conversation):
+        span.set_attribute(CONVERSATION_ID, response.id)
 
     return response
 
