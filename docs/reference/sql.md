@@ -96,7 +96,12 @@ It's stored in the database as a small integer so that it supports operators lik
 
 The level is most commonly set by using the appropriate method in the **Logfire** SDK, e.g. `logfire.warn(...)` or `logfire.error(...)`, but there are [several other ways](../guides/onboarding-checklist/add-manual-tracing.md#log-levels).
 
-The default level for spans is `info`. If a span ends with an unhandled exception, the level is usually set to `error`. One special case is that FastAPI/Starlette `HTTPException`s with a 4xx status code (client errors) are set to `warn`.
+The default level for spans is `info`, but can be higher in some cases:
+
+- If a span ends with an unhandled exception, the level is usually set to `error`.
+- For server spans with an HTTP status code of 500 or higher, the level is usually set to `error`.
+- For server spans with an HTTP status code of 400 or higher, the level is usually set to `warn`.
+- For client spans with an HTTP status code of 400 or higher, the level is usually set to `error`.
 
 You can convert level names to numbers using the `level_num` SQL function, e.g. `level_num('warn')` returns `13`.
 

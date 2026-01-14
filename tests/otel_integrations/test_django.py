@@ -232,6 +232,7 @@ def test_no_matching_route(client: Client, exporter: TestExporter):
                     'http.status_code': 404,
                     'http.response.status_code': 404,
                     'http.target': '/django_test_app/nowhere/',
+                    'logfire.level_num': 13,
                 },
             }
         ]
