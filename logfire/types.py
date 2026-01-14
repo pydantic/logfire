@@ -97,7 +97,6 @@ class ExceptionCallbackHelper:
         - Spans created directly by an OpenTelemetry tracer (e.g. from any `logfire.instrument_*()` method)
             typically don't have a level set, so this will return the default of `info`,
             but `level_is_unset` will be `True`.
-        - FastAPI/Starlette 4xx HTTPExceptions are warnings.
         - Will be a different level if this is created by e.g. `logfire.info(..., _exc_info=True)`.
         """
         return SpanLevel.from_span(self.span)
