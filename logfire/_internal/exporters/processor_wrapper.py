@@ -103,8 +103,19 @@ def _set_error_level_and_status(span: ReadableSpanDict) -> None:
         span['attributes'] = {**attributes, **log_level_attributes('error')}
     elif status.is_unset:
         level = attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY)
-        if isinstance(level, int) and level >= LEVEL_NUMBERS['error']:
-            span['status'] = Status(status_code=StatusCode.ERROR, description=status.description)
+        if isinstance(level, int):
+            if level >= LEVEL_NUMBERS['error']:
+                span['status'] = Status(status_code=StatusCode.ERROR, description=status.description)
+        else:
+            http_status_code = attributes.get('http.status_code') or attributes.get('http.response.status_code')
+            if isinstance(http_status_code, int):
+                if (span['kind'] == SpanKind.SERVER and http_status_code >= 500) or (
+                    span['kind'] == SpanKind.CLIENT and http_status_code >= 400
+                ):
+                    span['status'] = Status(status_code=StatusCode.ERROR, description=status.description)
+                    span['attributes'] = {**attributes, **log_level_attributes('error')}
+                elif span['kind'] == SpanKind.SERVER and http_status_code >= 400:
+                    span['attributes'] = {**attributes, **log_level_attributes('warning')}
 
 
 def _set_log_level_on_asgi_send_receive_spans(span: Span) -> None:

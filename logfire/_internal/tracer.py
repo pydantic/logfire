@@ -426,11 +426,7 @@ def record_exception(
         return
 
     if is_starlette_http_exception(exception):
-        if 400 <= exception.status_code < 500:
-            # Don't mark 4xx HTTP exceptions as errors, they are expected to happen in normal operation.
-            # But do record them as warnings.
-            span.set_attributes(log_level_attributes('warn'))
-        elif exception.status_code >= 500:
+        if exception.status_code >= 500:
             # Set this as an error now for ExceptionCallbackHelper.create_issue to see,
             # particularly so that if this is raised in a FastAPI pseudo_span and the event is marked with
             # the recorded_by_logfire_fastapi it will still create an issue in this case.

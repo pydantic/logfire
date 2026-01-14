@@ -344,6 +344,7 @@ def test_404(client: TestClient, exporter: TestExporter) -> None:
                     'client.port': 50000,
                     'http.status_code': 404,
                     'http.response.status_code': 404,
+                    'logfire.level_num': 13,
                 },
             },
         ]
@@ -1199,6 +1200,7 @@ def test_fastapi_arguments(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.json_schema': '{"type":"object","properties":{"fastapi.route.name":{},"fastapi.route.operation_id":{},"custom_attr":{},"fastapi.arguments.values":{"type":"object"},"fastapi.arguments.errors":{"type":"array","items":{"type":"object","properties":{"loc":{"type":"array","x-python-datatype":"tuple"}}}}}}',
                     'http.status_code': 422,
                     'http.response.status_code': 422,
+                    'logfire.level_num': 13,
                 },
             },
         ]
@@ -1878,6 +1880,7 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                     'fastapi.endpoint_function.end_timestamp': '1970-01-01T00:00:08.000000Z',
                     'http.status_code': 422,
                     'http.response.status_code': 422,
+                    'logfire.level_num': 13,
                 },
                 'events': [
                     {
