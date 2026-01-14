@@ -425,15 +425,6 @@ def record_exception(
     if not span.is_recording():
         return
 
-    if is_starlette_http_exception(exception):
-        if exception.status_code >= 500:
-            # Set this as an error now for ExceptionCallbackHelper.create_issue to see,
-            # particularly so that if this is raised in a FastAPI pseudo_span and the event is marked with
-            # the recorded_by_logfire_fastapi it will still create an issue in this case.
-            # FastAPI will 'handle' this exception meaning it won't get recorded again by OTel.
-            set_exception_status(span, exception)
-            span.set_attributes(log_level_attributes('error'))
-
     # From https://opentelemetry.io/docs/specs/semconv/attributes-registry/exception/
     # `escaped=True` means that the exception is escaping the scope of the span.
     # This means we know that the exception hasn't been handled,
@@ -467,7 +458,11 @@ def record_exception(
         attributes[ATTRIBUTES_VALIDATION_ERROR_KEY] = err_json
 
     if helper.create_issue:
-        span.set_attribute(ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY, sha256_string(helper.issue_fingerprint_source))
+        fingerprint = sha256_string(helper.issue_fingerprint_source)
+        if attributes.get('recorded_by_logfire_fastapi'):
+            attributes[ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY] = fingerprint
+        else:
+            span.set_attribute(ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY, fingerprint)
 
     span.record_exception(exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
 

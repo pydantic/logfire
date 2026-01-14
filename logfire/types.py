@@ -181,7 +181,6 @@ class ExceptionCallbackHelper:
 
         - The level is 'error' or higher or is unset (see `level_is_unset` for details),
         - No parent span exists in the current process,
-        - The exception isn't handled by FastAPI, except if it's a 5xx HTTPException.
 
         Example:
             if helper.create_issue:
@@ -190,12 +189,7 @@ class ExceptionCallbackHelper:
         if self._create_issue is not None:
             return self._create_issue
 
-        return (
-            self._record_exception
-            and (self.level_is_unset or self.level >= 'error')
-            and self.parent_span is None
-            and not (self.event_attributes.get('recorded_by_logfire_fastapi') and self.level < 'error')
-        )
+        return self._record_exception and (self.level_is_unset or self.level >= 'error') and self.parent_span is None
 
     @create_issue.setter
     def create_issue(self, value: bool):

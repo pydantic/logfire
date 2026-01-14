@@ -410,6 +410,7 @@ def test_http_exceptions(client: TestClient, exporter: TestExporter) -> None:
                             'exception.stacktrace': 'fastapi.exceptions.HTTPException: 200: OK',
                             'exception.escaped': 'False',
                             'recorded_by_logfire_fastapi': True,
+                            'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                         },
                     }
                 ],
@@ -465,6 +466,7 @@ def test_http_exceptions(client: TestClient, exporter: TestExporter) -> None:
                             'exception.stacktrace': 'fastapi.exceptions.HTTPException: 400: Bad Request',
                             'exception.escaped': 'False',
                             'recorded_by_logfire_fastapi': True,
+                            'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                         },
                     }
                 ],
@@ -522,6 +524,7 @@ def test_http_exceptions(client: TestClient, exporter: TestExporter) -> None:
                             'exception.stacktrace': 'fastapi.exceptions.HTTPException: 500: Internal Server Error',
                             'exception.escaped': 'False',
                             'recorded_by_logfire_fastapi': True,
+                            'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                         },
                     }
                 ],
@@ -1892,6 +1895,7 @@ def test_fastapi_handled_exception(client: TestClient, exporter: TestExporter) -
                             'exception.stacktrace': 'fastapi.exceptions.RequestValidationError: 0 validation errors:',
                             'exception.escaped': 'False',
                             'recorded_by_logfire_fastapi': True,
+                            'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                         },
                     }
                 ],

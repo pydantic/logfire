@@ -15,6 +15,7 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 import logfire
 
 from ..constants import (
+    ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY,
     ATTRIBUTES_JSON_SCHEMA_KEY,
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,
     ATTRIBUTES_MESSAGE_KEY,
@@ -80,9 +81,9 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
             _tweak_asgi_send_receive_spans(span_dict)
             _tweak_sqlalchemy_connect_spans(span_dict)
             _tweak_http_spans(span_dict)
+            _set_error_level_and_status(span_dict)
             _tweak_fastapi_span(span_dict)
             _summarize_db_statement(span_dict)
-            _set_error_level_and_status(span_dict)
             _transform_langchain_span(span_dict)
             _transform_google_genai_span(span_dict)
             _transform_litellm_span(span_dict)
@@ -333,8 +334,16 @@ def _tweak_fastapi_span(span: ReadableSpanDict):
             new_events.append(event)
             continue
         key = (attrs['exception.type'], attrs['exception.message'])
-        if key in seen_exceptions and attrs.get('recorded_by_logfire_fastapi'):
-            continue
+        recorded_by_logfire_fastapi = attrs.get('recorded_by_logfire_fastapi')
+        if recorded_by_logfire_fastapi:
+            if key in seen_exceptions:
+                continue
+            else:
+                span_attrs = span['attributes']
+                level = span_attrs.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY)
+                fingerprint = attrs.get(ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY)
+                if isinstance(level, int) and level >= LEVEL_NUMBERS['error'] and fingerprint:
+                    span['attributes'] = {**span_attrs, ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY: fingerprint}
         seen_exceptions.add(key)
         new_events.append(event)
     span['events'] = new_events[::-1]
