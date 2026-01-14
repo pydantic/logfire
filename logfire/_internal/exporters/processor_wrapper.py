@@ -67,14 +67,6 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
 
     scrubber: BaseScrubber
 
-    def on_start(
-        self,
-        span: Span,
-        parent_context: context.Context | None = None,
-    ) -> None:
-        _set_log_level_on_asgi_send_receive_spans(span)
-        super().on_start(span, parent_context)
-
     def on_end(self, span: ReadableSpan) -> None:
         with handle_internal_errors:
             span_dict = span_to_dict(span)
@@ -117,16 +109,6 @@ def _set_error_level_and_status(span: ReadableSpanDict) -> None:
                     span['attributes'] = {**attributes, **log_level_attributes('error')}
                 elif span['kind'] == SpanKind.SERVER and http_status_code >= 400:
                     span['attributes'] = {**attributes, **log_level_attributes('warning')}
-
-
-def _set_log_level_on_asgi_send_receive_spans(span: Span) -> None:
-    """Set the log level of ASGI send/receive spans to debug.
-
-    If a span doesn't have a level set, it defaults to 'info'. This is too high for ASGI send/receive spans,
-    which are generated for every request and are not particularly interesting.
-    """
-    if _is_asgi_send_receive_span(span.name, span.instrumentation_scope):
-        span.set_attributes(log_level_attributes('debug'))
 
 
 def _tweak_sqlalchemy_connect_spans(span: ReadableSpanDict) -> None:
