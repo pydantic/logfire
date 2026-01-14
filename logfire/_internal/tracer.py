@@ -429,7 +429,7 @@ def record_exception(
     # `escaped=True` means that the exception is escaping the scope of the span.
     # This means we know that the exception hasn't been handled,
     # so we can set the OTEL status and the log level to error.
-    elif escaped:
+    if escaped:
         set_exception_status(span, exception)
         span.set_attributes(log_level_attributes('error'))
 
