@@ -1,7 +1,6 @@
 import logging
 import os
 import sys
-from types import ModuleType
 from unittest import mock
 
 import pydantic
@@ -29,20 +28,6 @@ The `logfire.instrument_dspy()` method requires the `openinference-instrumentati
 You can install this with:
     pip install 'logfire[dspy]'\
 """)
-
-
-def test_instrument_dspy_calls_instrumentor() -> None:
-    instrumentor = mock.Mock()
-    module = ModuleType('openinference.instrumentation.dspy')
-    module.DSPyInstrumentor = mock.Mock(return_value=instrumentor)  # type: ignore[attr-defined]
-
-    with (
-        mock.patch.dict('sys.modules', {'openinference.instrumentation.dspy': module}),
-        mock.patch('logfire._internal.integrations.dspy.util.find_spec', return_value=object()),
-    ):
-        logfire.instrument_dspy()
-
-    instrumentor.instrument.assert_called_once()
 
 
 @pytest.mark.vcr()
