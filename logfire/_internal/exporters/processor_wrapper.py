@@ -337,12 +337,15 @@ def _tweak_fastapi_span(span: ReadableSpanDict):
         recorded_by_logfire_fastapi = attrs.get('recorded_by_logfire_fastapi')
         if recorded_by_logfire_fastapi:
             if key in seen_exceptions:
+                # Drop the duplicate event.
                 continue
             else:
                 span_attrs = span['attributes']
                 level = span_attrs.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY)
                 fingerprint = attrs.get(ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY)
                 if isinstance(level, int) and level >= LEVEL_NUMBERS['error'] and fingerprint:
+                    # Copy the fingerprint from the event to the span for errors.
+                    # See `record_exception` in tracer.py.
                     span['attributes'] = {**span_attrs, ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY: fingerprint}
         seen_exceptions.add(key)
         new_events.append(event)

@@ -456,6 +456,15 @@ def record_exception(
     if helper.create_issue:
         fingerprint = sha256_string(helper.issue_fingerprint_source)
         if attributes.get('recorded_by_logfire_fastapi'):
+            # Put the fingerprint in the event instead of the span.
+            # `_tweak_fastapi_span` will copy it to the span if the span ends up having level error,
+            # which it should if the HTTP status code is 5xx.
+            # At this point we have none of that info and we don't know if the exception is going to be handled.
+            # If it is handled, the handler may or may not return a status code of 5xx,
+            # which is what will determine whether an issue should be created.
+            # If it's not handled, the same exception will be recorded on the span again by the OTel instrumentation,
+            # so this record_exception function will be called again and the decision can be made then.
+            # In that case there won't be recorded_by_logfire_fastapi.
             attributes[ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY] = fingerprint
         else:
             span.set_attribute(ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY, fingerprint)
