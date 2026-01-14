@@ -28,8 +28,8 @@ import logfire
 logfire.configure()
 logfire.instrument_dspy()
 
-lm = dspy.OpenAI(model='gpt-4o-mini')
-dspy.settings.configure(lm=lm)
+lm = dspy.LM("openai/gpt-5-mini")
+dspy.configure(lm=lm)
 
 
 class BasicQA(dspy.Signature):
