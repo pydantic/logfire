@@ -31,15 +31,23 @@ logfire.instrument_dspy()
 lm = dspy.LM("openai/gpt-5-mini")
 dspy.configure(lm=lm)
 
+class ExtractInfo(dspy.Signature):
+    """Extract structured information from text."""
 
-class BasicQA(dspy.Signature):
-    question: str
-    answer: str
+    text: str = dspy.InputField()
+    title: str = dspy.OutputField()
+    headings: list[str] = dspy.OutputField()
+    entities: list[dict[str, str]] = dspy.OutputField(desc="a list of entities and their metadata")
 
+module = dspy.Predict(ExtractInfo)
 
-predict = dspy.Predict(BasicQA)
-result = predict(question='What is DSPy?')
-print(result.answer)
+text = "Apple Inc. announced its latest iPhone 14 today." \
+    "The CEO, Tim Cook, highlighted its new features in a press release."
+response = module(text=text)
+
+print(response.title)
+print(response.headings)
+print(response.entities)
 ```
 
 [`logfire.instrument_dspy()`][logfire.Logfire.instrument_dspy] uses the `DSPyInstrumentor().instrument()` method of
