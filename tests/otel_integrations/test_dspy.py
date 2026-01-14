@@ -1,3 +1,5 @@
+import logging
+import os
 import sys
 from types import ModuleType
 from unittest import mock
@@ -45,10 +47,6 @@ def test_instrument_dspy_calls_instrumentor() -> None:
 
 @pytest.mark.vcr()
 @pytest.mark.skipif(
-    sys.version_info >= (3, 14),
-    reason='DSPy has compatibility issues with Python 3.14 asyncio deprecation warnings',
-)
-@pytest.mark.skipif(
     get_version(pydantic.__version__) < get_version('2.5.0'),
     reason='DSPy/LiteLLM requires Pydantic >= 2.5 for Discriminator import',
 )
@@ -56,10 +54,16 @@ def test_dspy_instrumentation(exporter: TestExporter) -> None:
     # Skip test if dspy can't be imported due to compatibility issues
     dspy = pytest.importorskip('dspy', reason='DSPy import failed due to environment incompatibility')
 
+    # Disable LiteLLM logger to prevent Pydantic serialization warnings
+    logging.getLogger('LiteLLM').disabled = True
+
+    # Instrument DSPy
     logfire.instrument_dspy()
 
-    # Configure DSPy with OpenAI
-    lm = dspy.LM('openai/gpt-4o-mini')
+    # Configure DSPy with OpenAI - disable caching
+    # Use real API key if present (for recording), otherwise fake key (for VCR replay)
+    api_key = os.getenv('OPENAI_API_KEY', 'fake-api-key-for-testing')
+    lm = dspy.LM('openai/gpt-4o-mini', cache=False, api_key=api_key)
     dspy.configure(lm=lm)
 
     # Define a simple signature
