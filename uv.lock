@@ -659,7 +659,7 @@ name = "cffi"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pycparser", version = "2.23", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10' and implementation_name != 'PyPy'" },
+    { name = "pycparser", version = "2.23", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10' and implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'" },
     { name = "pycparser", version = "3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10' and implementation_name != 'PyPy'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/eb/56/b1ba7935a17738ae8453301356628e8147c79dbb825bcbc73dc7401f9846/cffi-2.0.0.tar.gz", hash = "sha256:44d1b5909021139fe36001ae048dbdde8214afa20200eda0f64c068cac5d5529", size = 523588, upload-time = "2025-09-08T23:24:04.541Z" }
@@ -1512,7 +1512,7 @@ name = "exceptiongroup"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
 wheels = [
@@ -2372,7 +2372,7 @@ wheels = [
 [[package]]
 name = "inline-snapshot"
 version = "0.31.1"
-source = { registry = "https://pypi.org/simple" }
+source = { git = "https://github.com/15r10nk/inline-snapshot.git?rev=customize#8a3d36362a58fe9574480866f61394cdfb2422cf" }
 dependencies = [
     { name = "asttokens" },
     { name = "executing" },
@@ -2380,10 +2380,7 @@ dependencies = [
     { name = "pytest", version = "9.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "rich" },
     { name = "tomli", marker = "python_full_version < '3.11'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/1c/b1/52b5ee59f73ed31d5fe21b10881bf2d121d07d54b23c0b6b74186792e620/inline_snapshot-0.31.1.tar.gz", hash = "sha256:4ea5ed70aa1d652713bbfd750606b94bd8a42483f7d3680433b3e92994495f64", size = 2606338, upload-time = "2025-11-07T07:36:18.932Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ba/52/945db420380efbda8c69a7a4a16c53df9d7ac50d8217286b9d41e5d825ff/inline_snapshot-0.31.1-py3-none-any.whl", hash = "sha256:7875a73c986a03388c7e758fb5cb8a43d2c3a20328aa1d851bfb4ed536c4496f", size = 71965, upload-time = "2025-11-07T07:36:16.836Z" },
+    { name = "typing-extensions" },
 ]
 
 [[package]]
@@ -3158,6 +3155,7 @@ version = "4.20.0"
 source = { editable = "." }
 dependencies = [
     { name = "executing" },
+    { name = "inline-snapshot" },
     { name = "opentelemetry-exporter-otlp-proto-http" },
     { name = "opentelemetry-instrumentation" },
     { name = "opentelemetry-sdk" },
@@ -3377,6 +3375,7 @@ docs = [
 [package.metadata]
 requires-dist = [
     { name = "executing", specifier = ">=2.0.1" },
+    { name = "inline-snapshot", git = "https://github.com/15r10nk/inline-snapshot.git?rev=customize" },
     { name = "openinference-instrumentation-dspy", marker = "extra == 'dspy'", specifier = ">=0" },
     { name = "openinference-instrumentation-litellm", marker = "extra == 'litellm'", specifier = ">=0" },
     { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.39.0,<1.40.0" },
@@ -3438,7 +3437,7 @@ dev = [
     { name = "google-genai", specifier = ">=0" },
     { name = "greenlet", specifier = ">=3.1.1" },
     { name = "httpx", specifier = ">=0.27.2" },
-    { name = "inline-snapshot", specifier = ">=0.17.1" },
+    { name = "inline-snapshot", git = "https://github.com/15r10nk/inline-snapshot.git?rev=customize" },
     { name = "langchain", specifier = ">=0.0.27" },
     { name = "langchain-openai", specifier = ">=0.3.17" },
     { name = "langgraph", specifier = ">=0" },

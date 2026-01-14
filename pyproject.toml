@@ -55,6 +55,7 @@ dependencies = [
     "typing-extensions >= 4.1.0",
     "tomli >= 2.0.1; python_version < '3.11'",
     "executing >= 2.0.1",
+    "inline-snapshot",
 ]
 
 [project.optional-dependencies]
@@ -142,7 +143,7 @@ dev = [
     "opentelemetry-instrumentation-aws-lambda>=0.42b0",
     "eval-type-backport >= 0.2.0",
     "requests-mock >= 1.12.1",
-    "inline-snapshot >= 0.17.1",
+    "inline-snapshot>=0.17.1",
     "structlog >= 24.4.0",
     "loguru >= 0.7.3",
     "ruff >= 0.8.3",
@@ -206,12 +207,14 @@ docs = [
     "mkdocs-llmstxt>=0.2.0",
 ]
 
+
 [tool.inline-snapshot]
-default-flags = ["disable"]
 format-command = "ruff format --stdin-filename {filename}"
+show-updates = true
 
 [tool.uv.sources]
 logfire-api = { workspace = true }
+inline-snapshot = { git = "https://github.com/15r10nk/inline-snapshot.git", rev = "customize" }
 
 [tool.uv]
 default-groups = ["dev", "docs"]
