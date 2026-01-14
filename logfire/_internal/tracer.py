@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import sys
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -38,9 +37,6 @@ from .constants import (
 from .utils import handle_internal_errors, sha256_string
 
 if TYPE_CHECKING:
-    from starlette.exceptions import HTTPException
-    from typing_extensions import TypeIs
-
     from ..types import ExceptionCallback
     from .config import LogfireConfig
 
@@ -474,12 +470,3 @@ def set_exception_status(span: trace_api.Span, exception: BaseException):
             description=f'{exception.__class__.__name__}: {exception}',
         )
     )
-
-
-def is_starlette_http_exception(exception: BaseException) -> TypeIs[HTTPException]:
-    if 'starlette.exceptions' not in sys.modules:  # pragma: no cover
-        return False
-
-    from starlette.exceptions import HTTPException
-
-    return isinstance(exception, HTTPException)
