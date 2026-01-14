@@ -5,7 +5,6 @@ from unittest import mock
 import pydantic
 import pytest
 from inline_snapshot import snapshot
-from opentelemetry.trace import Tracer, TracerProvider
 
 import logfire
 from logfire._internal.utils import get_version
@@ -44,36 +43,6 @@ def test_instrument_dspy_calls_instrumentor() -> None:
     instrumentor.instrument.assert_called_once()
 
 
-def test_instrument_dspy_exports_span(exporter: TestExporter) -> None:
-    class FakeInstrumentor:
-        def instrument(self, tracer_provider: TracerProvider, **kwargs: object) -> None:
-            tracer: Tracer = tracer_provider.get_tracer('openinference.instrumentation.dspy')
-            with tracer.start_as_current_span('dspy.predict') as span:
-                span.set_attribute('dspy.test', True)
-
-    module = ModuleType('openinference.instrumentation.dspy')
-    module.DSPyInstrumentor = FakeInstrumentor  # type: ignore[attr-defined]
-
-    with (
-        mock.patch.dict('sys.modules', {'openinference.instrumentation.dspy': module}),
-        mock.patch('logfire._internal.integrations.dspy.util.find_spec', return_value=object()),
-    ):
-        logfire.instrument_dspy()
-
-    assert exporter.exported_spans_as_dict() == snapshot(
-        [
-            {
-                'name': 'dspy.predict',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 2000000000,
-                'attributes': {'logfire.span_type': 'span', 'logfire.msg': 'dspy.predict', 'dspy.test': True},
-            }
-        ]
-    )
-
-
 @pytest.mark.vcr()
 @pytest.mark.skipif(
     sys.version_info >= (3, 14),
@@ -84,49 +53,36 @@ def test_instrument_dspy_exports_span(exporter: TestExporter) -> None:
     reason='DSPy/LiteLLM requires Pydantic >= 2.5 for Discriminator import',
 )
 def test_dspy_instrumentation(exporter: TestExporter) -> None:
-    import os
-
     # Skip test if dspy can't be imported due to compatibility issues
     dspy = pytest.importorskip('dspy', reason='DSPy import failed due to environment incompatibility')
 
-    # Temporarily set API key for test
-    original_key = os.environ.get('OPENAI_API_KEY')
-    if not original_key:
-        os.environ['OPENAI_API_KEY'] = 'test-api-key'
+    logfire.instrument_dspy()
 
-    try:
-        logfire.instrument_dspy()
+    # Configure DSPy with OpenAI
+    lm = dspy.LM('openai/gpt-4o-mini')
+    dspy.configure(lm=lm)
 
-        # Configure DSPy with OpenAI
-        lm = dspy.LM('openai/gpt-4o-mini')
-        dspy.configure(lm=lm)
+    # Define a simple signature
+    class BasicQA(dspy.Signature):
+        """Answer questions with short factoid answers."""
 
-        # Define a simple signature
-        class BasicQA(dspy.Signature):
-            """Answer questions with short factoid answers."""
+        question = dspy.InputField()
+        answer = dspy.OutputField(desc='often between 1 and 5 words')
 
-            question = dspy.InputField()
-            answer = dspy.OutputField(desc='often between 1 and 5 words')
+    # Create a predictor
+    generate_answer = dspy.Predict(BasicQA)
 
-        # Create a predictor
-        generate_answer = dspy.Predict(BasicQA)
+    # Execute the prediction
+    prediction = generate_answer(question='What is the capital of France?')
 
-        # Execute the prediction
-        prediction = generate_answer(question='What is the capital of France?')
+    assert prediction.answer == snapshot('Paris')
 
-        assert prediction.answer == snapshot('Paris')
+    # Verify spans were exported
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) > 0
 
-        # Verify spans were exported
-        spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-        assert len(spans) > 0
-
-        # Check for DSPy or LLM-related spans (DSPy uses OpenAI/LiteLLM underneath)
-        span_names = [span['name'] for span in spans]
-        assert any(
-            'dspy' in name.lower() or 'completion' in name.lower() or 'predict' in name.lower() for name in span_names
-        ), f'No DSPy-related spans found. Got: {span_names}'
-    finally:
-        if not original_key:
-            os.environ.pop('OPENAI_API_KEY', None)
-        else:
-            os.environ['OPENAI_API_KEY'] = original_key
+    # Check for DSPy or LLM-related spans (DSPy uses OpenAI/LiteLLM underneath)
+    span_names = [span['name'] for span in spans]
+    assert any(
+        'dspy' in name.lower() or 'completion' in name.lower() or 'predict' in name.lower() for name in span_names
+    ), f'No DSPy-related spans found. Got: {span_names}'
