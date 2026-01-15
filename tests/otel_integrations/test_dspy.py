@@ -16,6 +16,10 @@ pytestmark = [
         sys.version_info < (3, 10),
         reason='DSPy instrumentation requires Python 3.10+',
     ),
+    pytest.mark.skipif(
+        get_version(pydantic.__version__) < get_version('2.5.0'),
+        reason='DSPy/LiteLLM requires Pydantic >= 2.5 for Discriminator import',
+    ),
 ]
 
 
@@ -31,10 +35,6 @@ You can install this with:
 
 
 @pytest.mark.vcr()
-@pytest.mark.skipif(
-    get_version(pydantic.__version__) < get_version('2.5.0'),
-    reason='DSPy/LiteLLM requires Pydantic >= 2.5 for Discriminator import',
-)
 def test_dspy_instrumentation(exporter: TestExporter) -> None:
     # Skip test if dspy can't be imported due to compatibility issues
     dspy = pytest.importorskip('dspy', reason='DSPy import failed due to environment incompatibility')
