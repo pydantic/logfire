@@ -28,6 +28,7 @@ from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
 import logfire
 from logfire._internal.integrations.llm_providers.openai import on_response
+from logfire._internal.integrations.llm_providers.semconv import PROVIDER_NAME
 from logfire._internal.utils import get_version, suppress_instrumentation
 from logfire.testing import TestExporter
 
@@ -668,6 +669,7 @@ def test_sync_chat_empty_response_chunk(instrumented_client: openai.Client, expo
                         'stream': True,
                     },
                     'gen_ai.provider.name': 'openai',
+                    'gen_ai.system': 'openai',
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.operation.name': 'chat',
                     'async': False,
@@ -678,6 +680,7 @@ def test_sync_chat_empty_response_chunk(instrumented_client: openai.Client, expo
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'gen_ai.request.model': {},
                             'gen_ai.operation.name': {},
                             'async': {},
@@ -709,6 +712,7 @@ def test_sync_chat_empty_response_chunk(instrumented_client: openai.Client, expo
                     'logfire.msg': "streaming response from 'gpt-4' took 1.00s",
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.provider.name': 'openai',
+                    'gen_ai.system': 'openai',
                     'logfire.span_type': 'log',
                     'gen_ai.operation.name': 'chat',
                     'logfire.tags': ('LLM',),
@@ -720,6 +724,7 @@ def test_sync_chat_empty_response_chunk(instrumented_client: openai.Client, expo
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
                             'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'async': {},
                             'gen_ai.operation.name': {},
                             'duration': {},
@@ -760,6 +765,7 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                         'stream': True,
                     },
                     'gen_ai.provider.name': 'openai',
+                    'gen_ai.system': 'openai',
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.operation.name': 'chat',
                     'async': False,
@@ -770,6 +776,7 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'gen_ai.request.model': {},
                             'gen_ai.operation.name': {},
                             'async': {},
@@ -801,6 +808,7 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                     'logfire.msg': "streaming response from 'gpt-4' took 1.00s",
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.provider.name': 'openai',
+                    'gen_ai.system': 'openai',
                     'logfire.span_type': 'log',
                     'gen_ai.operation.name': 'chat',
                     'logfire.tags': ('LLM',),
@@ -812,6 +820,7 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
                             'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'async': {},
                             'gen_ai.operation.name': {},
                             'duration': {},
@@ -902,6 +911,7 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                         ],
                     },
                     'gen_ai.provider.name': 'openai',
+                    'gen_ai.system': 'openai',
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.tool.definitions': [
@@ -932,6 +942,7 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'gen_ai.request.model': {},
                             'gen_ai.operation.name': {},
                             'gen_ai.tool.definitions': {},
@@ -986,6 +997,7 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                     },
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.provider.name': 'openai',
+                    'gen_ai.system': 'openai',
                     'async': False,
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.tool.definitions': [
@@ -1045,6 +1057,7 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
                             'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'async': {},
                             'gen_ai.operation.name': {},
                             'gen_ai.tool.definitions': {},
@@ -1172,6 +1185,7 @@ async def test_async_chat_tool_call_stream(
                         ],
                     },
                     'gen_ai.provider.name': 'openai',
+                    'gen_ai.system': 'openai',
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.tool.definitions': [
@@ -1202,6 +1216,7 @@ async def test_async_chat_tool_call_stream(
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'gen_ai.request.model': {},
                             'gen_ai.operation.name': {},
                             'gen_ai.tool.definitions': {},
@@ -1256,6 +1271,7 @@ async def test_async_chat_tool_call_stream(
                     },
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.provider.name': 'openai',
+                    'gen_ai.system': 'openai',
                     'async': True,
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.tool.definitions': [
@@ -1315,6 +1331,7 @@ async def test_async_chat_tool_call_stream(
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
                             'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'async': {},
                             'gen_ai.operation.name': {},
                             'gen_ai.tool.definitions': {},
@@ -1393,6 +1410,7 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                         'stream': True,
                     },
                     'gen_ai.provider.name': 'openai',
+                    'gen_ai.system': 'openai',
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.operation.name': 'chat',
                     'async': False,
@@ -1403,6 +1421,7 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'gen_ai.request.model': {},
                             'gen_ai.operation.name': {},
                             'async': {},
@@ -1437,6 +1456,7 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                     'logfire.msg': "streaming response from 'gpt-4' took 1.00s",
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.provider.name': 'openai',
+                    'gen_ai.system': 'openai',
                     'logfire.span_type': 'log',
                     'gen_ai.operation.name': 'chat',
                     'logfire.tags': ('LLM',),
@@ -1460,6 +1480,7 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
                             'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'async': {},
                             'gen_ai.operation.name': {},
                             'duration': {},
@@ -1517,6 +1538,7 @@ async def test_async_chat_completions_stream(
                         'stream': True,
                     },
                     'gen_ai.provider.name': 'openai',
+                    'gen_ai.system': 'openai',
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.operation.name': 'chat',
                     'async': True,
@@ -1527,6 +1549,7 @@ async def test_async_chat_completions_stream(
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'gen_ai.request.model': {},
                             'gen_ai.operation.name': {},
                             'async': {},
@@ -1561,6 +1584,7 @@ async def test_async_chat_completions_stream(
                     'logfire.msg': "streaming response from 'gpt-4' took 1.00s",
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.provider.name': 'openai',
+                    'gen_ai.system': 'openai',
                     'logfire.span_type': 'log',
                     'gen_ai.operation.name': 'chat',
                     'logfire.tags': ('LLM',),
@@ -1584,6 +1608,7 @@ async def test_async_chat_completions_stream(
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
                             'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'async': {},
                             'gen_ai.operation.name': {},
                             'duration': {},
@@ -1711,6 +1736,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                         {'event.name': 'gen_ai.user.message', 'content': 'What is four plus five?', 'role': 'user'}
                     ],
                     'request_data': {'model': 'gpt-4.1', 'stream': True},
+                    'gen_ai.system': 'openai',
                     'gen_ai.request.model': 'gpt-4.1',
                     'gen_ai.operation.name': 'chat',
                     'async': False,
@@ -1722,6 +1748,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                             'gen_ai.provider.name': {},
                             'events': {'type': 'array'},
                             'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
                             'gen_ai.request.model': {},
                             'gen_ai.operation.name': {},
                             'async': {},
@@ -1757,6 +1784,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                         },
                     ],
                     'gen_ai.request.model': 'gpt-4.1',
+                    'gen_ai.system': 'openai',
                     'async': False,
                     'gen_ai.operation.name': 'chat',
                     'duration': 1.0,
@@ -1767,6 +1795,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                             'gen_ai.provider.name': {},
                             'events': {'type': 'array'},
                             'gen_ai.request.model': {},
+                            'gen_ai.system': {},
                             'async': {},
                             'gen_ai.operation.name': {},
                             'duration': {},
@@ -1806,6 +1835,7 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                         'stream': True,
                     },
                     'gen_ai.provider.name': 'openai',
+                    'gen_ai.system': 'openai',
                     'gen_ai.request.model': 'gpt-3.5-turbo-instruct',
                     'gen_ai.operation.name': 'text_completion',
                     'async': False,
@@ -1816,6 +1846,7 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'gen_ai.request.model': {},
                             'gen_ai.operation.name': {},
                             'async': {},
@@ -1847,6 +1878,7 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                     'logfire.msg': "streaming response from 'gpt-3.5-turbo-instruct' took 1.00s",
                     'gen_ai.request.model': 'gpt-3.5-turbo-instruct',
                     'gen_ai.provider.name': 'openai',
+                    'gen_ai.system': 'openai',
                     'logfire.span_type': 'log',
                     'gen_ai.operation.name': 'text_completion',
                     'logfire.tags': ('LLM',),
@@ -1858,6 +1890,7 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
                             'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'async': {},
                             'gen_ai.operation.name': {},
                             'duration': {},
@@ -2682,6 +2715,7 @@ def test_openrouter_streaming_reasoning(exporter: TestExporter) -> None:
                         'stream': True,
                     },
                     'gen_ai.provider.name': 'openai',
+                    'gen_ai.system': 'openai',
                     'gen_ai.request.model': 'google/gemini-2.5-flash',
                     'gen_ai.operation.name': 'chat',
                     'async': False,
@@ -2692,6 +2726,7 @@ def test_openrouter_streaming_reasoning(exporter: TestExporter) -> None:
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'gen_ai.request.model': {},
                             'gen_ai.operation.name': {},
                             'async': {},
@@ -2723,6 +2758,7 @@ def test_openrouter_streaming_reasoning(exporter: TestExporter) -> None:
                     },
                     'gen_ai.request.model': 'google/gemini-2.5-flash',
                     'gen_ai.provider.name': 'openai',
+                    'gen_ai.system': 'openai',
                     'async': False,
                     'gen_ai.operation.name': 'chat',
                     'duration': 1.0,
@@ -2779,6 +2815,7 @@ I'm zeroing in on the core of the query. The "how are you" is basic, but the "tr
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
                             'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'async': {},
                             'gen_ai.operation.name': {},
                             'duration': {},
@@ -2893,17 +2930,18 @@ def test_default_provider_is_openai(exporter: TestExporter) -> None:
 
 
 @pytest.mark.parametrize(
-    ('span_attributes', 'should_set_gen_ai_system'),
+    ('span_attributes', 'should_set_provider'),
     [
         pytest.param({}, True, id='empty_attributes_sets_openai'),
         pytest.param(None, True, id='none_attributes_sets_openai'),
-        pytest.param({'gen_ai.system': 'openrouter'}, False, id='existing_value_not_overwritten'),
+        pytest.param({PROVIDER_NAME: 'openrouter'}, False, id='existing_provider_name_not_overwritten'),
+        # Edge case: gen_ai.system is set but PROVIDER_NAME is not - code looks for PROVIDER_NAME,
+        # so it will set both attributes to 'openai' since PROVIDER_NAME is missing
+        pytest.param({'gen_ai.system': 'custom_provider'}, True, id='gen_ai_system_only_still_sets_provider_name'),
     ],
 )
-def test_on_response_gen_ai_system_behavior(
-    span_attributes: dict[str, str] | None, should_set_gen_ai_system: bool
-) -> None:
-    """Test that on_response sets gen_ai.system to 'openai' only when not already present."""
+def test_on_response_gen_ai_system_behavior(span_attributes: dict[str, str] | None, should_set_provider: bool) -> None:
+    """Test that on_response sets gen_ai.system and gen_ai.provider.name to 'openai' only when PROVIDER_NAME not already present."""
     mock_span = MagicMock()
     mock_span.attributes = span_attributes
 
@@ -2932,30 +2970,40 @@ def test_on_response_gen_ai_system_behavior(
     on_response(response, mock_span)
 
     gen_ai_system_calls = [call for call in mock_span.set_attribute.call_args_list if call[0][0] == 'gen_ai.system']
-    if should_set_gen_ai_system:
+    provider_name_calls = [call for call in mock_span.set_attribute.call_args_list if call[0][0] == PROVIDER_NAME]
+
+    if should_set_provider:
+        # Both gen_ai.system and PROVIDER_NAME should be set to 'openai'
         assert any(call[0] == ('gen_ai.system', 'openai') for call in gen_ai_system_calls), (
             f"Expected set_attribute('gen_ai.system', 'openai') to be called, got {gen_ai_system_calls}"
         )
+        assert any(call[0] == (PROVIDER_NAME, 'openai') for call in provider_name_calls), (
+            f"Expected set_attribute('{PROVIDER_NAME}', 'openai') to be called, got {provider_name_calls}"
+        )
     else:
+        # Neither attribute should be set when PROVIDER_NAME already exists
         assert len(gen_ai_system_calls) == 0, (
             f"Expected no calls to set_attribute with 'gen_ai.system', got {gen_ai_system_calls}"
+        )
+        assert len(provider_name_calls) == 0, (
+            f"Expected no calls to set_attribute with '{PROVIDER_NAME}', got {provider_name_calls}"
         )
 
 
 @pytest.mark.parametrize(
     ('span_attributes', 'expected_provider_id'),
     [
-        pytest.param({}, 'openai', id='no_system_uses_openai'),
+        pytest.param({}, 'openai', id='no_provider_uses_openai'),
         pytest.param(None, 'openai', id='none_attributes_uses_openai'),
-        pytest.param({'gen_ai.system': 'openai'}, 'openai', id='openai_system_uses_openai'),
-        pytest.param({'gen_ai.system': 'openrouter'}, 'openrouter', id='openrouter_system_uses_openrouter'),
-        pytest.param({'gen_ai.system': 'azure'}, 'azure', id='azure_system_uses_azure'),
+        pytest.param({PROVIDER_NAME: 'openai'}, 'openai', id='openai_provider_uses_openai'),
+        pytest.param({PROVIDER_NAME: 'openrouter'}, 'openrouter', id='openrouter_provider_uses_openrouter'),
+        pytest.param({PROVIDER_NAME: 'azure'}, 'azure', id='azure_provider_uses_azure'),
     ],
 )
 def test_on_response_calc_price_uses_correct_provider(
     span_attributes: dict[str, str] | None, expected_provider_id: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Test that on_response uses the correct provider_id when calculating price."""
+    """Test that on_response uses the correct provider_id (from PROVIDER_NAME attribute) when calculating price."""
     from unittest.mock import patch
 
     mock_span = MagicMock()

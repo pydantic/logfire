@@ -95,6 +95,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         span_data: dict[str, Any] = {
             'request_data': json_data,
             'gen_ai.request.model': json_data.get('model'),
+            'gen_ai.system': 'openai',
             PROVIDER_NAME: 'openai',
             OPERATION_NAME: 'chat',
         }
@@ -117,6 +118,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
                 json_data.get('input'),
                 json_data.get('instructions'),
             ),
+            'gen_ai.system': 'openai',
             PROVIDER_NAME: 'openai',
             OPERATION_NAME: 'chat',
         }
@@ -131,6 +133,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         span_data = {
             'request_data': json_data,
             'gen_ai.request.model': json_data.get('model'),
+            'gen_ai.system': 'openai',
             PROVIDER_NAME: 'openai',
             OPERATION_NAME: 'text_completion',
         }
@@ -144,6 +147,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         span_data = {
             'request_data': json_data,
             'gen_ai.request.model': json_data.get('model'),
+            'gen_ai.system': 'openai',
             PROVIDER_NAME: 'openai',
             OPERATION_NAME: 'embeddings',
         }
@@ -156,6 +160,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         span_data = {
             'request_data': json_data,
             'gen_ai.request.model': json_data.get('model'),
+            'gen_ai.system': 'openai',
             PROVIDER_NAME: 'openai',
             OPERATION_NAME: 'image_generation',
         }
@@ -168,6 +173,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         span_data = {
             'request_data': json_data,
             'url': url,
+            'gen_ai.system': 'openai',
             PROVIDER_NAME: 'openai',
         }
         if 'model' in json_data:
