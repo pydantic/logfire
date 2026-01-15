@@ -5,6 +5,7 @@ from unittest import mock
 
 import pydantic
 import pytest
+from dirty_equals import IsStr
 from inline_snapshot import snapshot
 
 import logfire
@@ -64,10 +65,159 @@ def test_dspy_instrumentation(exporter: TestExporter) -> None:
 
     # Verify spans were exported
     spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-    assert len(spans) > 0
+    assert spans == snapshot(
+        [
+            {
+                'name': 'LM.__call__',
+                'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'start_time': 4000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'LM.__call__',
+                    'input.mime_type': 'application/json',
+                    'input.value': {
+                        'prompt': None,
+                        'messages': [
+                            {
+                                'role': 'system',
+                                'content': """\
+Your input fields are:
+1. `question` (str):
+Your output fields are:
+1. `answer` (str): often between 1 and 5 words
+All interactions will be structured in the following way, with the appropriate values filled in.
 
-    # Check for DSPy or LLM-related spans (DSPy uses OpenAI/LiteLLM underneath)
-    span_names = [span['name'] for span in spans]
-    assert any(
-        'dspy' in name.lower() or 'completion' in name.lower() or 'predict' in name.lower() for name in span_names
-    ), f'No DSPy-related spans found. Got: {span_names}'
+[[ ## question ## ]]
+{question}
+
+[[ ## answer ## ]]
+{answer}
+
+[[ ## completed ## ]]
+In adhering to this structure, your objective is: \n\
+        Answer questions with short factoid answers.\
+""",
+                            },
+                            {
+                                'role': 'user',
+                                'content': """\
+[[ ## question ## ]]
+What is the capital of France?
+
+Respond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`.\
+""",
+                            },
+                        ],
+                        'kwargs': {},
+                    },
+                    'llm.model_name': 'gpt-4o-mini',
+                    'llm.provider': 'openai',
+                    'llm.invocation_parameters': {'temperature': None, 'max_tokens': None},
+                    'llm.input_messages.0.message.role': 'system',
+                    'llm.input_messages.0.message.content': """\
+Your input fields are:
+1. `question` (str):
+Your output fields are:
+1. `answer` (str): often between 1 and 5 words
+All interactions will be structured in the following way, with the appropriate values filled in.
+
+[[ ## question ## ]]
+{question}
+
+[[ ## answer ## ]]
+{answer}
+
+[[ ## completed ## ]]
+In adhering to this structure, your objective is: \n\
+        Answer questions with short factoid answers.\
+""",
+                    'llm.input_messages.1.message.role': 'user',
+                    'llm.input_messages.1.message.content': """\
+[[ ## question ## ]]
+What is the capital of France?
+
+Respond with the corresponding output fields, starting with the field `[[ ## answer ## ]]`, and then ending with the marker for `[[ ## completed ## ]]`.\
+""",
+                    'output.value': [
+                        """\
+[[ ## answer ## ]]
+Paris
+
+[[ ## completed ## ]]\
+"""
+                    ],
+                    'output.mime_type': 'application/json',
+                    'llm.output_messages.0.message.role': 'assistant',
+                    'llm.output_messages.0.message.content': """\
+[[ ## answer ## ]]
+Paris
+
+[[ ## completed ## ]]\
+""",
+                    'openinference.span.kind': 'LLM',
+                },
+            },
+            {
+                'name': 'ChatAdapter.__call__',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'start_time': 3000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'ChatAdapter.__call__',
+                    'input.mime_type': 'application/json',
+                    'input.value': {
+                        'lm': IsStr(),
+                        'lm_kwargs': {},
+                        'signature': """\
+BasicQA(question -> answer
+    instructions='Answer questions with short factoid answers.'
+    question = Field(annotation=str required=True json_schema_extra={'__dspy_field_type': 'input', 'prefix': 'Question:', 'desc': '${question}'})
+    answer = Field(annotation=str required=True json_schema_extra={'desc': 'often between 1 and 5 words', '__dspy_field_type': 'output', 'prefix': 'Answer:'})
+)\
+""",
+                        'demos': [],
+                        'inputs': {'question': 'What is the capital of France?'},
+                    },
+                    'output.value': [{'answer': 'Paris'}],
+                    'output.mime_type': 'application/json',
+                    'openinference.span.kind': 'CHAIN',
+                },
+            },
+            {
+                'name': 'Predict(BasicQA).forward',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 7000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'Predict(BasicQA).forward',
+                    'input.value': {'question': 'What is the capital of France?'},
+                    'input.mime_type': 'application/json',
+                    'output.value': {'answer': 'Paris'},
+                    'output.mime_type': 'application/json',
+                    'openinference.span.kind': 'CHAIN',
+                },
+            },
+            {
+                'name': 'Predict.forward',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 8000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'Predict.forward',
+                    'input.value': {'question': 'What is the capital of France?'},
+                    'input.mime_type': 'application/json',
+                    'output.mime_type': 'application/json',
+                    'output.value': {'answer': 'Paris'},
+                    'openinference.span.kind': 'CHAIN',
+                },
+            },
+        ]
+    )
