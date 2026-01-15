@@ -266,10 +266,11 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         on_response(response.parse(), span)  # type: ignore
         return cast('ResponseT', response)
 
-    provider = (getattr(span, 'attributes', {}) or {}).get('gen_ai.system', None)
+    provider = (getattr(span, 'attributes', {}) or {}).get(PROVIDER_NAME, None)
     if provider is None:
         provider = 'openai'
         span.set_attribute('gen_ai.system', provider)
+        span.set_attribute(PROVIDER_NAME, provider)
 
     if isinstance(response_model := getattr(response, 'model', None), str):
         span.set_attribute('gen_ai.response.model', response_model)
