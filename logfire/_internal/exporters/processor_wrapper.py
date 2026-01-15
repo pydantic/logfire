@@ -15,6 +15,7 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 import logfire
 
 from ..constants import (
+    ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY,
     ATTRIBUTES_JSON_SCHEMA_KEY,
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,
     ATTRIBUTES_MESSAGE_KEY,
@@ -66,23 +67,15 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
 
     scrubber: BaseScrubber
 
-    def on_start(
-        self,
-        span: Span,
-        parent_context: context.Context | None = None,
-    ) -> None:
-        _set_log_level_on_asgi_send_receive_spans(span)
-        super().on_start(span, parent_context)
-
     def on_end(self, span: ReadableSpan) -> None:
         with handle_internal_errors:
             span_dict = span_to_dict(span)
             _tweak_asgi_send_receive_spans(span_dict)
             _tweak_sqlalchemy_connect_spans(span_dict)
             _tweak_http_spans(span_dict)
+            _set_error_level_and_status(span_dict)
             _tweak_fastapi_span(span_dict)
             _summarize_db_statement(span_dict)
-            _set_error_level_and_status(span_dict)
             _transform_langchain_span(span_dict)
             _transform_google_genai_span(span_dict)
             _transform_litellm_span(span_dict)
@@ -103,18 +96,19 @@ def _set_error_level_and_status(span: ReadableSpanDict) -> None:
         span['attributes'] = {**attributes, **log_level_attributes('error')}
     elif status.is_unset:
         level = attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY)
-        if isinstance(level, int) and level >= LEVEL_NUMBERS['error']:
-            span['status'] = Status(status_code=StatusCode.ERROR, description=status.description)
-
-
-def _set_log_level_on_asgi_send_receive_spans(span: Span) -> None:
-    """Set the log level of ASGI send/receive spans to debug.
-
-    If a span doesn't have a level set, it defaults to 'info'. This is too high for ASGI send/receive spans,
-    which are generated for every request and are not particularly interesting.
-    """
-    if _is_asgi_send_receive_span(span.name, span.instrumentation_scope):
-        span.set_attributes(log_level_attributes('debug'))
+        if isinstance(level, int):
+            if level >= LEVEL_NUMBERS['error']:
+                span['status'] = Status(status_code=StatusCode.ERROR, description=status.description)
+        else:
+            http_status_code = attributes.get('http.status_code') or attributes.get('http.response.status_code')
+            if isinstance(http_status_code, int):
+                if (span['kind'] == SpanKind.SERVER and http_status_code >= 500) or (
+                    span['kind'] == SpanKind.CLIENT and http_status_code >= 400
+                ):
+                    span['status'] = Status(status_code=StatusCode.ERROR, description=status.description)
+                    span['attributes'] = {**attributes, **log_level_attributes('error')}
+                elif span['kind'] == SpanKind.SERVER and http_status_code >= 400:
+                    span['attributes'] = {**attributes, **log_level_attributes('warning')}
 
 
 def _tweak_sqlalchemy_connect_spans(span: ReadableSpanDict) -> None:
@@ -322,8 +316,19 @@ def _tweak_fastapi_span(span: ReadableSpanDict):
             new_events.append(event)
             continue
         key = (attrs['exception.type'], attrs['exception.message'])
-        if key in seen_exceptions and attrs.get('recorded_by_logfire_fastapi'):
-            continue
+        recorded_by_logfire_fastapi = attrs.get('recorded_by_logfire_fastapi')
+        if recorded_by_logfire_fastapi:
+            if key in seen_exceptions:
+                # Drop the duplicate event.
+                continue
+            else:
+                span_attrs = span['attributes']
+                level = span_attrs.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY)
+                fingerprint = attrs.get(ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY)
+                if isinstance(level, int) and level >= LEVEL_NUMBERS['error'] and fingerprint:
+                    # Copy the fingerprint from the event to the span for errors.
+                    # See `record_exception` in tracer.py.
+                    span['attributes'] = {**span_attrs, ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY: fingerprint}
         seen_exceptions.add(key)
         new_events.append(event)
     span['events'] = new_events[::-1]

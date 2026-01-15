@@ -6,9 +6,11 @@ from typing import TYPE_CHECKING, Any
 from opentelemetry.context import Context
 from opentelemetry.instrumentation.asgi import OpenTelemetryMiddleware
 from opentelemetry.sdk.trace import Tracer as SDKTracer
-from opentelemetry.trace import NonRecordingSpan, Span, Tracer, TracerProvider
+from opentelemetry.trace import NonRecordingSpan, SpanKind, Tracer, TracerProvider
 from opentelemetry.trace.propagation import get_current_span
+from opentelemetry.util import types as otel_types
 
+from logfire._internal.constants import log_level_attributes
 from logfire._internal.utils import is_asgi_send_receive_span_name, maybe_capture_server_headers
 
 if TYPE_CHECKING:
@@ -41,35 +43,51 @@ if TYPE_CHECKING:
 
 
 def tweak_asgi_spans_tracer_provider(logfire_instance: Logfire, record_send_receive: bool) -> TracerProvider:
-    """If record_send_receive is False, return a TracerProvider that skips spans for ASGI send and receive events."""
+    """Return a TracerProvider that customizes ASGI send/receive spans.
+
+    If record_send_receive is False, spans are filtered out.
+    If record_send_receive is True, spans are created with debug log level.
+    """
     tracer_provider = logfire_instance.config.get_tracer_provider()
-    if record_send_receive:
-        return tracer_provider
-    else:
-        return TweakAsgiTracerProvider(tracer_provider)
+    return TweakAsgiTracerProvider(tracer_provider, record_send_receive)
 
 
 @dataclass
 class TweakAsgiTracerProvider(TracerProvider):
     tracer_provider: TracerProvider
+    record_send_receive: bool
 
     def get_tracer(self, *args: Any, **kwargs: Any) -> Tracer:
-        return TweakAsgiSpansTracer(self.tracer_provider.get_tracer(*args, **kwargs))
+        return TweakAsgiSpansTracer(self.tracer_provider.get_tracer(*args, **kwargs), self.record_send_receive)
 
 
 @dataclass
 class TweakAsgiSpansTracer(Tracer):
     tracer: Tracer
+    record_send_receive: bool
 
-    def start_span(self, name: str, context: Context | None = None, *args: Any, **kwargs: Any) -> Span:
+    def start_span(
+        self,
+        name: str,
+        context: Context | None = None,
+        kind: SpanKind = SpanKind.INTERNAL,
+        attributes: otel_types.Attributes = None,
+        *args: Any,
+        **kwargs: Any,
+    ) -> Span:
         if is_asgi_send_receive_span_name(name):
-            # These are the noisy spans we want to skip.
-            # Create a no-op span with the same SpanContext as the current span.
-            # This means that any spans created within will have the current span as their parent,
-            # as if this span didn't exist at all.
-            return NonRecordingSpan(get_current_span(context).get_span_context())
+            if not self.record_send_receive:
+                # These are the noisy spans we want to skip.
+                # Create a no-op span with the same SpanContext as the current span.
+                # This means that any spans created within will have the current span as their parent,
+                # as if this span didn't exist at all.
+                return NonRecordingSpan(get_current_span(context).get_span_context())
 
-        return self.tracer.start_span(name, context, *args, **kwargs)
+            # If we're recording send/receive spans, set the log level to debug
+            attributes = {**(attributes or {}), **log_level_attributes('debug')}
+            return self.tracer.start_span(name, context, kind, attributes, *args, **kwargs)
+
+        return self.tracer.start_span(name, context, kind, attributes, *args, **kwargs)
 
     # This means that `with start_as_current_span(...):`
     # is roughly equivalent to `with use_span(start_span(...)):`

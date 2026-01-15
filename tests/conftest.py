@@ -29,6 +29,7 @@ os.environ['OTEL_SEMCONV_STABILITY_OPT_IN'] = 'http/dup'
 # Ensure that these variables in the environment don't interfere
 os.environ['LOGFIRE_TOKEN'] = ''
 os.environ.pop('OPENAI_BASE_URL', None)
+os.environ.pop('ANTHROPIC_BASE_URL', None)
 
 # https://github.com/openai/openai-python/issues/2644
 sys.modules['openai.resources.evals'] = unittest.mock.MagicMock()
