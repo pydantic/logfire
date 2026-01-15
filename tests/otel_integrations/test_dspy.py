@@ -45,7 +45,7 @@ def test_dspy_instrumentation(exporter: TestExporter) -> None:
     # Configure DSPy with OpenAI - disable caching
     # Use real API key if present (for recording), otherwise fake key (for VCR replay)
     api_key = os.getenv('OPENAI_API_KEY', 'fake-api-key-for-testing')
-    lm = dspy.LM('openai/gpt-4o-mini', cache=False, api_key=api_key)
+    lm = dspy.LM('openai/gpt-5-mini', cache=False, api_key=api_key)
     dspy.configure(lm=lm)
 
     # Define a simple signature
@@ -112,9 +112,9 @@ Respond with the corresponding output fields, starting with the field `[[ ## ans
                         ],
                         'kwargs': {},
                     },
-                    'llm.model_name': 'gpt-4o-mini',
+                    'llm.model_name': 'gpt-5-mini',
                     'llm.provider': 'openai',
-                    'llm.invocation_parameters': {'temperature': None, 'max_tokens': None},
+                    'llm.invocation_parameters': {'temperature': None, 'max_completion_tokens': None},
                     'llm.input_messages.0.message.role': 'system',
                     'llm.input_messages.0.message.content': """\
 Your input fields are:

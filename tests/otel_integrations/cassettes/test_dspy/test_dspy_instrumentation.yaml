@@ -1113,13 +1113,13 @@ interactions:
       Cross-Origin-Resource-Policy:
       - cross-origin
       Date:
-      - Wed, 14 Jan 2026 20:51:36 GMT
+      - Thu, 15 Jan 2026 18:29:30 GMT
       ETag:
       - W/"ad2f507cc6ef46b705f4322281bc8290b83b6c84f32b3d8c23fd58244e096a3a"
       Expires:
-      - Wed, 14 Jan 2026 20:56:36 GMT
+      - Thu, 15 Jan 2026 18:34:30 GMT
       Source-Age:
-      - '183'
+      - '132'
       Strict-Transport-Security:
       - max-age=31536000
       Vary:
@@ -1129,19 +1129,19 @@ interactions:
       X-Cache:
       - HIT
       X-Cache-Hits:
-      - '6'
+      - '4'
       X-Content-Type-Options:
       - nosniff
       X-Fastly-Request-ID:
-      - 5e4fbf46f9ecc7a4f8062db7d9846031e7c017a2
+      - 441eec50abeb605e6a7a82b1de96a94d5fbe2d4b
       X-Frame-Options:
       - deny
       X-GitHub-Request-Id:
       - 8A4E:21B216:4E2AA5:557011:6967F434
       X-Served-By:
-      - cache-sof1510034-SOF
+      - cache-sof1510040-SOF
       X-Timer:
-      - S1768423896.133157,VS0,VE0
+      - S1768501771.707237,VS0,VE0
       X-XSS-Protection:
       - 1; mode=block
     status:
@@ -1156,7 +1156,7 @@ interactions:
       questions with short factoid answers."},{"role":"user","content":"[[ ## question
       ## ]]\nWhat is the capital of France?\n\nRespond with the corresponding output
       fields, starting with the field `[[ ## answer ## ]]`, and then ending with the
-      marker for `[[ ## completed ## ]]`."}],"model":"gpt-4o-mini"}'
+      marker for `[[ ## completed ## ]]`."}],"model":"gpt-5-mini"}'
     headers:
       Accept:
       - application/json
@@ -1165,7 +1165,7 @@ interactions:
       Connection:
       - keep-alive
       Content-Length:
-      - '718'
+      - '717'
       Content-Type:
       - application/json
       Host:
@@ -1197,14 +1197,14 @@ interactions:
   response:
     body:
       string: !!binary |
-        H4sIAAAAAAAAAwAAAP//jFLBauMwEL37K8T0GhfHCYmT4xZKobDsuUkwqjR21MqSkMbbzZb8e5Ht
-        xk53F/ZizLx5T+/NzHvCGCgJWwbiyEk0Tqd3p7yYN/nvb9XT9/UL1nT/kIX68e6hodMrzCLDPr+g
-        oE/WrbCN00jKmh4WHjlhVJ2vV8UyXxSbdQc0VqKOtNpRurRpo4xK8yxfptk6nRcD+2iVwABbtksY
-        Y+y9+0afRuIv2LJs9llpMAReI2wvTYyBtzpWgIegAnFDMBtBYQ2h6azvduzmhnET3tDHv8Nhb35w
-        r8Le7E0PDsFQ9vhUyGPVBh7DmFbrCcCNscTjMLoIhwE5X0xrWztvn8MXKlTKqHAsPfJgTTQYyDro
-        0HPC2KEbTnuVF5y3jaOS7Ct2z82XRa8H404maD6AZInrSX01jPRar5RIXOkwGS8ILo4oR+q4C95K
-        ZSdAMkn9p5u/affJlan/R34EhEBHKEvnUSpxnXhs8xhP9l9tlyl3hiGg/6kElqTQx01IrHir+0OC
-        cAqETVkpU6N3XvXXVLky3ywWGd+sigKSc/IBAAD//wMANJ3cnVsDAAA=
+        H4sIAAAAAAAAAwAAAP//dJLNbtswEITvegqCuVqFrNiR41sQpIcETXoNbENgybXElH8gV23dwO9e
+        kHJMBU0ugrDf7mBmua8FIVQKuiaU9wy5dqq8PXx7WtxL7/3fTj/ePXy9eTw868v50/Ndf01nccL+
+        eAGOb1NfuNVOAUprRsw9MISoOm+uVstq3jR1AtoKUHGsc1guSy2NLOuqXpbVqqya03BvJYdA12RT
+        EELIa/pGm0bAH7om1eytoiEE1gFdn5sIod6qWKEsBBmQGaSzDLk1CCY532zIxQVhJvwGH/92u635
+        zrwMW7M1IzzlAjHyqZCH/RBYzGIGpSaAGWORxV2kCLsTOZ5N76WRoW89sGBNNBLQOprosSBkl5Yw
+        vMtFnbfaYYv2JyTZ+aIZ9Whefaar5QmiRaZyvb6sZx/otQKQSRUma6Sc8R5EHs07Z4OQdgKKSbr/
+        3XykPSaXpssqV4tP9TPgHByCaJ0HIfn7yLnNQzzNz9rOa06OaQD/S3JoUYKPTyFgzwY1XgwNh4Cg
+        2700HXjnZTqb+NrFsfgHAAD//wMAyE4Q/jgDAAA=
     headers:
       Connection:
       - keep-alive
@@ -1213,7 +1213,7 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Wed, 14 Jan 2026 20:51:38 GMT
+      - Thu, 15 Jan 2026 18:29:34 GMT
       Server:
       - cloudflare
       Strict-Transport-Security:
@@ -1229,11 +1229,11 @@ interactions:
       cf-cache-status:
       - DYNAMIC
       openai-processing-ms:
-      - '547'
+      - '1653'
       openai-version:
       - '2020-10-01'
       x-envoy-upstream-service-time:
-      - '690'
+      - '1886'
       x-openai-proxy-wasm:
       - v0.1
       x-ratelimit-limit-requests:
