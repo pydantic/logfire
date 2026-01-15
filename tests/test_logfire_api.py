@@ -210,12 +210,13 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('instrument_litellm')
 
     assert hasattr(logfire_api, 'instrument_dspy')
-    try:
-        importlib.import_module('openinference.instrumentation.dspy')
-    except ImportError:
-        pass
-    else:
-        logfire_api.instrument_dspy()
+    if not pydantic_pre_2_5:
+        try:
+            importlib.import_module('openinference.instrumentation.dspy')
+        except ImportError:
+            pass
+        else:
+            logfire_api.instrument_dspy()
     logfire__all__.remove('instrument_dspy')
 
     for member in [m for m in logfire__all__ if m.startswith('instrument_')]:
