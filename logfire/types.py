@@ -97,7 +97,6 @@ class ExceptionCallbackHelper:
         - Spans created directly by an OpenTelemetry tracer (e.g. from any `logfire.instrument_*()` method)
             typically don't have a level set, so this will return the default of `info`,
             but `level_is_unset` will be `True`.
-        - FastAPI/Starlette 4xx HTTPExceptions are warnings.
         - Will be a different level if this is created by e.g. `logfire.info(..., _exc_info=True)`.
         """
         return SpanLevel.from_span(self.span)
@@ -181,7 +180,6 @@ class ExceptionCallbackHelper:
 
         - The level is 'error' or higher or is unset (see `level_is_unset` for details),
         - No parent span exists in the current process,
-        - The exception isn't handled by FastAPI, except if it's a 5xx HTTPException.
 
         Example:
             if helper.create_issue:
@@ -190,12 +188,7 @@ class ExceptionCallbackHelper:
         if self._create_issue is not None:
             return self._create_issue
 
-        return (
-            self._record_exception
-            and (self.level_is_unset or self.level >= 'error')
-            and self.parent_span is None
-            and not (self.event_attributes.get('recorded_by_logfire_fastapi') and self.level < 'error')
-        )
+        return self._record_exception and (self.level_is_unset or self.level >= 'error') and self.parent_span is None
 
     @create_issue.setter
     def create_issue(self, value: bool):

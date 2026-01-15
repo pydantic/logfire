@@ -80,6 +80,8 @@ class TestExporter(SpanExporter):
             res: dict[str, Any] = {'name': event.name, 'timestamp': event.timestamp}
             if event.attributes:  # pragma: no branch
                 res['attributes'] = attributes = dict(event.attributes)
+                if ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY in attributes:
+                    attributes[ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY] = '0' * 64
                 if 'exception.stacktrace' in attributes:
                     last_line = next(  # pragma: no branch
                         line.strip()

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import sys
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -38,9 +37,6 @@ from .constants import (
 from .utils import handle_internal_errors, sha256_string
 
 if TYPE_CHECKING:
-    from starlette.exceptions import HTTPException
-    from typing_extensions import TypeIs
-
     from ..types import ExceptionCallback
     from .config import LogfireConfig
 
@@ -425,24 +421,11 @@ def record_exception(
     if not span.is_recording():
         return
 
-    if is_starlette_http_exception(exception):
-        if 400 <= exception.status_code < 500:
-            # Don't mark 4xx HTTP exceptions as errors, they are expected to happen in normal operation.
-            # But do record them as warnings.
-            span.set_attributes(log_level_attributes('warn'))
-        elif exception.status_code >= 500:
-            # Set this as an error now for ExceptionCallbackHelper.create_issue to see,
-            # particularly so that if this is raised in a FastAPI pseudo_span and the event is marked with
-            # the recorded_by_logfire_fastapi it will still create an issue in this case.
-            # FastAPI will 'handle' this exception meaning it won't get recorded again by OTel.
-            set_exception_status(span, exception)
-            span.set_attributes(log_level_attributes('error'))
-
     # From https://opentelemetry.io/docs/specs/semconv/attributes-registry/exception/
     # `escaped=True` means that the exception is escaping the scope of the span.
     # This means we know that the exception hasn't been handled,
     # so we can set the OTEL status and the log level to error.
-    elif escaped:
+    if escaped:
         set_exception_status(span, exception)
         span.set_attributes(log_level_attributes('error'))
 
@@ -471,7 +454,20 @@ def record_exception(
         attributes[ATTRIBUTES_VALIDATION_ERROR_KEY] = err_json
 
     if helper.create_issue:
-        span.set_attribute(ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY, sha256_string(helper.issue_fingerprint_source))
+        fingerprint = sha256_string(helper.issue_fingerprint_source)
+        if attributes.get('recorded_by_logfire_fastapi'):
+            # Put the fingerprint in the event instead of the span.
+            # `_tweak_fastapi_span` will copy it to the span if the span ends up having level error,
+            # which it should if the HTTP status code is 5xx.
+            # At this point we have none of that info and we don't know if the exception is going to be handled.
+            # If it is handled, the handler may or may not return a status code of 5xx,
+            # which is what will determine whether an issue should be created.
+            # If it's not handled, the same exception will be recorded on the span again by the OTel instrumentation,
+            # so this record_exception function will be called again and the decision can be made then.
+            # In that case there won't be recorded_by_logfire_fastapi.
+            attributes[ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY] = fingerprint
+        else:
+            span.set_attribute(ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY, fingerprint)
 
     span.record_exception(exception, attributes=attributes, timestamp=timestamp, escaped=escaped)
 
@@ -483,12 +479,3 @@ def set_exception_status(span: trace_api.Span, exception: BaseException):
             description=f'{exception.__class__.__name__}: {exception}',
         )
     )
-
-
-def is_starlette_http_exception(exception: BaseException) -> TypeIs[HTTPException]:
-    if 'starlette.exceptions' not in sys.modules:  # pragma: no cover
-        return False
-
-    from starlette.exceptions import HTTPException
-
-    return isinstance(exception, HTTPException)
