@@ -516,44 +516,47 @@ def test_both_trace_and_head():
         logfire.configure(trace_sample_rate=0.5, sampling=logfire.SamplingOptions())  # type: ignore
 
 
-def test_no_warning_for_ended_spans_during_buffer_replay(config_kwargs: dict[str, Any], exporter: TestExporter):
-    """Test that no 'Setting attribute on ended span' warning is emitted during buffer replay.
-
-    When TailSamplingProcessor.push_buffer() replays buffered spans, it should skip
-    calling on_start for spans that have already ended. This prevents wrapped processors
-    from calling span.set_attributes() on ended spans.
-    """
+def test_tail_sampling_no_warning_on_ended_span(
+    config_kwargs: dict[str, Any],
+    exporter: TestExporter,
+    caplog: pytest.LogCaptureFixture,
+):
+    """Test that push_buffer skips on_start for already-ended spans to avoid warnings."""
     import logging
 
-    # Enable baggage to attributes so DirectBaggageAttributesSpanProcessor is used
-    config_kwargs['add_baggage_to_attributes'] = True
+    from opentelemetry.sdk.trace import SpanProcessor
+
+    class AttributeSettingProcessor(SpanProcessor):
+        """Sets attributes in on_start, like DirectBaggageAttributesSpanProcessor."""
+
+        def on_start(self, span: Any, parent_context: Context | None = None) -> None:
+            span.set_attributes({'test.attribute': 'value'})
+
+        def on_end(self, span: Any) -> None:
+            pass
+
+        def shutdown(self) -> None:
+            pass
+
+        def force_flush(self, timeout_millis: int = 30000) -> bool:
+            return True
+
+    config_kwargs['additional_span_processors'].append(AttributeSettingProcessor())
 
     logfire.configure(
         **config_kwargs,
-        sampling=logfire.SamplingOptions(tail=lambda _: 1.0),
+        sampling=logfire.SamplingOptions(tail=lambda info: 1.0 if info.level >= 'error' else 0.0),
     )
 
-    # Capture warnings from opentelemetry.sdk.trace
-    otel_logger = logging.getLogger('opentelemetry.sdk.trace')
-    original_level = otel_logger.level
-    otel_logger.setLevel(logging.WARNING)
+    caplog.set_level(logging.WARNING, logger='opentelemetry.sdk.trace')
 
-    warnings_captured: list[str] = []
-    handler = logging.Handler()
-    handler.emit = lambda record: warnings_captured.append(record.getMessage())
-    otel_logger.addHandler(handler)
+    with logfire.span('root'):
+        with logfire.span('child_1'):
+            pass
+        with logfire.span('child_2'):
+            pass
+        logfire.error('Trigger sampling')
 
-    try:
-        # Create spans that will be buffered and then replayed
-        with logfire.span('parent'):
-            logfire.info('child log')
-
-        # Verify no "Setting attribute on ended span" warnings were emitted
-        ended_span_warnings = [w for w in warnings_captured if 'Setting attribute on ended span' in w]
-        assert ended_span_warnings == [], f'Unexpected warnings: {ended_span_warnings}'
-    finally:
-        otel_logger.removeHandler(handler)
-        otel_logger.setLevel(original_level)
-
-    # Verify spans were still exported correctly
-    assert len(exporter.exported_spans_as_dict(_include_pending_spans=True)) > 0
+    warnings = [r for r in caplog.records if 'Setting attribute on ended span' in r.message]
+    assert warnings == [], f'Unexpected warnings: {[r.message for r in warnings]}'
+    assert len(exporter.exported_spans_as_dict()) > 0
