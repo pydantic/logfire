@@ -41,7 +41,7 @@ from opentelemetry.context import Context as Context
 from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
 from opentelemetry.metrics import CallbackT as CallbackT, Counter, Histogram, UpDownCounter, _Gauge as Gauge
 from opentelemetry.sdk.trace import ReadableSpan, Span
-from opentelemetry.trace import SpanContext
+from opentelemetry.trace import SpanContext, SpanKind
 from opentelemetry.util import types as otel_types
 from pymongo.monitoring import CommandFailedEvent as CommandFailedEvent, CommandStartedEvent as CommandStartedEvent, CommandSucceededEvent as CommandSucceededEvent
 from sqlalchemy import Engine
@@ -218,7 +218,7 @@ class Logfire:
             _exc_info: Set to an exception or a tuple as returned by [`sys.exc_info()`][sys.exc_info]
                 to record a traceback with the log message.
         """
-    def span(self, msg_template: str, /, *, _tags: Sequence[str] | None = None, _span_name: str | None = None, _level: LevelName | None = None, _links: Sequence[tuple[SpanContext, otel_types.Attributes]] = (), **attributes: Any) -> LogfireSpan:
+    def span(self, msg_template: str, /, *, _tags: Sequence[str] | None = None, _span_name: str | None = None, _level: LevelName | None = None, _links: Sequence[tuple[SpanContext, otel_types.Attributes]] = (), _span_kind: SpanKind = ..., **attributes: Any) -> LogfireSpan:
         """Context manager for creating a span.
 
         ```py
@@ -236,6 +236,10 @@ class Logfire:
             _tags: An optional sequence of tags to include in the span.
             _level: An optional log level name.
             _links: An optional sequence of links to other spans. Each link is a tuple of a span context and attributes.
+            _span_kind: The [OpenTelemetry span kind](https://opentelemetry.io/docs/concepts/signals/traces/#span-kind).
+                If not provided, defaults to `INTERNAL`.
+                Users don't typically need to set this.
+                Not related to the `kind` column of the `records` table in Logfire.
             attributes: The arguments to include in the span and format the message template with.
                 Attributes starting with an underscore are not allowed.
         """
@@ -614,6 +618,13 @@ class Logfire:
 
         Uses the `LiteLLMInstrumentor().instrument()` method of the
         [`openinference-instrumentation-litellm`](https://pypi.org/project/openinference-instrumentation-litellm/)
+        package, to which it passes `**kwargs`.
+        """
+    def instrument_dspy(self, **kwargs: Any):
+        """Instrument [DSPy](https://dspy.ai/).
+
+        Uses the `DSPyInstrumentor().instrument()` method of the
+        [`openinference-instrumentation-dspy`](https://pypi.org/project/openinference-instrumentation-dspy/)
         package, to which it passes `**kwargs`.
         """
     def instrument_print(self) -> AbstractContextManager[None]:
@@ -1136,7 +1147,7 @@ class FastLogfireSpan:
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None: ...
 
 class LogfireSpan(ReadableSpan):
-    def __init__(self, span_name: str, otlp_attributes: dict[str, otel_types.AttributeValue], tracer: _ProxyTracer, json_schema_properties: JsonSchemaProperties, links: Sequence[tuple[SpanContext, otel_types.Attributes]]) -> None: ...
+    def __init__(self, span_name: str, otlp_attributes: dict[str, otel_types.AttributeValue], tracer: _ProxyTracer, json_schema_properties: JsonSchemaProperties, links: Sequence[tuple[SpanContext, otel_types.Attributes]], span_kind: SpanKind = ...) -> None: ...
     def __getattr__(self, name: str) -> Any: ...
     def __enter__(self) -> LogfireSpan: ...
     @handle_internal_errors
