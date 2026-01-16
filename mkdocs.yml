@@ -144,6 +144,7 @@ nav:
           - Express: integrations/javascript/express.md
           - Node.js: integrations/javascript/node.md
           - Deno: integrations/javascript/deno.md
+          - Vercel AI SDK: integrations/javascript/vercel-ai.md
       - Databases:
           - Psycopg: integrations/databases/psycopg.md
           - SQLAlchemy: integrations/databases/sqlalchemy.md
