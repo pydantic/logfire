@@ -1,5 +1,12 @@
 # Release Notes
 
+## [v4.19.0] (2026-01-16)
+
+* Add DSPy integration to logfire by @bdsaglam in [#1625](https://github.com/pydantic/logfire/pull/1625)
+* Set log level based on HTTP status code, create issues for handled exceptions in FastAPI when the status code is 5xx by @alexmojaki in [#1628](https://github.com/pydantic/logfire/pull/1628)
+* Add OTel GenAI semantic convention attributes to LLM instrumentations by @jimilp7 in [#1619](https://github.com/pydantic/logfire/pull/1619)
+* Minor optimization: move tweaking of ASGI send/receive span level by @alexmojaki in [#1629](https://github.com/pydantic/logfire/pull/1629)
+
 ## [v4.18.0] (2026-01-12)
 
 * Adds `aiohttp` request body capture. by @adtyavrdhn in [#1595](https://github.com/pydantic/logfire/pull/1595)
@@ -1000,3 +1007,4 @@ First release from new repo!
 [v4.16.0]: https://github.com/pydantic/logfire/compare/v4.15.1...v4.16.0
 [v4.17.0]: https://github.com/pydantic/logfire/compare/v4.16.0...v4.17.0
 [v4.18.0]: https://github.com/pydantic/logfire/compare/v4.17.0...v4.18.0
+[v4.19.0]: https://github.com/pydantic/logfire/compare/v4.18.0...v4.19.0

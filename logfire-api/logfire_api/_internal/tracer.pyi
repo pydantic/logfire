@@ -14,10 +14,8 @@ from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.trace import Link as Link, Span, SpanContext, SpanKind, Tracer, TracerProvider
 from opentelemetry.trace.status import Status, StatusCode
 from opentelemetry.util import types as otel_types
-from starlette.exceptions import HTTPException
 from threading import Lock
 from typing import Any, Callable
-from typing_extensions import TypeIs
 from weakref import WeakKeyDictionary, WeakValueDictionary
 
 OPEN_SPANS: WeakValueDictionary[tuple[int, int], _LogfireWrappedSpan]
@@ -116,4 +114,3 @@ def get_sample_rate_from_attributes(attributes: otel_types.Attributes) -> float 
 def record_exception(span: trace_api.Span, exception: BaseException, *, attributes: otel_types.Attributes = None, timestamp: int | None = None, escaped: bool = False, callback: ExceptionCallback | None = None) -> None:
     """Similar to the OTEL SDK Span.record_exception method, with our own additions."""
 def set_exception_status(span: trace_api.Span, exception: BaseException): ...
-def is_starlette_http_exception(exception: BaseException) -> TypeIs[HTTPException]: ...
