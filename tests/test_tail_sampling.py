@@ -538,7 +538,7 @@ def test_tail_sampling_no_warning_on_ended_span(
         def shutdown(self) -> None:
             pass
 
-        def force_flush(self, timeout_millis: int = 30000) -> bool:
+        def force_flush(self, timeout_millis: int = 30000) -> bool:  # pragma: no cover
             return True
 
     config_kwargs['additional_span_processors'].append(AttributeSettingProcessor())
