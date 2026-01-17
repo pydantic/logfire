@@ -326,6 +326,7 @@ def configure(
     add_baggage_to_attributes: bool = True,
     code_source: CodeSource | None = None,
     distributed_tracing: bool | None = None,
+    otel_endpoint: str | None = None,
     advanced: AdvancedOptions | None = None,
     **deprecated_kwargs: Unpack[DeprecatedKwargs],
 ) -> Logfire:
@@ -395,6 +396,9 @@ def configure(
             See [Unintentional Distributed Tracing](https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing)
             for more information.
             This setting always applies globally, and the last value set is used, including the default value.
+        otel_endpoint: OpenTelemetry collector endpoint URL. If provided, telemetry will be exported to this
+            endpoint in addition to (or instead of, if `send_to_logfire=False`) Logfire.
+            This is an alternative to setting the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable.
         advanced: Advanced options primarily used for testing by Logfire developers.
     """
     from .. import DEFAULT_LOGFIRE_INSTANCE, Logfire
@@ -526,6 +530,7 @@ def configure(
         add_baggage_to_attributes=add_baggage_to_attributes,
         code_source=code_source,
         distributed_tracing=distributed_tracing,
+        otel_endpoint=otel_endpoint,
         advanced=advanced,
     )
 
@@ -592,6 +597,9 @@ class _LogfireConfigData:
     distributed_tracing: bool | None
     """Whether to extract incoming trace context."""
 
+    otel_endpoint: str | None
+    """OpenTelemetry collector endpoint URL."""
+
     advanced: AdvancedOptions
     """Advanced options primarily used for testing by Logfire developers."""
 
@@ -617,6 +625,7 @@ class _LogfireConfigData:
         add_baggage_to_attributes: bool,
         code_source: CodeSource | None,
         distributed_tracing: bool | None,
+        otel_endpoint: str | None,
         advanced: AdvancedOptions | None,
     ) -> None:
         """Merge the given parameters with the environment variables file configurations."""
@@ -630,6 +639,7 @@ class _LogfireConfigData:
         self.data_dir = param_manager.load_param('data_dir', data_dir)
         self.inspect_arguments = param_manager.load_param('inspect_arguments', inspect_arguments)
         self.distributed_tracing = param_manager.load_param('distributed_tracing', distributed_tracing)
+        self.otel_endpoint = otel_endpoint
         self.ignore_no_config = param_manager.load_param('ignore_no_config')
         min_level = param_manager.load_param('min_level', min_level)
         if min_level is None:
@@ -727,6 +737,7 @@ class LogfireConfig(_LogfireConfigData):
         add_baggage_to_attributes: bool = True,
         code_source: CodeSource | None = None,
         distributed_tracing: bool | None = None,
+        otel_endpoint: str | None = None,
         advanced: AdvancedOptions | None = None,
     ) -> None:
         """Create a new LogfireConfig.
@@ -755,6 +766,7 @@ class LogfireConfig(_LogfireConfigData):
             add_baggage_to_attributes=add_baggage_to_attributes,
             code_source=code_source,
             distributed_tracing=distributed_tracing,
+            otel_endpoint=otel_endpoint,
             advanced=advanced,
         )
         # initialize with no-ops so that we don't impact OTEL's global config just because logfire is installed
@@ -788,6 +800,7 @@ class LogfireConfig(_LogfireConfigData):
         add_baggage_to_attributes: bool,
         code_source: CodeSource | None,
         distributed_tracing: bool | None,
+        otel_endpoint: str | None,
         advanced: AdvancedOptions | None,
     ) -> None:
         with self._lock:
@@ -810,6 +823,7 @@ class LogfireConfig(_LogfireConfigData):
                 add_baggage_to_attributes,
                 code_source,
                 distributed_tracing,
+                otel_endpoint,
                 advanced,
             )
             self.initialize()
@@ -1067,7 +1081,7 @@ class LogfireConfig(_LogfireConfigData):
                     )
                 )
 
-            otlp_endpoint = os.getenv(OTEL_EXPORTER_OTLP_ENDPOINT)
+            otlp_endpoint = self.otel_endpoint or os.getenv(OTEL_EXPORTER_OTLP_ENDPOINT)
             otlp_traces_endpoint = os.getenv(OTEL_EXPORTER_OTLP_TRACES_ENDPOINT)
             otlp_metrics_endpoint = os.getenv(OTEL_EXPORTER_OTLP_METRICS_ENDPOINT)
             otlp_logs_endpoint = os.getenv(OTEL_EXPORTER_OTLP_LOGS_ENDPOINT)
@@ -1076,21 +1090,26 @@ class LogfireConfig(_LogfireConfigData):
             otlp_logs_exporter = os.getenv(OTEL_LOGS_EXPORTER, '').lower()
 
             if (otlp_endpoint or otlp_traces_endpoint) and otlp_traces_exporter in ('otlp', ''):
-                add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
+                traces_endpoint = otlp_traces_endpoint or (f'{otlp_endpoint}/v1/traces' if self.otel_endpoint else None)
+                add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=traces_endpoint)))
 
             if (
                 (otlp_endpoint or otlp_metrics_endpoint)
                 and otlp_metrics_exporter in ('otlp', '')
                 and metric_readers is not None
             ):
-                metric_readers += [PeriodicExportingMetricReader(OTLPMetricExporter())]
+                metrics_endpoint = otlp_metrics_endpoint or (
+                    f'{otlp_endpoint}/v1/metrics' if self.otel_endpoint else None
+                )
+                metric_readers += [PeriodicExportingMetricReader(OTLPMetricExporter(endpoint=metrics_endpoint))]
 
             if (otlp_endpoint or otlp_logs_endpoint) and otlp_logs_exporter in ('otlp', ''):
+                logs_endpoint = otlp_logs_endpoint or (f'{otlp_endpoint}/v1/logs' if self.otel_endpoint else None)
                 if emscripten:  # pragma: no cover
                     # BatchLogRecordProcessor uses threads which fail in Pyodide / Emscripten
-                    logfire_log_processor = SimpleLogRecordProcessor(OTLPLogExporter())
+                    logfire_log_processor = SimpleLogRecordProcessor(OTLPLogExporter(endpoint=logs_endpoint))
                 else:
-                    logfire_log_processor = BatchLogRecordProcessor(OTLPLogExporter())
+                    logfire_log_processor = BatchLogRecordProcessor(OTLPLogExporter(endpoint=logs_endpoint))
                 log_record_processors.append(logfire_log_processor)
 
             if metric_readers is not None:
