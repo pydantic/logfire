@@ -5,8 +5,6 @@ import os
 import pytest
 from pytest_examples import CodeExample, EvalExample, find_examples
 
-import logfire
-
 # Prevent accidental live API calls during testing
 os.environ.setdefault('LOGFIRE_SEND_TO_LOGFIRE', 'false')
 
@@ -16,14 +14,11 @@ ruff_ignore = [
     'D103',  # ignore missing docstring in public functions
 ]
 
+SKIP_RUN_TAGS = ['skip', 'skip-run']
+"""Tags to skip running the example with pytest-examples."""
 
-# Override the autouse fixtures from conftest.py to prevent them from
-# interfering with doc examples. Doc examples call their own logfire.configure()
-# and we don't want them to pollute the test exporter state.
-@pytest.fixture(autouse=True)
-def config():
-    """Override the conftest config fixture - doc examples configure themselves."""
-    logfire.configure(send_to_logfire=False, console=False)
+SKIP_LINT_TAGS = ['skip', 'skip-lint']
+"""Tags to skip linting the example with pytest-examples."""
 
 
 def get_skip_reason(example: CodeExample):
@@ -46,7 +41,7 @@ def set_eval_config(eval_example: EvalExample):
 @pytest.mark.timeout(3)
 def test_formatting(example: CodeExample, eval_example: EvalExample):
     """Ensure examples in documentation are formatted correctly."""
-    if any(example.prefix_settings().get(key) == 'true' for key in ['skip', 'skip-lint']):
+    if any(example.prefix_settings().get(key) == 'true' for key in SKIP_LINT_TAGS):
         pytest.skip(get_skip_reason(example) or 'Skipping example')
 
     set_eval_config(eval_example)
@@ -62,7 +57,7 @@ def test_formatting(example: CodeExample, eval_example: EvalExample):
 def test_runnable(example: CodeExample, eval_example: EvalExample):
     """Ensure examples in documentation are runnable."""
 
-    if any(example.prefix_settings().get(key) == 'true' for key in ['skip', 'skip-run']):
+    if any(example.prefix_settings().get(key) == 'true' for key in SKIP_RUN_TAGS):
         pytest.skip(get_skip_reason(example) or 'Skipping example')
 
     set_eval_config(eval_example)

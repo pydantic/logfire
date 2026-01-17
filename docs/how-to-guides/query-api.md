@@ -212,9 +212,7 @@ if response.status_code == 200:
     print(response.json())
 else:
     print(f'Failed to execute query. Status code: {response.status_code}')
-    #> Failed to execute query. Status code: 401
     print(response.text)
-    #> {"detail":"Invalid token"}
 ```
 
 ### Additional Configuration

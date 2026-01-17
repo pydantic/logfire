@@ -138,14 +138,7 @@ with logfire.span('foo') as span:
     #> 019b38289f5dfbf64cd7de68d37c6a04
 ```
 
-will print something like:
-
-```
-2116451560797328055476200846428238844
-01979d1e4e4325335569dba4459473fc
-```
-
-The second line is what you'll see in the database and UI.
+The formatted trace ID `019b38289f5dfbf64cd7de68d37c6a04` is what you'll see in the database and in the UI.
 
 Most OpenTelemetry SDKs generate trace IDs that are completely random. However, the Python **Logfire** SDK generates trace IDs where the first few characters are based on the current time. This means that if you want to quickly check at a glance if two records are part of the same trace, it's better to look at the _last_ characters.
 

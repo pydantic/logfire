@@ -22,7 +22,7 @@ import logfire
 
 # These environment variables need to be set before importing langchain or langgraph
 os.environ['LANGSMITH_OTEL_ENABLED'] = 'true'
-os.environ["LANGSMITH_OTEL_ONLY"] = 'true'
+os.environ['LANGSMITH_OTEL_ONLY'] = 'true'
 os.environ['LANGSMITH_TRACING'] = 'true'
 
 from langchain.agents import create_agent

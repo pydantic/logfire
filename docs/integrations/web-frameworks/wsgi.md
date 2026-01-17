@@ -34,9 +34,6 @@ def app(env, start_response):
 app = logfire.instrument_wsgi(app)
 
 with make_server('', 8000, app) as httpd:
-    print('Serving on port 8000...')
-    #> Serving on port 8000...
-
     # Serve until process is killed
     httpd.serve_forever()
 ```

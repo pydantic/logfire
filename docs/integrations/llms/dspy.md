@@ -20,7 +20,7 @@ pip install dspy-ai
 
 ## Usage
 
-```python hl_lines="6"
+```python hl_lines="6" skip-run="true" skip-reason="external-connection"
 import dspy
 
 import logfire
@@ -28,8 +28,9 @@ import logfire
 logfire.configure()
 logfire.instrument_dspy()
 
-lm = dspy.LM("openai/gpt-5-mini")
+lm = dspy.LM('openai/gpt-5-mini')
 dspy.configure(lm=lm)
+
 
 class ExtractInfo(dspy.Signature):
     """Extract structured information from text."""
@@ -37,12 +38,15 @@ class ExtractInfo(dspy.Signature):
     text: str = dspy.InputField()
     title: str = dspy.OutputField()
     headings: list[str] = dspy.OutputField()
-    entities: list[dict[str, str]] = dspy.OutputField(desc="a list of entities and their metadata")
+    entities: list[dict[str, str]] = dspy.OutputField(desc='a list of entities and their metadata')
+
 
 module = dspy.Predict(ExtractInfo)
 
-text = "Apple Inc. announced its latest iPhone 14 today." \
-    "The CEO, Tim Cook, highlighted its new features in a press release."
+text = (
+    'Apple Inc. announced its latest iPhone 14 today.'
+    'The CEO, Tim Cook, highlighted its new features in a press release.'
+)
 response = module(text=text)
 
 print(response.title)

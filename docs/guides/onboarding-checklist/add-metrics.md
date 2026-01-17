@@ -44,7 +44,11 @@ To create a counter metric, use the [`logfire.metric_counter`][logfire.Logfire.m
 ```py
 import logfire
 
-counter = logfire.metric_counter('exceptions', unit='1', description='Number of exceptions caught')  # (1)!
+counter = logfire.metric_counter(
+    name='exceptions',
+    unit='1',  # (1)!
+    description='Number of exceptions caught',
+)
 
 try:
     raise Exception('oops')

@@ -53,17 +53,21 @@ You can capture all information (headers and bodies) by setting the `capture_all
 
 ```py
 import aiohttp
+
 import logfire
 
 logfire.configure()
 logfire.instrument_aiohttp_client(capture_all=True)
 
+
 async def main():
     async with aiohttp.ClientSession() as session:
-        await session.post("https://httpbin.org/post", json={"key": "value"})
+        await session.post('https://httpbin.org/post', json={'key': 'value'})
 
-if __name__ == "__main__":
+
+if __name__ == '__main__':
     import asyncio
+
     asyncio.run(main())
 ```
 
@@ -130,9 +134,6 @@ if __name__ == '__main__':
 Similarly, you can create a response hook to capture only the response headers:
 
 ```py skip-run="true" skip-reason="external-connection"
-# __future__ import for Python <3.10 compatibility due to PEP 604 union syntax in capture_response_headers
-from __future__ import annotations
-
 import aiohttp
 from aiohttp.tracing import TraceRequestEndParams, TraceRequestExceptionParams
 from opentelemetry.trace import Span
@@ -140,7 +141,7 @@ from opentelemetry.trace import Span
 import logfire
 
 
-def capture_response_headers(span: Span, response: TraceRequestEndParams | TraceRequestExceptionParams):
+def capture_response_headers(span: Span, response: 'TraceRequestEndParams | TraceRequestExceptionParams'):
     if hasattr(response, 'response') and response.response:
         headers = response.response.headers
         span.set_attributes(
@@ -185,7 +186,7 @@ logfire.instrument_aiohttp_client(
 
 async def main():
     async with aiohttp.ClientSession() as session:
-        response = await session.post("https://httpbin.org/post", data="Hello, World!")
+        response = await session.post('https://httpbin.org/post', data='Hello, World!')
         await response.text()
 
 
