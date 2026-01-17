@@ -4,6 +4,7 @@ import json
 from collections.abc import AsyncIterator, Iterator
 from io import BytesIO
 from typing import Any
+from unittest.mock import MagicMock
 
 import httpx
 import openai
@@ -26,6 +27,7 @@ from openai.types.chat import chat_completion, chat_completion_chunk as cc_chunk
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
 import logfire
+from logfire._internal.integrations.llm_providers.openai import on_response
 from logfire._internal.utils import get_version, suppress_instrumentation
 from logfire.testing import TestExporter
 
@@ -2803,3 +2805,220 @@ I'm zeroing in on the core of the query. The "how are you" is basic, but the "tr
             },
         ]
     )
+
+
+def test_override_provider_sync(exporter: TestExporter) -> None:
+    """Test that override_provider sets gen_ai.system correctly for sync clients."""
+    with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
+        openai_client = openai.Client(api_key='foobar', http_client=httpx_client)
+        logfire.instrument_openai(openai_client, override_provider='openrouter')
+
+        response = openai_client.chat.completions.create(
+            model='gpt-4',
+            messages=[
+                {'role': 'system', 'content': 'You are a helpful assistant.'},
+                {'role': 'user', 'content': 'What is four plus five?'},
+            ],
+        )
+
+    assert response.choices[0].message.content == 'Nine'
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) == 1
+    assert spans[0]['attributes']['gen_ai.system'] == 'openrouter'
+
+
+async def test_override_provider_async(exporter: TestExporter) -> None:
+    """Test that override_provider sets gen_ai.system correctly for async clients."""
+    async with httpx.AsyncClient(transport=MockTransport(request_handler)) as httpx_client:
+        openai_client = openai.AsyncClient(api_key='foobar', http_client=httpx_client)
+        logfire.instrument_openai(openai_client, override_provider='custom-provider')
+
+        response = await openai_client.chat.completions.create(
+            model='gpt-4',
+            messages=[
+                {'role': 'system', 'content': 'You are a helpful assistant.'},
+                {'role': 'user', 'content': 'What is four plus five?'},
+            ],
+        )
+
+    assert response.choices[0].message.content == 'Nine'
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) == 1
+    assert spans[0]['attributes']['gen_ai.system'] == 'custom-provider'
+
+
+def test_override_provider_streaming(exporter: TestExporter) -> None:
+    """Test that override_provider works correctly with streaming responses."""
+    with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
+        openai_client = openai.Client(api_key='foobar', http_client=httpx_client)
+        logfire.instrument_openai(openai_client, override_provider='openrouter')
+
+        response = openai_client.chat.completions.create(
+            model='gpt-4',
+            messages=[
+                {'role': 'system', 'content': 'You are a helpful assistant.'},
+                {'role': 'user', 'content': 'What is four plus five?'},
+            ],
+            stream=True,
+        )
+
+        # Consume the stream
+        for _ in response:
+            pass
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    # First span is the request span
+    request_span = next(s for s in spans if 'Chat Completion' in s['name'])
+    assert request_span['attributes']['gen_ai.system'] == 'openrouter'
+
+
+def test_default_provider_is_openai(exporter: TestExporter) -> None:
+    """Test that when override_provider is not set, gen_ai.system defaults to 'openai'."""
+    with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
+        openai_client = openai.Client(api_key='foobar', http_client=httpx_client)
+        # Not passing override_provider, so it should default to 'openai'
+        logfire.instrument_openai(openai_client)
+
+        response = openai_client.chat.completions.create(
+            model='gpt-4',
+            messages=[
+                {'role': 'system', 'content': 'You are a helpful assistant.'},
+                {'role': 'user', 'content': 'What is four plus five?'},
+            ],
+        )
+
+    assert response.choices[0].message.content == 'Nine'
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert spans[0]['attributes']['gen_ai.system'] == 'openai'
+
+
+@pytest.mark.parametrize(
+    ('span_attributes', 'should_set_gen_ai_system'),
+    [
+        pytest.param({}, True, id='empty_attributes_sets_openai'),
+        pytest.param(None, True, id='none_attributes_sets_openai'),
+        pytest.param({'gen_ai.system': 'openrouter'}, False, id='existing_value_not_overwritten'),
+    ],
+)
+def test_on_response_gen_ai_system_behavior(
+    span_attributes: dict[str, str] | None, should_set_gen_ai_system: bool
+) -> None:
+    """Test that on_response sets gen_ai.system to 'openai' only when not already present."""
+    mock_span = MagicMock()
+    mock_span.attributes = span_attributes
+
+    response = chat_completion.ChatCompletion(
+        id='test_id',
+        choices=[
+            chat_completion.Choice(
+                finish_reason='stop',
+                index=0,
+                message=chat_completion_message.ChatCompletionMessage(
+                    content='Test response',
+                    role='assistant',
+                ),
+            ),
+        ],
+        created=1634720000,
+        model='gpt-4',
+        object='chat.completion',
+        usage=completion_usage.CompletionUsage(
+            completion_tokens=1,
+            prompt_tokens=2,
+            total_tokens=3,
+        ),
+    )
+
+    on_response(response, mock_span)
+
+    gen_ai_system_calls = [call for call in mock_span.set_attribute.call_args_list if call[0][0] == 'gen_ai.system']
+    if should_set_gen_ai_system:
+        assert any(call[0] == ('gen_ai.system', 'openai') for call in gen_ai_system_calls), (
+            f"Expected set_attribute('gen_ai.system', 'openai') to be called, got {gen_ai_system_calls}"
+        )
+    else:
+        assert len(gen_ai_system_calls) == 0, (
+            f"Expected no calls to set_attribute with 'gen_ai.system', got {gen_ai_system_calls}"
+        )
+
+
+@pytest.mark.parametrize(
+    ('span_attributes', 'expected_provider_id'),
+    [
+        pytest.param({}, 'openai', id='no_system_uses_openai'),
+        pytest.param(None, 'openai', id='none_attributes_uses_openai'),
+        pytest.param({'gen_ai.system': 'openai'}, 'openai', id='openai_system_uses_openai'),
+        pytest.param({'gen_ai.system': 'openrouter'}, 'openrouter', id='openrouter_system_uses_openrouter'),
+        pytest.param({'gen_ai.system': 'azure'}, 'azure', id='azure_system_uses_azure'),
+    ],
+)
+def test_on_response_calc_price_uses_correct_provider(
+    span_attributes: dict[str, str] | None, expected_provider_id: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Test that on_response uses the correct provider_id when calculating price."""
+    from unittest.mock import patch
+
+    mock_span = MagicMock()
+    mock_span.attributes = span_attributes
+
+    response = chat_completion.ChatCompletion(
+        id='test_id',
+        choices=[
+            chat_completion.Choice(
+                finish_reason='stop',
+                index=0,
+                message=chat_completion_message.ChatCompletionMessage(
+                    content='Test response',
+                    role='assistant',
+                ),
+            ),
+        ],
+        created=1634720000,
+        model='gpt-4',
+        object='chat.completion',
+        usage=completion_usage.CompletionUsage(
+            completion_tokens=10,
+            prompt_tokens=20,
+            total_tokens=30,
+        ),
+    )
+
+    with patch('genai_prices.calc_price') as mock_calc_price:
+        # Setup mock to return a valid price result
+        mock_price_result = MagicMock()
+        mock_price_result.total_price = 0.001
+        mock_calc_price.return_value = mock_price_result
+
+        on_response(response, mock_span)
+
+        # Verify calc_price was called with the expected provider_id
+        assert mock_calc_price.called, 'calc_price should have been called'
+        call_kwargs = mock_calc_price.call_args
+        assert call_kwargs.kwargs.get('provider_id') == expected_provider_id, (
+            f"Expected calc_price to be called with provider_id='{expected_provider_id}', "
+            f"but got provider_id='{call_kwargs.kwargs.get('provider_id')}'"
+        )
+
+
+def test_override_provider_with_client_none(exporter: TestExporter) -> None:
+    """Test that override_provider works when client=None (instrumenting both OpenAI and AsyncOpenAI classes)."""
+    with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
+        # Instrument both classes via the tuple path (client=None defaults to (openai.OpenAI, openai.AsyncOpenAI))
+        with logfire.instrument_openai(openai_client=None, override_provider='openrouter'):
+            # Create a new client instance after instrumenting the class
+            openai_client = openai.Client(api_key='foobar', http_client=httpx_client)
+
+            response = openai_client.chat.completions.create(
+                model='gpt-4',
+                messages=[
+                    {'role': 'system', 'content': 'You are a helpful assistant.'},
+                    {'role': 'user', 'content': 'What is four plus five?'},
+                ],
+            )
+
+    assert response.choices[0].message.content == 'Nine'
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) == 1
+    # Verify that override_provider was passed through to the class instrumentation
+    assert spans[0]['attributes']['gen_ai.system'] == 'openrouter'
+    assert spans[0]['attributes']['gen_ai.provider.name'] == 'openrouter'
