@@ -1,7 +1,8 @@
 ---
+title: "Logfire Web Framework Integrations: Starlette"
+description: Get seamless tracing for your Starlette application. Use pip install starlette to get started.
 integration: otel
 ---
-
 # Starlette
 
 The [`logfire.instrument_starlette()`][logfire.Logfire.instrument_starlette] method will create a span for every request to your [Starlette][starlette] application.

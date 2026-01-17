@@ -120,7 +120,9 @@ nav:
           - Anthropic: integrations/llms/anthropic.md
           - LangChain: integrations/llms/langchain.md
           - LiteLLM: integrations/llms/litellm.md
+          - DSPy: integrations/llms/dspy.md
           - MCP: integrations/llms/mcp.md
+          - Claude Agent SDK: integrations/llms/claude-agent-sdk.md
           - LLamaIndex: integrations/llms/llamaindex.md
           - Mirascope: integrations/llms/mirascope.md
           - Magentic: integrations/llms/magentic.md
@@ -142,6 +144,7 @@ nav:
           - Express: integrations/javascript/express.md
           - Node.js: integrations/javascript/node.md
           - Deno: integrations/javascript/deno.md
+          - Vercel AI SDK: integrations/javascript/vercel-ai.md
       - Databases:
           - Psycopg: integrations/databases/psycopg.md
           - SQLAlchemy: integrations/databases/sqlalchemy.md
@@ -244,11 +247,11 @@ plugins:
   - mkdocstrings:
       handlers:
         python:
-          paths: [src/packages/logfire/logfire]
+          paths: [ src/packages/logfire/logfire ]
           options:
             members_order: source
             separate_signature: true
-            filters: ["!^_"]
+            filters: [ "!^_" ]
             docstring_options:
               ignore_init_summary: true
             merge_init_into_class: true

@@ -1,7 +1,8 @@
 ---
+title: Pydantic Logfire Cloudflare Integration
+description: Instrument Cloudflare Workers for distributed tracing. Use npx wrangler dev for local testing and wrangler secret put to secure your Logfire token.
 integration: logfire
 ---
-
 # Cloudflare
 
 To instrument your Cloudflare Workers and send spans to Logfire, install the `@pydantic/logfire-cf-workers` and `logfire` NPM packages:

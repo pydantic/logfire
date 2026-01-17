@@ -1,7 +1,8 @@
 ---
+title: "Logfire Web Framework Integrations: AIOHTTP"
+description: Trace requests to your AIOHTTP client/server framework. Logfire instrumentation captures spans for every request made.
 integration: otel
 ---
-
 # AIOHTTP Server
 
 [AIOHTTP][aiohttp] is an asynchronous HTTP client/server framework for asyncio and Python.

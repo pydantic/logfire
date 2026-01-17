@@ -494,6 +494,7 @@ async def test_mcp(exporter: TestExporter):
                     'name': 'my_trace',
                     'group_id': 'null',
                     'metadata': 'null',
+                    'tracing': 'null',
                     'logfire.msg_template': 'OpenAI Agents trace: {name}',
                     'logfire.msg': 'OpenAI Agents trace: my_trace',
                     'logfire.span_type': 'span',

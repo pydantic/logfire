@@ -1,7 +1,8 @@
 ---
+title: "Logfire Web Framework Integrations: FastAPI"
+description: Connect Logfire to your FastAPI app. Follow our simple install flow using Uvicorn.
 integration: otel
 ---
-
 # FastAPI
 
 **Logfire** combines custom and third-party instrumentation for [FastAPI][fastapi]

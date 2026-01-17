@@ -1,3 +1,7 @@
+---
+title: Testing with Logfire
+description: Logfire makes it very easy to test emitted logs and spans using the utilities in the logfire.testing module.
+---
 # Testing with Logfire
 
 !!! tip "Running under Pytest... 🧪"

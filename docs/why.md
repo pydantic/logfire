@@ -1,3 +1,7 @@
+---
+title: "Introducing Pydantic Logfire: What sets Logfire apart"
+description: "Logfire unifies metrics, tracing, and structured data logging into one simple platform. End-to-end general and AI observability powered by Pydantic."
+---
 # Introducing Pydantic Logfire
 
 From the team behind Pydantic Validation, **Pydantic Logfire** is an observability platform built on the same belief as our open source library — that the most powerful tools can be easy to use.

@@ -1,7 +1,8 @@
 ---
+title: Pydantic Logfire Celery Integration
+description: "Get end-to-end tracing for Celery workers. Logfire's integration creates a span for every task execution, fixing asynchronous visibility."
 integration: otel
 ---
-
 # Celery
 
 The [`logfire.instrument_celery()`][logfire.Logfire.instrument_celery] method will create a span for every task

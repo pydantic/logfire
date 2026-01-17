@@ -1,7 +1,8 @@
 ---
+title: "Logfire Logging: Standard Library Logging"
+description: "Guide to standard library logging via Logfire: Use LogfireLoggingHandler for simple, centralized Python logging and observability."
 integration: logfire
 ---
-
 # Standard Library Logging
 
 **Logfire** can act as a sink for [standard library logging][logging] by emitting a **Logfire** log for

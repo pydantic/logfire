@@ -1,7 +1,8 @@
 ---
+title: "Pydantic Validation with Logfire: Guide"
+description: Guide to instrumenting Pydantic Validation models via the Pydantic Validation plugin (get logs and metrics about model validation).
 integration: logfire
 ---
-
 # Pydantic Validation
 
 Pydantic Logfire has a Pydantic Validation plugin to instrument [Pydantic Validation][pydantic] models.

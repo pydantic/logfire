@@ -1,3 +1,7 @@
+---
+robots: noindex
+---
+
 This [Github issue][roadmap] is the
 best place to check for updates to the Pydantic Logfire roadmap.
 

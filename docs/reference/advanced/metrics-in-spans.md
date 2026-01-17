@@ -1,3 +1,7 @@
+---
+title: Aggregating Metrics in Spans with Logfire
+description: Learn how to aggregate counter and histogram metrics (like token usage) across active and ancestor spans.
+---
 # Aggregating Metrics in Spans
 
 Logfire lets you aggregate counter and histogram metrics within the current active span and its ancestors. This is particularly useful for calculating totals for things like LLM token usage or costs on higher-level operations, making it easier and more efficient to query this data without processing individual child spans.

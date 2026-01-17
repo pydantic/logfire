@@ -1,3 +1,7 @@
+---
+title: Pydantic Logfire Generators References
+description: Resolve failed to detach context errors in async code. Learn to use context managers and close Logfire generators to ensure correct span context.
+---
 # Generators
 
 The body of a `with logfire.span` statement or a function decorated with `@logfire.instrument` should not contain the `yield` keyword, except in functions decorated with `@contextlib.contextmanager` or `@contextlib.asynccontextmanager`. To see the problem, consider this example:

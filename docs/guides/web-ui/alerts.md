@@ -1,3 +1,7 @@
+---
+title: "Logfire Alerts: Status Monitoring & Error Notifications"
+description: "Learn how to create alerts based on SQL query conditions (e.g., error count threshold). Use Logfire to track status changes and send notifications to Slack."
+---
 With **Logfire**, use Alerts to notify you when certain conditions are met.
 
 ![Logfire alerts screen](../../images/guide/browser-alerts-full.png)

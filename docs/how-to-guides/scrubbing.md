@@ -1,3 +1,7 @@
+---
+title: "Logfire: Guide for Scrubbing Sensitive Data from Logs"
+description: "Learn how to use Logfire to keep logs & sensitive data safe: Automatically scan spans & logs to scrub data like passwords, tokens & PII before exporting."
+---
 # Scrubbing sensitive data
 
 The **Logfire** SDK scans for and redacts potentially sensitive data from logs and spans before exporting them.

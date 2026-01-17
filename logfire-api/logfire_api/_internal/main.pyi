@@ -41,7 +41,7 @@ from opentelemetry.context import Context as Context
 from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
 from opentelemetry.metrics import CallbackT as CallbackT, Counter, Histogram, UpDownCounter, _Gauge as Gauge
 from opentelemetry.sdk.trace import ReadableSpan, Span
-from opentelemetry.trace import SpanContext
+from opentelemetry.trace import SpanContext, SpanKind
 from opentelemetry.util import types as otel_types
 from pymongo.monitoring import CommandFailedEvent as CommandFailedEvent, CommandStartedEvent as CommandStartedEvent, CommandSucceededEvent as CommandSucceededEvent
 from sqlalchemy import Engine
@@ -49,6 +49,8 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.applications import Starlette
 from starlette.requests import Request as Request
 from starlette.websockets import WebSocket as WebSocket
+from surrealdb.connections.async_template import AsyncTemplate
+from surrealdb.connections.sync_template import SyncTemplate
 from types import ModuleType
 from typing import Any, Callable, Literal, TypeVar, overload
 from typing_extensions import LiteralString, ParamSpec, Unpack
@@ -216,7 +218,7 @@ class Logfire:
             _exc_info: Set to an exception or a tuple as returned by [`sys.exc_info()`][sys.exc_info]
                 to record a traceback with the log message.
         """
-    def span(self, msg_template: str, /, *, _tags: Sequence[str] | None = None, _span_name: str | None = None, _level: LevelName | None = None, _links: Sequence[tuple[SpanContext, otel_types.Attributes]] = (), **attributes: Any) -> LogfireSpan:
+    def span(self, msg_template: str, /, *, _tags: Sequence[str] | None = None, _span_name: str | None = None, _level: LevelName | None = None, _links: Sequence[tuple[SpanContext, otel_types.Attributes]] = (), _span_kind: SpanKind = ..., **attributes: Any) -> LogfireSpan:
         """Context manager for creating a span.
 
         ```py
@@ -234,6 +236,10 @@ class Logfire:
             _tags: An optional sequence of tags to include in the span.
             _level: An optional log level name.
             _links: An optional sequence of links to other spans. Each link is a tuple of a span context and attributes.
+            _span_kind: The [OpenTelemetry span kind](https://opentelemetry.io/docs/concepts/signals/traces/#span-kind).
+                If not provided, defaults to `INTERNAL`.
+                Users don't typically need to set this.
+                Not related to the `kind` column of the `records` table in Logfire.
             attributes: The arguments to include in the span and format the message template with.
                 Attributes starting with an underscore are not allowed.
         """
@@ -402,6 +408,14 @@ class Logfire:
             check_imported_modules: If this is `'error'` (the default), then an exception will be raised if any of the
                 modules in `sys.modules` (i.e. modules that have already been imported) match the modules to trace.
                 Set to `'warn'` to issue a warning instead, or `'ignore'` to skip the check.
+        """
+    def instrument_surrealdb(self, obj: SyncTemplate | AsyncTemplate | type[SyncTemplate] | type[AsyncTemplate] | None = None) -> None:
+        """Instrument [SurrealDB](https://surrealdb.com/) connections, creating a span for each method.
+
+        Args:
+            obj: Pass a single connection instance to instrument only that connection.
+                Pass a connection class to instrument all instances of that class.
+                By default, all connection classes are instrumented.
         """
     def instrument_mcp(self, *, propagate_otel_context: bool = True) -> None:
         """Instrument the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk).
@@ -606,6 +620,13 @@ class Logfire:
         [`openinference-instrumentation-litellm`](https://pypi.org/project/openinference-instrumentation-litellm/)
         package, to which it passes `**kwargs`.
         """
+    def instrument_dspy(self, **kwargs: Any):
+        """Instrument [DSPy](https://dspy.ai/).
+
+        Uses the `DSPyInstrumentor().instrument()` method of the
+        [`openinference-instrumentation-dspy`](https://pypi.org/project/openinference-instrumentation-dspy/)
+        package, to which it passes `**kwargs`.
+        """
     def instrument_print(self) -> AbstractContextManager[None]:
         """Instrument the built-in `print` function so that calls to it are logged.
 
@@ -765,7 +786,7 @@ class Logfire:
         Returns:
             The instrumented WSGI application.
         """
-    def instrument_aiohttp_client(self, *, capture_headers: bool = False, capture_response_body: bool = False, request_hook: AiohttpClientRequestHook | None = None, response_hook: AiohttpClientResponseHook | None = None, **kwargs: Any) -> None:
+    def instrument_aiohttp_client(self, *, capture_all: bool | None = None, capture_headers: bool = False, capture_request_body: bool = False, capture_response_body: bool = False, request_hook: AiohttpClientRequestHook | None = None, response_hook: AiohttpClientResponseHook | None = None, **kwargs: Any) -> None:
         """Instrument the `aiohttp` module so that spans are automatically created for each client request.
 
         Uses the
@@ -1126,7 +1147,7 @@ class FastLogfireSpan:
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None: ...
 
 class LogfireSpan(ReadableSpan):
-    def __init__(self, span_name: str, otlp_attributes: dict[str, otel_types.AttributeValue], tracer: _ProxyTracer, json_schema_properties: JsonSchemaProperties, links: Sequence[tuple[SpanContext, otel_types.Attributes]]) -> None: ...
+    def __init__(self, span_name: str, otlp_attributes: dict[str, otel_types.AttributeValue], tracer: _ProxyTracer, json_schema_properties: JsonSchemaProperties, links: Sequence[tuple[SpanContext, otel_types.Attributes]], span_kind: SpanKind = ...) -> None: ...
     def __getattr__(self, name: str) -> Any: ...
     def __enter__(self) -> LogfireSpan: ...
     @handle_internal_errors

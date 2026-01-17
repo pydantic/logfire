@@ -1,3 +1,7 @@
+---
+title: "Logfire Onboarding: OpenTelemetry & Logging Setup"
+description: "This guide shows how to integrate Logfire using OpenTelemetry instrumentation. Get set up with Python's standard logging, Loguru, or Structlog quickly."
+---
 In this section, we'll focus on integrating **Logfire** with your application.
 
 ## OpenTelemetry Instrumentation

@@ -1,22 +1,28 @@
+---
+title: "Logfire Account Conversion: Personal to Org"
+description: Convert your Logfire Personal account to an Organization account. Benefit from dedicated teams and clearly defined user and access roles.
+---
 # How to Convert a Personal Account to an Organization
 
-Logfire allows you to convert your personal account into an organization, making it easier to collaborate with a team and manage projects at scale. This is also handy for users upgrading to Pro, who might want to move projects under a corporate organization name.
-
-This guide walks you through the conversion process step by step.
+Logfire allows you to convert your personal account into an organization, making it easier to collaborate with a team and manage projects at scale.
+Converting to an organization requires selecting a [paid plan](https://pydantic.dev/pricing). You will have _5 days_ to chose a plan once you
+converted your account, before the organization gets locked.
 
 ---
 
-## 1. Open Account Settings
+## 1. Open Plan & Usage Page
 
-Navigate to your account settings. On the page, you'll see an option to **Convert to organization**.
+Navigate to your account home page, and go under the _Plan & Usage_ page.
 
-![Account settings with Convert to org option](../images/guide/convert-to-org-settings.png)
+![Plan and usage page upgrade plan](../images/guide/convert-to-org-usage-page.png)
 
 ---
 
 ## 2. Start the Conversion
 
-Click **Convert to org**. A modal will appear, outlining the main points of the conversion:
+Click **Upgrade plan**. A modal will appear, asking you to either convert your account or create a new organization. Choose the first option.
+
+A new modal will appear, outlining the main points of the conversion:
 
 - All existing **projects, members, alerts, dashboards, and settings** will be moved to the new organization.
 - **Write tokens** will continue to work; you do not need to change any ingest URLs.
@@ -59,9 +65,11 @@ After setting up the organization, you'll be prompted to create a new (empty) pe
 
 ## 5. Complete the Conversion
 
-Click **Confirm & convert**. The conversion process will complete, and you'll be redirected to your new organization's projects page.
+Click **Confirm & convert**. The conversion process will complete, and you'll be redirected to the *Manage plans* page, to select a paid plan.
 
-![Organization projects page after conversion](../images/guide/convert-to-org-org-projects.png)
+![Manage plans page](../images/guide/convert-to-org-manage-plans.png)
+
+You can still make use of your new organization, but you will have _5 days_ to select a paid plan before the organization gets disabled.
 
 ---
 
@@ -69,6 +77,7 @@ Click **Confirm & convert**. The conversion process will complete, and you'll be
 
 - All your data, projects, and settings are preserved during the migration.
 - Only the URL changes to reflect the new organization handle.
+- The new organization needs to be under a paid plan.
 - Your new personal account will be empty, ready for individual use if needed.
 
 ---

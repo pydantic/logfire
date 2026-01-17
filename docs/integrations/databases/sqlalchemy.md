@@ -1,7 +1,8 @@
 ---
+title: "Logfire SQLAlchemy Integration & Setup Guide"
+description: "Guide to set up database tracing for SQLAlchemy. Use Logfire to monitor all engine queries, connection pools, and database performance in one unified view."
 integration: otel
 ---
-
 The [`logfire.instrument_sqlalchemy()`][logfire.Logfire.instrument_sqlalchemy] method will create a span for every query executed by a [SQLAlchemy][sqlalchemy] engine.
 
 ## Installation

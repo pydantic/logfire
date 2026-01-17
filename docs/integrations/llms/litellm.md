@@ -1,4 +1,6 @@
 ---
+title: "Pydantic Logfire Integrations: LiteLLM"
+description: "Instrument LiteLLM with Pydantic Logfire using OpenInference. Get full visibility into any model's conversation and performance."
 integration: logfire
 ---
 # LiteLLM

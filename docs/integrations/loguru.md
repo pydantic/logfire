@@ -1,7 +1,8 @@
 ---
+title: Pydantic Logfire Loguru Setup Guide
+description: Seamlessly send all Loguru data to Logfire for analysis. Configure the specialized Loguru sink handler to centralize your logging data.
 integration: logfire
 ---
-
 # Loguru
 
 **Logfire** can act as a sink for [Loguru][loguru] by emitting a **Logfire** log for every log record. For example:

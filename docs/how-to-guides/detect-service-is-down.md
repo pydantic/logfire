@@ -1,3 +1,7 @@
+---
+title: "Logfire: Detect Service Is Down - Status Monitoring"
+description: Guide for creating alerts to notify you when a log message is not received for a certain amount of time to detect if a service is down.
+---
 For now, **Logfire** doesn't have a built-in way to detect if a service is down, in the sense that we don't ping
 services via HTTP or any other protocol to check if they are up or down.
 

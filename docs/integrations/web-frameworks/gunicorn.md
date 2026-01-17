@@ -1,7 +1,8 @@
 ---
+title: "Logfire Web Framework Integrations: Gunicorn"
+description: "Learn how to configure Logfire with Gunicorn by using the logfire.configure() function to set up Logfire in Gunicorn's post_fork hook."
 integration: otel
 ---
-
 # Gunicorn
 
 [Gunicorn](https://docs.gunicorn.org/en/latest/index.html) is a Python WSGI HTTP server for UNIX.

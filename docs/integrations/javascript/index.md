@@ -1,3 +1,7 @@
+---
+title: Logfire JavaScript Integrations
+description: "Overview of JavaScript integrations with Pydantic Logfire: Browser, Next.js, Cloudflare, Express, Node.js and Deno."
+---
 # JavaScript
 
 Logfire offers first-class integration for the most popular JavaScript frameworks

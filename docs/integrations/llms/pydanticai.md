@@ -1,7 +1,8 @@
 ---
+title: Logfire Pydantic AI Integration
+description: "Get deep visibility into your Pydantic AI agents. Logfire tracing captures every tool call, retry, and complex agent step for reliable, structured debugging."
 integration: logfire
 ---
-
 **Pydantic Logfire** supports instrumenting [Pydantic AI](https://ai.pydantic.dev/) with the
 [`logfire.instrument_pydantic_ai()`][logfire.Logfire.instrument_pydantic_ai] method:
 

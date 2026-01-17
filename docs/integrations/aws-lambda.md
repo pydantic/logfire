@@ -1,7 +1,8 @@
 ---
+title: "Logfire AWS Lambda Integration: Setup Guide"
+description: Use the logfire.instrument_aws_lambda function to instrument AWS Lambda functions to automatically send traces to Logfire.
 integration: otel
 ---
-
 # AWS Lambda
 
 The [`logfire.instrument_aws_lambda`][logfire.Logfire.instrument_aws_lambda] function can be used to

@@ -1,7 +1,8 @@
 ---
+title: "Instrumenting print(): Logfire Print Logging Guide"
+description: Transform every print() statement into a traceable log. This guide shows how to instrument print for structured logging with argument attribute extraction.
 integration: logfire
 ---
-
 # Instrumenting `print()`
 
 [`logfire.instrument_print()`][logfire.Logfire.instrument_print] can be used to capture calls to `print()` and emit them

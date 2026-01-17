@@ -1,8 +1,8 @@
 ---
-hide:
-- toc
+title: "Get Help with Pydantic Logfire: Docs, Support & GitHub"
+description: "Need to send alerts to Slack from Logfire? This guide shows how to create a Slack webhook and define SQL-based alert criteria for your Slack alert system."
+hide: 
 ---
-
 # Getting help with Pydantic Logfire
 
 If you need help getting started with **Pydantic Logfire** or with advanced usage, the following sources may be useful.

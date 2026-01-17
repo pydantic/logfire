@@ -22,7 +22,7 @@ from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
-from opentelemetry.trace import INVALID_SPAN, StatusCode, get_current_span, get_tracer
+from opentelemetry.trace import INVALID_SPAN, SpanKind, StatusCode, get_current_span, get_tracer
 from pydantic import BaseModel, __version__ as pydantic_version
 from pydantic_core import ValidationError
 
@@ -4075,3 +4075,113 @@ def test_warn_if_not_initialized_category():
 
         assert warnings_list[0].category == LogfireNotConfiguredWarning
         assert issubclass(LogfireNotConfiguredWarning, UserWarning)
+
+
+def test_log_level_from_http_status_code_and_on_span_kind(exporter: TestExporter):
+    # By default, no log level
+    with logfire.span('client span', _span_kind=SpanKind.CLIENT):
+        pass
+
+    with logfire.span('server span', _span_kind=SpanKind.SERVER):
+        pass
+
+    # Client spans with 4xx are errors
+    with logfire.span('client span', _span_kind=SpanKind.CLIENT) as span:
+        span.set_attribute('http.status_code', 400)
+
+    # Server spans with 4xx are warnings
+    with logfire.span('server span', _span_kind=SpanKind.SERVER) as span:
+        span.set_attribute('http.status_code', 400)
+
+    # Server spans with 5xx are errors
+    with logfire.span('server span', _span_kind=SpanKind.SERVER) as span:
+        span.set_attribute('http.response.status_code', 500)
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'client span',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_log_level_from_http_status_code_and_on_span_kind',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'client span',
+                    'logfire.msg': 'client span',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'server span',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_log_level_from_http_status_code_and_on_span_kind',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'server span',
+                    'logfire.msg': 'server span',
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'client span',
+                'context': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
+                'parent': None,
+                'start_time': 5000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_log_level_from_http_status_code_and_on_span_kind',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'client span',
+                    'logfire.msg': 'client span',
+                    'logfire.span_type': 'span',
+                    'http.status_code': 400,
+                    'logfire.json_schema': '{"type":"object","properties":{"http.status_code":{}}}',
+                    'logfire.level_num': 17,
+                },
+            },
+            {
+                'name': 'server span',
+                'context': {'trace_id': 4, 'span_id': 7, 'is_remote': False},
+                'parent': None,
+                'start_time': 7000000000,
+                'end_time': 8000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_log_level_from_http_status_code_and_on_span_kind',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'server span',
+                    'logfire.msg': 'server span',
+                    'logfire.span_type': 'span',
+                    'http.status_code': 400,
+                    'logfire.json_schema': '{"type":"object","properties":{"http.status_code":{}}}',
+                    'logfire.level_num': 13,
+                },
+            },
+            {
+                'name': 'server span',
+                'context': {'trace_id': 5, 'span_id': 9, 'is_remote': False},
+                'parent': None,
+                'start_time': 9000000000,
+                'end_time': 10000000000,
+                'attributes': {
+                    'code.filepath': 'test_logfire.py',
+                    'code.function': 'test_log_level_from_http_status_code_and_on_span_kind',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'server span',
+                    'logfire.msg': 'server span',
+                    'logfire.span_type': 'span',
+                    'http.response.status_code': 500,
+                    'logfire.json_schema': '{"type":"object","properties":{"http.response.status_code":{}}}',
+                    'logfire.level_num': 17,
+                },
+            },
+        ]
+    )

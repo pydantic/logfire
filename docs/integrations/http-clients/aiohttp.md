@@ -1,7 +1,8 @@
 ---
+title: "Logfire AIOHTTP Client Integration: Setup Guide"
+description: "Instrument AIOHTTP for full observability with Pydantic Logfire. Trace HTTP calls, headers, and bodies for async clients."
 integration: otel
 ---
-
 # AIOHTTP Client
 
 [AIOHTTP][aiohttp] is an asynchronous HTTP client/server framework for asyncio and Python.
@@ -46,13 +47,29 @@ The keyword arguments of `logfire.instrument_aiohttp_client()` are passed to the
 
 The `logfire.instrument_aiohttp_client()` method accepts various parameters to configure the instrumentation.
 
-!!! note
-    The aiohttp client instrumentation captures request and response headers, and response bodies. Request bodies are not captured.
+### Capture Everything
 
+You can capture all information (headers and bodies) by setting the `capture_all` parameter to `True`.
+
+```py
+import aiohttp
+import logfire
+
+logfire.configure()
+logfire.instrument_aiohttp_client(capture_all=True)
+
+async def main():
+    async with aiohttp.ClientSession() as session:
+        await session.post("https://httpbin.org/post", json={"key": "value"})
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
+```
 
 ### Capture HTTP Headers
 
-By default, **Logfire** doesn't capture HTTP headers. You can enable capturing both request and response headers by setting the `capture_headers` parameter to `True`.
+By default, **Logfire** doesn't capture HTTP headers. You can enable it by setting the `capture_headers` parameter to `True`.
 
 ```py skip-run="true" skip-reason="external-connection"
 import aiohttp
@@ -148,11 +165,11 @@ if __name__ == '__main__':
 
 You can also use the hooks to filter headers or modify them before capturing them.
 
-### Capture HTTP Response Bodies
+### Capture HTTP Bodies
 
-By default, **Logfire** doesn't capture HTTP response bodies.
+By default, **Logfire** doesn't capture HTTP bodies.
 
-To capture response bodies, you can set the `capture_response_body` parameter to `True`.
+To capture bodies, you can set the `capture_request_body` and `capture_response_body` parameters to `True`.
 
 ```py skip-run="true" skip-reason="external-connection"
 import aiohttp
@@ -160,12 +177,15 @@ import aiohttp
 import logfire
 
 logfire.configure()
-logfire.instrument_aiohttp_client(capture_response_body=True)
+logfire.instrument_aiohttp_client(
+    capture_request_body=True,
+    capture_response_body=True,
+)
 
 
 async def main():
     async with aiohttp.ClientSession() as session:
-        response = await session.get('https://httpbin.org/get')
+        response = await session.post("https://httpbin.org/post", data="Hello, World!")
         await response.text()
 
 
