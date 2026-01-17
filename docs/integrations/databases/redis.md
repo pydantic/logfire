@@ -28,22 +28,24 @@ docker run --name redis -p 6379:6379 -d redis:latest
 
 ### Run the Python script
 
-```py title="main.py"
-import logfire
+```py title="main.py" skip-run="true" skip-reason="external-connection"
 import redis
 
+import logfire
 
 logfire.configure()
 logfire.instrument_redis()
 
-client = redis.StrictRedis(host="localhost", port=6379)
-client.set("my-key", "my-value")
+client = redis.StrictRedis(host='localhost', port=6379)
+client.set('my-key', 'my-value')
+
 
 async def main():
-    client = redis.asyncio.Redis(host="localhost", port=6379)
-    await client.get("my-key")
+    client = redis.asyncio.Redis(host='localhost', port=6379)
+    await client.get('my-key')
 
-if __name__ == "__main__":
+
+if __name__ == '__main__':
     import asyncio
 
     asyncio.run(main())

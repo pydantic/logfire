@@ -21,22 +21,22 @@ Install `logfire` with the `aiohttp-server` extra:
 
 Here's a minimal server example:
 
-```py title="server.py"
-import logfire
+```py title="server.py" skip-run="true" skip-reason="server-start"
 from aiohttp import web
 
+import logfire
 
 logfire.configure()
 logfire.instrument_aiohttp_server()
 
 
 async def hello(request):
-    return web.Response(text="Hello, World!")
+    return web.Response(text='Hello, World!')
 
 
 async def user_handler(request):
     user_id = request.match_info['user_id']
-    return web.json_response({"user_id": user_id, "message": "User profile"})
+    return web.json_response({'user_id': user_id, 'message': 'User profile'})
 
 
 app = web.Application()
@@ -44,7 +44,7 @@ app.router.add_get('/', hello)
 app.router.add_get('/users/{user_id}', user_handler)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     web.run_app(app, host='localhost', port=8080)
 ```
 

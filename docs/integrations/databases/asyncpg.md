@@ -37,10 +37,11 @@ This command will create a PostgreSQL database, that you can connect with `postg
 
 The following Python script connects to the PostgreSQL database and executes some SQL queries:
 
-```py
+```py skip-run="true" skip-reason="external-connection"
 import asyncio
 
 import asyncpg
+
 import logfire
 
 logfire.configure()

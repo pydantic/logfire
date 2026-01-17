@@ -77,7 +77,7 @@ Also check our [full installation guide](./installation.md) for a complete check
 
 If you are a [Tilt](https://tilt.dev/) user, you can use this `Tiltfile` to automate the Logfire setup:
 
-```python title="Tiltfile"
+```python title="Tiltfile" skip="true" skip-reason="incomplete"
 load('ext://secret', 'secret_yaml_registry')
 load('ext://helm_resource', 'helm_resource', 'helm_repo')
 
@@ -164,8 +164,8 @@ After creating your user, your project and your write token, you can start sendi
 import logfire
 
 logfire.configure(
-  advanced=logfire.AdvancedOptions(base_url='http://localhost:8080'),
-  token='__YOUR_LOGFIRE_WRITE_TOKEN__'
+    advanced=logfire.AdvancedOptions(base_url='http://localhost:8080'),
+    token='__YOUR_LOGFIRE_WRITE_TOKEN__',
 )
 logfire.info('Hello, {place}!', place='World')
 ```

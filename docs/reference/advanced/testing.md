@@ -34,9 +34,9 @@ numbers with `123` and file paths with just the filename.
 
 ```py title="test.py"
 import pytest
+from inline_snapshot import snapshot
 
 import logfire
-from inline_snapshot import snapshot
 from logfire.testing import CaptureLogfire
 
 

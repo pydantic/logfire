@@ -9,8 +9,9 @@ We'd love anyone interested to contribute to the Logfire SDK and documentation.
 3. [Install pre-commit](https://pre-commit.com/#install)
 4. Run `make install` to install dependencies
 5. Run `make test` to run unit tests
-6. Run `make format` to format code
-7. Run `make lint` to lint code
-8. run `make docs` to build docs and `make docs-serve` to serve docs locally
+6. Run `make test-update-examples` to format and update examples in the docs
+7. Run `make format` to format code
+8. Run `make lint` to lint code
+9. run `make docs` to build docs and `make docs-serve` to serve docs locally
 
 You're now set up to start contributing!

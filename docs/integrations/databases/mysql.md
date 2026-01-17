@@ -38,9 +38,10 @@ The command above will create a MySQL database, that you can connect with `mysql
 
 The following Python script connects to the MySQL database and executes some SQL queries:
 
-```py
-import logfire
+```py skip-run="true" skip-reason="external-connection"
 import mysql.connector
+
+import logfire
 
 logfire.configure()
 
@@ -48,10 +49,10 @@ logfire.configure()
 logfire.instrument_mysql()
 
 connection = mysql.connector.connect(
-    host="localhost",
-    user="user",
-    password="secret",
-    database="database",
+    host='localhost',
+    user='user',
+    password='secret',
+    database='database',
     port=3306,
     use_pure=True,
 )

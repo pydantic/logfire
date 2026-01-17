@@ -25,19 +25,37 @@ import logfire
 
 logfire.configure(scrubbing=logfire.ScrubbingOptions(extra_patterns=['my_pattern']))
 
-logfire.info('Hello', data={
-    'key_matching_my_pattern': 'This string will be redacted because its key matches',
-    'other_key': 'This string will also be redacted because it matches MY_PATTERN case-insensitively',
-    'password': 'This will be redacted because custom patterns are combined with the default patterns',
-})
+logfire.info(
+    'Hello',
+    data={
+        'key_matching_my_pattern': 'This string will be redacted because its key matches',
+        'other_key': 'This string will also be redacted because it matches MY_PATTERN case-insensitively',
+        'password': 'This will be redacted because custom patterns are combined with the default patterns',
+    },
+)
 ```
 
 Here are the default scrubbing patterns:
 
 ```python
-['password', 'passwd', 'mysql_pwd', 'secret', 'auth(?!ors?\\b)', 'credential', 'private[._ -]?key', 'api[._ -]?key',
- 'session', 'cookie', 'social[._ -]?security', 'credit[._ -]?card', '(?:\\b|_)csrf(?:\\b|_)', '(?:\\b|_)xsrf(?:\\b|_)',
- '(?:\\b|_)jwt(?:\\b|_)', '(?:\\b|_)ssn(?:\\b|_)']
+[
+    'password',
+    'passwd',
+    'mysql_pwd',
+    'secret',
+    'auth(?!ors?\\b)',
+    'credential',
+    'private[._ -]?key',
+    'api[._ -]?key',
+    'session',
+    'cookie',
+    'social[._ -]?security',
+    'credit[._ -]?card',
+    '(?:\\b|_)csrf(?:\\b|_)',
+    '(?:\\b|_)xsrf(?:\\b|_)',
+    '(?:\\b|_)jwt(?:\\b|_)',
+    '(?:\\b|_)ssn(?:\\b|_)',
+]
 ```
 
 ## Scrubbing less with a callback
@@ -51,11 +69,13 @@ Here's an example:
 ```python
 import logfire
 
+
 def scrubbing_callback(match: logfire.ScrubMatch):
     # `my_safe_value` often contains the string 'password' but it's not actually sensitive.
     if match.path == ('attributes', 'my_safe_value') and match.pattern_match.group(0) == 'password':
         # Return the original value to prevent redaction.
         return match.value
+
 
 logfire.configure(scrubbing=logfire.ScrubbingOptions(callback=scrubbing_callback))
 ```
@@ -66,7 +86,7 @@ logfire.configure(scrubbing=logfire.ScrubbingOptions(callback=scrubbing_callback
 
 The full span/log message is not scrubbed, only the fields within. For example, this:
 
-```python
+```python skip="true" skip-reason="incomplete"
 logfire.info('User details: {user}', user=User(id=123, password='secret'))
 ```
 
@@ -78,7 +98,7 @@ User details: [Scrubbed due to 'password']
 
 ...but this:
 
-```python
+```python skip="true" skip-reason="incomplete"
 user = User(id=123, password='secret')
 logfire.info('User details: ' + str(user))
 ```

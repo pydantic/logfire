@@ -15,14 +15,14 @@ LANGSMITH_TRACING=true
 
 Here's a complete example using LangGraph:
 
-```python
+```python skip-run="true" skip-reason="external-connection"
 import os
 
 import logfire
 
 # These environment variables need to be set before importing langchain or langgraph
 os.environ['LANGSMITH_OTEL_ENABLED'] = 'true'
-os.environ["LANGSMITH_OTEL_ONLY"] = 'true'
+os.environ['LANGSMITH_OTEL_ONLY'] = 'true'
 os.environ['LANGSMITH_TRACING'] = 'true'
 
 from langchain.agents import create_agent

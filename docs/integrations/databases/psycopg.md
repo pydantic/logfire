@@ -43,9 +43,10 @@ This command will create a PostgreSQL database, that you can connect with `postg
 
 The following Python script connects to the PostgreSQL database and executes some SQL queries:
 
-```py
-import logfire
+```py skip-run="true" skip-reason="external-connection"
 import psycopg
+
+import logfire
 
 logfire.configure()
 
@@ -56,17 +57,13 @@ logfire.instrument_psycopg('psycopg')
 # or just instrument whichever modules (psycopg and/or psycopg2) are installed:
 logfire.instrument_psycopg()
 
-connection = psycopg.connect(
-    'dbname=database user=user password=secret host=0.0.0.0 port=5432'
-)
+connection = psycopg.connect('dbname=database user=user password=secret host=0.0.0.0 port=5432')
 
 # Or instrument just the connection:
 logfire.instrument_psycopg(connection)
 
 with logfire.span('Create table and insert data'), connection.cursor() as cursor:
-    cursor.execute(
-        'CREATE TABLE IF NOT EXISTS test (id serial PRIMARY KEY, num integer, data varchar);'
-    )
+    cursor.execute('CREATE TABLE IF NOT EXISTS test (id serial PRIMARY KEY, num integer, data varchar);')
 
     # Insert some data
     cursor.execute('INSERT INTO test (num, data) VALUES (%s, %s)', (100, 'abc'))
@@ -107,7 +104,10 @@ e.g:
 import logfire
 
 logfire.configure()
-logfire.instrument_psycopg(enable_commenter=True, commenter_options={'db_driver': False, 'dbapi_threadsafety': False})
+logfire.instrument_psycopg(
+    enable_commenter=True,
+    commenter_options={'db_driver': False, 'dbapi_threadsafety': False},
+)
 ```
 
 ## API Reference

@@ -33,36 +33,41 @@ The following script connects to a MongoDB database, inserts a document, and que
 
 === "Sync"
 
-    ```py
-    import logfire
+    ```py skip-run="true" skip-reason="external-connection"
     from pymongo import MongoClient
+
+    import logfire
 
     logfire.configure()
     logfire.instrument_pymongo()
 
     client = MongoClient()
-    db = client["database"]
-    collection = db["collection"]
-    collection.insert_one({"name": "MongoDB"})
+    db = client['database']
+    collection = db['collection']
+    collection.insert_one({'name': 'MongoDB'})
     collection.find_one()
     ```
 
 === "Async"
 
-    ```py
+    ```py skip-run="true" skip-reason="external-connection"
     import asyncio
-    import logfire
+
     from motor.motor_asyncio import AsyncIOMotorClient
+
+    import logfire
 
     logfire.configure()
     logfire.instrument_pymongo()
 
+
     async def main():
         client = AsyncIOMotorClient()
-        db = client["database"]
-        collection = db["collection"]
-        await collection.insert_one({"name": "MongoDB"})
+        db = client['database']
+        collection = db['collection']
+        await collection.insert_one({'name': 'MongoDB'})
         await collection.find_one()
+
 
     asyncio.run(main())
     ```
