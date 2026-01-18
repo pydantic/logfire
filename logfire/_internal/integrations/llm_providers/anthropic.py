@@ -120,10 +120,11 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
             elif block.type == 'tool_use':  # pragma: no branch
                 message.setdefault('tool_calls', []).append(
                     {
+                        'id': block.id,
                         'function': {
                             'arguments': block.model_dump_json(include={'input'}),
                             'name': block.name,
-                        }
+                        },
                     }
                 )
         span.set_attribute('response_data', {'message': message, 'usage': response.usage})
