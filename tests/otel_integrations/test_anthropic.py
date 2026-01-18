@@ -545,7 +545,9 @@ def test_tool_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                     'response_data': {
                         'message': {
                             'role': 'assistant',
-                            'tool_calls': [{'function': {'arguments': '{"input":{"param":"param"}}', 'name': 'tool'}}],
+                            'tool_calls': [
+                                {'id': 'id', 'function': {'arguments': '{"input":{"param":"param"}}', 'name': 'tool'}}
+                            ],
                         },
                         'usage': IsPartialDict(
                             {
