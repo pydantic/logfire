@@ -12,6 +12,6 @@ We'd love anyone interested to contribute to the Logfire SDK and documentation.
 6. Run `make test-update-examples` to format and update examples in the docs
 7. Run `make format` to format code
 8. Run `make lint` to lint code
-9. run `make docs` to build docs and `make docs-serve` to serve docs locally
+9. Run `make docs` to build docs and `make docs-serve` to serve docs locally
 
 You're now set up to start contributing!

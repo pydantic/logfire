@@ -44,7 +44,7 @@ class ExtractInfo(dspy.Signature):
 module = dspy.Predict(ExtractInfo)
 
 text = (
-    'Apple Inc. announced its latest iPhone 14 today.'
+    'Apple Inc. announced its latest iPhone 14 today. '
     'The CEO, Tim Cook, highlighted its new features in a press release.'
 )
 response = module(text=text)
