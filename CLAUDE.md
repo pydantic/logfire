@@ -11,7 +11,7 @@ Pre-commit automatically runs ruff and pyright, but you can also run `make forma
 
 # Documentation
 
-`make docs` to build docs, just to check for errors.
+`uv run mkdocs build --no-strict` to build docs, just to check for errors. Expect lots of warnings, only worry about a non-zero exit code.
 
 # Core Structure
 
