@@ -55,7 +55,7 @@ A working example can be found in the [examples/nextjs](https://github.com/pydan
 
 Client-side instrumentation can be implemented using the `@pydantic/logfire-browser` package. To set it up, you need to complete the following steps:
 
-- Add a [proxy to the Logfire traces endpoint in `middleware.ts`](https://github.com/pydantic/logfire-js/blob/main/examples/nextjs-client-side-instrumentation/middleware.ts) to prevent exposing your Logfire write token.
+- Add a [proxy to the Logfire traces endpoint in `proxy.ts`](https://github.com/pydantic/logfire-js/blob/main/examples/nextjs-client-side-instrumentation/proxy.ts) to prevent exposing your Logfire write token.
 - Wrap the browser instrumentation in [a client-only React component](https://github.com/pydantic/logfire-js/blob/main/examples/nextjs-client-side-instrumentation/app/components/ClientInstrumentationProvider.tsx). Use `next/dynamic` to ensure the component renders only in the browser ([see example](https://github.com/pydantic/logfire-js/blob/main/examples/nextjs-client-side-instrumentation/app/page.tsx#L5-L8)).
 
 A complete working example can be found in the [examples/nextjs-client-side-instrumentation](https://github.com/pydantic/logfire-js/tree/main/examples/nextjs-client-side-instrumentation) directory.
