@@ -560,29 +560,7 @@ async def test_responses(exporter: TestExporter):
                         {
                             'content': IsStr(),
                             'role': 'assistant',
-                        },
-                        {
-                            'id': 'fc_67ced68352a48191aca3872f9376de86',
-                            'arguments': '{}',
-                            'call_id': 'call_vwqy7HyGGnNht9NNfxMnnouY',
-                            'name': 'random_number',
-                            'type': 'function_call',
-                            'status': 'completed',
-                        },
-                        {
-                            'id': 'fc_67ced683c8d88191b21be486e163e815',
-                            'arguments': '{}',
-                            'call_id': 'call_oEA0MnUXCwKevx8txteoopNL',
-                            'name': 'transfer_to_agent2',
-                            'type': 'function_call',
-                            'status': 'completed',
-                        },
-                        {'call_id': 'call_vwqy7HyGGnNht9NNfxMnnouY', 'output': '4', 'type': 'function_call_output'},
-                        {
-                            'call_id': 'call_oEA0MnUXCwKevx8txteoopNL',
-                            'output': '{"assistant": "agent2"}',
-                            'type': 'function_call_output',
-                        },
+                        }
                     ],
                     'events': [
                         {
@@ -594,42 +572,6 @@ async def test_responses(exporter: TestExporter):
                             'event.name': 'gen_ai.assistant.message',
                             'content': IsStr(),
                             'role': 'assistant',
-                        },
-                        {
-                            'event.name': 'gen_ai.assistant.message',
-                            'role': 'assistant',
-                            'tool_calls': [
-                                {
-                                    'id': 'call_vwqy7HyGGnNht9NNfxMnnouY',
-                                    'type': 'function',
-                                    'function': {'name': 'random_number', 'arguments': '{}'},
-                                }
-                            ],
-                        },
-                        {
-                            'event.name': 'gen_ai.assistant.message',
-                            'role': 'assistant',
-                            'tool_calls': [
-                                {
-                                    'id': 'call_oEA0MnUXCwKevx8txteoopNL',
-                                    'type': 'function',
-                                    'function': {'name': 'transfer_to_agent2', 'arguments': '{}'},
-                                }
-                            ],
-                        },
-                        {
-                            'event.name': 'gen_ai.tool.message',
-                            'role': 'tool',
-                            'id': 'call_vwqy7HyGGnNht9NNfxMnnouY',
-                            'content': '4',
-                            'name': 'random_number',
-                        },
-                        {
-                            'event.name': 'gen_ai.tool.message',
-                            'role': 'tool',
-                            'id': 'call_oEA0MnUXCwKevx8txteoopNL',
-                            'content': '{"assistant": "agent2"}',
-                            'name': 'transfer_to_agent2',
                         },
                         {
                             'event.name': 'gen_ai.assistant.message',

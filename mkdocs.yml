@@ -120,6 +120,7 @@ nav:
           - Anthropic: integrations/llms/anthropic.md
           - LangChain: integrations/llms/langchain.md
           - LiteLLM: integrations/llms/litellm.md
+          - DSPy: integrations/llms/dspy.md
           - MCP: integrations/llms/mcp.md
           - Claude Agent SDK: integrations/llms/claude-agent-sdk.md
           - LLamaIndex: integrations/llms/llamaindex.md
@@ -143,6 +144,7 @@ nav:
           - Express: integrations/javascript/express.md
           - Node.js: integrations/javascript/node.md
           - Deno: integrations/javascript/deno.md
+          - Vercel AI SDK: integrations/javascript/vercel-ai.md
       - Databases:
           - Psycopg: integrations/databases/psycopg.md
           - SQLAlchemy: integrations/databases/sqlalchemy.md
