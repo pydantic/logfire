@@ -1411,7 +1411,7 @@ wheels = [
 
 [[package]]
 name = "dspy"
-version = "3.1.0"
+version = "3.1.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio", marker = "python_full_version >= '3.10'" },
@@ -1434,9 +1434,9 @@ dependencies = [
     { name = "tqdm", marker = "python_full_version >= '3.10'" },
     { name = "xxhash", marker = "python_full_version >= '3.10'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d9/bd/339e1d949aa24e50b6edca8574cf8afbff005a1dfadc2d5b82a0003fa7da/dspy-3.1.0.tar.gz", hash = "sha256:3c1660cb687411f064509cd7ac47ed0231761f50ed92823cbbb59b3af2885702", size = 242611, upload-time = "2026-01-06T18:50:18.655Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/22/92/4eeed6796c48e799a41aa521bf206fabab3dbb2fbf0958655b476e43726e/dspy-3.1.2.tar.gz", hash = "sha256:6dfd8a4bbf74b1b432ff466468994a590c43fce0d45c2c0094313c9314aa3bb6", size = 261253, upload-time = "2026-01-19T14:21:47.424Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ca/34/64e900657cad3c4df8a417fccbc4370ca851864edbd0f468210f1b57d084/dspy-3.1.0-py3-none-any.whl", hash = "sha256:b9f4d42cad9ac32b13fdf085dd3246c8ee8339c759cb291c5e7b7f9f5fb5dd72", size = 291317, upload-time = "2026-01-06T18:50:17.559Z" },
+    { url = "https://files.pythonhosted.org/packages/91/18/1c93641f25f4e76772b4ffb52a4e289f1706d6bda4f3b59bb6f7c339df46/dspy-3.1.2-py3-none-any.whl", hash = "sha256:23b98bf5abeda260722c445d397d07ea27488c204b8c0ccd6d3e607c4b41bc6b", size = 312290, upload-time = "2026-01-19T14:21:45.776Z" },
 ]
 
 [[package]]
@@ -1798,11 +1798,11 @@ wheels = [
 
 [[package]]
 name = "gepa"
-version = "0.0.22"
+version = "0.0.24"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/ae/be/9a4c31c65c4910e73bd4a316df99347681bce4f2ef6d10877cc1ed8d57da/gepa-0.0.22.tar.gz", hash = "sha256:0b13a644efd2af52186e456eaad2ae28fcf88c6f796a9c999910c587863d4315", size = 116337, upload-time = "2025-11-10T21:39:27.044Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/bc/2c/8f249827bcdc56212a445f4f671ee2201b864e433d2c88428933bd4b08f3/gepa-0.0.24.tar.gz", hash = "sha256:8035d1a0877661b6a63db457dc935b4878ee76acf7da1e488d7e6209bb32c054", size = 135673, upload-time = "2026-01-05T16:45:30.553Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b3/0e/d41272b28f2163f5bf840b508cbaf4a0bc01eaeaa6e5d447558d1050eb3b/gepa-0.0.22-py3-none-any.whl", hash = "sha256:ff57ee0442399a5cc62d01411935476bc80cfa8f1c318bed82e3db4c2c834665", size = 119666, upload-time = "2025-11-10T21:39:26.028Z" },
+    { url = "https://files.pythonhosted.org/packages/7e/b1/33b035ff1aaf22d4e104c5b15ba48fe5050639764457048e967c20d6317a/gepa-0.0.24-py3-none-any.whl", hash = "sha256:6d8b16699e7b24ed01435dea7bbbc89156a88cbb4b877b14d90e7455db2b0032", size = 137539, upload-time = "2026-01-05T16:45:29.244Z" },
 ]
 
 [[package]]
@@ -6476,7 +6476,7 @@ version = "0.0.18"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "black", version = "25.11.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "black", version = "25.12.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "black", version = "26.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "pytest", version = "8.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "pytest", version = "9.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "ruff" },
