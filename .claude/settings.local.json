@@ -9,7 +9,8 @@
       "Bash(git commit:*)",
       "Bash(git push origin HEAD)",
       "Bash(make:*)",
-      "Bash(uv run pytest:*)"
+      "Bash(uv run pytest:*)",
+      "Bash(gh pr create:*)"
     ]
   }
 }

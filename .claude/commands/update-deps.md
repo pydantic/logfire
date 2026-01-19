@@ -23,4 +23,4 @@ Run failed tests again. If the same snapshots get updated again, use `dirty_equa
 
 For remaining test failures, investigate and explain the problem.
 
-If everything is passing, `git push origin HEAD` and display the link to create a PR.
+If everything is passing, `git push origin HEAD` and create a PR.
