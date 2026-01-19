@@ -223,15 +223,7 @@ class TailSamplingProcessor(WrapperSpanProcessor):
         del self.traces[buffer.trace_id]
 
     def push_buffer(self, buffer: TraceBuffer) -> None:
-        # Collect span IDs that have already ended to avoid calling on_start for them.
-        # Calling on_start on ended spans causes wrapped processors (e.g.,
-        # DirectBaggageAttributesSpanProcessor) to call span.set_attributes() on
-        # ended spans, triggering "Setting attribute on ended span" warnings.
-        ended_span_ids = {span.context.span_id for span in buffer.ended if span.context}
-
-        for span, parent_context in buffer.started:
-            # Skip on_start for spans that have already ended to avoid warnings.
-            if not span.context or span.context.span_id not in ended_span_ids:
-                super().on_start(span, parent_context)
+        for started in buffer.started:
+            super().on_start(*started)
         for span in buffer.ended:
             super().on_end(span)
