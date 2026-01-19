@@ -17,8 +17,10 @@ uv run pytest --inline-snapshot=fix
 
 Running tests the first time will likely update some snapshots. Just commit those changes even if some tests are still failing.
 
+After seeing what tests fail the first time, any future running of tests in this workflow should only be for some small subset. The full test suite will run in CI.
+
 Run failed tests again. If the same snapshots get updated again, use `dirty_equals` matchers to handle non-deterministic fields.
 
 For remaining test failures, investigate and explain the problem.
 
-If everything is passing, push the branch and display the link to create a PR.
+If everything is passing, `git push origin HEAD` and display the link to create a PR.
