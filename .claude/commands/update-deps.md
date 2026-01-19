@@ -21,6 +21,6 @@ After seeing what tests fail the first time, any future running of tests in this
 
 Run failed tests again. If the same snapshots get updated again, use `dirty_equals` matchers to handle non-deterministic fields.
 
-For remaining test failures, investigate and explain the problem.
+`git push origin HEAD` and create a PR with whatever you have so far. No description needed.
 
-If everything is passing, `git push origin HEAD` and create a PR.
+For remaining test failures, investigate and explain the problem.
