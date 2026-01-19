@@ -28,11 +28,12 @@ def on_page_markdown(markdown: str, page: Page, config: Config, files: Files) ->
 
 def strip_custom_code_block_attributes(markdown: str) -> str:
     """Strip custom attributes like skip-run and skip-reason from code blocks.
-    
+
     These attributes are used by pytest-examples but can break Material for MkDocs
     rendering. We strip them here so the code blocks render correctly, but they're
     still available in the original markdown for pytest-examples to read.
     """
+
     # Pattern to match code fence opening lines that contain skip attributes
     # Matches: ```lang ... skip-run="..." ... ``` or ```lang skip="..." ...
     def process_code_fence(match: re.Match[str]) -> str:
@@ -48,13 +49,13 @@ def strip_custom_code_block_attributes(markdown: str) -> str:
         fence_line = re.sub(r'\s+', ' ', fence_line)
         fence_line = fence_line.rstrip() + '\n'
         return fence_line
-    
+
     # Match code fence opening lines that contain skip attributes
     # This pattern matches lines like: ```py ... skip-run="..." ...\n
     # The \s* allows for optional whitespace after the language
     pattern = r'```[a-z]+\s*[^\n]*skip(?:-run|-reason)?[^\n]*\n'
     markdown = re.sub(pattern, process_code_fence, markdown)
-    
+
     return markdown
 
 
