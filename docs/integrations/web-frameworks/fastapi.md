@@ -24,7 +24,7 @@ pip install uvicorn
 
 You can run it with `python main.py`:
 
-```py title="main.py" hl_lines="6-7" skip-run="true" skip-reason="server-start"
+```py title="main.py" hl_lines="7-8" skip-run="true" skip-reason="server-start"
 from fastapi import FastAPI
 
 import logfire

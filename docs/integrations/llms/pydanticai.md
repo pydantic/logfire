@@ -6,7 +6,7 @@ integration: logfire
 **Pydantic Logfire** supports instrumenting [Pydantic AI](https://ai.pydantic.dev/) with the
 [`logfire.instrument_pydantic_ai()`][logfire.Logfire.instrument_pydantic_ai] method:
 
-```python hl_lines="5" skip-run="true" skip-reason="external-connection"
+```python hl_lines="7-8" skip-run="true" skip-reason="external-connection"
 from __future__ import annotations
 
 from pydantic_ai import Agent, RunContext

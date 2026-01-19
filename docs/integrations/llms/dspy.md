@@ -20,7 +20,7 @@ pip install dspy-ai
 
 ## Usage
 
-```python hl_lines="6" skip-run="true" skip-reason="external-connection"
+```python hl_lines="5-6" skip-run="true" skip-reason="external-connection"
 import dspy
 
 import logfire

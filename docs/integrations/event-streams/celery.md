@@ -68,7 +68,7 @@ As said before, it's also possible that you have periodic tasks scheduled with *
 
 Let's add the beat to the previous example:
 
-```py title="tasks.py" hl_lines="11-14 17-23" skip-run="true" skip-reason="external-connection"
+```py title="tasks.py" hl_lines="13-16 20-26" skip-run="true" skip-reason="external-connection"
 from celery import Celery
 from celery.signals import beat_init, worker_init
 

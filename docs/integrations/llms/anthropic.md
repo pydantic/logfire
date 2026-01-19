@@ -8,7 +8,7 @@ integration: logfire
 **Logfire** supports instrumenting calls to [Anthropic](https://github.com/anthropics/anthropic-sdk-python) with the [`logfire.instrument_anthropic()`][logfire.Logfire.instrument_anthropic] method, for example:
 
 
-```python hl_lines="7" skip-run="true" skip-reason="external-connection"
+```python hl_lines="7-8" skip-run="true" skip-reason="external-connection"
 import anthropic
 
 import logfire

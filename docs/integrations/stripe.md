@@ -96,7 +96,7 @@ if __name__ == '__main__':
 
 Stripe also has a logger (`logger = getLogger('stripe')`) that [you can instrument with **Logfire**][logging-section].
 
-```py skip-run="true" skip-reason="external-connection" hl_lines="8"
+```py skip-run="true" skip-reason="external-connection" hl_lines="8-9"
 import os
 from logging import basicConfig
 

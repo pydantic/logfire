@@ -15,7 +15,7 @@ Install `logfire` with the `litellm` extra:
 
 ## Usage
 
-```python hl_lines="6" skip-run="true" skip-reason="external-connection"
+```python hl_lines="5-6" skip-run="true" skip-reason="external-connection"
 import litellm
 
 import logfire

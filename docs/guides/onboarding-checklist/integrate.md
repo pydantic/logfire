@@ -46,7 +46,7 @@ To integrate **Logfire** with the standard library logging module, you can use t
 
 The minimal configuration would be the following:
 
-```py hl_lines="5" skip-run="true" skip-reason="global-state"
+```py hl_lines="5-6" skip-run="true" skip-reason="global-state"
 from logging import basicConfig
 
 import logfire
@@ -57,7 +57,7 @@ basicConfig(handlers=[logfire.LogfireLoggingHandler()])
 
 Now imagine, that you have a logger in your application:
 
-```py hl_lines="7-8" title="main.py" skip-run="true" skip-reason="global-state"
+```py title="main.py" hl_lines="8-9" skip-run="true" skip-reason="global-state"
 from logging import basicConfig, getLogger
 
 import logfire

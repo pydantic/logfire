@@ -9,7 +9,7 @@ We support instrumenting both the [standard OpenAI SDK](https://github.com/opena
 
 **Logfire** supports instrumenting calls to OpenAI with the [`logfire.instrument_openai()`][logfire.Logfire.instrument_openai] method, for example:
 
-```python hl_lines="7" skip-run="true" skip-reason="external-connection"
+```python hl_lines="7-8" skip-run="true" skip-reason="external-connection"
 import openai
 
 import logfire
@@ -150,7 +150,7 @@ Shows up like this in Logfire:
 
 We also support instrumenting the [OpenAI "agents"](https://github.com/openai/openai-agents-python) framework.
 
-```python hl_lines="5" skip-run="true" skip-reason="external-connection"
+```python hl_lines="5-6" skip-run="true" skip-reason="external-connection"
 from agents import Agent, Runner
 
 import logfire
