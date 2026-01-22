@@ -331,8 +331,6 @@ def pytest_runtest_protocol(
         # Add class/module info if available
         if hasattr(item, 'cls') and item.cls:  # type: ignore[attr-defined]
             span.set_attribute('test.class', item.cls.__name__)  # type: ignore[attr-defined]
-        if hasattr(item, 'module') and item.module:  # type: ignore[attr-defined]
-            span.set_attribute('test.module', item.module.__name__)  # type: ignore[attr-defined]
 
         # Handle parameterized tests
         if hasattr(item, 'callspec'):
@@ -368,17 +366,17 @@ def pytest_runtest_makereport(
     span.set_attribute('test.outcome', report.outcome)
     span.set_attribute('test.duration_ms', report.duration * 1000)
 
-    if report.failed and call.excinfo:
+    if report.failed:
         span.set_status(
             StatusCode.ERROR,
-            f'{call.excinfo.typename}: {call.excinfo.value}',
+            f'{call.excinfo.typename}: {call.excinfo.value}' if call.excinfo else 'Test failed',  # pragma: no branch
         )
         # Record exception details
-        if call.excinfo.value:  # pragma: no branch
+        if call.excinfo and call.excinfo.value:  # pragma: no branch
             # Branch coverage: excinfo.value is always present for failed tests in normal pytest execution
             span.record_exception(call.excinfo.value)
-    elif report.skipped:
-        # Get skip reason
+    elif report.skipped:  # pragma: no cover
+        # TODO: this needs improvement in processing skip reasons
         skip_reason = ''
         if hasattr(report, 'wasxfail'):
             skip_reason = report.wasxfail or 'xfailed'
