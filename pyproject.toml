@@ -310,6 +310,18 @@ DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_tes
 # https://coverage.readthedocs.io/en/latest/config.html#run
 [tool.coverage.run]
 branch = true
+#
+# This would be helpful to measure subprocesses, but it causes flakiness in tests.
+#
+# ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┓
+# ┃  File                                        ┃  Function                                        ┃  Function Line  ┃  Error Line  ┃  Error              ┃
+# ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━┩
+# │  tests/otel_integrations/test_celery.py      │  test_instrument_celery                          │  60             │  73          │  AssertionError     │
+# │  tests/otel_integrations/test_sqlalchemy.py  │  test_sqlalchemy_async_instrumentation[engines]  │  390            │  408         │  FileNotFoundError  │
+# └──────────────────────────────────────────────┴──────────────────────────────────────────────────┴─────────────────┴──────────────┴─────────────────────┘
+#
+# patch = ["subprocess"]
+#
 # Use this to get the tests that are covering the code. This is disabled by default because it can be slow.
 # dynamic_context = "test_function"
 
