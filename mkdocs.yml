@@ -70,6 +70,7 @@ nav:
   - Getting Started:
       - Logfire: index.md
       - Why Logfire?: why.md
+      - AI & LLM Observability: ai-observability.md
       - Concepts: concepts.md
       - Get Help: help.md
       - Onboarding Checklist:
