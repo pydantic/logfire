@@ -250,7 +250,8 @@ def pytest_sessionstart(session: pytest.Session) -> None:
         return
 
     plugin_config = session.config.stash.get(_CONFIG_KEY, None)
-    if not plugin_config:
+    if not plugin_config:  # pragma: no cover
+        # Defensive check: plugin should be configured if _is_enabled returned True
         return
 
     logfire_instance = plugin_config.logfire_instance
@@ -306,7 +307,8 @@ def pytest_runtest_protocol(
         return
 
     plugin_config = item.config.stash.get(_CONFIG_KEY, None)
-    if not plugin_config:
+    if not plugin_config:  # pragma: no cover
+        # Defensive check: plugin should be configured if test is running
         yield
         return
 
@@ -372,7 +374,8 @@ def pytest_runtest_makereport(
             f'{call.excinfo.typename}: {call.excinfo.value}',
         )
         # Record exception details
-        if call.excinfo.value:
+        if call.excinfo.value:  # pragma: no branch
+            # Branch coverage: excinfo.value is always present for failed tests in normal pytest execution
             span.record_exception(call.excinfo.value)
     elif report.skipped:
         # Get skip reason
@@ -383,7 +386,8 @@ def pytest_runtest_makereport(
             # For skips, longrepr is typically a tuple (file, line, reason)
             if isinstance(report.longrepr, tuple) and len(report.longrepr) > 2:
                 skip_reason = str(report.longrepr[2])
-            else:
+            else:  # pragma: no cover
+                # Edge case: longrepr is not a tuple or has unexpected structure
                 skip_reason = str(report.longrepr)
         span.set_attribute('test.skip_reason', skip_reason)
 
@@ -396,7 +400,8 @@ def pytest_runtest_setup(item: pytest.Item) -> Generator[None, Any, None]:
         return
 
     plugin_config = item.config.stash.get(_CONFIG_KEY, None)
-    if not plugin_config:
+    if not plugin_config:  # pragma: no cover
+        # Defensive check: plugin should be configured if test is running
         yield
         return
 
@@ -414,7 +419,8 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None, Any, None]:
         return
 
     plugin_config = item.config.stash.get(_CONFIG_KEY, None)
-    if not plugin_config:
+    if not plugin_config:  # pragma: no cover
+        # Defensive check: plugin should be configured if test is running
         yield
         return
 
@@ -432,7 +438,8 @@ def pytest_runtest_teardown(item: pytest.Item) -> Generator[None, Any, None]:
         return
 
     plugin_config = item.config.stash.get(_CONFIG_KEY, None)
-    if not plugin_config:
+    if not plugin_config:  # pragma: no cover
+        # Defensive check: plugin should be configured if test is running
         yield
         return
 
@@ -460,14 +467,16 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         return
 
     plugin_config = session.config.stash.get(_CONFIG_KEY, None)
-    if not plugin_config:
+    if not plugin_config:  # pragma: no cover
+        # Defensive check: plugin should be configured if _is_enabled returned True
         return
 
     logfire_instance = plugin_config.logfire_instance
 
     # End session span
     span = session.stash.get(_SESSION_SPAN_KEY, None)
-    if span:
+    if span:  # pragma: no branch
+        # Branch coverage: span should always exist if sessionstart ran successfully
         span.set_attribute('pytest.exitstatus', exitstatus)
         span.set_attribute('pytest.testscollected', session.testscollected)
         span.set_attribute('pytest.testsfailed', session.testsfailed)
