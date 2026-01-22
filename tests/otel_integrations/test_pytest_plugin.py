@@ -982,7 +982,9 @@ def pytest_sessionfinish(session, exitstatus):
             def test_example():
                 assert 1 + 1 == 2
         """)
-        result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire', '--logfire-trace-phases')
+        result = logfire_pytester.runpytest_subprocess(
+            '-p', 'no:django', '-p', 'no:pretty', '--logfire', '--logfire-trace-phases'
+        )
         result.assert_outcomes(passed=1)
 
         spans = self._load_spans(logfire_pytester)
