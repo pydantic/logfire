@@ -97,6 +97,7 @@ logfire-plugin = "logfire.integrations.pydantic:plugin"
 
 [project.entry-points."pytest11"]
 logfire = "logfire.testing"
+pytest_logfire = "logfire._internal.integrations.pytest"
 
 [dependency-groups]
 dev = [
