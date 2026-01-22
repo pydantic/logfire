@@ -157,7 +157,7 @@ class TestPytestIntegration:
         monkeypatch.delenv('DJANGO_SETTINGS_MODULE', raising=False)
         pytester.makeini("""
             [pytest]
-            # Minimal config
+            addopts = -p no:langsmith
         """)
         return pytester
 
@@ -167,12 +167,12 @@ class TestPytestIntegration:
             def test_example():
                 assert True
         """)
-        result = logfire_pytester.runpytest('-p', 'no:django')
+        result = logfire_pytester.runpytest_subprocess('-p', 'no:django')
         result.stdout.fnmatch_lines(['*1 passed*'])
 
     def test_help_shows_logfire_options(self, logfire_pytester: pytest.Pytester):
         """Help text should show Logfire options."""
-        result = logfire_pytester.runpytest('--help')
+        result = logfire_pytester.runpytest_subprocess('--help')
         result.stdout.fnmatch_lines(
             [
                 '*logfire*',
@@ -186,7 +186,7 @@ class TestPytestIntegration:
             def test_example():
                 assert True
         """)
-        result = logfire_pytester.runpytest('-p', 'no:django', '-p', 'no:pretty', '--logfire')
+        result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire')
         result.stdout.fnmatch_lines(['*1 passed*'])
 
     def test_ini_config_enables_plugin(self, logfire_pytester: pytest.Pytester):
@@ -194,12 +194,13 @@ class TestPytestIntegration:
         logfire_pytester.makeini("""
             [pytest]
             logfire = true
+            addopts = -p no:langsmith
         """)
         logfire_pytester.makepyfile("""
             def test_example():
                 assert True
         """)
-        result = logfire_pytester.runpytest('-p', 'no:django')
+        result = logfire_pytester.runpytest_subprocess('-p', 'no:django')
         result.stdout.fnmatch_lines(['*1 passed*'])
 
 
@@ -287,7 +288,7 @@ def pytest_sessionfinish(session, exitstatus):
             def test_three():
                 assert False
         """)
-        result = logfire_pytester.runpytest('-p', 'no:django', '-p', 'no:pretty', '--logfire')
+        result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire')
         result.assert_outcomes(passed=2, failed=1)
 
         spans = self._load_spans(logfire_pytester)
@@ -309,7 +310,7 @@ def pytest_sessionfinish(session, exitstatus):
             def test_passing():
                 assert True
         """)
-        result = logfire_pytester.runpytest('-p', 'no:django', '-p', 'no:pretty', '--logfire')
+        result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire')
         result.assert_outcomes(passed=1)
 
         spans = self._load_spans(logfire_pytester)
@@ -333,7 +334,7 @@ def pytest_sessionfinish(session, exitstatus):
             def test_failure():
                 assert False, "intentional failure"
         """)
-        result = logfire_pytester.runpytest('-p', 'no:django', '-p', 'no:pretty', '--logfire')
+        result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire')
         result.assert_outcomes(failed=1)
 
         spans = self._load_spans(logfire_pytester)
@@ -369,7 +370,7 @@ def pytest_sessionfinish(session, exitstatus):
             def test_skipped():
                 pass
         """)
-        result = logfire_pytester.runpytest('-p', 'no:django', '-p', 'no:pretty', '--logfire')
+        result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire')
         result.assert_outcomes(skipped=1)
 
         spans = self._load_spans(logfire_pytester)
@@ -391,7 +392,7 @@ def pytest_sessionfinish(session, exitstatus):
             def test_param(value):
                 assert value > 0
         """)
-        result = logfire_pytester.runpytest('-p', 'no:django', '-p', 'no:pretty', '--logfire')
+        result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire')
         result.assert_outcomes(passed=3)
 
         spans = self._load_spans(logfire_pytester)
@@ -412,7 +413,7 @@ def pytest_sessionfinish(session, exitstatus):
             def test_two():
                 assert True
         """)
-        result = logfire_pytester.runpytest('-p', 'no:django', '-p', 'no:pretty', '--logfire')
+        result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire')
         result.assert_outcomes(passed=2)
 
         spans = self._load_spans(logfire_pytester)
@@ -435,7 +436,7 @@ def pytest_sessionfinish(session, exitstatus):
                 def test_method(self):
                     assert True
         """)
-        result = logfire_pytester.runpytest('-p', 'no:django', '-p', 'no:pretty', '--logfire')
+        result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire')
         result.assert_outcomes(passed=1)
 
         spans = self._load_spans(logfire_pytester)
@@ -529,7 +530,7 @@ def pytest_sessionfinish(session, exitstatus):
                     result = 1 + 1
                     assert result == 2
         """)
-        result = logfire_pytester.runpytest('-p', 'no:django', '-p', 'no:pretty', '--logfire')
+        result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire')
         result.assert_outcomes(passed=1)
 
         spans = self._load_spans(logfire_pytester)
@@ -581,7 +582,7 @@ def pytest_sessionfinish(session, exitstatus):
                         has_permission = True
                         assert has_permission
         """)
-        result = logfire_pytester.runpytest('-p', 'no:django', '-p', 'no:pretty', '--logfire')
+        result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire')
         result.assert_outcomes(passed=1)
 
         spans = self._load_spans(logfire_pytester)
@@ -619,7 +620,7 @@ def pytest_sessionfinish(session, exitstatus):
                 logfire.info("Operation completed", result=result)
                 assert result == 42
         """)
-        result = logfire_pytester.runpytest('-p', 'no:django', '-p', 'no:pretty', '--logfire')
+        result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire')
         result.assert_outcomes(passed=1)
 
         spans = self._load_spans(logfire_pytester)
@@ -711,7 +712,7 @@ def pytest_sessionfinish(session, exitstatus):
             def test_with_traceparent():
                 assert True
         """)
-        result = logfire_pytester.runpytest('-p', 'no:django', '-p', 'no:pretty', '--logfire')
+        result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire')
         result.assert_outcomes(passed=1)
 
         # The test should pass - TRACEPARENT handling is internal to the plugin
@@ -795,7 +796,7 @@ def pytest_sessionfinish(session, exitstatus):
                 with logfire_instance.span("test span"):
                     pass
         """)
-        result = logfire_pytester.runpytest('-p', 'no:django', '-p', 'no:pretty')
+        result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty')
         result.assert_outcomes(passed=1)
 
     def test_logfire_fixture_returns_instance_when_enabled(self, logfire_pytester: pytest.Pytester):
@@ -807,7 +808,7 @@ def pytest_sessionfinish(session, exitstatus):
                 assert hasattr(logfire_instance, 'info')
                 assert hasattr(logfire_instance, 'instrument_httpx')
         """)
-        result = logfire_pytester.runpytest('-p', 'no:django', '-p', 'no:pretty', '--logfire')
+        result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire')
         result.assert_outcomes(passed=1)
 
     def test_logfire_fixture_can_create_spans(self, logfire_pytester: pytest.Pytester):
@@ -817,7 +818,7 @@ def pytest_sessionfinish(session, exitstatus):
                 with logfire_instance.span("custom span from fixture"):
                     assert True
         """)
-        result = logfire_pytester.runpytest('-p', 'no:django', '-p', 'no:pretty', '--logfire')
+        result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire')
         result.assert_outcomes(passed=1)
 
         spans = self._load_spans(logfire_pytester)
@@ -877,7 +878,7 @@ def my_client(logfire_instance):
             def test_with_client_fixture(my_client):
                 assert my_client["url"] == "https://api.example.com"
         """)
-        result = logfire_pytester.runpytest('-p', 'no:django', '-p', 'no:pretty', '--logfire')
+        result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire')
         result.assert_outcomes(passed=1)
 
         spans = self._load_spans(logfire_pytester)
@@ -965,7 +966,7 @@ def pytest_sessionfinish(session, exitstatus):
             def test_example():
                 assert True
         """)
-        result = logfire_pytester.runpytest('-p', 'no:django', '-p', 'no:pretty', '--logfire')
+        result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire')
         result.assert_outcomes(passed=1)
 
         spans = self._load_spans(logfire_pytester)
@@ -981,7 +982,7 @@ def pytest_sessionfinish(session, exitstatus):
             def test_example():
                 assert 1 + 1 == 2
         """)
-        result = logfire_pytester.runpytest('-p', 'no:django', '-p', 'no:pretty', '--logfire', '--logfire-trace-phases')
+        result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire', '--logfire-trace-phases')
         result.assert_outcomes(passed=1)
 
         spans = self._load_spans(logfire_pytester)
@@ -1015,7 +1016,7 @@ def pytest_sessionfinish(session, exitstatus):
             def test_example():
                 assert True
         """)
-        result = logfire_pytester.runpytest('-p', 'no:django', '-p', 'no:pretty')
+        result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty')
         result.assert_outcomes(passed=1)
 
         spans = self._load_spans(logfire_pytester)
@@ -1104,7 +1105,7 @@ def pytest_sessionfinish(session, exitstatus):
             def test_example():
                 assert True
         """)
-        result = logfire_pytester.runpytest('-p', 'no:django', '-p', 'no:pretty', '--logfire')
+        result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire')
         result.assert_outcomes(passed=1)
 
         spans = self._load_spans(logfire_pytester)
@@ -1132,7 +1133,7 @@ def pytest_sessionfinish(session, exitstatus):
             def test_example():
                 assert True
         """)
-        result = logfire_pytester.runpytest('-p', 'no:django', '-p', 'no:pretty', '--logfire')
+        result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire')
         result.assert_outcomes(passed=1)
 
         spans = self._load_spans(logfire_pytester)
@@ -1159,7 +1160,7 @@ def pytest_sessionfinish(session, exitstatus):
             def test_example():
                 assert True
         """)
-        result = logfire_pytester.runpytest('-p', 'no:django', '-p', 'no:pretty', '--logfire')
+        result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire')
         result.assert_outcomes(passed=1)
 
         spans = self._load_spans(logfire_pytester)
@@ -1185,7 +1186,7 @@ def pytest_sessionfinish(session, exitstatus):
             def test_example():
                 assert True
         """)
-        result = logfire_pytester.runpytest('-p', 'no:django', '-p', 'no:pretty', '--logfire')
+        result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire')
         result.assert_outcomes(passed=1)
 
         spans = self._load_spans(logfire_pytester)
@@ -1207,7 +1208,7 @@ def pytest_sessionfinish(session, exitstatus):
             def test_example():
                 assert True
         """)
-        result = logfire_pytester.runpytest('-p', 'no:django', '-p', 'no:pretty', '--logfire')
+        result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire')
         result.assert_outcomes(passed=1)
 
         spans = self._load_spans(logfire_pytester)
