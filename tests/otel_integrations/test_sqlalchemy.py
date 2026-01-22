@@ -8,6 +8,7 @@ from typing import Any
 from unittest import mock
 
 import pytest
+from dirty_equals import IsStr
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 from opentelemetry.instrumentation.sqlite3 import SQLite3Instrumentor
@@ -384,13 +385,13 @@ def sqlite_async_engine(path: Path) -> Iterator[AsyncEngine]:
     try:
         yield engine
     finally:
-        path.unlink()
+        path.unlink(missing_ok=True)
 
 
 @pytest.mark.anyio
 @pytest.mark.parametrize('parameter', ['engine', 'engines'])
-async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestExporter):
-    with sqlite_async_engine(Path('example2.db')) as engine:
+async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestExporter, tmp_path: Path):
+    with sqlite_async_engine(tmp_path / f'test_{parameter}.db') as engine:
         if parameter == 'engine':
             logfire.instrument_sqlalchemy(engine=engine)
         else:
@@ -418,13 +419,13 @@ async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestEx
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'connect',
-                    'db.name': 'example2.db',
+                    'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
                     'db.system': 'sqlite',
                     'logfire.level_num': 5,
                 },
             },
             {
-                'name': 'PRAGMA example2.db',
+                'name': IsStr(regex=r'PRAGMA .*test_(engine|engines)\.db$'),
                 'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
                 'parent': None,
                 'start_time': 3000000000,
@@ -434,11 +435,11 @@ async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestEx
                     'logfire.msg': 'PRAGMA main.table_info("auth_records")',
                     'db.statement': 'PRAGMA main.table_info("auth_records")',
                     'db.system': 'sqlite',
-                    'db.name': 'example2.db',
+                    'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
                 },
             },
             {
-                'name': 'PRAGMA example2.db',
+                'name': IsStr(regex=r'PRAGMA .*test_(engine|engines)\.db$'),
                 'context': {'trace_id': 3, 'span_id': 5, 'is_remote': False},
                 'parent': None,
                 'start_time': 5000000000,
@@ -448,11 +449,11 @@ async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestEx
                     'logfire.msg': 'PRAGMA temp.table_info("auth_records")',
                     'db.statement': 'PRAGMA temp.table_info("auth_records")',
                     'db.system': 'sqlite',
-                    'db.name': 'example2.db',
+                    'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
                 },
             },
             {
-                'name': 'CREATE example2.db',
+                'name': IsStr(regex=r'CREATE .*test_(engine|engines)\.db$'),
                 'context': {'trace_id': 4, 'span_id': 7, 'is_remote': False},
                 'parent': None,
                 'start_time': 7000000000,
@@ -462,7 +463,7 @@ async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestEx
                     'logfire.msg': 'CREATE TABLE auth_records ( id INTEGER … t VARCHAR NOT NULL, PRIMARY KEY (id)\n)',
                     'db.statement': '\nCREATE TABLE auth_records (\n\tid INTEGER NOT NULL, \n\tnumber INTEGER NOT NULL, \n\tcontent VARCHAR NOT NULL, \n\tPRIMARY KEY (id)\n)\n\n',
                     'db.system': 'sqlite',
-                    'db.name': 'example2.db',
+                    'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
                 },
             },
             {
@@ -474,13 +475,13 @@ async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestEx
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'connect',
-                    'db.name': 'example2.db',
+                    'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
                     'db.system': 'sqlite',
                     'logfire.level_num': 5,
                 },
             },
             {
-                'name': 'select example2.db',
+                'name': IsStr(regex=r'select .*test_(engine|engines)\.db$'),
                 'context': {'trace_id': 6, 'span_id': 11, 'is_remote': False},
                 'parent': None,
                 'start_time': 11000000000,
@@ -490,11 +491,11 @@ async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestEx
                     'logfire.msg': 'select * from auth_records',
                     'db.statement': 'select * from auth_records',
                     'db.system': 'sqlite',
-                    'db.name': 'example2.db',
+                    'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
                 },
             },
             {
-                'name': 'INSERT example2.db',
+                'name': IsStr(regex=r'INSERT .*test_(engine|engines)\.db$'),
                 'context': {'trace_id': 7, 'span_id': 13, 'is_remote': False},
                 'parent': None,
                 'start_time': 13000000000,
@@ -504,7 +505,7 @@ async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestEx
                     'logfire.msg': 'INSERT INTO auth_records (id, number, content) VALUES (?, ?, ?)',
                     'db.statement': 'INSERT INTO auth_records (id, number, content) VALUES (?, ?, ?)',
                     'db.system': 'sqlite',
-                    'db.name': 'example2.db',
+                    'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
                 },
             },
             {
@@ -516,13 +517,13 @@ async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestEx
                 'attributes': {
                     'logfire.span_type': 'span',
                     'logfire.msg': 'connect',
-                    'db.name': 'example2.db',
+                    'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
                     'db.system': 'sqlite',
                     'logfire.level_num': 5,
                 },
             },
             {
-                'name': 'SELECT example2.db',
+                'name': IsStr(regex=r'SELECT .*test_(engine|engines)\.db$'),
                 'context': {'trace_id': 9, 'span_id': 17, 'is_remote': False},
                 'parent': None,
                 'start_time': 17000000000,
@@ -534,11 +535,11 @@ async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestEx
 SELECT auth_records.id AS auth_records_id, auth_records.number AS auth_records_number, auth_records.content AS auth_records_content \nFROM auth_records \nWHERE auth_records.id = ?\
 """,
                     'db.system': 'sqlite',
-                    'db.name': 'example2.db',
+                    'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
                 },
             },
             {
-                'name': 'DELETE example2.db',
+                'name': IsStr(regex=r'DELETE .*test_(engine|engines)\.db$'),
                 'context': {'trace_id': 10, 'span_id': 19, 'is_remote': False},
                 'parent': None,
                 'start_time': 19000000000,
@@ -548,7 +549,7 @@ SELECT auth_records.id AS auth_records_id, auth_records.number AS auth_records_n
                     'logfire.msg': 'DELETE FROM auth_records WHERE auth_records.id = ?',
                     'db.statement': 'DELETE FROM auth_records WHERE auth_records.id = ?',
                     'db.system': 'sqlite',
-                    'db.name': 'example2.db',
+                    'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
                 },
             },
         ]

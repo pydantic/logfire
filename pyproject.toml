@@ -312,17 +312,14 @@ DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_tes
 [tool.coverage.run]
 branch = true
 #
-# This would be helpful to measure subprocesses, but it causes flakiness in tests.
+# Subprocess coverage patching is enabled to measure coverage in child processes.
+# This is particularly useful for tests that spawn subprocesses (e.g., Pytester tests).
 #
-# ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┓
-# ┃  File                                        ┃  Function                                        ┃  Function Line  ┃  Error Line  ┃  Error              ┃
-# ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━┩
-# │  tests/otel_integrations/test_celery.py      │  test_instrument_celery                          │  60             │  73          │  AssertionError     │
-# │  tests/otel_integrations/test_sqlalchemy.py  │  test_sqlalchemy_async_instrumentation[engines]  │  390            │  408         │  FileNotFoundError  │
-# └──────────────────────────────────────────────┴──────────────────────────────────────────────────┴─────────────────┴──────────────┴─────────────────────┘
+# Note: This previously exposed a race condition in test_sqlalchemy_async_instrumentation
+# which has been fixed by using unique temporary files per parametrized test instead of
+# hardcoded filenames.
 #
-# patch = ["subprocess"]
-#
+patch = ["subprocess"]
 # Use this to get the tests that are covering the code. This is disabled by default because it can be slow.
 # dynamic_context = "test_function"
 
