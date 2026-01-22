@@ -174,7 +174,7 @@ Yes: Logfire is _built_ for AI observability, and it's better at it because it s
 
 **Integrations:** OpenAI, Anthropic, Pydantic AI, LangChain, LlamaIndex, plus any OTel framework.
 
-[AI & LLM Observability](ai-observability.md)
+[//]: # ([AI & LLM Observability]&#40;ai-observability.md&#41;)
 
 ### Q: How is Logfire different from AI-specific tools like Langfuse or Arize?
 
@@ -190,7 +190,7 @@ Logfire sees everything. When your agent fails, you see the complete story in on
 
 Some tools focus only on LLM observability. Logfire takes a different approach: you can't do AI observability well without seeing the full picture. For debugging AI applications in production, you need the full context.
 
-[Comparisons](comparisons/index.md)
+[//]: # ([Comparisons]&#40;comparisons/index.md&#41;)
 
 ### Q: Does Logfire support evaluations (evals)?
 
@@ -235,7 +235,7 @@ When you're iterating on AI applications with a coding agent, the agent needs to
 - **Simple pricing:** Per-span, not per-host
 - **SQL queries:** Use familiar PostgreSQL syntax, not vendor-specific languages
 
-[Datadog comparison](comparisons/datadog.md)
+[//]: # ([Datadog comparison]&#40;comparisons/datadog.md&#41;)
 
 ### Q: Can I use Logfire alongside other observability tools?
 
@@ -277,6 +277,6 @@ That's it. Three lines of code for basic instrumentation.
 ### Q: Where can I get help?
 
 - [Documentation](index.md) - Comprehensive guides and reference
-- [Slack Community](join-slack/index.md) - Ask questions, share feedback
+- [Slack Community](join-slack/index.html) - Ask questions, share feedback
 - [GitHub Issues](https://github.com/pydantic/logfire/issues) - Report bugs, request features
 - [Enterprise Support](enterprise.md) - Dedicated support for enterprise customers
