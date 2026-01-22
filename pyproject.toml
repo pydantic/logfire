@@ -16,6 +16,7 @@ authors = [
     { name = "Marcelo Trylesinski", email = "marcelo@pydantic.dev" },
     { name = "David Hewitt", email = "david.hewitt@pydantic.dev" },
     { name = "Alex Hall", email = "alex@pydantic.dev" },
+    { name = "Jiri Kuncar", email = "jiri@pydantic.dev" },
 ]
 license = "MIT"
 license-files = ["LICENSE"]

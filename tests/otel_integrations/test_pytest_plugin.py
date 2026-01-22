@@ -17,19 +17,48 @@ pytest_plugins = ['pytester']
 
 
 @pytest.fixture
-def logfire_pytester(pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch) -> pytest.Pytester:
+def no_ci_envs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Remove all CI-related environment variables."""
+    # Generic CI
+    monkeypatch.delenv('CI', raising=False)
+    # GitHub Actions
+    monkeypatch.delenv('GITHUB_ACTIONS', raising=False)
+    monkeypatch.delenv('GITHUB_WORKFLOW', raising=False)
+    monkeypatch.delenv('GITHUB_RUN_ID', raising=False)
+    monkeypatch.delenv('GITHUB_REPOSITORY', raising=False)
+    monkeypatch.delenv('GITHUB_REF', raising=False)
+    monkeypatch.delenv('GITHUB_SHA', raising=False)
+    monkeypatch.delenv('GITHUB_SERVER_URL', raising=False)
+    # GitLab CI
+    monkeypatch.delenv('GITLAB_CI', raising=False)
+    monkeypatch.delenv('CI_JOB_ID', raising=False)
+    monkeypatch.delenv('CI_JOB_URL', raising=False)
+    monkeypatch.delenv('CI_PIPELINE_ID', raising=False)
+    monkeypatch.delenv('CI_COMMIT_REF_NAME', raising=False)
+    monkeypatch.delenv('CI_COMMIT_SHA', raising=False)
+    # CircleCI
+    monkeypatch.delenv('CIRCLECI', raising=False)
+    monkeypatch.delenv('CIRCLE_BUILD_NUM', raising=False)
+    monkeypatch.delenv('CIRCLE_BUILD_URL', raising=False)
+    monkeypatch.delenv('CIRCLE_BRANCH', raising=False)
+    monkeypatch.delenv('CIRCLE_SHA1', raising=False)
+    # Jenkins
+    monkeypatch.delenv('JENKINS_URL', raising=False)
+    monkeypatch.delenv('BUILD_NUMBER', raising=False)
+    monkeypatch.delenv('BUILD_URL', raising=False)
+    monkeypatch.delenv('GIT_BRANCH', raising=False)
+    monkeypatch.delenv('GIT_COMMIT', raising=False)
+
+
+@pytest.fixture
+def logfire_pytester(pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch, no_ci_envs: None) -> pytest.Pytester:
     """Pytester pre-configured for logfire plugin testing with span capture."""
     monkeypatch.setenv('LOGFIRE_SEND_TO_LOGFIRE', 'false')
     monkeypatch.setenv('LOGFIRE_CONSOLE', 'false')
     monkeypatch.delenv('DJANGO_SETTINGS_MODULE', raising=False)
-    monkeypatch.delenv('CI', raising=False)
     monkeypatch.delenv('LOGFIRE_TOKEN', raising=False)
     monkeypatch.delenv('TRACEPARENT', raising=False)
     monkeypatch.delenv('TRACESTATE', raising=False)
-    monkeypatch.delenv('GITHUB_ACTIONS', raising=False)
-    monkeypatch.delenv('GITLAB_CI', raising=False)
-    monkeypatch.delenv('CIRCLECI', raising=False)
-    monkeypatch.delenv('JENKINS_URL', raising=False)
 
     # Create a conftest that captures spans to a JSON file
     # NOTE: We use trylast=True so this runs AFTER the logfire pytest plugin configures
@@ -1058,7 +1087,9 @@ def test_no_ci_metadata_without_ci(logfire_pytester: pytest.Pytester):
     assert len(ci_attrs) == 0
 
 
-def test_github_actions_metadata_partial(logfire_pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch):
+def test_github_actions_metadata_partial(
+    logfire_pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch, no_ci_envs: None
+):
     """GitHub Actions metadata should work with minimal env vars."""
     monkeypatch.setenv('GITHUB_ACTIONS', 'true')
     # Only set GITHUB_ACTIONS, leave other vars unset
@@ -1078,7 +1109,9 @@ def test_github_actions_metadata_partial(logfire_pytester: pytest.Pytester, monk
     assert attrs.get('ci.system') == 'github-actions'
 
 
-def test_github_actions_without_server_url(logfire_pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch):
+def test_github_actions_without_server_url(
+    logfire_pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch, no_ci_envs: None
+):
     """GitHub Actions should use default server URL when GITHUB_SERVER_URL is not set."""
     monkeypatch.setenv('GITHUB_ACTIONS', 'true')
     monkeypatch.setenv('GITHUB_REPOSITORY', 'owner/repo')
@@ -1100,7 +1133,9 @@ def test_github_actions_without_server_url(logfire_pytester: pytest.Pytester, mo
     assert attrs.get('ci.job.url') == 'https://github.com/owner/repo/actions/runs/12345'
 
 
-def test_github_actions_without_repo(logfire_pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch):
+def test_github_actions_without_repo(
+    logfire_pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch, no_ci_envs: None
+):
     """GitHub Actions should handle missing repository."""
     monkeypatch.setenv('GITHUB_ACTIONS', 'true')
     monkeypatch.setenv('GITHUB_RUN_ID', '12345')
