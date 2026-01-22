@@ -26,7 +26,7 @@ try:
     _SESSION_SPAN_KEY: pytest.StashKey[LogfireSpan] = pytest.StashKey()
     _SPAN_KEY: pytest.StashKey[Any] = pytest.StashKey()  # Stores OTel span
     _CONTEXT_TOKEN_KEY: pytest.StashKey[Any] = pytest.StashKey()  # Stores context token from TRACEPARENT
-except ImportError:
+except ImportError:  # pragma: no cover
     pass
 
 
