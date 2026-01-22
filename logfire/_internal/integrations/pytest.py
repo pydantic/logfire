@@ -331,6 +331,8 @@ def pytest_runtest_protocol(
         # Add class/module info if available
         if hasattr(item, 'cls') and item.cls:  # type: ignore[attr-defined]
             span.set_attribute('test.class', item.cls.__name__)  # type: ignore[attr-defined]
+        if hasattr(item, 'module') and item.module:  # type: ignore[attr-defined]
+            span.set_attribute('test.module', item.module.__name__)  # type: ignore[attr-defined]
 
         # Handle parameterized tests
         if hasattr(item, 'callspec'):

@@ -601,7 +601,7 @@ def test_class_based_test(logfire_pytester: pytest.Pytester):
 
     attrs = test_span['attributes']
     assert attrs.get('test.class') == 'TestMyClass'
-    assert 'test.module' in attrs
+    assert attrs['test.module'].endswith('test_class_based_test')
 
 
 # Tests for custom spans and HTTPX integration
