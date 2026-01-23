@@ -94,6 +94,7 @@ nav:
   - Understanding your Usage: logfire-costs.md
   - How To - Guides:
       - Create Write Tokens: how-to-guides/create-write-tokens.md
+      - Use API Keys: how-to-guides/use-api-keys.md
       - Use different environments: how-to-guides/environments.md
       - Convert to Organization: how-to-guides/convert-to-organization.md
       - Write Dashboard Queries: how-to-guides/write-dashboard-queries.md
