@@ -1,8 +1,8 @@
 ---
-title: Testing Logfire Intrumentation
+title: Testing Logfire Instrumentation
 description: Logfire makes it very easy to test emitted logs and spans using the utilities in the logfire.testing module.
 ---
-# Testing Logfire Intrumentation
+# Testing Logfire Instrumentation
 
 !!! tip "Running under Pytest... 🧪"
     When running your test suite under Pytest, we set [`send_to_logfire=False`][logfire.configure(send_to_logfire)] by default.
