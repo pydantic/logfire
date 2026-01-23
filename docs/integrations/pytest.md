@@ -25,25 +25,25 @@ pytest --logfire
 
 ### Configuration File
 
-Add to your `pyproject.toml`:
+=== "`pytest.toml`"
 
-```toml
-[tool.pytest.ini_options]
-logfire = true
-```
+    ```toml
+    [pytest]
+    logfire = true
+    ```
 
-Or `pytest.ini`:
+=== "`pyproject.toml`"
 
-```ini
-[pytest]
-logfire = true
-```
+    ```toml
+    [tool.pytest]
+    logfire = true
+    ```
 
 ### Auto-Enable in CI
 
-The plugin automatically enables when:
+The plugin automatically enables when both:
 
-- `CI` environment variable is set to `true` or `1`
+- `CI` environment variable is set to a non-empty string
 - `LOGFIRE_TOKEN` environment variable is present
 
 This means your CI pipelines will automatically get tracing without any configuration changes.
@@ -58,7 +58,7 @@ pytest --no-logfire
 
 ## Configuration Options
 
-| Option | CLI Flag | INI Option | Environment Variable | Default | Description |
+| Option | CLI Flag | Config option | Environment variable | Default | Description |
 |--------|----------|------------|---------------------|---------|-------------|
 | Enable | `--logfire` | `logfire = true` | - | `false` | Enable the plugin |
 | Disable | `--no-logfire` | - | - | - | Explicitly disable |

@@ -300,7 +300,7 @@ def pytest_sessionstart(session: pytest.Session) -> None:
 def pytest_runtest_protocol(
     item: pytest.Item,
     nextitem: pytest.Item | None,
-) -> Generator[None, Any, None]:
+) -> Generator[None]:
     """Create a span for each test."""
     if not _is_enabled(item.config):
         yield
