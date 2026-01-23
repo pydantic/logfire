@@ -49,17 +49,18 @@ Trace entire conversation flows across multiple turns and tool calls.
 
 ## Quick Start
 
-```python
-import logfire
+```py skip-run="true" skip-reason="external-connection"
 from openai import OpenAI
+
+import logfire
 
 logfire.configure()
 logfire.instrument_openai()
 
 client = OpenAI()
 response = client.chat.completions.create(
-    model="gpt-5-mini",
-    messages=[{"role": "user", "content": "Hello!"}]
+    model='gpt-5-mini',
+    messages=[{'role': 'user', 'content': 'Hello!'}],
 )
 ```
 

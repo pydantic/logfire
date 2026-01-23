@@ -34,7 +34,7 @@ test:
 
 .PHONY: test-update-examples  # Update the examples in the documentation
 test-update-examples:
-	uv run pytest --update-examples
+	uv run pytest --update-examples -k test_docs
 
 .PHONY: generate-stubs  # Generate stubs for logfire-api
 generate-stubs:
