@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# pragma: exclude file
 """Django's command-line utility for administrative tasks."""
 
 import os

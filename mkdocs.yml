@@ -170,6 +170,8 @@ nav:
           - Print: integrations/print.md
           - Structlog: integrations/structlog.md
           - Loguru: integrations/loguru.md
+      - Testing:
+          - Pytest: integrations/pytest.md
       - Pydantic: integrations/pydantic.md
       - System Metrics: integrations/system-metrics.md
       - Stripe: integrations/stripe.md
