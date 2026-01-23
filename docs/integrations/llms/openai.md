@@ -21,7 +21,7 @@ logfire.instrument_openai()  # instrument all OpenAI clients globally
 # or logfire.instrument_openai(client) to instrument a specific client instance
 
 response = client.chat.completions.create(
-    model='gpt-4',
+    model='gpt-5-mini',
     messages=[
         {'role': 'system', 'content': 'You are a helpful assistant.'},
         {'role': 'user', 'content': 'Please write me a limerick about Python logging.'},
