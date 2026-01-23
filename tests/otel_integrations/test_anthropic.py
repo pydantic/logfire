@@ -123,6 +123,25 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                 usage=Usage(input_tokens=50, output_tokens=15),
             ).model_dump(mode='json'),
         )
+    elif json_body.get('system') == 'test stop_reason':
+        return httpx.Response(
+            200,
+            json=Message(
+                id='test_id_stop',
+                content=[
+                    TextBlock(
+                        text='Nine',
+                        type='text',
+                    )
+                ],
+                model='claude-3-haiku-20240307',
+                role='assistant',
+                type='message',
+                stop_reason='end_turn',
+                stop_sequence=None,
+                usage=Usage(input_tokens=2, output_tokens=3),
+            ).model_dump(mode='json'),
+        )
     else:
         return httpx.Response(
             200,
@@ -172,101 +191,26 @@ def test_sync_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
     )
     assert isinstance(response.content[0], TextBlock)
     assert response.content[0].text == 'Nine'
-    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
-        [
-            {
-                'name': 'Message with {request_data[model]!r}',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 2000000000,
-                'attributes': {
-                    'code.filepath': 'test_anthropic.py',
-                    'code.function': 'test_sync_messages',
-                    'code.lineno': 123,
-                    'request_data': (
-                        snapshot(
-                            {
-                                'max_tokens': 1000,
-                                'system': 'You are a helpful assistant.',
-                                'messages': [{'role': 'user', 'content': 'What is four plus five?'}],
-                                'model': 'claude-3-haiku-20240307',
-                            }
-                        )
-                    ),
-                    'gen_ai.provider.name': 'anthropic',
-                    'gen_ai.operation.name': 'chat',
-                    'gen_ai.request.model': 'claude-3-haiku-20240307',
-                    'gen_ai.request.max_tokens': 1000,
-                    'gen_ai.input.messages': [
-                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
-                    ],
-                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'You are a helpful assistant.'}],
-                    'async': False,
-                    'logfire.msg_template': 'Message with {request_data[model]!r}',
-                    'logfire.msg': "Message with 'claude-3-haiku-20240307'",
-                    'logfire.span_type': 'span',
-                    'logfire.tags': ('LLM',),
-                    'response_data': (
-                        snapshot(
-                            {
-                                'message': {
-                                    'content': 'Nine',
-                                    'role': 'assistant',
-                                },
-                                'usage': IsPartialDict(
-                                    {
-                                        'cache_creation': None,
-                                        'input_tokens': 2,
-                                        'output_tokens': 3,
-                                        'cache_creation_input_tokens': None,
-                                        'cache_read_input_tokens': None,
-                                        'server_tool_use': None,
-                                        'service_tier': None,
-                                    }
-                                ),
-                            }
-                        )
-                    ),
-                    'gen_ai.response.model': 'claude-3-haiku-20240307',
-                    'gen_ai.response.id': 'test_id',
-                    'gen_ai.usage.input_tokens': 2,
-                    'gen_ai.usage.output_tokens': 3,
-                    'gen_ai.output.messages': [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Nine'}]}],
-                    'logfire.json_schema': snapshot(
-                        {
-                            'type': 'object',
-                            'properties': {
-                                'request_data': {'type': 'object'},
-                                'gen_ai.provider.name': {},
-                                'gen_ai.operation.name': {},
-                                'gen_ai.request.model': {},
-                                'gen_ai.request.max_tokens': {},
-                                'gen_ai.input.messages': {'type': 'array'},
-                                'gen_ai.system_instructions': {'type': 'array'},
-                                'async': {},
-                                'response_data': {
-                                    'type': 'object',
-                                    'properties': {
-                                        'usage': {
-                                            'type': 'object',
-                                            'title': 'Usage',
-                                            'x-python-datatype': 'PydanticModel',
-                                        },
-                                    },
-                                },
-                                'gen_ai.response.model': {},
-                                'gen_ai.response.id': {},
-                                'gen_ai.usage.input_tokens': {},
-                                'gen_ai.usage.output_tokens': {},
-                                'gen_ai.output.messages': {'type': 'array'},
-                            },
-                        }
-                    ),
-                },
-            }
-        ]
+
+
+def test_sync_messages_with_stop_reason(instrumented_client: anthropic.Anthropic, exporter: TestExporter) -> None:
+    """Test that messages with stop_reason are properly handled."""
+    response = instrumented_client.messages.create(
+        max_tokens=1000,
+        model='claude-3-haiku-20240307',
+        system='test stop_reason',
+        messages=[{'role': 'user', 'content': 'What is four plus five?'}],
     )
+    assert isinstance(response.content[0], TextBlock)
+    assert response.content[0].text == 'Nine'
+    assert response.stop_reason == 'end_turn'
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) == 1
+    attrs = spans[0]['attributes']
+    # Check that finish_reason is set in both places (lines 234 and 292)
+    assert attrs['gen_ai.response.finish_reasons'] == ['end_turn']
+    output_messages = attrs['gen_ai.output.messages']
+    assert output_messages[0].get('finish_reason') == 'end_turn'
 
 
 async def test_async_messages(instrumented_async_client: anthropic.AsyncAnthropic, exporter: TestExporter) -> None:

@@ -1,5 +1,6 @@
 """Test Python code examples in documentation and docstrings."""
 
+import gc
 import os
 
 import pytest
@@ -54,6 +55,7 @@ def test_formatting(example: CodeExample, eval_example: EvalExample):
 
 @pytest.mark.parametrize('example', find_examples('logfire/', 'docs/', 'README.md'), ids=str)
 @pytest.mark.timeout(3)
+@pytest.mark.filterwarnings('ignore:Unclosed connection.*:ResourceWarning:aiohttp*:')
 def test_runnable(example: CodeExample, eval_example: EvalExample):
     """Ensure examples in documentation are runnable."""
 
@@ -66,3 +68,8 @@ def test_runnable(example: CodeExample, eval_example: EvalExample):
         eval_example.run_print_update(example)
     else:
         eval_example.run_print_check(example)
+
+    # Force garbage collection after running code examples to ensure any async resources
+    # (like aiohttp connections) are cleaned up before the next test runs.
+    # This helps prevent ResourceWarnings from lingering connections during test cleanup.
+    gc.collect()

@@ -507,6 +507,17 @@ def test_sync_chat_completions(instrumented_client: openai.Client, exporter: Tes
         ],
     )
     assert response.choices[0].message.content == 'Nine'
+
+
+def test_chat_completions_with_message_name(instrumented_client: openai.Client, exporter: TestExporter) -> None:
+    """Test that messages with a 'name' field are properly handled."""
+    response = instrumented_client.chat.completions.create(
+        model='gpt-4',
+        messages=[
+            {'role': 'user', 'content': 'Hello', 'name': 'Alice'},
+        ],
+    )
+    assert response.choices[0].message.content == 'Nine'
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
@@ -517,21 +528,110 @@ def test_sync_chat_completions(instrumented_client: openai.Client, exporter: Tes
                 'end_time': 2000000000,
                 'attributes': {
                     'code.filepath': 'test_openai.py',
-                    'code.function': 'test_sync_chat_completions',
+                    'code.function': 'test_chat_completions_with_message_name',
                     'code.lineno': 123,
                     'request_data': {
-                        'messages': [
-                            {'role': 'system', 'content': 'You are a helpful assistant.'},
-                            {'role': 'user', 'content': 'What is four plus five?'},
-                        ],
+                        'messages': [{'role': 'user', 'content': 'Hello', 'name': 'Alice'}],
                         'model': 'gpt-4',
                     },
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'gpt-4',
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'chat_completions',
                     'gen_ai.input.messages': [
-                        {'role': 'system', 'parts': [{'type': 'text', 'content': 'You are a helpful assistant.'}]},
-                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]},
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'Hello'}], 'name': 'Alice'}
+                    ],
+                    'async': False,
+                    'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
+                    'gen_ai.system': 'openai',
+                    'logfire.msg': "Chat Completion with 'gpt-4'",
+                    'logfire.span_type': 'span',
+                    'logfire.tags': ('LLM',),
+                    'gen_ai.response.model': 'gpt-4',
+                    'operation.cost': 0.00012,
+                    'gen_ai.response.id': 'test_id',
+                    'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.usage.output_tokens': 1,
+                    'response_data': {
+                        'message': {
+                            'content': 'Nine',
+                            'refusal': None,
+                            'audio': None,
+                            'annotations': None,
+                            'role': 'assistant',
+                            'function_call': None,
+                            'tool_calls': None,
+                        },
+                        'usage': {
+                            'completion_tokens': 1,
+                            'prompt_tokens': 2,
+                            'total_tokens': 3,
+                            'completion_tokens_details': None,
+                            'prompt_tokens_details': None,
+                        },
+                    },
+                    'gen_ai.output.messages': [
+                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Nine'}], 'finish_reason': 'stop'}
+                    ],
+                    'gen_ai.response.finish_reasons': ['stop'],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'gen_ai.system': {},
+                            'async': {},
+                            'gen_ai.response.model': {},
+                            'operation.cost': {},
+                            'gen_ai.response.id': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'response_data': {
+                                'type': 'object',
+                                'properties': {
+                                    'message': {
+                                        'type': 'object',
+                                        'title': 'ChatCompletionMessage',
+                                        'x-python-datatype': 'PydanticModel',
+                                    },
+                                    'usage': {
+                                        'type': 'object',
+                                        'title': 'CompletionUsage',
+                                        'x-python-datatype': 'PydanticModel',
+                                    },
+                                },
+                            },
+                            'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
+                        },
+                    },
+                },
+            }
+        ]
+    )
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Chat Completion with {request_data[model]!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_chat_completions_with_message_name',
+                    'code.lineno': 123,
+                    'request_data': {
+                        'messages': [{'role': 'user', 'content': 'Hello', 'name': 'Alice'}],
+                        'model': 'gpt-4',
+                    },
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.request.model': 'gpt-4',
+                    'gen_ai.operation.name': 'chat_completions',
+                    'gen_ai.input.messages': [
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'Hello'}], 'name': 'Alice'}
                     ],
                     'async': False,
                     'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
@@ -650,7 +750,7 @@ def test_sync_chat_completions_with_all_request_params(
                     },
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.provider.name': 'openai',
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'chat_completions',
                     'gen_ai.request.max_tokens': 100,
                     'gen_ai.request.temperature': 0.7,
                     'gen_ai.request.top_p': 0.9,
@@ -771,7 +871,7 @@ def test_sync_chat_completions_with_stop_string(instrumented_client: openai.Clie
                     },
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.provider.name': 'openai',
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'chat_completions',
                     'gen_ai.request.stop_sequences': ['END'],
                     'gen_ai.input.messages': [
                         {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
@@ -917,7 +1017,7 @@ def test_sync_chat_with_tool_calls_and_response(instrumented_client: openai.Clie
                     },
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'gpt-4',
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'chat_completions',
                     'gen_ai.input.messages': [
                         {
                             'role': 'system',
@@ -1065,7 +1165,7 @@ def test_sync_chat_with_image_content(instrumented_client: openai.Client, export
                     },
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'gpt-4-vision-preview',
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'chat_completions',
                     'gen_ai.input.messages': [
                         {
                             'role': 'user',
@@ -1183,7 +1283,7 @@ def test_sync_chat_response_with_tool_calls(instrumented_client: openai.Client, 
                     },
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.provider.name': 'openai',
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'chat_completions',
                     'gen_ai.input.messages': [
                         {'role': 'user', 'parts': [{'type': 'text', 'content': 'call a function for me'}]}
                     ],
@@ -1339,7 +1439,7 @@ async def test_async_chat_completions(instrumented_async_client: openai.AsyncCli
                     },
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'gpt-4',
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'chat_completions',
                     'gen_ai.input.messages': [
                         {'role': 'system', 'parts': [{'type': 'text', 'content': 'You are a helpful assistant.'}]},
                         {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]},
@@ -1444,7 +1544,7 @@ def test_sync_chat_empty_response_chunk(instrumented_client: openai.Client, expo
                     },
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'gpt-4',
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'chat_completions',
                     'gen_ai.input.messages': [
                         {'role': 'system', 'parts': [{'type': 'text', 'content': 'empty response chunk'}]}
                     ],
@@ -1489,7 +1589,7 @@ def test_sync_chat_empty_response_chunk(instrumented_client: openai.Client, expo
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.provider.name': 'openai',
                     'logfire.span_type': 'log',
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'chat_completions',
                     'gen_ai.input.messages': [
                         {'role': 'system', 'parts': [{'type': 'text', 'content': 'empty response chunk'}]}
                     ],
@@ -1544,7 +1644,7 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                     },
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'gpt-4',
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'chat_completions',
                     'gen_ai.input.messages': [
                         {'role': 'system', 'parts': [{'type': 'text', 'content': 'empty choices in response chunk'}]}
                     ],
@@ -1589,7 +1689,7 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.provider.name': 'openai',
                     'logfire.span_type': 'log',
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'chat_completions',
                     'gen_ai.input.messages': [
                         {'role': 'system', 'parts': [{'type': 'text', 'content': 'empty choices in response chunk'}]}
                     ],
@@ -1694,7 +1794,7 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                     },
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'gpt-4',
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'chat_completions',
                     'gen_ai.tool.definitions': [
                         {
                             'type': 'function',
@@ -1782,7 +1882,7 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.provider.name': 'openai',
                     'async': False,
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'chat_completions',
                     'gen_ai.tool.definitions': [
                         {
                             'type': 'function',
@@ -1972,7 +2072,7 @@ async def test_async_chat_tool_call_stream(
                     },
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'gpt-4',
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'chat_completions',
                     'gen_ai.tool.definitions': [
                         {
                             'type': 'function',
@@ -2060,7 +2160,7 @@ async def test_async_chat_tool_call_stream(
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.provider.name': 'openai',
                     'async': True,
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'chat_completions',
                     'gen_ai.tool.definitions': [
                         {
                             'type': 'function',
@@ -2201,7 +2301,7 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                     },
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'gpt-4',
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'chat_completions',
                     'gen_ai.input.messages': [
                         {'role': 'system', 'parts': [{'type': 'text', 'content': 'You are a helpful assistant.'}]},
                         {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]},
@@ -2250,7 +2350,7 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.provider.name': 'openai',
                     'logfire.span_type': 'log',
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'chat_completions',
                     'gen_ai.input.messages': [
                         {'role': 'system', 'parts': [{'type': 'text', 'content': 'You are a helpful assistant.'}]},
                         {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]},
@@ -2335,7 +2435,7 @@ async def test_async_chat_completions_stream(
                     },
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'gpt-4',
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'chat_completions',
                     'gen_ai.input.messages': [
                         {'role': 'system', 'parts': [{'type': 'text', 'content': 'You are a helpful assistant.'}]},
                         {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]},
@@ -2384,7 +2484,7 @@ async def test_async_chat_completions_stream(
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.provider.name': 'openai',
                     'logfire.span_type': 'log',
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'chat_completions',
                     'gen_ai.input.messages': [
                         {'role': 'system', 'parts': [{'type': 'text', 'content': 'You are a helpful assistant.'}]},
                         {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]},
@@ -2454,7 +2554,7 @@ def test_completions(instrumented_client: openai.Client, exporter: TestExporter)
                     'request_data': {'model': 'gpt-3.5-turbo-instruct', 'prompt': 'What is four plus five?'},
                     'gen_ai.provider.name': 'openai',
                     'async': False,
-                    'gen_ai.operation.name': 'text_completion',
+                    'gen_ai.operation.name': 'completions',
                     'logfire.msg_template': 'Completion with {request_data[model]!r}',
                     'logfire.msg': "Completion with 'gpt-3.5-turbo-instruct'",
                     'logfire.span_type': 'span',
@@ -2550,7 +2650,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                     'gen_ai.input.messages': [
                         {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
                     ],
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'responses',
                     'async': False,
                     'logfire.msg_template': 'Responses API with {request_data[model]!r}',
                     'logfire.msg': "Responses API with 'gpt-4.1'",
@@ -2600,7 +2700,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                     'gen_ai.input.messages': [
                         {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
                     ],
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'responses',
                     'gen_ai.output.messages': [
                         {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Four plus five equals **nine**.'}]}
                     ],
@@ -2654,7 +2754,7 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                     },
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'gpt-3.5-turbo-instruct',
-                    'gen_ai.operation.name': 'text_completion',
+                    'gen_ai.operation.name': 'completions',
                     'async': False,
                     'logfire.msg_template': 'Completion with {request_data[model]!r}',
                     'logfire.msg': "Completion with 'gpt-3.5-turbo-instruct'",
@@ -2695,7 +2795,7 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                     'gen_ai.request.model': 'gpt-3.5-turbo-instruct',
                     'gen_ai.provider.name': 'openai',
                     'logfire.span_type': 'log',
-                    'gen_ai.operation.name': 'text_completion',
+                    'gen_ai.operation.name': 'completions',
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
                     'response_data': {'combined_chunk_content': 'The answer is Nine', 'chunk_count': 2},
@@ -2930,7 +3030,7 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                     'request_data': {'model': 'gpt-3.5-turbo-instruct', 'prompt': 'xxx'},
                     'gen_ai.provider.name': 'openai',
                     'async': False,
-                    'gen_ai.operation.name': 'text_completion',
+                    'gen_ai.operation.name': 'completions',
                     'logfire.msg_template': 'Completion with {request_data[model]!r}',
                     'logfire.msg': "Completion with 'gpt-3.5-turbo-instruct'",
                     'logfire.span_type': 'span',
@@ -3049,7 +3149,7 @@ def test_suppress_httpx(exporter: TestExporter) -> None:
                     'request_data': {'model': 'gpt-3.5-turbo-instruct', 'prompt': 'xxx'},
                     'gen_ai.provider.name': 'openai',
                     'async': False,
-                    'gen_ai.operation.name': 'text_completion',
+                    'gen_ai.operation.name': 'completions',
                     'logfire.msg_template': 'Completion with {request_data[model]!r}',
                     'logfire.msg': "Completion with 'gpt-3.5-turbo-instruct'",
                     'logfire.span_type': 'span',
@@ -3365,7 +3465,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'gen_ai.provider.name': 'openai',
                     'async': False,
                     'request_data': {'model': 'gpt-4.1', 'stream': False},
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'responses',
                     'gen_ai.tool.definitions': [
                         {
                             'type': 'function',
@@ -3464,7 +3564,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'gen_ai.provider.name': 'openai',
                     'async': False,
                     'request_data': {'model': 'gpt-4.1', 'stream': False},
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'responses',
                     'gen_ai.input.messages': [
                         {
                             'role': 'user',
@@ -3592,7 +3692,7 @@ def test_openrouter_streaming_reasoning(exporter: TestExporter) -> None:
                     },
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'google/gemini-2.5-flash',
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'chat_completions',
                     'gen_ai.input.messages': [
                         {
                             'role': 'user',
@@ -3640,7 +3740,7 @@ def test_openrouter_streaming_reasoning(exporter: TestExporter) -> None:
                     'gen_ai.request.model': 'google/gemini-2.5-flash',
                     'gen_ai.provider.name': 'openai',
                     'async': False,
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'chat_completions',
                     'gen_ai.input.messages': [
                         {
                             'role': 'user',

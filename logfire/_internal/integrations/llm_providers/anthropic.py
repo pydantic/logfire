@@ -230,7 +230,7 @@ def convert_anthropic_response_to_semconv(message: Message) -> dict[str, Any]:
         'role': message.role,
         'parts': parts,
     }
-    if message.stop_reason:  # pragma: no branch
+    if message.stop_reason:
         result['finish_reason'] = message.stop_reason
 
     return result
@@ -288,7 +288,7 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
             span.set_attribute(OUTPUT_TOKENS, response.usage.output_tokens)
 
         # Add finish reason
-        if response.stop_reason:  # pragma: no branch
+        if response.stop_reason:
             span.set_attribute(RESPONSE_FINISH_REASONS, [response.stop_reason])
 
         # Add semantic convention output messages

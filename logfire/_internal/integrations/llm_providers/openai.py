@@ -118,7 +118,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             'request_data': json_data,
             'gen_ai.request.model': json_data.get('model'),
             PROVIDER_NAME: 'openai',
-            OPERATION_NAME: 'chat',
+            OPERATION_NAME: 'chat_completions',
             REQUEST_MODEL: json_data.get('model'),
         }
         _extract_request_parameters(json_data, span_data)
@@ -126,10 +126,8 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         # Convert messages to semantic convention format
         messages: list[dict[str, Any]] = json_data.get('messages', [])
         if messages:
-            input_messages, system_instructions = convert_chat_completions_to_semconv(messages)
+            input_messages = convert_chat_completions_to_semconv(messages)
             span_data[INPUT_MESSAGES] = input_messages
-            if system_instructions:
-                span_data[SYSTEM_INSTRUCTIONS] = system_instructions
 
         return EndpointConfig(
             message_template='Chat Completion with {request_data[model]!r}',
@@ -147,7 +145,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             # Keep 'events' for backward compatibility
             'events': inputs_to_events(json_data.get('input'), json_data.get('instructions')),
             PROVIDER_NAME: 'openai',
-            OPERATION_NAME: 'chat',
+            OPERATION_NAME: 'responses',
             REQUEST_MODEL: json_data.get('model'),
         }
         _extract_request_parameters(json_data, span_data)
@@ -171,7 +169,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             'request_data': json_data,
             'gen_ai.request.model': json_data.get('model'),
             PROVIDER_NAME: 'openai',
-            OPERATION_NAME: 'text_completion',
+            OPERATION_NAME: 'completions',
             REQUEST_MODEL: json_data.get('model'),
         }
         _extract_request_parameters(json_data, span_data)
@@ -223,10 +221,10 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
 
 def convert_chat_completions_to_semconv(
     messages: list[dict[str, Any]],
-) -> tuple[InputMessages, SystemInstructions]:
+) -> InputMessages:
     """Convert OpenAI Chat Completions API messages format to OTel Gen AI Semantic Convention format.
 
-    Returns a tuple of (input_messages, system_instructions).
+    Returns input_messages.
 
     Note: For OpenAI Chat Completions API, system messages are part of the chat history
     and should be recorded in gen_ai.input.messages, not gen_ai.system_instructions.
@@ -234,7 +232,6 @@ def convert_chat_completions_to_semconv(
     exist for chat completions).
     """
     input_messages: InputMessages = []
-    system_instructions: SystemInstructions = []
 
     for msg in messages:
         role = msg.get('role', 'unknown')
@@ -292,7 +289,7 @@ def convert_chat_completions_to_semconv(
         # All messages (including system) go to input_messages since they're part of chat history
         input_messages.append(message)
 
-    return input_messages, system_instructions
+    return input_messages
 
 
 def _convert_content_part(part: dict[str, Any] | str) -> MessagePart:
@@ -649,7 +646,9 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         otel_span = span._span  # pyright: ignore[reportPrivateUsage]
         if otel_span is not None and hasattr(otel_span, 'attributes') and otel_span.attributes:
             events_attr = otel_span.attributes.get('events')
-            if isinstance(events_attr, list):
+            if isinstance(events_attr, list):  # pragma: no cover
+                # This branch is hard to test as it requires existing events to be set on the span
+                # before on_response is called, which is an edge case
                 existing_events = cast(list[Any], events_attr)
         span.set_attribute('events', existing_events + responses_output_events(response))
 
