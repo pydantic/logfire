@@ -14,6 +14,16 @@ import logfire._internal.integrations.django
 from logfire.testing import CaptureLogfire, TestExporter
 
 
+def test_django_test_project_modules() -> None:
+    """Test that Django test project modules are importable for coverage."""
+    from tests.otel_integrations.django_test_project.django_test_app import apps as django_test_app_apps
+    from tests.otel_integrations.django_test_project.django_test_site import wsgi as django_test_site_wsgi
+
+    # Verify the modules loaded correctly
+    assert django_test_app_apps.TestAppConfig.name == 'django_test_app'
+    assert django_test_site_wsgi.application is not None
+
+
 def test_good_route(client: Client, capfire: CaptureLogfire):
     logfire.instrument_django()
     response: HttpResponse = client.get(  # type: ignore
