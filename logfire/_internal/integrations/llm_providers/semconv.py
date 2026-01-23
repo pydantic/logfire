@@ -6,7 +6,7 @@ See: https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-events/
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, Union
 
 from typing_extensions import NotRequired, TypeAlias, TypedDict
 
@@ -63,7 +63,7 @@ class ToolCallPart(TypedDict):
     type: Literal['tool_call']
     id: str
     name: str
-    arguments: NotRequired[dict[str, Any] | str | None]
+    arguments: NotRequired[Union[dict[str, Any], str, None]]
 
 
 class ToolCallResponsePart(TypedDict):
@@ -71,7 +71,7 @@ class ToolCallResponsePart(TypedDict):
 
     type: Literal['tool_call_response']
     id: str
-    response: NotRequired[str | dict[str, Any] | None]
+    response: NotRequired[Union[str, dict[str, Any], None]]
     # Note: OTel spec may use 'result' instead of 'response',
     # but we use 'response' for consistency
 
@@ -93,7 +93,7 @@ class BlobPart(TypedDict):
     modality: NotRequired[Literal['image', 'audio', 'video', 'document']]
 
 
-MessagePart: TypeAlias = TextPart | ToolCallPart | ToolCallResponsePart | UriPart | BlobPart | dict[str, Any]
+MessagePart: TypeAlias = Union[TextPart, ToolCallPart, ToolCallResponsePart, UriPart, BlobPart, dict[str, Any]]
 """A message part.
 
 Can be any of the defined part types or a generic dict for extensibility.
