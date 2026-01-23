@@ -312,7 +312,7 @@ DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_tes
 # https://coverage.readthedocs.io/en/latest/config.html#run
 [tool.coverage.run]
 branch = true
-source = ["logfire", "logfire-api", "tests"]
+source = ["logfire", "logfire-api"]
 omit = [
     "*/tmp/*",
     "*/temp/*",
