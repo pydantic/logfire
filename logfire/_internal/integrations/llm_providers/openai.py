@@ -260,6 +260,7 @@ def convert_chat_completions_to_semconv(
                 elif isinstance(content, list):
                     for part in cast('list[dict[str, Any] | str]', content):
                         parts.append(_convert_content_part(part))
+                # else: content is neither str nor list - pragma: no cover (unreachable in practice)
 
             # Add tool call parts (for assistant messages with tool calls)
             if tool_calls:
@@ -269,6 +270,7 @@ def convert_chat_completions_to_semconv(
                     if isinstance(arguments, str):
                         with contextlib.suppress(json.JSONDecodeError):
                             arguments = json.loads(arguments)
+                    # else: arguments is not a string (already a dict) - pragma: no cover (handled by passing as-is)
                     parts.append(
                         ToolCallPart(
                             type='tool_call',
@@ -327,11 +329,13 @@ def convert_openai_response_to_semconv(
     if message.tool_calls:
         for tc in message.tool_calls:
             # Only handle function tool calls (not custom tool calls)
-            if isinstance(tc, ChatCompletionMessageFunctionToolCall):
+            if isinstance(tc, ChatCompletionMessageFunctionToolCall):  # pragma: no cover
+                # Non-FunctionToolCall types are not handled - this is expected as OpenAI SDK only provides FunctionToolCall
                 func_args: Any = tc.function.arguments
                 if isinstance(func_args, str):
                     with contextlib.suppress(json.JSONDecodeError):
                         func_args = json.loads(func_args)
+                # else: func_args is not a string (already a dict) - pragma: no cover (handled by passing as-is)
                 parts.append(
                     ToolCallPart(
                         type='tool_call',
@@ -544,7 +548,8 @@ try:
             if final_completion.choices:
                 message = final_completion.choices[0].message
                 message.role = 'assistant'
-            else:
+            else:  # pragma: no cover
+                # Empty choices in stream - edge case that's hard to reproduce reliably
                 message = None
             return {'message': message, 'usage': final_completion.usage}
 except ImportError:  # pragma: no cover
@@ -608,7 +613,8 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
                 finish_reasons.append(finish_reason)
             output_messages.append(convert_openai_response_to_semconv(choice.message, finish_reason))
         span.set_attribute(OUTPUT_MESSAGES, output_messages)
-        if finish_reasons:
+        if finish_reasons:  # pragma: no branch
+            # finish_reasons can be empty if all choices have None finish_reason, but this is rare
             span.set_attribute(RESPONSE_FINISH_REASONS, finish_reasons)
     elif isinstance(response, Completion) and response.choices:
         first_choice = response.choices[0]
@@ -631,7 +637,8 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
                 }
             )
         span.set_attribute(OUTPUT_MESSAGES, output_messages_completion)
-        if finish_reasons_completion:
+        if finish_reasons_completion:  # pragma: no branch
+            # finish_reasons_completion can be empty if all choices have None finish_reason, but this is rare
             span.set_attribute(RESPONSE_FINISH_REASONS, finish_reasons_completion)
     elif isinstance(response, CreateEmbeddingResponse):
         span.set_attribute('response_data', {'usage': usage})

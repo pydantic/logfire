@@ -45,7 +45,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
     assert request.url in ['https://api.anthropic.com/v1/messages'], f'Unexpected URL: {request.url}'
     json_body = json.loads(request.content)
     if json_body.get('stream'):
-        if json_body['system'] == 'empty response chunk':
+        if json_body.get('system') == 'empty response chunk':
             return httpx.Response(200, text='data: []\n\n')
         else:
             chunks = [
@@ -77,7 +77,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
             return httpx.Response(
                 200, text=''.join(f'event: {chunk["type"]}\ndata: {json.dumps(chunk)}\n\n' for chunk in chunks_dicts)
             )
-    elif json_body['system'] == 'tool response':
+    elif json_body.get('system') == 'tool response':
         return httpx.Response(
             200,
             json=Message.model_construct(
@@ -89,7 +89,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                 usage=Usage(input_tokens=2, output_tokens=3),
             ).model_dump(mode='json'),
         )
-    elif json_body['system'] == 'image content':
+    elif json_body.get('system') == 'image content':
         return httpx.Response(
             200,
             json=Message(
@@ -106,7 +106,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                 usage=Usage(input_tokens=100, output_tokens=8),
             ).model_dump(mode='json'),
         )
-    elif json_body['system'] == 'tool use conversation':
+    elif json_body.get('system') == 'tool use conversation':
         return httpx.Response(
             200,
             json=Message(
@@ -138,6 +138,25 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                 role='assistant',
                 type='message',
                 stop_reason='end_turn',
+                stop_sequence=None,
+                usage=Usage(input_tokens=2, output_tokens=3),
+            ).model_dump(mode='json'),
+        )
+    elif json_body.get('system') == 'no stop reason':
+        return httpx.Response(
+            200,
+            json=Message(
+                id='test_id_no_stop',
+                content=[
+                    TextBlock(
+                        text='Hello',
+                        type='text',
+                    )
+                ],
+                model='claude-3-haiku-20240307',
+                role='assistant',
+                type='message',
+                stop_reason=None,
                 stop_sequence=None,
                 usage=Usage(input_tokens=2, output_tokens=3),
             ).model_dump(mode='json'),
@@ -1262,3 +1281,60 @@ def test_sync_messages_with_tool_use_conversation(
             }
         ]
     )
+
+
+def test_sync_messages_no_messages_no_system(instrumented_client: anthropic.Anthropic, exporter: TestExporter) -> None:
+    """Test Anthropic API call with empty messages and no system (covers branch 87->93)."""
+    response = instrumented_client.messages.create(
+        max_tokens=1000,
+        model='claude-3-haiku-20240307',
+        messages=[],
+    )
+    assert response.id == 'test_id'
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) == 1
+    # When both messages and system are empty/falsy, gen_ai.input.messages is not added
+    assert 'gen_ai.input.messages' not in spans[0]['attributes']
+    assert 'gen_ai.system_instructions' not in spans[0]['attributes']
+
+
+def test_sync_messages_no_system_instructions(instrumented_client: anthropic.Anthropic, exporter: TestExporter) -> None:
+    """Test Anthropic API call with messages but no system (covers branch 90->93)."""
+    response = instrumented_client.messages.create(
+        max_tokens=1000,
+        model='claude-3-haiku-20240307',
+        messages=[{'role': 'user', 'content': 'Hello'}],
+    )
+    assert response.id == 'test_id'
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) == 1
+    assert 'gen_ai.system_instructions' not in spans[0]['attributes']
+
+
+def test_sync_messages_none_content(instrumented_client: anthropic.Anthropic, exporter: TestExporter) -> None:
+    """Test Anthropic message with None content (covers branch 140->147)."""
+    response = instrumented_client.messages.create(
+        max_tokens=1000,
+        model='claude-3-haiku-20240307',
+        messages=[{'role': 'user', 'content': None}],
+    )
+    assert response.id == 'test_id'
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) == 1
+    # Message with None content should still create a message entry with empty parts
+    assert spans[0]['attributes']['gen_ai.input.messages'][0]['parts'] == []
+
+
+def test_sync_messages_no_stop_reason(instrumented_client: anthropic.Anthropic, exporter: TestExporter) -> None:
+    """Test Anthropic response without stop_reason (covers branch 286->291)."""
+    response = instrumented_client.messages.create(
+        max_tokens=1000,
+        model='claude-3-haiku-20240307',
+        system='no stop reason',
+        messages=[{'role': 'user', 'content': 'Hello'}],
+    )
+    assert response.id == 'test_id_no_stop'
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) == 1
+    # stop_reason should not be set if it's None
+    assert 'gen_ai.response.finish_reasons' not in spans[0]['attributes']

@@ -327,6 +327,33 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                     ).model_dump(mode='json'),
                 )
 
+            # Test case: no finish_reason
+            if any(m.get('content') == 'test no finish reason' for m in messages):
+                return httpx.Response(
+                    200,
+                    json=chat_completion.ChatCompletion(
+                        id='test_id_no_finish',
+                        choices=[
+                            chat_completion.Choice(
+                                finish_reason=None,
+                                index=0,
+                                message=chat_completion_message.ChatCompletionMessage(
+                                    content='Nine',
+                                    role='assistant',
+                                ),
+                            ),
+                        ],
+                        created=1634720000,
+                        model='gpt-4',
+                        object='chat.completion',
+                        usage=completion_usage.CompletionUsage(
+                            completion_tokens=1,
+                            prompt_tokens=2,
+                            total_tokens=3,
+                        ),
+                    ).model_dump(mode='json'),
+                )
+
             # Default response
             return httpx.Response(
                 200,
@@ -384,6 +411,23 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                 200, text=''.join(f'data: {chunk.model_dump_json()}\n\n' for chunk in completion_chunks)
             )
         else:
+            # Test case: no finish_reason
+            if json_body.get('prompt') == 'test no finish reason':
+                return httpx.Response(
+                    200,
+                    json=completion.Completion(
+                        id='test_id_no_finish',
+                        choices=[completion_choice.CompletionChoice(finish_reason=None, index=0, text='Nine')],
+                        created=123,
+                        model='gpt-3.5-turbo-instruct',
+                        object='text_completion',
+                        usage=completion_usage.CompletionUsage(
+                            completion_tokens=1,
+                            prompt_tokens=2,
+                            total_tokens=3,
+                        ),
+                    ).model_dump(mode='json'),
+                )
             return httpx.Response(
                 200,
                 json=completion.Completion(
@@ -3828,3 +3872,64 @@ I'm zeroing in on the core of the query. The "how are you" is basic, but the "tr
             },
         ]
     )
+
+
+def test_sync_chat_completions_empty_messages(instrumented_client: openai.Client, exporter: TestExporter) -> None:
+    """Test OpenAI chat completions with empty messages (covers branch 128->132)."""
+    response = instrumented_client.chat.completions.create(
+        model='gpt-4',
+        messages=[],
+    )
+    assert response.choices[0].message.content == 'Nine'
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) == 1
+    # When messages is empty, gen_ai.input.messages is not added
+    assert 'gen_ai.input.messages' not in spans[0]['attributes']
+
+
+@pytest.mark.vcr()
+def test_responses_api_empty_inputs(exporter: TestExporter) -> None:
+    """Test OpenAI responses API with empty inputs (covers branch 157->159)."""
+    client = openai.Client()
+    logfire.instrument_openai(client)
+    response = client.responses.create(
+        model='gpt-4.1',
+        input=None,
+        instructions='You are a helpful assistant.',
+    )
+    assert response.output[0].content == 'Nine'
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) == 1
+    # When input is None, input_messages is empty and not added
+    assert 'gen_ai.input.messages' not in spans[0]['attributes']
+    assert 'gen_ai.system_instructions' in spans[0]['attributes']
+
+
+def test_chat_completions_no_finish_reason(instrumented_client: openai.Client, exporter: TestExporter) -> None:
+    """Test OpenAI chat completions with None finish_reason (covers branch 611->612)."""
+    response = instrumented_client.chat.completions.create(
+        model='gpt-4',
+        messages=[{'role': 'user', 'content': 'test no finish reason'}],
+    )
+    assert response.choices[0].message.content == 'Nine'
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) == 1
+    # finish_reasons should not be set if all choices have None finish_reason
+    assert 'gen_ai.response.finish_reasons' not in spans[0]['attributes']
+    # But output_messages should still be set
+    assert 'gen_ai.output.messages' in spans[0]['attributes']
+
+
+def test_completions_no_finish_reason(instrumented_client: openai.Client, exporter: TestExporter) -> None:
+    """Test OpenAI completions with None finish_reason (covers branch 628->629)."""
+    response = instrumented_client.completions.create(
+        model='gpt-3.5-turbo-instruct',
+        prompt='test no finish reason',
+    )
+    assert response.choices[0].text == 'Nine'
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) == 1
+    # finish_reasons_completion should not be set if all choices have None finish_reason
+    assert 'gen_ai.response.finish_reasons' not in spans[0]['attributes']
+    # But output_messages should still be set
+    assert 'gen_ai.output.messages' in spans[0]['attributes']
