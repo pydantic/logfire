@@ -45,7 +45,7 @@ Let's see a minimal example below. You can run it with `python main.py`:
 
 === "Instrument a single client"
 
-    ```py title="main.py"
+    ```py title="main.py" skip-run="true" skip-reason="external-connection"
     import asyncio
 
     import httpx
