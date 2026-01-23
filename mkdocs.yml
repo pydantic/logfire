@@ -72,6 +72,16 @@ nav:
       - Why Logfire?: why.md
       - FAQ: faq.md
       - AI & LLM Observability: ai-observability.md
+      - Comparisons:
+          - Overview: comparisons/index.md
+          - vs Langfuse: comparisons/langfuse.md
+          - vs LangSmith: comparisons/langsmith.md
+          - vs Arize Phoenix: comparisons/arize-phoenix.md
+          - vs Braintrust: comparisons/braintrust.md
+          - vs Datadog: comparisons/datadog.md
+          - vs Sentry: comparisons/sentry.md
+          - vs SigNoz: comparisons/signoz.md
+          - vs Grafana: comparisons/grafana.md
       - Concepts: concepts.md
       - Get Help: help.md
       - Onboarding Checklist:
