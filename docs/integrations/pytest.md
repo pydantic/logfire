@@ -114,8 +114,7 @@ When running tests with `--logfire`, any instrumented library calls create spans
 
 ### Example: Custom Spans in Tests
 
-```python
-# test_api.py
+```python title="test_api.py"
 import logfire
 
 
@@ -142,7 +141,7 @@ pytest: my-project
 
 ### Example: Logging During Tests
 
-```python
+```python skip="true" skip-reason="incomplete"
 import logfire
 
 def test_operation():
@@ -187,7 +186,7 @@ After running your tests with `--logfire`, you can view the traces in the Logfir
 
 If you were previously using a manual tracing pattern in `conftest.py`:
 
-```python
+```python skip="true" skip-reason="incomplete"
 # Old pattern - no longer needed
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_protocol(item):
