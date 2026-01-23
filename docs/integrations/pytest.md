@@ -114,20 +114,20 @@ When running tests with `--logfire`, any instrumented library calls create spans
 
 ### Example: Custom Spans in Tests
 
-```python
-# test_api.py
+```python title="test_api.py"
 import logfire
+
 
 def test_user_workflow():
     """Test a complete user workflow."""
-    with logfire.span("create user"):
+    with logfire.span('create user'):
         # Simulate user creation
-        user = {"id": 123, "name": "Test User"}
-        assert user["name"] == "Test User"
+        user = {'id': 123, 'name': 'Test User'}
+        assert user['name'] == 'Test User'
 
-    with logfire.span("verify user"):
+    with logfire.span('verify user'):
         # Verify the user was created correctly
-        assert user["id"] == 123
+        assert user['id'] == 123
 ```
 
 Running with `pytest --logfire` produces this trace hierarchy:
@@ -141,7 +141,7 @@ pytest: my-project
 
 ### Example: Logging During Tests
 
-```python
+```python skip="true" skip-reason="incomplete"
 import logfire
 
 def test_operation():
@@ -186,7 +186,7 @@ After running your tests with `--logfire`, you can view the traces in the Logfir
 
 If you were previously using a manual tracing pattern in `conftest.py`:
 
-```python
+```python skip="true" skip-reason="incomplete"
 # Old pattern - no longer needed
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_protocol(item):

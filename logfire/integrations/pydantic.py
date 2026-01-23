@@ -35,8 +35,9 @@ class PluginSettings(TypedDict, total=False):
     with a Pydantic model:
 
     ```py
-    from logfire.integrations.pydantic import PluginSettings
     from pydantic import BaseModel
+
+    from logfire.integrations.pydantic import PluginSettings
 
 
     class Model(BaseModel, plugin_settings=PluginSettings(logfire={'record': 'all'})):

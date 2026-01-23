@@ -19,16 +19,17 @@ Let's see a minimal example below. You can run it with `python main.py`:
 
 === "Instrument the package"
 
-    ```py title="main.py"
+    ```py title="main.py" skip-run="true" skip-reason="external-connection"
     import asyncio
 
     import httpx
+
     import logfire
 
     logfire.configure()
     logfire.instrument_httpx()
 
-    url = "https://httpbin.org/get"
+    url = 'https://httpbin.org/get'
 
     with httpx.Client() as client:
         client.get(url)
@@ -44,10 +45,11 @@ Let's see a minimal example below. You can run it with `python main.py`:
 
 === "Instrument a single client"
 
-    ```py title="main.py"
+    ```py title="main.py" skip-run="true" skip-reason="external-connection"
     import asyncio
 
     import httpx
+
     import logfire
 
     logfire.configure()
@@ -80,50 +82,50 @@ The `logfire.instrument_httpx()` method accepts various parameters to configure 
 
 You can capture all information (headers and bodies) by setting the `capture_all` parameter to `True`.
 
-```py
+```py skip-run="true" skip-reason="external-connection"
 import httpx
+
 import logfire
 
 logfire.configure()
 logfire.instrument_httpx(capture_all=True)
 
 client = httpx.Client()
-client.post("https://httpbin.org/post", json={"key": "value"})
+client.post('https://httpbin.org/post', json={'key': 'value'})
 ```
 
 ### Capture HTTP Headers
 
 By default, **Logfire** doesn't capture HTTP headers. You can enable it by setting the `capture_headers` parameter to `True`.
 
-```py
+```py skip-run="true" skip-reason="external-connection"
 import httpx
+
 import logfire
 
 logfire.configure()
 logfire.instrument_httpx(capture_headers=True)
 
 client = httpx.Client()
-client.get("https://httpbin.org/get")
+client.get('https://httpbin.org/get')
 ```
 
 #### Capture Only Request Headers
 
 Instead of capturing both request and response headers, you can create a request hook to capture only the request headers:
 
-```py
+```py skip-run="true" skip-reason="external-connection"
 import httpx
+from opentelemetry.trace import Span
+
 import logfire
 from logfire.integrations.httpx import RequestInfo
-from opentelemetry.trace import Span
 
 
 def capture_request_headers(span: Span, request: RequestInfo):
     headers = request.headers
     span.set_attributes(
-        {
-            f'http.request.header.{header_name}': headers.get_list(header_name)
-            for header_name in headers.keys()
-        }
+        {f'http.request.header.{header_name}': headers.get_list(header_name) for header_name in headers.keys()}
     )
 
 
@@ -131,25 +133,25 @@ logfire.configure()
 logfire.instrument_httpx(request_hook=capture_request_headers)
 
 client = httpx.Client()
-client.get("https://httpbin.org/get")
+client.get('https://httpbin.org/get')
 ```
 
 #### Capture Only Response Headers
 
 Similarly, you can create a response hook to capture only the response headers:
 
-```py
+```py skip-run="true" skip-reason="external-connection"
 import httpx
-import logfire
 from opentelemetry.trace import Span
+
+import logfire
 from logfire.integrations.httpx import RequestInfo, ResponseInfo
 
 
 def capture_response_headers(span: Span, request: RequestInfo, response: ResponseInfo):
     headers = response.headers
     span.set_attributes(
-        {f'http.response.header.{header_name}': headers.get_list(header_name)
-        for header_name in headers.keys()}
+        {f'http.response.header.{header_name}': headers.get_list(header_name) for header_name in headers.keys()}
     )
 
 
@@ -168,8 +170,9 @@ By default, **Logfire** doesn't capture HTTP bodies.
 
 To capture bodies, you can set the `capture_request_body` and `capture_response_body` parameters to `True`.
 
-```py
+```py skip-run="true" skip-reason="external-connection"
 import httpx
+
 import logfire
 
 logfire.configure()
@@ -179,7 +182,7 @@ logfire.instrument_httpx(
 )
 
 client = httpx.Client()
-client.post("https://httpbin.org/post", data="Hello, World!")
+client.post('https://httpbin.org/post', data='Hello, World!')
 ```
 
 [httpx]: https://www.python-httpx.org/

@@ -191,6 +191,8 @@ dev = [
     "dspy >= 3.1.0; python_version >= '3.10'",
     "pip >= 0",
     "surrealdb >= 0",
+    "pytest-examples>=0.0.18",
+    "pytest-timeout>=2.4.0",
 ]
 docs = [
     "black>=23.12.0",

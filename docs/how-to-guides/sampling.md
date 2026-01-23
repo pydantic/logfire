@@ -51,7 +51,7 @@ Note that 5 out of 10 traces are kept, and that the child log is kept if and onl
 Random head sampling often works well, but you may not want to lose any traces which indicate problems. In this case,
 you can use tail sampling. Here's a simple example:
 
-```python
+```python skip-run="true" skip-reason="blocking"
 import time
 
 import logfire
@@ -160,7 +160,7 @@ trace will be included and the spans will be exported and freed. This works beca
 between the start of the trace and the start/end of the most recent span, so the tail sampler can know that a span will
 exceed the duration threshold even before it's complete. For example, running this script:
 
-```python
+```python skip-run="true" skip-reason="blocking"
 import time
 
 import logfire
@@ -216,7 +216,7 @@ only keeps track of active traces to save memory. This is similar to the distrib
 Here's an example with a FastAPI background task which starts after the root span corresponding to the request has
 ended:
 
-```python
+```python skip-run="true" skip-reason="blocking"
 import uvicorn
 from fastapi import BackgroundTasks, FastAPI
 
@@ -253,17 +253,18 @@ A workaround is to explicitly put the new spans in their own trace using [
 `attach_context`][logfire.attach_context]:
 
 ```python
+import asyncio
+
 import logfire
 
 
 async def background_task():
-   # `attach_context({})` forgets existing context
-   # so that spans within start a new trace.
-   with logfire.attach_context({}):
-      with logfire.span('new trace'):
-         await asyncio.sleep(0.2)
-         logfire.info('background')
-
+    # `attach_context({})` forgets existing context
+    # so that spans within start a new trace.
+    with logfire.attach_context({}):
+        with logfire.span('new trace'):
+            await asyncio.sleep(0.2)
+            logfire.info('background')
 ```
 
 ## Custom head sampling
@@ -285,19 +286,19 @@ import logfire
 
 class MySampler(Sampler):
     def should_sample(
-            self,
-            parent_context,
-            trace_id,
-            name,
-            *args,
-            **kwargs,
+        self,
+        parent_context,
+        trace_id,
+        name,
+        *args,
+        **kwargs,
     ):
         if name == 'exclude me':
             sampler = ALWAYS_OFF
         elif name == 'include me minimally':
             sampler = TraceIdRatioBased(0.01)  # 1% sampling
         elif name == 'include me partially':
-            sampler = TraceIdRatioBased(0.5)   # 50% sampling
+            sampler = TraceIdRatioBased(0.5)  # 50% sampling
         else:
             sampler = ALWAYS_ON
         return sampler.should_sample(
