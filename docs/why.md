@@ -220,23 +220,40 @@ In the example above, we can see the FastAPI arguments failing (`user` is null w
 
 ## Structured Data and SQL :abacus: {#sql}
 
-Query your data with pure, canonical PostgreSQL — all the control and (for many) nothing new to learn. We even provide direct access to the underlying Postgres database, which means that you can query Logfire using any Postgres-compatible tools you like.
+Query your data with SQL using familiar PostgreSQL-compatible syntax — all the control and (for many) nothing new to learn.
 
-This includes BI tools and dashboard-building platforms like
+Logfire uses [Apache DataFusion](https://datafusion.apache.org/) as its query engine, which provides SQL syntax designed to match PostgreSQL conventions. See the [SQL Reference](reference/sql.md) for details.
 
-- Superset
-- Grafana
-- Google Looker Studio
+Another big advantage is that generative AI tools like Claude Code or OpenAI Codex are excellent at writing SQL for you.
 
-As well as data science tools like
+### Built for Agentic Coding Workflows
 
-- Pandas
-- SQLAlchemy
-- `psql`
+When you're using coding agents to iterate on AI applications, your agent needs to understand what's happening in production. Most observability tools limit agents to predefined APIs or proprietary query languages.
 
-Using vanilla PostgreSQL as the querying language throughout the platform ensures a consistent, powerful, and flexible querying experience.
+**Logfire gives agents full SQL access.**
 
-Another big advantage of using the most widely used SQL databases is that generative AI tools like ChatGPT are excellent at writing SQL for you.
+```sql
+-- Your coding agent can write queries like:
+SELECT
+  span_name,
+  AVG(duration) as avg_latency,
+  COUNT(*) as request_count,
+  SUM((attributes->>'token_count')::int) as total_tokens
+FROM records
+WHERE service_name = 'my-ai-service'
+  AND start_timestamp > NOW() - INTERVAL '1 hour'
+GROUP BY span_name
+ORDER BY avg_latency DESC;
+```
+
+This means:
+
+- **No artificial limitations** — Ask any question, get any answer
+- **AI assistants excel at SQL** — GPT-5, Claude, and other LLMs write excellent SQL
+- **Arbitrary analysis** — Correlations, patterns, edge cases—whatever you need
+- **Familiar syntax** — No new query language to learn
+
+When a coding agent is debugging your AI application, it shouldn't be limited by what queries someone anticipated. It should have full access to understand what's actually happening.
 
 Just include your Python objects in **Logfire** calls (lists, dict, dataclasses, Pydantic models, DataFrames, and more),
 and it'll end up as structured data in our platform ready to be queried.
@@ -259,6 +276,4 @@ attributes->'result'->>'name' = 'Ben'
 
 ![Logfire search query screenshot](images/index/logfire-screenshot-search-query.png)
 
-Structured Data and Direct SQL Access means you can use familiar tools like Pandas, SQLAlchemy, or `psql`
-for querying, can integrate seamlessly with BI tools, and can even leverage AI for SQL generation, ensuring your Python
-objects and structured data are query-ready.
+Structured Data and SQL Access with familiar syntax means you can leverage AI for SQL generation, ensuring your Python objects and structured data are query-ready.
