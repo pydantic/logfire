@@ -393,7 +393,7 @@ def pytest_runtest_makereport(
 
 
 @pytest.hookimpl(hookwrapper=True)
-def pytest_runtest_setup(item: pytest.Item) -> Generator[None, Any, None]:
+def pytest_runtest_setup(item: pytest.Item) -> Generator[None]:
     """Trace test setup phase if --logfire-trace-phases is enabled."""
     if not _should_trace_phases(item.config):
         yield
@@ -412,7 +412,7 @@ def pytest_runtest_setup(item: pytest.Item) -> Generator[None, Any, None]:
 
 
 @pytest.hookimpl(hookwrapper=True)
-def pytest_runtest_call(item: pytest.Item) -> Generator[None, Any, None]:
+def pytest_runtest_call(item: pytest.Item) -> Generator[None]:
     """Trace test call phase if --logfire-trace-phases is enabled."""
     if not _should_trace_phases(item.config):
         yield
@@ -431,7 +431,7 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None, Any, None]:
 
 
 @pytest.hookimpl(hookwrapper=True)
-def pytest_runtest_teardown(item: pytest.Item) -> Generator[None, Any, None]:
+def pytest_runtest_teardown(item: pytest.Item) -> Generator[None]:
     """Trace test teardown phase if --logfire-trace-phases is enabled."""
     if not _should_trace_phases(item.config):
         yield
