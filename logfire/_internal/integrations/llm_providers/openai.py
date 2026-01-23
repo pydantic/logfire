@@ -711,4 +711,3 @@ def unknown_event(inp: dict[str, Any]):
         'content': f'{inp.get("type")}\n\nSee JSON for details',
         'data': inp,
     }
-
