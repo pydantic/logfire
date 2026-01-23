@@ -23,6 +23,7 @@ from openai.types import (
     images_response,
 )
 from openai.types.chat import chat_completion, chat_completion_chunk as cc_chunk, chat_completion_message
+from openai.types.chat.chat_completion_message_function_tool_call import ChatCompletionMessageFunctionToolCall
 from openai.types.chat.chat_completion_message_tool_call import ChatCompletionMessageToolCall, Function
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
@@ -1160,7 +1161,9 @@ def test_sync_chat_response_with_tool_calls(instrumented_client: openai.Client, 
         ],
     )
     assert response.choices[0].message.tool_calls is not None
-    assert response.choices[0].message.tool_calls[0].function.name == 'get_weather'
+    tool_call = response.choices[0].message.tool_calls[0]
+    assert isinstance(tool_call, ChatCompletionMessageFunctionToolCall)
+    assert tool_call.function.name == 'get_weather'
 
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [

@@ -233,8 +233,8 @@ def convert_chat_completions_to_semconv(
     system_instructions is only used for dedicated instruction parameters (which don't
     exist for chat completions).
     """
-    input_messages: list[dict[str, Any]] = []
-    system_instructions: list[dict[str, Any]] = []
+    input_messages: InputMessages = []
+    system_instructions: SystemInstructions = []
 
     for msg in messages:
         role = msg.get('role', 'unknown')
@@ -364,7 +364,9 @@ def convert_responses_inputs_to_semconv(
         system_instructions.append(TextPart(type='text', content=instructions))
     if inputs:
         if isinstance(inputs, str):
-            input_messages.append({'role': 'user', 'parts': [TextPart(type='text', content=inputs)]})
+            input_messages.append(
+                cast('ChatMessage', {'role': 'user', 'parts': [TextPart(type='text', content=inputs)]})
+            )
         else:
             for inp in inputs:
                 role, typ, content = inp.get('role', 'user'), inp.get('type'), inp.get('content')
@@ -379,23 +381,26 @@ def convert_responses_inputs_to_semconv(
                                 if item_dict.get('type') == 'output_text':
                                     parts.append(TextPart(type='text', content=item_dict.get('text', '')))
                                 else:
-                                    parts.append(item_dict)  # type: ignore[arg-type]
+                                    parts.append(cast('MessagePart', item_dict))
                             else:
                                 parts.append(TextPart(type='text', content=str(item)))
-                    input_messages.append({'role': role, 'parts': parts})  # type: ignore[arg-type]
+                    input_messages.append(cast('ChatMessage', {'role': role, 'parts': parts}))
                 elif typ == 'function_call':
                     input_messages.append(
-                        {
-                            'role': 'assistant',
-                            'parts': [
-                                ToolCallPart(
-                                    type='tool_call',
-                                    id=inp.get('call_id', ''),
-                                    name=inp.get('name', ''),
-                                    arguments=inp.get('arguments'),
-                                )
-                            ],
-                        }
+                        cast(
+                            'ChatMessage',
+                            {
+                                'role': 'assistant',
+                                'parts': [
+                                    ToolCallPart(
+                                        type='tool_call',
+                                        id=inp.get('call_id', ''),
+                                        name=inp.get('name', ''),
+                                        arguments=inp.get('arguments'),
+                                    )
+                                ],
+                            },
+                        )
                     )
                 elif typ == 'function_call_output':
                     msg: ChatMessage = {
@@ -433,28 +438,34 @@ def convert_responses_outputs_to_semconv(response: Response) -> OutputMessages:
                         if item_dict.get('type') == 'output_text':
                             parts.append(TextPart(type='text', content=item_dict.get('text', '')))
                         else:  # pragma: no cover
-                            parts.append(item_dict)  # type: ignore[arg-type]
+                            parts.append(cast('MessagePart', item_dict))
                     else:  # pragma: no cover
                         parts.append(TextPart(type='text', content=str(item)))
             output_messages.append(
-                {
-                    'role': 'assistant',  # type: ignore[assignment]
-                    'parts': parts,
-                }
+                cast(
+                    'OutputMessage',
+                    {
+                        'role': 'assistant',
+                        'parts': parts,
+                    },
+                )
             )
         elif typ == 'function_call':  # pragma: no cover - outputs are typically 'message' type
             output_messages.append(
-                {
-                    'role': 'assistant',  # type: ignore[assignment]
-                    'parts': [
-                        ToolCallPart(
-                            type='tool_call',
-                            id=out_dict.get('call_id', ''),
-                            name=out_dict.get('name', ''),
-                            arguments=out_dict.get('arguments'),
-                        )
-                    ],
-                }
+                cast(
+                    'OutputMessage',
+                    {
+                        'role': 'assistant',
+                        'parts': [
+                            ToolCallPart(
+                                type='tool_call',
+                                id=out_dict.get('call_id', ''),
+                                name=out_dict.get('name', ''),
+                                arguments=out_dict.get('arguments'),
+                            )
+                        ],
+                    },
+                )
             )
     return output_messages
 
@@ -592,7 +603,7 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
             {'message': response.choices[0].message, 'usage': usage},
         )
         # Add semantic convention output messages
-        output_messages: list[dict[str, Any]] = []
+        output_messages: OutputMessages = []
         finish_reasons: list[str] = []
         for choice in response.choices:
             finish_reason = choice.finish_reason
@@ -630,7 +641,7 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
     elif isinstance(response, ImagesResponse):
         span.set_attribute('response_data', {'images': response.data})
     elif isinstance(response, Response):  # pragma: no branch
-        output_messages = convert_responses_outputs_to_semconv(response)
+        output_messages: OutputMessages = convert_responses_outputs_to_semconv(response)
         if output_messages:
             span.set_attribute(OUTPUT_MESSAGES, output_messages)
         # Keep 'events' for backward compatibility
