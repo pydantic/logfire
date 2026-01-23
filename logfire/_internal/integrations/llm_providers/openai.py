@@ -17,7 +17,7 @@ from opentelemetry.trace import get_current_span
 
 from logfire import LogfireSpan
 
-from ...utils import handle_internal_errors
+from ...utils import handle_internal_errors, log_internal_error
 from .semconv import (
     INPUT_MESSAGES,
     INPUT_TOKENS,
@@ -603,4 +603,112 @@ def is_async_client(client: type[openai.OpenAI] | type[openai.AsyncOpenAI]):
         return False
     assert issubclass(client, openai.AsyncOpenAI), f'Expected OpenAI or AsyncOpenAI type, got: {client}'
     return True
+
+
+@handle_internal_errors
+def inputs_to_events(inputs: str | list[dict[str, Any]] | None, instructions: str | None):
+    """Generate dictionaries in the style of OTel events from the inputs and instructions to the Responses API.
+
+    Note: This function is kept for backward compatibility with openai_agents integration.
+    """
+    events: list[dict[str, Any]] = []
+    tool_call_id_to_name: dict[str, str] = {}
+    if instructions:
+        events += [
+            {
+                'event.name': 'gen_ai.system.message',
+                'content': instructions,
+                'role': 'system',
+            }
+        ]
+    if inputs:
+        if isinstance(inputs, str):
+            inputs = [{'role': 'user', 'content': inputs}]
+        for inp in inputs:
+            events += input_to_events(inp, tool_call_id_to_name)
+    return events
+
+
+@handle_internal_errors
+def responses_output_events(response: Response):
+    """Generate dictionaries in the style of OTel events from the outputs of the Responses API.
+
+    Note: This function is kept for backward compatibility with openai_agents integration.
+    """
+    events: list[dict[str, Any]] = []
+    for out in response.output:
+        for message in input_to_events(
+            out.model_dump(),
+            # Outputs don't have tool call responses, so this isn't needed.
+            tool_call_id_to_name={},
+        ):
+            events.append({**message, 'role': 'assistant'})
+    return events
+
+
+def input_to_events(inp: dict[str, Any], tool_call_id_to_name: dict[str, str]):
+    """Generate dictionaries in the style of OTel events from one input to the Responses API.
+
+    `tool_call_id_to_name` is a mapping from tool call IDs to function names.
+    It's populated when the input is a tool call and used later to
+    provide the function name in the event for tool call responses.
+
+    Note: This function is kept for backward compatibility with openai_agents integration.
+    """
+    try:
+        events: list[dict[str, Any]] = []
+        role: str | None = inp.get('role')
+        typ = inp.get('type')
+        content = inp.get('content')
+        if role and typ in (None, 'message') and content:
+            event_name = f'gen_ai.{role}.message'
+            if isinstance(content, str):
+                events.append({'event.name': event_name, 'content': content, 'role': role})
+            else:
+                for content_item in content:
+                    with contextlib.suppress(KeyError):
+                        if content_item['type'] == 'output_text':  # pragma: no branch
+                            events.append({'event.name': event_name, 'content': content_item['text'], 'role': role})
+                            continue
+                    events.append(unknown_event(content_item))  # pragma: no cover
+        elif typ == 'function_call':
+            tool_call_id_to_name[inp['call_id']] = inp['name']
+            events.append(
+                {
+                    'event.name': 'gen_ai.assistant.message',
+                    'role': 'assistant',
+                    'tool_calls': [
+                        {
+                            'id': inp['call_id'],
+                            'type': 'function',
+                            'function': {'name': inp['name'], 'arguments': inp['arguments']},
+                        },
+                    ],
+                }
+            )
+        elif typ == 'function_call_output':
+            events.append(
+                {
+                    'event.name': 'gen_ai.tool.message',
+                    'role': 'tool',
+                    'id': inp['call_id'],
+                    'content': inp['output'],
+                    'name': tool_call_id_to_name.get(inp['call_id'], inp.get('name', 'unknown')),
+                }
+            )
+        else:
+            events.append(unknown_event(inp))
+        return events
+    except Exception:  # pragma: no cover
+        log_internal_error()
+        return [unknown_event(inp)]
+
+
+def unknown_event(inp: dict[str, Any]):
+    return {
+        'event.name': 'gen_ai.unknown',
+        'role': inp.get('role') or 'unknown',
+        'content': f'{inp.get("type")}\n\nSee JSON for details',
+        'data': inp,
+    }
 
