@@ -118,16 +118,17 @@ When running tests with `--logfire`, any instrumented library calls create spans
 # test_api.py
 import logfire
 
+
 def test_user_workflow():
     """Test a complete user workflow."""
-    with logfire.span("create user"):
+    with logfire.span('create user'):
         # Simulate user creation
-        user = {"id": 123, "name": "Test User"}
-        assert user["name"] == "Test User"
+        user = {'id': 123, 'name': 'Test User'}
+        assert user['name'] == 'Test User'
 
-    with logfire.span("verify user"):
+    with logfire.span('verify user'):
         # Verify the user was created correctly
-        assert user["id"] == 123
+        assert user['id'] == 123
 ```
 
 Running with `pytest --logfire` produces this trace hierarchy:
