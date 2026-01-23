@@ -63,7 +63,7 @@ class ToolCallPart(TypedDict):
     type: Literal['tool_call']
     id: str
     name: str
-    arguments: NotRequired[Union[dict[str, Any], str, None]]
+    arguments: NotRequired[dict[str, Any] | str | None]
 
 
 class ToolCallResponsePart(TypedDict):
@@ -71,7 +71,7 @@ class ToolCallResponsePart(TypedDict):
 
     type: Literal['tool_call_response']
     id: str
-    response: NotRequired[Union[str, dict[str, Any], None]]
+    response: NotRequired[str | dict[str, Any] | None]
     # Note: OTel spec may use 'result' instead of 'response',
     # but we use 'response' for consistency
 
