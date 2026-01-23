@@ -75,11 +75,9 @@ _exporter = TestExporter()
 @pytest.hookimpl(trylast=True)
 def pytest_configure(config):
     """Add our test exporter AFTER logfire plugin has configured the tracer."""
-    from opentelemetry import trace
-    provider = trace.get_tracer_provider()
-    # Add our exporter to capture spans
-    if hasattr(provider, "add_span_processor"):
-        provider.add_span_processor(SimpleSpanProcessor(_exporter))
+    from logfire._internal.integrations.pytest import _CONFIG_KEY
+    if lf_config := config.stash.get(_CONFIG_KEY, None):
+        lf_config.logfire_instance.config.get_tracer_provider().add_span_processor(SimpleSpanProcessor(_exporter))
 
 
 @pytest.hookimpl(hookwrapper=True, trylast=True)
@@ -612,10 +610,8 @@ def test_custom_spans_nested_under_test_span(logfire_pytester: pytest.Pytester):
     are properly nested under the test span.
     """
     logfire_pytester.makepyfile("""
-        import logfire
-
-        def test_with_custom_span():
-            with logfire.span("fetching data"):
+        def test_with_custom_span(logfire_instance):
+            with logfire_instance.span("fetching data"):
                 # Simulate some work
                 result = 1 + 1
                 assert result == 2
@@ -702,12 +698,10 @@ def test_logfire_info_creates_span(logfire_pytester: pytest.Pytester):
     This tests that logfire.info() and similar calls work correctly within tests.
     """
     logfire_pytester.makepyfile("""
-        import logfire
-
-        def test_with_logging():
-            logfire.info("Starting test operation")
+        def test_with_logging(logfire_instance):
+            logfire_instance.info("Starting test operation")
             result = 42
-            logfire.info("Operation completed", result=result)
+            logfire_instance.info("Operation completed", result=result)
             assert result == 42
     """)
     result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire')

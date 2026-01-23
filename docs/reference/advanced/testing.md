@@ -1,11 +1,12 @@
 ---
-title: Testing with Logfire
+title: Testing Logfire Intrumentation
 description: Logfire makes it very easy to test emitted logs and spans using the utilities in the logfire.testing module.
 ---
-# Testing with Logfire
+# Testing Logfire Intrumentation
 
 !!! tip "Running under Pytest... 🧪"
     When running your test suite under Pytest, we set [`send_to_logfire=False`][logfire.configure(send_to_logfire)] by default.
+    Please refer to the [Pytest instrumentation](../../integrations/pytest.md) guide for details on instrumenting your tests.
 
 You may want to check that your API is logging the data you expect, that spans correctly track the work they wrap, etc.
 This can often be difficult, including with Python's built in logging and OpenTelemetry's SDKs.
