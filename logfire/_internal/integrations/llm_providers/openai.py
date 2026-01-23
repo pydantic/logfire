@@ -355,11 +355,15 @@ def convert_responses_inputs_to_semconv(
                     if isinstance(content, str):
                         parts.append({'type': 'text', 'content': content})
                     elif isinstance(content, list):
-                        for item in content:
-                            if isinstance(item, dict) and item.get('type') == 'output_text':
-                                parts.append({'type': 'text', 'content': item.get('text', '')})
+                        for item in cast(list[Any], content):
+                            if isinstance(item, dict):
+                                item_dict = cast(dict[str, Any], item)
+                                if item_dict.get('type') == 'output_text':
+                                    parts.append({'type': 'text', 'content': item_dict.get('text', '')})
+                                else:
+                                    parts.append(item_dict)
                             else:
-                                parts.append(item if isinstance(item, dict) else {'type': 'text', 'content': str(item)})
+                                parts.append({'type': 'text', 'content': str(item)})
                     input_messages.append({'role': role, 'parts': parts})
                 elif typ == 'function_call':
                     input_messages.append(
@@ -398,11 +402,15 @@ def convert_responses_outputs_to_semconv(response: Response) -> list[dict[str, A
             if isinstance(content, str):
                 parts.append({'type': 'text', 'content': content})
             elif isinstance(content, list):
-                for item in content:
-                    if isinstance(item, dict) and item.get('type') == 'output_text':
-                        parts.append({'type': 'text', 'content': item.get('text', '')})
+                for item in cast(list[Any], content):
+                    if isinstance(item, dict):
+                        item_dict = cast(dict[str, Any], item)
+                        if item_dict.get('type') == 'output_text':
+                            parts.append({'type': 'text', 'content': item_dict.get('text', '')})
+                        else:
+                            parts.append(item_dict)
                     else:
-                        parts.append(item if isinstance(item, dict) else {'type': 'text', 'content': str(item)})
+                        parts.append({'type': 'text', 'content': str(item)})
             output_messages.append({'role': 'assistant', 'parts': parts})
         elif typ == 'function_call':
             output_messages.append(
