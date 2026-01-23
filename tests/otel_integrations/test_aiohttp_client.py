@@ -108,7 +108,7 @@ async def test_aiohttp_client_no_capture_headers_with_hooks(exporter: TestExport
     finally:
         AioHttpClientInstrumentor().uninstrument()
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'GET',
@@ -165,7 +165,7 @@ async def test_aiohttp_client_capture_headers(exporter: TestExporter, test_app: 
     finally:
         AioHttpClientInstrumentor().uninstrument()
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'GET',
@@ -197,7 +197,9 @@ async def test_aiohttp_client_capture_headers(exporter: TestExporter, test_app: 
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'http.target': '/test',
-                    'logfire.scrubbed': '[{"path": ["attributes", "http.request.header.Authorization"], "matched_substring": "Auth"}]',
+                    'logfire.scrubbed': [
+                        {'path': ['attributes', 'http.request.header.Authorization'], 'matched_substring': 'Auth'}
+                    ],
                 },
             }
         ]
@@ -219,7 +221,7 @@ async def test_aiohttp_client_exception_handling(exporter: TestExporter):
     finally:
         AioHttpClientInstrumentor().uninstrument()
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'GET',
@@ -273,7 +275,7 @@ async def test_aiohttp_client_exception_handling_with_hooks(exporter: TestExport
     finally:
         AioHttpClientInstrumentor().uninstrument()
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'GET',
@@ -338,7 +340,7 @@ async def test_aiohttp_client_capture_response_body(exporter: TestExporter, test
     finally:
         AioHttpClientInstrumentor().uninstrument()
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'GET',
@@ -379,8 +381,11 @@ async def test_aiohttp_client_capture_response_body(exporter: TestExporter, test
                     'logfire.msg_template': 'Reading response body',
                     'logfire.msg': 'Reading response body',
                     'logfire.span_type': 'span',
-                    'http.response.body.text': '{"good": "response"}',
-                    'logfire.json_schema': '{"type":"object","properties":{"http.response.body.text":{"type":"object"}}}',
+                    'http.response.body.text': {'good': 'response'},
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'http.response.body.text': {'type': 'object'}},
+                    },
                 },
             },
         ]
@@ -402,7 +407,7 @@ async def test_aiohttp_client_capture_response_body_exception(exporter: TestExpo
     finally:
         AioHttpClientInstrumentor().uninstrument()
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'GET',
@@ -454,7 +459,7 @@ async def test_aiohttp_client_capture_all(
                 assert await response.json() == {'good': 'response'}
                 assert await response.read() == b'{"good": "response"}'
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'POST',
@@ -473,8 +478,11 @@ async def test_aiohttp_client_capture_all(
                     'server.port': IsInt(),
                     'logfire.span_type': 'span',
                     'logfire.msg': 'POST localhost/body',
-                    'http.request.body.text': '{"good":"request"}',
-                    'logfire.json_schema': '{"type":"object","properties":{"http.request.body.text":{"type":"object"}}}',
+                    'http.request.body.text': {'good': 'request'},
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'http.request.body.text': {'type': 'object'}},
+                    },
                     'http.response.header.Content-Type': ('application/json; charset=utf-8',),
                     'http.response.header.Content-Length': IsTuple(IsStr()),
                     'http.response.header.Date': IsTuple(IsStr()),
@@ -497,8 +505,11 @@ async def test_aiohttp_client_capture_all(
                     'logfire.msg_template': 'Reading response body',
                     'logfire.msg': 'Reading response body',
                     'logfire.span_type': 'span',
-                    'http.response.body.text': '{"good": "response"}',
-                    'logfire.json_schema': '{"type":"object","properties":{"http.response.body.text":{"type":"object"}}}',
+                    'http.response.body.text': {'good': 'response'},
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'http.response.body.text': {'type': 'object'}},
+                    },
                 },
             },
         ]
@@ -517,7 +528,7 @@ async def test_aiohttp_client_capture_request_body_bytes(
             async with session.post(f'http://localhost:{server.port}/body', data=b'raw bytes data') as response:  # type: ignore
                 assert await response.json() == {'good': 'response'}
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'POST',
@@ -536,7 +547,10 @@ async def test_aiohttp_client_capture_request_body_bytes(
                     'server.port': IsInt(),
                     'logfire.span_type': 'span',
                     'logfire.msg': 'POST localhost/body',
-                    'logfire.json_schema': '{"type":"object","properties":{"http.request.body.text":{"type":"object"}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'http.request.body.text': {'type': 'object'}},
+                    },
                     'http.request.body.text': 'raw bytes data',
                     'http.status_code': 200,
                     'http.response.status_code': 200,
@@ -559,7 +573,7 @@ async def test_aiohttp_client_capture_request_body_string(
             async with session.post(f'http://localhost:{server.port}/body', data='string data') as response:  # type: ignore
                 assert await response.json() == {'good': 'response'}
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'POST',
@@ -578,7 +592,10 @@ async def test_aiohttp_client_capture_request_body_string(
                     'server.port': IsInt(),
                     'logfire.span_type': 'span',
                     'logfire.msg': 'POST localhost/body',
-                    'logfire.json_schema': '{"type":"object","properties":{"http.request.body.text":{"type":"object"}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'http.request.body.text': {'type': 'object'}},
+                    },
                     'http.request.body.text': 'string data',
                     'http.status_code': 200,
                     'http.response.status_code': 200,
@@ -604,7 +621,7 @@ async def test_aiohttp_client_capture_request_body_form(
             ) as response:
                 assert await response.json() == {'good': 'response'}
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'POST',
@@ -623,8 +640,11 @@ async def test_aiohttp_client_capture_request_body_form(
                     'server.port': IsInt(),
                     'logfire.span_type': 'span',
                     'logfire.msg': 'POST localhost/body',
-                    'http.request.body.form': '{"field1":"value1","field2":"value2"}',
-                    'logfire.json_schema': IsStr(),
+                    'http.request.body.form': {'field1': 'value1', 'field2': 'value2'},
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'http.request.body.form': {'type': 'object'}},
+                    },
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'http.target': '/body',
@@ -656,7 +676,7 @@ async def test_aiohttp_client_capture_stream_body(
                 assert await response.json() == {'good': 'response'}
 
     # Streaming bodies aren't captured (generator is not bytes/str/dict)
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'POST',
@@ -700,7 +720,7 @@ async def test_aiohttp_client_capture_request_body_binary(
                 assert await response.json() == {'good': 'response'}
 
     # Should NOT have http.request.body.text since binary data can't be decoded
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'POST',
@@ -741,7 +761,7 @@ async def test_aiohttp_client_no_capture_empty_body(
                 await response.json()
 
     # Should NOT have http.request.body.text since GET has no body
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'GET',
@@ -791,7 +811,7 @@ async def test_aiohttp_client_capture_all_environment_variable(
                     assert await response.json() == {'good': 'response'}
                     await response.read()
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'POST',
@@ -810,8 +830,11 @@ async def test_aiohttp_client_capture_all_environment_variable(
                     'server.port': IsInt(),
                     'logfire.span_type': 'span',
                     'logfire.msg': 'POST localhost/body',
-                    'http.request.body.text': '{"test":"data"}',
-                    'logfire.json_schema': IsStr(),
+                    'http.request.body.text': {'test': 'data'},
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'http.request.body.text': {'type': 'object'}},
+                    },
                     'http.response.header.Content-Type': IsTuple(IsStr()),
                     'http.response.header.Content-Length': IsTuple(IsStr()),
                     'http.response.header.Date': IsTuple(IsStr()),
@@ -834,8 +857,11 @@ async def test_aiohttp_client_capture_all_environment_variable(
                     'logfire.msg_template': 'Reading response body',
                     'logfire.msg': 'Reading response body',
                     'logfire.span_type': 'span',
-                    'http.response.body.text': '{"good": "response"}',
-                    'logfire.json_schema': IsStr(),
+                    'http.response.body.text': {'good': 'response'},
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'http.response.body.text': {'type': 'object'}},
+                    },
                 },
             },
         ]
@@ -865,7 +891,7 @@ async def test_aiohttp_client_encoding_error_handling(exporter: TestExporter, te
     finally:
         AioHttpClientInstrumentor().uninstrument()
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'GET',

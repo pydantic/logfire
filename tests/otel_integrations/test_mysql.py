@@ -36,7 +36,7 @@ def test_mysql_instrumentation(exporter: TestExporter, mysql_container: MySqlCon
             cursor.execute('DROP TABLE IF EXISTS test')
             cursor.execute('CREATE TABLE test (id INT PRIMARY KEY, name VARCHAR(255))')
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'DROP',
@@ -83,13 +83,13 @@ def test_instrument_mysql_connection(exporter: TestExporter, mysql_container: My
             cursor.execute('DROP TABLE IF EXISTS test')
             cursor.execute('CREATE TABLE test (id INT PRIMARY KEY, name VARCHAR(255))')
 
-        assert exporter.exported_spans_as_dict() == []
+        assert exporter.exported_spans_as_dict(parse_json_attributes=True) == []
 
         conn = logfire.instrument_mysql(conn)
         with conn.cursor() as cursor:
             cursor.execute('INSERT INTO test (id, name) VALUES (1, "test")')
 
-        assert exporter.exported_spans_as_dict() == snapshot(
+        assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
             [
                 {
                     'name': 'INSERT',
@@ -115,7 +115,7 @@ def test_instrument_mysql_connection(exporter: TestExporter, mysql_container: My
         with conn.cursor() as cursor:
             cursor.execute('INSERT INTO test (id, name) VALUES (2, "test-2")')
 
-        assert len(exporter.exported_spans_as_dict()) == 1
+        assert len(exporter.exported_spans_as_dict(parse_json_attributes=True)) == 1
 
 
 def test_missing_opentelemetry_dependency() -> None:
