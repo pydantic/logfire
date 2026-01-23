@@ -35,7 +35,7 @@ def add(a: float, b: float) -> float:
     return a + b
 
 
-math_agent = create_agent('openai:gpt-4o', tools=[add], name='math_agent')
+math_agent = create_agent('openai:gpt-5-mini', tools=[add], name='math_agent')
 
 result = math_agent.invoke({'messages': [{'role': 'user', 'content': "what's 123 + 456?"}]})
 print(result['messages'][-1].content)

@@ -14,7 +14,7 @@ logfire.configure()
 logfire.instrument_pydantic_ai()
 
 roulette_agent = Agent(
-    'openai:gpt-4o',
+    'openai:gpt-5-mini',
     deps_type=int,
     result_type=bool,
     system_prompt=(

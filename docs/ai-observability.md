@@ -58,7 +58,7 @@ logfire.instrument_openai()
 
 client = OpenAI()
 response = client.chat.completions.create(
-    model="gpt-4o",
+    model="gpt-5-mini",
     messages=[{"role": "user", "content": "Hello!"}]
 )
 ```

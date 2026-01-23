@@ -18,7 +18,7 @@ Built by the Pydantic team (the same people behind Pydantic AI), Logfire provide
 - **Full-stack AI observability:** See LLM calls in context with the HTTP requests, database queries, and business logic that surround them
 - **OpenTelemetry-based:** Works with any language and framework that speaks OpenTelemetry
 - **LLM-specific features:** Token tracking, cost monitoring, conversation inspection, tool call visibility
-- **SQL query interface:** Query your observability data with standard PostgreSQL syntax
+- **SQL query interface:** Query your observability data with familiar PostgreSQL-compatible syntax
 
 [Why Logfire?](why.md) | [Getting Started](index.md)
 
@@ -215,10 +215,12 @@ This matters especially for **agentic coding workflows**:
 
 - **Coding agents can query freely:** No limitation to predefined APIs. Ask any question, get any answer.
 - **Arbitrary analysis:** JOINs, aggregations, window functions, CTEs. Full SQL power.
-- **AI-native:** GPT-4, Claude, and other assistants write excellent SQL
-- **Standard tooling:** Works with Grafana, Superset, pandas, any PostgreSQL client
+- **AI-native:** GPT-5, Claude, and other assistants write excellent SQL
+- **Familiar syntax:** No new query language to learn
 
 When you're iterating on AI applications with a coding agent, the agent needs to understand production behavior. With SQL, it can ask any question. With proprietary DSLs or limited APIs, it's constrained to what someone anticipated.
+
+*Logfire uses [Apache DataFusion](https://datafusion.apache.org/) as its query engine, with syntax designed to match PostgreSQL conventions.*
 
 [SQL Explorer](guides/web-ui/explore.md)
 
