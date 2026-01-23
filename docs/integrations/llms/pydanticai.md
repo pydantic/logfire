@@ -6,27 +6,29 @@ integration: logfire
 **Pydantic Logfire** supports instrumenting [Pydantic AI](https://ai.pydantic.dev/) with the
 [`logfire.instrument_pydantic_ai()`][logfire.Logfire.instrument_pydantic_ai] method:
 
-```python hl_lines="5"
-import logfire
+```python hl_lines="7-8" skip-run="true" skip-reason="external-connection"
+from __future__ import annotations
+
 from pydantic_ai import Agent, RunContext
+
+import logfire
 
 logfire.configure()
 logfire.instrument_pydantic_ai()
 
 roulette_agent = Agent(
-    'openai:gpt-4o',
+    'openai:gpt-5-mini',
     deps_type=int,
     result_type=bool,
     system_prompt=(
-        'Use the `roulette_wheel` function to see if the '
-        'customer has won based on the number they provide.'
+        'Use the `roulette_wheel` function to see if the ' 'customer has won based on the number they provide.'
     ),
 )
 
 
 @roulette_agent.tool
 async def roulette_wheel(ctx: RunContext[int], square: int) -> str:
-    """check if the square is a winner"""
+    """Check if the square is a winner."""
     return 'winner' if square == ctx.deps else 'loser'
 
 

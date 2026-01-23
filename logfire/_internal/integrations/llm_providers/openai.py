@@ -40,6 +40,18 @@ from .semconv import (
     RESPONSE_MODEL,
     SYSTEM_INSTRUCTIONS,
     TOOL_DEFINITIONS,
+    BlobPart,
+    ChatMessage,
+    InputMessages,
+    MessagePart,
+    OutputMessage,
+    OutputMessages,
+    Role,
+    SystemInstructions,
+    TextPart,
+    ToolCallPart,
+    ToolCallResponsePart,
+    UriPart,
 )
 from .types import EndpointConfig, StreamState
 
@@ -114,7 +126,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         # Convert messages to semantic convention format
         messages: list[dict[str, Any]] = json_data.get('messages', [])
         if messages:
-            input_messages, system_instructions = convert_openai_messages_to_semconv(messages)
+            input_messages, system_instructions = convert_chat_completions_to_semconv(messages)
             span_data[INPUT_MESSAGES] = input_messages
             if system_instructions:
                 span_data[SYSTEM_INSTRUCTIONS] = system_instructions
@@ -209,12 +221,17 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         )
 
 
-def convert_openai_messages_to_semconv(
+def convert_chat_completions_to_semconv(
     messages: list[dict[str, Any]],
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Convert OpenAI messages format to OTel Gen AI Semantic Convention format.
+) -> tuple[InputMessages, SystemInstructions]:
+    """Convert OpenAI Chat Completions API messages format to OTel Gen AI Semantic Convention format.
 
     Returns a tuple of (input_messages, system_instructions).
+
+    Note: For OpenAI Chat Completions API, system messages are part of the chat history
+    and should be recorded in gen_ai.input.messages, not gen_ai.system_instructions.
+    system_instructions is only used for dedicated instruction parameters (which don't
+    exist for chat completions).
     """
     input_messages: list[dict[str, Any]] = []
     system_instructions: list[dict[str, Any]] = []
@@ -222,96 +239,93 @@ def convert_openai_messages_to_semconv(
     for msg in messages:
         role = msg.get('role', 'unknown')
         content = msg.get('content')
-
-        if role == 'system':
-            # System messages go to system_instructions
-            if isinstance(content, str):
-                system_instructions.append({'type': 'text', 'content': content})
-            elif isinstance(content, list):  # pragma: no cover
-                for part in cast('list[dict[str, Any] | str]', content):
-                    system_instructions.append(_convert_content_part(part))
-            continue
-
-        # Build the message with parts
-        parts: list[dict[str, Any]] = []
-
-        if content is not None:
-            if isinstance(content, str):
-                parts.append({'type': 'text', 'content': content})
-            elif isinstance(content, list):
-                for part in cast('list[dict[str, Any] | str]', content):
-                    parts.append(_convert_content_part(part))
-
-        # Handle tool calls from assistant messages
-        tool_calls = msg.get('tool_calls')
-        if tool_calls:
-            for tc in tool_calls:
-                function = tc.get('function', {})
-                arguments = function.get('arguments')
-                if isinstance(arguments, str):
-                    with contextlib.suppress(json.JSONDecodeError):
-                        arguments = json.loads(arguments)
-                parts.append(
-                    {
-                        'type': 'tool_call',
-                        'id': tc.get('id'),
-                        'name': function.get('name'),
-                        'arguments': arguments,
-                    }
-                )
-
-        # Handle tool message (tool response)
         tool_call_id = msg.get('tool_call_id')
-        if role == 'tool' and tool_call_id:
-            # For tool messages, the content is the response, not text content
-            # Clear text parts and add tool_call_response instead
-            parts = [p for p in parts if p.get('type') != 'text']
-            parts.append(
-                {
-                    'type': 'tool_call_response',
-                    'id': tool_call_id,
-                    'response': content,
-                }
-            )
+        tool_calls = msg.get('tool_calls')
 
-        input_messages.append(
-            {
-                'role': role,
-                'parts': parts,
-                **({'name': msg.get('name')} if msg.get('name') else {}),
-            }
-        )
+        # Build parts based on message type
+        parts: list[MessagePart] = []
+
+        if role == 'tool' and tool_call_id:
+            # Tool messages: content is the tool response
+            parts.append(
+                ToolCallResponsePart(
+                    type='tool_call_response',
+                    id=tool_call_id,
+                    response=content,
+                )
+            )
+        else:
+            # Regular messages: build parts from content and tool calls
+            # Add content parts
+            if content is not None:
+                if isinstance(content, str):
+                    parts.append(TextPart(type='text', content=content))
+                elif isinstance(content, list):
+                    for part in cast('list[dict[str, Any] | str]', content):
+                        parts.append(_convert_content_part(part))
+
+            # Add tool call parts (for assistant messages with tool calls)
+            if tool_calls:
+                for tc in tool_calls:
+                    function = tc.get('function', {})
+                    arguments = function.get('arguments')
+                    if isinstance(arguments, str):
+                        with contextlib.suppress(json.JSONDecodeError):
+                            arguments = json.loads(arguments)
+                    parts.append(
+                        ToolCallPart(
+                            type='tool_call',
+                            id=tc.get('id', ''),
+                            name=function.get('name', ''),
+                            arguments=arguments,
+                        )
+                    )
+
+        # Build message structure
+        message: ChatMessage = {
+            'role': cast('Role', role),
+            'parts': parts,
+        }
+        if name := msg.get('name'):
+            message['name'] = name
+
+        # All messages (including system) go to input_messages since they're part of chat history
+        input_messages.append(message)
 
     return input_messages, system_instructions
 
 
-def _convert_content_part(part: dict[str, Any] | str) -> dict[str, Any]:
+def _convert_content_part(part: dict[str, Any] | str) -> MessagePart:
     """Convert a single content part to semconv format."""
     if isinstance(part, str):
-        return {'type': 'text', 'content': part}  # pragma: no cover
+        return TextPart(type='text', content=part)  # pragma: no cover
 
-    part_type = part.get('type', 'text')
+    part_type = part.get('type', 'unknown')
     if part_type == 'text':
-        return {'type': 'text', 'content': part.get('text', '')}
+        return TextPart(type='text', content=part.get('text', ''))
     elif part_type == 'image_url':
         url = part.get('image_url', {}).get('url', '')
-        return {'type': 'uri', 'modality': 'image', 'uri': url}
+        return UriPart(type='uri', uri=url, modality='image')
     elif part_type in ('input_audio', 'audio'):  # pragma: no cover
-        return {'type': 'blob', 'modality': 'audio', 'content': part.get('data', '')}
+        return BlobPart(
+            type='blob',
+            content=part.get('data', ''),
+            modality='audio',
+        )
     else:  # pragma: no cover
-        # Return as generic part
-        return {'type': part_type, **{k: v for k, v in part.items() if k != 'type'}}
+        # Return as generic dict for unknown types
+        return {**part, 'type': part_type}
 
 
 def convert_openai_response_to_semconv(
     message: ChatCompletionMessage,
     finish_reason: str | None = None,
-) -> dict[str, Any]:
+) -> OutputMessage:
     """Convert an OpenAI ChatCompletionMessage to OTel Gen AI Semantic Convention format."""
-    parts: list[dict[str, Any]] = []
+    parts: list[MessagePart] = []
 
     if message.content:
-        parts.append({'type': 'text', 'content': message.content})
+        parts.append(TextPart(type='text', content=message.content))
 
     if message.tool_calls:
         for tc in message.tool_calls:
@@ -322,16 +336,16 @@ def convert_openai_response_to_semconv(
                     with contextlib.suppress(json.JSONDecodeError):
                         func_args = json.loads(func_args)
                 parts.append(
-                    {
-                        'type': 'tool_call',
-                        'id': tc.id,
-                        'name': tc.function.name,
-                        'arguments': func_args,
-                    }
+                    ToolCallPart(
+                        type='tool_call',
+                        id=tc.id,
+                        name=tc.function.name,
+                        arguments=func_args,
+                    )
                 )
 
-    result: dict[str, Any] = {
-        'role': message.role,
+    result: OutputMessage = {
+        'role': cast('Role', message.role),
         'parts': parts,
     }
     if finish_reason:  # pragma: no branch
@@ -342,52 +356,56 @@ def convert_openai_response_to_semconv(
 
 def convert_responses_inputs_to_semconv(
     inputs: str | list[dict[str, Any]] | None, instructions: str | None
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+) -> tuple[InputMessages, SystemInstructions]:
     """Convert Responses API inputs to OTel Gen AI Semantic Convention format."""
-    input_messages: list[dict[str, Any]] = []
-    system_instructions: list[dict[str, Any]] = []
+    input_messages: InputMessages = []
+    system_instructions: SystemInstructions = []
     if instructions:
-        system_instructions.append({'type': 'text', 'content': instructions})
+        system_instructions.append(TextPart(type='text', content=instructions))
     if inputs:
         if isinstance(inputs, str):
-            input_messages.append({'role': 'user', 'parts': [{'type': 'text', 'content': inputs}]})
+            input_messages.append({'role': 'user', 'parts': [TextPart(type='text', content=inputs)]})
         else:
             for inp in inputs:
                 role, typ, content = inp.get('role', 'user'), inp.get('type'), inp.get('content')
                 if typ in (None, 'message') and content:
-                    parts: list[dict[str, Any]] = []
+                    parts: list[MessagePart] = []
                     if isinstance(content, str):
-                        parts.append({'type': 'text', 'content': content})
+                        parts.append(TextPart(type='text', content=content))
                     elif isinstance(content, list):  # pragma: no cover
                         for item in cast(list[Any], content):
                             if isinstance(item, dict):
                                 item_dict = cast(dict[str, Any], item)
                                 if item_dict.get('type') == 'output_text':
-                                    parts.append({'type': 'text', 'content': item_dict.get('text', '')})
+                                    parts.append(TextPart(type='text', content=item_dict.get('text', '')))
                                 else:
-                                    parts.append(item_dict)
+                                    parts.append(item_dict)  # type: ignore[arg-type]
                             else:
-                                parts.append({'type': 'text', 'content': str(item)})
-                    input_messages.append({'role': role, 'parts': parts})
+                                parts.append(TextPart(type='text', content=str(item)))
+                    input_messages.append({'role': role, 'parts': parts})  # type: ignore[arg-type]
                 elif typ == 'function_call':
                     input_messages.append(
                         {
                             'role': 'assistant',
                             'parts': [
-                                {
-                                    'type': 'tool_call',
-                                    'id': inp.get('call_id'),
-                                    'name': inp.get('name'),
-                                    'arguments': inp.get('arguments'),
-                                }
+                                ToolCallPart(
+                                    type='tool_call',
+                                    id=inp.get('call_id', ''),
+                                    name=inp.get('name', ''),
+                                    arguments=inp.get('arguments'),
+                                )
                             ],
                         }
                     )
                 elif typ == 'function_call_output':
-                    msg = {
+                    msg: ChatMessage = {
                         'role': 'tool',
                         'parts': [
-                            {'type': 'tool_call_response', 'id': inp.get('call_id'), 'response': inp.get('output')}
+                            ToolCallResponsePart(
+                                type='tool_call_response',
+                                id=inp.get('call_id', ''),
+                                response=inp.get('output'),
+                            )
                         ],
                     }
                     if 'name' in inp:  # pragma: no cover - optional field
@@ -396,37 +414,45 @@ def convert_responses_inputs_to_semconv(
     return input_messages, system_instructions
 
 
-def convert_responses_outputs_to_semconv(response: Response) -> list[dict[str, Any]]:
+def convert_responses_outputs_to_semconv(response: Response) -> OutputMessages:
     """Convert Responses API outputs to OTel Gen AI Semantic Convention format."""
-    output_messages: list[dict[str, Any]] = []
+    output_messages: OutputMessages = []
     for out in response.output:
-        out_dict, typ, content = out.model_dump(), out.model_dump().get('type'), out.model_dump().get('content')
+        out_dict = out.model_dump()
+        typ = out_dict.get('type')
+        content = out_dict.get('content')
+
         if typ in (None, 'message') and content:
-            parts: list[dict[str, Any]] = []
+            parts: list[MessagePart] = []
             if isinstance(content, str):  # pragma: no cover
-                parts.append({'type': 'text', 'content': content})
+                parts.append(TextPart(type='text', content=content))
             elif isinstance(content, list):
                 for item in cast(list[Any], content):
                     if isinstance(item, dict):
                         item_dict = cast(dict[str, Any], item)
                         if item_dict.get('type') == 'output_text':
-                            parts.append({'type': 'text', 'content': item_dict.get('text', '')})
+                            parts.append(TextPart(type='text', content=item_dict.get('text', '')))
                         else:  # pragma: no cover
-                            parts.append(item_dict)
+                            parts.append(item_dict)  # type: ignore[arg-type]
                     else:  # pragma: no cover
-                        parts.append({'type': 'text', 'content': str(item)})
-            output_messages.append({'role': 'assistant', 'parts': parts})
+                        parts.append(TextPart(type='text', content=str(item)))
+            output_messages.append(
+                {
+                    'role': 'assistant',  # type: ignore[assignment]
+                    'parts': parts,
+                }
+            )
         elif typ == 'function_call':  # pragma: no cover - outputs are typically 'message' type
             output_messages.append(
                 {
-                    'role': 'assistant',
+                    'role': 'assistant',  # type: ignore[assignment]
                     'parts': [
-                        {
-                            'type': 'tool_call',
-                            'id': out_dict.get('call_id'),
-                            'name': out_dict.get('name'),
-                            'arguments': out_dict.get('arguments'),
-                        }
+                        ToolCallPart(
+                            type='tool_call',
+                            id=out_dict.get('call_id', ''),
+                            name=out_dict.get('name', ''),
+                            arguments=out_dict.get('arguments'),
+                        )
                     ],
                 }
             )

@@ -24,9 +24,10 @@ pip install uvicorn
 
 You can run it with `python main.py`:
 
-```py title="main.py" hl_lines="6-7"
-import logfire
+```py title="main.py" hl_lines="7-8" skip-run="true" skip-reason="server-start"
 from fastapi import FastAPI
+
+import logfire
 
 app = FastAPI()
 
@@ -34,12 +35,12 @@ logfire.configure()
 logfire.instrument_fastapi(app)
 
 
-@app.get("/hello")
+@app.get('/hello')
 async def hello(name: str):
-    return {"message": f"hello {name}"}
+    return {'message': f'hello {name}'}
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     import uvicorn
 
     uvicorn.run(app)
@@ -62,20 +63,20 @@ This function will be called with the `Request` or `WebSocket` object
 and a dictionary containing keys `values` and `errors` corresponding to the attributes above.
 It should return a new dictionary of attributes. For example:
 
-```py
+```py skip-run="true" skip-reason="server-start"
 import logfire
 
 app = ...
 
 
 def request_attributes_mapper(request, attributes):
-    if attributes["errors"]:
+    if attributes['errors']:
         # Only log validation errors, not valid arguments
         return {
             # This will become the `fastapi.arguments.errors` attribute
-            "errors": attributes["errors"],
+            'errors': attributes['errors'],
             # Arbitrary custom attributes can also be added here
-            "my_custom_attribute": ...,
+            'my_custom_attribute': ...,
         }
     else:
         # Don't log anything for valid requests

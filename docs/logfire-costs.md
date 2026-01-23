@@ -53,6 +53,8 @@ Each exported metric **counts exactly once**, no matter how many requests it sum
 Disable metrics if you *only* need traces:
 
 ```python
+import logfire
+
 logfire.configure(metrics=False)
 ```
 

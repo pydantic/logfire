@@ -15,14 +15,14 @@ LANGSMITH_TRACING=true
 
 Here's a complete example using LangGraph:
 
-```python
+```python skip-run="true" skip-reason="external-connection"
 import os
 
 import logfire
 
 # These environment variables need to be set before importing langchain or langgraph
 os.environ['LANGSMITH_OTEL_ENABLED'] = 'true'
-os.environ["LANGSMITH_OTEL_ONLY"] = 'true'
+os.environ['LANGSMITH_OTEL_ONLY'] = 'true'
 os.environ['LANGSMITH_TRACING'] = 'true'
 
 from langchain.agents import create_agent
@@ -35,7 +35,7 @@ def add(a: float, b: float) -> float:
     return a + b
 
 
-math_agent = create_agent('openai:gpt-4o', tools=[add], name='math_agent')
+math_agent = create_agent('openai:gpt-5-mini', tools=[add], name='math_agent')
 
 result = math_agent.invoke({'messages': [{'role': 'user', 'content': "what's 123 + 456?"}]})
 print(result['messages'][-1].content)

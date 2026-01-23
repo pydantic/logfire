@@ -47,7 +47,7 @@ def test_instrument_redis(redis: Redis, redis_port: str, exporter: TestExporter)
 
     redis.set('my-key', 123)
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'SET',
@@ -76,7 +76,7 @@ def test_instrument_redis_with_capture_statement(redis: Redis, redis_port: str, 
 
     redis.set('my-key', 123)
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'SET',
@@ -105,7 +105,7 @@ def test_instrument_redis_with_big_capture_statement(redis: Redis, redis_port: s
 
     redis.set('k' * 100, 'x' * 1000)
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'SET',
@@ -137,7 +137,7 @@ def test_instrument_redis_with_request_hook(redis: Redis, redis_port: str, expor
 
     redis.set('my-key', 123)
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'SET',

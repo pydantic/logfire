@@ -169,6 +169,8 @@ nav:
           - Print: integrations/print.md
           - Structlog: integrations/structlog.md
           - Loguru: integrations/loguru.md
+      - Testing:
+          - Pytest: integrations/pytest.md
       - Pydantic: integrations/pydantic.md
       - System Metrics: integrations/system-metrics.md
       - Stripe: integrations/stripe.md
@@ -180,6 +182,7 @@ nav:
           - Generators: reference/advanced/generators.md
           - Testing: reference/advanced/testing.md
           - Aggregating Metrics in Spans: reference/advanced/metrics-in-spans.md
+          - Use API Keys: reference/advanced/use-api-keys.md
       - Examples: reference/examples.md
       - Configuration: reference/configuration.md
       - Data Regions: reference/data-regions.md

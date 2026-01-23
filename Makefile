@@ -32,6 +32,10 @@ typecheck:
 test:
 	uv run --no-sync coverage run -m pytest -n auto --dist=loadgroup
 
+.PHONY: test-update-examples  # Update the examples in the documentation
+test-update-examples:
+	uv run pytest --update-examples -k test_docs
+
 .PHONY: generate-stubs  # Generate stubs for logfire-api
 generate-stubs:
 	uv run stubgen -p logfire --include-docstrings --no-analysis

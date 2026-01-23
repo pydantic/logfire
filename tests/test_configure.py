@@ -1304,7 +1304,7 @@ def test_initialize_project_create_project_default_organization(tmp_dir_cwd: Pat
                 choices=['fake_org', 'fake_org1'],
                 default='fake_org1',
             ),
-            call('Enter the project name', default='testinitializeprojectcreate1'),
+            call('Enter the project name', default=sanitize_project_name(tmp_dir_cwd.name)),
             call(
                 'Project initialized successfully. You will be able to view it at: fake_project_url\nPress Enter to continue'
             ),

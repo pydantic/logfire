@@ -62,8 +62,9 @@ Generative AI instrumentations like [Pydantic AI](../../integrations/llms/pydant
 
 Here’s an example:
 
-```py
+```py skip-run="true" skip-reason="non-deterministic"
 from pydantic_ai import Agent
+
 import logfire
 
 logfire.configure(metrics=logfire.MetricsOptions(collect_in_spans=True))
@@ -71,9 +72,11 @@ logfire.instrument_pydantic_ai()
 
 agent = Agent('gpt-4o')
 
+
 @agent.tool_plain
 async def get_random_number() -> int:
     return 4
+
 
 with logfire.span('span'):
     agent.run_sync('Give me one random number')

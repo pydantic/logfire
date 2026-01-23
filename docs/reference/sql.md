@@ -123,7 +123,7 @@ If you query individual records in the explore view, dashboard tables, or alerts
 
 Technically the trace ID is a 128-bit (16 byte) integer, but in the database it's represented as a 32-character hexadecimal string. For example, the following code:
 
-```python
+```python skip-run="true" skip-reason="non-deterministic"
 from opentelemetry.trace import format_trace_id
 
 import logfire
@@ -133,17 +133,12 @@ logfire.configure()
 with logfire.span('foo') as span:
     trace_id = span.get_span_context().trace_id
     print(trace_id)
+    #> 2135173042243855739684686441807112708
     print(format_trace_id(trace_id))
+    #> 019b38289f5dfbf64cd7de68d37c6a04
 ```
 
-will print something like:
-
-```
-2116451560797328055476200846428238844
-01979d1e4e4325335569dba4459473fc
-```
-
-The second line is what you'll see in the database and UI.
+The formatted trace ID `019b38289f5dfbf64cd7de68d37c6a04` is what you'll see in the database and in the UI.
 
 Most OpenTelemetry SDKs generate trace IDs that are completely random. However, the Python **Logfire** SDK generates trace IDs where the first few characters are based on the current time. This means that if you want to quickly check at a glance if two records are part of the same trace, it's better to look at the _last_ characters.
 
@@ -175,7 +170,7 @@ JOIN records child_records
 
 For example this code:
 
-```python
+```python skip="true" skip-reason="incomplete"
 with logfire.span('parent'):
     logfire.info('child')
 ```
@@ -240,7 +235,7 @@ It's derived from the `exception.type` attribute of the `exception` span event.
 
 This is the message of the exception, e.g. this code:
 
-```python
+```python skip-run="true" skip-reason="non-deterministic"
 import logfire
 
 logfire.configure()

@@ -22,7 +22,7 @@ def test_sqlite3_instrumentation(exporter: TestExporter):
         values = cur.execute('SELECT * FROM test').fetchall()
         assert values == [(1, 'test')]
 
-        assert exporter.exported_spans_as_dict() == snapshot(
+        assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
             [
                 {
                     'name': 'DROP',
@@ -99,7 +99,7 @@ def test_instrument_sqlite3_connection(exporter: TestExporter):
         values = cur.execute('SELECT * FROM test').fetchall()
         assert values == [(1, 'test')]
 
-        assert exporter.exported_spans_as_dict() == snapshot(
+        assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
             [
                 {
                     'name': 'INSERT',
@@ -131,11 +131,11 @@ def test_instrument_sqlite3_connection(exporter: TestExporter):
                 },
             ]
         )
-        spans_before_uninstrument = len(exporter.exported_spans_as_dict())
+        spans_before_uninstrument = len(exporter.exported_spans_as_dict(parse_json_attributes=True))
         conn: sqlite3.Connection = SQLite3Instrumentor().uninstrument_connection(conn)
         cur = conn.cursor()
         cur.execute('INSERT INTO test (id, name) VALUES (2, "test-2")')
-        assert len(exporter.exported_spans_as_dict()) == spans_before_uninstrument
+        assert len(exporter.exported_spans_as_dict(parse_json_attributes=True)) == spans_before_uninstrument
         values = cur.execute('SELECT * FROM test').fetchall()
         assert values == [(1, 'test'), (2, 'test-2')]
     conn.close()

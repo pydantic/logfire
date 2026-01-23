@@ -1196,9 +1196,10 @@ class Logfire:
 
         Example usage:
 
-        ```python
-        import logfire
+        ```python skip-run="true" skip-reason="external-connection"
         import openai
+
+        import logfire
 
         client = openai.OpenAI()
         logfire.configure()
@@ -1287,9 +1288,10 @@ class Logfire:
 
         Example usage:
 
-        ```python
-        import logfire
+        ```python skip-run="true" skip-reason="external-connection"
         import anthropic
+
+        import logfire
 
         client = anthropic.Anthropic()
 
@@ -2221,9 +2223,10 @@ class Logfire:
         The counter metric is a cumulative metric that represents a single numerical value that only ever goes up.
 
         ```py
-        import logfire
         import psutil
         from opentelemetry.metrics import CallbackOptions, Observation
+
+        import logfire
 
         logfire.configure()
 
@@ -2267,8 +2270,9 @@ class Logfire:
         ```py
         import threading
 
-        import logfire
         from opentelemetry.metrics import CallbackOptions, Observation
+
+        import logfire
 
         logfire.configure()
 
@@ -2308,8 +2312,9 @@ class Logfire:
         down.
 
         ```py
-        import logfire
         from opentelemetry.metrics import CallbackOptions, Observation
+
+        import logfire
 
         logfire.configure()
 
