@@ -6,9 +6,9 @@ See: https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-events/
 
 from __future__ import annotations
 
-from typing import Any, Literal, TypeAlias
+from typing import Any, Literal
 
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import NotRequired, TypeAlias, TypedDict
 
 # Provider and operation
 PROVIDER_NAME = 'gen_ai.provider.name'
