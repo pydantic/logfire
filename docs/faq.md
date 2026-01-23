@@ -265,7 +265,7 @@ Logfire is recommended because of tight integration and shared philosophy, but y
 
 Most users are sending data within minutes:
 
-```python
+```python skip-run="true" skip-reason="requires-new-pydantic-version"
 import logfire
 
 logfire.configure()
