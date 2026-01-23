@@ -96,9 +96,7 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                     'gen_ai.input.messages': IsJson(
                         [{'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}]
                     ),
-                    'gen_ai.system_instructions': IsJson(
-                        [{'type': 'text', 'content': 'You are a helpful assistant.'}]
-                    ),
+                    'gen_ai.system_instructions': IsJson([{'type': 'text', 'content': 'You are a helpful assistant.'}]),
                     'async': False,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
                     'logfire.msg': f"Message with '{model_id}'",
