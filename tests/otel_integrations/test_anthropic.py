@@ -164,8 +164,12 @@ def test_sync_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.request.model': 'claude-3-haiku-20240307',
                     'gen_ai.request.max_tokens': 1000,
-                    'gen_ai.input.messages': '[{"role":"user","parts":[{"type":"text","content":"What is four plus five?"}]}]',
-                    'gen_ai.system_instructions': '[{"type":"text","content":"You are a helpful assistant."}]',
+                    'gen_ai.input.messages': IsJson(
+                        [{'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}]
+                    ),
+                    'gen_ai.system_instructions': IsJson(
+                        [{'type': 'text', 'content': 'You are a helpful assistant.'}]
+                    ),
                     'async': False,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
                     'logfire.msg': "Message with 'claude-3-haiku-20240307'",
@@ -196,7 +200,9 @@ def test_sync_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 3,
-                    'gen_ai.output.messages': '[{"role":"assistant","parts":[{"type":"text","content":"Nine"}]}]',
+                    'gen_ai.output.messages': IsJson(
+                        [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Nine'}]}]
+                    ),
                     'logfire.json_schema': IsJson(
                         snapshot(
                             {
@@ -268,8 +274,12 @@ async def test_async_messages(instrumented_async_client: anthropic.AsyncAnthropi
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.request.model': 'claude-3-haiku-20240307',
                     'gen_ai.request.max_tokens': 1000,
-                    'gen_ai.input.messages': '[{"role":"user","parts":[{"type":"text","content":"What is four plus five?"}]}]',
-                    'gen_ai.system_instructions': '[{"type":"text","content":"You are a helpful assistant."}]',
+                    'gen_ai.input.messages': IsJson(
+                        [{'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}]
+                    ),
+                    'gen_ai.system_instructions': IsJson(
+                        [{'type': 'text', 'content': 'You are a helpful assistant.'}]
+                    ),
                     'async': True,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
                     'logfire.msg': "Message with 'claude-3-haiku-20240307'",
@@ -300,7 +310,9 @@ async def test_async_messages(instrumented_async_client: anthropic.AsyncAnthropi
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 3,
-                    'gen_ai.output.messages': '[{"role":"assistant","parts":[{"type":"text","content":"Nine"}]}]',
+                    'gen_ai.output.messages': IsJson(
+                        [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Nine'}]}]
+                    ),
                     'logfire.json_schema': IsJson(
                         {
                             'type': 'object',
@@ -440,8 +452,12 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.request.model': 'claude-3-haiku-20240307',
                     'gen_ai.request.max_tokens': 1000,
-                    'gen_ai.input.messages': '[{"role":"user","parts":[{"type":"text","content":"What is four plus five?"}]}]',
-                    'gen_ai.system_instructions': '[{"type":"text","content":"You are a helpful assistant."}]',
+                    'gen_ai.input.messages': IsJson(
+                        [{'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}]
+                    ),
+                    'gen_ai.system_instructions': IsJson(
+                        [{'type': 'text', 'content': 'You are a helpful assistant.'}]
+                    ),
                     'async': False,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
                     'logfire.msg': "Message with 'claude-3-haiku-20240307'",
@@ -471,8 +487,12 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.request.model': 'claude-3-haiku-20240307',
                     'gen_ai.request.max_tokens': 1000,
-                    'gen_ai.input.messages': '[{"role":"user","parts":[{"type":"text","content":"What is four plus five?"}]}]',
-                    'gen_ai.system_instructions': '[{"type":"text","content":"You are a helpful assistant."}]',
+                    'gen_ai.input.messages': IsJson(
+                        [{'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}]
+                    ),
+                    'gen_ai.system_instructions': IsJson(
+                        [{'type': 'text', 'content': 'You are a helpful assistant.'}]
+                    ),
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
                     'response_data': '{"combined_chunk_content":"The answer is secret","chunk_count":2}',
@@ -519,8 +539,12 @@ async def test_async_messages_stream(
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.request.model': 'claude-3-haiku-20240307',
                     'gen_ai.request.max_tokens': 1000,
-                    'gen_ai.input.messages': '[{"role":"user","parts":[{"type":"text","content":"What is four plus five?"}]}]',
-                    'gen_ai.system_instructions': '[{"type":"text","content":"You are a helpful assistant."}]',
+                    'gen_ai.input.messages': IsJson(
+                        [{'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}]
+                    ),
+                    'gen_ai.system_instructions': IsJson(
+                        [{'type': 'text', 'content': 'You are a helpful assistant.'}]
+                    ),
                     'async': True,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
                     'logfire.msg': "Message with 'claude-3-haiku-20240307'",
@@ -550,8 +574,12 @@ async def test_async_messages_stream(
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.request.model': 'claude-3-haiku-20240307',
                     'gen_ai.request.max_tokens': 1000,
-                    'gen_ai.input.messages': '[{"role":"user","parts":[{"type":"text","content":"What is four plus five?"}]}]',
-                    'gen_ai.system_instructions': '[{"type":"text","content":"You are a helpful assistant."}]',
+                    'gen_ai.input.messages': IsJson(
+                        [{'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}]
+                    ),
+                    'gen_ai.system_instructions': IsJson(
+                        [{'type': 'text', 'content': 'You are a helpful assistant.'}]
+                    ),
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
                     'response_data': '{"combined_chunk_content":"The answer is secret","chunk_count":2}',

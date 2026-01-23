@@ -93,8 +93,12 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.request.model': 'anthropic.claude-3-haiku-20240307-v1:0',
                     'gen_ai.request.max_tokens': 1000,
-                    'gen_ai.input.messages': '[{"role":"user","parts":[{"type":"text","content":"What is four plus five?"}]}]',
-                    'gen_ai.system_instructions': '[{"type":"text","content":"You are a helpful assistant."}]',
+                    'gen_ai.input.messages': IsJson(
+                        [{'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}]
+                    ),
+                    'gen_ai.system_instructions': IsJson(
+                        [{'type': 'text', 'content': 'You are a helpful assistant.'}]
+                    ),
                     'async': False,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
                     'logfire.msg': f"Message with '{model_id}'",
@@ -125,7 +129,9 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 3,
-                    'gen_ai.output.messages': '[{"role":"assistant","parts":[{"type":"text","content":"Nine"}]}]',
+                    'gen_ai.output.messages': IsJson(
+                        [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Nine'}]}]
+                    ),
                     'logfire.json_schema': IsJson(
                         {
                             'type': 'object',
