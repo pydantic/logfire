@@ -27,7 +27,7 @@ Then in your project, click on 'Dashboards' in the top bar, click 'New Dashboard
 
 By default, `instrument_system_metrics` collects only the metrics it needs to display the 'Basic System Metrics (Logfire)' dashboard. You can choose exactly which metrics to collect and how much data to collect about each metric. The default is equivalent to this:
 
-```py
+```py skip="true" skip-reason="incomplete"
 logfire.instrument_system_metrics({
     'process.cpu.utilization': None,  # (1)!
     'system.cpu.simple_utilization': None,  # (2)!
@@ -53,7 +53,7 @@ To collect lots of detailed data about all available metrics, use `logfire.instr
 
 `logfire.instrument_system_metrics(base='full')` is equivalent to:
 
-```py
+```py skip="true" skip-reason="incomplete"
 logfire.instrument_system_metrics({
     'system.cpu.simple_utilization': None,
     'system.cpu.time': ['idle', 'user', 'system', 'irq', 'softirq', 'nice', 'iowait', 'steal', 'interrupt', 'dpc'],

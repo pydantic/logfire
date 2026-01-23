@@ -52,7 +52,7 @@ Then navigate to the Live view for your project in your browser. You should see 
 
 To configure the exporter without environment variables:
 
-```python
+```python skip="true" skip-reason="incomplete"
 exporter = OTLPSpanExporter(
     endpoint='https://logfire-us.pydantic.dev/v1/traces',
     headers={'Authorization': 'your-write-token'},

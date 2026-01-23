@@ -7,23 +7,24 @@ integration: "third-party"
 
 You can enable it using their [`@with_logfire`][mirascope-logfire] decorator, which will work with all of the [model providers that they support][mirascope-supported-providers] (e.g. OpenAI, Anthropic, Gemini, Mistral, Groq, and more).
 
-```py hl_lines="1 3 5 8"
-import logfire
+```py hl_lines="2 6 9" skip-run="true" skip-reason="external-connection"
 from mirascope.core import anthropic, prompt_template
 from mirascope.integrations.logfire import with_logfire
+
+import logfire
 
 logfire.configure()
 
 
 @with_logfire()
-@anthropic.call("claude-3-5-sonnet-20240620")
-@prompt_template("Please recommend some {genre} books")
+@anthropic.call('claude-3-5-sonnet-20240620')
+@prompt_template('Please recommend some {genre} books')
 def recommend_books(genre: str): ...
 
 
-response = recommend_books("fantasy")  # this will automatically get logged with logfire
+response = recommend_books('fantasy')  # this will automatically get logged with logfire
 print(response.content)
-# > Certainly! Here are some popular and well-regarded fantasy books and series: ...
+#> Certainly! Here are some popular and well-regarded fantasy books and series: ...
 ```
 
 This will give you:
@@ -41,13 +42,14 @@ Since Mirascope is built on top of [Pydantic][pydantic], you can use the [Pydant
 
 This can be particularly useful when [extracting structured information][mirascope-extracting-structured-information] using LLMs:
 
-```py hl_lines="3 5 8 18"
-from typing import Literal, Type
+```py hl_lines="4 9-10 19" skip-run="true" skip-reason="external-connection"
+from typing import Literal
 
-import logfire
 from mirascope.core import openai, prompt_template
 from mirascope.integrations.logfire import with_logfire
 from pydantic import BaseModel
+
+import logfire
 
 logfire.configure()
 logfire.instrument_pydantic()
@@ -56,20 +58,20 @@ logfire.instrument_pydantic()
 class TaskDetails(BaseModel):
     description: str
     due_date: str
-    priority: Literal["low", "normal", "high"]
+    priority: Literal['low', 'normal', 'high']
 
 
 @with_logfire()
-@openai.call("gpt-4o-mini", response_model=TaskDetails)
-@prompt_template("Extract the details from the following task: {task}")
+@openai.call('gpt-4o-mini', response_model=TaskDetails)
+@prompt_template('Extract the details from the following task: {task}')
 def extract_task_details(task: str): ...
 
 
-task = "Submit quarterly report by next Friday. Task is high priority."
+task = 'Submit quarterly report by next Friday. Task is high priority.'
 task_details = extract_task_details(task)  # this will be logged automatically with logfire
 assert isinstance(task_details, TaskDetails)
 print(task_details)
-# > description='Submit quarterly report' due_date='next Friday' priority='high'
+#> description='Submit quarterly report' due_date='next Friday' priority='high'
 ```
 
 This will give you:
