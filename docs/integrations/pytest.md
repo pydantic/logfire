@@ -161,10 +161,10 @@ You need to explicitly enable sending spans from your application code during te
 ```python title="app.py"
 import logfire
 
-logfire.configure(send_to_logfire=True)
+logfire.configure(send_to_logfire='if-token-present')
 
 def perform_operation():
-    with logfire.span("performing operation"):
+    with logfire.span('performing operation'):
         # Simulate some work
         return 42
 ```
