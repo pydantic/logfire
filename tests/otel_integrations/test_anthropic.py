@@ -89,6 +89,40 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                 usage=Usage(input_tokens=2, output_tokens=3),
             ).model_dump(mode='json'),
         )
+    elif json_body['system'] == 'image content':
+        return httpx.Response(
+            200,
+            json=Message(
+                id='test_image_id',
+                content=[
+                    TextBlock(
+                        text='I can see a cat in the image.',
+                        type='text',
+                    )
+                ],
+                model='claude-3-haiku-20240307',
+                role='assistant',
+                type='message',
+                usage=Usage(input_tokens=100, output_tokens=8),
+            ).model_dump(mode='json'),
+        )
+    elif json_body['system'] == 'tool use conversation':
+        return httpx.Response(
+            200,
+            json=Message(
+                id='test_tool_conv_id',
+                content=[
+                    TextBlock(
+                        text='The weather in Boston is sunny and 72°F.',
+                        type='text',
+                    )
+                ],
+                model='claude-3-haiku-20240307',
+                role='assistant',
+                type='message',
+                usage=Usage(input_tokens=50, output_tokens=15),
+            ).model_dump(mode='json'),
+        )
     else:
         return httpx.Response(
             200,
@@ -763,3 +797,308 @@ def test_extract_request_parameters_without_max_tokens() -> None:
 
     assert span_data.get('gen_ai.request.temperature') == 0.5
     assert 'gen_ai.request.max_tokens' not in span_data
+
+
+def test_sync_messages_with_image_content(instrumented_client: anthropic.Anthropic, exporter: TestExporter) -> None:
+    """Test messages with image content in user message."""
+    response = instrumented_client.messages.create(
+        max_tokens=1000,
+        model='claude-3-haiku-20240307',
+        system='image content',
+        messages=[
+            {
+                'role': 'user',
+                'content': [
+                    {'type': 'text', 'text': 'What is in this image?'},
+                    {
+                        'type': 'image',
+                        'source': {
+                            'type': 'base64',
+                            'media_type': 'image/jpeg',
+                            'data': 'base64encodeddata',
+                        },
+                    },
+                ],
+            }
+        ],
+    )
+    assert isinstance(response.content[0], TextBlock)
+    assert response.content[0].text == 'I can see a cat in the image.'
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Message with {request_data[model]!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_anthropic.py',
+                    'code.function': 'test_sync_messages_with_image_content',
+                    'code.lineno': 123,
+                    'request_data': {
+                        'max_tokens': 1000,
+                        'system': 'image content',
+                        'messages': [
+                            {
+                                'role': 'user',
+                                'content': [
+                                    {'type': 'text', 'text': 'What is in this image?'},
+                                    {
+                                        'type': 'image',
+                                        'source': {
+                                            'type': 'base64',
+                                            'media_type': 'image/jpeg',
+                                            'data': 'base64encodeddata',
+                                        },
+                                    },
+                                ],
+                            }
+                        ],
+                        'model': 'claude-3-haiku-20240307',
+                    },
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'claude-3-haiku-20240307',
+                    'gen_ai.request.max_tokens': 1000,
+                    'gen_ai.input.messages': [
+                        {
+                            'role': 'user',
+                            'parts': [
+                                {'type': 'text', 'content': 'What is in this image?'},
+                                {
+                                    'type': 'blob',
+                                    'modality': 'image',
+                                    'content': 'base64encodeddata',
+                                    'media_type': 'image/jpeg',
+                                },
+                            ],
+                        }
+                    ],
+                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'image content'}],
+                    'async': False,
+                    'logfire.msg_template': 'Message with {request_data[model]!r}',
+                    'logfire.msg': "Message with 'claude-3-haiku-20240307'",
+                    'logfire.span_type': 'span',
+                    'logfire.tags': ('LLM',),
+                    'response_data': {
+                        'message': {
+                            'content': 'I can see a cat in the image.',
+                            'role': 'assistant',
+                        },
+                        'usage': IsPartialDict(
+                            {
+                                'cache_creation': None,
+                                'input_tokens': 100,
+                                'output_tokens': 8,
+                            }
+                        ),
+                    },
+                    'gen_ai.response.model': 'claude-3-haiku-20240307',
+                    'gen_ai.response.id': 'test_image_id',
+                    'gen_ai.usage.input_tokens': 100,
+                    'gen_ai.usage.output_tokens': 8,
+                    'gen_ai.output.messages': [
+                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'I can see a cat in the image.'}]}
+                    ],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.request.max_tokens': {},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'gen_ai.system_instructions': {'type': 'array'},
+                            'async': {},
+                            'response_data': {
+                                'type': 'object',
+                                'properties': {
+                                    'usage': {
+                                        'type': 'object',
+                                        'title': 'Usage',
+                                        'x-python-datatype': 'PydanticModel',
+                                    },
+                                },
+                            },
+                            'gen_ai.response.model': {},
+                            'gen_ai.response.id': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.output.messages': {'type': 'array'},
+                        },
+                    },
+                },
+            }
+        ]
+    )
+
+
+def test_sync_messages_with_tool_use_conversation(
+    instrumented_client: anthropic.Anthropic, exporter: TestExporter
+) -> None:
+    """Test messages with tool_use in assistant message and tool_result in user message."""
+    response = instrumented_client.messages.create(
+        max_tokens=1000,
+        model='claude-3-haiku-20240307',
+        system='tool use conversation',
+        messages=[
+            {'role': 'user', 'content': 'What is the weather in Boston?'},
+            {
+                'role': 'assistant',
+                'content': [
+                    {
+                        'type': 'tool_use',
+                        'id': 'tool_use_abc123',
+                        'name': 'get_weather',
+                        'input': {'location': 'Boston, MA'},
+                    }
+                ],
+            },
+            {
+                'role': 'user',
+                'content': [
+                    {
+                        'type': 'tool_result',
+                        'tool_use_id': 'tool_use_abc123',
+                        'content': '{"temperature": 72, "condition": "sunny"}',
+                    }
+                ],
+            },
+        ],
+    )
+    assert isinstance(response.content[0], TextBlock)
+    assert response.content[0].text == 'The weather in Boston is sunny and 72°F.'
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Message with {request_data[model]!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_anthropic.py',
+                    'code.function': 'test_sync_messages_with_tool_use_conversation',
+                    'code.lineno': 123,
+                    'request_data': {
+                        'max_tokens': 1000,
+                        'system': 'tool use conversation',
+                        'messages': [
+                            {'role': 'user', 'content': 'What is the weather in Boston?'},
+                            {
+                                'role': 'assistant',
+                                'content': [
+                                    {
+                                        'type': 'tool_use',
+                                        'id': 'tool_use_abc123',
+                                        'name': 'get_weather',
+                                        'input': {'location': 'Boston, MA'},
+                                    }
+                                ],
+                            },
+                            {
+                                'role': 'user',
+                                'content': [
+                                    {
+                                        'type': 'tool_result',
+                                        'tool_use_id': 'tool_use_abc123',
+                                        'content': '{"temperature": 72, "condition": "sunny"}',
+                                    }
+                                ],
+                            },
+                        ],
+                        'model': 'claude-3-haiku-20240307',
+                    },
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'claude-3-haiku-20240307',
+                    'gen_ai.request.max_tokens': 1000,
+                    'gen_ai.input.messages': [
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is the weather in Boston?'}]},
+                        {
+                            'role': 'assistant',
+                            'parts': [
+                                {
+                                    'type': 'tool_call',
+                                    'id': 'tool_use_abc123',
+                                    'name': 'get_weather',
+                                    'arguments': {'location': 'Boston, MA'},
+                                }
+                            ],
+                        },
+                        {
+                            'role': 'user',
+                            'parts': [
+                                {
+                                    'type': 'tool_call_response',
+                                    'id': 'tool_use_abc123',
+                                    'response': '{"temperature": 72, "condition": "sunny"}',
+                                }
+                            ],
+                        },
+                    ],
+                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'tool use conversation'}],
+                    'async': False,
+                    'logfire.msg_template': 'Message with {request_data[model]!r}',
+                    'logfire.msg': "Message with 'claude-3-haiku-20240307'",
+                    'logfire.span_type': 'span',
+                    'logfire.tags': ('LLM',),
+                    'response_data': {
+                        'message': {
+                            'content': 'The weather in Boston is sunny and 72°F.',
+                            'role': 'assistant',
+                        },
+                        'usage': IsPartialDict(
+                            {
+                                'cache_creation': None,
+                                'input_tokens': 50,
+                                'output_tokens': 15,
+                            }
+                        ),
+                    },
+                    'gen_ai.response.model': 'claude-3-haiku-20240307',
+                    'gen_ai.response.id': 'test_tool_conv_id',
+                    'gen_ai.usage.input_tokens': 50,
+                    'gen_ai.usage.output_tokens': 15,
+                    'gen_ai.output.messages': [
+                        {
+                            'role': 'assistant',
+                            'parts': [{'type': 'text', 'content': 'The weather in Boston is sunny and 72°F.'}],
+                        }
+                    ],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.request.max_tokens': {},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'gen_ai.system_instructions': {'type': 'array'},
+                            'async': {},
+                            'response_data': {
+                                'type': 'object',
+                                'properties': {
+                                    'usage': {
+                                        'type': 'object',
+                                        'title': 'Usage',
+                                        'x-python-datatype': 'PydanticModel',
+                                    },
+                                },
+                            },
+                            'gen_ai.response.model': {},
+                            'gen_ai.response.id': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.output.messages': {'type': 'array'},
+                        },
+                    },
+                },
+            }
+        ]
+    )

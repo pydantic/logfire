@@ -9,6 +9,8 @@ from openai._legacy_response import LegacyAPIResponse
 from openai.lib.streaming.responses import ResponseStreamState
 from openai.types.chat.chat_completion import ChatCompletion
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
+from openai.types.chat.chat_completion_message import ChatCompletionMessage
+from openai.types.chat.chat_completion_message_function_tool_call import ChatCompletionMessageFunctionToolCall
 from openai.types.completion import Completion
 from openai.types.create_embedding_response import CreateEmbeddingResponse
 from openai.types.images_response import ImagesResponse
@@ -130,6 +132,8 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         span_data = {
             'gen_ai.request.model': json_data.get('model'),
             'request_data': {'model': json_data.get('model'), 'stream': stream},
+            # Keep 'events' for backward compatibility
+            'events': inputs_to_events(json_data.get('input'), json_data.get('instructions')),
             PROVIDER_NAME: 'openai',
             OPERATION_NAME: 'chat',
             REQUEST_MODEL: json_data.get('model'),
@@ -300,34 +304,34 @@ def _convert_content_part(part: dict[str, Any] | str) -> dict[str, Any]:
 
 
 def convert_openai_response_to_semconv(
-    message: Any,
+    message: ChatCompletionMessage,
     finish_reason: str | None = None,
 ) -> dict[str, Any]:
-    """Convert an OpenAI response message to OTel Gen AI Semantic Convention format."""
+    """Convert an OpenAI ChatCompletionMessage to OTel Gen AI Semantic Convention format."""
     parts: list[dict[str, Any]] = []
 
-    if hasattr(message, 'content') and message.content:
+    if message.content:
         parts.append({'type': 'text', 'content': message.content})
 
-    if hasattr(message, 'tool_calls') and message.tool_calls:
+    if message.tool_calls:
         for tc in message.tool_calls:
-            function = tc.function if hasattr(tc, 'function') else tc.get('function', {})
-            func_name = function.name if hasattr(function, 'name') else function.get('name')
-            func_args = function.arguments if hasattr(function, 'arguments') else function.get('arguments')
-            if isinstance(func_args, str):
-                with contextlib.suppress(json.JSONDecodeError):
-                    func_args = json.loads(func_args)
-            parts.append(
-                {
-                    'type': 'tool_call',
-                    'id': tc.id if hasattr(tc, 'id') else tc.get('id'),
-                    'name': func_name,
-                    'arguments': func_args,
-                }
-            )
+            # Only handle function tool calls (not custom tool calls)
+            if isinstance(tc, ChatCompletionMessageFunctionToolCall):
+                func_args: Any = tc.function.arguments
+                if isinstance(func_args, str):
+                    with contextlib.suppress(json.JSONDecodeError):
+                        func_args = json.loads(func_args)
+                parts.append(
+                    {
+                        'type': 'tool_call',
+                        'id': tc.id,
+                        'name': tc.function.name,
+                        'arguments': func_args,
+                    }
+                )
 
     result: dict[str, Any] = {
-        'role': message.role if hasattr(message, 'role') else message.get('role', 'assistant'),
+        'role': message.role,
         'parts': parts,
     }
     if finish_reason:
@@ -477,6 +481,8 @@ class OpenaiResponsesStreamState(StreamState):
         output_messages = convert_responses_outputs_to_semconv(response)
         if output_messages:
             span_data[OUTPUT_MESSAGES] = output_messages
+        # Keep 'events' for backward compatibility
+        span_data['events'] = span_data.get('events', []) + responses_output_events(response)
         return span_data
 
 
@@ -601,6 +607,14 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         output_messages = convert_responses_outputs_to_semconv(response)
         if output_messages:
             span.set_attribute(OUTPUT_MESSAGES, output_messages)
+        # Keep 'events' for backward compatibility
+        existing_events: list[Any] = []
+        otel_span = span._span  # pyright: ignore[reportPrivateUsage]
+        if otel_span is not None and hasattr(otel_span, 'attributes') and otel_span.attributes:
+            events_attr = otel_span.attributes.get('events')
+            if isinstance(events_attr, list):
+                existing_events = cast(list[Any], events_attr)
+        span.set_attribute('events', existing_events + responses_output_events(response))
 
     return response
 
