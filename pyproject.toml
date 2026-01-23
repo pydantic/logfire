@@ -318,8 +318,6 @@ omit = [
     "*/temp/*",
     "*/.pytest_cache/*",
     "*/pytest-of-*/*",
-    # Django test project manage.py is standard boilerplate not used in tests
-    "tests/otel_integrations/django_test_project/manage.py",
 ]
 #
 # Subprocess coverage patching is enabled to measure coverage in child processes.
