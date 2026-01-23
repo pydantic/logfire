@@ -61,7 +61,7 @@ def test_httpx_client_instrumentation(exporter: TestExporter):
             response = client.get('https://example.org:8080/foo')
             checker(response)
 
-    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
+    assert without_metrics(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
                 'name': 'GET',
@@ -120,7 +120,7 @@ def test_httpx_client_instrumentation_old_semconv(exporter: TestExporter):
             # Now let other tests get the original value set in conftest.py
             _OpenTelemetrySemanticConventionStability._initialized = False  # type: ignore
 
-    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
+    assert without_metrics(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
                 'name': 'GET',
@@ -148,7 +148,7 @@ async def test_async_httpx_client_instrumentation(exporter: TestExporter):
             response = await client.get('https://example.org:8080/foo')
             checker(response)
 
-    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
+    assert without_metrics(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
                 'name': 'GET',
@@ -251,7 +251,7 @@ def test_httpx_client_instrumentation_with_capture_headers(
             response = client.get('https://example.org:8080/foo')
             checker(response)
 
-    span = exporter.exported_spans_as_dict()[0]
+    span = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]
     assert all(key in span['attributes'] for key in expected_attributes), list(span['attributes'])
 
 
@@ -285,7 +285,7 @@ async def test_async_httpx_client_instrumentation_with_capture_headers(
             response = await client.get('https://example.org:8080/foo')
             checker(response)
 
-    span = exporter.exported_spans_as_dict()[0]
+    span = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]
     assert all(key in span['attributes'] for key in expected_attributes)
 
 
@@ -357,7 +357,7 @@ def test_httpx_client_capture_stream_body(exporter: TestExporter):
             )
             checker(response)
 
-    span = exporter.exported_spans_as_dict()[0]
+    span = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]
     # Streaming bodies aren't captured
     assert 'http.request.body.json' not in span['attributes']
 
@@ -369,7 +369,7 @@ def test_httpx_client_capture_full_request(exporter: TestExporter):
             response = client.post('https://example.org:8080/foo', json={'hello': 'world'})
             checker(response)
 
-    span = exporter.exported_spans_as_dict()[0]
+    span = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]
     assert all(key in span['attributes'] for key in CAPTURE_FULL_REQUEST_ATTRIBUTES)
 
 
@@ -380,7 +380,7 @@ async def test_async_httpx_client_capture_full_request(exporter: TestExporter):
             response = await client.post('https://example.org:8080/foo', json={'hello': 'world'})
             checker(response)
 
-    span = exporter.exported_spans_as_dict()[0]
+    span = exporter.exported_spans_as_dict(parse_json_attributes=True)[0]
     assert all(key in span['attributes'] for key in CAPTURE_FULL_REQUEST_ATTRIBUTES)
 
 
@@ -395,7 +395,7 @@ def test_httpx_client_capture_full(exporter: TestExporter):
             assert response.json() == {'good': 'response'}
             assert response.read() == b'{"good": "response"}'
 
-    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
+    assert without_metrics(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
                 'name': 'POST',
@@ -425,8 +425,11 @@ def test_httpx_client_capture_full(exporter: TestExporter):
                     'http.request.header.user-agent': (IsStr(),),
                     'http.request.header.content-length': (IsStr(),),
                     'http.request.header.content-type': ('application/json',),
-                    'logfire.json_schema': '{"type":"object","properties":{"http.request.body.text":{"type":"object"}}}',
-                    'http.request.body.text': '{"hello":"world"}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'http.request.body.text': {'type': 'object'}},
+                    },
+                    'http.request.body.text': {'hello': 'world'},
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'http.flavor': '1.1',
@@ -458,8 +461,11 @@ def test_httpx_client_capture_full(exporter: TestExporter):
                     'logfire.msg_template': 'Reading response body',
                     'logfire.msg': 'Reading response body',
                     'logfire.span_type': 'span',
-                    'http.response.body.text': '{"good": "response"}',
-                    'logfire.json_schema': '{"type":"object","properties":{"http.response.body.text":{"type":"object"}}}',
+                    'http.response.body.text': {'good': 'response'},
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'http.response.body.text': {'type': 'object'}},
+                    },
                 },
             },
             {
@@ -492,7 +498,7 @@ async def test_async_httpx_client_capture_full(exporter: TestExporter):
             assert response.json() == {'good': 'response'}
             assert await response.aread() == b'{"good": "response"}'
 
-    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
+    assert without_metrics(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
                 'name': 'POST',
@@ -522,8 +528,11 @@ async def test_async_httpx_client_capture_full(exporter: TestExporter):
                     'http.request.header.user-agent': (IsStr(),),
                     'http.request.header.content-length': (IsStr(),),
                     'http.request.header.content-type': ('application/json',),
-                    'logfire.json_schema': '{"type":"object","properties":{"http.request.body.text":{"type":"object"}}}',
-                    'http.request.body.text': '{"hello":"world"}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'http.request.body.text': {'type': 'object'}},
+                    },
+                    'http.request.body.text': {'hello': 'world'},
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'http.flavor': '1.1',
@@ -555,8 +564,11 @@ async def test_async_httpx_client_capture_full(exporter: TestExporter):
                     'logfire.msg_template': 'Reading response body',
                     'logfire.msg': 'Reading response body',
                     'logfire.span_type': 'span',
-                    'http.response.body.text': '{"good": "response"}',
-                    'logfire.json_schema': '{"type":"object","properties":{"http.response.body.text":{"type":"object"}}}',
+                    'http.response.body.text': {'good': 'response'},
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'http.response.body.text': {'type': 'object'}},
+                    },
                 },
             },
             {
@@ -588,7 +600,7 @@ def test_httpx_client_not_capture_response_body_on_wrong_encoding(exporter: Test
             response = client.post('https://example.org:8080/foo')
             checker(response)
 
-    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
+    assert without_metrics(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
                 'name': 'POST',
@@ -658,7 +670,7 @@ def test_httpx_client_capture_request_form_data(exporter: TestExporter):
         logfire.instrument_httpx(client, capture_request_body=True)
         client.post('https://example.org:8080/foo', data={'form': 'values'})
 
-    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
+    assert without_metrics(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
                 'name': 'POST',
@@ -679,8 +691,11 @@ def test_httpx_client_capture_request_form_data(exporter: TestExporter):
                     'network.peer.port': 8080,
                     'logfire.span_type': 'span',
                     'logfire.msg': 'POST example.org/foo',
-                    'http.request.body.form': '{"form":"values"}',
-                    'logfire.json_schema': '{"type":"object","properties":{"http.request.body.form":{"type":"object"}}}',
+                    'http.request.body.form': {'form': 'values'},
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'http.request.body.form': {'type': 'object'}},
+                    },
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'http.flavor': '1.1',
@@ -697,7 +712,7 @@ def test_httpx_client_capture_request_text_body(exporter: TestExporter):
         logfire.instrument_httpx(client, capture_request_body=True)
         client.post('https://example.org:8080/foo', headers={'Content-Type': 'text/plain'}, content='hello')
 
-    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
+    assert without_metrics(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
                 'name': 'POST',
@@ -718,7 +733,10 @@ def test_httpx_client_capture_request_text_body(exporter: TestExporter):
                     'network.peer.port': 8080,
                     'logfire.span_type': 'span',
                     'logfire.msg': 'POST example.org/foo',
-                    'logfire.json_schema': '{"type":"object","properties":{"http.request.body.text":{"type":"object"}}}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'http.request.body.text': {'type': 'object'}},
+                    },
                     'http.request.body.text': 'hello',
                     'http.status_code': 200,
                     'http.response.status_code': 200,
@@ -757,7 +775,7 @@ async def test_httpx_client_capture_all(exporter: TestExporter):
             assert response.json() == {'good': 'response'}
             assert await response.aread() == b'{"good": "response"}'
 
-    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
+    assert without_metrics(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
                 'name': 'POST',
@@ -787,8 +805,11 @@ async def test_httpx_client_capture_all(exporter: TestExporter):
                     'http.request.header.user-agent': ('python-httpx/0.28.1',),
                     'http.request.header.content-length': ('17',),
                     'http.request.header.content-type': ('application/json',),
-                    'logfire.json_schema': '{"type":"object","properties":{"http.request.body.text":{"type":"object"}}}',
-                    'http.request.body.text': '{"hello":"world"}',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'http.request.body.text': {'type': 'object'}},
+                    },
+                    'http.request.body.text': {'hello': 'world'},
                     'http.status_code': 200,
                     'http.response.status_code': 200,
                     'http.flavor': '1.1',
@@ -820,8 +841,11 @@ async def test_httpx_client_capture_all(exporter: TestExporter):
                     'logfire.msg_template': 'Reading response body',
                     'logfire.msg': 'Reading response body',
                     'logfire.span_type': 'span',
-                    'http.response.body.text': '{"good": "response"}',
-                    'logfire.json_schema': '{"type":"object","properties":{"http.response.body.text":{"type":"object"}}}',
+                    'http.response.body.text': {'good': 'response'},
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'http.response.body.text': {'type': 'object'}},
+                    },
                 },
             },
             {
@@ -851,7 +875,7 @@ async def test_httpx_client_capture_all_environment_variable(exporter: TestExpor
             assert response.json() == {'good': 'response'}
             assert await response.aread() == b'{"good": "response"}'
 
-    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
+    assert without_metrics(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
                 'name': 'GET',
@@ -903,8 +927,11 @@ async def test_httpx_client_capture_all_environment_variable(exporter: TestExpor
                     'logfire.msg_template': 'Reading response body',
                     'logfire.msg': 'Reading response body',
                     'logfire.span_type': 'span',
-                    'http.response.body.text': '{"good": "response"}',
-                    'logfire.json_schema': '{"type":"object","properties":{"http.response.body.text":{"type":"object"}}}',
+                    'http.response.body.text': {'good': 'response'},
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'http.response.body.text': {'type': 'object'}},
+                    },
                 },
             },
         ]
@@ -916,7 +943,7 @@ async def test_httpx_client_no_capture_empty_body(exporter: TestExporter):
         logfire.instrument_httpx(client, capture_request_body=True)
         await client.get('https://example.org:8080/foo')
 
-    assert without_metrics(exporter.exported_spans_as_dict()) == snapshot(
+    assert without_metrics(exporter.exported_spans_as_dict(parse_json_attributes=True)) == snapshot(
         [
             {
                 'name': 'GET',

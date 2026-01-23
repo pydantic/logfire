@@ -61,7 +61,7 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
             session.delete(record)
             session.commit()
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'connect',
@@ -408,7 +408,7 @@ async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestEx
             await session.delete(record)
             await session.commit()
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'connect',
