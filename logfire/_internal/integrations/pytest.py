@@ -495,57 +495,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
 
 @pytest.fixture
 def logfire_instance(request: pytest.FixtureRequest) -> Logfire:
-    """Provide a Logfire instance for the current test session.
-
-    This fixture allows tests to access a Logfire instance for creating spans and
-    instrumenting code within tests. This is useful for:
-
-    1. Instrumenting HTTP clients with trace context propagation
-    2. Creating custom spans within tests
-    3. Accessing Logfire methods within test fixtures
-
-    When the pytest plugin is enabled (via --logfire, INI config, or auto-enable),
-    this returns the configured instance that sends traces to Logfire.
-
-    When the plugin is not enabled, this creates a local-only instance that:
-    - Does not send traces to Logfire servers
-    - Has console output disabled
-    - Still creates spans that can be tested locally
-
-    Examples:
-        Basic usage with httpx instrumentation:
-
-        ```python
-        @pytest.fixture
-        def client(logfire_instance):
-            with httpx.Client(base_url='https://api.example.com') as client:
-                logfire_instance.instrument_httpx(client)
-                yield client
-
-
-        def test_api(client):
-            response = client.get('/users')
-            assert response.status_code == 200
-        ```
-
-        Manual trace context propagation:
-
-        ```python
-        @pytest.fixture
-        def client(logfire_instance):
-            def _inject_context(request: httpx.Request) -> None:
-                request.headers.update(logfire_instance.get_context())
-
-            with httpx.Client(
-                base_url='https://api.example.com',
-                event_hooks={'request': [_inject_context]},
-            ) as client:
-                yield client
-        ```
-
-    Returns:
-        The Logfire instance for the pytest session.
-    """
+    """Provide a Pytest configured Logfire instance."""
     config = request.config
     plugin_config = config.stash.get(_CONFIG_KEY, None)
 
@@ -556,8 +506,8 @@ def logfire_instance(request: pytest.FixtureRequest) -> Logfire:
     # Plugin is not enabled, create a local-only instance
     import logfire as logfire_module
 
-    logfire_module.configure(
+    return logfire_module.configure(
+        local=True,
         send_to_logfire=False,
         console=False,
     )
-    return logfire_module.DEFAULT_LOGFIRE_INSTANCE
