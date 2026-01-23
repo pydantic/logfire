@@ -8,7 +8,7 @@ To authenticate with these APIs, you need to create an **API Key**.
 
 !!! note
     API keys are for accessing the Logfire management APIs, not for sending telemetry data (traces, logs, metrics).
-    To send data to Logfire, use [write tokens](./create-write-tokens.md) instead.
+    To send data to Logfire, use [write tokens](../../how-to-guides/create-write-tokens.md) instead.
 
 ## API Documentation
 
@@ -17,7 +17,7 @@ The full API documentation is available via Swagger:
 - **US Region**: [https://api-us.pydantic.dev/api/docs](https://api-us.pydantic.dev/api/docs)
 - **EU Region**: [https://api-eu.pydantic.dev/api/docs](https://api-eu.pydantic.dev/api/docs)
 
-Choose the endpoint that matches your account's [data region](../reference/data-regions.md).
+Choose the endpoint that matches your account's [data region](../data-regions.md).
 
 ## Creating API Keys
 
