@@ -530,7 +530,7 @@ def test_sync_chat_completions(instrumented_client: openai.Client, exporter: Tes
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.input.messages': [
                         {'role': 'system', 'parts': [{'type': 'text', 'content': 'You are a helpful assistant.'}]},
-                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]},
                     ],
                     'async': False,
                     'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
@@ -918,7 +918,10 @@ def test_sync_chat_with_tool_calls_and_response(instrumented_client: openai.Clie
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.input.messages': [
-                        {'role': 'system', 'parts': [{'type': 'text', 'content': 'You are a helpful weather assistant.'}]},
+                        {
+                            'role': 'system',
+                            'parts': [{'type': 'text', 'content': 'You are a helpful weather assistant.'}],
+                        },
                         {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is the weather in Boston?'}]},
                         {
                             'role': 'assistant',
@@ -1336,7 +1339,7 @@ async def test_async_chat_completions(instrumented_async_client: openai.AsyncCli
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.input.messages': [
                         {'role': 'system', 'parts': [{'type': 'text', 'content': 'You are a helpful assistant.'}]},
-                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]},
                     ],
                     'async': True,
                     'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
@@ -1439,7 +1442,9 @@ def test_sync_chat_empty_response_chunk(instrumented_client: openai.Client, expo
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.operation.name': 'chat',
-                    'gen_ai.input.messages': [{'role': 'system', 'parts': [{'type': 'text', 'content': 'empty response chunk'}]}],
+                    'gen_ai.input.messages': [
+                        {'role': 'system', 'parts': [{'type': 'text', 'content': 'empty response chunk'}]}
+                    ],
                     'async': False,
                     'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
                     'logfire.msg': "Chat Completion with 'gpt-4'",
@@ -1482,7 +1487,9 @@ def test_sync_chat_empty_response_chunk(instrumented_client: openai.Client, expo
                     'gen_ai.provider.name': 'openai',
                     'logfire.span_type': 'log',
                     'gen_ai.operation.name': 'chat',
-                    'gen_ai.input.messages': [{'role': 'system', 'parts': [{'type': 'text', 'content': 'empty response chunk'}]}],
+                    'gen_ai.input.messages': [
+                        {'role': 'system', 'parts': [{'type': 'text', 'content': 'empty response chunk'}]}
+                    ],
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
                     'response_data': {'combined_chunk_content': '', 'chunk_count': 0},
@@ -1535,7 +1542,9 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.operation.name': 'chat',
-                    'gen_ai.input.messages': [{'role': 'system', 'parts': [{'type': 'text', 'content': 'empty choices in response chunk'}]}],
+                    'gen_ai.input.messages': [
+                        {'role': 'system', 'parts': [{'type': 'text', 'content': 'empty choices in response chunk'}]}
+                    ],
                     'async': False,
                     'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
                     'logfire.msg': "Chat Completion with 'gpt-4'",
@@ -1578,7 +1587,9 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                     'gen_ai.provider.name': 'openai',
                     'logfire.span_type': 'log',
                     'gen_ai.operation.name': 'chat',
-                    'gen_ai.input.messages': [{'role': 'system', 'parts': [{'type': 'text', 'content': 'empty choices in response chunk'}]}],
+                    'gen_ai.input.messages': [
+                        {'role': 'system', 'parts': [{'type': 'text', 'content': 'empty choices in response chunk'}]}
+                    ],
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
                     'response_data': {'message': None, 'usage': None},
@@ -1701,7 +1712,9 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                             },
                         }
                     ],
-                    'gen_ai.input.messages': [{'role': 'system', 'parts': [{'type': 'text', 'content': 'streamed tool call'}]}],
+                    'gen_ai.input.messages': [
+                        {'role': 'system', 'parts': [{'type': 'text', 'content': 'streamed tool call'}]}
+                    ],
                     'async': False,
                     'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
                     'logfire.msg': "Chat Completion with 'gpt-4'",
@@ -1787,7 +1800,9 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                             },
                         }
                     ],
-                    'gen_ai.input.messages': [{'role': 'system', 'parts': [{'type': 'text', 'content': 'streamed tool call'}]}],
+                    'gen_ai.input.messages': [
+                        {'role': 'system', 'parts': [{'type': 'text', 'content': 'streamed tool call'}]}
+                    ],
                     'duration': 1.0,
                     'response_data': {
                         'message': {
@@ -1975,7 +1990,9 @@ async def test_async_chat_tool_call_stream(
                             },
                         }
                     ],
-                    'gen_ai.input.messages': [{'role': 'system', 'parts': [{'type': 'text', 'content': 'streamed tool call'}]}],
+                    'gen_ai.input.messages': [
+                        {'role': 'system', 'parts': [{'type': 'text', 'content': 'streamed tool call'}]}
+                    ],
                     'async': True,
                     'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
                     'logfire.msg': "Chat Completion with 'gpt-4'",
@@ -2061,7 +2078,9 @@ async def test_async_chat_tool_call_stream(
                             },
                         }
                     ],
-                    'gen_ai.input.messages': [{'role': 'system', 'parts': [{'type': 'text', 'content': 'streamed tool call'}]}],
+                    'gen_ai.input.messages': [
+                        {'role': 'system', 'parts': [{'type': 'text', 'content': 'streamed tool call'}]}
+                    ],
                     'duration': 1.0,
                     'response_data': {
                         'message': {
@@ -2182,7 +2201,7 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.input.messages': [
                         {'role': 'system', 'parts': [{'type': 'text', 'content': 'You are a helpful assistant.'}]},
-                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]},
                     ],
                     'async': False,
                     'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
@@ -2231,7 +2250,7 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.input.messages': [
                         {'role': 'system', 'parts': [{'type': 'text', 'content': 'You are a helpful assistant.'}]},
-                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]},
                     ],
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
@@ -2316,7 +2335,7 @@ async def test_async_chat_completions_stream(
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.input.messages': [
                         {'role': 'system', 'parts': [{'type': 'text', 'content': 'You are a helpful assistant.'}]},
-                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]},
                     ],
                     'async': True,
                     'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
@@ -2365,7 +2384,7 @@ async def test_async_chat_completions_stream(
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.input.messages': [
                         {'role': 'system', 'parts': [{'type': 'text', 'content': 'You are a helpful assistant.'}]},
-                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]},
                     ],
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
