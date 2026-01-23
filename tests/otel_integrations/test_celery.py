@@ -69,7 +69,7 @@ def test_instrument_celery(celery_app: Celery, exporter: TestExporter) -> None:
             # There are two spans:
             # 1. Trigger the task with `send_task`.
             # 2. Run the task.
-            spans = exporter.exported_spans_as_dict()
+            spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
             assert spans[0] == snapshot(
                 {
                     'name': 'apply_async/tasks.say_hello',

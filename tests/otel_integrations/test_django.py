@@ -116,7 +116,7 @@ def test_good_route(client: Client, capfire: CaptureLogfire):
     )
 
     # TODO route and target should consistently start with /, including in the name/message
-    assert capfire.exporter.exported_spans_as_dict() == snapshot(
+    assert capfire.exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'GET django_test_app/<int:item_id>/',
@@ -154,7 +154,7 @@ def test_error_route(client: Client, exporter: TestExporter):
     response: HttpResponse = client.get('/django_test_app/bad/?foo=1')  # type: ignore
     assert response.status_code == 400
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'GET django_test_app/bad/',
@@ -206,7 +206,7 @@ def test_no_matching_route(client: Client, exporter: TestExporter):
     response: HttpResponse = client.get('/django_test_app/nowhere/?foo=1')  # type: ignore
     assert response.status_code == 404
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'GET',
