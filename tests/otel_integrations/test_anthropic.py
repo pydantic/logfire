@@ -1316,7 +1316,7 @@ def test_sync_messages_none_content(instrumented_client: anthropic.Anthropic, ex
     response = instrumented_client.messages.create(
         max_tokens=1000,
         model='claude-3-haiku-20240307',
-        messages=[{'role': 'user', 'content': None}],
+        messages=[{'role': 'user', 'content': None}],  # type: ignore[dict-item]
     )
     assert response.id == 'test_id'
     spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
