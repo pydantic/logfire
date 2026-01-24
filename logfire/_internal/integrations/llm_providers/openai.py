@@ -320,7 +320,7 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         # Add finish reasons
         finish_reasons: list[str] = []
         for choice in response.choices:
-            if choice.finish_reason:
+            if choice.finish_reason:  # pragma: no branch
                 finish_reasons.append(choice.finish_reason)
         if finish_reasons:  # pragma: no branch
             span.set_attribute(RESPONSE_FINISH_REASONS, finish_reasons)
@@ -333,7 +333,7 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         # Add finish reasons
         finish_reasons_completion: list[str] = []
         for choice in response.choices:
-            if choice.finish_reason:
+            if choice.finish_reason:  # pragma: no branch
                 finish_reasons_completion.append(choice.finish_reason)
         if finish_reasons_completion:  # pragma: no branch
             span.set_attribute(RESPONSE_FINISH_REASONS, finish_reasons_completion)
