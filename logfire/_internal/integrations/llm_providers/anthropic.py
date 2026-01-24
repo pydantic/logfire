@@ -89,7 +89,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             'url': url,
             PROVIDER_NAME: 'anthropic',
         }
-        if 'model' in json_data:
+        if 'model' in json_data:  # pragma: no branch
             span_data[REQUEST_MODEL] = json_data['model']
         return EndpointConfig(
             message_template='Anthropic API call to {url!r}',
@@ -144,7 +144,7 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         span.set_attribute(RESPONSE_ID, response.id)
 
         # Add token usage
-        if response.usage:
+        if response.usage:  # pragma: no branch
             span.set_attribute(INPUT_TOKENS, response.usage.input_tokens)
             span.set_attribute(OUTPUT_TOKENS, response.usage.output_tokens)
 

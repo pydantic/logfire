@@ -86,6 +86,21 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                 model='claude-3-haiku-20240307',
                 role='assistant',
                 type='message',
+                stop_reason='tool_use',
+                usage=Usage(input_tokens=2, output_tokens=3),
+            ).model_dump(mode='json'),
+        )
+    elif json_body['system'] == 'no stop reason':
+        # Edge case: response with no stop_reason (e.g., interrupted)
+        return httpx.Response(
+            200,
+            json=Message.model_construct(
+                id='test_id',
+                content=[TextBlock(text='Partial', type='text')],
+                model='claude-3-haiku-20240307',
+                role='assistant',
+                type='message',
+                stop_reason=None,
                 usage=Usage(input_tokens=2, output_tokens=3),
             ).model_dump(mode='json'),
         )
@@ -103,6 +118,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                 model='claude-3-haiku-20240307',
                 role='assistant',
                 type='message',
+                stop_reason='end_turn',
                 usage=Usage(input_tokens=2, output_tokens=3),
             ).model_dump(mode='json'),
         )
@@ -253,15 +269,18 @@ async def test_async_messages(instrumented_async_client: anthropic.AsyncAnthropi
                     'code.function': 'test_async_messages',
                     'code.lineno': 123,
                     'request_data': (
-                        {
-                            'max_tokens': 1000,
-                            'system': 'You are a helpful assistant.',
-                            'messages': [{'role': 'user', 'content': 'What is four plus five?'}],
-                            'model': 'claude-3-haiku-20240307',
-                        }
+                        snapshot(
+                            {
+                                'max_tokens': 1000,
+                                'system': 'You are a helpful assistant.',
+                                'messages': [{'role': 'user', 'content': 'What is four plus five?'}],
+                                'model': 'claude-3-haiku-20240307',
+                            }
+                        )
                     ),
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'claude-3-haiku-20240307',
                     'gen_ai.request.max_tokens': 1000,
                     'async': True,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
@@ -289,22 +308,41 @@ async def test_async_messages(instrumented_async_client: anthropic.AsyncAnthropi
                             }
                         )
                     ),
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'request_data': {'type': 'object'},
-                            'gen_ai.provider.name': {},
-                            'gen_ai.operation.name': {},
-                            'gen_ai.request.max_tokens': {},
-                            'async': {},
-                            'response_data': {
+                    'gen_ai.response.model': 'claude-3-haiku-20240307',
+                    'gen_ai.response.id': 'test_id',
+                    'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.usage.output_tokens': 3,
+                    'gen_ai.response.finish_reasons': ['end_turn'],
+                    'logfire.json_schema': (
+                        snapshot(
+                            {
                                 'type': 'object',
                                 'properties': {
-                                    'usage': {'type': 'object', 'title': 'Usage', 'x-python-datatype': 'PydanticModel'}
+                                    'request_data': {'type': 'object'},
+                                    'gen_ai.provider.name': {},
+                                    'gen_ai.operation.name': {},
+                                    'gen_ai.request.model': {},
+                                    'gen_ai.request.max_tokens': {},
+                                    'async': {},
+                                    'response_data': {
+                                        'type': 'object',
+                                        'properties': {
+                                            'usage': {
+                                                'type': 'object',
+                                                'title': 'Usage',
+                                                'x-python-datatype': 'PydanticModel',
+                                            },
+                                        },
+                                    },
+                                    'gen_ai.response.model': {},
+                                    'gen_ai.response.id': {},
+                                    'gen_ai.usage.input_tokens': {},
+                                    'gen_ai.usage.output_tokens': {},
+                                    'gen_ai.response.finish_reasons': {'type': 'array'},
                                 },
-                            },
-                        },
-                    },
+                            }
+                        )
+                    ),
                 },
             }
         ]
@@ -342,6 +380,7 @@ def test_sync_message_empty_response_chunk(instrumented_client: anthropic.Anthro
                     },
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'claude-3-haiku-20240307',
                     'gen_ai.request.max_tokens': 1000,
                     'async': False,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
@@ -352,12 +391,14 @@ def test_sync_message_empty_response_chunk(instrumented_client: anthropic.Anthro
                             'request_data': {'type': 'object'},
                             'gen_ai.provider.name': {},
                             'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
                             'gen_ai.request.max_tokens': {},
                             'async': {},
                         },
                     },
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
+                    'gen_ai.response.model': 'claude-3-haiku-20240307',
                 },
             },
             {
@@ -384,6 +425,7 @@ def test_sync_message_empty_response_chunk(instrumented_client: anthropic.Anthro
                     'logfire.span_type': 'log',
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'claude-3-haiku-20240307',
                     'gen_ai.request.max_tokens': 1000,
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
@@ -395,11 +437,13 @@ def test_sync_message_empty_response_chunk(instrumented_client: anthropic.Anthro
                             'request_data': {'type': 'object'},
                             'gen_ai.provider.name': {},
                             'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
                             'gen_ai.request.max_tokens': {},
                             'async': {},
                             'response_data': {'type': 'object'},
                         },
                     },
+                    'gen_ai.response.model': 'claude-3-haiku-20240307',
                 },
             },
         ]
@@ -442,6 +486,7 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
                     },
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'claude-3-haiku-20240307',
                     'gen_ai.request.max_tokens': 1000,
                     'async': False,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
@@ -452,12 +497,14 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
                             'request_data': {'type': 'object'},
                             'gen_ai.provider.name': {},
                             'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
                             'gen_ai.request.max_tokens': {},
                             'async': {},
                         },
                     },
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
+                    'gen_ai.response.model': 'claude-3-haiku-20240307',
                 },
             },
             {
@@ -484,6 +531,7 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
                     'logfire.span_type': 'log',
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'claude-3-haiku-20240307',
                     'gen_ai.request.max_tokens': 1000,
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
@@ -495,11 +543,13 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
                             'request_data': {'type': 'object'},
                             'gen_ai.provider.name': {},
                             'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
                             'gen_ai.request.max_tokens': {},
                             'async': {},
                             'response_data': {'type': 'object'},
                         },
                     },
+                    'gen_ai.response.model': 'claude-3-haiku-20240307',
                 },
             },
         ]
@@ -545,6 +595,7 @@ async def test_async_messages_stream(
                     },
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'claude-3-haiku-20240307',
                     'gen_ai.request.max_tokens': 1000,
                     'async': True,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
@@ -555,12 +606,14 @@ async def test_async_messages_stream(
                             'request_data': {'type': 'object'},
                             'gen_ai.provider.name': {},
                             'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
                             'gen_ai.request.max_tokens': {},
                             'async': {},
                         },
                     },
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
+                    'gen_ai.response.model': 'claude-3-haiku-20240307',
                 },
             },
             {
@@ -587,6 +640,7 @@ async def test_async_messages_stream(
                     'logfire.span_type': 'log',
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'claude-3-haiku-20240307',
                     'gen_ai.request.max_tokens': 1000,
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
@@ -598,11 +652,13 @@ async def test_async_messages_stream(
                             'request_data': {'type': 'object'},
                             'gen_ai.provider.name': {},
                             'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
                             'gen_ai.request.max_tokens': {},
                             'async': {},
                             'response_data': {'type': 'object'},
                         },
                     },
+                    'gen_ai.response.model': 'claude-3-haiku-20240307',
                 },
             },
         ]
@@ -638,6 +694,7 @@ def test_tool_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                     },
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'claude-3-haiku-20240307',
                     'gen_ai.request.max_tokens': 1000,
                     'async': False,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
@@ -663,12 +720,18 @@ def test_tool_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                             }
                         ),
                     },
+                    'gen_ai.response.model': 'claude-3-haiku-20240307',
+                    'gen_ai.response.id': 'test_id',
+                    'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.usage.output_tokens': 3,
+                    'gen_ai.response.finish_reasons': ['tool_use'],
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.provider.name': {},
                             'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
                             'gen_ai.request.max_tokens': {},
                             'async': {},
                             'response_data': {
@@ -677,12 +740,37 @@ def test_tool_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                                     'usage': {'type': 'object', 'title': 'Usage', 'x-python-datatype': 'PydanticModel'}
                                 },
                             },
+                            'gen_ai.response.model': {},
+                            'gen_ai.response.id': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                         },
                     },
                 },
             }
         ]
     )
+
+
+def test_messages_without_stop_reason(instrumented_client: anthropic.Anthropic, exporter: TestExporter) -> None:
+    """Test response without stop_reason (e.g., interrupted)."""
+    response = instrumented_client.messages.create(
+        max_tokens=1000,
+        model='claude-3-haiku-20240307',
+        system='no stop reason',
+        messages=[{'role': 'user', 'content': 'Hello'}],
+    )
+    assert isinstance(response.content[0], TextBlock)
+    assert response.content[0].text == 'Partial'
+    # Verify finish_reasons is not present when stop_reason is None
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert 'gen_ai.response.finish_reasons' not in spans[0]['attributes']
+    # Other attributes should still be present
+    assert spans[0]['attributes']['gen_ai.response.model'] == 'claude-3-haiku-20240307'
+    assert spans[0]['attributes']['gen_ai.response.id'] == 'test_id'
+    assert spans[0]['attributes']['gen_ai.usage.input_tokens'] == 2
+    assert spans[0]['attributes']['gen_ai.usage.output_tokens'] == 3
 
 
 def test_unknown_method(instrumented_client: anthropic.Anthropic, exporter: TestExporter) -> None:
@@ -703,17 +791,20 @@ def test_unknown_method(instrumented_client: anthropic.Anthropic, exporter: Test
                     'url': '/v1/complete',
                     'async': False,
                     'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.request.model': 'claude-2.1',
                     'logfire.msg_template': 'Anthropic API call to {url!r}',
                     'logfire.msg': "Anthropic API call to '/v1/complete'",
                     'code.filepath': 'test_anthropic.py',
                     'code.function': 'test_unknown_method',
                     'code.lineno': 123,
+                    'gen_ai.response.model': 'claude-2.1',
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
                             'url': {},
                             'gen_ai.provider.name': {},
+                            'gen_ai.request.model': {},
                             'async': {},
                         },
                     },
@@ -786,6 +877,7 @@ def test_request_parameters(instrumented_client: anthropic.Anthropic, exporter: 
                     },
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'claude-3-haiku-20240307',
                     'gen_ai.request.max_tokens': 1000,
                     'gen_ai.request.temperature': 0.7,
                     'gen_ai.request.top_p': 0.9,
@@ -819,12 +911,18 @@ def test_request_parameters(instrumented_client: anthropic.Anthropic, exporter: 
                             'service_tier': None,
                         },
                     },
+                    'gen_ai.response.model': 'claude-3-haiku-20240307',
+                    'gen_ai.response.id': 'test_id',
+                    'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.usage.output_tokens': 3,
+                    'gen_ai.response.finish_reasons': ['end_turn'],
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.provider.name': {},
                             'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
                             'gen_ai.request.max_tokens': {},
                             'gen_ai.request.temperature': {},
                             'gen_ai.request.top_p': {},
@@ -838,6 +936,11 @@ def test_request_parameters(instrumented_client: anthropic.Anthropic, exporter: 
                                     'usage': {'type': 'object', 'title': 'Usage', 'x-python-datatype': 'PydanticModel'}
                                 },
                             },
+                            'gen_ai.response.model': {},
+                            'gen_ai.response.id': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                         },
                     },
                 },

@@ -33,6 +33,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
             model=model_id,
             role='assistant',
             type='message',
+            stop_reason='end_turn',
             usage=Usage(input_tokens=2, output_tokens=3),  # Match the snapshot values
         ).model_dump(mode='json'),
     )
@@ -91,6 +92,7 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                     ),
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': model_id,
                     'gen_ai.request.max_tokens': 1000,
                     'async': False,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
@@ -118,6 +120,11 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                             }
                         )
                     ),
+                    'gen_ai.response.model': model_id,
+                    'gen_ai.response.id': 'test_id',
+                    'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.usage.output_tokens': 3,
+                    'gen_ai.response.finish_reasons': ['end_turn'],
                     'logfire.json_schema': (
                         {
                             'type': 'object',
@@ -125,6 +132,7 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                                 'request_data': {'type': 'object'},
                                 'gen_ai.provider.name': {},
                                 'gen_ai.operation.name': {},
+                                'gen_ai.request.model': {},
                                 'gen_ai.request.max_tokens': {},
                                 'async': {},
                                 'response_data': {
@@ -137,6 +145,11 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                                         },
                                     },
                                 },
+                                'gen_ai.response.model': {},
+                                'gen_ai.response.id': {},
+                                'gen_ai.usage.input_tokens': {},
+                                'gen_ai.usage.output_tokens': {},
+                                'gen_ai.response.finish_reasons': {'type': 'array'},
                             },
                         }
                     ),

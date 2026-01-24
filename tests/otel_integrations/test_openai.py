@@ -1891,7 +1891,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
-                'name': 'Responses API with {gen_ai.request.model!r}',
+                'name': 'Responses API with {request_data[model]!r}',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
@@ -1906,9 +1906,9 @@ def test_responses_stream(exporter: TestExporter) -> None:
                     ],
                     'request_data': {'model': 'gpt-4.1', 'stream': True},
                     'gen_ai.request.model': 'gpt-4.1',
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'responses',
                     'async': False,
-                    'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
+                    'logfire.msg_template': 'Responses API with {request_data[model]!r}',
                     'logfire.msg': "Responses API with 'gpt-4.1'",
                     'logfire.json_schema': {
                         'type': 'object',
@@ -1952,7 +1952,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                     ],
                     'gen_ai.request.model': 'gpt-4.1',
                     'async': False,
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'responses',
                     'duration': 1.0,
                     'logfire.json_schema': {
                         'type': 'object',
@@ -2692,7 +2692,7 @@ def test_responses_api(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
-                'name': 'Responses API with {gen_ai.request.model!r}',
+                'name': 'Responses API with {request_data[model]!r}',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
@@ -2704,7 +2704,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'gen_ai.provider.name': 'openai',
                     'async': False,
                     'request_data': {'model': 'gpt-4.1', 'stream': False},
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'responses',
                     'gen_ai.tool.definitions': [
                         {
                             'type': 'function',
@@ -2723,7 +2723,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                             },
                         }
                     ],
-                    'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
+                    'logfire.msg_template': 'Responses API with {request_data[model]!r}',
                     'logfire.msg': "Responses API with 'gpt-4.1'",
                     'gen_ai.system': 'openai',
                     'logfire.tags': ('LLM',),
@@ -2731,12 +2731,6 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'gen_ai.request.model': 'gpt-4.1',
                     'gen_ai.response.model': 'gpt-4.1-2025-04-14',
                     'events': [
-                        {'event.name': 'gen_ai.system.message', 'content': 'Be nice', 'role': 'system'},
-                        {
-                            'event.name': 'gen_ai.user.message',
-                            'content': 'What is the weather like in Paris today?',
-                            'role': 'user',
-                        },
                         {
                             'event.name': 'gen_ai.assistant.message',
                             'role': 'assistant',
@@ -2747,8 +2741,9 @@ def test_responses_api(exporter: TestExporter) -> None:
                                     'function': {'name': 'get_weather', 'arguments': '{"location":"Paris, France"}'},
                                 }
                             ],
-                        },
+                        }
                     ],
+                    'gen_ai.response.id': 'resp_039e74dd66b112920068dfe10528b8819c82d1214897014964',
                     'gen_ai.usage.input_tokens': 65,
                     'gen_ai.usage.output_tokens': 17,
                     'operation.cost': 0.000266,
@@ -2765,6 +2760,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                             'async': {},
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
+                            'gen_ai.response.id': {},
                             'gen_ai.usage.output_tokens': {},
                             'operation.cost': {},
                         },
@@ -2772,7 +2768,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': 'Responses API with {gen_ai.request.model!r}',
+                'name': 'Responses API with {request_data[model]!r}',
                 'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
                 'parent': None,
                 'start_time': 3000000000,
@@ -2784,8 +2780,8 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'gen_ai.provider.name': 'openai',
                     'async': False,
                     'request_data': {'model': 'gpt-4.1', 'stream': False},
-                    'gen_ai.operation.name': 'chat',
-                    'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
+                    'gen_ai.operation.name': 'responses',
+                    'logfire.msg_template': 'Responses API with {request_data[model]!r}',
                     'logfire.msg': "Responses API with 'gpt-4.1'",
                     'logfire.tags': ('LLM',),
                     'gen_ai.system': 'openai',
@@ -2793,35 +2789,13 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'gen_ai.request.model': 'gpt-4.1',
                     'gen_ai.response.model': 'gpt-4.1-2025-04-14',
                     'gen_ai.usage.input_tokens': 43,
+                    'gen_ai.response.id': 'resp_039e74dd66b112920068dfe10687b4819cb0bc63819abcde35',
                     'events': [
-                        {
-                            'event.name': 'gen_ai.user.message',
-                            'content': 'What is the weather like in Paris today?',
-                            'role': 'user',
-                        },
-                        {
-                            'event.name': 'gen_ai.assistant.message',
-                            'role': 'assistant',
-                            'tool_calls': [
-                                {
-                                    'id': 'call_uilZSE2qAuMA2NWct72DBwd6',
-                                    'type': 'function',
-                                    'function': {'name': 'get_weather', 'arguments': '{"location":"Paris, France"}'},
-                                }
-                            ],
-                        },
-                        {
-                            'event.name': 'gen_ai.tool.message',
-                            'role': 'tool',
-                            'id': 'call_uilZSE2qAuMA2NWct72DBwd6',
-                            'content': 'Rainy',
-                            'name': 'get_weather',
-                        },
                         {
                             'event.name': 'gen_ai.assistant.message',
                             'content': "The weather in Paris today is rainy. If you're planning to go out, don't forget an umbrella!",
                             'role': 'assistant',
-                        },
+                        }
                     ],
                     'gen_ai.usage.output_tokens': 21,
                     'operation.cost': 0.000254,
@@ -2837,6 +2811,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                             'async': {},
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
+                            'gen_ai.response.id': {},
                             'gen_ai.usage.output_tokens': {},
                             'operation.cost': {},
                         },
@@ -2893,7 +2868,7 @@ def test_openrouter_streaming_reasoning(exporter: TestExporter) -> None:
                     },
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'google/gemini-2.5-flash',
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'chat_completions',
                     'async': False,
                     'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
                     'logfire.msg': "Chat Completion with 'google/gemini-2.5-flash'",
@@ -2934,7 +2909,7 @@ def test_openrouter_streaming_reasoning(exporter: TestExporter) -> None:
                     'gen_ai.request.model': 'google/gemini-2.5-flash',
                     'gen_ai.provider.name': 'openai',
                     'async': False,
-                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.operation.name': 'chat_completions',
                     'duration': 1.0,
                     'response_data': {
                         'message': {
