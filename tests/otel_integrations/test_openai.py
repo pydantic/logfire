@@ -746,8 +746,7 @@ def test_chat_completions_with_tool_calls_and_images(
                     {
                         'id': 'call_456',
                         'type': 'function',
-                        # arguments as dict (already parsed) - covers branch where arguments is not a string
-                        'function': {'name': 'get_info', 'arguments': {'key': 'value'}},
+                        'function': {'name': 'get_info', 'arguments': '{"key": "value"}'},
                     },
                 ],
             },
@@ -761,28 +760,147 @@ def test_chat_completions_with_tool_calls_and_images(
     )
     assert response.choices[0].message.content == 'Nine'
     spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-    assert spans[0]['attributes']['gen_ai.input.messages'] == snapshot(
+    assert spans == snapshot(
         [
-            {'role': 'system', 'parts': [{'type': 'text', 'content': 'You are a helpful assistant.'}]},
             {
-                'role': 'user',
-                'parts': [
-                    {'type': 'text', 'content': 'What is in this image?'},
-                    {'type': 'uri', 'uri': 'https://example.com/image.png', 'modality': 'image'},
-                ],
-            },
-            {
-                'role': 'assistant',
-                'parts': [
-                    {'type': 'tool_call', 'id': 'call_123', 'name': 'analyze_image', 'arguments': {'detail': 'high'}},
-                    {'type': 'tool_call', 'id': 'call_456', 'name': 'get_info', 'arguments': {'key': 'value'}},
-                ],
-            },
-            {
-                'role': 'tool',
-                'parts': [{'type': 'tool_call_response', 'id': 'call_123', 'response': 'Image analysis complete'}],
-            },
-            {'role': 'user', 'name': 'John', 'parts': [{'type': 'text', 'content': 'Thanks!'}]},
+                'name': 'Chat Completion with {request_data[model]!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_chat_completions_with_tool_calls_and_images',
+                    'code.lineno': 123,
+                    'request_data': {
+                        'messages': [
+                            {'role': 'system', 'content': 'You are a helpful assistant.'},
+                            {
+                                'role': 'user',
+                                'content': [
+                                    {'type': 'text', 'text': 'What is in this image?'},
+                                    {'type': 'image_url', 'image_url': {'url': 'https://example.com/image.png'}},
+                                ],
+                            },
+                            {
+                                'role': 'assistant',
+                                'content': None,
+                                'tool_calls': [
+                                    {
+                                        'id': 'call_123',
+                                        'type': 'function',
+                                        'function': {'name': 'analyze_image', 'arguments': '{"detail": "high"}'},
+                                    },
+                                    {
+                                        'id': 'call_456',
+                                        'type': 'function',
+                                        'function': {'name': 'get_info', 'arguments': '{"key": "value"}'},
+                                    },
+                                ],
+                            },
+                            {'role': 'tool', 'tool_call_id': 'call_123', 'content': 'Image analysis complete'},
+                            {'role': 'user', 'name': 'John', 'content': 'Thanks!'},
+                        ],
+                        'model': 'gpt-4',
+                    },
+                    'gen_ai.request.model': 'gpt-4',
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.input.messages': [
+                        {'role': 'system', 'parts': [{'type': 'text', 'content': 'You are a helpful assistant.'}]},
+                        {
+                            'role': 'user',
+                            'parts': [
+                                {'type': 'text', 'content': 'What is in this image?'},
+                                {'type': 'uri', 'uri': 'https://example.com/image.png', 'modality': 'image'},
+                            ],
+                        },
+                        {
+                            'role': 'assistant',
+                            'parts': [
+                                {
+                                    'type': 'tool_call',
+                                    'id': 'call_123',
+                                    'name': 'analyze_image',
+                                    'arguments': {'detail': 'high'},
+                                },
+                                {
+                                    'type': 'tool_call',
+                                    'id': 'call_456',
+                                    'name': 'get_info',
+                                    'arguments': {'key': 'value'},
+                                },
+                            ],
+                        },
+                        {
+                            'role': 'tool',
+                            'parts': [
+                                {'type': 'tool_call_response', 'id': 'call_123', 'response': 'Image analysis complete'}
+                            ],
+                        },
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'Thanks!'}], 'name': 'John'},
+                    ],
+                    'async': False,
+                    'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
+                    'logfire.msg': "Chat Completion with 'gpt-4'",
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.system': 'openai',
+                    'gen_ai.response.model': 'gpt-4',
+                    'operation.cost': 0.00012,
+                    'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.usage.output_tokens': 1,
+                    'response_data': {
+                        'message': {
+                            'content': 'Nine',
+                            'refusal': None,
+                            'role': 'assistant',
+                            'annotations': None,
+                            'audio': None,
+                            'function_call': None,
+                            'tool_calls': None,
+                        },
+                        'usage': {
+                            'completion_tokens': 1,
+                            'prompt_tokens': 2,
+                            'total_tokens': 3,
+                            'completion_tokens_details': None,
+                            'prompt_tokens_details': None,
+                        },
+                    },
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.request.model': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'async': {},
+                            'gen_ai.system': {},
+                            'gen_ai.response.model': {},
+                            'operation.cost': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'response_data': {
+                                'type': 'object',
+                                'properties': {
+                                    'message': {
+                                        'type': 'object',
+                                        'title': 'ChatCompletionMessage',
+                                        'x-python-datatype': 'PydanticModel',
+                                    },
+                                    'usage': {
+                                        'type': 'object',
+                                        'title': 'CompletionUsage',
+                                        'x-python-datatype': 'PydanticModel',
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            }
         ]
     )
 
