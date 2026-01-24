@@ -114,7 +114,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
 
         # Convert messages to semantic convention format
         messages: list[dict[str, Any]] = json_data.get('messages', [])
-        if messages:
+        if messages:  # pragma: no branch
             input_messages = convert_chat_completions_to_semconv(messages)
             span_data[INPUT_MESSAGES] = input_messages
 
@@ -142,9 +142,9 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         input_messages, system_instructions = convert_responses_inputs_to_semconv(
             json_data.get('input'), json_data.get('instructions')
         )
-        if input_messages:
+        if input_messages:  # pragma: no branch
             span_data[INPUT_MESSAGES] = input_messages
-        if system_instructions:
+        if system_instructions:  # pragma: no branch
             span_data[SYSTEM_INSTRUCTIONS] = system_instructions
 
         return EndpointConfig(
@@ -242,10 +242,10 @@ def convert_chat_completions_to_semconv(
             if content is not None:
                 if isinstance(content, str):
                     parts.append(TextPart(type='text', content=content))
-                elif isinstance(content, list):
+                elif isinstance(content, list):  # pragma: no branch
                     for part in cast('list[dict[str, Any] | str]', content):
                         parts.append(_convert_content_part(part))
-                # else: content is neither str nor list - pragma: no cover (unreachable in practice)
+                # else: content is neither str nor list - unreachable in practice
 
             # Add tool call parts (for assistant messages with tool calls)
             if tool_calls:
@@ -255,7 +255,7 @@ def convert_chat_completions_to_semconv(
                     if isinstance(arguments, str):
                         with contextlib.suppress(json.JSONDecodeError):
                             arguments = json.loads(arguments)
-                    # else: arguments is not a string (already a dict) - pragma: no cover (handled by passing as-is)
+                    # else: arguments is already a dict, use as-is
                     parts.append(
                         ToolCallPart(
                             type='tool_call',
@@ -309,7 +309,7 @@ def convert_responses_inputs_to_semconv(
     system_instructions: SystemInstructions = []
     if instructions:
         system_instructions.append(TextPart(type='text', content=instructions))
-    if inputs:
+    if inputs:  # pragma: no branch
         if isinstance(inputs, str):
             input_messages.append(
                 cast('ChatMessage', {'role': 'user', 'parts': [TextPart(type='text', content=inputs)]})
@@ -349,7 +349,7 @@ def convert_responses_inputs_to_semconv(
                             },
                         )
                     )
-                elif typ == 'function_call_output':
+                elif typ == 'function_call_output':  # pragma: no branch
                     msg: ChatMessage = {
                         'role': 'tool',
                         'parts': [

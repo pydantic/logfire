@@ -719,6 +719,74 @@ def test_sync_chat_completions_with_stop_string(instrumented_client: openai.Clie
     )
 
 
+def test_chat_completions_with_tool_calls_and_images(
+    instrumented_client: openai.Client, exporter: TestExporter
+) -> None:
+    """Test input message conversion with tool calls, tool responses, images, and name fields."""
+    response = instrumented_client.chat.completions.create(
+        model='gpt-4',
+        messages=[
+            {'role': 'system', 'content': 'You are a helpful assistant.'},
+            {
+                'role': 'user',
+                'content': [
+                    {'type': 'text', 'text': 'What is in this image?'},
+                    {'type': 'image_url', 'image_url': {'url': 'https://example.com/image.png'}},
+                ],
+            },
+            {
+                'role': 'assistant',
+                'content': None,
+                'tool_calls': [
+                    {
+                        'id': 'call_123',
+                        'type': 'function',
+                        'function': {'name': 'analyze_image', 'arguments': '{"detail": "high"}'},
+                    },
+                    {
+                        'id': 'call_456',
+                        'type': 'function',
+                        # arguments as dict (already parsed) - covers branch where arguments is not a string
+                        'function': {'name': 'get_info', 'arguments': {'key': 'value'}},
+                    },
+                ],
+            },
+            {
+                'role': 'tool',
+                'tool_call_id': 'call_123',
+                'content': 'Image analysis complete',
+            },
+            {'role': 'user', 'name': 'John', 'content': 'Thanks!'},
+        ],
+    )
+    assert response.choices[0].message.content == 'Nine'
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert spans[0]['attributes']['gen_ai.input.messages'] == snapshot(
+        [
+            {'role': 'system', 'parts': [{'type': 'text', 'content': 'You are a helpful assistant.'}]},
+            {
+                'role': 'user',
+                'parts': [
+                    {'type': 'text', 'content': 'What is in this image?'},
+                    {'type': 'uri', 'uri': 'https://example.com/image.png', 'modality': 'image'},
+                ],
+            },
+            {
+                'role': 'assistant',
+                'parts': [
+                    {'type': 'tool_call', 'id': 'call_123', 'name': 'analyze_image', 'arguments': {'detail': 'high'}},
+                    {'type': 'tool_call', 'id': 'call_456', 'name': 'get_info', 'arguments': {'key': 'value'}},
+                ],
+            },
+            {
+                'role': 'tool',
+                'parts': [{'type': 'tool_call_response', 'id': 'call_123', 'response': 'Image analysis complete'}],
+            },
+            {'role': 'user', 'name': 'John', 'parts': [{'type': 'text', 'content': 'Thanks!'}]},
+        ]
+    )
+
+
 def test_extract_request_parameters_max_output_tokens() -> None:
     """Test that max_output_tokens is extracted when max_tokens is absent.
 

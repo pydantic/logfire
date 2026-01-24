@@ -810,9 +810,9 @@ def test_messages_with_no_content(instrumented_client: anthropic.Anthropic, expo
         max_tokens=1000,
         model='claude-3-haiku-20240307',
         system='list content',  # reuse existing mock
-        messages=[
+        messages=[  # type: ignore
             {'role': 'user', 'content': 'Normal message'},
-            {'role': 'assistant'},  # No content field
+            {'role': 'assistant'},  # No content field - intentionally invalid for edge case testing
         ],
     )
     assert isinstance(response.content[0], TextBlock)
