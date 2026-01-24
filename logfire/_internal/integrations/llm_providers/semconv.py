@@ -1,10 +1,14 @@
-"""Gen AI Semantic Convention attribute names.
+"""Gen AI Semantic Convention attribute names and type definitions.
 
-These constants follow the OpenTelemetry Gen AI Semantic Conventions.
-See: https://opentelemetry.io/docs/specs/semconv/gen-ai/
+These constants and types follow the OpenTelemetry Gen AI Semantic Conventions.
+See: https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-events/
 """
 
 from __future__ import annotations
+
+from typing import Any, Literal, Union
+
+from typing_extensions import NotRequired, TypeAlias, TypedDict
 
 # Provider and operation
 PROVIDER_NAME = 'gen_ai.provider.name'
@@ -42,3 +46,76 @@ TOOL_DEFINITIONS = 'gen_ai.tool.definitions'
 
 # Conversation tracking
 CONVERSATION_ID = 'gen_ai.conversation.id'
+
+# Type definitions for message parts and messages
+
+
+class TextPart(TypedDict):
+    """Text content part."""
+
+    type: Literal['text']
+    content: str
+
+
+class ToolCallPart(TypedDict):
+    """Tool call part."""
+
+    type: Literal['tool_call']
+    id: str
+    name: str
+    arguments: NotRequired[dict[str, Any] | str | None]
+
+
+class ToolCallResponsePart(TypedDict):
+    """Tool call response part."""
+
+    type: Literal['tool_call_response']
+    id: str
+    response: NotRequired[str | dict[str, Any] | None]
+    # Note: OTel spec may use 'result' instead of 'response',
+    # but we use 'response' for consistency
+
+
+class UriPart(TypedDict):
+    """URI-based media part (image, audio, video, document)."""
+
+    type: Literal['uri']
+    uri: str
+    modality: NotRequired[Literal['image', 'audio', 'video', 'document']]
+
+
+class BlobPart(TypedDict):
+    """Binary data part."""
+
+    type: Literal['blob']
+    content: str
+    media_type: NotRequired[str]
+    modality: NotRequired[Literal['image', 'audio', 'video', 'document']]
+
+
+MessagePart: TypeAlias = Union[TextPart, ToolCallPart, ToolCallResponsePart, UriPart, BlobPart, dict[str, Any]]
+"""A message part.
+
+Can be any of the defined part types or a generic dict for extensibility.
+"""
+
+
+Role = Literal['system', 'user', 'assistant', 'tool']
+"""Valid message roles."""
+
+
+class ChatMessage(TypedDict):
+    """A chat message following OTel Gen AI Semantic Conventions."""
+
+    role: Role
+    parts: list[MessagePart]
+    name: NotRequired[str]
+    # Optional name for the message (e.g., function name for tool messages).
+
+
+InputMessages: TypeAlias = list[ChatMessage]
+"""List of input messages."""
+
+
+SystemInstructions: TypeAlias = list[MessagePart]
+"""System instructions as a list of message parts."""

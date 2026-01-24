@@ -9,6 +9,7 @@ from anthropic.types import Message, TextBlock, TextDelta
 from logfire._internal.utils import handle_internal_errors
 
 from .semconv import (
+    INPUT_MESSAGES,
     OPERATION_NAME,
     PROVIDER_NAME,
     REQUEST_MAX_TOKENS,
@@ -16,6 +17,7 @@ from .semconv import (
     REQUEST_TEMPERATURE,
     REQUEST_TOP_K,
     REQUEST_TOP_P,
+    SYSTEM_INSTRUCTIONS,
     TOOL_DEFINITIONS,
 )
 from .types import EndpointConfig, StreamState
@@ -71,6 +73,15 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         }
         _extract_request_parameters(json_data, span_data)
 
+        # Convert messages to semantic convention format
+        messages: list[dict[str, Any]] = json_data.get('messages', [])
+        system: str | list[dict[str, Any]] | None = json_data.get('system')
+        if messages or system:
+            input_messages, system_instructions = convert_anthropic_messages_to_semconv(messages, system)
+            span_data[INPUT_MESSAGES] = input_messages
+            if system_instructions:
+                span_data[SYSTEM_INSTRUCTIONS] = system_instructions
+
         return EndpointConfig(
             message_template='Message with {request_data[model]!r}',
             span_data=span_data,
@@ -86,6 +97,102 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             message_template='Anthropic API call to {url!r}',
             span_data=span_data,
         )
+
+
+def convert_anthropic_messages_to_semconv(
+    messages: list[dict[str, Any]],
+    system: str | list[dict[str, Any]] | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Convert Anthropic messages format to OTel Gen AI Semantic Convention format.
+
+    Returns a tuple of (input_messages, system_instructions).
+    """
+    input_messages: list[dict[str, Any]] = []
+    system_instructions: list[dict[str, Any]] = []
+
+    # Handle system parameter (Anthropic uses a separate 'system' parameter)
+    if system:
+        if isinstance(system, str):
+            system_instructions.append({'type': 'text', 'content': system})
+        else:  # pragma: no cover
+            for part in system:
+                if part.get('type') == 'text':
+                    system_instructions.append({'type': 'text', 'content': part.get('text', '')})
+                else:
+                    system_instructions.append(part)
+
+    for msg in messages:
+        role = msg.get('role', 'unknown')
+        content = msg.get('content')
+
+        parts: list[dict[str, Any]] = []
+
+        if content is not None:
+            if isinstance(content, str):
+                parts.append({'type': 'text', 'content': content})
+            elif isinstance(content, list):
+                for part in cast('list[dict[str, Any] | str]', content):
+                    parts.append(_convert_anthropic_content_part(part))
+
+        input_messages.append(
+            {
+                'role': role,
+                'parts': parts,
+            }
+        )
+
+    return input_messages, system_instructions
+
+
+def _convert_anthropic_content_part(part: dict[str, Any] | str) -> dict[str, Any]:
+    """Convert a single Anthropic content part to semconv format."""
+    if isinstance(part, str):  # pragma: no cover
+        return {'type': 'text', 'content': part}
+
+    part_type = part.get('type', 'text')
+    if part_type == 'text':
+        return {'type': 'text', 'content': part.get('text', '')}
+    elif part_type == 'image':  # pragma: no cover
+        source = part.get('source', {})
+        if source.get('type') == 'base64':
+            return {
+                'type': 'blob',
+                'modality': 'image',
+                'content': source.get('data', ''),
+                'media_type': source.get('media_type'),
+            }
+        elif source.get('type') == 'url':
+            return {'type': 'uri', 'modality': 'image', 'uri': source.get('url', '')}
+        else:
+            return {'type': 'image', **part}
+    elif part_type == 'tool_use':
+        return {
+            'type': 'tool_call',
+            'id': part.get('id'),
+            'name': part.get('name'),
+            'arguments': part.get('input'),
+        }
+    elif part_type == 'tool_result':  # pragma: no cover
+        result_content = part.get('content')
+        if isinstance(result_content, list):
+            # Extract text from tool result content
+            text_parts: list[str] = []
+            for p in cast('list[dict[str, Any] | str]', result_content):
+                if isinstance(p, dict) and p.get('type') == 'text':
+                    text_parts.append(str(p.get('text', '')))
+                elif isinstance(p, str):
+                    text_parts.append(p)
+            result_text = ' '.join(text_parts)
+        else:
+            result_text = str(result_content) if result_content else ''
+        return {
+            'type': 'tool_call_response',
+            'id': part.get('tool_use_id'),
+            'response': result_text,
+        }
+    else:  # pragma: no cover
+        # Return as generic part
+        return {'type': part_type, **{k: v for k, v in part.items() if k != 'type'}}
 
 
 def content_from_messages(chunk: anthropic.types.MessageStreamEvent) -> str | None:
