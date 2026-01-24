@@ -1954,6 +1954,9 @@ def test_responses_stream(exporter: TestExporter) -> None:
                     'async': False,
                     'gen_ai.operation.name': 'chat',
                     'duration': 1.0,
+                    'gen_ai.output.messages': [
+                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Four plus five equals **nine**.'}]}
+                    ],
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -1964,6 +1967,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                             'async': {},
                             'gen_ai.operation.name': {},
                             'duration': {},
+                            'gen_ai.output.messages': {'type': 'array'},
                         },
                     },
                     'logfire.tags': ('LLM',),
@@ -2723,12 +2727,6 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'gen_ai.request.model': 'gpt-4.1',
                     'gen_ai.response.model': 'gpt-4.1-2025-04-14',
                     'events': [
-                        {'event.name': 'gen_ai.system.message', 'content': 'Be nice', 'role': 'system'},
-                        {
-                            'event.name': 'gen_ai.user.message',
-                            'content': 'What is the weather like in Paris today?',
-                            'role': 'user',
-                        },
                         {
                             'event.name': 'gen_ai.assistant.message',
                             'role': 'assistant',
@@ -2739,10 +2737,23 @@ def test_responses_api(exporter: TestExporter) -> None:
                                     'function': {'name': 'get_weather', 'arguments': '{"location":"Paris, France"}'},
                                 }
                             ],
-                        },
+                        }
                     ],
                     'gen_ai.usage.input_tokens': 65,
                     'gen_ai.usage.output_tokens': 17,
+                    'gen_ai.output.messages': [
+                        {
+                            'role': 'assistant',
+                            'parts': [
+                                {
+                                    'type': 'tool_call',
+                                    'id': 'call_uilZSE2qAuMA2NWct72DBwd6',
+                                    'name': 'get_weather',
+                                    'arguments': '{"location":"Paris, France"}',
+                                }
+                            ],
+                        }
+                    ],
                     'operation.cost': 0.000266,
                     'logfire.json_schema': {
                         'type': 'object',
@@ -2759,6 +2770,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'operation.cost': {},
+                            'gen_ai.output.messages': {'type': 'array'},
                         },
                     },
                 },
@@ -2787,35 +2799,23 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'gen_ai.usage.input_tokens': 43,
                     'events': [
                         {
-                            'event.name': 'gen_ai.user.message',
-                            'content': 'What is the weather like in Paris today?',
-                            'role': 'user',
-                        },
-                        {
-                            'event.name': 'gen_ai.assistant.message',
-                            'role': 'assistant',
-                            'tool_calls': [
-                                {
-                                    'id': 'call_uilZSE2qAuMA2NWct72DBwd6',
-                                    'type': 'function',
-                                    'function': {'name': 'get_weather', 'arguments': '{"location":"Paris, France"}'},
-                                }
-                            ],
-                        },
-                        {
-                            'event.name': 'gen_ai.tool.message',
-                            'role': 'tool',
-                            'id': 'call_uilZSE2qAuMA2NWct72DBwd6',
-                            'content': 'Rainy',
-                            'name': 'get_weather',
-                        },
-                        {
                             'event.name': 'gen_ai.assistant.message',
                             'content': "The weather in Paris today is rainy. If you're planning to go out, don't forget an umbrella!",
                             'role': 'assistant',
-                        },
+                        }
                     ],
                     'gen_ai.usage.output_tokens': 21,
+                    'gen_ai.output.messages': [
+                        {
+                            'role': 'assistant',
+                            'parts': [
+                                {
+                                    'type': 'text',
+                                    'content': "The weather in Paris today is rainy. If you're planning to go out, don't forget an umbrella!",
+                                }
+                            ],
+                        }
+                    ],
                     'operation.cost': 0.000254,
                     'logfire.json_schema': {
                         'type': 'object',
@@ -2831,6 +2831,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'operation.cost': {},
+                            'gen_ai.output.messages': {'type': 'array'},
                         },
                     },
                 },
