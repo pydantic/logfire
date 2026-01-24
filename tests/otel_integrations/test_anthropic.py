@@ -162,6 +162,7 @@ def test_sync_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                     ),
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'claude-3-haiku-20240307',
                     'gen_ai.request.max_tokens': 1000,
                     'async': False,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
@@ -189,6 +190,11 @@ def test_sync_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                             }
                         )
                     ),
+                    'gen_ai.response.model': 'claude-3-haiku-20240307',
+                    'gen_ai.response.id': 'test_id',
+                    'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.usage.output_tokens': 3,
+                    'gen_ai.response.finish_reasons': ['end_turn'],
                     'logfire.json_schema': (
                         snapshot(
                             {
@@ -197,6 +203,7 @@ def test_sync_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                                     'request_data': {'type': 'object'},
                                     'gen_ai.provider.name': {},
                                     'gen_ai.operation.name': {},
+                                    'gen_ai.request.model': {},
                                     'gen_ai.request.max_tokens': {},
                                     'async': {},
                                     'response_data': {
@@ -209,6 +216,11 @@ def test_sync_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                                             },
                                         },
                                     },
+                                    'gen_ai.response.model': {},
+                                    'gen_ai.response.id': {},
+                                    'gen_ai.usage.input_tokens': {},
+                                    'gen_ai.usage.output_tokens': {},
+                                    'gen_ai.response.finish_reasons': {'type': 'array'},
                                 },
                             }
                         )
