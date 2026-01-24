@@ -450,6 +450,9 @@ def test_sync_chat_completions(instrumented_client: openai.Client, exporter: Tes
                             'prompt_tokens_details': None,
                         },
                     },
+                    'gen_ai.output.messages': [
+                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Nine'}], 'finish_reason': 'stop'}
+                    ],
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -478,6 +481,7 @@ def test_sync_chat_completions(instrumented_client: openai.Client, exporter: Tes
                                     },
                                 },
                             },
+                            'gen_ai.output.messages': {'type': 'array'},
                         },
                     },
                 },
@@ -566,6 +570,9 @@ def test_sync_chat_completions_with_all_request_params(
                             'prompt_tokens_details': None,
                         },
                     },
+                    'gen_ai.output.messages': [
+                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Nine'}], 'finish_reason': 'stop'}
+                    ],
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -601,6 +608,7 @@ def test_sync_chat_completions_with_all_request_params(
                                     },
                                 },
                             },
+                            'gen_ai.output.messages': {'type': 'array'},
                         },
                     },
                 },
@@ -669,6 +677,9 @@ def test_sync_chat_completions_with_stop_string(instrumented_client: openai.Clie
                             'prompt_tokens_details': None,
                         },
                     },
+                    'gen_ai.output.messages': [
+                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Nine'}], 'finish_reason': 'stop'}
+                    ],
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -698,6 +709,7 @@ def test_sync_chat_completions_with_stop_string(instrumented_client: openai.Clie
                                     },
                                 },
                             },
+                            'gen_ai.output.messages': {'type': 'array'},
                         },
                     },
                 },
@@ -780,6 +792,9 @@ async def test_async_chat_completions(instrumented_async_client: openai.AsyncCli
                             'prompt_tokens_details': None,
                         },
                     },
+                    'gen_ai.output.messages': [
+                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Nine'}], 'finish_reason': 'stop'}
+                    ],
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -808,6 +823,7 @@ async def test_async_chat_completions(instrumented_async_client: openai.AsyncCli
                                     },
                                 },
                             },
+                            'gen_ai.output.messages': {'type': 'array'},
                         },
                     },
                 },
@@ -1823,6 +1839,9 @@ def test_completions(instrumented_client: openai.Client, exporter: TestExporter)
                             'prompt_tokens_details': None,
                         },
                     },
+                    'gen_ai.output.messages': [
+                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Nine'}], 'finish_reason': 'stop'}
+                    ],
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -1846,6 +1865,7 @@ def test_completions(instrumented_client: openai.Client, exporter: TestExporter)
                                     }
                                 },
                             },
+                            'gen_ai.output.messages': {'type': 'array'},
                         },
                     },
                 },
@@ -2279,6 +2299,9 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                             'prompt_tokens_details': None,
                         },
                     },
+                    'gen_ai.output.messages': [
+                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Nine'}], 'finish_reason': 'stop'}
+                    ],
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -2302,6 +2325,7 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                                     }
                                 },
                             },
+                            'gen_ai.output.messages': {'type': 'array'},
                         },
                     },
                     'logfire.metrics': {
@@ -2390,6 +2414,9 @@ def test_suppress_httpx(exporter: TestExporter) -> None:
                             'prompt_tokens_details': None,
                         },
                     },
+                    'gen_ai.output.messages': [
+                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Nine'}], 'finish_reason': 'stop'}
+                    ],
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -2413,6 +2440,7 @@ def test_suppress_httpx(exporter: TestExporter) -> None:
                                     }
                                 },
                             },
+                            'gen_ai.output.messages': {'type': 'array'},
                         },
                     },
                 },
