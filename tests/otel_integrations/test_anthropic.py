@@ -77,6 +77,19 @@ def request_handler(request: httpx.Request) -> httpx.Response:
             return httpx.Response(
                 200, text=''.join(f'event: {chunk["type"]}\ndata: {json.dumps(chunk)}\n\n' for chunk in chunks_dicts)
             )
+    elif json_body.get('system') is None:
+        # Test case for messages without system parameter
+        return httpx.Response(
+            200,
+            json=Message(
+                id='test_id',
+                content=[TextBlock(text='No system', type='text')],
+                model='claude-3-haiku-20240307',
+                role='assistant',
+                type='message',
+                usage=Usage(input_tokens=2, output_tokens=2),
+            ).model_dump(mode='json'),
+        )
     elif json_body['system'] == 'tool response':
         return httpx.Response(
             200,
@@ -87,6 +100,19 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                 role='assistant',
                 type='message',
                 usage=Usage(input_tokens=2, output_tokens=3),
+            ).model_dump(mode='json'),
+        )
+    elif json_body['system'] == 'list content':
+        # Test case for messages with list content (multi-part messages)
+        return httpx.Response(
+            200,
+            json=Message(
+                id='test_id',
+                content=[TextBlock(text='Response', type='text')],
+                model='claude-3-haiku-20240307',
+                role='assistant',
+                type='message',
+                usage=Usage(input_tokens=5, output_tokens=3),
             ).model_dump(mode='json'),
         )
     else:
@@ -757,6 +783,82 @@ def test_unknown_method(instrumented_client: anthropic.Anthropic, exporter: Test
             }
         ]
     )
+
+
+def test_messages_without_system(instrumented_client: anthropic.Anthropic, exporter: TestExporter) -> None:
+    """Test messages without system parameter (covers system=None branch)."""
+    response = instrumented_client.messages.create(
+        max_tokens=1000,
+        model='claude-3-haiku-20240307',
+        messages=[{'role': 'user', 'content': 'Hello without system'}],
+    )
+    assert isinstance(response.content[0], TextBlock)
+    assert response.content[0].text == 'No system'
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    # Verify input_messages is present but system_instructions is NOT
+    assert 'gen_ai.input.messages' in spans[0]['attributes']
+    assert 'gen_ai.system_instructions' not in spans[0]['attributes']
+    assert spans[0]['attributes']['gen_ai.input.messages'] == [
+        {'role': 'user', 'parts': [{'type': 'text', 'content': 'Hello without system'}]}
+    ]
+
+
+def test_messages_with_no_content(instrumented_client: anthropic.Anthropic, exporter: TestExporter) -> None:
+    """Test message with no content field (edge case)."""
+    response = instrumented_client.messages.create(
+        max_tokens=1000,
+        model='claude-3-haiku-20240307',
+        system='list content',  # reuse existing mock
+        messages=[
+            {'role': 'user', 'content': 'Normal message'},
+            {'role': 'assistant'},  # No content field
+        ],
+    )
+    assert isinstance(response.content[0], TextBlock)
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    input_messages = spans[0]['attributes']['gen_ai.input.messages']
+    assert len(input_messages) == 2
+    assert input_messages[0]['parts'] == [{'type': 'text', 'content': 'Normal message'}]
+    assert input_messages[1]['parts'] == []  # Empty parts for message with no content
+
+
+def test_messages_with_list_content(instrumented_client: anthropic.Anthropic, exporter: TestExporter) -> None:
+    """Test messages with list content (multi-part messages like tool_use)."""
+    response = instrumented_client.messages.create(
+        max_tokens=1000,
+        model='claude-3-haiku-20240307',
+        system='list content',
+        messages=[
+            {
+                'role': 'user',
+                'content': [{'type': 'text', 'text': 'Hello'}],
+            },
+            {
+                'role': 'assistant',
+                'content': [{'type': 'tool_use', 'id': 'tool_1', 'name': 'get_weather', 'input': {'location': 'NYC'}}],
+            },
+            {
+                'role': 'user',
+                'content': [{'type': 'tool_result', 'tool_use_id': 'tool_1', 'content': 'Sunny, 72F'}],
+            },
+        ],
+    )
+    assert isinstance(response.content[0], TextBlock)
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    # Verify list content is converted properly
+    input_messages = spans[0]['attributes']['gen_ai.input.messages']
+    assert len(input_messages) == 3
+    # First message: text content
+    assert input_messages[0]['role'] == 'user'
+    assert input_messages[0]['parts'] == [{'type': 'text', 'content': 'Hello'}]
+    # Second message: tool_use
+    assert input_messages[1]['role'] == 'assistant'
+    assert input_messages[1]['parts'] == [
+        {'type': 'tool_call', 'id': 'tool_1', 'name': 'get_weather', 'arguments': {'location': 'NYC'}}
+    ]
 
 
 def test_request_parameters(instrumented_client: anthropic.Anthropic, exporter: TestExporter) -> None:

@@ -76,7 +76,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         # Convert messages to semantic convention format
         messages: list[dict[str, Any]] = json_data.get('messages', [])
         system: str | list[dict[str, Any]] | None = json_data.get('system')
-        if messages or system:
+        if messages or system:  # pragma: no branch
             input_messages, system_instructions = convert_anthropic_messages_to_semconv(messages, system)
             span_data[INPUT_MESSAGES] = input_messages
             if system_instructions:
@@ -130,7 +130,7 @@ def convert_anthropic_messages_to_semconv(
         if content is not None:
             if isinstance(content, str):
                 parts.append({'type': 'text', 'content': content})
-            elif isinstance(content, list):
+            elif isinstance(content, list):  # pragma: no branch
                 for part in cast('list[dict[str, Any] | str]', content):
                     parts.append(_convert_anthropic_content_part(part))
 

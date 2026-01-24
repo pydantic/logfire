@@ -1957,6 +1957,9 @@ def test_responses_stream(exporter: TestExporter) -> None:
                     'request_data': {'model': 'gpt-4.1', 'stream': True},
                     'gen_ai.request.model': 'gpt-4.1',
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.input.messages': [
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
+                    ],
                     'async': False,
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.msg': "Responses API with 'gpt-4.1'",
@@ -1968,6 +1971,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
                             'gen_ai.operation.name': {},
+                            'gen_ai.input.messages': {'type': 'array'},
                             'async': {},
                         },
                     },
@@ -2003,6 +2007,9 @@ def test_responses_stream(exporter: TestExporter) -> None:
                     'gen_ai.request.model': 'gpt-4.1',
                     'async': False,
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.input.messages': [
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
+                    ],
                     'duration': 1.0,
                     'logfire.json_schema': {
                         'type': 'object',
@@ -2013,6 +2020,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                             'gen_ai.request.model': {},
                             'async': {},
                             'gen_ai.operation.name': {},
+                            'gen_ai.input.messages': {'type': 'array'},
                             'duration': {},
                         },
                     },
@@ -2757,6 +2765,13 @@ def test_responses_api(exporter: TestExporter) -> None:
                             },
                         }
                     ],
+                    'gen_ai.input.messages': [
+                        {
+                            'role': 'user',
+                            'parts': [{'type': 'text', 'content': 'What is the weather like in Paris today?'}],
+                        }
+                    ],
+                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'Be nice'}],
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.msg': "Responses API with 'gpt-4.1'",
                     'gen_ai.system': 'openai',
@@ -2795,6 +2810,8 @@ def test_responses_api(exporter: TestExporter) -> None:
                             'request_data': {'type': 'object'},
                             'gen_ai.operation.name': {},
                             'gen_ai.tool.definitions': {},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'gen_ai.system_instructions': {'type': 'array'},
                             'gen_ai.system': {},
                             'async': {},
                             'gen_ai.response.model': {},
@@ -2819,6 +2836,33 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'async': False,
                     'request_data': {'model': 'gpt-4.1', 'stream': False},
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.input.messages': [
+                        {
+                            'role': 'user',
+                            'parts': [{'type': 'text', 'content': 'What is the weather like in Paris today?'}],
+                        },
+                        {
+                            'role': 'assistant',
+                            'parts': [
+                                {
+                                    'type': 'tool_call',
+                                    'id': 'call_uilZSE2qAuMA2NWct72DBwd6',
+                                    'name': 'get_weather',
+                                    'arguments': '{"location":"Paris, France"}',
+                                }
+                            ],
+                        },
+                        {
+                            'role': 'tool',
+                            'parts': [
+                                {
+                                    'type': 'tool_call_response',
+                                    'id': 'call_uilZSE2qAuMA2NWct72DBwd6',
+                                    'response': 'Rainy',
+                                }
+                            ],
+                        },
+                    ],
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.msg': "Responses API with 'gpt-4.1'",
                     'logfire.tags': ('LLM',),
@@ -2867,6 +2911,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                             'gen_ai.request.model': {},
                             'request_data': {'type': 'object'},
                             'gen_ai.operation.name': {},
+                            'gen_ai.input.messages': {'type': 'array'},
                             'gen_ai.system': {},
                             'async': {},
                             'gen_ai.response.model': {},
@@ -2928,6 +2973,12 @@ def test_openrouter_streaming_reasoning(exporter: TestExporter) -> None:
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'google/gemini-2.5-flash',
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.input.messages': [
+                        {
+                            'role': 'user',
+                            'parts': [{'type': 'text', 'content': 'Hello, how are you? (This is a trick question)'}],
+                        }
+                    ],
                     'async': False,
                     'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
                     'logfire.msg': "Chat Completion with 'google/gemini-2.5-flash'",
@@ -2938,6 +2989,7 @@ def test_openrouter_streaming_reasoning(exporter: TestExporter) -> None:
                             'gen_ai.provider.name': {},
                             'gen_ai.request.model': {},
                             'gen_ai.operation.name': {},
+                            'gen_ai.input.messages': {'type': 'array'},
                             'async': {},
                         },
                     },
@@ -2969,6 +3021,12 @@ def test_openrouter_streaming_reasoning(exporter: TestExporter) -> None:
                     'gen_ai.provider.name': 'openai',
                     'async': False,
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.input.messages': [
+                        {
+                            'role': 'user',
+                            'parts': [{'type': 'text', 'content': 'Hello, how are you? (This is a trick question)'}],
+                        }
+                    ],
                     'duration': 1.0,
                     'response_data': {
                         'message': {
@@ -3025,6 +3083,7 @@ I'm zeroing in on the core of the query. The "how are you" is basic, but the "tr
                             'gen_ai.provider.name': {},
                             'async': {},
                             'gen_ai.operation.name': {},
+                            'gen_ai.input.messages': {'type': 'array'},
                             'duration': {},
                             'response_data': {
                                 'type': 'object',
