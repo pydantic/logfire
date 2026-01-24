@@ -9,13 +9,19 @@ from anthropic.types import Message, TextBlock, TextDelta
 from logfire._internal.utils import handle_internal_errors
 
 from .semconv import (
+    INPUT_TOKENS,
     OPERATION_NAME,
+    OUTPUT_TOKENS,
     PROVIDER_NAME,
     REQUEST_MAX_TOKENS,
+    REQUEST_MODEL,
     REQUEST_STOP_SEQUENCES,
     REQUEST_TEMPERATURE,
     REQUEST_TOP_K,
     REQUEST_TOP_P,
+    RESPONSE_FINISH_REASONS,
+    RESPONSE_ID,
+    RESPONSE_MODEL,
     TOOL_DEFINITIONS,
 )
 from .types import EndpointConfig, StreamState
@@ -68,6 +74,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             'request_data': json_data,
             PROVIDER_NAME: 'anthropic',
             OPERATION_NAME: 'chat',
+            REQUEST_MODEL: json_data.get('model'),
         }
         _extract_request_parameters(json_data, span_data)
 
@@ -82,6 +89,8 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             'url': url,
             PROVIDER_NAME: 'anthropic',
         }
+        if 'model' in json_data:
+            span_data[REQUEST_MODEL] = json_data['model']
         return EndpointConfig(
             message_template='Anthropic API call to {url!r}',
             span_data=span_data,
@@ -113,6 +122,7 @@ class AnthropicMessageStreamState(StreamState):
 def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
     """Updates the span based on the type of response."""
     if isinstance(response, Message):  # pragma: no branch
+        # Keep response_data for backward compatibility
         message: dict[str, Any] = {'role': 'assistant'}
         for block in response.content:
             if block.type == 'text':
@@ -128,6 +138,20 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
                     }
                 )
         span.set_attribute('response_data', {'message': message, 'usage': response.usage})
+
+        # Add semantic convention attributes
+        span.set_attribute(RESPONSE_MODEL, response.model)
+        span.set_attribute(RESPONSE_ID, response.id)
+
+        # Add token usage
+        if response.usage:
+            span.set_attribute(INPUT_TOKENS, response.usage.input_tokens)
+            span.set_attribute(OUTPUT_TOKENS, response.usage.output_tokens)
+
+        # Add finish reason
+        if response.stop_reason:
+            span.set_attribute(RESPONSE_FINISH_REASONS, [response.stop_reason])
+
     return response
 
 
