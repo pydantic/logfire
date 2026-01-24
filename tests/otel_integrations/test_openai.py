@@ -328,16 +328,17 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                 )
 
             # Test case: no finish_reason
+            # Use model_construct to bypass Pydantic validation (which rejects None for finish_reason)
             if any(m.get('content') == 'test no finish reason' for m in messages):
                 return httpx.Response(
                     200,
-                    json=chat_completion.ChatCompletion(
+                    json=chat_completion.ChatCompletion.model_construct(
                         id='test_id_no_finish',
                         choices=[
-                            chat_completion.Choice(
-                                finish_reason=None,  # type: ignore[arg-type]
+                            chat_completion.Choice.model_construct(
+                                finish_reason=None,
                                 index=0,
-                                message=chat_completion_message.ChatCompletionMessage(
+                                message=chat_completion_message.ChatCompletionMessage.model_construct(
                                     content='Nine',
                                     role='assistant',
                                 ),
@@ -412,12 +413,15 @@ def request_handler(request: httpx.Request) -> httpx.Response:
             )
         else:
             # Test case: no finish_reason
+            # Use model_construct to bypass Pydantic validation (which rejects None for finish_reason)
             if json_body.get('prompt') == 'test no finish reason':
                 return httpx.Response(
                     200,
-                    json=completion.Completion(
+                    json=completion.Completion.model_construct(
                         id='test_id_no_finish',
-                        choices=[completion_choice.CompletionChoice(finish_reason=None, index=0, text='Nine')],  # type: ignore[arg-type]
+                        choices=[
+                            completion_choice.CompletionChoice.model_construct(finish_reason=None, index=0, text='Nine')
+                        ],
                         created=123,
                         model='gpt-3.5-turbo-instruct',
                         object='text_completion',
@@ -510,6 +514,64 @@ def request_handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
             200,
             json={'id': 'thread_abc123', 'object': 'thread', 'created_at': 1698107661, 'metadata': {}},
+        )
+    elif request.url == 'https://api.openai.com/v1/responses':
+        json_body = json.loads(request.content)
+        # Return a simple response for the responses API
+        return httpx.Response(
+            200,
+            json={
+                'id': 'resp_test123',
+                'object': 'response',
+                'created_at': 1698107661,
+                'status': 'completed',
+                'background': False,
+                'billing': {'payer': 'developer'},
+                'error': None,
+                'incomplete_details': None,
+                'instructions': json_body.get('instructions'),
+                'max_output_tokens': None,
+                'max_tool_calls': None,
+                'model': json_body.get('model', 'gpt-4.1'),
+                'output': [
+                    {
+                        'id': 'msg_test123',
+                        'type': 'message',
+                        'status': 'completed',
+                        'role': 'assistant',
+                        'content': [
+                            {
+                                'type': 'output_text',
+                                'text': 'Nine',
+                                'annotations': [],
+                            }
+                        ],
+                    }
+                ],
+                'parallel_tool_calls': True,
+                'previous_response_id': None,
+                'prompt_cache_key': None,
+                'reasoning': {'effort': None, 'summary': None},
+                'safety_identifier': None,
+                'service_tier': 'default',
+                'store': True,
+                'temperature': 1.0,
+                'text': {'format': {'type': 'text'}, 'verbosity': 'medium'},
+                'tool_choice': 'auto',
+                'tools': [],
+                'top_logprobs': 0,
+                'top_p': 1.0,
+                'truncation': 'disabled',
+                'usage': {
+                    'input_tokens': 10,
+                    'input_tokens_details': {'cached_tokens': 0},
+                    'output_tokens': 1,
+                    'output_tokens_details': {'reasoning_tokens': 0},
+                    'total_tokens': 11,
+                },
+                'user': None,
+                'metadata': {},
+            },
         )
     else:  # pragma: no cover
         raise ValueError(f'Unexpected request to {request.url!r}')
@@ -3887,13 +3949,10 @@ def test_sync_chat_completions_empty_messages(instrumented_client: openai.Client
     assert 'gen_ai.input.messages' not in spans[0]['attributes']
 
 
-@pytest.mark.vcr()
-def test_responses_api_empty_inputs(exporter: TestExporter) -> None:
+def test_responses_api_empty_inputs(instrumented_client: openai.Client, exporter: TestExporter) -> None:
     """Test OpenAI responses API with empty inputs (covers branch 157->159)."""
-    client = openai.Client()
-    logfire.instrument_openai(client)
     # Use cast to handle None input - the API accepts None but type checker doesn't
-    response = client.responses.create(
+    response = instrumented_client.responses.create(
         model='gpt-4.1',
         input=cast('str | list[Any] | None', None),  # type: ignore[arg-type]
         instructions='You are a helpful assistant.',
@@ -3901,7 +3960,8 @@ def test_responses_api_empty_inputs(exporter: TestExporter) -> None:
     # Handle different output types - ResponseOutputText has content attribute
     output_item = response.output[0]
     if hasattr(output_item, 'content'):
-        assert output_item.content == 'Nine'  # type: ignore[attr-defined]
+        # The mock returns 'Nine' in the output
+        assert output_item.content[0].text == 'Nine'  # type: ignore[union-attr]
     else:
         # For other output types, just check that we got a response
         assert output_item is not None
