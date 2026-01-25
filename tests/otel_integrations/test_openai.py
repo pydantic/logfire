@@ -3,7 +3,7 @@ from __future__ import annotations as _annotations
 import json
 from collections.abc import AsyncIterator, Iterator
 from io import BytesIO
-from typing import Any
+from typing import Any, cast
 
 import httpx
 import openai
@@ -23,6 +23,7 @@ from openai.types import (
     images_response,
 )
 from openai.types.chat import chat_completion, chat_completion_chunk as cc_chunk, chat_completion_message
+from openai.types.chat.chat_completion_message_tool_call import ChatCompletionMessageToolCall, Function
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
 import logfire
@@ -3531,6 +3532,134 @@ def test_completions_no_finish_reason(instrumented_client: openai.Client, export
                                         'title': 'CompletionUsage',
                                         'x-python-datatype': 'PydanticModel',
                                     }
+                                },
+                            },
+                            'gen_ai.output.messages': {'type': 'array'},
+                        },
+                    },
+                },
+            }
+        ]
+    )
+
+
+def test_chat_completions_tool_call_response(instrumented_client: openai.Client, exporter: TestExporter) -> None:
+    """Test output message conversion when response has tool_calls but no content."""
+    response = instrumented_client.chat.completions.create(
+        model='gpt-4',
+        messages=[{'role': 'user', 'content': 'call a function for me'}],
+    )
+    assert response.choices[0].message.tool_calls is not None
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Chat Completion with {request_data[model]!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_chat_completions_tool_call_response',
+                    'code.lineno': 123,
+                    'request_data': {
+                        'messages': [{'role': 'user', 'content': 'call a function for me'}],
+                        'model': 'gpt-4',
+                    },
+                    'gen_ai.request.model': 'gpt-4',
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.operation.name': 'chat',
+                    'async': False,
+                    'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
+                    'logfire.msg': "Chat Completion with 'gpt-4'",
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.system': 'openai',
+                    'gen_ai.response.model': 'gpt-4',
+                    'operation.cost': 0.00165,
+                    'gen_ai.usage.input_tokens': 25,
+                    'gen_ai.usage.output_tokens': 15,
+                    'response_data': {
+                        'message': {
+                            'content': None,
+                            'refusal': None,
+                            'role': 'assistant',
+                            'annotations': None,
+                            'audio': None,
+                            'function_call': None,
+                            'tool_calls': [
+                                {
+                                    'id': 'call_xyz789',
+                                    'function': {'arguments': '{"location": "San Francisco"}', 'name': 'get_weather'},
+                                    'type': 'function',
+                                }
+                            ],
+                        },
+                        'usage': {
+                            'completion_tokens': 15,
+                            'prompt_tokens': 25,
+                            'total_tokens': 40,
+                            'completion_tokens_details': None,
+                            'prompt_tokens_details': None,
+                        },
+                    },
+                    'gen_ai.output.messages': [
+                        {
+                            'role': 'assistant',
+                            'parts': [
+                                {
+                                    'type': 'tool_call',
+                                    'id': 'call_xyz789',
+                                    'name': 'get_weather',
+                                    'arguments': {'location': 'San Francisco'},
+                                }
+                            ],
+                            'finish_reason': 'tool_calls',
+                        }
+                    ],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.request.model': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.operation.name': {},
+                            'async': {},
+                            'gen_ai.system': {},
+                            'gen_ai.response.model': {},
+                            'operation.cost': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'response_data': {
+                                'type': 'object',
+                                'properties': {
+                                    'message': {
+                                        'type': 'object',
+                                        'title': 'ChatCompletionMessage',
+                                        'x-python-datatype': 'PydanticModel',
+                                        'properties': {
+                                            'tool_calls': {
+                                                'type': 'array',
+                                                'items': {
+                                                    'type': 'object',
+                                                    'title': 'ChatCompletionMessageFunctionToolCall',
+                                                    'x-python-datatype': 'PydanticModel',
+                                                    'properties': {
+                                                        'function': {
+                                                            'type': 'object',
+                                                            'title': 'Function',
+                                                            'x-python-datatype': 'PydanticModel',
+                                                        }
+                                                    },
+                                                },
+                                            }
+                                        },
+                                    },
+                                    'usage': {
+                                        'type': 'object',
+                                        'title': 'CompletionUsage',
+                                        'x-python-datatype': 'PydanticModel',
+                                    },
                                 },
                             },
                             'gen_ai.output.messages': {'type': 'array'},

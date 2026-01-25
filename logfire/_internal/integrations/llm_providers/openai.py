@@ -247,18 +247,9 @@ def convert_responses_outputs_to_semconv(response: Response) -> OutputMessages:
 
         if typ in (None, 'message') and content:
             parts: list[MessagePart] = []
-            if isinstance(content, str):  # pragma: no cover
-                parts.append(TextPart(type='text', content=content))
-            elif isinstance(content, list):
-                for item in cast(list[Any], content):
-                    if isinstance(item, dict):
-                        item_dict = cast(dict[str, Any], item)
-                        if item_dict.get('type') == 'output_text':
-                            parts.append(TextPart(type='text', content=item_dict.get('text', '')))
-                        else:  # pragma: no cover
-                            parts.append(cast('MessagePart', item_dict))
-                    else:  # pragma: no cover
-                        parts.append(TextPart(type='text', content=str(item)))
+            for item in cast('list[dict[str, Any]]', content):
+                if item.get('type') == 'output_text':  # pragma: no branch
+                    parts.append(TextPart(type='text', content=cast(str, item.get('text', ''))))
             output_messages.append(
                 cast(
                     'OutputMessage',
@@ -324,8 +315,7 @@ class OpenaiResponsesStreamState(StreamState):
     def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
         response = self.get_response_data()
         output_messages = convert_responses_outputs_to_semconv(response)
-        if output_messages:
-            span_data[OUTPUT_MESSAGES] = output_messages
+        span_data[OUTPUT_MESSAGES] = output_messages
         # Keep 'events' for backward compatibility
         span_data['events'] = span_data.get('events', []) + responses_output_events(response)
         return span_data
@@ -432,8 +422,7 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         span.set_attribute('response_data', {'images': response.data})
     elif isinstance(response, Response):  # pragma: no branch
         output_messages: OutputMessages = convert_responses_outputs_to_semconv(response)
-        if output_messages:
-            span.set_attribute(OUTPUT_MESSAGES, output_messages)
+        span.set_attribute(OUTPUT_MESSAGES, output_messages)
         # Keep 'events' for backward compatibility
         existing_events: list[Any] = []
         otel_span = span._span  # pyright: ignore[reportPrivateUsage]
