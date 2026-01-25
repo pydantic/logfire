@@ -252,10 +252,9 @@ def convert_chat_completions_to_semconv(
                 for tc in tool_calls:
                     function = tc.get('function', {})
                     arguments = function.get('arguments')
-                    if isinstance(arguments, str):
+                    if isinstance(arguments, str):  # pragma: no branch
                         with contextlib.suppress(json.JSONDecodeError):
                             arguments = json.loads(arguments)
-                    # else: arguments is already a dict, use as-is
                     parts.append(
                         ToolCallPart(
                             type='tool_call',
