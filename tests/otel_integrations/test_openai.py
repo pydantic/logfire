@@ -221,6 +221,139 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                 ]
                 return httpx.Response(200, text=''.join(f'data: {chunk.model_dump_json()}\n\n' for chunk in chunks))
         else:
+            # Check for special test cases
+            messages: list[dict[str, Any]] = json_body.get('messages', [])
+
+            # Test case: response with tool_calls (to test convert_openai_response_to_semconv with tool_calls)
+            if any(m.get('content') == 'call a function for me' for m in messages):
+                return httpx.Response(
+                    200,
+                    json=chat_completion.ChatCompletion(
+                        id='test_tool_call_response',
+                        choices=[
+                            chat_completion.Choice(
+                                finish_reason='tool_calls',
+                                index=0,
+                                message=chat_completion_message.ChatCompletionMessage(
+                                    content=None,
+                                    role='assistant',
+                                    tool_calls=[
+                                        ChatCompletionMessageToolCall(
+                                            id='call_xyz789',
+                                            type='function',
+                                            function=Function(
+                                                name='get_weather',
+                                                arguments='{"location": "San Francisco"}',
+                                            ),
+                                        ),
+                                    ],
+                                ),
+                            ),
+                        ],
+                        created=1634720000,
+                        model='gpt-4',
+                        object='chat.completion',
+                        usage=completion_usage.CompletionUsage(
+                            completion_tokens=15,
+                            prompt_tokens=25,
+                            total_tokens=40,
+                        ),
+                    ).model_dump(mode='json'),
+                )
+
+            # Test case: tool call conversation (assistant with tool_calls + tool response)
+            if any(m.get('role') == 'tool' for m in messages):
+                return httpx.Response(
+                    200,
+                    json=chat_completion.ChatCompletion(
+                        id='test_tool_response_id',
+                        choices=[
+                            chat_completion.Choice(
+                                finish_reason='stop',
+                                index=0,
+                                message=chat_completion_message.ChatCompletionMessage(
+                                    content='The weather in Boston is sunny and 72°F.',
+                                    role='assistant',
+                                ),
+                            ),
+                        ],
+                        created=1634720000,
+                        model='gpt-4',
+                        object='chat.completion',
+                        usage=completion_usage.CompletionUsage(
+                            completion_tokens=10,
+                            prompt_tokens=20,
+                            total_tokens=30,
+                        ),
+                    ).model_dump(mode='json'),
+                )
+
+            # Test case: image content in message
+            def has_image_content(msg: dict[str, Any]) -> bool:
+                content = msg.get('content')
+                if isinstance(content, list):
+                    for part in cast(list[Any], content):
+                        if isinstance(part, dict):
+                            part_dict = cast(dict[str, Any], part)
+                            if part_dict.get('type') == 'image_url':
+                                return True
+                return False
+
+            if any(has_image_content(m) for m in messages):
+                return httpx.Response(
+                    200,
+                    json=chat_completion.ChatCompletion(
+                        id='test_image_id',
+                        choices=[
+                            chat_completion.Choice(
+                                finish_reason='stop',
+                                index=0,
+                                message=chat_completion_message.ChatCompletionMessage(
+                                    content='I can see a cat in the image.',
+                                    role='assistant',
+                                ),
+                            ),
+                        ],
+                        created=1634720000,
+                        model='gpt-4-vision-preview',
+                        object='chat.completion',
+                        usage=completion_usage.CompletionUsage(
+                            completion_tokens=8,
+                            prompt_tokens=100,
+                            total_tokens=108,
+                        ),
+                    ).model_dump(mode='json'),
+                )
+
+            # Test case: no finish_reason
+            # Use model_construct to bypass Pydantic validation (which rejects None for finish_reason)
+            if any(m.get('content') == 'test no finish reason' for m in messages):
+                return httpx.Response(
+                    200,
+                    json=chat_completion.ChatCompletion.model_construct(
+                        id='test_id_no_finish',
+                        choices=[
+                            chat_completion.Choice.model_construct(
+                                finish_reason=None,
+                                index=0,
+                                message=chat_completion_message.ChatCompletionMessage.model_construct(
+                                    content='Nine',
+                                    role='assistant',
+                                ),
+                            ),
+                        ],
+                        created=1634720000,
+                        model='gpt-4',
+                        object='chat.completion',
+                        usage=completion_usage.CompletionUsage(
+                            completion_tokens=1,
+                            prompt_tokens=2,
+                            total_tokens=3,
+                        ),
+                    ).model_dump(mode='json'),
+                )
+
+            # Default response
             return httpx.Response(
                 200,
                 json=chat_completion.ChatCompletion(
@@ -277,6 +410,26 @@ def request_handler(request: httpx.Request) -> httpx.Response:
                 200, text=''.join(f'data: {chunk.model_dump_json()}\n\n' for chunk in completion_chunks)
             )
         else:
+            # Test case: no finish_reason
+            # Use model_construct to bypass Pydantic validation (which rejects None for finish_reason)
+            if json_body.get('prompt') == 'test no finish reason':
+                return httpx.Response(
+                    200,
+                    json=completion.Completion.model_construct(
+                        id='test_id_no_finish',
+                        choices=[
+                            completion_choice.CompletionChoice.model_construct(finish_reason=None, index=0, text='Nine')
+                        ],
+                        created=123,
+                        model='gpt-3.5-turbo-instruct',
+                        object='text_completion',
+                        usage=completion_usage.CompletionUsage(
+                            completion_tokens=1,
+                            prompt_tokens=2,
+                            total_tokens=3,
+                        ),
+                    ).model_dump(mode='json'),
+                )
             return httpx.Response(
                 200,
                 json=completion.Completion(
@@ -359,6 +512,64 @@ def request_handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
             200,
             json={'id': 'thread_abc123', 'object': 'thread', 'created_at': 1698107661, 'metadata': {}},
+        )
+    elif request.url == 'https://api.openai.com/v1/responses':
+        json_body = json.loads(request.content)
+        # Return a simple response for the responses API
+        return httpx.Response(
+            200,
+            json={
+                'id': 'resp_test123',
+                'object': 'response',
+                'created_at': 1698107661,
+                'status': 'completed',
+                'background': False,
+                'billing': {'payer': 'developer'},
+                'error': None,
+                'incomplete_details': None,
+                'instructions': json_body.get('instructions'),
+                'max_output_tokens': None,
+                'max_tool_calls': None,
+                'model': json_body.get('model', 'gpt-4.1'),
+                'output': [
+                    {
+                        'id': 'msg_test123',
+                        'type': 'message',
+                        'status': 'completed',
+                        'role': 'assistant',
+                        'content': [
+                            {
+                                'type': 'output_text',
+                                'text': 'Nine',
+                                'annotations': [],
+                            }
+                        ],
+                    }
+                ],
+                'parallel_tool_calls': True,
+                'previous_response_id': None,
+                'prompt_cache_key': None,
+                'reasoning': {'effort': None, 'summary': None},
+                'safety_identifier': None,
+                'service_tier': 'default',
+                'store': True,
+                'temperature': 1.0,
+                'text': {'format': {'type': 'text'}, 'verbosity': 'medium'},
+                'tool_choice': 'auto',
+                'tools': [],
+                'top_logprobs': 0,
+                'top_p': 1.0,
+                'truncation': 'disabled',
+                'usage': {
+                    'input_tokens': 10,
+                    'input_tokens_details': {'cached_tokens': 0},
+                    'output_tokens': 1,
+                    'output_tokens_details': {'reasoning_tokens': 0},
+                    'total_tokens': 11,
+                },
+                'user': None,
+                'metadata': {},
+            },
         )
     else:  # pragma: no cover
         raise ValueError(f'Unexpected request to {request.url!r}')
@@ -3006,5 +3217,326 @@ I'm zeroing in on the core of the query. The "how are you" is basic, but the "tr
                     'gen_ai.response.model': 'google/gemini-2.5-flash',
                 },
             },
+        ]
+    )
+
+
+def test_sync_chat_completions_empty_messages(instrumented_client: openai.Client, exporter: TestExporter) -> None:
+    """Test OpenAI chat completions with empty messages."""
+    response = instrumented_client.chat.completions.create(
+        model='gpt-4',
+        messages=[],
+    )
+    assert response.choices[0].message.content == 'Nine'
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Chat Completion with {request_data[model]!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_sync_chat_completions_empty_messages',
+                    'code.lineno': 123,
+                    'request_data': {'messages': [], 'model': 'gpt-4'},
+                    'gen_ai.request.model': 'gpt-4',
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.operation.name': 'chat',
+                    'async': False,
+                    'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
+                    'logfire.msg': "Chat Completion with 'gpt-4'",
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.system': 'openai',
+                    'gen_ai.response.model': 'gpt-4',
+                    'operation.cost': 0.00012,
+                    'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.usage.output_tokens': 1,
+                    'response_data': {
+                        'message': {
+                            'content': 'Nine',
+                            'refusal': None,
+                            'role': 'assistant',
+                            'annotations': None,
+                            'audio': None,
+                            'function_call': None,
+                            'tool_calls': None,
+                        },
+                        'usage': {
+                            'completion_tokens': 1,
+                            'prompt_tokens': 2,
+                            'total_tokens': 3,
+                            'completion_tokens_details': None,
+                            'prompt_tokens_details': None,
+                        },
+                    },
+                    'gen_ai.output.messages': [
+                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Nine'}], 'finish_reason': 'stop'}
+                    ],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.request.model': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.operation.name': {},
+                            'async': {},
+                            'gen_ai.system': {},
+                            'gen_ai.response.model': {},
+                            'operation.cost': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'response_data': {
+                                'type': 'object',
+                                'properties': {
+                                    'message': {
+                                        'type': 'object',
+                                        'title': 'ChatCompletionMessage',
+                                        'x-python-datatype': 'PydanticModel',
+                                    },
+                                    'usage': {
+                                        'type': 'object',
+                                        'title': 'CompletionUsage',
+                                        'x-python-datatype': 'PydanticModel',
+                                    },
+                                },
+                            },
+                            'gen_ai.output.messages': {'type': 'array'},
+                        },
+                    },
+                },
+            }
+        ]
+    )
+
+
+def test_responses_api_empty_inputs(instrumented_client: openai.Client, exporter: TestExporter) -> None:
+    """Test OpenAI responses API with empty inputs."""
+    response = instrumented_client.responses.create(
+        model='gpt-4.1',
+        input=None,  # type: ignore
+        instructions='You are a helpful assistant.',
+    )
+    assert response.output[0].content[0].text == 'Nine'  # type: ignore
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Responses API with {gen_ai.request.model!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_responses_api_empty_inputs',
+                    'code.lineno': 123,
+                    'gen_ai.request.model': 'gpt-4.1',
+                    'request_data': {'model': 'gpt-4.1', 'stream': False},
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.operation.name': 'chat',
+                    'async': False,
+                    'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
+                    'logfire.msg': "Responses API with 'gpt-4.1'",
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.system': 'openai',
+                    'gen_ai.response.model': 'gpt-4.1',
+                    'operation.cost': 2.8e-05,
+                    'gen_ai.usage.input_tokens': 10,
+                    'gen_ai.usage.output_tokens': 1,
+                    'gen_ai.output.messages': [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Nine'}]}],
+                    'events': [{'event.name': 'gen_ai.assistant.message', 'content': 'Nine', 'role': 'assistant'}],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'gen_ai.request.model': {},
+                            'request_data': {'type': 'object'},
+                            'events': {'type': 'array'},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.operation.name': {},
+                            'async': {},
+                            'gen_ai.system': {},
+                            'gen_ai.response.model': {},
+                            'operation.cost': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.output.messages': {'type': 'array'},
+                        },
+                    },
+                },
+            }
+        ]
+    )
+
+
+def test_chat_completions_no_finish_reason(instrumented_client: openai.Client, exporter: TestExporter) -> None:
+    """Test OpenAI chat completions with None finish_reason."""
+    response = instrumented_client.chat.completions.create(
+        model='gpt-4',
+        messages=[{'role': 'user', 'content': 'test no finish reason'}],
+    )
+    assert response.choices[0].message.content == 'Nine'
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Chat Completion with {request_data[model]!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_chat_completions_no_finish_reason',
+                    'code.lineno': 123,
+                    'request_data': {
+                        'messages': [{'role': 'user', 'content': 'test no finish reason'}],
+                        'model': 'gpt-4',
+                    },
+                    'gen_ai.request.model': 'gpt-4',
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.operation.name': 'chat',
+                    'async': False,
+                    'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
+                    'logfire.msg': "Chat Completion with 'gpt-4'",
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.system': 'openai',
+                    'gen_ai.response.model': 'gpt-4',
+                    'operation.cost': 0.00012,
+                    'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.usage.output_tokens': 1,
+                    'response_data': {
+                        'message': {
+                            'content': 'Nine',
+                            'refusal': None,
+                            'role': 'assistant',
+                            'annotations': None,
+                            'audio': None,
+                            'function_call': None,
+                            'tool_calls': None,
+                        },
+                        'usage': {
+                            'completion_tokens': 1,
+                            'prompt_tokens': 2,
+                            'total_tokens': 3,
+                            'completion_tokens_details': None,
+                            'prompt_tokens_details': None,
+                        },
+                    },
+                    'gen_ai.output.messages': [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Nine'}]}],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.request.model': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.operation.name': {},
+                            'async': {},
+                            'gen_ai.system': {},
+                            'gen_ai.response.model': {},
+                            'operation.cost': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'response_data': {
+                                'type': 'object',
+                                'properties': {
+                                    'message': {
+                                        'type': 'object',
+                                        'title': 'ChatCompletionMessage',
+                                        'x-python-datatype': 'PydanticModel',
+                                    },
+                                    'usage': {
+                                        'type': 'object',
+                                        'title': 'CompletionUsage',
+                                        'x-python-datatype': 'PydanticModel',
+                                    },
+                                },
+                            },
+                            'gen_ai.output.messages': {'type': 'array'},
+                        },
+                    },
+                },
+            }
+        ]
+    )
+
+
+def test_completions_no_finish_reason(instrumented_client: openai.Client, exporter: TestExporter) -> None:
+    """Test OpenAI completions with None finish_reason."""
+    response = instrumented_client.completions.create(
+        model='gpt-3.5-turbo-instruct',
+        prompt='test no finish reason',
+    )
+    assert response.choices[0].text == 'Nine'
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Completion with {request_data[model]!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_completions_no_finish_reason',
+                    'code.lineno': 123,
+                    'request_data': {'model': 'gpt-3.5-turbo-instruct', 'prompt': 'test no finish reason'},
+                    'gen_ai.request.model': 'gpt-3.5-turbo-instruct',
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.operation.name': 'text_completion',
+                    'async': False,
+                    'logfire.msg_template': 'Completion with {request_data[model]!r}',
+                    'logfire.msg': "Completion with 'gpt-3.5-turbo-instruct'",
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.system': 'openai',
+                    'gen_ai.response.model': 'gpt-3.5-turbo-instruct',
+                    'operation.cost': 5e-06,
+                    'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.usage.output_tokens': 1,
+                    'response_data': {
+                        'finish_reason': None,
+                        'text': 'Nine',
+                        'usage': {
+                            'completion_tokens': 1,
+                            'prompt_tokens': 2,
+                            'total_tokens': 3,
+                            'completion_tokens_details': None,
+                            'prompt_tokens_details': None,
+                        },
+                    },
+                    'gen_ai.output.messages': [
+                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Nine'}], 'finish_reason': None}
+                    ],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.request.model': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.operation.name': {},
+                            'async': {},
+                            'gen_ai.system': {},
+                            'gen_ai.response.model': {},
+                            'operation.cost': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'response_data': {
+                                'type': 'object',
+                                'properties': {
+                                    'usage': {
+                                        'type': 'object',
+                                        'title': 'CompletionUsage',
+                                        'x-python-datatype': 'PydanticModel',
+                                    }
+                                },
+                            },
+                            'gen_ai.output.messages': {'type': 'array'},
+                        },
+                    },
+                },
+            }
         ]
     )
