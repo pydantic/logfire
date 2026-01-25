@@ -360,6 +360,41 @@ def request_handler(request: httpx.Request) -> httpx.Response:
             200,
             json={'id': 'thread_abc123', 'object': 'thread', 'created_at': 1698107661, 'metadata': {}},
         )
+    elif request.url == 'https://api.openai.com/v1/responses':
+        json_body = json.loads(request.content)
+        return httpx.Response(
+            200,
+            json={
+                'id': 'resp_test123',
+                'object': 'response',
+                'created_at': 1698107661,
+                'status': 'completed',
+                'background': False,
+                'error': None,
+                'incomplete_details': None,
+                'instructions': json_body.get('instructions'),
+                'model': json_body.get('model', 'gpt-4.1'),
+                'output': [
+                    {
+                        'id': 'msg_test123',
+                        'type': 'message',
+                        'status': 'completed',
+                        'role': 'assistant',
+                        'content': [{'type': 'output_text', 'text': 'Nine', 'annotations': []}],
+                    }
+                ],
+                'parallel_tool_calls': True,
+                'tools': [],
+                'usage': {
+                    'input_tokens': 10,
+                    'input_tokens_details': {'cached_tokens': 0},
+                    'output_tokens': 1,
+                    'output_tokens_details': {'reasoning_tokens': 0},
+                    'total_tokens': 11,
+                },
+                'metadata': {},
+            },
+        )
     else:  # pragma: no cover
         raise ValueError(f'Unexpected request to {request.url!r}')
 
