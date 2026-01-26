@@ -6,6 +6,7 @@ from unittest import mock
 import pytest
 from celery import Celery
 from celery.contrib.testing.worker import start_worker
+from celery.result import AsyncResult
 from dirty_equals import IsInt, IsStr
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.celery import CeleryInstrumentor
@@ -50,9 +51,10 @@ def test_instrument_celery(celery_app: Celery, exporter: TestExporter) -> None:
         for _ in range(3):
             exporter.clear()
             # Send and wait for the task to be executed
-            result = celery_app.send_task('tasks.say_hello')  # type: ignore
+            result: AsyncResult = celery_app.send_task('tasks.say_hello')  # type: ignore
             value = result.get(timeout=10)  # type: ignore
             assert value == 'hello'
+            result.backend = None
 
             # There are two spans:
             # 1. Trigger the task with `send_task`.
