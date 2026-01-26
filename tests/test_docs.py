@@ -22,11 +22,6 @@ SKIP_LINT_TAGS = ['skip', 'skip-lint']
 """Tags to skip linting the example with pytest-examples."""
 
 
-def get_skip_reason(example: CodeExample):
-    """Get the reason for skipping the example."""
-    return example.prefix_settings().get('skip-reason')
-
-
 def set_eval_config(eval_example: EvalExample):
     """Set the evaluation configuration."""
     eval_example.set_config(
@@ -38,29 +33,32 @@ def set_eval_config(eval_example: EvalExample):
     )
 
 
-@pytest.mark.parametrize('example', find_examples('docs/', 'README.md'), ids=str)
 @pytest.mark.timeout(3)
-def test_formatting(example: CodeExample, eval_example: EvalExample):
+def test_formatting(eval_example: EvalExample):
     """Ensure examples in documentation are formatted correctly."""
-    if any(example.prefix_settings().get(key) == 'true' for key in SKIP_LINT_TAGS):
-        pytest.skip(get_skip_reason(example) or 'Skipping example')
+    examples = find_examples('docs/', 'README.md')
+    # Filter out skipped examples
+    examples = [ex for ex in examples if not any(ex.prefix_settings().get(key) == 'true' for key in SKIP_LINT_TAGS)]
 
     set_eval_config(eval_example)
 
-    if eval_example.update_examples:  # pragma: no cover
-        eval_example.format(example)
-    else:
-        eval_example.lint_ruff(example)
+    for example in examples:
+        if eval_example.update_examples:  # pragma: no cover
+            eval_example.format(example)
+        else:
+            eval_example.lint_ruff(example)
 
 
-@pytest.mark.parametrize('example', find_examples('logfire/', 'docs/', 'README.md'), ids=str)
+def _get_runnable_examples():
+    """Get examples that should be run, filtering out skipped ones."""
+    examples = find_examples('logfire/', 'docs/', 'README.md')
+    return [ex for ex in examples if not any(ex.prefix_settings().get(key) == 'true' for key in SKIP_RUN_TAGS)]
+
+
+@pytest.mark.parametrize('example', _get_runnable_examples(), ids=str)
 @pytest.mark.timeout(3)
 def test_runnable(example: CodeExample, eval_example: EvalExample):
     """Ensure examples in documentation are runnable."""
-
-    if any(example.prefix_settings().get(key) == 'true' for key in SKIP_RUN_TAGS):
-        pytest.skip(get_skip_reason(example) or 'Skipping example')
-
     set_eval_config(eval_example)
 
     if eval_example.update_examples:  # pragma: no cover
