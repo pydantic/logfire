@@ -378,19 +378,23 @@ plugins:
       enabled: !ENV [CI, false]
       full_output: llms-full.txt
       markdown_description: |-
-        From the team behind Pydantic, Logfire is an observability platform built on the same belief as our
-        open source library — that the most powerful tools can be easy to use.
+        Logfire is a powerful and scalable AI observability platform that can trace your entire application.
+        SQL-queryable, integrated MCP server, OpenTelemetry-based, Logfire has native SDKs for Python, TypeScript/JavaScript, Rust and works with any Otel language.
       sections:
         General:
           - index.md
           - why.md
           - concepts.md
+          - ai-observability.md
+          - faq.md
         How To - Guides:
           - guides/*/*.md
           - how-to-guides/*.md
         Integrations:
           - integrations/*.md
           - integrations/*/*.md
+        Comparisons:
+          - comparisons/*.md
         Optional:
           - roadmap.md
           - release-notes.md
