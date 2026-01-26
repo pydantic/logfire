@@ -6,6 +6,7 @@
       "Bash(git pull origin main)",
       "Bash(git checkout -b update-deps-:*)",
       "Bash(uv sync:*)",
+      "Bash(uv run mkdocs:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git push origin HEAD)",
