@@ -1,5 +1,6 @@
 """Test Python code examples in documentation and docstrings."""
 
+import gc
 import os
 
 import pytest
@@ -66,3 +67,5 @@ def test_runnable(example: CodeExample, eval_example: EvalExample):
         eval_example.run_print_update(example)
     else:
         eval_example.run_print_check(example)
+
+    gc.collect()
