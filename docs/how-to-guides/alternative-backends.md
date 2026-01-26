@@ -31,7 +31,7 @@ docker run --rm \
 
 Then run this code:
 
-```python
+```python skip-run="true" skip-reason="external-connection"
 import os
 
 import logfire
