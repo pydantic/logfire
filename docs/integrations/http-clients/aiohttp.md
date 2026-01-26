@@ -51,7 +51,7 @@ The `logfire.instrument_aiohttp_client()` method accepts various parameters to c
 
 You can capture all information (headers and bodies) by setting the `capture_all` parameter to `True`.
 
-```py
+```py skip-run="true" skip-reason="external-connection"
 import aiohttp
 
 import logfire

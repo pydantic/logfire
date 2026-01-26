@@ -85,7 +85,7 @@ docker run \
 Now send some data to the OpenTelemetry Collector using the Logfire SDK.
 See the [Alternative Backends guide](../alternative-backends.md) for more details.
 
-```python title="script.py"
+```python skip-run="true" skip-reason="external-connection"
 import os
 
 import logfire
