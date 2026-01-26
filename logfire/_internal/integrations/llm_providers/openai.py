@@ -99,9 +99,8 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
 
         span_data: dict[str, Any] = {
             'request_data': json_data,
-            'gen_ai.request.model': json_data.get('model'),
             PROVIDER_NAME: 'openai',
-            OPERATION_NAME: 'chat_completions',
+            OPERATION_NAME: 'chat',
             REQUEST_MODEL: json_data.get('model'),
         }
         _extract_request_parameters(json_data, span_data)
@@ -124,22 +123,21 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
                 json_data.get('instructions'),
             ),
             PROVIDER_NAME: 'openai',
-            OPERATION_NAME: 'responses',
+            OPERATION_NAME: 'chat',
             REQUEST_MODEL: json_data.get('model'),
         }
         _extract_request_parameters(json_data, span_data)
 
         return EndpointConfig(
-            message_template='Responses API with {request_data[model]!r}',
+            message_template='Responses API with {gen_ai.request.model!r}',
             span_data=span_data,
             stream_state_cls=OpenaiResponsesStreamState,
         )
     elif url == '/completions':
         span_data = {
             'request_data': json_data,
-            'gen_ai.request.model': json_data.get('model'),
             PROVIDER_NAME: 'openai',
-            OPERATION_NAME: 'completions',
+            OPERATION_NAME: 'text_completion',
             REQUEST_MODEL: json_data.get('model'),
         }
         _extract_request_parameters(json_data, span_data)
@@ -151,7 +149,6 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
     elif url == '/embeddings':
         span_data = {
             'request_data': json_data,
-            'gen_ai.request.model': json_data.get('model'),
             PROVIDER_NAME: 'openai',
             OPERATION_NAME: 'embeddings',
             REQUEST_MODEL: json_data.get('model'),
@@ -164,7 +161,6 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
     elif url == '/images/generations':
         span_data = {
             'request_data': json_data,
-            'gen_ai.request.model': json_data.get('model'),
             PROVIDER_NAME: 'openai',
             OPERATION_NAME: 'image_generation',
             REQUEST_MODEL: json_data.get('model'),
