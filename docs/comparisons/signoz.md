@@ -54,7 +54,7 @@ SigNoz is an open-source observability platform that you can self-host. Logfire 
 
 **Logfire** provides first-class SDKs:
 
-```python
+```python skip="true" skip-reason="incomplete"
 import logfire
 logfire.configure()
 logfire.instrument_openai()

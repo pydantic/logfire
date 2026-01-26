@@ -54,7 +54,7 @@ Sentry is a mature error monitoring platform. Logfire is an AI-native observabil
 
 **Logfire** was built for AI applications. One function call gives you complete LLM visibility:
 
-```python
+```python skip="true" skip-reason="incomplete"
 import logfire
 logfire.configure()
 logfire.instrument_openai()  # That's it

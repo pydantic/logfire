@@ -67,7 +67,7 @@ Different philosophies: Choose based on your team's workflow.
 
 **Logfire** makes all instrumentation easy:
 
-```python
+```python skip="true" skip-reason="incomplete"
 import logfire
 logfire.configure()
 logfire.instrument_openai()     # AI

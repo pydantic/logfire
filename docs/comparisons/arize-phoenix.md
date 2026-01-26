@@ -65,7 +65,7 @@ When your AI application fails, you need to know why. Was it the model? The data
 
 **Logfire** setup:
 
-```python
+```python skip="true" skip-reason="incomplete"
 import logfire
 logfire.configure()
 logfire.instrument_openai()
