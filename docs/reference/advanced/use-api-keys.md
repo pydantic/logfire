@@ -86,7 +86,7 @@ A successful request will return a JSON response with your projects:
 
 ## API Key Scopes
 
-When creating an API key, you can select specific scopes to limit what actions the key can perform.
+When creating an API key, set the scope to define which actions the key can perform.
 Available scopes depend on whether you're creating an organization or project API key:
 
 | Scope                                | Organization API Key | Project API Key |
@@ -99,4 +99,5 @@ Available scopes depend on whether you're creating an organization or project AP
 | Read tokens management               | ✓                    | ✓               |
 | Alerts management                    | ✓                    | ✓               |
 
+!!! note
 Select only the scopes your application needs to follow the principle of least privilege.
