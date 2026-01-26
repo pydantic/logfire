@@ -7,7 +7,7 @@ description: "Guide on how to create API keys and use them to call Logfire publi
 
 !!! note
 API keys are for accessing the Logfire platform APIs, _not_ for sending telemetry data (traces, logs, metrics).
-To send data to Logfire, use [write tokens](./create-write-tokens.md).
+To send data to Logfire, use [write tokens](../../how-to-guides/create-write-tokens.md).
 
 Use the Logfire API to automate resource management and integrate Logfire into your existing workflows.
 
