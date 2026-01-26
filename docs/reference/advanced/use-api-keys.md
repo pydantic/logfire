@@ -6,8 +6,8 @@ description: "Guide on how to create API keys and use them to call Logfire publi
 **Logfire** provides public APIs that allow you to programmatically manage your organizations, projects, and other resources. To access these APIs, you'll need to create an **API key**.
 
 !!! note
-API keys are for accessing the Logfire platform APIs, _not_ for sending telemetry data (traces, logs, metrics).
-To send data to Logfire, use [write tokens](../../how-to-guides/create-write-tokens.md).
+    API keys are for accessing the Logfire platform APIs, _not_ for sending telemetry data (traces, logs, metrics).
+    To send data to Logfire, use [write tokens](../../how-to-guides/create-write-tokens.md).
 
 Use the Logfire API to automate resource management and integrate Logfire into your existing workflows.
 
@@ -40,7 +40,7 @@ Navigate to your project, then **Settings → API Keys → New API Key**.
 Project API keys are limited to the project where they were created.
 
 !!! warning
-Copy your API key when it's displayed—it won't be shown again.
+    Copy your API key when it's displayed—it won't be shown again.
 
 ## API Key Scopes
 
@@ -58,7 +58,7 @@ Available scopes depend on whether you're creating an organization or project AP
 | Alerts management                    | ✓                    | ✓               |
 
 !!! note
-Select only the scopes your application needs to follow the principle of least privilege.
+    Select only the scopes your application needs to follow the principle of least privilege.
 
 ## Using API Keys
 
