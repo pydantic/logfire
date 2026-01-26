@@ -4,18 +4,18 @@ Braintrust is an AI evaluation and observability platform focused on LLM testing
 
 ## Quick Comparison
 
-| Feature | Logfire | Braintrust |
-|---------|---------|------------|
-| **Primary Focus** | Full-stack observability | AI evaluation and testing |
-| **Strength** | Production monitoring, debugging | Eval workflows, prompt iteration |
-| **Non-AI Tracing** | Full support | Limited (requires raw OTel) |
-| **Evaluation** | Via pydantic-evals (code-first) | Built-in UI workflows |
-| **SQL Queries** | Yes (Postgres-compatible) | Limited |
-| **Framework Support** | Any OTel-compatible | AI frameworks only |
+| Feature | Logfire                                                        | Braintrust |
+|---------|----------------------------------------------------------------|------------|
+| **Primary Focus** | AI observability for agents and apps                           | AI evaluation and testing |
+| **Strength** | Production monitoring, debugging                               | Eval workflows, prompt iteration |
+| **Non-AI Tracing** | Full support                                                   | Limited (requires raw OTel) |
+| **Evaluation** | Integrated web-UI - code-based via `pydantic-evals` | UI workflows |
+| **SQL Queries** | Yes (Postgres-compatible)                                      | Limited |
+| **Framework Support** | Any OTel-compatible                                            | AI frameworks only |
 
 ## When to Choose Logfire
 
-- **Production observability:** You need to monitor AI applications in production
+- **Production observability:** You need a scalable solution to monitor AI applications in production
 - **Full-stack visibility:** You want AI + application monitoring unified
 - **Debugging focus:** You're troubleshooting production issues
 - **Code-first evals:** You prefer evals as code, version-controlled
@@ -23,7 +23,7 @@ Braintrust is an AI evaluation and observability platform focused on LLM testing
 
 ## When to Choose Braintrust
 
-- **Evaluation focus:** Your primary need is structured AI evaluation workflows
+- **Evaluation focus:** Your only need is UI-based AI evaluation workflows 
 - **Prompt iteration:** You're heavily iterating on prompts and need that workflow
 - **UI-driven evals:** You prefer managing evaluations through a UI
 - **AI-only scope:** You don't need full application observability
@@ -44,6 +44,9 @@ Braintrust is an AI evaluation and observability platform focused on LLM testing
 - Database queries, API calls, file operations
 - Complete distributed traces
 - Real-time debugging
+- MCP server integration
+- Production scalability
+- Complex querying using SQL
 
 When your AI agent misbehaves, was it the model's reasoning or the data it received? Only full-stack observability tells you.
 
@@ -51,21 +54,22 @@ When your AI agent misbehaves, was it the model's reasoning or the data it recei
 
 **Braintrust** provides UI-driven evaluation workflows. Define evals in their interface, run them, see results.
 
-**Logfire** takes a code-first approach with [pydantic-evals](https://github.com/pydantic/pydantic-evals):
+**Logfire** shows a rich visualization of evals (built on code using [pydantic-evals](https://github.com/pydantic/pydantic-evals?utm_source=braintrust_compare_docs)) on the UI:
 
-- Evaluate any Python function, not just LLM calls (test tools, data pipelines, entire workflows)
+- Evaluate AI, LLM calls, and Python functions (test tools, data pipelines, entire workflows)
 - Evals are code, version-controlled like everything else
 - Run locally, in CI/CD, anywhere
-- Integrate with pytest or any testing framework
-- Full type safety with Pydantic
+- Visualise evals comparison on UI
+- Integrate with `pytest` or any testing framework
+- Full type safety with [Pydantic](https://pydantic.dev?utm_source=braintrust_compare_docs)
 
 Different philosophies: Choose based on your team's workflow.
 
 ### Non-AI Instrumentation
 
-**Braintrust** focuses on AI. To instrument non-LLM parts of your application, you need to set up raw OpenTelemetry and send to their OTLP endpoint.
+**Braintrust** focuses purely on AI. To instrument non-LLM parts of your application, you need to set up raw OpenTelemetry and send to their OTLP endpoint.
 
-**Logfire** makes all instrumentation easy:
+**Logfire** makes all instrumentation easy with first-class [integrations](https://logfire.pydantic.dev/docs/integrations/?utm_source=braintrust_compare_docs):
 
 ```python skip="true" skip-reason="incomplete"
 import logfire
@@ -83,12 +87,13 @@ Same simple interface for everything.
 
 - **No artificial limitations** — Ask any question, get any answer
 - **AI assistants excel at SQL** — GPT-5, Claude, and coding agents write excellent SQL
+- **Joins and complex queries allowed** - write joins on your trace queries and create dashboards, all in SQL
 - **Agentic workflows** — When coding agents debug your AI application, they can write arbitrary queries
 - **Familiar syntax** — No new query language to learn
 
 When you're iterating on AI applications with coding agents, the agent needs to understand production behavior. With SQL, it can ask any question. With custom APIs, it's constrained to anticipated queries.
 
-**Braintrust** has its own query interface, optimized for evaluation workflows but less flexible for ad-hoc analysis.
+**Braintrust** has its own query interface, optimized for evaluation workflows but less flexible for ad-hoc analysis. It accepts SQL, but only for simple queries. Joins should be done using BQL (Braintrust Query Language).
 
 ## Using Together
 
@@ -101,8 +106,8 @@ Both support OpenTelemetry, so you can send the same trace data to both if neede
 
 ## Summary
 
-**Choose Logfire** for production observability with full-stack visibility and code-first evaluations.
+**Choose Logfire** for production AI observability with support full-stack visibility and code-first evaluations and visualizations.
 
-**Choose Braintrust** if structured evaluation workflows are your primary need and you prefer UI-driven eval management.
+**Choose Braintrust** if structured evaluation workflows are your primary (or only) need, and you prefer UI-driven evals management.
 
-**Consider both** if you want Braintrust's eval workflows alongside Logfire's production observability.
+**Consider both** if you want Braintrust's evals workflows alongside Logfire's production observability and scalable performance.
