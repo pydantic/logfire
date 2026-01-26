@@ -1,5 +1,10 @@
 # Release Notes
 
+## [v4.20.0] (2026-01-26)
+
+* feat: pytest integration by @jirikuncar in [#1648](https://github.com/pydantic/logfire/pull/1648)
+* fix: anthropic response data should include tool call id by @mathislucka in [#1636](https://github.com/pydantic/logfire/pull/1636)
+
 ## [v4.19.0] (2026-01-16)
 
 * Add DSPy integration to logfire by @bdsaglam in [#1625](https://github.com/pydantic/logfire/pull/1625)
@@ -1008,3 +1013,4 @@ First release from new repo!
 [v4.17.0]: https://github.com/pydantic/logfire/compare/v4.16.0...v4.17.0
 [v4.18.0]: https://github.com/pydantic/logfire/compare/v4.17.0...v4.18.0
 [v4.19.0]: https://github.com/pydantic/logfire/compare/v4.18.0...v4.19.0
+[v4.20.0]: https://github.com/pydantic/logfire/compare/v4.19.0...v4.20.0

@@ -16,16 +16,18 @@ This can be used to detect if a service is down.
 Let's say you have a [FastAPI application] that has a health check endpoint at `/health`.
 
 ```py
-import logfire
 from fastapi import FastAPI
 
-logfire.configure(service_name="backend")
+import logfire
+
+logfire.configure(service_name='backend')
 app = FastAPI()
 logfire.instrument_fastapi(app)
 
-@app.get("/health")
+
+@app.get('/health')
 async def health():
-    return {"status": "ok"}
+    return {'status': 'ok'}
 ```
 
 You probably have this endpoint because you have a mechanism that restarts the service if it's down.

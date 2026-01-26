@@ -6,7 +6,7 @@ description: Resolve failed to detach context errors in async code. Learn to use
 
 The body of a `with logfire.span` statement or a function decorated with `@logfire.instrument` should not contain the `yield` keyword, except in functions decorated with `@contextlib.contextmanager` or `@contextlib.asynccontextmanager`. To see the problem, consider this example:
 
-```python
+```python skip="true" skip-reason="intentional-error"
 import logfire
 
 logfire.configure()
@@ -109,8 +109,7 @@ logfire.configure()
 
 
 def generate_items():
-    for i in range(3):
-        yield i
+    yield from range(3)
 
 
 def main():
@@ -170,8 +169,7 @@ logfire.configure()
 
 def generate_items():
     with logfire.span('Generating items'):
-        for i in range(3):
-            yield i
+        yield from range(3)
 
 
 def main():
@@ -199,8 +197,7 @@ logfire.configure()
 def generate_items():
     def generator():
         with logfire.span('Generating items'):
-            for i in range(3):
-                yield i
+            yield from range(3)
 
     with closing(generator()) as items:
         yield items

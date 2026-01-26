@@ -24,7 +24,7 @@ You can do this by calling the [`suppress_scopes`][logfire.Logfire.suppress_scop
 import logfire
 
 logfire.configure()
-logfire.suppress_scopes("google.cloud.bigquery.opentelemetry_tracing")
+logfire.suppress_scopes('google.cloud.bigquery.opentelemetry_tracing')
 ```
 
 In this case, we're suppressing the scope `google.cloud.bigquery.opentelemetry_tracing`.
@@ -39,8 +39,9 @@ You just want to suppress a small part of the code that you know will generate a
 
 You can do this by using the [`suppress_instrumentation`][logfire.suppress_instrumentation] context manager.
 
-```py
+```py skip-run="true" skip-reason="external-connection"
 import httpx
+
 import logfire
 
 logfire.configure()
@@ -49,11 +50,11 @@ client = httpx.Client()
 logfire.instrument_httpx(client)
 
 # The span generated will be sent to Logfire.
-client.get("https://httpbin.org/get")
+client.get('https://httpbin.org/get')
 
 # The span generated will NOT be sent to Logfire.
 with logfire.suppress_instrumentation():
-    client.get("https://httpbin.org/get")
+    client.get('https://httpbin.org/get')
 ```
 
 In this case, the span generated inside the `with logfire.suppress_instrumentation():` block will not be sent to **Logfire**.

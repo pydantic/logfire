@@ -5,7 +5,7 @@ import os
 from unittest import mock
 
 import pytest
-from dirty_equals import IsAnyStr, IsJson
+from dirty_equals import IsAnyStr
 from inline_snapshot import snapshot
 from opentelemetry.instrumentation.starlette import StarletteInstrumentor
 from starlette.applications import Starlette
@@ -57,7 +57,7 @@ def test_websocket(client: TestClient, exporter: TestExporter) -> None:
         data = websocket.receive_text()
         assert data == 'pong'
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': '/ws/{name} websocket receive connect',
@@ -180,7 +180,7 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
             headers={'TestAuthorization': 'Bearer abcd'},
         )
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'GET /secret/{path_param}',
@@ -216,7 +216,7 @@ def test_scrubbing(client: TestClient, exporter: TestExporter) -> None:
                     'logfire.level_num': 17,
                     'logfire.exception.fingerprint': '0000000000000000000000000000000000000000000000000000000000000000',
                     'http.request.header.testauthorization': ("[Scrubbed due to 'auth']",),
-                    'logfire.scrubbed': IsJson(
+                    'logfire.scrubbed': (
                         [{'path': ['attributes', 'http.request.header.testauthorization'], 'matched_substring': 'auth'}]
                     ),
                 },

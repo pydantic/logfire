@@ -17,26 +17,28 @@ Let's see a minimal example below. You can run it with `python main.py`:
 
 === "Instrument a Single Engine"
 
-    ```py title="main.py"
-    import logfire
+    ```py title="main.py" skip-run="true" skip-reason="global-state"
     from sqlalchemy import create_engine
+
+    import logfire
 
     logfire.configure()
 
-    engine = create_engine("sqlite:///:memory:")
+    engine = create_engine('sqlite:///:memory:')
     logfire.instrument_sqlalchemy(engine=engine)
     ```
 
 === "Instrument Multiple Engines"
 
-    ```py title="main.py"
-    import logfire
+    ```py title="main.py" skip-run="true" skip-reason="global-state"
     from sqlalchemy import create_engine
+
+    import logfire
 
     logfire.configure()
 
-    engine_one = create_engine("sqlite:///:memory:")
-    engine_two = create_engine("sqlite:///:memory:")
+    engine_one = create_engine('sqlite:///:memory:')
+    engine_two = create_engine('sqlite:///:memory:')
     logfire.instrument_sqlalchemy(engines=[engine_one, engine_two])
     ```
 

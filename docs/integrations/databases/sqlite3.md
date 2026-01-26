@@ -25,7 +25,7 @@ You can either instrument the `sqlite3` module or instrument a specific connecti
 
 Here's an example of instrumenting the [`sqlite3`][sqlite3] module:
 
-```py title="main.py" hl_lines="6"
+```py title="main.py" hl_lines="5-6" skip-run="true" skip-reason="global-state"
 import sqlite3
 
 import logfire
@@ -41,14 +41,16 @@ with sqlite3.connect(':memory:') as connection:
 
     cursor.execute('SELECT * FROM users')
     print(cursor.fetchall())
-    # > [(1, 'Alice')]
+    #> [(1, 'Alice')]
+
+connection.close()
 ```
 
 ### Instrument a connection
 
 As mentioned, you can also instrument a specific connection. Here's an example:
 
-```py title="main.py" hl_lines="8"
+```py title="main.py" hl_lines="5 8" skip-run="true" skip-reason="global-state"
 import sqlite3
 
 import logfire
@@ -64,7 +66,9 @@ with sqlite3.connect(':memory:') as connection:
 
     cursor.execute('SELECT * FROM users')
     print(cursor.fetchall())
-    # > [(1, 'Alice')]
+    #> [(1, 'Alice')]
+
+connection.close()
 ```
 
 !!! warning "Avoid using `execute` from `sqlite3.Connection`"

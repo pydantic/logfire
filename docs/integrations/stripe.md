@@ -12,7 +12,7 @@ The stripe Python client has both synchronous and asynchronous methods for makin
 By default, the stripe client uses the `requests` package for making synchronous requests and
 the `httpx` package for making asynchronous requests.
 
-```py
+```py skip-run="true" skip-reason="external-connection"
 from stripe import StripeClient
 
 client = StripeClient(api_key='<your_secret_key>')
@@ -20,9 +20,11 @@ client = StripeClient(api_key='<your_secret_key>')
 # Synchronous request
 client.customers.list()  # uses `requests`
 
+
 # Asynchronous request
 async def main():
     await client.customers.list_async()  # uses `httpx`
+
 
 if __name__ == '__main__':
     import asyncio
@@ -38,11 +40,12 @@ As mentioned, by default, `stripe` uses the `requests` package for making HTTP r
 
 In this case, you'll need to call [`logfire.instrument_requests()`][requests-section].
 
-```py
+```py skip-run="true" skip-reason="external-connection"
 import os
 
-import logfire
 from stripe import StripeClient
+
+import logfire
 
 logfire.configure()
 logfire.instrument_requests()
@@ -62,21 +65,24 @@ As mentioned, by default, `stripe` uses the `httpx` package for making asynchron
 
 In this case, you'll need to call [`logfire.instrument_httpx()`][httpx-section].
 
-```py
+```py skip-run="true" skip-reason="external-connection"
 import asyncio
 import os
 
-import logfire
 from stripe import StripeClient
 
+import logfire
+
 logfire.configure()
-logfire.instrument_httpx()     # for asynchronous requests
+logfire.instrument_httpx()  # for asynchronous requests
 
 client = StripeClient(api_key=os.getenv('STRIPE_SECRET_KEY'))
+
 
 async def main():
     with logfire.span('list async'):
         await client.customers.list_async()
+
 
 if __name__ == '__main__':
     asyncio.run(main())
@@ -90,12 +96,13 @@ if __name__ == '__main__':
 
 Stripe also has a logger (`logger = getLogger('stripe')`) that [you can instrument with **Logfire**][logging-section].
 
-```py hl_lines="8"
+```py skip-run="true" skip-reason="external-connection" hl_lines="8-9"
 import os
 from logging import basicConfig
 
-import logfire
 from stripe import StripeClient
+
+import logfire
 
 logfire.configure()
 basicConfig(handlers=[logfire.LogfireLoggingHandler()], level='INFO')

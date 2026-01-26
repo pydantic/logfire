@@ -19,13 +19,13 @@ and all the extra dependencies are already included with **Logfire** by default,
     import logfire
 
     logfire.configure()
-    logfire.suppress_scopes("google.cloud.bigquery.opentelemetry_tracing")
+    logfire.suppress_scopes('google.cloud.bigquery.opentelemetry_tracing')
     ```
 
 
 Let's see an example:
 
-```python
+```python skip-run="true" skip-reason="external-connection"
 from google.cloud import bigquery
 
 import logfire
