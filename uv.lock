@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.9"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -3034,7 +3034,7 @@ wheels = [
 
 [[package]]
 name = "logfire"
-version = "4.19.0"
+version = "4.20.0"
 source = { editable = "." }
 dependencies = [
     { name = "executing" },
@@ -3399,7 +3399,7 @@ docs = [
 
 [[package]]
 name = "logfire-api"
-version = "4.19.0"
+version = "4.20.0"
 source = { editable = "logfire-api" }
 
 [package.metadata]
