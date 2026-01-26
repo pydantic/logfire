@@ -494,8 +494,17 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
 
 
 @pytest.fixture
-def logfire_instance(request: pytest.FixtureRequest) -> Logfire:
-    """Provide a Pytest configured Logfire instance."""
+def logfire_pytest(request: pytest.FixtureRequest) -> Logfire:
+    """Provide a Logfire instance configured for the pytest plugin.
+
+    This fixture provides a Logfire instance that sends spans to Logfire when the
+    pytest plugin is enabled (via `--logfire` flag). Use this instead of the global
+    `logfire` module when you want spans created in tests to be sent to Logfire
+    as part of your test traces.
+
+    When the plugin is not enabled, this fixture returns a local-only instance
+    that doesn't send data anywhere.
+    """
     config = request.config
     plugin_config = config.stash.get(_CONFIG_KEY, None)
 

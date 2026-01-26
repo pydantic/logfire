@@ -610,8 +610,8 @@ def test_custom_spans_nested_under_test_span(logfire_pytester: pytest.Pytester):
     are properly nested under the test span.
     """
     logfire_pytester.makepyfile("""
-        def test_with_custom_span(logfire_instance):
-            with logfire_instance.span("fetching data"):
+        def test_with_custom_span(logfire_pytest):
+            with logfire_pytest.span("fetching data"):
                 # Simulate some work
                 result = 1 + 1
                 assert result == 2
@@ -654,15 +654,15 @@ def test_nested_custom_spans_hierarchy(logfire_pytester: pytest.Pytester):
             └── check permissions
     """
     logfire_pytester.makepyfile("""
-        def test_nested_workflow(logfire_instance):
-            with logfire_instance.span("create user"):
-                with logfire_instance.span("validate input"):
+        def test_nested_workflow(logfire_pytest):
+            with logfire_pytest.span("create user"):
+                with logfire_pytest.span("validate input"):
                     # Simulate validation
                     user_data = {"name": "Test User"}
                     assert "name" in user_data
 
-            with logfire_instance.span("verify user"):
-                with logfire_instance.span("check permissions"):
+            with logfire_pytest.span("verify user"):
+                with logfire_pytest.span("check permissions"):
                     # Simulate permission check
                     has_permission = True
                     assert has_permission
@@ -698,10 +698,10 @@ def test_logfire_info_creates_span(logfire_pytester: pytest.Pytester):
     This tests that logfire.info() and similar calls work correctly within tests.
     """
     logfire_pytester.makepyfile("""
-        def test_with_logging(logfire_instance):
-            logfire_instance.info("Starting test operation")
+        def test_with_logging(logfire_pytest):
+            logfire_pytest.info("Starting test operation")
             result = 42
-            logfire_instance.info("Operation completed", result=result)
+            logfire_pytest.info("Operation completed", result=result)
             assert result == 42
     """)
     result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire')
@@ -777,17 +777,17 @@ def test_traceparent_with_tracestate(logfire_pytester: pytest.Pytester, monkeypa
 
 # Tests for the logfire fixture
 def test_logfire_fixture_works_without_plugin_enabled(logfire_pytester: pytest.Pytester):
-    """The logfire_instance fixture should work even when the plugin is not enabled.
+    """The logfire_pytest fixture should work even when the plugin is not enabled.
 
     When the plugin is not enabled, the fixture creates a local-only instance
     that doesn't send traces to Logfire servers.
     """
     logfire_pytester.makepyfile("""
-        def test_using_logfire_fixture(logfire_instance):
+        def test_using_logfire_fixture(logfire_pytest):
             # The fixture should work even without --logfire flag
-            assert hasattr(logfire_instance, 'span')
-            assert hasattr(logfire_instance, 'info')
-            with logfire_instance.span("test span"):
+            assert hasattr(logfire_pytest, 'span')
+            assert hasattr(logfire_pytest, 'info')
+            with logfire_pytest.span("test span"):
                 pass
     """)
     result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty')
@@ -795,23 +795,23 @@ def test_logfire_fixture_works_without_plugin_enabled(logfire_pytester: pytest.P
 
 
 def test_logfire_fixture_returns_instance_when_enabled(logfire_pytester: pytest.Pytester):
-    """The logfire_instance fixture should return a Logfire instance when plugin is enabled."""
+    """The logfire_pytest fixture should return a Logfire instance when plugin is enabled."""
     logfire_pytester.makepyfile("""
-        def test_using_logfire_fixture(logfire_instance):
+        def test_using_logfire_fixture(logfire_pytest):
             # Verify we got a Logfire instance
-            assert hasattr(logfire_instance, 'span')
-            assert hasattr(logfire_instance, 'info')
-            assert hasattr(logfire_instance, 'instrument_httpx')
+            assert hasattr(logfire_pytest, 'span')
+            assert hasattr(logfire_pytest, 'info')
+            assert hasattr(logfire_pytest, 'instrument_httpx')
     """)
     result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire')
     result.assert_outcomes(passed=1)
 
 
 def test_logfire_fixture_can_create_spans(logfire_pytester: pytest.Pytester):
-    """The logfire_instance fixture should be able to create spans that nest under test spans."""
+    """The logfire_pytest fixture should be able to create spans that nest under test spans."""
     logfire_pytester.makepyfile("""
-        def test_using_logfire_fixture(logfire_instance):
-            with logfire_instance.span("custom span from fixture"):
+        def test_using_logfire_fixture(logfire_pytest):
+            with logfire_pytest.span("custom span from fixture"):
                 assert True
     """)
     result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire')
@@ -832,14 +832,14 @@ def test_logfire_fixture_can_create_spans(logfire_pytester: pytest.Pytester):
 
 
 def test_logfire_fixture_in_test_fixture(logfire_pytester: pytest.Pytester):
-    """The logfire_instance fixture should work when used in user fixtures."""
+    """The logfire_pytest fixture should work when used in user fixtures."""
     logfire_pytester.makepyfile('''
         import pytest
 
         @pytest.fixture
-        def my_client(logfire_instance):
-            """A fixture that uses the logfire_instance fixture."""
-            with logfire_instance.span("setting up client"):
+        def my_client(logfire_pytest):
+            """A fixture that uses the logfire_pytest fixture."""
+            with logfire_pytest.span("setting up client"):
                 client = {"url": "https://api.example.com"}
             return client
 

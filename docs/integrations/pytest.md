@@ -1,14 +1,14 @@
 ---
 title: "Logfire Pytest Integration: Setup Guide"
-description: "Enable distributed tracing for your pytest test suite with Pydantic Logfire. Trace test sessions, individual tests, and see spans from instrumented libraries."
+description: "Add observability to your pytest test suite with Pydantic Logfire. See test sessions, individual tests, and what happens during test execution."
 integration: logfire
 ---
 # Pytest
 
-!!! tip "Running under Pytest... 🧪"
-    Only Pytest spans are send by default. Please refer to the [Testing Logfire Instrumentation](../reference/advanced/testing.md) guide for details on testing application instrumentation.
+!!! tip "Looking to test your instrumentation code?"
+    This page covers **sending test traces to Logfire** for observability into your test runs. If you want to **assert that your code emits the correct spans and logs**, see the [Testing Logfire Instrumentation](../reference/advanced/testing.md) guide instead.
 
-Logfire includes a built-in Pytest plugin that enables distributed tracing for your test suite. The plugin creates spans for test sessions and individual tests, allowing you to see exactly what happens during test execution.
+Logfire includes a built-in Pytest plugin that adds observability to your test suite. The plugin creates spans for test sessions and individual tests, allowing you to see exactly what happens during test execution.
 
 ## Installation
 
@@ -118,20 +118,20 @@ When running tests with `--logfire`, any instrumented library calls create spans
 ### Example: Custom Spans in Tests
 
 ```python title="test_api.py"
-def test_user_workflow(logfire_instance):
+def test_user_workflow(logfire_pytest):
     """Test a complete user workflow."""
-    with logfire_instance.span('create user'):
+    with logfire_pytest.span('create user'):
         # Simulate user creation
         user = {'id': 123, 'name': 'Test User'}
         assert user['name'] == 'Test User'
 
-    with logfire_instance.span('verify user'):
+    with logfire_pytest.span('verify user'):
         # Verify the user was created correctly
         assert user['id'] == 123
 ```
 
-!!! tip "Use `logfire_instance` fixture"
-    When creating spans within tests, prefer using the injected `logfire_instance` fixture instead of the global `logfire` object for fine control of which spans are send to Logfire.
+!!! tip "Use the `logfire_pytest` fixture for test spans"
+    The `logfire_pytest` fixture provides a Logfire instance configured to send spans when the pytest plugin is enabled. Use it instead of the global `logfire` module when you want spans created within your tests to appear in Logfire as part of your test traces. When the plugin is disabled, this fixture returns a local-only instance that doesn't send data anywhere.
 
 Running with `pytest --logfire` produces this trace hierarchy:
 
@@ -145,10 +145,10 @@ pytest: my-project
 ### Example: Logging During Tests
 
 ```python skip="true" skip-reason="incomplete"
-def test_operation(logfire_instance):
-    logfire_instance.info("Starting operation")
+def test_operation(logfire_pytest):
+    logfire_pytest.info("Starting operation")
     result = perform_operation()
-    logfire_instance.info("Operation completed", result=result)
+    logfire_pytest.info("Operation completed", result=result)
     assert result == expected
 ```
 
@@ -156,11 +156,14 @@ All log messages appear as spans nested under the test span.
 
 ## Application Code Spans
 
-You need to explicitly enable sending spans from your application code during tests, since the default behavior is to only send Pytest spans. To do this, configure Logfire in your application code with `send_to_logfire=True` or `send_to_logfire='if-token-present'`:
+By default, when running under Pytest, Logfire sets `send_to_logfire=False` to prevent your application code from accidentally sending spans during tests. This is intentional - most of the time you don't want test runs to pollute your production traces.
+
+However, when using the `--logfire` pytest plugin, you may want to also see spans from your application code nested under the test spans. To enable this, explicitly configure Logfire in your application code with `send_to_logfire=True` or `send_to_logfire='if-token-present'`:
 
 ```python title="app.py"
 import logfire
 
+# Override the default pytest behavior to send spans when a token is available
 logfire.configure(send_to_logfire='if-token-present')
 
 def perform_operation():
