@@ -180,7 +180,7 @@ nav:
       - Advanced:
           - Baggage: reference/advanced/baggage.md
           - Generators: reference/advanced/generators.md
-          - Testing: reference/advanced/testing.md
+          - Testing Logfire Instrumentation: reference/advanced/testing.md
           - Aggregating Metrics in Spans: reference/advanced/metrics-in-spans.md
           - Use API Keys: reference/advanced/use-api-keys.md
       - Examples: reference/examples.md

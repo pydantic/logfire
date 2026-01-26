@@ -142,14 +142,14 @@ def pytest_configure(config: pytest.Config) -> None:
 
     service_name = _get_service_name(config)
 
-    logfire.configure(
+    # Create a scoped logfire instance for pytest spans
+    logfire_instance = logfire.configure(
+        local=True,
         service_name=service_name,
         send_to_logfire='if-token-present',
         inspect_arguments=False,  # Avoid introspection warnings in pytest
-    )
-
-    # Create a scoped logfire instance for pytest spans
-    logfire_instance = logfire.with_settings(custom_scope_suffix='pytest')
+        scrubbing=False,  # Disable scrubbing for test spans
+    ).with_settings(custom_scope_suffix='pytest')
 
     # Store config in stash for later use
     config.stash[_CONFIG_KEY] = LogfirePluginConfig(
@@ -494,8 +494,17 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
 
 
 @pytest.fixture
-def logfire_instance(request: pytest.FixtureRequest) -> Logfire:
-    """Provide a Pytest configured Logfire instance."""
+def logfire_pytest(request: pytest.FixtureRequest) -> Logfire:
+    """Provide a Logfire instance configured for the pytest plugin.
+
+    This fixture provides a Logfire instance that sends spans to Logfire when the
+    pytest plugin is enabled (via `--logfire` flag). Use this instead of the global
+    `logfire` module when you want spans created in tests to be sent to Logfire
+    as part of your test traces.
+
+    When the plugin is not enabled, this fixture returns a local-only instance
+    that doesn't send data anywhere.
+    """
     config = request.config
     plugin_config = config.stash.get(_CONFIG_KEY, None)
 
