@@ -272,7 +272,6 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         on_response(response.parse(), span)  # type: ignore
         return cast('ResponseT', response)
 
-    # Keep gen_ai.system for backward compatibility
     span.set_attribute('gen_ai.system', 'openai')
 
     if isinstance(response_model := getattr(response, 'model', None), str):
@@ -294,7 +293,6 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         except Exception:
             pass
 
-    # Set response ID
     response_id = getattr(response, 'id', None)
     if isinstance(response_id, str):
         span.set_attribute(RESPONSE_ID, response_id)
@@ -338,15 +336,13 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
     elif isinstance(response, ImagesResponse):
         span.set_attribute('response_data', {'images': response.data})
     elif isinstance(response, Response):  # pragma: no branch
-        # Keep 'events' for backward compatibility
-        existing_events: list[Any] = []
-        otel_span = span._span  # pyright: ignore[reportPrivateUsage]
-        if otel_span is not None and hasattr(otel_span, 'attributes') and otel_span.attributes:
-            events_attr = otel_span.attributes.get('events')
-            if isinstance(events_attr, list):  # pragma: no cover
-                existing_events = cast(list[Any], events_attr)
-        span.set_attribute('events', existing_events + responses_output_events(response))
-
+        try:
+            events = json.loads(span.attributes['events'])  # type: ignore
+        except Exception:
+            pass
+        else:
+            events += responses_output_events(response)
+            span.set_attribute('events', events)
     return response
 
 

@@ -268,16 +268,12 @@ async def test_async_messages(instrumented_async_client: anthropic.AsyncAnthropi
                     'code.filepath': 'test_anthropic.py',
                     'code.function': 'test_async_messages',
                     'code.lineno': 123,
-                    'request_data': (
-                        snapshot(
-                            {
-                                'max_tokens': 1000,
-                                'system': 'You are a helpful assistant.',
-                                'messages': [{'role': 'user', 'content': 'What is four plus five?'}],
-                                'model': 'claude-3-haiku-20240307',
-                            }
-                        )
-                    ),
+                    'request_data': {
+                        'max_tokens': 1000,
+                        'messages': [{'role': 'user', 'content': 'What is four plus five?'}],
+                        'model': 'claude-3-haiku-20240307',
+                        'system': 'You are a helpful assistant.',
+                    },
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.request.model': 'claude-3-haiku-20240307',
@@ -285,64 +281,47 @@ async def test_async_messages(instrumented_async_client: anthropic.AsyncAnthropi
                     'async': True,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
                     'logfire.msg': "Message with 'claude-3-haiku-20240307'",
-                    'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
-                    'response_data': (
-                        snapshot(
-                            {
-                                'message': {
-                                    'content': 'Nine',
-                                    'role': 'assistant',
-                                },
-                                'usage': IsPartialDict(
-                                    {
-                                        'cache_creation': None,
-                                        'input_tokens': 2,
-                                        'output_tokens': 3,
-                                        'cache_creation_input_tokens': None,
-                                        'cache_read_input_tokens': None,
-                                        'server_tool_use': None,
-                                        'service_tier': None,
-                                    }
-                                ),
-                            }
-                        )
-                    ),
+                    'logfire.span_type': 'span',
+                    'response_data': {
+                        'message': {'role': 'assistant', 'content': 'Nine'},
+                        'usage': {
+                            'cache_creation': None,
+                            'cache_creation_input_tokens': None,
+                            'cache_read_input_tokens': None,
+                            'input_tokens': 2,
+                            'output_tokens': 3,
+                            'server_tool_use': None,
+                            'service_tier': None,
+                        },
+                    },
                     'gen_ai.response.model': 'claude-3-haiku-20240307',
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 3,
                     'gen_ai.response.finish_reasons': ['end_turn'],
-                    'logfire.json_schema': (
-                        snapshot(
-                            {
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.request.max_tokens': {},
+                            'async': {},
+                            'response_data': {
                                 'type': 'object',
                                 'properties': {
-                                    'request_data': {'type': 'object'},
-                                    'gen_ai.provider.name': {},
-                                    'gen_ai.operation.name': {},
-                                    'gen_ai.request.model': {},
-                                    'gen_ai.request.max_tokens': {},
-                                    'async': {},
-                                    'response_data': {
-                                        'type': 'object',
-                                        'properties': {
-                                            'usage': {
-                                                'type': 'object',
-                                                'title': 'Usage',
-                                                'x-python-datatype': 'PydanticModel',
-                                            },
-                                        },
-                                    },
-                                    'gen_ai.response.model': {},
-                                    'gen_ai.response.id': {},
-                                    'gen_ai.usage.input_tokens': {},
-                                    'gen_ai.usage.output_tokens': {},
-                                    'gen_ai.response.finish_reasons': {'type': 'array'},
+                                    'usage': {'type': 'object', 'title': 'Usage', 'x-python-datatype': 'PydanticModel'}
                                 },
-                            }
-                        )
-                    ),
+                            },
+                            'gen_ai.response.model': {},
+                            'gen_ai.response.id': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
+                        },
+                    },
                 },
             }
         ]
