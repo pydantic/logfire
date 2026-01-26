@@ -152,6 +152,7 @@ Ready to keep going?
 
 - Read about [Concepts](concepts.md)
 - Complete the [Onboarding Checklist](guides/onboarding-checklist/index.md)
+- Building AI applications? See [AI & LLM Observability](ai-observability.md)
 
 More topics to explore...
 
