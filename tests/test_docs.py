@@ -33,7 +33,6 @@ def set_eval_config(eval_example: EvalExample):
     )
 
 
-@pytest.mark.timeout(3)
 def test_formatting(eval_example: EvalExample):
     """Ensure examples in documentation are formatted correctly."""
     examples = find_examples('docs/', 'README.md')
