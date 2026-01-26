@@ -9,6 +9,7 @@ import re
 import sys
 import time
 import warnings
+import weakref
 from collections.abc import Sequence
 from contextlib import suppress
 from dataclasses import dataclass, field
@@ -1140,35 +1141,8 @@ class LogfireConfig(_LogfireConfigData):
                 set_meter_provider(self._meter_provider)
                 set_logger_provider(self._logger_provider)
 
-            @atexit.register
-            def exit_open_spans():  # pragma: no cover
-                # Ensure that all open spans are closed when the program exits.
-                # OTEL registers its own atexit callback in the tracer/meter providers to shut them down.
-                # Registering this callback here after the OTEL one means that this runs first.
-                # Otherwise OTEL would log an error "Already shutdown, dropping span."
-                # The reason that spans may be lingering open is that they're in suspended generator frames.
-                # Apart from here, they will be ended when the generator is garbage collected
-                # as the interpreter shuts down, but that's too late.
-                for span in list(OPEN_SPANS.values()):
-                    # TODO maybe we should be recording something about what happened here?
-                    span.end()
-                    # Interpreter shutdown may trigger another call to .end(),
-                    # which would log a warning "Calling end() on an ended span."
-                    span.end = lambda *_, **__: None  # type: ignore
-
-            # atexit isn't called in forked processes, patch os._exit to ensure cleanup.
-            # https://github.com/pydantic/logfire/issues/779
-            original_os_exit = os._exit
-
-            def patched_os_exit(code: int):  # pragma: no cover
-                try:
-                    exit_open_spans()
-                    self.force_flush()
-                except:  # noqa  # weird errors can happen during shutdown, ignore them *all* with a bare except
-                    pass
-                return original_os_exit(code)
-
-            os._exit = patched_os_exit
+            # Track this instance for cleanup on exit
+            _LOGFIRE_CONFIG_INSTANCES.append(weakref.ref(self))
 
             self._initialized = True
 
@@ -1301,6 +1275,46 @@ class LogfireConfig(_LogfireConfigData):
         self._meter_provider.suppress_scopes(*scopes)
         self._logger_provider.suppress_scopes(*scopes)
 
+
+# Global list to track all LogfireConfig instances for cleanup on exit
+_LOGFIRE_CONFIG_INSTANCES: list[weakref.ref[LogfireConfig]] = []
+
+
+@atexit.register
+def exit_open_spans():  # pragma: no cover
+    # Ensure that all open spans are closed when the program exits.
+    # OTEL registers its own atexit callback in the tracer/meter providers to shut them down.
+    # Registering this callback here after the OTEL one means that this runs first.
+    # Otherwise OTEL would log an error "Already shutdown, dropping span."
+    # The reason that spans may be lingering open is that they're in suspended generator frames.
+    # Apart from here, they will be ended when the generator is garbage collected
+    # as the interpreter shuts down, but that's too late.
+    for span in list(OPEN_SPANS.values()):
+        # TODO maybe we should be recording something about what happened here?
+        span.end()
+        # Interpreter shutdown may trigger another call to .end(),
+        # which would log a warning "Calling end() on an ended span."
+        span.end = lambda *_, **__: None  # type: ignore
+
+
+# atexit isn't called in forked processes, patch os._exit to ensure cleanup.
+# https://github.com/pydantic/logfire/issues/779
+original_os_exit = os._exit
+
+
+def patched_os_exit(code: int):  # pragma: no cover
+    try:
+        exit_open_spans()
+        for config_ref in _LOGFIRE_CONFIG_INSTANCES:
+            config = config_ref()
+            if config is not None:
+                config.force_flush()
+    except:  # noqa  # weird errors can happen during shutdown, ignore them *all* with a bare except
+        pass
+    return original_os_exit(code)
+
+
+os._exit = patched_os_exit
 
 # The global config is the single global object in logfire
 # It also does not initialize anything when it's created (right now)
