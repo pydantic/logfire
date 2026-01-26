@@ -4,16 +4,16 @@ Arize Phoenix is an ML observability platform focused on model monitoring, drift
 
 ## Quick Comparison
 
-| Feature              | Pydantic Logfire                         | Arize Phoenix                                        |
-|----------------------|------------------------------------------|------------------------------------------------------|
-| **Primary Focus**    | AI observability for agents and apps     | ML model monitoring                                  |
-| **Strength**         | AI + application tracing                 | Drift detection, model performance                   |
-| **Non-AI Tracing**   | Full support                             | Limited                                              |
-| **Language Support** | Python, JS/TS, Rust (SDKs) + any OTel    | Python-focused                                       |
-| **Evals**            | Web-UI integration - Code-based via `pydantic-evals` | Web-UI integration - Code-based via external library |
-| **Pricing**          | Per-span ($2/million)*                   | Usage-based                                          |
-| **Setup**            | 3 lines of code                          | OTel-based (several lines of code)                   |
-| **SQL Queries**      | Yes (Postgres-compatible)                | No. Use `SpanQuery` DSL                                |
+| Feature              | Pydantic Logfire                                               | Arize Phoenix                                                   |
+|----------------------|----------------------------------------------------------------|-----------------------------------------------------------------|
+| **Primary Focus**    | AI observability for agents and apps                           | ML model monitoring                                             |
+| **Strength**         | AI + application tracing                                       | Drift detection, model performance                              |
+| **Non-AI Tracing**   | Full support                                                   | Limited                                                         |
+| **Language Support** | Python, JS/TS, Rust (SDKs) + any OTel                          | Python-focused                                                  |
+| **Evals**            | Integrated web-UI - Code-based via `pydantic-evals` | Integrated web-UI - Code-based via external library |
+| **Pricing**          | Per-span ($2/million)*                                         | Usage-based                                                     |
+| **Setup**            | 3 lines of code                                                | OTel-based (several lines of code)                              |
+| **SQL Queries**      | Yes (Postgres-compatible)                                      | No. Use `SpanQuery` DSL                                         |
 
 *Logfire Cloud pricing (Team or Growth plans). Enterprise pricing available [on request](calendar.app.google/k9pkeuNMmzJAJ4Mx5).
 
@@ -24,7 +24,7 @@ Arize Phoenix is an ML observability platform focused on model monitoring, drift
 - **Developer experience:** You want the quickest possible setup
 - **SQL analysis:** You prefer querying with SQL rather than learning a new querying language
 - **Unified tooling:** You don't want separate tools for AI and application monitoring
-- **MCP Integration:** Ask questions about your monitoring data to your favourite coding assistant 
+- **MCP Integration:** Ask questions about your tracing data to your favourite coding assistant 
 
 ## When to Choose Arize Phoenix
 
