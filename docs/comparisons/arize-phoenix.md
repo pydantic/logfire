@@ -4,25 +4,27 @@ Arize Phoenix is an ML observability platform focused on model monitoring, drift
 
 ## Quick Comparison
 
-| Feature | Logfire | Arize Phoenix |
-|---------|---------|---------------|
-| **Primary Focus** | Full-stack app observability | ML model monitoring |
-| **Strength** | Application tracing + AI | Drift detection, model performance |
-| **Non-AI Tracing** | Full support | Limited |
-| **Language Support** | Python, JS/TS, Rust + any OTel | Python-focused |
-| **Pricing** | Per-span ($2/million)* | Contact sales / usage-based |
-| **Setup** | 3 lines of code | More configuration |
-| **SQL Queries** | Yes (Postgres-compatible) | Limited |
+| Feature              | Pydantic Logfire                         | Arize Phoenix                                        |
+|----------------------|------------------------------------------|------------------------------------------------------|
+| **Primary Focus**    | AI observability for agents and apps     | ML model monitoring                                  |
+| **Strength**         | AI + application tracing                 | Drift detection, model performance                   |
+| **Non-AI Tracing**   | Full support                             | Limited                                              |
+| **Language Support** | Python, JS/TS, Rust (SDKs) + any OTel    | Python-focused                                       |
+| **Evals**            | Web-UI integration - Code-based via `pydantic-evals` | Web-UI integration - Code-based via external library |
+| **Pricing**          | Per-span ($2/million)*                   | Usage-based                                          |
+| **Setup**            | 3 lines of code                          | OTel-based (several lines of code)                   |
+| **SQL Queries**      | Yes (Postgres-compatible)                | No. Use `SpanQuery` DSL                                |
 
-*Logfire Cloud Pro pricing. Enterprise pricing available on request.
+*Logfire Cloud pricing (Team or Growth plans). Enterprise pricing available [on request](calendar.app.google/k9pkeuNMmzJAJ4Mx5).
 
 ## When to Choose Logfire
 
-- **Application observability:** You need to trace your entire app, not just AI calls
-- **Polyglot architecture:** You have services in multiple languages
-- **Developer experience:** You want the simplest possible setup
-- **SQL analysis:** You prefer querying with familiar SQL
+- **Application observability:** Scalable AI Observability for LLMs, agents, and apps
+- **Polyglot architecture:** You have services in all OTel supported languages, with native SDKs for Python, TypeScript/JavaScript, and Rust
+- **Developer experience:** You want the quickest possible setup
+- **SQL analysis:** You prefer querying with SQL rather than learning a new querying language
 - **Unified tooling:** You don't want separate tools for AI and application monitoring
+- **MCP Integration:** Ask questions about your monitoring data to your favourite coding assistant 
 
 ## When to Choose Arize Phoenix
 
@@ -44,10 +46,12 @@ Arize Phoenix is an ML observability platform focused on model monitoring, drift
 
 **Logfire** comes from the application observability world. It excels at:
 
-- Distributed tracing across your entire stack
+- AI, LLMs, and agents tracing data
+- Code-base evaluation workflows visualisation
 - Database, API, and service monitoring
 - Real-time debugging with Live View
 - SQL-based analysis
+- Native connection to MCP to debug your app
 
 ### Full-Stack Visibility
 
@@ -55,7 +59,7 @@ When your AI application fails, you need to know why. Was it the model? The data
 
 **Arize Phoenix** shows you the AI layer but has limited visibility into your application infrastructure.
 
-**Logfire** shows you everything: the user request, the database query, the LLM call, the API response. One trace, complete context.
+**Logfire** is your AI observability tool that can *also* show you everything: user request, database query, LLM call, and API response. One trace, complete context.
 
 ### Developer Experience
 
@@ -75,7 +79,7 @@ Three lines, and you're observing AI calls with full application context.
 
 **Logfire** uses SQL with PostgreSQL-compatible syntax. This is a significant advantage for AI-assisted development:
 
-- **AI assistants excel at SQL** — GPT-5, Claude, and coding agents write excellent SQL
+- **AI assistants excel at SQL** — GPT-5, Claude, and [coding agents write excellent SQL](https://pydantic.dev/articles/logfire-mcp-is-awesome?utm_source=arize_comparison_webpage)
 - **Agentic workflows** — When coding agents debug your AI application, they can write arbitrary queries
 - **Familiar syntax** — No new query language to learn
 - **No artificial limitations** — Ask any question, get any answer
