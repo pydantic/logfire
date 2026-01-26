@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(pytest:*)",
-      "Bash(git checkout main:*)",
+      "Bash(git checkout main)",
+      "Bash(git pull origin main)",
       "Bash(git checkout -b update-deps-:*)",
       "Bash(uv sync:*)",
       "Bash(git add:*)",
