@@ -50,7 +50,7 @@ def test_instrument_aws_lambda(exporter: TestExporter) -> None:
         )
         lambda_handler({'key': 'value', 'context': current_context}, context)
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'span',

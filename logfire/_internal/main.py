@@ -26,7 +26,7 @@ import opentelemetry.trace as trace_api
 from opentelemetry.context import Context
 from opentelemetry.metrics import CallbackT, Counter, Histogram, UpDownCounter
 from opentelemetry.sdk.trace import ReadableSpan, Span
-from opentelemetry.trace import SpanContext
+from opentelemetry.trace import SpanContext, SpanKind
 from opentelemetry.util import types as otel_types
 from typing_extensions import LiteralString, ParamSpec
 
@@ -188,6 +188,7 @@ class Logfire:
         _span_name: str | None = None,
         _level: LevelName | int | None = None,
         _links: Sequence[tuple[SpanContext, otel_types.Attributes]] = (),
+        _span_kind: SpanKind = SpanKind.INTERNAL,
     ) -> LogfireSpan:
         try:
             if _level is not None:
@@ -243,6 +244,7 @@ class Logfire:
                 self._spans_tracer,
                 json_schema_properties,
                 links=_links,
+                span_kind=_span_kind,
             )
         except Exception:
             log_internal_error()
@@ -540,6 +542,7 @@ class Logfire:
         _span_name: str | None = None,
         _level: LevelName | None = None,
         _links: Sequence[tuple[SpanContext, otel_types.Attributes]] = (),
+        _span_kind: SpanKind = SpanKind.INTERNAL,
         **attributes: Any,
     ) -> LogfireSpan:
         """Context manager for creating a span.
@@ -559,6 +562,10 @@ class Logfire:
             _tags: An optional sequence of tags to include in the span.
             _level: An optional log level name.
             _links: An optional sequence of links to other spans. Each link is a tuple of a span context and attributes.
+            _span_kind: The [OpenTelemetry span kind](https://opentelemetry.io/docs/concepts/signals/traces/#span-kind).
+                If not provided, defaults to `INTERNAL`.
+                Users don't typically need to set this.
+                Not related to the `kind` column of the `records` table in Logfire.
             attributes: The arguments to include in the span and format the message template with.
                 Attributes starting with an underscore are not allowed.
         """
@@ -571,6 +578,7 @@ class Logfire:
             _span_name=_span_name,
             _level=_level,
             _links=_links,
+            _span_kind=_span_kind,
         )
 
     @overload
@@ -1188,9 +1196,10 @@ class Logfire:
 
         Example usage:
 
-        ```python
-        import logfire
+        ```python skip-run="true" skip-reason="external-connection"
         import openai
+
+        import logfire
 
         client = openai.OpenAI()
         logfire.configure()
@@ -1279,9 +1288,10 @@ class Logfire:
 
         Example usage:
 
-        ```python
-        import logfire
+        ```python skip-run="true" skip-reason="external-connection"
         import anthropic
+
+        import logfire
 
         client = anthropic.Anthropic()
 
@@ -1366,6 +1376,18 @@ class Logfire:
 
         self._warn_if_not_initialized_for_instrumentation()
         instrument_litellm(self, **kwargs)
+
+    def instrument_dspy(self, **kwargs: Any):
+        """Instrument [DSPy](https://dspy.ai/).
+
+        Uses the `DSPyInstrumentor().instrument()` method of the
+        [`openinference-instrumentation-dspy`](https://pypi.org/project/openinference-instrumentation-dspy/)
+        package, to which it passes `**kwargs`.
+        """
+        from .integrations.dspy import instrument_dspy
+
+        self._warn_if_not_initialized_for_instrumentation()
+        instrument_dspy(self, **kwargs)
 
     def instrument_print(self) -> AbstractContextManager[None]:
         """Instrument the built-in `print` function so that calls to it are logged.
@@ -1828,7 +1850,9 @@ class Logfire:
     def instrument_aiohttp_client(
         self,
         *,
+        capture_all: bool | None = None,
         capture_headers: bool = False,
+        capture_request_body: bool = False,
         capture_response_body: bool = False,
         request_hook: AiohttpClientRequestHook | None = None,
         response_hook: AiohttpClientResponseHook | None = None,
@@ -1845,6 +1869,8 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_aiohttp_client(
             self,
+            capture_all=capture_all,
+            capture_request_body=capture_request_body,
             capture_response_body=capture_response_body,
             capture_headers=capture_headers,
             request_hook=request_hook,
@@ -2197,9 +2223,10 @@ class Logfire:
         The counter metric is a cumulative metric that represents a single numerical value that only ever goes up.
 
         ```py
-        import logfire
         import psutil
         from opentelemetry.metrics import CallbackOptions, Observation
+
+        import logfire
 
         logfire.configure()
 
@@ -2243,8 +2270,9 @@ class Logfire:
         ```py
         import threading
 
-        import logfire
         from opentelemetry.metrics import CallbackOptions, Observation
+
+        import logfire
 
         logfire.configure()
 
@@ -2284,8 +2312,9 @@ class Logfire:
         down.
 
         ```py
-        import logfire
         from opentelemetry.metrics import CallbackOptions, Observation
+
+        import logfire
 
         logfire.configure()
 
@@ -2382,12 +2411,14 @@ class LogfireSpan(ReadableSpan):
         tracer: _ProxyTracer,
         json_schema_properties: JsonSchemaProperties,
         links: Sequence[tuple[SpanContext, otel_types.Attributes]],
+        span_kind: SpanKind = SpanKind.INTERNAL,
     ) -> None:
         self._span_name = span_name
         self._otlp_attributes = otlp_attributes
         self._tracer = tracer
         self._json_schema_properties = json_schema_properties
         self._links = list(trace_api.Link(context=context, attributes=attributes) for context, attributes in links)
+        self._span_kind = span_kind
 
         self._added_attributes = False
         self._token: None | Token[Context] = None
@@ -2406,6 +2437,7 @@ class LogfireSpan(ReadableSpan):
             name=self._span_name,
             attributes=self._otlp_attributes,
             links=self._links,
+            kind=self._span_kind,
         )
 
     @handle_internal_errors

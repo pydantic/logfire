@@ -53,6 +53,7 @@ IGNORE_NO_CONFIG: Incomplete
 BASE_URL: Incomplete
 DISTRIBUTED_TRACING: Incomplete
 HTTPX_CAPTURE_ALL: Incomplete
+AIOHTTP_CLIENT_CAPTURE_ALL: Incomplete
 CONFIG_PARAMS: Incomplete
 
 @dataclass

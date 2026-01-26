@@ -6,19 +6,18 @@ As a Logfire user, you can be part of multiple organizations, and each organizat
 
 There are two types of organizations:
 
-* **Personal organizations**: this is the default organization created when you sign up. You are the owner of this organization,
-  but can invite other people.
-* **Normal organizations**: these can be created separately from the personal one.
+* **Personal organizations**: this is the default organization created when you sign up. You are the only member of this organization,
+  but can invite 2 guests.
+* **Normal organizations**: these can be created separately from the personal one. They need to be under a [paid plan](https://pydantic.dev/pricing).
 
-Both organization types are functionally equivalent and you can invite others to all of them.
-
-Multiple projects can be created in organizations, and they can be either _public_ (within the organization) or _private_ (see [roles](#roles) below).
+Multiple projects (limits depend on the plan you are on) can be created in organizations, and they can be either _public_
+(within the organization) or _private_ (see [roles](#roles) below).
 Depending on the user's organization role, they may have implicit access to the organization projects.
 
 ## Which organization type should I use?
 
 While you _can_ use your personal org for production use-cases (e.g. if you
-are working alone or in a small team), you may wish to switch your personal org to a normal org if you are working
+are working alone or in a small team), we strongly encourage using a a normal organization if you are working
 at a larger company and want to create a more "official" Logfire org for that company. This also means you don't have
 to share your personal org's projects (which you may wish to keep private) with any colleagues.
 

@@ -76,6 +76,8 @@ nav:
   - Getting Started:
       - Logfire: index.md
       - Why Logfire?: why.md
+      - FAQ: faq.md
+      - AI & LLM Observability: ai-observability.md
       - Concepts: concepts.md
       - Get Help: help.md
       - Onboarding Checklist:
@@ -126,7 +128,9 @@ nav:
           - Anthropic: integrations/llms/anthropic.md
           - LangChain: integrations/llms/langchain.md
           - LiteLLM: integrations/llms/litellm.md
+          - DSPy: integrations/llms/dspy.md
           - MCP: integrations/llms/mcp.md
+          - Claude Agent SDK: integrations/llms/claude-agent-sdk.md
           - LLamaIndex: integrations/llms/llamaindex.md
           - Mirascope: integrations/llms/mirascope.md
           - Magentic: integrations/llms/magentic.md
@@ -148,6 +152,7 @@ nav:
           - Express: integrations/javascript/express.md
           - Node.js: integrations/javascript/node.md
           - Deno: integrations/javascript/deno.md
+          - Vercel AI SDK: integrations/javascript/vercel-ai.md
       - Databases:
           - Psycopg: integrations/databases/psycopg.md
           - SQLAlchemy: integrations/databases/sqlalchemy.md
@@ -170,6 +175,8 @@ nav:
           - Print: integrations/print.md
           - Structlog: integrations/structlog.md
           - Loguru: integrations/loguru.md
+      - Testing:
+          - Pytest: integrations/pytest.md
       - Pydantic: integrations/pydantic.md
       - System Metrics: integrations/system-metrics.md
       - Stripe: integrations/stripe.md
@@ -179,8 +186,9 @@ nav:
       - Advanced:
           - Baggage: reference/advanced/baggage.md
           - Generators: reference/advanced/generators.md
-          - Testing: reference/advanced/testing.md
+          - Testing Logfire Instrumentation: reference/advanced/testing.md
           - Aggregating Metrics in Spans: reference/advanced/metrics-in-spans.md
+          - Use API Keys: reference/advanced/use-api-keys.md
       - Examples: reference/examples.md
       - Configuration: reference/configuration.md
       - Data Regions: reference/data-regions.md
@@ -250,11 +258,11 @@ plugins:
   - mkdocstrings:
       handlers:
         python:
-          paths: [src/packages/logfire/logfire]
+          paths: [ src/packages/logfire/logfire ]
           options:
             members_order: source
             separate_signature: true
-            filters: ["!^_"]
+            filters: [ "!^_" ]
             docstring_options:
               ignore_init_summary: true
             merge_init_into_class: true

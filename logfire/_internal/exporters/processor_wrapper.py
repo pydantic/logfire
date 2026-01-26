@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from contextlib import suppress
 from dataclasses import dataclass
 from typing import Any, cast
@@ -14,6 +15,7 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 import logfire
 
 from ..constants import (
+    ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY,
     ATTRIBUTES_JSON_SCHEMA_KEY,
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,
     ATTRIBUTES_MESSAGE_KEY,
@@ -65,23 +67,15 @@ class MainSpanProcessorWrapper(WrapperSpanProcessor):
 
     scrubber: BaseScrubber
 
-    def on_start(
-        self,
-        span: Span,
-        parent_context: context.Context | None = None,
-    ) -> None:
-        _set_log_level_on_asgi_send_receive_spans(span)
-        super().on_start(span, parent_context)
-
     def on_end(self, span: ReadableSpan) -> None:
         with handle_internal_errors:
             span_dict = span_to_dict(span)
             _tweak_asgi_send_receive_spans(span_dict)
             _tweak_sqlalchemy_connect_spans(span_dict)
             _tweak_http_spans(span_dict)
+            _set_error_level_and_status(span_dict)
             _tweak_fastapi_span(span_dict)
             _summarize_db_statement(span_dict)
-            _set_error_level_and_status(span_dict)
             _transform_langchain_span(span_dict)
             _transform_google_genai_span(span_dict)
             _transform_litellm_span(span_dict)
@@ -102,18 +96,19 @@ def _set_error_level_and_status(span: ReadableSpanDict) -> None:
         span['attributes'] = {**attributes, **log_level_attributes('error')}
     elif status.is_unset:
         level = attributes.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY)
-        if isinstance(level, int) and level >= LEVEL_NUMBERS['error']:
-            span['status'] = Status(status_code=StatusCode.ERROR, description=status.description)
-
-
-def _set_log_level_on_asgi_send_receive_spans(span: Span) -> None:
-    """Set the log level of ASGI send/receive spans to debug.
-
-    If a span doesn't have a level set, it defaults to 'info'. This is too high for ASGI send/receive spans,
-    which are generated for every request and are not particularly interesting.
-    """
-    if _is_asgi_send_receive_span(span.name, span.instrumentation_scope):
-        span.set_attributes(log_level_attributes('debug'))
+        if isinstance(level, int):
+            if level >= LEVEL_NUMBERS['error']:
+                span['status'] = Status(status_code=StatusCode.ERROR, description=status.description)
+        else:
+            http_status_code = attributes.get('http.status_code') or attributes.get('http.response.status_code')
+            if isinstance(http_status_code, int):
+                if (span['kind'] == SpanKind.SERVER and http_status_code >= 500) or (
+                    span['kind'] == SpanKind.CLIENT and http_status_code >= 400
+                ):
+                    span['status'] = Status(status_code=StatusCode.ERROR, description=status.description)
+                    span['attributes'] = {**attributes, **log_level_attributes('error')}
+                elif span['kind'] == SpanKind.SERVER and http_status_code >= 400:
+                    span['attributes'] = {**attributes, **log_level_attributes('warning')}
 
 
 def _tweak_sqlalchemy_connect_spans(span: ReadableSpanDict) -> None:
@@ -321,8 +316,19 @@ def _tweak_fastapi_span(span: ReadableSpanDict):
             new_events.append(event)
             continue
         key = (attrs['exception.type'], attrs['exception.message'])
-        if key in seen_exceptions and attrs.get('recorded_by_logfire_fastapi'):
-            continue
+        recorded_by_logfire_fastapi = attrs.get('recorded_by_logfire_fastapi')
+        if recorded_by_logfire_fastapi:
+            if key in seen_exceptions:
+                # Drop the duplicate event.
+                continue
+            else:
+                span_attrs = span['attributes']
+                level = span_attrs.get(ATTRIBUTES_LOG_LEVEL_NUM_KEY)
+                fingerprint = attrs.get(ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY)
+                if isinstance(level, int) and level >= LEVEL_NUMBERS['error'] and fingerprint:
+                    # Copy the fingerprint from the event to the span for errors.
+                    # See `record_exception` in tracer.py.
+                    span['attributes'] = {**span_attrs, ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY: fingerprint}
         seen_exceptions.add(key)
         new_events.append(event)
     span['events'] = new_events[::-1]
@@ -347,7 +353,8 @@ def _transform_langchain_span(span: ReadableSpanDict):
     if existing_json_schema:  # pragma: no cover
         return
 
-    properties = JsonSchemaProperties({})
+    properties = JsonSchemaProperties({'all_messages_events': {'type': 'array'}})
+
     parsed_attributes: dict[str, Any] = {}
     for key, value in attributes.items():
         if not isinstance(value, str) or not value.startswith(('{"', '[')):
@@ -359,6 +366,18 @@ def _transform_langchain_span(span: ReadableSpanDict):
         # Tell the Logfire backend to parse this attribute as JSON.
         properties[key] = {'type': 'object' if value.startswith('{') else 'array'}
 
+    attributes, new_attributes = _transform_langsmith_span_attributes(attributes, parsed_attributes)
+
+    span['attributes'] = {
+        **attributes,
+        ATTRIBUTES_JSON_SCHEMA_KEY: attributes_json_schema(properties),
+        **new_attributes,
+    }
+
+
+def _transform_langsmith_span_attributes(
+    attributes: Mapping[str, Any], parsed_attributes: dict[str, Any]
+) -> tuple[Mapping[str, Any], dict[str, Any]]:
     new_attributes: dict[str, Any] = {}
 
     # OTel semconv attributes, needed for displaying costs.
@@ -370,7 +389,7 @@ def _transform_langchain_span(span: ReadableSpanDict):
         ]
         new_attributes.setdefault('gen_ai.request.model', model)
 
-    request_model: str = attributes.get('gen_ai.request.model') or new_attributes.get('gen_ai.request.model', '')  # type: ignore
+    request_model: str = attributes.get('gen_ai.request.model') or new_attributes.get('gen_ai.request.model', '')
 
     if not request_model and 'gen_ai.usage.input_tokens' in attributes:  # pragma: no cover
         # Only keep usage attributes on spans with actual token usage, i.e. model requests,
@@ -389,18 +408,31 @@ def _transform_langchain_span(span: ReadableSpanDict):
 
     # Add `all_messages_events`
     with suppress(Exception):
-        input_messages = parsed_attributes.get('input.value', parsed_attributes.get('gen_ai.prompt', {}))['messages']
-        if len(input_messages) == 1 and isinstance(input_messages[0], list):
-            [input_messages] = input_messages
-
+        input_attribute = parsed_attributes.get('input.value', parsed_attributes.get('gen_ai.prompt', {}))
+        if 'messages' in input_attribute:
+            input_messages = input_attribute['messages']
+            if len(input_messages) == 1 and isinstance(input_messages[0], list):
+                [input_messages] = input_messages
+        else:
+            input_messages: list[Any] = []
+            if 'system' in input_attribute:
+                input_messages.append({'role': 'system', 'content': input_attribute['system']})
+            if 'prompt' in input_attribute:
+                input_messages.append({'role': 'user', 'content': input_attribute['prompt']})
+        if not input_messages:
+            raise ValueError
         message_events = [_transform_langchain_message(old_message) for old_message in input_messages]
 
         # If we fail to parse output messages, fine, but only try if we've succeeded to parse input messages.
         with suppress(Exception):
             output_value = parsed_attributes.get('output.value', parsed_attributes.get('gen_ai.completion', {}))
+            # This weird issubclass usage is because pyright can't deal with missing type arguments of dict sensibly.
+            if issubclass(type(output_value), dict) and 'content' in output_value and 'role' in output_value:
+                output_value = cast(Any, {'messages': [output_value]})
             try:
                 # Multiple generations mean multiple choices, we can only display one.
-                message_events += [_transform_langchain_message(output_value['generations'][0][0]['message'])]
+                old_message = output_value['generations'][0][0]['message']
+                message_events += [_transform_langchain_message(old_message)]
             except Exception:
                 try:
                     output_message_events = [_transform_langchain_message(m) for m in output_value['messages']]
@@ -420,13 +452,8 @@ def _transform_langchain_span(span: ReadableSpanDict):
                     message_events += [_transform_langchain_message(output_value['output'])]
 
         new_attributes['all_messages_events'] = json.dumps(message_events)
-        properties['all_messages_events'] = {'type': 'array'}
 
-    span['attributes'] = {
-        **attributes,
-        ATTRIBUTES_JSON_SCHEMA_KEY: attributes_json_schema(properties),
-        **new_attributes,
-    }
+    return attributes, new_attributes
 
 
 def _transform_langchain_message(old_message: dict[str, Any]) -> dict[str, Any]:
@@ -446,6 +473,9 @@ def _transform_langchain_message(old_message: dict[str, Any]) -> dict[str, Any]:
         'role': role,
     }
 
+    if 'tool_call_id' in result:
+        result['id'] = result.pop('tool_call_id')
+
     if tool_calls := result.get('tool_calls'):
         for tool_call in tool_calls:
             if (
@@ -463,9 +493,9 @@ def _transform_langchain_message(old_message: dict[str, Any]) -> dict[str, Any]:
                 )
     else:
         result.pop('tool_calls', None)
+        if role == 'tool' and 'content' in result and 'id' in result:
+            result.setdefault('name', '')  # dummy value which makes the frontend happy
 
-    if 'tool_call_id' in result:
-        result['id'] = result.pop('tool_call_id')
     return result
 
 

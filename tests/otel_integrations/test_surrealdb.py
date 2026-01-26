@@ -1,24 +1,12 @@
 import inspect
-import sys
-from typing import TYPE_CHECKING
 
 import pytest
 from inline_snapshot import snapshot
+from surrealdb import AsyncSurreal, Surreal
 
 import logfire
 from logfire._internal.exporters.test import TestExporter
-
-try:
-    from surrealdb import AsyncSurreal, Surreal
-
-    from logfire._internal.integrations.surrealdb import get_all_surrealdb_classes
-
-except Exception:
-    assert not TYPE_CHECKING
-
-pytestmark = [
-    pytest.mark.skipif(sys.version_info < (3, 10), reason='surrealdb requires Python 3.10 or higher'),
-]
+from logfire._internal.integrations.surrealdb import get_all_surrealdb_classes
 
 
 def test_get_all_surrealdb_classes():
@@ -96,7 +84,7 @@ def test_instrument_surrealdb(exporter: TestExporter) -> None:
         # Everything else should match.
         db.subscribe_live('foo')
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'surrealdb use',
@@ -112,7 +100,7 @@ def test_instrument_surrealdb(exporter: TestExporter) -> None:
                     'database': 'database_test',
                     'logfire.msg_template': 'surrealdb use namespace = {namespace}, database = {database}',
                     'logfire.msg': 'surrealdb use namespace = namepace_test, database = database_test',
-                    'logfire.json_schema': '{"type":"object","properties":{"namespace":{},"database":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'namespace': {}, 'database': {}}},
                     'logfire.span_type': 'span',
                 },
             },
@@ -127,12 +115,17 @@ def test_instrument_surrealdb(exporter: TestExporter) -> None:
                     'code.function': 'test_instrument_surrealdb',
                     'code.lineno': 123,
                     'record': 'person',
-                    'data': '{"user": "me", "password": "[Scrubbed due to \'password\']", "marketing": true, "tags": ["python", "documentation"]}',
+                    'data': {
+                        'user': 'me',
+                        'password': "[Scrubbed due to 'password']",
+                        'marketing': True,
+                        'tags': ['python', 'documentation'],
+                    },
                     'logfire.msg_template': 'surrealdb create {record}',
                     'logfire.msg': 'surrealdb create person',
-                    'logfire.json_schema': '{"type":"object","properties":{"record":{},"data":{"type":"object"}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'record': {}, 'data': {'type': 'object'}}},
                     'logfire.span_type': 'span',
-                    'logfire.scrubbed': '[{"path": ["attributes", "data", "password"], "matched_substring": "password"}]',
+                    'logfire.scrubbed': [{'path': ['attributes', 'data', 'password'], 'matched_substring': 'password'}],
                 },
             },
             {
@@ -148,7 +141,7 @@ def test_instrument_surrealdb(exporter: TestExporter) -> None:
                     'record': 'person',
                     'logfire.msg_template': 'surrealdb select {record}',
                     'logfire.msg': 'surrealdb select person',
-                    'logfire.json_schema': '{"type":"object","properties":{"record":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'record': {}}},
                     'logfire.span_type': 'span',
                 },
             },
@@ -163,12 +156,17 @@ def test_instrument_surrealdb(exporter: TestExporter) -> None:
                     'code.function': 'test_instrument_surrealdb',
                     'code.lineno': 123,
                     'record': 'person',
-                    'data': '{"user": "you", "password": "[Scrubbed due to \'password\']", "marketing": false, "tags": ["Awesome"]}',
+                    'data': {
+                        'user': 'you',
+                        'password': "[Scrubbed due to 'password']",
+                        'marketing': False,
+                        'tags': ['Awesome'],
+                    },
                     'logfire.msg_template': 'surrealdb update {record}',
                     'logfire.msg': 'surrealdb update person',
-                    'logfire.json_schema': '{"type":"object","properties":{"record":{},"data":{"type":"object"}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'record': {}, 'data': {'type': 'object'}}},
                     'logfire.span_type': 'span',
-                    'logfire.scrubbed': '[{"path": ["attributes", "data", "password"], "matched_substring": "password"}]',
+                    'logfire.scrubbed': [{'path': ['attributes', 'data', 'password'], 'matched_substring': 'password'}],
                 },
             },
             {
@@ -184,7 +182,7 @@ def test_instrument_surrealdb(exporter: TestExporter) -> None:
                     'record': 'person',
                     'logfire.msg_template': 'surrealdb delete {record}',
                     'logfire.msg': 'surrealdb delete person',
-                    'logfire.json_schema': '{"type":"object","properties":{"record":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'record': {}}},
                     'logfire.span_type': 'span',
                 },
             },
@@ -201,7 +199,7 @@ def test_instrument_surrealdb(exporter: TestExporter) -> None:
                     'query': 'select * from person',
                     'logfire.msg_template': 'surrealdb query {query}',
                     'logfire.msg': 'surrealdb query select * from person',
-                    'logfire.json_schema': '{"type":"object","properties":{"query":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'query': {}}},
                     'logfire.span_type': 'span',
                 },
             },
@@ -220,7 +218,7 @@ def test_instrument_surrealdb(exporter: TestExporter) -> None:
                     'code.function': 'test_instrument_surrealdb',
                     'code.lineno': 123,
                     'query_uuid': 'foo',
-                    'logfire.json_schema': '{"type":"object","properties":{"query_uuid":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'query_uuid': {}}},
                 },
             },
             {
@@ -262,7 +260,7 @@ async def test_instrument_surrealdb_async(exporter: TestExporter) -> None:
         await db.delete('person')
         await db.query('select * from person')
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'surrealdb use',
@@ -278,7 +276,7 @@ async def test_instrument_surrealdb_async(exporter: TestExporter) -> None:
                     'database': 'database_test',
                     'logfire.msg_template': 'surrealdb use namespace = {namespace}, database = {database}',
                     'logfire.msg': 'surrealdb use namespace = namepace_test, database = database_test',
-                    'logfire.json_schema': '{"type":"object","properties":{"namespace":{},"database":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'namespace': {}, 'database': {}}},
                     'logfire.span_type': 'span',
                 },
             },
@@ -293,12 +291,17 @@ async def test_instrument_surrealdb_async(exporter: TestExporter) -> None:
                     'code.function': 'test_instrument_surrealdb_async',
                     'code.lineno': 123,
                     'record': 'person',
-                    'data': '{"user": "me", "password": "[Scrubbed due to \'password\']", "marketing": true, "tags": ["python", "documentation"]}',
+                    'data': {
+                        'user': 'me',
+                        'password': "[Scrubbed due to 'password']",
+                        'marketing': True,
+                        'tags': ['python', 'documentation'],
+                    },
                     'logfire.msg_template': 'surrealdb create {record}',
                     'logfire.msg': 'surrealdb create person',
-                    'logfire.json_schema': '{"type":"object","properties":{"record":{},"data":{"type":"object"}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'record': {}, 'data': {'type': 'object'}}},
                     'logfire.span_type': 'span',
-                    'logfire.scrubbed': '[{"path": ["attributes", "data", "password"], "matched_substring": "password"}]',
+                    'logfire.scrubbed': [{'path': ['attributes', 'data', 'password'], 'matched_substring': 'password'}],
                 },
             },
             {
@@ -314,7 +317,7 @@ async def test_instrument_surrealdb_async(exporter: TestExporter) -> None:
                     'record': 'person',
                     'logfire.msg_template': 'surrealdb select {record}',
                     'logfire.msg': 'surrealdb select person',
-                    'logfire.json_schema': '{"type":"object","properties":{"record":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'record': {}}},
                     'logfire.span_type': 'span',
                 },
             },
@@ -329,12 +332,17 @@ async def test_instrument_surrealdb_async(exporter: TestExporter) -> None:
                     'code.function': 'test_instrument_surrealdb_async',
                     'code.lineno': 123,
                     'record': 'person',
-                    'data': '{"user": "you", "password": "[Scrubbed due to \'password\']", "marketing": false, "tags": ["Awesome"]}',
+                    'data': {
+                        'user': 'you',
+                        'password': "[Scrubbed due to 'password']",
+                        'marketing': False,
+                        'tags': ['Awesome'],
+                    },
                     'logfire.msg_template': 'surrealdb update {record}',
                     'logfire.msg': 'surrealdb update person',
-                    'logfire.json_schema': '{"type":"object","properties":{"record":{},"data":{"type":"object"}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'record': {}, 'data': {'type': 'object'}}},
                     'logfire.span_type': 'span',
-                    'logfire.scrubbed': '[{"path": ["attributes", "data", "password"], "matched_substring": "password"}]',
+                    'logfire.scrubbed': [{'path': ['attributes', 'data', 'password'], 'matched_substring': 'password'}],
                 },
             },
             {
@@ -350,7 +358,7 @@ async def test_instrument_surrealdb_async(exporter: TestExporter) -> None:
                     'record': 'person',
                     'logfire.msg_template': 'surrealdb delete {record}',
                     'logfire.msg': 'surrealdb delete person',
-                    'logfire.json_schema': '{"type":"object","properties":{"record":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'record': {}}},
                     'logfire.span_type': 'span',
                 },
             },
@@ -367,7 +375,7 @@ async def test_instrument_surrealdb_async(exporter: TestExporter) -> None:
                     'query': 'select * from person',
                     'logfire.msg_template': 'surrealdb query {query}',
                     'logfire.msg': 'surrealdb query select * from person',
-                    'logfire.json_schema': '{"type":"object","properties":{"query":{}}}',
+                    'logfire.json_schema': {'type': 'object', 'properties': {'query': {}}},
                     'logfire.span_type': 'span',
                 },
             },

@@ -1,5 +1,30 @@
 # Release Notes
 
+## [v4.20.0] (2026-01-26)
+
+* feat: pytest integration by @jirikuncar in [#1648](https://github.com/pydantic/logfire/pull/1648)
+* fix: anthropic response data should include tool call id by @mathislucka in [#1636](https://github.com/pydantic/logfire/pull/1636)
+
+## [v4.19.0] (2026-01-16)
+
+* Add DSPy integration to logfire by @bdsaglam in [#1625](https://github.com/pydantic/logfire/pull/1625)
+* Set log level based on HTTP status code, create issues for handled exceptions in FastAPI when the status code is 5xx by @alexmojaki in [#1628](https://github.com/pydantic/logfire/pull/1628)
+* Add OTel GenAI semantic convention attributes to LLM instrumentations by @jimilp7 in [#1619](https://github.com/pydantic/logfire/pull/1619)
+* Minor optimization: move tweaking of ASGI send/receive span level by @alexmojaki in [#1629](https://github.com/pydantic/logfire/pull/1629)
+
+## [v4.18.0] (2026-01-12)
+
+* Adds `aiohttp` request body capture. by @adtyavrdhn in [#1595](https://github.com/pydantic/logfire/pull/1595)
+* Claude SDK instrumentation by @alexmojaki in [#1618](https://github.com/pydantic/logfire/pull/1618)
+
+## [v4.17.0] (2026-01-07)
+
+* `logfire.instrument_surrealdb` by @alexmojaki in [#1573](https://github.com/pydantic/logfire/pull/1573)
+* feat(config): allow custom Views in MetricOptions by @cyberksh in [#1552](https://github.com/pydantic/logfire/pull/1552)
+* Handle unpicklable configuration in `ProcessPoolExecutor` patch #1556 by @pipinstalled in [#1567](https://github.com/pydantic/logfire/pull/1567)
+* Maintain original LLM request context when logging the streaming response by @yiphei in [#1566](https://github.com/pydantic/logfire/pull/1566)
+* Add note about `write_token` permission in `logfire projects` commands by @Viicos in [#1545](https://github.com/pydantic/logfire/pull/1545)
+
 ## [v4.16.0] (2025-12-04)
 
 * Support OpenTelemetry 1.39.0, drop support for earlier versions, stop using the OTel events API/SDK by @alexmojaki in [#1562](https://github.com/pydantic/logfire/pull/1562)
@@ -985,3 +1010,7 @@ First release from new repo!
 [v4.15.0]: https://github.com/pydantic/logfire/compare/v4.14.2...v4.15.0
 [v4.15.1]: https://github.com/pydantic/logfire/compare/v4.15.0...v4.15.1
 [v4.16.0]: https://github.com/pydantic/logfire/compare/v4.15.1...v4.16.0
+[v4.17.0]: https://github.com/pydantic/logfire/compare/v4.16.0...v4.17.0
+[v4.18.0]: https://github.com/pydantic/logfire/compare/v4.17.0...v4.18.0
+[v4.19.0]: https://github.com/pydantic/logfire/compare/v4.18.0...v4.19.0
+[v4.20.0]: https://github.com/pydantic/logfire/compare/v4.19.0...v4.20.0

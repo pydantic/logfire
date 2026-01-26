@@ -191,7 +191,10 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
 
     assert hasattr(logfire_api, 'instrument_google_genai')
     if get_version(pydantic_version) >= get_version('2.7.0'):
-        logfire_api.instrument_google_genai()
+        with warnings.catch_warnings():
+            if sys.version_info[:2] <= (3, 9):
+                warnings.simplefilter('ignore', category=FutureWarning)
+            logfire_api.instrument_google_genai()
     logfire__all__.remove('instrument_google_genai')
 
     assert hasattr(logfire_api, 'instrument_litellm')
@@ -205,6 +208,16 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
             else:
                 logfire_api.instrument_litellm()
     logfire__all__.remove('instrument_litellm')
+
+    assert hasattr(logfire_api, 'instrument_dspy')
+    if not pydantic_pre_2_5:
+        try:
+            importlib.import_module('openinference.instrumentation.dspy')
+        except ImportError:
+            pass
+        else:
+            logfire_api.instrument_dspy()
+    logfire__all__.remove('instrument_dspy')
 
     for member in [m for m in logfire__all__ if m.startswith('instrument_')]:
         assert hasattr(logfire_api, member), member
