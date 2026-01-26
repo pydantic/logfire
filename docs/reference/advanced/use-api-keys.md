@@ -31,7 +31,7 @@ Choose the endpoint that matches your account's [data region](../data-regions.md
 
 Navigate to your organization, then **Settings → API Keys → New API Key**.
 
-Organization API keys can be scoped to all projects or a specific project. See [API Key Scopes](#api-key-scopes) for available permissions.
+Organization API keys can be scoped to all projects or a specific project. See API Key Scopes for available permissions.
 
 ### Project API Key
 
@@ -41,6 +41,24 @@ Project API keys are limited to the project where they were created.
 
 !!! warning
 Copy your API key when it's displayed—it won't be shown again.
+
+## API Key Scopes
+
+When creating an API key, set the scope to define which actions the key can perform.
+Available scopes depend on whether you're creating an organization or project API key:
+
+| Scope                                | Organization API Key | Project API Key |
+| ------------------------------------ | -------------------- | --------------- |
+| Organization management (read/write) | ✓                    | —               |
+| Member management                    | ✓                    | —               |
+| Billing access                       | ✓                    | —               |
+| Project settings (read/write)        | ✓                    | ✓               |
+| Write tokens management              | ✓                    | ✓               |
+| Read tokens management               | ✓                    | ✓               |
+| Alerts management                    | ✓                    | ✓               |
+
+!!! note
+Select only the scopes your application needs to follow the principle of least privilege.
 
 ## Using API Keys
 
@@ -83,21 +101,3 @@ A successful request will return a JSON response with your projects:
   }
 ]
 ```
-
-## API Key Scopes
-
-When creating an API key, set the scope to define which actions the key can perform.
-Available scopes depend on whether you're creating an organization or project API key:
-
-| Scope                                | Organization API Key | Project API Key |
-| ------------------------------------ | -------------------- | --------------- |
-| Organization management (read/write) | ✓                    | —               |
-| Member management                    | ✓                    | —               |
-| Billing access                       | ✓                    | —               |
-| Project settings (read/write)        | ✓                    | ✓               |
-| Write tokens management              | ✓                    | ✓               |
-| Read tokens management               | ✓                    | ✓               |
-| Alerts management                    | ✓                    | ✓               |
-
-!!! note
-Select only the scopes your application needs to follow the principle of least privilege.
