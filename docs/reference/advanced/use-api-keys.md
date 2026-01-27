@@ -5,15 +5,14 @@ description: "Guide on how to create API keys and use them to call Logfire publi
 
 **Logfire** provides public APIs that allow you to programmatically manage your organizations, projects, and other resources. To access these APIs, you'll need to create an **API key**.
 
-!!! note
+!!! info "Public APIs"
     API keys are for accessing the Logfire platform APIs, _not_ for sending telemetry data (traces, logs, metrics).
     To send data to Logfire, use [write tokens](../../how-to-guides/create-write-tokens.md).
 
-Use the Logfire API to automate resource management and integrate Logfire into your existing workflows.
-
-- Projects & tokens: Create projects and generate write/read tokens programmatically—useful for CI/CD pipelines or dynamic environments
-- Channels: Configure notification destinations (Slack, webhooks, etc.)
-- Audit logs: Track changes across your organization
+!!! tip "What you can do"
+    - **Projects & tokens**: Create projects and generate tokens for CI/CD pipelines
+    - **Channels**: Configure notification destinations (Slack, webhooks, etc.)
+    - **Audit logs**: Track activity across your projects and organization
 
 ## API Documentation
 
