@@ -360,6 +360,23 @@ def request_handler(request: httpx.Request) -> httpx.Response:
             200,
             json={'id': 'thread_abc123', 'object': 'thread', 'created_at': 1698107661, 'metadata': {}},
         )
+    elif request.url == 'https://api.openai.com/v1/responses':
+        json_body = json.loads(request.content)
+        conversation_data = {'id': json_body['conversation']} if json_body.get('conversation') else None
+        return httpx.Response(
+            200,
+            json={
+                'id': 'resp_test_123',
+                'created_at': 1698107661,
+                'model': json_body.get('model', 'gpt-4'),
+                'object': 'response',
+                'output': [
+                    {'type': 'message', 'role': 'assistant', 'content': [{'type': 'output_text', 'text': 'Nine'}]}
+                ],
+                'conversation': conversation_data,
+                'usage': {'input_tokens': 10, 'output_tokens': 5, 'total_tokens': 15},
+            },
+        )
     else:  # pragma: no cover
         raise ValueError(f'Unexpected request to {request.url!r}')
 
@@ -2979,3 +2996,117 @@ I'm zeroing in on the core of the query. The "how are you" is basic, but the "tr
             },
         ]
     )
+
+
+def test_get_endpoint_config_conversations() -> None:
+    """Test that /conversations endpoint is properly configured."""
+    from unittest.mock import MagicMock
+
+    from logfire._internal.integrations.llm_providers.openai import (
+        get_endpoint_config,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    options = MagicMock()
+    options.url = '/conversations'
+    options.json_data = {}
+
+    config = get_endpoint_config(options)
+    assert config.message_template == 'OpenAI Conversation Create'
+    assert config.span_data['gen_ai.provider.name'] == 'openai'
+    assert config.span_data['gen_ai.operation.name'] == 'conversation'
+
+
+def test_get_endpoint_config_responses_with_conversation_string() -> None:
+    """Test that /responses endpoint extracts conversation ID when provided as string."""
+    from unittest.mock import MagicMock
+
+    from logfire._internal.integrations.llm_providers.openai import (
+        get_endpoint_config,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    options = MagicMock()
+    options.url = '/responses'
+    options.json_data = {
+        'model': 'gpt-4',
+        'input': 'Hello',
+        'conversation': 'conv_123456',
+    }
+
+    config = get_endpoint_config(options)
+    assert config.span_data['gen_ai.conversation.id'] == 'conv_123456'
+
+
+def test_get_endpoint_config_responses_with_conversation_dict() -> None:
+    """Test that /responses endpoint extracts conversation ID when provided as dict."""
+    from unittest.mock import MagicMock
+
+    from logfire._internal.integrations.llm_providers.openai import (
+        get_endpoint_config,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    options = MagicMock()
+    options.url = '/responses'
+    options.json_data = {
+        'model': 'gpt-4',
+        'input': 'Hello',
+        'conversation': {'id': 'conv_789012'},
+    }
+
+    config = get_endpoint_config(options)
+    assert config.span_data['gen_ai.conversation.id'] == 'conv_789012'
+
+
+def test_on_response_handles_conversation_creation_response() -> None:
+    """Test that on_response extracts conversation ID from /conversations response."""
+    from unittest.mock import MagicMock
+
+    from openai.types.conversations import Conversation
+
+    from logfire._internal.integrations.llm_providers.openai import (
+        on_response,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    response = Conversation.model_construct(id='conv_created_456')
+    mock_span = MagicMock()
+    mock_span.attributes = {}
+
+    on_response(response, mock_span)
+
+    mock_span.set_attribute.assert_any_call('gen_ai.conversation.id', 'conv_created_456')
+
+
+def test_streaming_handler_extracts_conversation_id() -> None:
+    """Test that OpenaiResponsesStreamState.get_attributes extracts conversation ID."""
+    from unittest.mock import MagicMock
+
+    from logfire._internal.integrations.llm_providers.openai import (
+        OpenaiResponsesStreamState,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    mock_response = MagicMock()
+    mock_response.output = []
+    mock_response.conversation = MagicMock(id='conv_stream_789')
+
+    stream_state = OpenaiResponsesStreamState()
+    stream_state._state._completed_response = mock_response
+
+    span_data: dict[str, Any] = {'events': []}
+    result = stream_state.get_attributes(span_data)
+
+    assert result['gen_ai.conversation.id'] == 'conv_stream_789'
+
+
+def test_responses_api_with_conversation_id(instrumented_client: openai.Client, exporter: TestExporter) -> None:
+    """Integration test for conversation ID extraction from Responses API."""
+    response = instrumented_client.responses.create(
+        model='gpt-4',
+        input='What is four plus five?',
+        conversation='conv_integration_test_123',
+    )
+    assert response.id == 'resp_test_123'
+    assert response.conversation is not None
+    assert response.conversation.id == 'conv_integration_test_123'
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) == 1
+    assert spans[0]['attributes']['gen_ai.conversation.id'] == 'conv_integration_test_123'
