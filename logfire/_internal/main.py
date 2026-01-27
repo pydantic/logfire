@@ -1179,6 +1179,7 @@ class Logfire:
         | None = None,
         *,
         suppress_other_instrumentation: bool = True,
+        override_provider: None | str = None,
     ) -> AbstractContextManager[None]:
         """Instrument an OpenAI client so that spans are automatically created for each request.
 
@@ -1228,6 +1229,13 @@ class Logfire:
                 enabled. In reality, this means the HTTPX instrumentation, which could otherwise be called since
                 OpenAI uses HTTPX to make HTTP requests.
 
+            override_provider: If provided, override the provider name for the instrumented client, e.g. 'openrouter'.
+                Do this to get:
+                - Correct attribution in span attributes like `gen_ai.system`
+                - Cost calculation in the span attribute `operation.cost`, subject to `genai_prices` package support
+                - Cost calculation in the Logfire UI
+                The default provider is 'openai'.
+
         Returns:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
@@ -1246,6 +1254,7 @@ class Logfire:
             get_endpoint_config,
             on_response,
             is_async_client,
+            override_provider,
         )
 
     def instrument_openai_agents(self) -> None:
