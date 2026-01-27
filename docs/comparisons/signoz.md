@@ -35,7 +35,7 @@ Both SaaS platforms handle infrastructure for you—no ClickHouse to manage, no 
 
 **Developer experience.** Logfire's SDK is designed for simplicity:
 
-```python
+```python skip="true" skip-reason="incomplete"
 import logfire
 logfire.configure()
 logfire.instrument_openai()
