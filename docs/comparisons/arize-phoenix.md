@@ -15,7 +15,7 @@ Arize Phoenix is an ML observability platform focused on model monitoring, drift
 | **Setup**            | 3 lines of code                                                | OTel-based (several lines of code)                              |
 | **SQL Queries**      | Yes (Postgres-compatible)                                      | No. Use `SpanQuery` DSL                                         |
 
-*Logfire Cloud pricing (Team or Growth plans). Enterprise pricing available [on request](calendar.app.google/k9pkeuNMmzJAJ4Mx5).
+*Logfire Cloud pricing (Team or Growth plans). Enterprise pricing available [on request](https://calendar.app.google/k9pkeuNMmzJAJ4Mx5).
 
 ## When to Choose Logfire
 
