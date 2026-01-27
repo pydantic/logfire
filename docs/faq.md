@@ -20,7 +20,7 @@ Built by the Pydantic team (the same people behind Pydantic AI), Logfire provide
 - **LLM-specific features:** Token tracking, cost monitoring, conversation inspection, tool call visibility
 - **SQL query interface:** Query your observability data with familiar PostgreSQL-compatible syntax
 
-[Why Logfire?](why.md) | [Getting Started](index.md)
+[Why Logfire?](why.md) | [Getting Started](index.md) | [AI & LLM Observability](ai-observability.md)
 
 ### Q: Who is Logfire for?
 
@@ -33,6 +33,54 @@ Logfire is for teams building AI applications who need to actually debug them:
 - **Organizations needing enterprise features** like SOC2, HIPAA, and self-hosting
 
 If you're building AI applications, you need observability that sees the whole picture, not just the LLM calls.
+
+---
+
+## AI/LLM Observability
+
+### Q: Is Logfire good for AI/LLM observability?
+
+Yes: Logfire is _built_ for AI observability, and it's better at it because it sees your entire application.
+
+**AI-specific features:**
+
+- LLM-specific panels for conversation inspection
+- Token tracking and cost monitoring
+- Tool call inspection with full context
+- Streaming support
+
+**Better debugging:** When your AI agent fails, you don't just see the LLM error. You see the database timeout that caused it, the API rate limit that preceded it, and the user request that started it all.
+
+**Integrations:** OpenAI, Anthropic, Pydantic AI, LangChain, LlamaIndex, plus any OTel framework.
+
+[AI & LLM Observability](ai-observability.md)
+
+### Q: How is Logfire different from AI-specific tools like Langfuse or Arize?
+
+AI-only tools have tied one hand behind their back. When debugging AI applications, you need to understand:
+
+- What triggered the LLM call?
+- What APIs, databases, or tools did the AI access?
+- What happened with the response?
+
+AI-only tools can only show you the middle part. If something fails, you're left manually correlating data between your AI monitoring and your APM (if you even have APM).
+
+Logfire sees everything. When your agent fails, you see the complete story in one trace. This is what makes AI debugging actually possible.
+
+Some tools focus only on LLM observability. Logfire takes a different approach: you can't do AI observability well without seeing the full picture. For debugging AI applications in production, you need the full context.
+
+[Comparisons](comparisons/index.md)
+
+### Q: Does Logfire support evaluations (evals)?
+
+Yes. [pydantic-evals](https://github.com/pydantic/pydantic-evals) is a code-first evaluation framework that integrates with Logfire:
+
+- Evaluate any Python function, not just LLM calls (test your tools, data pipelines, entire agent workflows)
+- Define evals in Python, version-controlled like everything else
+- Run them programmatically, locally or in CI
+- View comparison results in Logfire
+
+This is a code-first approach. Some tools offer UI-managed evals; Pydantic's philosophy is that evals belong in your codebase alongside your tests.
 
 ---
 
@@ -154,54 +202,6 @@ Yes. Logfire provides:
 - Backed by Sequoia
 
 [Enterprise features](enterprise.md) | [Compliance](compliance.md)
-
----
-
-## AI/LLM Observability
-
-### Q: Is Logfire good for AI/LLM observability?
-
-Yes: Logfire is _built_ for AI observability, and it's better at it because it sees your entire application.
-
-**AI-specific features:**
-
-- LLM-specific panels for conversation inspection
-- Token tracking and cost monitoring
-- Tool call inspection with full context
-- Streaming support
-
-**Better debugging:** When your AI agent fails, you don't just see the LLM error. You see the database timeout that caused it, the API rate limit that preceded it, and the user request that started it all.
-
-**Integrations:** OpenAI, Anthropic, Pydantic AI, LangChain, LlamaIndex, plus any OTel framework.
-
-[//]: # ([AI & LLM Observability]&#40;ai-observability.md&#41;)
-
-### Q: How is Logfire different from AI-specific tools like Langfuse or Arize?
-
-AI-only tools have tied one hand behind their back. When debugging AI applications, you need to understand:
-
-- What triggered the LLM call?
-- What APIs, databases, or tools did the AI access?
-- What happened with the response?
-
-AI-only tools can only show you the middle part. If something fails, you're left manually correlating data between your AI monitoring and your APM (if you even have APM).
-
-Logfire sees everything. When your agent fails, you see the complete story in one trace. This is what makes AI debugging actually possible.
-
-Some tools focus only on LLM observability. Logfire takes a different approach: you can't do AI observability well without seeing the full picture. For debugging AI applications in production, you need the full context.
-
-[//]: # ([Comparisons]&#40;comparisons/index.md&#41;)
-
-### Q: Does Logfire support evaluations (evals)?
-
-Yes. [pydantic-evals](https://github.com/pydantic/pydantic-evals) is a code-first evaluation framework that integrates with Logfire:
-
-- Evaluate any Python function, not just LLM calls (test your tools, data pipelines, entire agent workflows)
-- Define evals in Python, version-controlled like everything else
-- Run them programmatically, locally or in CI
-- View results in Logfire and analyze patterns with SQL
-
-This is a code-first approach. Some tools offer UI-managed evals; Pydantic's philosophy is that evals belong in your codebase alongside your tests.
 
 ---
 
