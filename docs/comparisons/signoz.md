@@ -1,20 +1,22 @@
 # Logfire vs SigNoz
 
-SigNoz is an open-source observability platform that you can self-host. Logfire is an AI-native observability platform, also built on OpenTelemetry but fully managed. Both serve different needs.
+SigNoz is an open-source observability platform that you can self-host. Logfire is an AI-native observability platform, also built on OpenTelemetry, with full-stack monitoring capabilities and (enterprise) self-hosting options. Both serve different needs.
+
 
 ## Quick Comparison
 
-| Aspect | Logfire | SigNoz |
-|--------|---------|--------|
-| **Platform** | Managed SaaS (no infra to manage) | Open-source, self-host or cloud |
-| **Scope** | Logs & traces (optimized for app monitoring) | Full-stack (logs, traces, metrics) |
-| **Setup** | 3 lines of code | Deploy collectors, configure OTel |
-| **AI/LLM** | Native, one function call | No native feature (custom setup) |
-| **SDKs** | First-class Python, JS, Rust | No SDKs (standard OTel) |
-| **Maintenance** | Zero (we handle it) | You manage ClickHouse, collectors, storage |
-| **Pricing** | Free 10M/mo, then $2/M* | "Free" but infra + maintenance costs |
+| Aspect | Logfire                                                                                                             | SigNoz                                     |
+|--------|---------------------------------------------------------------------------------------------------------------------|--------------------------------------------|
+| **Platform** | Managed SaaS (or [Enterprise](https://pydantic.dev/pricing#enterprise?utm_source=signoz_comparison_docs) self-host) | Open-source, self-host or cloud            |
+| **Scope** | AI-native AND full-stack (logs, traces, metrics)                                                                    | Full-stack (logs, traces, metrics)         |
+| **Setup** | 3 lines of code                                                                                                     | Deploy collectors, configure OTel          |
+| **AI/LLM** | Native, one function call                                                                                           | No, custom setup required                  |
+| **SDKs** | First-class Python, JS/TS, Rust                                                                                     | No SDKs (standard OTel)                    |
+| **Maintenance** | Zero (we handle it)                                                                                                 | You manage ClickHouse, collectors, storage |
+| **Pricing** | 10M spans free, then $2/M*                                                                             | "Free" but infra + maintenance costs       |
 
-*Logfire Cloud Pro pricing. Enterprise pricing available on request.
+*Logfire Cloud pricing (Team or Growth plans). Enterprise pricing available [on request](https://calendar.app.google/k9pkeuNMmzJAJ4Mx5).
+
 
 ## When to Choose Logfire
 
