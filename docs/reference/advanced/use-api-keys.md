@@ -55,7 +55,7 @@ Available scopes depend on whether you're creating an organization or project AP
 | Read tokens management               | ✓                    | ✓               |
 | Alerts management                    | ✓                    | ✓               |
 
-!!! note
+!!! info
     Select only the scopes your application needs to follow the principle of least privilege.
 
 ## Using API Keys
