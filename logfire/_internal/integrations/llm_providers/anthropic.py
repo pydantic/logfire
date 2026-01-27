@@ -4,13 +4,14 @@ import json
 from typing import TYPE_CHECKING, Any, cast
 
 import anthropic
-from anthropic.types import Message, TextBlock, TextDelta
+from anthropic.types import Message, TextBlock, TextDelta, ToolUseBlock
 
 from logfire._internal.utils import handle_internal_errors
 
 from .semconv import (
     INPUT_MESSAGES,
     OPERATION_NAME,
+    OUTPUT_MESSAGES,
     PROVIDER_NAME,
     REQUEST_MAX_TOKENS,
     REQUEST_STOP_SEQUENCES,
@@ -195,6 +196,37 @@ def _convert_anthropic_content_part(part: dict[str, Any] | str) -> dict[str, Any
         return {'type': part_type, **{k: v for k, v in part.items() if k != 'type'}}
 
 
+def convert_anthropic_response_to_semconv(message: Message) -> dict[str, Any]:
+    """Convert an Anthropic response message to OTel Gen AI Semantic Convention format."""
+    parts: list[dict[str, Any]] = []
+
+    for block in message.content:
+        if isinstance(block, TextBlock):
+            parts.append({'type': 'text', 'content': block.text})
+        elif isinstance(block, ToolUseBlock):
+            parts.append(
+                {
+                    'type': 'tool_call',
+                    'id': block.id,
+                    'name': block.name,
+                    'arguments': block.input,
+                }
+            )
+        elif hasattr(block, 'type'):  # pragma: no cover
+            # Handle other block types generically
+            block_dict = block.model_dump() if hasattr(block, 'model_dump') else dict(block)
+            parts.append(block_dict)
+
+    result: dict[str, Any] = {
+        'role': message.role,
+        'parts': parts,
+    }
+    if message.stop_reason:
+        result['finish_reason'] = message.stop_reason
+
+    return result
+
+
 def content_from_messages(chunk: anthropic.types.MessageStreamEvent) -> str | None:
     if hasattr(chunk, 'content_block'):
         return chunk.content_block.text if isinstance(chunk.content_block, TextBlock) else None  # type: ignore
@@ -220,6 +252,7 @@ class AnthropicMessageStreamState(StreamState):
 def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
     """Updates the span based on the type of response."""
     if isinstance(response, Message):  # pragma: no branch
+        # Keep response_data for backward compatibility
         message: dict[str, Any] = {'role': 'assistant'}
         for block in response.content:
             if block.type == 'text':
@@ -235,6 +268,11 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
                     }
                 )
         span.set_attribute('response_data', {'message': message, 'usage': response.usage})
+
+        # Add semantic convention output messages
+        output_message = convert_anthropic_response_to_semconv(response)
+        span.set_attribute(OUTPUT_MESSAGES, [output_message])
+
     return response
 
 

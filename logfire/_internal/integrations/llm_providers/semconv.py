@@ -119,3 +119,13 @@ InputMessages: TypeAlias = list[ChatMessage]
 
 SystemInstructions: TypeAlias = list[MessagePart]
 """System instructions as a list of message parts."""
+
+
+class OutputMessage(ChatMessage):
+    """An output message with optional finish reason."""
+
+    finish_reason: NotRequired[str]
+
+
+OutputMessages: TypeAlias = list[OutputMessage]
+"""List of output messages."""

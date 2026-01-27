@@ -9,6 +9,8 @@ from openai._legacy_response import LegacyAPIResponse
 from openai.lib.streaming.responses import ResponseStreamState
 from openai.types.chat.chat_completion import ChatCompletion
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
+from openai.types.chat.chat_completion_message import ChatCompletionMessage
+from openai.types.chat.chat_completion_message_function_tool_call import ChatCompletionMessageFunctionToolCall
 from openai.types.completion import Completion
 from openai.types.create_embedding_response import CreateEmbeddingResponse
 from openai.types.images_response import ImagesResponse
@@ -21,6 +23,7 @@ from ...utils import handle_internal_errors, log_internal_error
 from .semconv import (
     INPUT_MESSAGES,
     OPERATION_NAME,
+    OUTPUT_MESSAGES,
     PROVIDER_NAME,
     REQUEST_FREQUENCY_PENALTY,
     REQUEST_MAX_TOKENS,
@@ -36,6 +39,8 @@ from .semconv import (
     ChatMessage,
     InputMessages,
     MessagePart,
+    OutputMessage,
+    OutputMessages,
     Role,
     SystemInstructions,
     TextPart,
@@ -375,6 +380,87 @@ def is_current_agent_span(*span_names: str):
     )
 
 
+def convert_openai_response_to_semconv(
+    message: ChatCompletionMessage,
+    finish_reason: str | None = None,
+) -> OutputMessage:
+    """Convert an OpenAI ChatCompletionMessage to OTel Gen AI Semantic Convention format."""
+    parts: list[MessagePart] = []
+
+    if message.content:
+        parts.append(TextPart(type='text', content=message.content))
+
+    if message.tool_calls:
+        for tc in message.tool_calls:
+            # Only handle function tool calls (not custom tool calls)
+            if isinstance(tc, ChatCompletionMessageFunctionToolCall):  # pragma: no cover
+                # Non-FunctionToolCall types are not handled - this is expected as OpenAI SDK only provides FunctionToolCall
+                func_args: Any = tc.function.arguments
+                if isinstance(func_args, str):
+                    with contextlib.suppress(json.JSONDecodeError):
+                        func_args = json.loads(func_args)
+                # else: func_args is not a string (already a dict) - pragma: no cover (handled by passing as-is)
+                parts.append(
+                    ToolCallPart(
+                        type='tool_call',
+                        id=tc.id,
+                        name=tc.function.name,
+                        arguments=func_args,
+                    )
+                )
+
+    result: OutputMessage = {
+        'role': cast('Role', message.role),
+        'parts': parts,
+    }
+    if finish_reason:  # pragma: no branch
+        result['finish_reason'] = finish_reason
+
+    return result
+
+
+def convert_responses_outputs_to_semconv(response: Response) -> OutputMessages:
+    """Convert Responses API outputs to OTel Gen AI Semantic Convention format."""
+    output_messages: OutputMessages = []
+    for out in response.output:
+        out_dict = out.model_dump()
+        typ = out_dict.get('type')
+        content = out_dict.get('content')
+
+        if typ in (None, 'message') and content:
+            parts: list[MessagePart] = []
+            for item in cast('list[dict[str, Any]]', content):
+                if item.get('type') == 'output_text':  # pragma: no branch
+                    parts.append(TextPart(type='text', content=cast(str, item.get('text', ''))))
+            output_messages.append(
+                cast(
+                    'OutputMessage',
+                    {
+                        'role': 'assistant',
+                        'parts': parts,
+                    },
+                )
+            )
+        elif typ == 'function_call':  # pragma: no cover - outputs are typically 'message' type
+            output_messages.append(
+                cast(
+                    'OutputMessage',
+                    {
+                        'role': 'assistant',
+                        'parts': [
+                            ToolCallPart(
+                                type='tool_call',
+                                id=out_dict.get('call_id', ''),
+                                name=out_dict.get('name', ''),
+                                arguments=out_dict.get('arguments'),
+                            )
+                        ],
+                    },
+                )
+            )
+    return output_messages
+
+
 def content_from_completions(chunk: Completion | None) -> str | None:
     if chunk and chunk.choices:
         return chunk.choices[0].text
@@ -410,7 +496,10 @@ class OpenaiResponsesStreamState(StreamState):
 
     def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
         response = self.get_response_data()
-        span_data['events'] = span_data['events'] + responses_output_events(response)
+        output_messages = convert_responses_outputs_to_semconv(response)
+        span_data[OUTPUT_MESSAGES] = output_messages
+        # Keep 'events' for backward compatibility
+        span_data['events'] = span_data.get('events', []) + responses_output_events(response)
         return span_data
 
 
@@ -482,28 +571,48 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         span.set_attribute('gen_ai.usage.output_tokens', output_tokens)
 
     if isinstance(response, ChatCompletion) and response.choices:
+        # Keep response_data for backward compatibility
         span.set_attribute(
             'response_data',
             {'message': response.choices[0].message, 'usage': usage},
         )
+        # Add semantic convention output messages
+        output_messages: OutputMessages = []
+        for choice in response.choices:
+            output_messages.append(convert_openai_response_to_semconv(choice.message, choice.finish_reason))
+        span.set_attribute(OUTPUT_MESSAGES, output_messages)
     elif isinstance(response, Completion) and response.choices:
         first_choice = response.choices[0]
         span.set_attribute(
             'response_data',
             {'finish_reason': first_choice.finish_reason, 'text': first_choice.text, 'usage': usage},
         )
+        # Add semantic convention output messages for text completion
+        output_messages_completion: list[dict[str, Any]] = []
+        for choice in response.choices:
+            output_messages_completion.append(
+                {
+                    'role': 'assistant',
+                    'parts': [{'type': 'text', 'content': choice.text}],
+                    'finish_reason': choice.finish_reason,
+                }
+            )
+        span.set_attribute(OUTPUT_MESSAGES, output_messages_completion)
     elif isinstance(response, CreateEmbeddingResponse):
         span.set_attribute('response_data', {'usage': usage})
     elif isinstance(response, ImagesResponse):
         span.set_attribute('response_data', {'images': response.data})
     elif isinstance(response, Response):  # pragma: no branch
-        try:
-            events = json.loads(span.attributes['events'])  # type: ignore
-        except Exception:
-            pass
-        else:
-            events += responses_output_events(response)
-            span.set_attribute('events', events)
+        response_output_messages: OutputMessages = convert_responses_outputs_to_semconv(response)
+        span.set_attribute(OUTPUT_MESSAGES, response_output_messages)
+        # Keep 'events' for backward compatibility
+        existing_events: list[Any] = []
+        otel_span = span._span  # pyright: ignore[reportPrivateUsage]
+        if otel_span is not None and hasattr(otel_span, 'attributes') and otel_span.attributes:
+            events_attr = otel_span.attributes.get('events')
+            if isinstance(events_attr, list):  # pragma: no cover
+                existing_events = cast(list[Any], events_attr)
+        span.set_attribute('events', existing_events + responses_output_events(response))
 
     return response
 
