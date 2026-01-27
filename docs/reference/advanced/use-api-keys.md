@@ -12,7 +12,6 @@ description: "Guide on how to create API keys and use them to call Logfire publi
 Use the Logfire API to automate resource management and integrate Logfire into your existing workflows.
 
 - Projects & tokens: Create projects and generate write/read tokens programmatically—useful for CI/CD pipelines or dynamic environments
-- Alerts & dashboards: Set up monitoring infrastructure as code
 - Channels: Configure notification destinations (Slack, webhooks, etc.)
 - Audit logs: Track changes across your organization
 
