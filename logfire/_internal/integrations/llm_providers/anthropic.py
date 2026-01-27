@@ -20,6 +20,14 @@ from .semconv import (
     REQUEST_TOP_P,
     SYSTEM_INSTRUCTIONS,
     TOOL_DEFINITIONS,
+    BlobPart,
+    MessagePart,
+    OutputMessage,
+    Role,
+    TextPart,
+    ToolCallPart,
+    ToolCallResponsePart,
+    UriPart,
 )
 from .types import EndpointConfig, StreamState
 
@@ -103,22 +111,22 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
 def convert_anthropic_messages_to_semconv(
     messages: list[dict[str, Any]],
     system: str | list[dict[str, Any]] | None = None,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+) -> tuple[list[dict[str, Any]], list[MessagePart]]:
     """Convert Anthropic messages format to OTel Gen AI Semantic Convention format.
 
     Returns a tuple of (input_messages, system_instructions).
     """
     input_messages: list[dict[str, Any]] = []
-    system_instructions: list[dict[str, Any]] = []
+    system_instructions: list[MessagePart] = []
 
     # Handle system parameter (Anthropic uses a separate 'system' parameter)
     if system:
         if isinstance(system, str):
-            system_instructions.append({'type': 'text', 'content': system})
+            system_instructions.append(TextPart(type='text', content=system))
         else:  # pragma: no cover
             for part in system:
                 if part.get('type') == 'text':
-                    system_instructions.append({'type': 'text', 'content': part.get('text', '')})
+                    system_instructions.append(TextPart(type='text', content=part.get('text', '')))
                 else:
                     system_instructions.append(part)
 
@@ -126,11 +134,11 @@ def convert_anthropic_messages_to_semconv(
         role = msg.get('role', 'unknown')
         content = msg.get('content')
 
-        parts: list[dict[str, Any]] = []
+        parts: list[MessagePart] = []
 
         if content is not None:
             if isinstance(content, str):
-                parts.append({'type': 'text', 'content': content})
+                parts.append(TextPart(type='text', content=content))
             elif isinstance(content, list):  # pragma: no branch
                 for part in cast('list[dict[str, Any] | str]', content):
                     parts.append(_convert_anthropic_content_part(part))
@@ -145,34 +153,34 @@ def convert_anthropic_messages_to_semconv(
     return input_messages, system_instructions
 
 
-def _convert_anthropic_content_part(part: dict[str, Any] | str) -> dict[str, Any]:
+def _convert_anthropic_content_part(part: dict[str, Any] | str) -> MessagePart:
     """Convert a single Anthropic content part to semconv format."""
     if isinstance(part, str):  # pragma: no cover
-        return {'type': 'text', 'content': part}
+        return TextPart(type='text', content=part)
 
     part_type = part.get('type', 'text')
     if part_type == 'text':
-        return {'type': 'text', 'content': part.get('text', '')}
+        return TextPart(type='text', content=part.get('text', ''))
     elif part_type == 'image':  # pragma: no cover
         source = part.get('source', {})
         if source.get('type') == 'base64':
-            return {
-                'type': 'blob',
-                'modality': 'image',
-                'content': source.get('data', ''),
-                'media_type': source.get('media_type'),
-            }
+            return BlobPart(
+                type='blob',
+                modality='image',
+                content=source.get('data', ''),
+                media_type=source.get('media_type'),
+            )
         elif source.get('type') == 'url':
-            return {'type': 'uri', 'modality': 'image', 'uri': source.get('url', '')}
+            return UriPart(type='uri', uri=source.get('url', ''), modality='image')
         else:
             return {'type': 'image', **part}
     elif part_type == 'tool_use':
-        return {
-            'type': 'tool_call',
-            'id': part.get('id'),
-            'name': part.get('name'),
-            'arguments': part.get('input'),
-        }
+        return ToolCallPart(
+            type='tool_call',
+            id=part.get('id', ''),
+            name=part.get('name', ''),
+            arguments=part.get('input'),
+        )
     elif part_type == 'tool_result':  # pragma: no cover
         result_content = part.get('content')
         if isinstance(result_content, list):
@@ -186,39 +194,39 @@ def _convert_anthropic_content_part(part: dict[str, Any] | str) -> dict[str, Any
             result_text = ' '.join(text_parts)
         else:
             result_text = str(result_content) if result_content else ''
-        return {
-            'type': 'tool_call_response',
-            'id': part.get('tool_use_id'),
-            'response': result_text,
-        }
+        return ToolCallResponsePart(
+            type='tool_call_response',
+            id=part.get('tool_use_id', ''),
+            response=result_text,
+        )
     else:  # pragma: no cover
-        # Return as generic part
-        return {'type': part_type, **{k: v for k, v in part.items() if k != 'type'}}
+        # Return as generic dict for unknown types
+        return {**part, 'type': part_type}
 
 
-def convert_anthropic_response_to_semconv(message: Message) -> dict[str, Any]:
+def convert_anthropic_response_to_semconv(message: Message) -> OutputMessage:
     """Convert an Anthropic response message to OTel Gen AI Semantic Convention format."""
-    parts: list[dict[str, Any]] = []
+    parts: list[MessagePart] = []
 
     for block in message.content:
         if isinstance(block, TextBlock):
-            parts.append({'type': 'text', 'content': block.text})
+            parts.append(TextPart(type='text', content=block.text))
         elif isinstance(block, ToolUseBlock):
             parts.append(
-                {
-                    'type': 'tool_call',
-                    'id': block.id,
-                    'name': block.name,
-                    'arguments': block.input,
-                }
+                ToolCallPart(
+                    type='tool_call',
+                    id=block.id,
+                    name=block.name,
+                    arguments=block.input,
+                )
             )
         elif hasattr(block, 'type'):  # pragma: no cover
             # Handle other block types generically
             block_dict = block.model_dump() if hasattr(block, 'model_dump') else dict(block)
             parts.append(block_dict)
 
-    result: dict[str, Any] = {
-        'role': message.role,
+    result: OutputMessage = {
+        'role': cast('Role', message.role),
         'parts': parts,
     }
     if message.stop_reason:
