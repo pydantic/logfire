@@ -86,7 +86,7 @@ Same simple interface for everything.
 **Logfire** exposes your data via SQL with PostgreSQL-compatible syntax. This is a significant advantage for AI-assisted development:
 
 - **No artificial limitations** — Ask any question, get any answer
-- **AI assistants excel at SQL** — GPT-5, Claude, and coding agents write excellent SQL
+- **AI assistants excel at SQL** — GPT-5, Claude, and [coding agents write excellent SQL](https://pydantic.dev/articles/logfire-mcp-is-awesome/?utm_source=braintrust_compare_docs)
 - **Joins and complex queries allowed** - write joins on your trace queries and create dashboards, all in SQL
 - **Agentic workflows** — When coding agents debug your AI application, they can write arbitrary queries
 - **Familiar syntax** — No new query language to learn
