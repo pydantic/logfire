@@ -34,7 +34,7 @@ export OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'
 
 Then run this script with `python`:
 
-```python
+```py skip-run="true" skip-reason="external-connection"
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor

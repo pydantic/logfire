@@ -510,9 +510,10 @@ class Logfire:
 
         Example usage:
 
-        ```python
-        import logfire
+        ```python skip-run="true" skip-reason="external-connection"
         import openai
+
+        import logfire
 
         client = openai.OpenAI()
         logfire.configure()
@@ -552,7 +553,7 @@ class Logfire:
         see [`instrument_openai()`][logfire.Logfire.instrument_openai].
         """
     def instrument_anthropic(self, anthropic_client: anthropic.Anthropic | anthropic.AsyncAnthropic | anthropic.AnthropicBedrock | anthropic.AsyncAnthropicBedrock | type[anthropic.Anthropic] | type[anthropic.AsyncAnthropic] | type[anthropic.AnthropicBedrock] | type[anthropic.AsyncAnthropicBedrock] | None = None, *, suppress_other_instrumentation: bool = True) -> AbstractContextManager[None]:
-        """Instrument an Anthropic client so that spans are automatically created for each request.
+        '''Instrument an Anthropic client so that spans are automatically created for each request.
 
         The following methods are instrumented for both the sync and async clients:
 
@@ -564,9 +565,10 @@ class Logfire:
 
         Example usage:
 
-        ```python
-        import logfire
+        ```python skip-run="true" skip-reason="external-connection"
         import anthropic
+
+        import logfire
 
         client = anthropic.Anthropic()
 
@@ -574,13 +576,13 @@ class Logfire:
         logfire.instrument_anthropic(client)
 
         response = client.messages.create(
-            model='claude-3-haiku-20240307',
-            system='You are a helpful assistant.',
+            model=\'claude-3-haiku-20240307\',
+            system=\'You are a helpful assistant.\',
             messages=[
-                {'role': 'user', 'content': 'What is four plus five?'},
+                {\'role\': \'user\', \'content\': \'What is four plus five?\'},
             ],
         )
-        print('answer:', response.content[0].text)
+        print(\'answer:\', response.content[0].text)
         ```
 
         Args:
@@ -597,7 +599,7 @@ class Logfire:
         Returns:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
-        """
+        '''
     def instrument_google_genai(self, **kwargs: Any):
         """Instrument the [Google Gen AI SDK (`google-genai`)](https://googleapis.github.io/python-genai/).
 
@@ -1012,9 +1014,10 @@ class Logfire:
         The counter metric is a cumulative metric that represents a single numerical value that only ever goes up.
 
         ```py
-        import logfire
         import psutil
         from opentelemetry.metrics import CallbackOptions, Observation
+
+        import logfire
 
         logfire.configure()
 
@@ -1054,8 +1057,9 @@ class Logfire:
         ```py
         import threading
 
-        import logfire
         from opentelemetry.metrics import CallbackOptions, Observation
+
+        import logfire
 
         logfire.configure()
 
@@ -1091,8 +1095,9 @@ class Logfire:
         down.
 
         ```py
-        import logfire
         from opentelemetry.metrics import CallbackOptions, Observation
+
+        import logfire
 
         logfire.configure()
 

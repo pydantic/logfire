@@ -192,7 +192,7 @@ Tools like Langfuse, Arize, and LangSmith focus specifically on LLM observabilit
 
 Logfire takes a different approach: since it's built on OpenTelemetry and can ingest traces from your entire application, you get AI observability as part of full-stack observability rather than in isolation. The [concrete example above](#a-concrete-example) illustrates why this matters in practice.
 
-[//]: # ([See detailed comparisons →]&#40;comparisons/index.md&#41;)
+[See detailed comparisons →](comparisons/index.md)
 
 ## Getting Started
 
@@ -215,4 +215,4 @@ logfire.instrument_openai()  # Or your framework of choice
 - [Integrations](integrations/index.md) - All supported frameworks
 - [Why Logfire?](why.md) - General platform overview
 
-[//]: # (- [Comparisons]&#40;comparisons/index.md&#41; - How Logfire compares to alternatives)
+- [Comparisons](comparisons/index.md) - How Logfire compares to alternatives
