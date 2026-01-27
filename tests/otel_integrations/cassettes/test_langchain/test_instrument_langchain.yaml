@@ -1,55 +1,65 @@
 interactions:
 - request:
-    body: '{"messages":[{"content":"what''s 123 + 456?","role":"user"}],"model":"gpt-4o","stream":false,"tools":[{"type":"function","function":{"name":"add","description":"Add
-      two numbers.","parameters":{"properties":{"a":{"type":"number"},"b":{"type":"number"}},"required":["a","b"],"type":"object"}}}]}'
+    body: '{"input":[{"content":"what''s 123 + 456? think carefully and use the tool","role":"user"}],"model":"gpt-5","reasoning":{"effort":"medium","summary":"concise"},"stream":false,"tools":[{"type":"function","name":"add","description":"Add
+      two numbers.","parameters":{"properties":{"a":{"type":"number"},"b":{"type":"number"}},"required":["a","b"],"type":"object"}}]}'
     headers:
-      accept:
+      Accept:
       - application/json
-      accept-encoding:
+      Accept-Encoding:
       - gzip, deflate, zstd
-      connection:
+      Connection:
       - keep-alive
-      content-length:
-      - '292'
-      content-type:
+      Content-Length:
+      - '360'
+      Content-Type:
       - application/json
-      host:
-      - api.openai.com
-      user-agent:
-      - OpenAI/Python 1.78.1
-      x-stainless-arch:
+      Host:
+      - gateway.pydantic.dev
+      User-Agent:
+      - OpenAI/Python 2.15.0
+      X-Stainless-Arch:
       - arm64
-      x-stainless-async:
+      X-Stainless-Async:
       - 'false'
-      x-stainless-lang:
+      X-Stainless-Lang:
       - python
-      x-stainless-os:
+      X-Stainless-OS:
       - MacOS
-      x-stainless-package-version:
-      - 1.78.1
+      X-Stainless-Package-Version:
+      - 2.15.0
+      X-Stainless-Raw-Response:
+      - 'true'
+      X-Stainless-Runtime:
+      - CPython
+      X-Stainless-Runtime-Version:
+      - 3.12.11
       x-stainless-retry-count:
       - '0'
-      x-stainless-runtime:
-      - CPython
-      x-stainless-runtime-version:
-      - 3.12.6
     method: POST
-    uri: https://api.openai.com/v1/chat/completions
+    uri: https://gateway.pydantic.dev/proxy/openai/responses
   response:
     body:
       string: !!binary |
-        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
+        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
     headers:
-      CF-RAY:
-      - 942b53a22daa4ece-JNB
+      CF-Cache-Status:
+      - DYNAMIC
+      Cf-Placement:
+      - local-AMS
       Connection:
       - keep-alive
       Content-Encoding:
@@ -57,103 +67,103 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Tue, 20 May 2025 10:59:49 GMT
+      - Tue, 27 Jan 2026 11:41:38 GMT
+      Nel:
+      - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+      Report-To:
+      - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=n93Eqn0VVNZ0L9QObwZj7cR2L3oLoSslSX4%2FsLfqSjnOY%2FZimhAtyGWk3iF69dC%2BdmtLp7C1KEixOsVtx5hMvIn41k3bbvkgyEJUOsGU8y9m"}]}'
       Server:
       - cloudflare
-      Set-Cookie:
-      - __cf_bm=P2yzsSwT.GAstunpXbHLK.TsMTw.g7pwemmtR5CQx9k-1747738789-1.0.1.1-yeSKbI4RNGaoKJwVk6alRYXYCkx0GCk1RINOIEYbOwlFL37mFlrjWEbtJX096YKRATBMhIgF0mcfmCTrqAQEKrGqIRAPrDh394kwTdlh4JQ;
-        path=/; expires=Tue, 20-May-25 11:29:49 GMT; domain=.api.openai.com; HttpOnly;
-        Secure; SameSite=None
-      - _cfuvid=DOOjvwxm4GM0mcxPLPFmz10KDSVbuKeq4HzwaKK6OCo-1747738789062-0.0.1.1-604800000;
-        path=/; domain=.api.openai.com; HttpOnly; Secure; SameSite=None
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
       Transfer-Encoding:
       - chunked
+      Vary:
+      - accept-encoding
       X-Content-Type-Options:
       - nosniff
-      access-control-expose-headers:
-      - X-Request-ID
-      alt-svc:
-      - h3=":443"; ma=86400
-      cf-cache-status:
-      - DYNAMIC
-      openai-organization:
-      - pydantic-28gund
       openai-processing-ms:
-      - '540'
+      - '8382'
       openai-version:
       - '2020-10-01'
-      strict-transport-security:
-      - max-age=31536000; includeSubDomains; preload
-      x-envoy-upstream-service-time:
-      - '545'
+      pydantic-ai-gateway-price-estimate:
+      - 0.0043USD
       x-ratelimit-limit-requests:
-      - '10000'
+      - '15000'
       x-ratelimit-limit-tokens:
-      - '2000000'
+      - '40000000'
       x-ratelimit-remaining-requests:
-      - '9999'
+      - '14999'
       x-ratelimit-remaining-tokens:
-      - '1999993'
+      - '40000000'
       x-ratelimit-reset-requests:
-      - 6ms
+      - 4ms
       x-ratelimit-reset-tokens:
       - 0s
-      x-request-id:
-      - req_d089612b0ae4a6843dfa048250e04021
     status:
       code: 200
       message: OK
 - request:
-    body: '{"messages":[{"content":"what''s 123 + 456?","role":"user"},{"content":null,"role":"assistant","tool_calls":[{"type":"function","id":"call_My0goQVU64UVqhJrtCnLPmnQ","function":{"name":"add","arguments":"{\"a\":
-      123, \"b\": 456}"}}]},{"content":"579.0","role":"tool","tool_call_id":"call_My0goQVU64UVqhJrtCnLPmnQ"}],"model":"gpt-4o","stream":false,"tools":[{"type":"function","function":{"name":"add","description":"Add
-      two numbers.","parameters":{"properties":{"a":{"type":"number"},"b":{"type":"number"}},"required":["a","b"],"type":"object"}}}]}'
+    body: '{"input":[{"content":"what''s 123 + 456? think carefully and use the tool","role":"user"},{"id":"rs_033ba4b7d827c976006978a46ad3a481a2a36c6cbe5080a0f6","summary":[{"text":"**Using
+      tool to add numbers**","type":"summary_text"},{"text":"**Executing addition
+      and finalizing result**","type":"summary_text"}],"type":"reasoning"},{"arguments":"{\"a\":123,\"b\":456}","call_id":"call_XlgatTV1bBqLX1fOZTbu7cxO","name":"add","type":"function_call","id":"fc_033ba4b7d827c976006978a472a66c81a2b148ae5b8d2d019b","status":"completed"},{"type":"function_call_output","output":"579.0","call_id":"call_XlgatTV1bBqLX1fOZTbu7cxO"}],"model":"gpt-5","reasoning":{"effort":"medium","summary":"concise"},"stream":false,"tools":[{"type":"function","name":"add","description":"Add
+      two numbers.","parameters":{"properties":{"a":{"type":"number"},"b":{"type":"number"}},"required":["a","b"],"type":"object"}}]}'
     headers:
-      accept:
+      Accept:
       - application/json
-      accept-encoding:
+      Accept-Encoding:
       - gzip, deflate, zstd
-      connection:
+      Connection:
       - keep-alive
-      content-length:
-      - '546'
-      content-type:
+      Content-Length:
+      - '884'
+      Content-Type:
       - application/json
-      host:
-      - api.openai.com
-      user-agent:
-      - OpenAI/Python 1.78.1
-      x-stainless-arch:
+      Host:
+      - gateway.pydantic.dev
+      User-Agent:
+      - OpenAI/Python 2.15.0
+      X-Stainless-Arch:
       - arm64
-      x-stainless-async:
+      X-Stainless-Async:
       - 'false'
-      x-stainless-lang:
+      X-Stainless-Lang:
       - python
-      x-stainless-os:
+      X-Stainless-OS:
       - MacOS
-      x-stainless-package-version:
-      - 1.78.1
+      X-Stainless-Package-Version:
+      - 2.15.0
+      X-Stainless-Raw-Response:
+      - 'true'
+      X-Stainless-Runtime:
+      - CPython
+      X-Stainless-Runtime-Version:
+      - 3.12.11
       x-stainless-retry-count:
       - '0'
-      x-stainless-runtime:
-      - CPython
-      x-stainless-runtime-version:
-      - 3.12.6
     method: POST
-    uri: https://api.openai.com/v1/chat/completions
+    uri: https://gateway.pydantic.dev/proxy/openai/responses
   response:
     body:
       string: !!binary |
-        H4sIAAAAAAAAAwAAAP//jJLLbtswEEX3+gpitrEC2XFM2cs07a6brIIUgUCTI4ktRTLkKH0E/veC
-        UmwpLyAbLebMHd07nKeMMdAKdgxkK0h23uRXd1//ffvN9UNxe3t9x/ex/X7dqWUoGv7lBhZJ4fY/
-        UdJRdS5d5w2SdnbEMqAgTFOXfM35RcnL7QA6p9AkWeMpX7t8VazWeVHmxeZZ2DotMcKO/cgYY+xp
-        +CaLVuEf2LFicax0GKNoEHanJsYgOJMqIGLUkYQlWExQOktoB9fL1QU7Y+vLDcOHXpjILvn2fN4b
-        sO6jSFZtb8wMCGsdiRR1cHn/TA4nX8Y1Prh9fCWFWlsd2yqgiM4mD5Gch4EeMsbuh/z9i0jgg+s8
-        VeR+4fA7vh3HwbTwCR4ZORJmKpfl4p1hlUIS2sTZ+kAK2aKalNOuRa+0m4FsFvmtl/dmj7G1bT4z
-        fgJSoidUlQ+otHyZd2oLmK7xo7bTigfDEDE8aokVaQzpGRTWojfjoUD8Gwm7qta2weCDHq+l9tV2
-        r1QtxQZXkB2y/wAAAP//AwDURMkaNgMAAA==
+        H4sIAAAAAAAA/3WU227iMBCGX2Xl61AZCIRwt2+w91UVTeIJ9daxXR9oI8S779hJClTdu3g8x8//
+        5MKkYEfm0NuGb7ctlG0lDpuqq6s95/u6OkBZbQEP5WENm/bAsTqsseIbUSP2rGCm/YtdmFMY7ZFs
+        nUMIKBog+7ra17t1yeu6YD5AiJ58OzNYheRCzi10bydnoqY+elAeySSVkvrEjhdmYURHEQLPqIyl
+        72txC7+vsOa8YOicIXcdlSpY7/A9ou7GxqIGFUZ2JBepl/BGYACp/OIvtQ8udkHSGIttgM/GxGBj
+        aIJ5w8eLYIxqOlC3FIMRqKjdkw2r3WrDN7sVP6x4lUDlLOz4fJmQD/70f+Il3+4n4kKg6LfrzZaX
+        h32diIfRYopH7+GUcP+ItTM6oJ7qzRHLHPgZyAG0NhQ4Dfv8UjBlTtaZdj5lryPbVTW70tEZlVKA
+        95LKUd5ktOBoeFQPIAghPaElORB6fEBPxrM00TeLVppEYiJHpQcbKEn3is0bjj/aHaaZqOXlloTm
+        jZ61gn1vXMhohIxDIhOHAdyY0ehOkjhJPR56DCOVTql6iV968ejOkloOcpZcD1GFDNg4XCYLOJAM
+        iXgyrRdQF0a1B8hfM+58QfXO6FrjZWKwdEbWCdmroYKJawyGTUZ//2R91FmPdCfQd07aaXr2W4hf
+        4cP80nFo0fknctAw5FQiPX96moFoOZ+3yKXVobnyCe6anOJTQ+0P1msi/B6lI0kdnykwub18SXDe
+        /SLVlKkxUH/uKuVtTsCDk+kXkfgl2QRjm5vY+GSwE0xHA8M8o5AeWpXVHLPUqUGp71exrMviwXRb
+        6QvLkhFfvvxasG+bvPtmuY/+UtZDgkAro+7K00/NjoL2QXYNyOZEv70PGHN140ODPkgSBXXOnzgt
+        977aJabR30RHjwQCQnqT6/UfbjFQ/44FAAA=
     headers:
-      CF-RAY:
-      - 942b53a85eea4ece-JNB
+      CF-Cache-Status:
+      - DYNAMIC
+      Cf-Placement:
+      - local-AMS
       Connection:
       - keep-alive
       Content-Encoding:
@@ -161,43 +171,39 @@ interactions:
       Content-Type:
       - application/json
       Date:
-      - Tue, 20 May 2025 10:59:49 GMT
+      - Tue, 27 Jan 2026 11:41:40 GMT
+      Nel:
+      - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+      Report-To:
+      - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=Su139f62%2BYBwL314qaENBPGhIcWdX4V6lGZbbIlRiFKtFRMXG0W5FlsgndH6j2AQLCXWnlfdh0iV3A%2FSbHXY3a4fOkX7ULipSFnoEGtTq82D"}]}'
       Server:
       - cloudflare
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
       Transfer-Encoding:
       - chunked
+      Vary:
+      - accept-encoding
       X-Content-Type-Options:
       - nosniff
-      access-control-expose-headers:
-      - X-Request-ID
-      alt-svc:
-      - h3=":443"; ma=86400
-      cf-cache-status:
-      - DYNAMIC
-      openai-organization:
-      - pydantic-28gund
       openai-processing-ms:
-      - '297'
+      - '760'
       openai-version:
       - '2020-10-01'
-      strict-transport-security:
-      - max-age=31536000; includeSubDomains; preload
-      x-envoy-upstream-service-time:
-      - '303'
+      pydantic-ai-gateway-price-estimate:
+      - 0.0007USD
       x-ratelimit-limit-requests:
-      - '10000'
+      - '15000'
       x-ratelimit-limit-tokens:
-      - '2000000'
+      - '40000000'
       x-ratelimit-remaining-requests:
-      - '9999'
+      - '14999'
       x-ratelimit-remaining-tokens:
-      - '1999989'
+      - '40000000'
       x-ratelimit-reset-requests:
-      - 6ms
+      - 4ms
       x-ratelimit-reset-tokens:
       - 0s
-      x-request-id:
-      - req_c9b12f2b832b1b83aeee677119271837
     status:
       code: 200
       message: OK
