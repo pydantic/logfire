@@ -623,10 +623,29 @@ async def test_responses(exporter: TestExporter):
                     'gen_ai.system': 'openai',
                     'gen_ai.operation.name': 'chat',
                     'raw_input': [
+                        {'content': 'Generate a random number then, hand off to agent2.', 'role': 'user'},
                         {
-                            'content': IsStr(),
-                            'role': 'assistant',
-                        }
+                            'arguments': '{}',
+                            'call_id': 'call_vwqy7HyGGnNht9NNfxMnnouY',
+                            'name': 'random_number',
+                            'type': 'function_call',
+                            'id': 'fc_67ced68352a48191aca3872f9376de86',
+                            'status': 'completed',
+                        },
+                        {
+                            'arguments': '{}',
+                            'call_id': 'call_oEA0MnUXCwKevx8txteoopNL',
+                            'name': 'transfer_to_agent2',
+                            'type': 'function_call',
+                            'id': 'fc_67ced683c8d88191b21be486e163e815',
+                            'status': 'completed',
+                        },
+                        {'call_id': 'call_vwqy7HyGGnNht9NNfxMnnouY', 'output': '4', 'type': 'function_call_output'},
+                        {
+                            'call_id': 'call_oEA0MnUXCwKevx8txteoopNL',
+                            'output': '{"assistant": "agent2"}',
+                            'type': 'function_call_output',
+                        },
                     ],
                     'events': [
                         {
@@ -635,9 +654,45 @@ async def test_responses(exporter: TestExporter):
                             'role': 'system',
                         },
                         {
+                            'event.name': 'gen_ai.user.message',
+                            'content': 'Generate a random number then, hand off to agent2.',
+                            'role': 'user',
+                        },
+                        {
                             'event.name': 'gen_ai.assistant.message',
-                            'content': IsStr(),
                             'role': 'assistant',
+                            'tool_calls': [
+                                {
+                                    'id': 'call_vwqy7HyGGnNht9NNfxMnnouY',
+                                    'type': 'function',
+                                    'function': {'name': 'random_number', 'arguments': '{}'},
+                                }
+                            ],
+                        },
+                        {
+                            'event.name': 'gen_ai.assistant.message',
+                            'role': 'assistant',
+                            'tool_calls': [
+                                {
+                                    'id': 'call_oEA0MnUXCwKevx8txteoopNL',
+                                    'type': 'function',
+                                    'function': {'name': 'transfer_to_agent2', 'arguments': '{}'},
+                                }
+                            ],
+                        },
+                        {
+                            'event.name': 'gen_ai.tool.message',
+                            'role': 'tool',
+                            'id': 'call_vwqy7HyGGnNht9NNfxMnnouY',
+                            'content': '4',
+                            'name': 'random_number',
+                        },
+                        {
+                            'event.name': 'gen_ai.tool.message',
+                            'role': 'tool',
+                            'id': 'call_oEA0MnUXCwKevx8txteoopNL',
+                            'content': '{"assistant": "agent2"}',
+                            'name': 'transfer_to_agent2',
                         },
                         {
                             'event.name': 'gen_ai.assistant.message',

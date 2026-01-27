@@ -43,8 +43,8 @@ else:  # pragma: no cover
     class IntEnum(int, Enum): ...
 
 
-pandas.set_option('display.max_columns', 10)
-pandas.set_option('display.max_rows', 20)
+pandas.set_option('display.max_columns', 10)  # type: ignore
+pandas.set_option('display.max_rows', 20)  # type: ignore
 
 pydantic_model_config = ConfigDict(plugin_settings={'logfire': {'record': 'off'}}, extra='allow')
 
@@ -669,7 +669,7 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
         pytest.param(
             pandas.DataFrame(
                 data={f'col{i}': [i * j for j in range(1, 23)] for i in range(1, 13)},
-                index=[f'i{x}' for x in range(1, 23)],  # type: ignore
+                index=[f'i{x}' for x in range(1, 23)],
             ),
             '     col1  col2  col3  col4  col5  ...  col8  col9  col10  col'
             '...'

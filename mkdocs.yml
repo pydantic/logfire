@@ -72,6 +72,16 @@ nav:
       - Why Logfire?: why.md
       - FAQ: faq.md
       - AI & LLM Observability: ai-observability.md
+      - Comparisons:
+          - Overview: comparisons/index.md
+          - vs Langfuse: comparisons/langfuse.md
+          - vs LangSmith: comparisons/langsmith.md
+          - vs Arize Phoenix: comparisons/arize-phoenix.md
+          - vs Braintrust: comparisons/braintrust.md
+          - vs Datadog: comparisons/datadog.md
+          - vs Sentry: comparisons/sentry.md
+          - vs SigNoz: comparisons/signoz.md
+          - vs Grafana: comparisons/grafana.md
       - Concepts: concepts.md
       - Get Help: help.md
       - Onboarding Checklist:
@@ -180,7 +190,7 @@ nav:
       - Advanced:
           - Baggage: reference/advanced/baggage.md
           - Generators: reference/advanced/generators.md
-          - Testing: reference/advanced/testing.md
+          - Testing Logfire Instrumentation: reference/advanced/testing.md
           - Aggregating Metrics in Spans: reference/advanced/metrics-in-spans.md
           - Use API Keys: reference/advanced/use-api-keys.md
       - Examples: reference/examples.md
@@ -368,19 +378,23 @@ plugins:
       enabled: !ENV [CI, false]
       full_output: llms-full.txt
       markdown_description: |-
-        From the team behind Pydantic, Logfire is an observability platform built on the same belief as our
-        open source library — that the most powerful tools can be easy to use.
+        Logfire is a powerful and scalable AI observability platform that can trace your entire application.
+        SQL-queryable, integrated MCP server, OpenTelemetry-based, Logfire has native SDKs for Python, TypeScript/JavaScript, Rust and works with any Otel language.
       sections:
         General:
           - index.md
           - why.md
           - concepts.md
+          - ai-observability.md
+          - faq.md
         How To - Guides:
           - guides/*/*.md
           - how-to-guides/*.md
         Integrations:
           - integrations/*.md
           - integrations/*/*.md
+        Comparisons:
+          - comparisons/*.md
         Optional:
           - roadmap.md
           - release-notes.md

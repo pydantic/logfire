@@ -1577,7 +1577,7 @@ def test_instrument_packages_openai() -> None:
 
     import openai
 
-    client = openai.Client()
+    client = openai.Client(api_key='test-key')
     assert getattr(client, '_is_instrumented_by_logfire', False) is True
 
 

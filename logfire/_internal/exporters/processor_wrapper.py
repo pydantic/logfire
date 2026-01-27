@@ -473,6 +473,31 @@ def _transform_langchain_message(old_message: dict[str, Any]) -> dict[str, Any]:
         'role': role,
     }
 
+    content: list[Any] = result.get('content', [])
+    if isinstance(content, list) and content:  # type: ignore
+        new_content: list[Any] = []
+        for item in content:
+            item = cast(dict[str, Any], item)
+            with suppress(Exception):
+                if item['type'] == 'function_call' and item['call_id'] in [tc['id'] for tc in result['tool_calls']]:
+                    # This function call is already represented in tool_calls, skip it here.
+                    continue
+            with suppress(Exception):
+                if item['type'] == 'reasoning':
+                    for summary in item['summary']:
+                        if summary['type'] != 'summary_text':  # pragma: no cover
+                            raise ValueError('Unknown summary type')
+                        new_content.append(
+                            {
+                                'type': 'reasoning',
+                                'content': summary['text'],
+                            }
+                        )
+                    continue
+            new_content.append(item)
+        if new_content:  # pragma: no branch
+            result['content'] = new_content
+
     if 'tool_call_id' in result:
         result['id'] = result.pop('tool_call_id')
 
