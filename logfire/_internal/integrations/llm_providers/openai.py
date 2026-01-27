@@ -109,10 +109,9 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         if is_current_agent_span('Responses API', 'Responses API with {gen_ai.request.model!r}'):
             return EndpointConfig(message_template='', span_data={})
 
-        stream = json_data.get('stream', False)
         span_data = {
             'gen_ai.request.model': json_data.get('model'),
-            'request_data': {'model': json_data.get('model'), 'stream': stream},
+            'request_data': json_data,
             'events': inputs_to_events(
                 json_data.get('input'),
                 json_data.get('instructions'),
@@ -296,6 +295,8 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         span.set_attribute('gen_ai.usage.output_tokens', output_tokens)
 
     if isinstance(response, ChatCompletion) and response.choices:
+        if response.id:
+            span.set_attribute('gen_ai.response.id', response.id)
         span.set_attribute(
             'response_data',
             {'message': response.choices[0].message, 'usage': usage},
@@ -311,6 +312,9 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
     elif isinstance(response, ImagesResponse):
         span.set_attribute('response_data', {'images': response.data})
     elif isinstance(response, Response):  # pragma: no branch
+        if response.id:
+            span.set_attribute('gen_ai.response.id', response.id)
+
         try:
             events = json.loads(span.attributes['events'])  # type: ignore
         except Exception:
