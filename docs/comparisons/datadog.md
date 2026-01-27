@@ -26,7 +26,7 @@ Datadog is a comprehensive enterprise monitoring platform. Logfire is an AI-nati
 | Scale-up (50-150 hosts, 500M spans) | $9,860/mo  | $1,229/mo         | 87%     |
 | High-volume (500 hosts, 2B spans) | $33,550/mo | $4,229/mo         | 87%     |
 
-*Logfire Cloud Pro pricing ( (Team or Growth plans -> $2/million spans). Enterprise pricing (self-hosting, SSO, custom retention) available [on request](https://calendar.app.google/k9pkeuNMmzJAJ4Mx5).
+*Logfire Cloud Pro pricing (Team or Growth plans -> $2/million spans). Enterprise pricing (self-hosting, SSO, custom retention) available [on request](https://calendar.app.google/k9pkeuNMmzJAJ4Mx5).
 
 ## When to Choose Logfire
 

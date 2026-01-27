@@ -16,7 +16,7 @@ Both Logfire and Langfuse help you observe AI/LLM applications, but they take fu
 | **LLM Features** | Token tracking, costs, panels | Token tracking, costs, evals, prompt mgmt |
 | **OpenTelemetry** | Native | Export support |
 
-*Logfire Cloud Pro pricing. Enterprise pricing (self-hosted or cloud) available on request.
+*Logfire Cloud pricing (Team or Growth plans). Enterprise pricing available [on request](https://calendar.app.google/k9pkeuNMmzJAJ4Mx5).
 
 ## When to Choose Logfire
 
