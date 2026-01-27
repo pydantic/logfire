@@ -79,7 +79,7 @@ Three lines, and you're observing AI calls with full application context.
 
 **Logfire** uses SQL with PostgreSQL-compatible syntax. This is a significant advantage for AI-assisted development:
 
-- **AI assistants excel at SQL** — GPT-5, Claude, and [coding agents write excellent SQL](https://pydantic.dev/articles/logfire-mcp-is-awesome?utm_source=arize_comparison_webpage)
+- **AI assistants excel at SQL** — GPT-5, Claude, and [coding agents write excellent SQL](https://pydantic.dev/articles/logfire-mcp-is-awesome?utm_source=arize_comparison_docs)
 - **Agentic workflows** — When coding agents debug your AI application, they can write arbitrary queries
 - **Familiar syntax** — No new query language to learn
 - **No artificial limitations** — Ask any question, get any answer
@@ -92,15 +92,15 @@ When you're iterating on AI applications with coding agents, the agent needs to 
 
 Logfire and Arize Phoenix can work together:
 
-- Use Logfire for application observability and real-time debugging
+- Use Logfire for AI observability and real-time debugging for your app
 - Use Arize for specialized ML model monitoring and drift detection
 
 Both support OpenTelemetry, making integration possible.
 
 ## Summary
 
-**Choose Logfire** for full-stack application observability with excellent AI support.
+**Choose Logfire** for AI application observability with excellent full-stack tracing and support.
 
 **Choose Arize Phoenix** for specialized ML model monitoring, drift detection, and data science workflows.
 
-**Consider both** if you need deep ML monitoring alongside application observability.
+**Consider both** if you need deep ML experimentation alongside first-class AI observability and full-stack monitoring.
