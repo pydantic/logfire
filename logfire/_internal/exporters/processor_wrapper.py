@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import contextlib
 import json
 from collections.abc import Mapping
 from contextlib import suppress
@@ -479,14 +478,14 @@ def _transform_langchain_message(old_message: dict[str, Any]) -> dict[str, Any]:
         new_content: list[Any] = []
         for item in content:
             item = cast(dict[str, Any], item)
-            with contextlib.suppress(Exception):
+            with suppress(Exception):
                 if item['type'] == 'function_call' and item['call_id'] in [tc['id'] for tc in result['tool_calls']]:
                     # This function call is already represented in tool_calls, skip it here.
                     continue
-            with contextlib.suppress(Exception):
+            with suppress(Exception):
                 if item['type'] == 'reasoning':
                     for summary in item['summary']:
-                        if summary['type'] != 'summary_text':
+                        if summary['type'] != 'summary_text':  # pragma: no cover
                             raise ValueError('Unknown summary type')
                         new_content.append(
                             {
@@ -496,7 +495,7 @@ def _transform_langchain_message(old_message: dict[str, Any]) -> dict[str, Any]:
                         )
                     continue
             new_content.append(item)
-        if new_content:
+        if new_content:  # pragma: no branch
             result['content'] = new_content
 
     if 'tool_call_id' in result:
