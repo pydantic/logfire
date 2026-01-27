@@ -21,9 +21,12 @@ from .semconv import (
     SYSTEM_INSTRUCTIONS,
     TOOL_DEFINITIONS,
     BlobPart,
+    ChatMessage,
+    InputMessages,
     MessagePart,
     OutputMessage,
     Role,
+    SystemInstructions,
     TextPart,
     ToolCallPart,
     ToolCallResponsePart,
@@ -86,7 +89,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         messages: list[dict[str, Any]] = json_data.get('messages', [])
         system: str | list[dict[str, Any]] | None = json_data.get('system')
         if messages or system:  # pragma: no branch
-            input_messages, system_instructions = convert_anthropic_messages_to_semconv(messages, system)
+            input_messages, system_instructions = convert_messages_to_semconv(messages, system)
             span_data[INPUT_MESSAGES] = input_messages
             if system_instructions:
                 span_data[SYSTEM_INSTRUCTIONS] = system_instructions
@@ -108,16 +111,16 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         )
 
 
-def convert_anthropic_messages_to_semconv(
+def convert_messages_to_semconv(
     messages: list[dict[str, Any]],
     system: str | list[dict[str, Any]] | None = None,
-) -> tuple[list[dict[str, Any]], list[MessagePart]]:
+) -> tuple[InputMessages, SystemInstructions]:
     """Convert Anthropic messages format to OTel Gen AI Semantic Convention format.
 
     Returns a tuple of (input_messages, system_instructions).
     """
-    input_messages: list[dict[str, Any]] = []
-    system_instructions: list[MessagePart] = []
+    input_messages: InputMessages = []
+    system_instructions: SystemInstructions = []
 
     # Handle system parameter (Anthropic uses a separate 'system' parameter)
     if system:
@@ -141,19 +144,18 @@ def convert_anthropic_messages_to_semconv(
                 parts.append(TextPart(type='text', content=content))
             elif isinstance(content, list):  # pragma: no branch
                 for part in cast('list[dict[str, Any] | str]', content):
-                    parts.append(_convert_anthropic_content_part(part))
+                    parts.append(_convert_content_part(part))
 
-        input_messages.append(
-            {
-                'role': role,
-                'parts': parts,
-            }
-        )
+        message: ChatMessage = {
+            'role': cast(Role, role),
+            'parts': parts,
+        }
+        input_messages.append(message)
 
     return input_messages, system_instructions
 
 
-def _convert_anthropic_content_part(part: dict[str, Any] | str) -> MessagePart:
+def _convert_content_part(part: dict[str, Any] | str) -> MessagePart:
     """Convert a single Anthropic content part to semconv format."""
     if isinstance(part, str):  # pragma: no cover
         return TextPart(type='text', content=part)
@@ -204,7 +206,7 @@ def _convert_anthropic_content_part(part: dict[str, Any] | str) -> MessagePart:
         return {**part, 'type': part_type}
 
 
-def convert_anthropic_response_to_semconv(message: Message) -> OutputMessage:
+def convert_response_to_semconv(message: Message) -> OutputMessage:
     """Convert an Anthropic response message to OTel Gen AI Semantic Convention format."""
     parts: list[MessagePart] = []
 
@@ -278,7 +280,7 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         span.set_attribute('response_data', {'message': message, 'usage': response.usage})
 
         # Add semantic convention output messages
-        output_message = convert_anthropic_response_to_semconv(response)
+        output_message = convert_response_to_semconv(response)
         span.set_attribute(OUTPUT_MESSAGES, [output_message])
 
     return response
