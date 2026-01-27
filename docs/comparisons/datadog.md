@@ -57,7 +57,7 @@ Datadog is a comprehensive enterprise monitoring platform. Logfire is an AI-nati
 
 **Datadog** added LLM observability as a separate product. It works, but AI isn't central to the platform's design.
 
-**Logfire** was built for the AI era. One function call (`logfire.instrument_openai()`) gives you:
+**Logfire** was built for the AI era. [One function call](https://logfire.pydantic.dev/docs/integrations/?utm_source=datadog_comparison_docs) (`logfire.instrument_openai()`) gives you:
 
 - Token tracking and cost monitoring
 - LLM-specific panels for conversations
