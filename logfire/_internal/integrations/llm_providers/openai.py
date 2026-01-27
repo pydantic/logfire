@@ -116,7 +116,6 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
 
         stream = json_data.get('stream', False)
         span_data = {
-            'gen_ai.request.model': json_data.get('model'),
             'request_data': {'model': json_data.get('model'), 'stream': stream},
             'events': inputs_to_events(
                 json_data.get('input'),
