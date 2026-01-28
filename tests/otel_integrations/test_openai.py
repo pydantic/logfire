@@ -430,6 +430,7 @@ def test_sync_chat_completions(instrumented_client: openai.Client, exporter: Tes
                     'logfire.tags': ('LLM',),
                     'gen_ai.response.model': 'gpt-4',
                     'operation.cost': 0.00012,
+                    'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 1,
                     'response_data': {
@@ -450,6 +451,7 @@ def test_sync_chat_completions(instrumented_client: openai.Client, exporter: Tes
                             'prompt_tokens_details': None,
                         },
                     },
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -461,6 +463,7 @@ def test_sync_chat_completions(instrumented_client: openai.Client, exporter: Tes
                             'async': {},
                             'gen_ai.response.model': {},
                             'operation.cost': {},
+                            'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'response_data': {
@@ -478,6 +481,7 @@ def test_sync_chat_completions(instrumented_client: openai.Client, exporter: Tes
                                     },
                                 },
                             },
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                         },
                     },
                 },
@@ -546,6 +550,7 @@ def test_sync_chat_completions_with_all_request_params(
                     'gen_ai.system': 'openai',
                     'gen_ai.response.model': 'gpt-4',
                     'operation.cost': 0.00012,
+                    'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 1,
                     'response_data': {
@@ -566,6 +571,7 @@ def test_sync_chat_completions_with_all_request_params(
                             'prompt_tokens_details': None,
                         },
                     },
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -584,6 +590,7 @@ def test_sync_chat_completions_with_all_request_params(
                             'gen_ai.system': {},
                             'gen_ai.response.model': {},
                             'operation.cost': {},
+                            'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'response_data': {
@@ -601,6 +608,7 @@ def test_sync_chat_completions_with_all_request_params(
                                     },
                                 },
                             },
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                         },
                     },
                 },
@@ -649,6 +657,7 @@ def test_sync_chat_completions_with_stop_string(instrumented_client: openai.Clie
                     'gen_ai.system': 'openai',
                     'gen_ai.response.model': 'gpt-4',
                     'operation.cost': 0.00012,
+                    'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 1,
                     'response_data': {
@@ -669,6 +678,7 @@ def test_sync_chat_completions_with_stop_string(instrumented_client: openai.Clie
                             'prompt_tokens_details': None,
                         },
                     },
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -681,6 +691,7 @@ def test_sync_chat_completions_with_stop_string(instrumented_client: openai.Clie
                             'gen_ai.system': {},
                             'gen_ai.response.model': {},
                             'operation.cost': {},
+                            'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'response_data': {
@@ -698,6 +709,7 @@ def test_sync_chat_completions_with_stop_string(instrumented_client: openai.Clie
                                     },
                                 },
                             },
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                         },
                     },
                 },
@@ -760,6 +772,7 @@ async def test_async_chat_completions(instrumented_async_client: openai.AsyncCli
                     'logfire.tags': ('LLM',),
                     'gen_ai.response.model': 'gpt-4',
                     'operation.cost': 0.00012,
+                    'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 1,
                     'response_data': {
@@ -780,6 +793,7 @@ async def test_async_chat_completions(instrumented_async_client: openai.AsyncCli
                             'prompt_tokens_details': None,
                         },
                     },
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -791,6 +805,7 @@ async def test_async_chat_completions(instrumented_async_client: openai.AsyncCli
                             'async': {},
                             'gen_ai.response.model': {},
                             'operation.cost': {},
+                            'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'response_data': {
@@ -808,6 +823,7 @@ async def test_async_chat_completions(instrumented_async_client: openai.AsyncCli
                                     },
                                 },
                             },
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                         },
                     },
                 },
@@ -1810,6 +1826,7 @@ def test_completions(instrumented_client: openai.Client, exporter: TestExporter)
                     'gen_ai.request.model': 'gpt-3.5-turbo-instruct',
                     'gen_ai.response.model': 'gpt-3.5-turbo-instruct',
                     'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.output_tokens': 1,
                     'operation.cost': 5e-06,
                     'response_data': {
@@ -1823,6 +1840,7 @@ def test_completions(instrumented_client: openai.Client, exporter: TestExporter)
                             'prompt_tokens_details': None,
                         },
                     },
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -1834,6 +1852,7 @@ def test_completions(instrumented_client: openai.Client, exporter: TestExporter)
                             'gen_ai.request.model': {},
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
+                            'gen_ai.response.id': {},
                             'gen_ai.usage.output_tokens': {},
                             'operation.cost': {},
                             'response_data': {
@@ -1846,6 +1865,7 @@ def test_completions(instrumented_client: openai.Client, exporter: TestExporter)
                                     }
                                 },
                             },
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                         },
                     },
                 },
@@ -2266,6 +2286,7 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                     'gen_ai.request.model': 'gpt-3.5-turbo-instruct',
                     'gen_ai.response.model': 'gpt-3.5-turbo-instruct',
                     'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.output_tokens': 1,
                     'operation.cost': 5e-06,
                     'response_data': {
@@ -2279,6 +2300,7 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                             'prompt_tokens_details': None,
                         },
                     },
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -2290,6 +2312,7 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                             'gen_ai.request.model': {},
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
+                            'gen_ai.response.id': {},
                             'gen_ai.usage.output_tokens': {},
                             'operation.cost': {},
                             'response_data': {
@@ -2302,6 +2325,7 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                                     }
                                 },
                             },
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                         },
                     },
                     'logfire.metrics': {
@@ -2377,6 +2401,7 @@ def test_suppress_httpx(exporter: TestExporter) -> None:
                     'gen_ai.request.model': 'gpt-3.5-turbo-instruct',
                     'gen_ai.response.model': 'gpt-3.5-turbo-instruct',
                     'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.output_tokens': 1,
                     'operation.cost': 5e-06,
                     'response_data': {
@@ -2390,6 +2415,7 @@ def test_suppress_httpx(exporter: TestExporter) -> None:
                             'prompt_tokens_details': None,
                         },
                     },
+                    'gen_ai.response.finish_reasons': ['stop'],
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -2401,6 +2427,7 @@ def test_suppress_httpx(exporter: TestExporter) -> None:
                             'gen_ai.request.model': {},
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
+                            'gen_ai.response.id': {},
                             'gen_ai.usage.output_tokens': {},
                             'operation.cost': {},
                             'response_data': {
@@ -2413,6 +2440,7 @@ def test_suppress_httpx(exporter: TestExporter) -> None:
                                     }
                                 },
                             },
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
                         },
                     },
                 },
@@ -2469,6 +2497,7 @@ def test_create_files(instrumented_client: openai.Client, exporter: TestExporter
                     'code.function': 'test_create_files',
                     'code.lineno': 123,
                     'gen_ai.system': 'openai',
+                    'gen_ai.response.id': 'test_id',
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -2477,6 +2506,7 @@ def test_create_files(instrumented_client: openai.Client, exporter: TestExporter
                             'gen_ai.provider.name': {},
                             'async': {},
                             'gen_ai.system': {},
+                            'gen_ai.response.id': {},
                         },
                     },
                 },
@@ -2509,6 +2539,7 @@ async def test_create_files_async(instrumented_async_client: openai.AsyncClient,
                     'code.function': 'test_create_files_async',
                     'code.lineno': 123,
                     'gen_ai.system': 'openai',
+                    'gen_ai.response.id': 'test_id',
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -2517,6 +2548,7 @@ async def test_create_files_async(instrumented_async_client: openai.AsyncClient,
                             'gen_ai.provider.name': {},
                             'async': {},
                             'gen_ai.system': {},
+                            'gen_ai.response.id': {},
                         },
                     },
                 },
@@ -2564,6 +2596,7 @@ def test_create_assistant(instrumented_client: openai.Client, exporter: TestExpo
                     'gen_ai.request.model': 'gpt-4o',
                     'gen_ai.system': 'openai',
                     'gen_ai.response.model': 'gpt-4-turbo',
+                    'gen_ai.response.id': 'asst_abc123',
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -2575,6 +2608,7 @@ def test_create_assistant(instrumented_client: openai.Client, exporter: TestExpo
                             'gen_ai.request.model': {},
                             'gen_ai.system': {},
                             'gen_ai.response.model': {},
+                            'gen_ai.response.id': {},
                         },
                     },
                 },
@@ -2608,6 +2642,7 @@ def test_create_thread(instrumented_client: openai.Client, exporter: TestExporte
                     'code.function': 'test_create_thread',
                     'code.lineno': 123,
                     'gen_ai.system': 'openai',
+                    'gen_ai.response.id': 'thread_abc123',
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -2616,6 +2651,7 @@ def test_create_thread(instrumented_client: openai.Client, exporter: TestExporte
                             'gen_ai.provider.name': {},
                             'async': {},
                             'gen_ai.system': {},
+                            'gen_ai.response.id': {},
                         },
                     },
                 },
@@ -2713,6 +2749,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                             ],
                         },
                     ],
+                    'gen_ai.response.id': 'resp_039e74dd66b112920068dfe10528b8819c82d1214897014964',
                     'gen_ai.usage.input_tokens': 65,
                     'gen_ai.usage.output_tokens': 17,
                     'operation.cost': 0.000266,
@@ -2729,6 +2766,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                             'async': {},
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
+                            'gen_ai.response.id': {},
                             'gen_ai.usage.output_tokens': {},
                             'operation.cost': {},
                         },
@@ -2757,6 +2795,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'gen_ai.request.model': 'gpt-4.1',
                     'gen_ai.response.model': 'gpt-4.1-2025-04-14',
                     'gen_ai.usage.input_tokens': 43,
+                    'gen_ai.response.id': 'resp_039e74dd66b112920068dfe10687b4819cb0bc63819abcde35',
                     'events': [
                         {
                             'event.name': 'gen_ai.user.message',
@@ -2801,6 +2840,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                             'async': {},
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
+                            'gen_ai.response.id': {},
                             'gen_ai.usage.output_tokens': {},
                             'operation.cost': {},
                         },
