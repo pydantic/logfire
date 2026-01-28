@@ -1974,6 +1974,36 @@ def test_responses_stream(exporter: TestExporter) -> None:
     )
 
 
+def test_responses_stream_error_propagates() -> None:
+    """Test that streaming errors propagate and aren't masked by a secondary error.
+
+    When streaming fails (e.g., API error), the original error should propagate.
+    Previously, get_response_data() would raise a RuntimeError when no response.completed
+    event was received, which would mask the original error. Now the original error propagates.
+    """
+    from opentelemetry.context import get_current
+
+    from logfire._internal.integrations.llm_providers.llm_provider import record_streaming
+    from logfire._internal.integrations.llm_providers.openai import OpenaiResponsesStreamState
+
+    class StreamingError(Exception):
+        pass
+
+    span_data = {
+        'events': [{'event.name': 'gen_ai.user.message', 'content': 'Hello', 'role': 'user'}],
+        'request_data': {'model': 'gpt-4.1'},
+    }
+
+    with pytest.raises(StreamingError):
+        with record_streaming(
+            logfire.DEFAULT_LOGFIRE_INSTANCE,
+            span_data,
+            OpenaiResponsesStreamState,
+            get_current(),
+        ):
+            raise StreamingError('API connection lost')
+
+
 def test_completions_stream(instrumented_client: openai.Client, exporter: TestExporter) -> None:
     response = instrumented_client.completions.create(
         model='gpt-3.5-turbo-instruct',
