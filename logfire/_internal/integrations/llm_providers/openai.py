@@ -222,14 +222,13 @@ class OpenaiResponsesStreamState(StreamState):
 
     def get_response_data(self) -> Any:
         response = self._state._completed_response  # pyright: ignore[reportPrivateUsage]
-        if not response:  # pragma: no cover
-            raise RuntimeError("Didn't receive a `response.completed` event.")
 
         return response
 
     def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
         response = self.get_response_data()
-        span_data['events'] = span_data['events'] + responses_output_events(response)
+        if response:
+            span_data['events'] = span_data['events'] + responses_output_events(response)
         return span_data
 
 
