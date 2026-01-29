@@ -67,6 +67,7 @@ from logfire._internal.exporters.quiet_metrics import QuietMetricExporter
 from logfire._internal.exporters.remove_pending import RemovePendingSpansExporter
 from logfire._internal.integrations.executors import deserialize_config, serialize_config
 from logfire._internal.tracer import PendingSpanProcessor
+from logfire._internal.config_params import _extract_list_of_str
 from logfire._internal.utils import SeededRandomIdGenerator, get_version
 from logfire.exceptions import LogfireConfigError
 from logfire.integrations.pydantic import get_pydantic_plugin_config
@@ -2416,3 +2417,9 @@ def test_multiple_tokens_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
         assert len(log_processors) == 2
     finally:
         del os.environ['LOGFIRE_TOKEN']
+
+
+def test_extract_list_of_str_empty_sequence():
+    """Test that _extract_list_of_str returns None for empty sequences."""
+    assert _extract_list_of_str([]) is None
+    assert _extract_list_of_str(()) is None
