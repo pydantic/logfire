@@ -1532,6 +1532,9 @@ class Logfire:
         [OpenTelemetry Celery Instrumentation](https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/celery/celery.html)
         library.
 
+        For distributed tracing to work correctly, this must be called in **both** the worker processes
+        and the application that enqueues tasks (e.g., your Django or FastAPI web server).
+
         Args:
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` method, for future compatibility.
         """
