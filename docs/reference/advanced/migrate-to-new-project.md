@@ -79,6 +79,6 @@ We offer functionality to export and import dashboards via JSON files. Refer to 
 [Dashboard Management](../guides/web-ui/dashboards.md) guide for more
 details on exporting and importing dashboards.
 
-We plan to eases this transition by providing IaC (Infrastructure as Code) support in the future.
+We plan to ease this transition by providing IaC (Infrastructure as Code) support in the future.
 
-If you have any questions or need assistance during your migration, please [reach out](../help.md)
+If you have any questions or need assistance during your migration, please [reach out](../help.md).

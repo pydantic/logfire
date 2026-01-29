@@ -982,8 +982,7 @@ class LogfireConfig(_LogfireConfigData):
                     self.advanced.base_url = self.advanced.base_url or credentials.logfire_api_url
 
                 if self.token:
-                    first_token = self.token[0]
-                    if credentials and first_token == credentials.token and show_project_link:
+                    if credentials and self.token[0] == credentials.token and show_project_link:
                         # The creds file contains the project link, so we can display it immediately.
                         # We do this if the token comes from the creds file or if it was explicitly configured
                         # and happens to match the creds file anyway.
@@ -997,13 +996,19 @@ class LogfireConfig(_LogfireConfigData):
                     # This may happen some time later in a background thread which can be annoying,
                     # hence we try to print it eagerly above.
                     # But we only have the link if we have a creds file, otherwise we only know the token at this point.
-                    # Note: We only validate and print the project link for the first token.
+
+                    # Capture for the closure below
+                    tokens = self.token
 
                     def check_token():
                         with suppress_instrumentation():
-                            validated_credentials = self._initialize_credentials_from_token(first_token)
-                        if show_project_link and validated_credentials is not None:
-                            validated_credentials.print_token_summary()
+                            for i, token in enumerate(tokens):
+                                validated_credentials = self._initialize_credentials_from_token(token)
+                                if validated_credentials is not None:
+                                    # show_project_link is False if the first token was already printed early
+                                    if i == 0 and not show_project_link:
+                                        continue
+                                    validated_credentials.print_token_summary()
 
                     if emscripten:  # pragma: no cover
                         check_token()

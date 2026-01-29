@@ -55,6 +55,7 @@ from logfire._internal.config import (
     get_base_url_from_token,
     sanitize_project_name,
 )
+from logfire._internal.config_params import _extract_list_of_str
 from logfire._internal.exporters.console import ConsoleLogExporter, ShowParentsConsoleSpanExporter
 from logfire._internal.exporters.dynamic_batch import DynamicBatchSpanProcessor
 from logfire._internal.exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper, MainLogProcessorWrapper
@@ -67,7 +68,6 @@ from logfire._internal.exporters.quiet_metrics import QuietMetricExporter
 from logfire._internal.exporters.remove_pending import RemovePendingSpansExporter
 from logfire._internal.integrations.executors import deserialize_config, serialize_config
 from logfire._internal.tracer import PendingSpanProcessor
-from logfire._internal.config_params import _extract_list_of_str
 from logfire._internal.utils import SeededRandomIdGenerator, get_version
 from logfire.exceptions import LogfireConfigError
 from logfire.integrations.pydantic import get_pydantic_plugin_config
@@ -2419,7 +2419,34 @@ def test_multiple_tokens_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
         del os.environ['LOGFIRE_TOKEN']
 
 
-def test_extract_list_of_str_empty_sequence():
-    """Test that _extract_list_of_str returns None for empty sequences."""
+def test_extract_list_of_str():
+    """Test _extract_list_of_str function for various inputs."""
+    # None input
+    assert _extract_list_of_str(None) is None
+
+    # Empty sequences
     assert _extract_list_of_str([]) is None
     assert _extract_list_of_str(()) is None
+
+    # Single string token
+    assert _extract_list_of_str('token1') == ['token1']
+
+    # Comma-separated string with multiple tokens
+    assert _extract_list_of_str('token1,token2') == ['token1', 'token2']
+
+    # Comma-separated string with spaces (should be trimmed)
+    assert _extract_list_of_str('token1, token2') == ['token1', 'token2']
+    assert _extract_list_of_str(' token1 , token2 ') == ['token1', 'token2']
+
+    # String with only commas and spaces
+    assert _extract_list_of_str(',, ,') is None
+
+    # Empty string
+    assert _extract_list_of_str('') is None
+
+    # Non-empty list
+    assert _extract_list_of_str(['token1', 'token2']) == ['token1', 'token2']
+
+    # List with empty strings (note: empty strings are NOT filtered by _extract_list_of_str)
+    # The filtering happens in LogfireConfig._load_configuration
+    assert _extract_list_of_str(['token1', '', 'token2']) == ['token1', '', 'token2']
