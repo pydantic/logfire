@@ -8,10 +8,9 @@ from mkdocs.config import Config
 from mkdocs.structure.files import Files
 from mkdocs.structure.pages import Page
 
-BLANK_LINES_PATTERN = re.compile(r'\n\s*\n')
-
 from logfire._internal import config_params
 
+BLANK_LINES_PATTERN = re.compile(r'\n\s*\n')
 LOGFIRE_DIR = Path(__file__).parent.parent.parent
 
 
