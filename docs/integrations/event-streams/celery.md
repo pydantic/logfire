@@ -18,6 +18,8 @@ Install `logfire` with the `celery` extra:
 
 ## Distributed Tracing
 
+See the [distributed tracing guide](../../how-to-guides/distributed-tracing.md#integrations) for more details on how context propagation works.
+
 For distributed tracing to work correctly, you need to call `logfire.instrument_celery()` in **both**:
 
 1. The **worker processes** that execute tasks
