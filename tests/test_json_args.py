@@ -671,9 +671,9 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
                 data={f'col{i}': [i * j for j in range(1, 23)] for i in range(1, 13)},
                 index=[f'i{x}' for x in range(1, 23)],
             ),
-            '     col1  col2  col3  col4  col5  ...  col8  col9  col10  col'
-            '...'
-            '  ...   176   198    220    242    264\n\n[22 rows x 12 columns]',
+            '     col1  col2  col3  col4  col5  ...  col8  col9'
+            '[...truncated by logfire...]'
+            '  198    220    242    264\n\n[22 rows x 12 columns]',
             '[[1,2,3,4,5,8,9,10,11,12],'
             '[2,4,6,8,10,16,18,20,22,24],'
             '[3,6,9,12,15,24,27,30,33,36],'
@@ -739,11 +739,9 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
         ),
         pytest.param(
             numpy.array([[i * j for j in range(1, 13)] for i in range(1, 23)]),
-            '[[  1   2   3   4   5   6   7   8   9  10  11  12]\n'
-            ' [  2   4  '
-            '...'
-            '0 231 252]\n'
-            ' [ 22  44  66  88 110 132 154 176 198 220 242 264]]',
+            '[[  1   2   3   4   5   6   7   8   9  10  11  12]'
+            '[...truncated by logfire...]'
+            '[ 22  44  66  88 110 132 154 176 198 220 242 264]]',
             '[[1,2,3,4,5,8,9,10,11,12],[2,4,6,8,10,16,18,20,22,24],[3,6,9,12,15,24,27,30,33,36],[4,8,12,16,20,32,36,40,44,48],[5,10,15,20,25,40,45,50,55,60],[18,36,54,72,90,144,162,180,198,216],[19,38,57,76,95,152,171,190,209,228],[20,40,60,80,100,160,180,200,220,240],[21,42,63,84,105,168,189,210,231,252],[22,44,66,88,110,176,198,220,242,264]]',
             {
                 'type': 'array',
@@ -756,9 +754,9 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
         pytest.param(
             numpy.array([[[i * j * k for j in range(1, 13)] for i in range(1, 13)] for k in range(1, 13)]),
             '[[[   1    2    3 ...   10   11   12]\n'
-            '  [   2    4    6 ...   '
-            '...'
-            '96 ... 1320 1452 1584]\n'
+            '  [   2    4'
+            '[...truncated by logfire...]'
+            '1452 1584]\n'
             '  [ 144  288  432 ... 1440 1584 1728]]]',
             '[[[1,2,3,4,5,8,9,10,11,12],[2,4,6,8,10,16,18,20,22,24],[3,6,9,12,15,24,27,30,33,36],[4,8,12,16,20,32,36,40,44,48],[5,10,15,20,25,40,45,50,55,60],[8,16,24,32,40,64,72,80,88,96],[9,18,27,36,45,72,81,90,99,108],[10,20,30,40,50,80,90,100,110,120],[11,22,33,44,55,88,99,110,121,132],[12,24,36,48,60,96,108,120,132,144]],'
             '[[2,4,6,8,10,16,18,20,22,24],[4,8,12,16,20,32,36,40,44,48],[6,12,18,24,30,48,54,60,66,72],[8,16,24,32,40,64,72,80,88,96],[10,20,30,40,50,80,90,100,110,120],[16,32,48,64,80,128,144,160,176,192],[18,36,54,72,90,144,162,180,198,216],[20,40,60,80,100,160,180,200,220,240],[22,44,66,88,110,176,198,220,242,264],[24,48,72,96,120,192,216,240,264,288]],'
@@ -967,12 +965,12 @@ def test_log_non_scalar_complex_args(exporter: TestExporter) -> None:
             'logfire.msg': (
                 'test message '
                 'a=1 '
-                "complex_list=['a', 1, MyModel(x='x', y=datetime.datetime(2023, 1, 1, 0, 0))"
-                '...'
-                'og_non_scalar_complex_args.<locals>.MyPydanticDataclass(p=20)] '
-                "complex_dict={'k1': 'v1', 'model': MyModel(x='x', y=datetime.datetime(2023,"
-                '...'
-                'og_non_scalar_complex_args.<locals>.MyPydanticDataclass(p=20)}'
+                "complex_list=['a', 1, MyModel(x='x', y=datetime.datetime(2023, "
+                '[...truncated by logfire...]'
+                'r_complex_args.<locals>.MyPydanticDataclass(p=20)] '
+                "complex_dict={'k1': 'v1', 'model': MyModel(x='x', y=datetime.da"
+                '[...truncated by logfire...]'
+                'r_complex_args.<locals>.MyPydanticDataclass(p=20)}'
             ),
             'logfire.json_schema': '{"type":"object","properties":{"a":{},"complex_list":{"type":"array","prefixItems":[{},{},{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel","properties":{"y":{"type":"string","format":"date-time","x-python-datatype":"datetime"}}},{"type":"object","title":"MyDataclass","x-python-datatype":"dataclass"},{"type":"object","title":"MyPydanticDataclass","x-python-datatype":"dataclass"}]},"complex_dict":{"type":"object","properties":{"model":{"type":"object","title":"MyModel","x-python-datatype":"PydanticModel","properties":{"y":{"type":"string","format":"date-time","x-python-datatype":"datetime"}}},"dataclass":{"type":"object","title":"MyDataclass","x-python-datatype":"dataclass"},"pydantic_dataclass":{"type":"object","title":"MyPydanticDataclass","x-python-datatype":"dataclass"}}}}}',
             'code.filepath': 'test_json_args.py',
