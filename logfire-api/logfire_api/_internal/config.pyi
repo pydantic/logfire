@@ -1,3 +1,4 @@
+import atexit
 import dataclasses
 import requests
 from ..propagate import NoExtractTraceContextPropagator as NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator as WarnOnExtractTraceContextPropagator
@@ -237,6 +238,13 @@ class LogfireConfig(_LogfireConfigData):
         """
     def warn_if_not_initialized(self, message: str): ...
     def suppress_scopes(self, *scopes: str) -> None: ...
+
+@atexit.register
+def exit_open_spans() -> None: ...
+
+original_os_exit: Incomplete
+
+def patched_os_exit(code: int): ...
 
 GLOBAL_CONFIG: Incomplete
 
