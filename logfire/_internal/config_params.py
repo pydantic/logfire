@@ -221,7 +221,7 @@ class ParamManager:
         if get_origin(tp) is set and get_args(tp) == (str,):  # pragma: no branch
             return _extract_set_of_str(value)  # type: ignore
         if get_origin(tp) is list and get_args(tp) == (str,):
-            return _extract_list_of_str(value)  # type: ignore
+            return extract_list_of_str(value)  # type: ignore
         raise RuntimeError(f'Unexpected type {tp}')  # pragma: no cover
 
 
@@ -251,7 +251,7 @@ def _extract_set_of_str(value: str | set[str]) -> set[str]:
     return set(map(str.strip, value.split(','))) if isinstance(value, str) else value
 
 
-def _extract_list_of_str(value: str | Sequence[str] | None) -> list[str] | None:
+def extract_list_of_str(value: str | Sequence[str] | None) -> list[str] | None:
     """Extract a list of strings from a string, sequence, or None.
 
     If value is a comma-separated string, split it into a list of non-empty trimmed strings.
