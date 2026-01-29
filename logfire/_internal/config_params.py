@@ -2,6 +2,7 @@ from __future__ import annotations as _annotations
 
 import os
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
@@ -57,8 +58,8 @@ SEND_TO_LOGFIRE = ConfigParam(env_vars=['LOGFIRE_SEND_TO_LOGFIRE'], allow_file_c
 """Whether to send spans to Logfire."""
 MIN_LEVEL = ConfigParam(env_vars=['LOGFIRE_MIN_LEVEL'], allow_file_config=True, default=None, tp=LevelName)
 """Minimum log level for logs and spans to be created. By default, all logs and spans are created."""
-TOKEN = ConfigParam(env_vars=['LOGFIRE_TOKEN'])
-"""Token for the Logfire API."""
+TOKEN = ConfigParam(env_vars=['LOGFIRE_TOKEN'], tp=list[str])
+"""Token for the Logfire API. Can be a comma-separated list for multi-project export."""
 SERVICE_NAME = ConfigParam(env_vars=['LOGFIRE_SERVICE_NAME', OTEL_SERVICE_NAME], allow_file_config=True, default='')
 """Name of the service emitting spans. For further details, please refer to the [Service section](https://opentelemetry.io/docs/specs/semconv/resource/#service)."""
 SERVICE_VERSION = ConfigParam(env_vars=['LOGFIRE_SERVICE_VERSION', 'OTEL_SERVICE_VERSION'], allow_file_config=True)
@@ -219,6 +220,8 @@ class ParamManager:
             return Path(value)  # type: ignore
         if get_origin(tp) is set and get_args(tp) == (str,):  # pragma: no branch
             return _extract_set_of_str(value)  # type: ignore
+        if get_origin(tp) is list and get_args(tp) == (str,):
+            return _extract_list_of_str(value)  # type: ignore
         raise RuntimeError(f'Unexpected type {tp}')  # pragma: no cover
 
 
@@ -246,6 +249,21 @@ def _check_bool(value: Any, name: str) -> bool | None:
 
 def _extract_set_of_str(value: str | set[str]) -> set[str]:
     return set(map(str.strip, value.split(','))) if isinstance(value, str) else value
+
+
+def _extract_list_of_str(value: str | Sequence[str] | None) -> list[str] | None:
+    """Extract a list of strings from a string, sequence, or None.
+
+    If value is a comma-separated string, split it into a list of non-empty trimmed strings.
+    If value is a sequence, convert to list.
+    If value is None, return None.
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        tokens = [t.strip() for t in value.split(',') if t.strip()]
+        return tokens if tokens else None
+    return list(value) if value else None
 
 
 def _load_config_from_file(config_dir: Path) -> dict[str, Any]:
