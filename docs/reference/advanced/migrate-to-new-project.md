@@ -66,3 +66,19 @@ Or:
 ```bash
 export LOGFIRE_TOKEN=pylf_v1_us_new_project_token
 ```
+
+You may want to wait one full retention cycle of double writing to ensure you have a full dataset in the new project before removing the old token.
+
+## Migrating Dashboards, Alerts, etc.
+
+We do not currently have an automated way to migrate dashboards, alerts, or other
+configurations between projects. You will need to manually recreate these in the
+new project.
+
+We offer functionality to export and import dashboards via JSON files. Refer to the
+[Dashboard Management](../guides/web-ui/dashboards.md) guide for more
+details on exporting and importing dashboards.
+
+We plan to eases this transition by providing IaC (Infrastructure as Code) support in the future.
+
+If you have any questions or need assistance during your migration, please [reach out](../help.md)
