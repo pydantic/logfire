@@ -10,6 +10,12 @@ executed by your Celery workers.
 
 The integration also supports the [Celery beat](https://docs.celeryq.dev/en/latest/userguide/periodic-tasks.html).
 
+## Installation
+
+Install `logfire` with the `celery` extra:
+
+{{ install_logfire(extras=['celery']) }}
+
 ## Distributed Tracing
 
 For distributed tracing to work correctly, you need to call `logfire.instrument_celery()` in **both**:
@@ -19,12 +25,6 @@ For distributed tracing to work correctly, you need to call `logfire.instrument_
 
 This ensures that trace context is properly propagated from the application that schedules tasks
 to the workers that execute them, allowing you to see the complete request flow in Logfire.
-
-## Installation
-
-Install `logfire` with the `celery` extra:
-
-{{ install_logfire(extras=['celery']) }}
 
 ## Celery Worker
 
