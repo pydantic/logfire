@@ -10,6 +10,16 @@ executed by your Celery workers.
 
 The integration also supports the [Celery beat](https://docs.celeryq.dev/en/latest/userguide/periodic-tasks.html).
 
+## Distributed Tracing
+
+For distributed tracing to work correctly, you need to call `logfire.instrument_celery()` in **both**:
+
+1. The **worker processes** that execute tasks
+2. The **application that enqueues tasks** (e.g., your Django or FastAPI web server)
+
+This ensures that trace context is properly propagated from the application that schedules tasks
+to the workers that execute them, allowing you to see the complete request flow in Logfire.
+
 ## Installation
 
 Install `logfire` with the `celery` extra:
