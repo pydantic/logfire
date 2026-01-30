@@ -287,9 +287,10 @@ def test_span_event_logger_with_none_parts(exporter: TestExporter) -> None:
     This can happen when Gemini 3 Pro returns a thinking-only response with no text or tool calls.
     See https://github.com/pydantic/logfire/issues/1675
     """
+    from opentelemetry._logs import LogRecord, SeverityNumber
+
     import logfire
     from logfire._internal.integrations.google_genai import SpanEventLogger
-    from opentelemetry._logs import LogRecord, SeverityNumber
 
     with logfire.span('test'):
         logger = SpanEventLogger('test_logger')
