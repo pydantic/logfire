@@ -554,6 +554,42 @@ class VariableProvider(ABC):
         """
         raise NotImplementedError
 
+    def get_serialized_value_for_variant(
+        self,
+        variable_name: str,
+        variant_key: str,
+    ) -> ResolvedVariable[str | None]:
+        """Retrieve the serialized value for a specific variant of a variable.
+
+        This method bypasses rollout weights and targeting, directly selecting the
+        specified variant. Used for explicit variant selection.
+
+        Args:
+            variable_name: The name of the variable to resolve.
+            variant_key: The key of the variant to select.
+
+        Returns:
+            A ResolvedVariable containing the serialized value (or None if not found).
+
+        Note:
+            The default implementation uses get_variable_config to look up the variant.
+            Subclasses may override this for more efficient implementations.
+        """
+        config = self.get_variable_config(variable_name)
+        if config is None:
+            return ResolvedVariable(name=variable_name, value=None, _reason='unrecognized_variable')
+
+        variant = config.variants.get(variant_key)
+        if variant is None:
+            return ResolvedVariable(name=variable_name, value=None, _reason='resolved')
+
+        return ResolvedVariable(
+            name=variable_name,
+            value=variant.serialized_value,
+            variant=variant.key,
+            _reason='resolved',
+        )
+
     def refresh(self, force: bool = False):
         """Refresh the value provider.
 

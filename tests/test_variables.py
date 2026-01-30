@@ -3332,3 +3332,482 @@ class TestVariableToConfig:
         assert config.name == 'func_var'
         # Example should be None when default is a function
         assert config.example is None
+
+
+# =============================================================================
+# Test override_variables (batch override)
+# =============================================================================
+
+
+class TestOverrideVariables:
+    """Tests for the override_variables context manager."""
+
+    def test_override_single_variable(self, config_kwargs: dict[str, Any]):
+        """Test overriding a single variable with override_variables."""
+        from logfire.variables import override_variables
+
+        config_kwargs['variables'] = VariablesOptions(
+            config=VariablesConfig(
+                variables={
+                    'var1': VariableConfig(
+                        name='var1',
+                        variants={'v1': Variant(key='v1', serialized_value='"original"')},
+                        rollout=Rollout(variants={'v1': 1.0}),
+                        overrides=[],
+                    ),
+                }
+            )
+        )
+        lf = logfire.configure(**config_kwargs)
+        var1 = lf.var(name='var1', default='default', type=str)
+
+        assert var1.get().value == 'original'
+
+        with override_variables({var1: 'overridden'}):
+            assert var1.get().value == 'overridden'
+
+        assert var1.get().value == 'original'
+
+    def test_override_multiple_variables(self, config_kwargs: dict[str, Any]):
+        """Test overriding multiple variables at once."""
+        from logfire.variables import override_variables
+
+        config_kwargs['variables'] = VariablesOptions(
+            config=VariablesConfig(
+                variables={
+                    'system_prompt': VariableConfig(
+                        name='system_prompt',
+                        variants={'v1': Variant(key='v1', serialized_value='"You are helpful"')},
+                        rollout=Rollout(variants={'v1': 1.0}),
+                        overrides=[],
+                    ),
+                    'temperature': VariableConfig(
+                        name='temperature',
+                        variants={'v1': Variant(key='v1', serialized_value='0.7')},
+                        rollout=Rollout(variants={'v1': 1.0}),
+                        overrides=[],
+                    ),
+                    'model': VariableConfig(
+                        name='model',
+                        variants={'v1': Variant(key='v1', serialized_value='"gpt-4"')},
+                        rollout=Rollout(variants={'v1': 1.0}),
+                        overrides=[],
+                    ),
+                }
+            )
+        )
+        lf = logfire.configure(**config_kwargs)
+        system_prompt = lf.var(name='system_prompt', default='Default', type=str)
+        temperature = lf.var(name='temperature', default=0.5, type=float)
+        model = lf.var(name='model', default='gpt-3.5', type=str)
+
+        # Original values
+        assert system_prompt.get().value == 'You are helpful'
+        assert temperature.get().value == 0.7
+        assert model.get().value == 'gpt-4'
+
+        # Override all at once
+        with override_variables(
+            {
+                system_prompt: 'Custom prompt',
+                temperature: 0.9,
+                model: 'claude-3.5-sonnet',
+            }
+        ):
+            assert system_prompt.get().value == 'Custom prompt'
+            assert temperature.get().value == 0.9
+            assert model.get().value == 'claude-3.5-sonnet'
+
+        # Back to original values
+        assert system_prompt.get().value == 'You are helpful'
+        assert temperature.get().value == 0.7
+        assert model.get().value == 'gpt-4'
+
+    def test_override_variables_nested(self, config_kwargs: dict[str, Any]):
+        """Test nested override_variables contexts."""
+        from logfire.variables import override_variables
+
+        lf = logfire.configure(**config_kwargs)
+        var1 = lf.var(name='nested_var1', default='default1', type=str)
+        var2 = lf.var(name='nested_var2', default='default2', type=str)
+
+        with override_variables({var1: 'outer1', var2: 'outer2'}):
+            assert var1.get().value == 'outer1'
+            assert var2.get().value == 'outer2'
+
+            with override_variables({var1: 'inner1'}):
+                assert var1.get().value == 'inner1'
+                assert var2.get().value == 'outer2'  # Still from outer context
+
+            assert var1.get().value == 'outer1'
+
+    def test_override_variables_with_resolve_function(self, config_kwargs: dict[str, Any]):
+        """Test override_variables with a resolve function."""
+        from logfire.variables import override_variables
+
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='fn_override_var', default='default', type=str)
+
+        def resolve_fn(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
+            if attributes and attributes.get('mode') == 'creative':
+                return 'creative_value'
+            return 'default_fn_value'
+
+        with override_variables({var: resolve_fn}):
+            assert var.get().value == 'default_fn_value'
+            assert var.get(attributes={'mode': 'creative'}).value == 'creative_value'
+
+
+# =============================================================================
+# Test use_variant (explicit variant selection)
+# =============================================================================
+
+
+class TestUseVariant:
+    """Tests for the use_variant context manager and variant parameter."""
+
+    @pytest.fixture
+    def variant_config(self) -> VariablesConfig:
+        """Config with multiple variants."""
+        return VariablesConfig(
+            variables={
+                'feature_var': VariableConfig(
+                    name='feature_var',
+                    variants={
+                        'default': Variant(key='default', serialized_value='"default_value"'),
+                        'experimental': Variant(key='experimental', serialized_value='"experimental_value"'),
+                        'legacy': Variant(key='legacy', serialized_value='"legacy_value"'),
+                    },
+                    rollout=Rollout(variants={'default': 1.0}),  # 100% default
+                    overrides=[],
+                ),
+            }
+        )
+
+    def test_get_with_variant_parameter(self, config_kwargs: dict[str, Any], variant_config: VariablesConfig):
+        """Test getting a specific variant via the variant parameter."""
+        config_kwargs['variables'] = VariablesOptions(config=variant_config)
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='feature_var', default='code_default', type=str)
+
+        # Without variant param, uses rollout (100% default)
+        assert var.get().value == 'default_value'
+        assert var.get().variant == 'default'
+
+        # With variant param, bypasses rollout
+        result = var.get(variant='experimental')
+        assert result.value == 'experimental_value'
+        assert result.variant == 'experimental'
+
+        result = var.get(variant='legacy')
+        assert result.value == 'legacy_value'
+        assert result.variant == 'legacy'
+
+    def test_get_with_nonexistent_variant(self, config_kwargs: dict[str, Any], variant_config: VariablesConfig):
+        """Test that nonexistent variant falls back to normal resolution."""
+        config_kwargs['variables'] = VariablesOptions(config=variant_config)
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='feature_var', default='code_default', type=str)
+
+        # Nonexistent variant should fall through to normal resolution
+        result = var.get(variant='nonexistent')
+        assert result.value == 'default_value'  # Falls back to rollout resolution
+        assert result.variant == 'default'
+
+    def test_use_variant_context_manager(self, config_kwargs: dict[str, Any], variant_config: VariablesConfig):
+        """Test the use_variant context manager."""
+        config_kwargs['variables'] = VariablesOptions(config=variant_config)
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='feature_var', default='code_default', type=str)
+
+        assert var.get().value == 'default_value'
+
+        with var.use_variant('experimental'):
+            assert var.get().value == 'experimental_value'
+            assert var.get().variant == 'experimental'
+
+        assert var.get().value == 'default_value'
+
+    def test_use_variant_nested(self, config_kwargs: dict[str, Any], variant_config: VariablesConfig):
+        """Test nested use_variant contexts."""
+        config_kwargs['variables'] = VariablesOptions(config=variant_config)
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='feature_var', default='code_default', type=str)
+
+        with var.use_variant('experimental'):
+            assert var.get().value == 'experimental_value'
+
+            with var.use_variant('legacy'):
+                assert var.get().value == 'legacy_value'
+
+            assert var.get().value == 'experimental_value'
+
+        assert var.get().value == 'default_value'
+
+    def test_variant_param_overrides_context(self, config_kwargs: dict[str, Any], variant_config: VariablesConfig):
+        """Test that call-site variant param overrides context."""
+        config_kwargs['variables'] = VariablesOptions(config=variant_config)
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='feature_var', default='code_default', type=str)
+
+        with var.use_variant('experimental'):
+            # Context says experimental, but call-site says legacy
+            result = var.get(variant='legacy')
+            # Call-site variant wins (variant param is checked first in get method)
+            # Actually, checking the code - the call-site variant is used directly
+            assert result.value == 'legacy_value'
+
+
+# =============================================================================
+# Test PromptVariable
+# =============================================================================
+
+
+class TestPromptVariable:
+    """Tests for the prompt_var convenience function."""
+
+    def test_prompt_var_basic(self, config_kwargs: dict[str, Any]):
+        """Test creating a basic prompt variable."""
+        lf = logfire.configure(**config_kwargs)
+        prompt = lf.prompt_var(
+            name='test_prompt',
+            default='Hello, world!',
+            description='A test prompt',
+        )
+
+        assert prompt.name == 'test_prompt'
+        assert prompt.value_type is str
+        assert prompt.description == 'A test prompt'
+        assert prompt.template_vars is None
+        assert prompt.get().value == 'Hello, world!'
+
+    def test_prompt_var_with_template_vars(self, config_kwargs: dict[str, Any]):
+        """Test prompt variable with template variable metadata."""
+        lf = logfire.configure(**config_kwargs)
+        prompt = lf.prompt_var(
+            name='template_prompt',
+            default='Hello, {user_name}! Welcome to {context}.',
+            template_vars=['user_name', 'context'],
+        )
+
+        assert prompt.template_vars == ['user_name', 'context']
+        assert prompt.get().value == 'Hello, {user_name}! Welcome to {context}.'
+
+    def test_prompt_var_with_config(self, config_kwargs: dict[str, Any]):
+        """Test prompt variable resolving from config."""
+        config_kwargs['variables'] = VariablesOptions(
+            config=VariablesConfig(
+                variables={
+                    'configured_prompt': VariableConfig(
+                        name='configured_prompt',
+                        variants={
+                            'v1': Variant(key='v1', serialized_value='"You are a helpful assistant."'),
+                        },
+                        rollout=Rollout(variants={'v1': 1.0}),
+                        overrides=[],
+                    ),
+                }
+            )
+        )
+        lf = logfire.configure(**config_kwargs)
+        prompt = lf.prompt_var(
+            name='configured_prompt',
+            default='Default prompt',
+        )
+
+        assert prompt.get().value == 'You are a helpful assistant.'
+        assert prompt.get().variant == 'v1'
+
+    def test_prompt_var_with_resolve_function(self, config_kwargs: dict[str, Any]):
+        """Test prompt variable with a resolve function default."""
+        lf = logfire.configure(**config_kwargs)
+
+        def resolve_prompt(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
+            if targeting_key:
+                return f'Hello, {targeting_key}!'
+            return 'Hello, anonymous!'
+
+        prompt = lf.prompt_var(
+            name='dynamic_prompt',
+            default=resolve_prompt,
+        )
+
+        assert prompt.get(targeting_key='user123').value == 'Hello, user123!'
+        assert prompt.get().value == 'Hello, anonymous!'
+
+    def test_prompt_var_registered(self, config_kwargs: dict[str, Any]):
+        """Test that prompt_var registers the variable with the Logfire instance."""
+        lf = logfire.configure(**config_kwargs)
+        prompt = lf.prompt_var(name='registered_prompt', default='Hello')
+
+        variables = lf.get_variables()
+        assert prompt in variables
+
+
+# =============================================================================
+# Test VariableBundle
+# =============================================================================
+
+
+class TestVariableBundle:
+    """Tests for the var_bundle function and VariableBundle class."""
+
+    def test_var_bundle_basic(self, config_kwargs: dict[str, Any]):
+        """Test creating a basic variable bundle."""
+        lf = logfire.configure(**config_kwargs)
+        system_prompt = lf.var(name='bundle_prompt', type=str, default='Default prompt')
+        temperature = lf.var(name='bundle_temp', type=float, default=0.7)
+        model = lf.var(name='bundle_model', type=str, default='gpt-4')
+
+        bundle = lf.var_bundle(
+            name='agent_config',
+            variables={
+                'system_prompt': system_prompt,
+                'temperature': temperature,
+                'model': model,
+            },
+        )
+
+        assert bundle.name == 'agent_config'
+        assert 'system_prompt' in bundle
+        assert 'temperature' in bundle
+        assert 'model' in bundle
+        assert bundle['system_prompt'] is system_prompt
+        assert bundle['temperature'] is temperature
+
+    def test_var_bundle_override(self, config_kwargs: dict[str, Any]):
+        """Test overriding variables in a bundle."""
+        config_kwargs['variables'] = VariablesOptions(
+            config=VariablesConfig(
+                variables={
+                    'bundle_prompt': VariableConfig(
+                        name='bundle_prompt',
+                        variants={'v1': Variant(key='v1', serialized_value='"Config prompt"')},
+                        rollout=Rollout(variants={'v1': 1.0}),
+                        overrides=[],
+                    ),
+                    'bundle_temp': VariableConfig(
+                        name='bundle_temp',
+                        variants={'v1': Variant(key='v1', serialized_value='0.5')},
+                        rollout=Rollout(variants={'v1': 1.0}),
+                        overrides=[],
+                    ),
+                    'bundle_model': VariableConfig(
+                        name='bundle_model',
+                        variants={'v1': Variant(key='v1', serialized_value='"gpt-3.5"')},
+                        rollout=Rollout(variants={'v1': 1.0}),
+                        overrides=[],
+                    ),
+                }
+            )
+        )
+        lf = logfire.configure(**config_kwargs)
+        system_prompt = lf.var(name='bundle_prompt', type=str, default='Default')
+        temperature = lf.var(name='bundle_temp', type=float, default=0.7)
+        model = lf.var(name='bundle_model', type=str, default='gpt-4')
+
+        bundle = lf.var_bundle(
+            name='agent_config',
+            variables={
+                'system_prompt': system_prompt,
+                'temperature': temperature,
+                'model': model,
+            },
+        )
+
+        # Original values from config
+        assert system_prompt.get().value == 'Config prompt'
+        assert temperature.get().value == 0.5
+        assert model.get().value == 'gpt-3.5'
+
+        # Override through bundle
+        with bundle.override(
+            {
+                'system_prompt': 'Overridden prompt',
+                'model': 'claude-3.5-sonnet',
+            }
+        ):
+            assert system_prompt.get().value == 'Overridden prompt'
+            assert temperature.get().value == 0.5  # Not overridden
+            assert model.get().value == 'claude-3.5-sonnet'
+
+        # Back to config values
+        assert system_prompt.get().value == 'Config prompt'
+        assert model.get().value == 'gpt-3.5'
+
+    def test_var_bundle_get_all(self, config_kwargs: dict[str, Any]):
+        """Test getting all variables in a bundle at once."""
+        config_kwargs['variables'] = VariablesOptions(
+            config=VariablesConfig(
+                variables={
+                    'ga_prompt': VariableConfig(
+                        name='ga_prompt',
+                        variants={'v1': Variant(key='v1', serialized_value='"Prompt value"')},
+                        rollout=Rollout(variants={'v1': 1.0}),
+                        overrides=[],
+                    ),
+                    'ga_temp': VariableConfig(
+                        name='ga_temp',
+                        variants={'v1': Variant(key='v1', serialized_value='0.8')},
+                        rollout=Rollout(variants={'v1': 1.0}),
+                        overrides=[],
+                    ),
+                }
+            )
+        )
+        lf = logfire.configure(**config_kwargs)
+        prompt = lf.var(name='ga_prompt', type=str, default='Default')
+        temp = lf.var(name='ga_temp', type=float, default=0.5)
+
+        bundle = lf.var_bundle(
+            name='get_all_bundle',
+            variables={'prompt': prompt, 'temp': temp},
+        )
+
+        results = bundle.get_all()
+
+        assert 'prompt' in results
+        assert 'temp' in results
+        assert results['prompt'].value == 'Prompt value'
+        assert results['temp'].value == 0.8
+
+    def test_var_bundle_iteration(self, config_kwargs: dict[str, Any]):
+        """Test iterating over a bundle."""
+        lf = logfire.configure(**config_kwargs)
+        var1 = lf.var(name='iter_var1', type=str, default='a')
+        var2 = lf.var(name='iter_var2', type=str, default='b')
+
+        bundle = lf.var_bundle(
+            name='iter_bundle',
+            variables={'key1': var1, 'key2': var2},
+        )
+
+        # Test keys
+        assert set(bundle.keys()) == {'key1', 'key2'}
+
+        # Test values
+        values = list(bundle.values())
+        assert var1 in values
+        assert var2 in values
+
+        # Test items
+        items = dict(bundle.items())
+        assert items['key1'] is var1
+        assert items['key2'] is var2
+
+        # Test __iter__
+        assert set(bundle) == {'key1', 'key2'}
+
+    def test_var_bundle_override_unknown_key(self, config_kwargs: dict[str, Any]):
+        """Test that unknown keys in override are ignored."""
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='known_var', type=str, default='default')
+
+        bundle = lf.var_bundle(
+            name='test_bundle',
+            variables={'known': var},
+        )
+
+        with bundle.override({'known': 'overridden', 'unknown': 'ignored'}):
+            assert var.get().value == 'overridden'
+            # No error for unknown key

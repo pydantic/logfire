@@ -25,12 +25,23 @@ else:
 import logfire
 from logfire.variables.abstract import ResolvedVariable
 
-__all__ = ('ResolveFunction', 'is_resolve_function', 'Variable', 'targeting_context')
+__all__ = (
+    'ResolveFunction',
+    'is_resolve_function',
+    'Variable',
+    'PromptVariable',
+    'VariableBundle',
+    'targeting_context',
+    'override_variables',
+)
 
 T_co = TypeVar('T_co', covariant=True)
 
 
 _VARIABLE_OVERRIDES: ContextVar[dict[str, Any] | None] = ContextVar('_VARIABLE_OVERRIDES', default=None)
+
+# Context var for explicit variant selection (bypasses rollout)
+_VARIANT_OVERRIDES: ContextVar[dict[str, str] | None] = ContextVar('_VARIANT_OVERRIDES', default=None)
 
 
 @dataclass
@@ -140,6 +151,32 @@ class Variable(Generic[T_co]):
         finally:
             _VARIABLE_OVERRIDES.reset(token)
 
+    @contextmanager
+    def use_variant(self, variant_key: str) -> Iterator[None]:
+        """Context manager to select a specific variant, bypassing rollout weights.
+
+        This allows you to explicitly select a configured variant by key, regardless of
+        the rollout configuration. Useful for testing specific variants or for playground
+        scenarios where you want to preview a particular variant.
+
+        Args:
+            variant_key: The key of the variant to select. If the variant doesn't exist
+                in the configuration, resolution will fall back to the default behavior.
+
+        Example:
+            ```python
+            # Select the "experimental" variant for all resolutions within this context
+            with my_variable.use_variant('experimental'):
+                value = my_variable.get().value  # Always gets "experimental" variant
+            ```
+        """
+        current = _VARIANT_OVERRIDES.get() or {}
+        token = _VARIANT_OVERRIDES.set({**current, self.name: variant_key})
+        try:
+            yield
+        finally:
+            _VARIANT_OVERRIDES.reset(token)
+
     async def refresh(self, force: bool = False):
         """Asynchronously refresh the variable."""
         await to_thread(self.refresh_sync, force)
@@ -149,7 +186,11 @@ class Variable(Generic[T_co]):
         self.logfire_instance.config.get_variable_provider().refresh(force=force)
 
     def get(
-        self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+        self,
+        targeting_key: str | None = None,
+        attributes: Mapping[str, Any] | None = None,
+        *,
+        variant: str | None = None,
     ) -> ResolvedVariable[T_co]:
         """Resolve the variable and return full details including variant and any errors.
 
@@ -158,11 +199,17 @@ class Variable(Generic[T_co]):
                 If not provided, falls back to contextvar targeting key (set via targeting_context),
                 then to the current trace ID if there is an active trace.
             attributes: Optional attributes for condition-based targeting rules.
+            variant: Optional explicit variant key to select. If provided, bypasses rollout
+                weights and targeting, directly selecting the specified variant. If the variant
+                doesn't exist in the configuration, falls back to default resolution.
 
         Returns:
             A ResolvedVariable object containing the resolved value, selected variant,
             and any errors that occurred.
         """
+        # Check for variant override from context if not specified at call-site
+        if variant is None:
+            variant = _get_contextvar_variant_override(self.name)
         merged_attributes = self._get_merged_attributes(attributes)
 
         # Targeting key resolution: call-site > contextvar > trace_id
@@ -188,7 +235,7 @@ class Variable(Generic[T_co]):
                         attributes=merged_attributes,
                     )
                 )
-            result = self._resolve(targeting_key, merged_attributes, span)
+            result = self._resolve(targeting_key, merged_attributes, span, variant)
             if span is not None:
                 span.set_attributes(
                     {
@@ -205,7 +252,11 @@ class Variable(Generic[T_co]):
             return result
 
     def _resolve(
-        self, targeting_key: str | None, attributes: Mapping[str, Any] | None, span: logfire.LogfireSpan | None
+        self,
+        targeting_key: str | None,
+        attributes: Mapping[str, Any] | None,
+        span: logfire.LogfireSpan | None,
+        variant: str | None = None,
     ) -> ResolvedVariable[T_co]:
         serialized_result: ResolvedVariable[str | None] | None = None
         try:
@@ -217,6 +268,25 @@ class Variable(Generic[T_co]):
                 return ResolvedVariable(name=self.name, value=context_value, _reason='context_override')
 
             provider = self.logfire_instance.config.get_variable_provider()
+
+            # If explicit variant is requested, try to get that specific variant
+            if variant is not None:
+                serialized_result = provider.get_serialized_value_for_variant(self.name, variant)
+                if serialized_result.value is not None:
+                    # Successfully got the explicit variant
+                    value_or_exc = self._deserialize_cached(serialized_result.value)
+                    if isinstance(value_or_exc, Exception):
+                        if span:  # pragma: no branch
+                            span.set_attribute('invalid_serialized_variant', serialized_result.variant)
+                            span.set_attribute('invalid_serialized_value', serialized_result.value)
+                        default = self._get_default(targeting_key, attributes)
+                        reason: str = 'validation_error' if isinstance(value_or_exc, ValidationError) else 'other_error'
+                        return ResolvedVariable(name=self.name, value=default, exception=value_or_exc, _reason=reason)
+                    return ResolvedVariable(
+                        name=self.name, value=value_or_exc, variant=serialized_result.variant, _reason='resolved'
+                    )
+                # Variant not found - fall through to default resolution
+
             serialized_result = provider.get_serialized_value(self.name, targeting_key, attributes)
 
             if serialized_result.value is None:
@@ -375,3 +445,222 @@ def _get_contextvar_targeting_key(variable_name: str) -> str | None:
         return None
     # Variable-specific takes precedence over default
     return ctx.by_variable.get(variable_name, ctx.default)
+
+
+def _get_contextvar_variant_override(variable_name: str) -> str | None:
+    """Get the variant override from context for a specific variable.
+
+    Args:
+        variable_name: The name of the variable to get the variant override for.
+
+    Returns:
+        The variant key if one is set in context, None otherwise.
+    """
+    ctx = _VARIANT_OVERRIDES.get()
+    if ctx is None:
+        return None
+    return ctx.get(variable_name)
+
+
+@contextmanager
+def override_variables(
+    overrides: Mapping[Variable[Any], Any],
+) -> Iterator[None]:
+    """Context manager to temporarily override multiple variables' values at once.
+
+    This is a convenience function for overriding multiple variables without nested
+    context managers. Useful for testing or playground scenarios where you want to
+    try different combinations of values.
+
+    Args:
+        overrides: A mapping of Variable instances to their override values.
+            Values can be either direct values or ResolveFunction callables.
+
+    Example:
+        ```python
+        system_prompt = logfire.var(name='system_prompt', type=str, default='Default')
+        temperature = logfire.var(name='temperature', type=float, default=0.7)
+        model = logfire.var(name='model', type=str, default='gpt-4')
+
+        # Override all at once instead of nested context managers
+        with override_variables({system_prompt: 'Custom prompt', temperature: 0.9, model: 'claude-3.5-sonnet'}):
+            result = await agent.run(query)
+        ```
+    """
+    # Convert Variable instances to their names
+    name_to_value = {var.name: value for var, value in overrides.items()}
+
+    current = _VARIABLE_OVERRIDES.get() or {}
+    token = _VARIABLE_OVERRIDES.set({**current, **name_to_value})
+    try:
+        yield
+    finally:
+        _VARIABLE_OVERRIDES.reset(token)
+
+
+class PromptVariable(Variable[str]):
+    """A specialized Variable for prompt templates with optional validation.
+
+    PromptVariable is a convenience class for string variables that represent
+    prompts or templates. It provides:
+    - Type automatically set to `str`
+    - Optional template variable validation
+
+    Example:
+        ```python
+        system_prompt = logfire.prompt_var(
+            name='system_prompt',
+            default='Hello, {user_name}! Welcome to {context}.',
+            template_vars=['user_name', 'context'],  # Optional validation
+        )
+        ```
+    """
+
+    template_vars: Sequence[str] | None
+    """Optional list of expected template variables for validation."""
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        default: str | ResolveFunction[str],
+        description: str | None = None,
+        template_vars: Sequence[str] | None = None,
+        logfire_instance: logfire.Logfire,
+    ):
+        """Create a new prompt variable.
+
+        Args:
+            name: Unique name identifying this variable.
+            default: Default prompt value to use when no configuration is found,
+                or a function that computes the default.
+            description: Optional human-readable description of this prompt.
+            template_vars: Optional list of expected template variable names (e.g., ["user_name"]).
+                If provided, a warning will be logged if the resolved prompt doesn't contain
+                all expected template variables.
+            logfire_instance: The Logfire instance this variable is associated with.
+        """
+        super().__init__(
+            name,
+            type=str,
+            default=default,
+            description=description,
+            logfire_instance=logfire_instance,
+        )
+        self.template_vars = template_vars
+
+
+class VariableBundle:
+    """A collection of related variables that can be overridden together.
+
+    VariableBundle allows you to group related variables and override them
+    as a unit, making it easier to manage configuration for components that
+    use multiple variables.
+
+    Example:
+        ```python
+        system_prompt = logfire.var(name='system_prompt', type=str, default='Default')
+        model = logfire.var(name='model', type=str, default='gpt-4')
+        temperature = logfire.var(name='temperature', type=float, default=0.7)
+
+        agent_config = logfire.var_bundle(
+            name='support_agent', variables={'system_prompt': system_prompt, 'model': model, 'temperature': temperature}
+        )
+
+        # Override multiple variables at once
+        with agent_config.override({'system_prompt': 'New prompt', 'model': 'gpt-4o'}):
+            result = await agent.run(query)
+
+        # Access individual variables
+        prompt = agent_config['system_prompt'].get().value
+        ```
+    """
+
+    name: str
+    """Name identifying this bundle."""
+    variables: dict[str, Variable[Any]]
+    """Mapping of keys to Variable instances in this bundle."""
+
+    def __init__(self, name: str, variables: Mapping[str, Variable[Any]]):
+        """Create a new variable bundle.
+
+        Args:
+            name: Name identifying this bundle.
+            variables: Mapping of keys to Variable instances. Keys are used for
+                accessing variables and for override mappings.
+        """
+        self.name = name
+        self.variables = dict(variables)
+
+    def __getitem__(self, key: str) -> Variable[Any]:
+        """Get a variable from this bundle by key.
+
+        Args:
+            key: The key used when defining the bundle.
+
+        Returns:
+            The Variable instance.
+
+        Raises:
+            KeyError: If the key doesn't exist in the bundle.
+        """
+        return self.variables[key]
+
+    def __contains__(self, key: str) -> bool:
+        """Check if a key exists in this bundle."""
+        return key in self.variables
+
+    def __iter__(self) -> Iterator[str]:
+        """Iterate over the keys in this bundle."""
+        return iter(self.variables)
+
+    def keys(self) -> Iterator[str]:
+        """Return an iterator over the keys in this bundle."""
+        return iter(self.variables)
+
+    def values(self) -> Iterator[Variable[Any]]:
+        """Return an iterator over the variables in this bundle."""
+        return iter(self.variables.values())
+
+    def items(self) -> Iterator[tuple[str, Variable[Any]]]:
+        """Return an iterator over (key, variable) pairs in this bundle."""
+        return iter(self.variables.items())
+
+    @contextmanager
+    def override(self, overrides: Mapping[str, Any]) -> Iterator[None]:
+        """Context manager to override multiple variables in this bundle.
+
+        Args:
+            overrides: A mapping of bundle keys to override values.
+                Only keys present in the bundle will be used.
+
+        Example:
+            ```python
+            with agent_config.override({'system_prompt': 'New prompt', 'model': 'gpt-4o'}):
+                result = await agent.run(query)
+            ```
+        """
+        # Convert bundle keys to Variable instances
+        variable_overrides: dict[Variable[Any], Any] = {}
+        for key, value in overrides.items():
+            if key in self.variables:
+                variable_overrides[self.variables[key]] = value
+
+        with override_variables(variable_overrides):
+            yield
+
+    def get_all(
+        self,
+        targeting_key: str | None = None,
+        attributes: Mapping[str, Any] | None = None,
+    ) -> dict[str, ResolvedVariable[Any]]:
+        """Resolve all variables in this bundle.
+
+        Args:
+            targeting_key: Optional key for deterministic variant selection.
+            attributes: Optional attributes for condition-based targeting rules.
+
+        Returns:
+            A mapping of bundle keys to their resolved variables.
+        """
+        return {key: var.get(targeting_key=targeting_key, attributes=attributes) for key, var in self.variables.items()}

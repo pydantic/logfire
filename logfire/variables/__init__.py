@@ -37,7 +37,14 @@ if TYPE_CHECKING:
         )
         from logfire.variables.local import LocalVariableProvider
         from logfire.variables.remote import LogfireRemoteVariableProvider
-        from logfire.variables.variable import ResolveFunction, Variable, targeting_context
+        from logfire.variables.variable import (
+            PromptVariable,
+            ResolveFunction,
+            Variable,
+            VariableBundle,
+            override_variables,
+            targeting_context,
+        )
 
 __all__ = [
     'KeyIsNotPresent',
@@ -45,6 +52,7 @@ __all__ = [
     'LocalVariableProvider',
     'LogfireRemoteVariableProvider',
     'NoOpVariableProvider',
+    'PromptVariable',
     'RemoteVariablesConfig',
     'ResolveFunction',
     'ResolvedVariable',
@@ -60,12 +68,14 @@ __all__ = [
     'ValueMatchesRegex',
     'Variable',
     'VariableAlreadyExistsError',
+    'VariableBundle',
     'VariableConfig',
     'VariableNotFoundError',
     'VariableProvider',
     'VariablesConfig',
     'VariableWriteError',
     'Variant',
+    'override_variables',
     'targeting_context',
 ]
 
@@ -99,6 +109,13 @@ def __getattr__(name: str):
     )
     from logfire.variables.local import LocalVariableProvider
     from logfire.variables.remote import LogfireRemoteVariableProvider
-    from logfire.variables.variable import ResolveFunction, Variable, targeting_context
+    from logfire.variables.variable import (
+        PromptVariable,
+        ResolveFunction,
+        Variable,
+        VariableBundle,
+        override_variables,
+        targeting_context,
+    )
 
     return locals()[name]
