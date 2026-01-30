@@ -12,7 +12,21 @@
       "Bash(git push origin HEAD)",
       "Bash(make:*)",
       "Bash(uv run pytest:*)",
+      "Bash(uv run pre-commit:*)",
       "Bash(gh pr create:*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if echo \"$TOOL_INPUT\" | grep -q 'git commit'; then cd \"$CLAUDE_PROJECT_DIR\" && uv run pre-commit run --files $(git diff --cached --name-only) || exit 2; fi"
+          }
+        ]
+      }
     ]
   }
 }
