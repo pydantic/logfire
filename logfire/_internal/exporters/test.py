@@ -79,7 +79,8 @@ class TestExporter(SpanExporter):
         def build_event(event: Event) -> dict[str, Any]:
             res: dict[str, Any] = {'name': event.name, 'timestamp': event.timestamp}
             if event.attributes:  # pragma: no branch
-                res['attributes'] = attributes = dict(event.attributes)
+                res['attributes'] = attributes = _build_attributes(event.attributes)
+                assert attributes
                 if ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY in attributes:
                     attributes[ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY] = '0' * 64
                 if 'exception.stacktrace' in attributes:
@@ -89,6 +90,7 @@ class TestExporter(SpanExporter):
                         if line.strip()
                     )
                     attributes['exception.stacktrace'] = last_line
+
             return res
 
         def build_instrumentation_scope(span: ReadableSpan) -> dict[str, Any]:
