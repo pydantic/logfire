@@ -279,3 +279,52 @@ def test_instrument_google_genai_response_schema(exporter: TestExporter) -> None
             }
         ]
     )
+
+
+def test_span_event_logger_with_none_parts(exporter: TestExporter) -> None:
+    """Test that SpanEventLogger handles parts=None gracefully.
+
+    This can happen when Gemini 3 Pro returns a thinking-only response with no text or tool calls.
+    See https://github.com/pydantic/logfire/issues/1675
+    """
+    from opentelemetry._logs import LogRecord, SeverityNumber
+
+    from logfire._internal.integrations.google_genai import SpanEventLogger
+
+    import logfire
+
+    with logfire.span('test'):
+        logger = SpanEventLogger('test_logger')
+        record = LogRecord(
+            timestamp=0,
+            observed_timestamp=0,
+            trace_id=0,
+            span_id=0,
+            trace_flags=None,
+            severity_text='INFO',
+            severity_number=SeverityNumber.INFO,
+            body={'content': {'parts': None}, 'index': 0, 'finish_reason': 'STOP'},
+            attributes={},
+        )
+        record._event_name = 'gen_ai.choice'  # type: ignore
+        logger.emit(record)
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'test',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'test',
+                    'events': [
+                        {'index': 0, 'finish_reason': 'STOP', 'message': {'role': 'assistant', 'content': []}}
+                    ],
+                    'logfire.json_schema': {'type': 'object', 'properties': {'events': {'type': 'array'}}},
+                },
+            }
+        ]
+    )
