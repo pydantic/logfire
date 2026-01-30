@@ -17,13 +17,12 @@
     ]
   },
   "hooks": {
-    "PreToolUse": [
+    "SessionStart": [
       {
-        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "if echo \"$TOOL_INPUT\" | grep -q 'git commit'; then cd \"$CLAUDE_PROJECT_DIR\" && uv run pre-commit run --files $(git diff --cached --name-only) || exit 2; fi"
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && uv run pre-commit install"
           }
         ]
       }
