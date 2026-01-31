@@ -55,6 +55,7 @@ from logfire._internal.config import (
     get_base_url_from_token,
     sanitize_project_name,
 )
+from logfire._internal.config_params import extract_list_of_str
 from logfire._internal.exporters.console import ConsoleLogExporter, ShowParentsConsoleSpanExporter
 from logfire._internal.exporters.dynamic_batch import DynamicBatchSpanProcessor
 from logfire._internal.exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper, MainLogProcessorWrapper
@@ -1504,7 +1505,7 @@ def test_load_creds_file_with_token_different_from_env(tmp_path: Path, capsys: p
         )
         logfire.configure(data_dir=tmp_path, send_to_logfire=True)
         # not 'foobar' from the creds file. The token in the env var takes precedence.
-        assert logfire.DEFAULT_LOGFIRE_INSTANCE.config.token == 'fake_token'
+        assert logfire.DEFAULT_LOGFIRE_INSTANCE.config.token == ['fake_token']
 
         wait_for_check_token_thread()
         assert len(request_mocker.request_history) == 1
@@ -2336,3 +2337,116 @@ def test_quiet_span_exporter(caplog: LogCaptureFixture):
 def test_staging_token_regions():
     assert get_base_url_from_token('pylf_v1_stagingeu_123456') == 'https://logfire-eu.pydantic.info'
     assert get_base_url_from_token('pylf_v1_stagingus_123456') == 'https://logfire-us.pydantic.info'
+
+
+def test_multiple_tokens_list(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that multiple tokens can be provided as a list and create multiple export pipelines."""
+    monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
+
+    configure(
+        token=['pylf_v1_us_token1', 'pylf_v1_us_token2'],
+        send_to_logfire=True,
+        console=False,
+    )
+    wait_for_check_token_thread()
+
+    # Check that both tokens are stored
+    assert GLOBAL_CONFIG.token == ['pylf_v1_us_token1', 'pylf_v1_us_token2']
+
+    # Check that TWO span processors are created (one per token)
+    span_processors = list(get_span_processors())
+    # Should have 2 DynamicBatchSpanProcessors + 1 PendingSpanProcessor
+    assert len(span_processors) == 3
+    token1_span_processor, token2_span_processor, pending_processor = span_processors
+
+    assert isinstance(token1_span_processor, DynamicBatchSpanProcessor)
+    assert isinstance(token2_span_processor, DynamicBatchSpanProcessor)
+    assert isinstance(pending_processor, PendingSpanProcessor)
+
+    # Verify each span exporter has the correct authorization header
+    token1_exporter = token1_span_processor.span_exporter
+    token2_exporter = token2_span_processor.span_exporter
+    # Unwrap to get to the OTLP exporter (WrapperSpanExporter uses wrapped_exporter attribute)
+    while hasattr(token1_exporter, 'wrapped_exporter'):  # type: ignore
+        token1_exporter = token1_exporter.wrapped_exporter  # type: ignore
+    while hasattr(token2_exporter, 'wrapped_exporter'):  # type: ignore
+        token2_exporter = token2_exporter.wrapped_exporter  # type: ignore
+    assert token1_exporter._session.headers['Authorization'] == 'pylf_v1_us_token1'  # type: ignore
+    assert token2_exporter._session.headers['Authorization'] == 'pylf_v1_us_token2'  # type: ignore
+
+    # Check that TWO metric readers are created (one per token)
+    metric_readers = list(get_metric_readers())
+    assert len(metric_readers) == 2
+    for reader in metric_readers:
+        assert isinstance(reader, PeriodicExportingMetricReader)
+        assert isinstance(reader._exporter, QuietMetricExporter)  # type: ignore
+
+    # Check that TWO log processors are created (one per token)
+    log_processors = list(get_log_record_processors())
+    assert len(log_processors) == 2
+    for processor in log_processors:
+        exporter = get_batch_log_exporter(processor)
+        assert isinstance(exporter, QuietLogExporter)
+        assert isinstance(exporter.exporter, OTLPLogExporter)
+
+
+def test_multiple_tokens_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that multiple tokens can be provided via comma-separated environment variable."""
+    monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
+
+    os.environ['LOGFIRE_TOKEN'] = 'pylf_v1_us_token1, pylf_v1_us_token2'
+    try:
+        configure(
+            send_to_logfire=True,
+            console=False,
+        )
+        wait_for_check_token_thread()
+
+        # Check that both tokens are stored (spaces trimmed)
+        assert GLOBAL_CONFIG.token == ['pylf_v1_us_token1', 'pylf_v1_us_token2']
+
+        # Verify multiple export pipelines are created
+        span_processors = list(get_span_processors())
+        # Should have 2 DynamicBatchSpanProcessors + 1 PendingSpanProcessor
+        assert len(span_processors) == 3
+
+        metric_readers = list(get_metric_readers())
+        assert len(metric_readers) == 2
+
+        log_processors = list(get_log_record_processors())
+        assert len(log_processors) == 2
+    finally:
+        del os.environ['LOGFIRE_TOKEN']
+
+
+def testextract_list_of_str():
+    """Test extract_list_of_str function for various inputs."""
+    # None input
+    assert extract_list_of_str(None) is None
+
+    # Empty sequences
+    assert extract_list_of_str([]) is None
+    assert extract_list_of_str(()) is None
+
+    # Single string token
+    assert extract_list_of_str('token1') == ['token1']
+
+    # Comma-separated string with multiple tokens
+    assert extract_list_of_str('token1,token2') == ['token1', 'token2']
+
+    # Comma-separated string with spaces (should be trimmed)
+    assert extract_list_of_str('token1, token2') == ['token1', 'token2']
+    assert extract_list_of_str(' token1 , token2 ') == ['token1', 'token2']
+
+    # String with only commas and spaces
+    assert extract_list_of_str(',, ,') is None
+
+    # Empty string
+    assert extract_list_of_str('') is None
+
+    # Non-empty list
+    assert extract_list_of_str(['token1', 'token2']) == ['token1', 'token2']
+
+    # List with empty strings (note: empty strings are NOT filtered by extract_list_of_str)
+    # The filtering happens in LogfireConfig._load_configuration
+    assert extract_list_of_str(['token1', '', 'token2']) == ['token1', '', 'token2']

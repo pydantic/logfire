@@ -52,14 +52,24 @@ def parse_whoami(args: argparse.Namespace) -> None:
     data_dir = Path(args.data_dir)
     param_manager = ParamManager.create(data_dir)
     base_url: str | None = param_manager.load_param('base_url', args.logfire_url)
-    token = param_manager.load_param('token')
+    tokens = param_manager.load_param('token')
 
-    if token:
-        base_url = base_url or get_base_url_from_token(token)
-        credentials = LogfireCredentials.from_token(token, args._session, base_url)
-        if credentials:
-            credentials.print_token_summary()
+    if tokens:
+        # Display info for all configured tokens
+        any_succeeded = False
+        for i, token in enumerate(tokens):
+            if len(tokens) > 1:
+                if i > 0:
+                    sys.stderr.write('\n')
+                sys.stderr.write(f'Token {i + 1} of {len(tokens)}:\n')
+            token_base_url = base_url or get_base_url_from_token(token)
+            credentials = LogfireCredentials.from_token(token, args._session, token_base_url)
+            if credentials:
+                credentials.print_token_summary()
+                any_succeeded = True
+        if any_succeeded:
             return
+        # If no tokens yielded credentials, fall through to try creds file
 
     try:
         client = LogfireClient.from_url(base_url)
