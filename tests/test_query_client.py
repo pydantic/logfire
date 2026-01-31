@@ -2,11 +2,16 @@ from __future__ import annotations
 
 import sys
 from datetime import datetime, timezone
+from typing import Any
 
 import pytest
 from inline_snapshot import snapshot
 
-from logfire.query_client import AsyncLogfireQueryClient, LogfireQueryClient
+from logfire.query_client import (
+    AsyncLogfireQueryClient,
+    LogfireQueryClient,
+    PaginationCursor,
+)
 
 # This file is intended to be updated by the Logfire developers, with the development platform running locally.
 # To update, set the `CLIENT_BASE_URL` and `CLIENT_READ_TOKEN` values to match the local development environment,
@@ -312,3 +317,37 @@ is_exception,count(*)
 is_exception,count(*)
 false,37
 """)
+
+
+def test_iter_paginated_records_sync():
+    """Test that iter_paginated_records yields pages of records."""
+    with LogfireQueryClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL) as client:
+        all_rows: list[dict[str, Any]] = []
+        cursor: PaginationCursor | None = None
+        for rows, next_cursor in client.iter_paginated_records(
+            select='kind, message, start_timestamp, trace_id, span_id',
+            page_size=5,
+        ):
+            all_rows.extend(rows)
+            cursor = next_cursor
+            if cursor is None or len(rows) < 5:
+                break
+        assert len(all_rows) >= 5
+        assert all('start_timestamp' in r and 'trace_id' in r and 'span_id' in r for r in all_rows)
+
+
+@pytest.mark.anyio
+async def test_iter_paginated_records_async():
+    """Test that async iter_paginated_records yields pages of records."""
+    async with AsyncLogfireQueryClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL) as client:
+        all_rows: list[dict[str, Any]] = []
+        cursor: PaginationCursor | None = None
+        async for rows, next_cursor in client.iter_paginated_records(
+            select='kind, message, start_timestamp, trace_id, span_id',
+            page_size=5,
+        ):
+            all_rows.extend(rows)
+            cursor = next_cursor
+            if cursor is None or len(rows) < 5:
+                break
+        assert len(all_rows) >= 5

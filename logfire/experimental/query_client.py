@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator, Iterator
 from datetime import datetime
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Generic, Literal, TypedDict, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypedDict, TypeVar, cast
 
 from typing_extensions import Self
 
@@ -18,6 +19,8 @@ if TYPE_CHECKING:
     from pyarrow import Table  # type: ignore
 
 DEFAULT_TIMEOUT = Timeout(30.0)  # queries might typically be slower than the 5s default from AsyncClient
+
+MAX_QUERY_LIMIT = 10_000
 
 
 class QueryExecutionError(RuntimeError):
@@ -72,6 +75,20 @@ class RowQueryResults(TypedDict):
     rows: list[dict[str, Any]]
 
 
+class PaginationCursor(TypedDict, total=False):
+    """Cursor for pagination through query results.
+
+    For records with use_created_at=False: start_timestamp, trace_id, span_id.
+    For records with use_created_at=True: created_at, trace_id, span_id, kind.
+    """
+
+    start_timestamp: str
+    trace_id: str
+    span_id: str
+    created_at: str
+    kind: str
+
+
 T = TypeVar('T', bound=BaseClient)
 
 
@@ -109,6 +126,60 @@ class _BaseLogfireQueryClient(Generic[T]):
         if response.status_code == 422:  # pragma: no cover
             raise QueryRequestError(response.json())
         assert response.status_code == 200, response.content
+
+
+def _build_paginated_records_sql(
+    select: str = '*',
+    where: str | None = None,
+    page_size: int = MAX_QUERY_LIMIT,
+    cursor: PaginationCursor | None = None,
+    use_created_at: bool = False,
+    table: str = 'records',
+) -> str:
+    """Build SQL for paginated records query."""
+    if use_created_at:
+        table = 'records_all'
+        order_cols = 'created_at, trace_id, span_id, kind'
+        cursor_cols = ['created_at', 'trace_id', 'span_id', 'kind']
+        cursor_keys = ['created_at', 'trace_id', 'span_id', 'kind']
+    else:
+        order_cols = 'start_timestamp, trace_id, span_id'
+        cursor_cols = ['start_timestamp', 'trace_id', 'span_id']
+        cursor_keys = ['start_timestamp', 'trace_id', 'span_id']
+
+    parts = [f'SELECT {select} FROM {table}']
+
+    if where:
+        parts.append(f'WHERE {where}')
+        if cursor:
+            cursor_vals = [cursor.get(k) for k in cursor_keys]
+            if all(v is not None for v in cursor_vals):
+                placeholders = ', '.join(f"'{str(v).replace(chr(39), chr(39) + chr(39))}'" for v in cursor_vals)
+                parts.append(f"AND ({', '.join(cursor_cols)}) > ({placeholders})")
+    elif cursor:
+        cursor_vals = [cursor.get(k) for k in cursor_keys]
+        if all(v is not None for v in cursor_vals):
+            placeholders = ', '.join(
+                f"'{str(v).replace(chr(39), chr(39) + chr(39))}'" for v in cursor_vals
+            )
+            parts.append(f"WHERE ({', '.join(cursor_cols)}) > ({placeholders})")
+
+    parts.append(f'ORDER BY {order_cols}')
+    parts.append(f'LIMIT {page_size}')
+    return ' '.join(parts)
+
+
+def _extract_cursor_from_row(
+    row: dict[str, Any], use_created_at: bool = False
+) -> PaginationCursor | None:
+    """Extract pagination cursor from the last row."""
+    if use_created_at:
+        keys = ['created_at', 'trace_id', 'span_id', 'kind']
+    else:
+        keys = ['start_timestamp', 'trace_id', 'span_id']
+    if all(k in row and row[k] is not None for k in keys):
+        return cast(PaginationCursor, {k: str(row[k]) for k in keys})
+    return None
 
 
 class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
@@ -236,6 +307,55 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
             limit=limit,
         )
         return response.text
+
+    def iter_paginated_records(
+        self,
+        select: str = '*',
+        where: str | None = None,
+        page_size: int = MAX_QUERY_LIMIT,
+        cursor: PaginationCursor | None = None,
+        use_created_at: bool = False,
+    ) -> Iterator[tuple[list[dict[str, Any]], PaginationCursor | None]]:
+        """Iterate over records in pages, yielding (rows, next_cursor) for each page.
+
+        Uses cursor-based pagination to retrieve more than the 10,000 row API limit.
+        The cursor is derived from (start_timestamp, trace_id, span_id) or, when
+        use_created_at=True, from (created_at, trace_id, span_id, kind).
+
+        Use use_created_at=True when paginating over recent data where new rows may
+        be inserted during pagination. Otherwise use start_timestamp-based pagination.
+
+        Args:
+            select: SQL columns to select. Must include cursor columns for pagination
+                to continue: start_timestamp, trace_id, span_id (or created_at, kind
+                when use_created_at=True). Use '*' to select all.
+            where: Optional WHERE clause (without the leading WHERE keyword).
+            page_size: Number of rows per page (max 10,000).
+            cursor: Cursor from previous page to continue from.
+            use_created_at: Use created_at for cursor when new data may be inserted.
+
+        Yields:
+            Tuples of (rows, next_cursor). next_cursor is None when no more pages.
+        """
+        page_size = min(page_size, MAX_QUERY_LIMIT)
+        while True:
+            sql = _build_paginated_records_sql(
+                select=select,
+                where=where,
+                page_size=page_size,
+                cursor=cursor,
+                use_created_at=use_created_at,
+            )
+            result = self.query_json_rows(sql=sql)
+            rows = result.get('rows', [])
+            if not rows:
+                yield rows, None
+                return
+            next_cursor = _extract_cursor_from_row(rows[-1], use_created_at=use_created_at)
+            yield rows, next_cursor
+            if next_cursor is None or len(rows) < page_size:
+                return
+            cursor = next_cursor
 
     def _query(
         self,
@@ -377,6 +497,55 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
             limit=limit,
         )
         return response.text
+
+    async def iter_paginated_records(
+        self,
+        select: str = '*',
+        where: str | None = None,
+        page_size: int = MAX_QUERY_LIMIT,
+        cursor: PaginationCursor | None = None,
+        use_created_at: bool = False,
+    ) -> AsyncIterator[tuple[list[dict[str, Any]], PaginationCursor | None]]:
+        """Iterate over records in pages, yielding (rows, next_cursor) for each page.
+
+        Uses cursor-based pagination to retrieve more than the 10,000 row API limit.
+        The cursor is derived from (start_timestamp, trace_id, span_id) or, when
+        use_created_at=True, from (created_at, trace_id, span_id, kind).
+
+        Use use_created_at=True when paginating over recent data where new rows may
+        be inserted during pagination. Otherwise use start_timestamp-based pagination.
+
+        Args:
+            select: SQL columns to select. Must include cursor columns for pagination
+                to continue: start_timestamp, trace_id, span_id (or created_at, kind
+                when use_created_at=True). Use '*' to select all.
+            where: Optional WHERE clause (without the leading WHERE keyword).
+            page_size: Number of rows per page (max 10,000).
+            cursor: Cursor from previous page to continue from.
+            use_created_at: Use created_at for cursor when new data may be inserted.
+
+        Yields:
+            Tuples of (rows, next_cursor). next_cursor is None when no more pages.
+        """
+        page_size = min(page_size, MAX_QUERY_LIMIT)
+        while True:
+            sql = _build_paginated_records_sql(
+                select=select,
+                where=where,
+                page_size=page_size,
+                cursor=cursor,
+                use_created_at=use_created_at,
+            )
+            result = await self.query_json_rows(sql=sql)
+            rows = result.get('rows', [])
+            if not rows:
+                yield rows, None
+                return
+            next_cursor = _extract_cursor_from_row(rows[-1], use_created_at=use_created_at)
+            yield rows, next_cursor
+            if next_cursor is None or len(rows) < page_size:
+                return
+            cursor = next_cursor
 
     async def _query(
         self,
