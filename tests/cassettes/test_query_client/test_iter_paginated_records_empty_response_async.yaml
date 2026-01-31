@@ -1,0 +1,32 @@
+interactions:
+- request:
+    body: ''
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      connection:
+      - keep-alive
+      host:
+      - localhost:8000
+      user-agent:
+      - python-httpx/0.27.2
+    method: GET
+    uri: http://localhost:8000/v1/query?sql=SELECT+*+FROM+records+WHERE+message+%3D+%27nonexistent%27+ORDER+BY+start_timestamp%2C+trace_id%2C+span_id+LIMIT+5&json_rows=true
+  response:
+    body:
+      string: '{"columns":[{"name":"kind","nullable":false,"datatype":"Utf8"},{"name":"message","nullable":true,"datatype":"Utf8"}],"rows":[]}'
+    headers:
+      access-control-expose-headers:
+      - traceresponse
+      content-type:
+      - application/json
+      server:
+      - uvicorn
+      x-logfire-context:
+      - e2e-test/test-e2e-project
+    status:
+      code: 200
+      message: OK
+version: 1
