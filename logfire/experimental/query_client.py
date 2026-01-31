@@ -155,23 +155,19 @@ def _build_paginated_records_sql(
             cursor_vals = [cursor.get(k) for k in cursor_keys]
             if all(v is not None for v in cursor_vals):
                 placeholders = ', '.join(f"'{str(v).replace(chr(39), chr(39) + chr(39))}'" for v in cursor_vals)
-                parts.append(f"AND ({', '.join(cursor_cols)}) > ({placeholders})")
+                parts.append(f'AND ({", ".join(cursor_cols)}) > ({placeholders})')
     elif cursor:
         cursor_vals = [cursor.get(k) for k in cursor_keys]
         if all(v is not None for v in cursor_vals):
-            placeholders = ', '.join(
-                f"'{str(v).replace(chr(39), chr(39) + chr(39))}'" for v in cursor_vals
-            )
-            parts.append(f"WHERE ({', '.join(cursor_cols)}) > ({placeholders})")
+            placeholders = ', '.join(f"'{str(v).replace(chr(39), chr(39) + chr(39))}'" for v in cursor_vals)
+            parts.append(f'WHERE ({", ".join(cursor_cols)}) > ({placeholders})')
 
     parts.append(f'ORDER BY {order_cols}')
     parts.append(f'LIMIT {page_size}')
     return ' '.join(parts)
 
 
-def _extract_cursor_from_row(
-    row: dict[str, Any], use_created_at: bool = False
-) -> PaginationCursor | None:
+def _extract_cursor_from_row(row: dict[str, Any], use_created_at: bool = False) -> PaginationCursor | None:
     """Extract pagination cursor from the last row."""
     if use_created_at:
         keys = ['created_at', 'trace_id', 'span_id', 'kind']
