@@ -177,7 +177,7 @@ class _LogfireConfigData:
     `_LogfireConfigData`, and none of the attributes added in `LogfireConfig`.
     """
     send_to_logfire: bool | Literal['if-token-present']
-    token: list[str] | None
+    token: str | list[str] | None
     service_name: str
     service_version: str | None
     environment: str | None
