@@ -626,7 +626,7 @@ class _LogfireConfigData:
 
         self.send_to_logfire = param_manager.load_param('send_to_logfire', send_to_logfire)
         # Normalize token: single token as str, multiple tokens as list[str], no tokens as None
-        self.token  = normalize_token(token) or normalize_token(param_manager.load_param('token', None))
+        self.token = normalize_token(token) or normalize_token(param_manager.load_param('token', None))
         self.service_name = param_manager.load_param('service_name', service_name)
         self.service_version = param_manager.load_param('service_version', service_version)
         self.environment = param_manager.load_param('environment', environment)
@@ -988,7 +988,11 @@ class LogfireConfig(_LogfireConfigData):
                         with suppress_instrumentation():
                             for token in token_list:
                                 validated_credentials = self._initialize_credentials_from_token(token)
-                                if validated_credentials is not None and show_project_link and token not in printed_tokens:
+                                if (
+                                    validated_credentials is not None
+                                    and show_project_link
+                                    and token not in printed_tokens
+                                ):
                                     validated_credentials.print_token_summary()
 
                     if emscripten:  # pragma: no cover
