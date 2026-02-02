@@ -340,7 +340,7 @@ def configure(
             Defaults to the `LOGFIRE_SEND_TO_LOGFIRE` environment variable if set, otherwise defaults to `True`.
             If `if-token-present` is provided, logs will only be sent if a token is present.
 
-        token: The project token(s). Can be a single token string or a list of tokens to send data
+        token: The project write token(s). Can be a single token string or a list of tokens to send data
             to multiple projects simultaneously (useful for project migration).
 
             Defaults to the `LOGFIRE_TOKEN` environment variable (supports comma-separated tokens).
