@@ -45,6 +45,7 @@ instrument_openai_agents = DEFAULT_LOGFIRE_INSTANCE.instrument_openai_agents
 instrument_anthropic = DEFAULT_LOGFIRE_INSTANCE.instrument_anthropic
 instrument_google_genai = DEFAULT_LOGFIRE_INSTANCE.instrument_google_genai
 instrument_litellm = DEFAULT_LOGFIRE_INSTANCE.instrument_litellm
+instrument_dspy = DEFAULT_LOGFIRE_INSTANCE.instrument_dspy
 instrument_print = DEFAULT_LOGFIRE_INSTANCE.instrument_print
 instrument_asyncpg = DEFAULT_LOGFIRE_INSTANCE.instrument_asyncpg
 instrument_httpx = DEFAULT_LOGFIRE_INSTANCE.instrument_httpx
@@ -149,6 +150,7 @@ __all__ = (
     'instrument_anthropic',
     'instrument_google_genai',
     'instrument_litellm',
+    'instrument_dspy',
     'instrument_print',
     'instrument_asyncpg',
     'instrument_httpx',

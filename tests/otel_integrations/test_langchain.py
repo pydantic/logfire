@@ -1,6 +1,6 @@
 import os
 import sys
-import warnings
+from typing import Any
 
 import pydantic
 import pytest
@@ -12,6 +12,7 @@ from logfire._internal.utils import get_version
 
 os.environ['LANGSMITH_OTEL_ENABLED'] = 'true'
 os.environ['LANGSMITH_TRACING'] = 'true'
+os.environ['LANGSMITH_OTEL_ONLY'] = 'true'
 
 pytestmark = [
     pytest.mark.skipif(
@@ -26,46 +27,55 @@ pytestmark = [
 
 
 @pytest.mark.vcr()
-def test_instrument_langchain(exporter: TestExporter):
-    from langgraph.warnings import LangGraphDeprecatedSinceV10
-
-    with warnings.catch_warnings():
-        warnings.filterwarnings('ignore', category=LangGraphDeprecatedSinceV10)
-
-        from langchain.agents import create_agent  # pyright: ignore[reportUnknownVariableType]
-
+def test_instrument_langchain(exporter: TestExporter) -> None:
+    from langchain.agents import create_agent  # pyright: ignore[reportUnknownVariableType]
     from langchain_core.tracers.langchain import wait_for_all_tracers
+    from langchain_openai import ChatOpenAI
 
     def add(a: float, b: float) -> float:
         """Add two numbers."""
         return a + b
 
-    math_agent = create_agent(model='gpt-4o', tools=[add])  # pyright: ignore [reportUnknownVariableType]
+    model = ChatOpenAI(
+        model='gpt-5',
+        reasoning={'effort': 'medium', 'summary': 'concise'},
+        base_url='https://gateway.pydantic.dev/proxy/openai/',
+    )
+    math_agent = create_agent(model, tools=[add])  # pyright: ignore [reportUnknownVariableType]
 
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            'ignore',
-            category=UserWarning,
-            message='LangSmith now uses UUID v7 for run and trace identifiers. This warning appears when passing custom IDs. Please use: from langsmith import uuid7',
-        )
-        result = math_agent.invoke({'messages': [{'role': 'user', 'content': "what's 123 + 456?"}]})  # pyright: ignore
+    result = math_agent.invoke(  # pyright: ignore
+        {'messages': [{'role': 'user', 'content': "what's 123 + 456? think carefully and use the tool"}]}
+    )
 
-    assert result['messages'][-1].content == snapshot('123 + 456 equals 579.')
+    assert result['messages'][-1].content == snapshot(
+        [
+            {
+                'type': 'text',
+                'text': '579',
+                'annotations': [],
+                'id': 'msg_033ba4b7d827c976006978a474036481a2bddedf312304869f',
+            }
+        ]
+    )
 
     # Wait for langsmith OTel thread
     wait_for_all_tracers()
 
     # All spans that have messages should have some 'prefix' of this list, maybe with extra keys in each dict.
-    message_events_minimum = [
+    message_events_minimum: list[dict[str, Any]] = [
         {
             'role': 'user',
-            'content': "what's 123 + 456?",
+            'content': "what's 123 + 456? think carefully and use the tool",
         },
         {
             'role': 'assistant',
+            'content': [
+                {'type': 'reasoning', 'content': '**Using tool to add numbers**'},
+                {'type': 'reasoning', 'content': '**Executing addition and finalizing result**'},
+            ],
             'tool_calls': [
                 {
-                    'id': 'call_My0goQVU64UVqhJrtCnLPmnQ',
+                    'id': 'call_XlgatTV1bBqLX1fOZTbu7cxO',
                     'function': {'arguments': {'a': 123, 'b': 456}, 'name': 'add'},
                     'type': 'function',
                 }
@@ -75,11 +85,18 @@ def test_instrument_langchain(exporter: TestExporter):
             'role': 'tool',
             'content': '579.0',
             'name': 'add',
-            'id': 'call_My0goQVU64UVqhJrtCnLPmnQ',
+            'id': 'call_XlgatTV1bBqLX1fOZTbu7cxO',
         },
         {
             'role': 'assistant',
-            'content': '123 + 456 equals 579.',
+            'content': [
+                {
+                    'type': 'text',
+                    'text': '579',
+                    'annotations': [],
+                    'id': 'msg_033ba4b7d827c976006978a474036481a2bddedf312304869f',
+                }
+            ],
         },
     ]
 
@@ -92,8 +109,8 @@ def test_instrument_langchain(exporter: TestExporter):
 
         if span['name'] == 'ChatOpenAI':
             assert span['attributes']['gen_ai.usage.input_tokens'] > 0
-            assert span['attributes']['gen_ai.request.model'] == snapshot('gpt-4o-2024-08-06')
-            assert span['attributes']['gen_ai.response.model'] == snapshot('gpt-4o-2024-08-06')
+            assert span['attributes']['gen_ai.request.model'] == snapshot('gpt-5')
+            assert span['attributes']['gen_ai.response.model'] == snapshot('gpt-5')
             assert span['attributes']['gen_ai.system'] == 'openai'
         else:
             assert 'gen_ai.usage.input_tokens' not in span['attributes']
@@ -121,32 +138,40 @@ def test_instrument_langchain(exporter: TestExporter):
     [span] = [s for s in spans if s['name'] == 'ChatOpenAI' and len(s['attributes']['all_messages_events']) == 4]
     assert span['attributes']['all_messages_events'] == snapshot(
         [
-            {'content': "what's 123 + 456?", 'role': 'user'},
+            {'content': "what's 123 + 456? think carefully and use the tool", 'role': 'user'},
             {
                 'role': 'assistant',
-                'content': '',
+                'content': [
+                    {'type': 'reasoning', 'content': '**Using tool to add numbers**'},
+                    {'type': 'reasoning', 'content': '**Executing addition and finalizing result**'},
+                ],
                 'tool_calls': [
                     {
-                        'id': 'call_My0goQVU64UVqhJrtCnLPmnQ',
+                        'id': 'call_XlgatTV1bBqLX1fOZTbu7cxO',
                         'function': {'arguments': {'a': 123, 'b': 456}, 'name': 'add'},
                         'type': 'function',
                     }
                 ],
                 'invalid_tool_calls': [],
-                'refusal': None,
             },
             {
                 'role': 'tool',
                 'content': '579.0',
                 'name': 'add',
-                'id': 'call_My0goQVU64UVqhJrtCnLPmnQ',
+                'id': 'call_XlgatTV1bBqLX1fOZTbu7cxO',
                 'status': 'success',
             },
             {
                 'role': 'assistant',
-                'content': '123 + 456 equals 579.',
+                'content': [
+                    {
+                        'type': 'text',
+                        'text': '579',
+                        'annotations': [],
+                        'id': 'msg_033ba4b7d827c976006978a474036481a2bddedf312304869f',
+                    }
+                ],
                 'invalid_tool_calls': [],
-                'refusal': None,
             },
         ]
     )

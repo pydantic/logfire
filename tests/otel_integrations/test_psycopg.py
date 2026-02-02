@@ -12,6 +12,15 @@ from logfire import instrument_psycopg
 from logfire._internal.integrations.psycopg import check_version
 
 
+def test_commenter_options_type() -> None:
+    """Test that CommenterOptions TypedDict is importable for coverage."""
+    from logfire.integrations.psycopg import CommenterOptions
+
+    # Verify it's a TypedDict by checking its keys
+    assert 'db_driver' in CommenterOptions.__annotations__
+    assert 'opentelemetry_values' in CommenterOptions.__annotations__
+
+
 def test_check_version():
     assert check_version('psycopg2-binary', '2.7.3.1', Psycopg2Instrumentor()) or check_version(
         'psycopg2', '2.7.3.1', Psycopg2Instrumentor()

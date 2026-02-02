@@ -41,7 +41,7 @@ from opentelemetry.context import Context as Context
 from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
 from opentelemetry.metrics import CallbackT as CallbackT, Counter, Histogram, UpDownCounter, _Gauge as Gauge
 from opentelemetry.sdk.trace import ReadableSpan, Span
-from opentelemetry.trace import SpanContext
+from opentelemetry.trace import SpanContext, SpanKind
 from opentelemetry.util import types as otel_types
 from pymongo.monitoring import CommandFailedEvent as CommandFailedEvent, CommandStartedEvent as CommandStartedEvent, CommandSucceededEvent as CommandSucceededEvent
 from sqlalchemy import Engine
@@ -218,7 +218,7 @@ class Logfire:
             _exc_info: Set to an exception or a tuple as returned by [`sys.exc_info()`][sys.exc_info]
                 to record a traceback with the log message.
         """
-    def span(self, msg_template: str, /, *, _tags: Sequence[str] | None = None, _span_name: str | None = None, _level: LevelName | None = None, _links: Sequence[tuple[SpanContext, otel_types.Attributes]] = (), **attributes: Any) -> LogfireSpan:
+    def span(self, msg_template: str, /, *, _tags: Sequence[str] | None = None, _span_name: str | None = None, _level: LevelName | None = None, _links: Sequence[tuple[SpanContext, otel_types.Attributes]] = (), _span_kind: SpanKind = ..., **attributes: Any) -> LogfireSpan:
         """Context manager for creating a span.
 
         ```py
@@ -236,6 +236,10 @@ class Logfire:
             _tags: An optional sequence of tags to include in the span.
             _level: An optional log level name.
             _links: An optional sequence of links to other spans. Each link is a tuple of a span context and attributes.
+            _span_kind: The [OpenTelemetry span kind](https://opentelemetry.io/docs/concepts/signals/traces/#span-kind).
+                If not provided, defaults to `INTERNAL`.
+                Users don't typically need to set this.
+                Not related to the `kind` column of the `records` table in Logfire.
             attributes: The arguments to include in the span and format the message template with.
                 Attributes starting with an underscore are not allowed.
         """
@@ -506,9 +510,10 @@ class Logfire:
 
         Example usage:
 
-        ```python
-        import logfire
+        ```python skip-run="true" skip-reason="external-connection"
         import openai
+
+        import logfire
 
         client = openai.OpenAI()
         logfire.configure()
@@ -548,7 +553,7 @@ class Logfire:
         see [`instrument_openai()`][logfire.Logfire.instrument_openai].
         """
     def instrument_anthropic(self, anthropic_client: anthropic.Anthropic | anthropic.AsyncAnthropic | anthropic.AnthropicBedrock | anthropic.AsyncAnthropicBedrock | type[anthropic.Anthropic] | type[anthropic.AsyncAnthropic] | type[anthropic.AnthropicBedrock] | type[anthropic.AsyncAnthropicBedrock] | None = None, *, suppress_other_instrumentation: bool = True) -> AbstractContextManager[None]:
-        """Instrument an Anthropic client so that spans are automatically created for each request.
+        '''Instrument an Anthropic client so that spans are automatically created for each request.
 
         The following methods are instrumented for both the sync and async clients:
 
@@ -560,9 +565,10 @@ class Logfire:
 
         Example usage:
 
-        ```python
-        import logfire
+        ```python skip-run="true" skip-reason="external-connection"
         import anthropic
+
+        import logfire
 
         client = anthropic.Anthropic()
 
@@ -570,13 +576,13 @@ class Logfire:
         logfire.instrument_anthropic(client)
 
         response = client.messages.create(
-            model='claude-3-haiku-20240307',
-            system='You are a helpful assistant.',
+            model=\'claude-3-haiku-20240307\',
+            system=\'You are a helpful assistant.\',
             messages=[
-                {'role': 'user', 'content': 'What is four plus five?'},
+                {\'role\': \'user\', \'content\': \'What is four plus five?\'},
             ],
         )
-        print('answer:', response.content[0].text)
+        print(\'answer:\', response.content[0].text)
         ```
 
         Args:
@@ -593,7 +599,7 @@ class Logfire:
         Returns:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
-        """
+        '''
     def instrument_google_genai(self, **kwargs: Any):
         """Instrument the [Google Gen AI SDK (`google-genai`)](https://googleapis.github.io/python-genai/).
 
@@ -614,6 +620,13 @@ class Logfire:
 
         Uses the `LiteLLMInstrumentor().instrument()` method of the
         [`openinference-instrumentation-litellm`](https://pypi.org/project/openinference-instrumentation-litellm/)
+        package, to which it passes `**kwargs`.
+        """
+    def instrument_dspy(self, **kwargs: Any):
+        """Instrument [DSPy](https://dspy.ai/).
+
+        Uses the `DSPyInstrumentor().instrument()` method of the
+        [`openinference-instrumentation-dspy`](https://pypi.org/project/openinference-instrumentation-dspy/)
         package, to which it passes `**kwargs`.
         """
     def instrument_print(self) -> AbstractContextManager[None]:
@@ -775,7 +788,7 @@ class Logfire:
         Returns:
             The instrumented WSGI application.
         """
-    def instrument_aiohttp_client(self, *, capture_headers: bool = False, capture_response_body: bool = False, request_hook: AiohttpClientRequestHook | None = None, response_hook: AiohttpClientResponseHook | None = None, **kwargs: Any) -> None:
+    def instrument_aiohttp_client(self, *, capture_all: bool | None = None, capture_headers: bool = False, capture_request_body: bool = False, capture_response_body: bool = False, request_hook: AiohttpClientRequestHook | None = None, response_hook: AiohttpClientResponseHook | None = None, **kwargs: Any) -> None:
         """Instrument the `aiohttp` module so that spans are automatically created for each client request.
 
         Uses the
@@ -1001,9 +1014,10 @@ class Logfire:
         The counter metric is a cumulative metric that represents a single numerical value that only ever goes up.
 
         ```py
-        import logfire
         import psutil
         from opentelemetry.metrics import CallbackOptions, Observation
+
+        import logfire
 
         logfire.configure()
 
@@ -1043,8 +1057,9 @@ class Logfire:
         ```py
         import threading
 
-        import logfire
         from opentelemetry.metrics import CallbackOptions, Observation
+
+        import logfire
 
         logfire.configure()
 
@@ -1080,8 +1095,9 @@ class Logfire:
         down.
 
         ```py
-        import logfire
         from opentelemetry.metrics import CallbackOptions, Observation
+
+        import logfire
 
         logfire.configure()
 
@@ -1136,7 +1152,7 @@ class FastLogfireSpan:
     def __exit__(self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: Any) -> None: ...
 
 class LogfireSpan(ReadableSpan):
-    def __init__(self, span_name: str, otlp_attributes: dict[str, otel_types.AttributeValue], tracer: _ProxyTracer, json_schema_properties: JsonSchemaProperties, links: Sequence[tuple[SpanContext, otel_types.Attributes]]) -> None: ...
+    def __init__(self, span_name: str, otlp_attributes: dict[str, otel_types.AttributeValue], tracer: _ProxyTracer, json_schema_properties: JsonSchemaProperties, links: Sequence[tuple[SpanContext, otel_types.Attributes]], span_kind: SpanKind = ...) -> None: ...
     def __getattr__(self, name: str) -> Any: ...
     def __enter__(self) -> LogfireSpan: ...
     @handle_internal_errors

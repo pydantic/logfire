@@ -10,8 +10,9 @@ function call. Each of these should be called exactly once after [`logfire.confi
 For example, to instrument FastAPI and HTTPX, you would do:
 
 ```python
-import logfire
 from fastapi import FastAPI
+
+import logfire
 
 app = FastAPI()
 
@@ -34,6 +35,7 @@ If a package you are using is not listed in this documentation, please let us kn
 - _HTTP Clients_: HTTPX, Requests, AIOHTTP
 - _Task Queues and Schedulers_: Airflow, FastStream, Celery
 - _Logging Libraries_: Standard Library Logging, Loguru, Structlog
+- _Testing_: Pytest
 - and more, such as Stripe, AWS Lambda, and system metrics.
 
 The below table lists these integrations and any corresponding `logfire.instrument_<package>()` calls:
@@ -64,6 +66,7 @@ The below table lists these integrations and any corresponding `logfire.instrume
 | [MySQL](databases/mysql.md)               | Database                | [`logfire.instrument_mysql()`][logfire.Logfire.instrument_mysql]                                                                                                       |
 | [OpenAI](llms/openai.md)                  | AI                      | [`logfire.instrument_openai()`][logfire.Logfire.instrument_openai]                                                                                                     |
 | [Psycopg](databases/psycopg.md)           | Database                | [`logfire.instrument_psycopg()`][logfire.Logfire.instrument_psycopg]                                                                                                   |
+| [Pytest](pytest.md)                       | Testing                 | N/A (built-in plugin, use `pytest --logfire`)                                                                                                                          |
 | [PyMongo](databases/pymongo.md)           | Database                | [`logfire.instrument_pymongo()`][logfire.Logfire.instrument_pymongo]                                                                                                   |
 | [Redis](databases/redis.md)               | Database                | [`logfire.instrument_redis()`][logfire.Logfire.instrument_redis]                                                                                                       |
 | [Requests](http-clients/requests.md)      | HTTP Client             | [`logfire.instrument_requests()`][logfire.Logfire.instrument_requests]                                                                                                 |
@@ -108,7 +111,7 @@ Here's how you can use `logfire-api`:
 ```python
 import logfire_api as logfire
 
-logfire.info("Hello, Logfire!")
+logfire.info('Hello, Logfire!')
 ```
 
 !!! note

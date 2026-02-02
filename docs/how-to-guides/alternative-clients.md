@@ -34,7 +34,7 @@ export OTEL_EXPORTER_OTLP_HEADERS='Authorization=your-write-token'
 
 Then run this script with `python`:
 
-```python
+```py skip-run="true" skip-reason="external-connection"
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
@@ -52,7 +52,7 @@ Then navigate to the Live view for your project in your browser. You should see 
 
 To configure the exporter without environment variables:
 
-```python
+```python skip="true" skip-reason="incomplete"
 exporter = OTLPSpanExporter(
     endpoint='https://logfire-us.pydantic.dev/v1/traces',
     headers={'Authorization': 'your-write-token'},

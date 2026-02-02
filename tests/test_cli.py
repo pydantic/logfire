@@ -1577,7 +1577,7 @@ def test_instrument_packages_openai() -> None:
 
     import openai
 
-    client = openai.Client()
+    client = openai.Client(api_key='test-key')
     assert getattr(client, '_is_instrumented_by_logfire', False) is True
 
 
@@ -2009,3 +2009,8 @@ def test_base_url_and_logfire_url(
         DeprecationWarning, match='The `--logfire-url` argument is deprecated. Use `--base-url` instead.'
     ):
         main(['--logfire-url', 'https://logfire-us.pydantic.dev', 'whoami'])
+
+
+def test_main_module() -> None:
+    """Test that logfire.__main__ is importable for coverage."""
+    assert subprocess.run([sys.executable, '-m', 'logfire', '--help'], check=True).returncode == 0

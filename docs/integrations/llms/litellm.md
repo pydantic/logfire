@@ -15,7 +15,7 @@ Install `logfire` with the `litellm` extra:
 
 ## Usage
 
-```python hl_lines="6"
+```python hl_lines="5-6" skip-run="true" skip-reason="external-connection"
 import litellm
 
 import logfire
@@ -24,11 +24,11 @@ logfire.configure()
 logfire.instrument_litellm()
 
 response = litellm.completion(
-    model='gpt-4o-mini',
+    model='gpt-5-mini',
     messages=[{'role': 'user', 'content': 'Hi'}],
 )
 print(response.choices[0].message.content)
-# > Hello! How can I assist you today?
+#> Hello! How can I assist you today?
 ```
 
 !!! warning

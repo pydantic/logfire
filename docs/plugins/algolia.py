@@ -92,7 +92,7 @@ def on_page_content(html: str, page: Page, config: Config, files: Files) -> str:
         section_plain_text = section_soup.get_text(' ', strip=True)
 
         # Create anchor URL
-        anchor_url = f'{page.abs_url}#{heading_id}' if heading_id else page.abs_url or ''
+        anchor_url = f'{page.canonical_url}#{heading_id}' if heading_id else page.abs_url or ''
 
         record_title = title
 

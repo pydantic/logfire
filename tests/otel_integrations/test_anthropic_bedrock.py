@@ -4,7 +4,7 @@ import httpx
 import pytest
 from anthropic import Anthropic, AnthropicBedrock, AsyncAnthropic, AsyncAnthropicBedrock
 from anthropic.types import Message, TextBlock, Usage
-from dirty_equals import IsJson, IsPartialDict
+from dirty_equals import IsPartialDict
 from httpx._transports.mock import MockTransport
 from inline_snapshot import snapshot
 
@@ -33,6 +33,7 @@ def request_handler(request: httpx.Request) -> httpx.Response:
             model=model_id,
             role='assistant',
             type='message',
+            stop_reason='end_turn',
             usage=Usage(input_tokens=2, output_tokens=3),  # Match the snapshot values
         ).model_dump(mode='json'),
     )
@@ -69,7 +70,7 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
     assert response.content[0].text == 'Nine'
 
     # Verify exported spans
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'Message with {request_data[model]!r}',
@@ -81,7 +82,7 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                     'code.filepath': 'test_anthropic_bedrock.py',
                     'code.function': 'test_sync_messages',
                     'code.lineno': 123,
-                    'request_data': IsJson(
+                    'request_data': (
                         {
                             'max_tokens': 1000,
                             'system': 'You are a helpful assistant.',
@@ -89,12 +90,16 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                             'model': model_id,
                         }
                     ),
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': model_id,
+                    'gen_ai.request.max_tokens': 1000,
                     'async': False,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
                     'logfire.msg': f"Message with '{model_id}'",
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
-                    'response_data': IsJson(
+                    'response_data': (
                         snapshot(
                             {
                                 'message': {
@@ -115,11 +120,20 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                             }
                         )
                     ),
-                    'logfire.json_schema': IsJson(
+                    'gen_ai.response.model': model_id,
+                    'gen_ai.response.id': 'test_id',
+                    'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.usage.output_tokens': 3,
+                    'gen_ai.response.finish_reasons': ['end_turn'],
+                    'logfire.json_schema': (
                         {
                             'type': 'object',
                             'properties': {
                                 'request_data': {'type': 'object'},
+                                'gen_ai.provider.name': {},
+                                'gen_ai.operation.name': {},
+                                'gen_ai.request.model': {},
+                                'gen_ai.request.max_tokens': {},
                                 'async': {},
                                 'response_data': {
                                     'type': 'object',
@@ -131,6 +145,11 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                                         },
                                     },
                                 },
+                                'gen_ai.response.model': {},
+                                'gen_ai.response.id': {},
+                                'gen_ai.usage.input_tokens': {},
+                                'gen_ai.usage.output_tokens': {},
+                                'gen_ai.response.finish_reasons': {'type': 'array'},
                             },
                         }
                     ),

@@ -10,6 +10,7 @@ from mkdocs.structure.pages import Page
 
 from logfire._internal import config_params
 
+BLANK_LINES_PATTERN = re.compile(r'\n\s*\n')
 LOGFIRE_DIR = Path(__file__).parent.parent.parent
 
 
@@ -17,12 +18,54 @@ def on_page_markdown(markdown: str, page: Page, config: Config, files: Files) ->
     """
     Called on each file after it is read and before it is converted to HTML.
     """
+    markdown = strip_custom_code_block_attributes(markdown)
     markdown = build_environment_variables_table(markdown, page)
     markdown = logfire_print_help(markdown, page)
     markdown = install_logfire(markdown, page)
     markdown = integrations_metadata(markdown, page)
     markdown = footer_web_frameworks(markdown, page)
     return markdown
+
+
+def strip_custom_code_block_attributes(markdown: str) -> str:
+    """Strip custom attributes like skip-run and skip-reason from code blocks.
+
+    These attributes are used by pytest-examples but can break Material for MkDocs
+    rendering. We strip them here so the code blocks render correctly, but they're
+    still available in the original markdown for pytest-examples to read.
+    """
+
+    # Pattern to match code fence opening lines that contain skip attributes
+    # Matches: ```lang ... skip-run="..." ... ``` or ```lang skip="..." ...
+    def process_code_fence(match: re.Match[str]) -> str:
+        fence_line = match.group(0)
+        # Remove skip-run, skip, and skip-reason attributes (with or without quotes)
+        fence_line = re.sub(r'\s+skip-run="[^"]*"', '', fence_line)
+        fence_line = re.sub(r'\s+skip-run=[^\s\n]+', '', fence_line)
+        fence_line = re.sub(r'\s+skip="[^"]*"', '', fence_line)
+        fence_line = re.sub(r'\s+skip=[^\s\n]+', '', fence_line)
+        fence_line = re.sub(r'\s+skip-reason="[^"]*"', '', fence_line)
+        fence_line = re.sub(r'\s+skip-reason=[^\s\n]+', '', fence_line)
+        # Clean up any double spaces that might result
+        fence_line = re.sub(r'\s+', ' ', fence_line)
+        fence_line = fence_line.rstrip() + '\n'
+        return fence_line
+
+    # Match code fence opening lines that contain skip attributes
+    # This pattern matches lines like: ```py ... skip-run="..." ...\n
+    # The \s* allows for optional whitespace after the language
+    pattern = r'```[a-z]+\s*[^\n]*skip(?:-run|-reason)?[^\n]*\n'
+    markdown = re.sub(pattern, process_code_fence, markdown)
+
+    return markdown
+
+
+def on_post_page(output: str, page: Page, config: Config) -> str:
+    """Called after the page has been rendered to HTML.
+
+    Removes blank lines from the final HTML output.
+    """
+    return BLANK_LINES_PATTERN.sub('\n', output)
 
 
 def on_files(files: Files, config: Config) -> None:

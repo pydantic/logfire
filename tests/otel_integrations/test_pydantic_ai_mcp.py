@@ -159,10 +159,24 @@ Because it found something more "sole-ful!"\
                 'end_time': 9000000000,
                 'attributes': {
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.provider.name': 'openai',
                     'gen_ai.system': 'openai',
                     'gen_ai.request.model': 'gpt-4o',
                     'server.address': 'api.openai.com',
                     'model_request_parameters': IsPartialDict(),
+                    'gen_ai.tool.definitions': [
+                        {
+                            'type': 'function',
+                            'name': 'joker',
+                            'description': 'Poem generator',
+                            'parameters': {
+                                'properties': {'theme': {'type': 'string'}},
+                                'required': ['theme'],
+                                'type': 'object',
+                                'additionalProperties': False,
+                            },
+                        }
+                    ],
                     'logfire.span_type': 'span',
                     'logfire.msg': 'chat gpt-4o',
                     'gen_ai.input.messages': [
@@ -198,6 +212,7 @@ Because it found something more "sole-ful!"\
                 'end_time': 19000000000,
                 'attributes': {
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.provider.name': 'openai',
                     'gen_ai.system': 'openai',
                     'gen_ai.request.model': 'gpt-4o',
                     'server.address': 'api.openai.com',
@@ -360,6 +375,7 @@ Because it found something more "sole-ful!"\
                 'end_time': 22000000000,
                 'attributes': {
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.provider.name': 'MCP',
                     'gen_ai.system': 'MCP',
                     'gen_ai.request.model': 'mcp-sampling',
                     'model_request_parameters': IsPartialDict(),
@@ -548,10 +564,24 @@ Because it found something more "sole-ful!"\
                 'end_time': 29000000000,
                 'attributes': {
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.provider.name': 'openai',
                     'gen_ai.system': 'openai',
                     'gen_ai.request.model': 'gpt-4o',
                     'server.address': 'api.openai.com',
                     'model_request_parameters': IsPartialDict(),
+                    'gen_ai.tool.definitions': [
+                        {
+                            'type': 'function',
+                            'name': 'joker',
+                            'description': 'Poem generator',
+                            'parameters': {
+                                'properties': {'theme': {'type': 'string'}},
+                                'required': ['theme'],
+                                'type': 'object',
+                                'additionalProperties': False,
+                            },
+                        }
+                    ],
                     'logfire.span_type': 'span',
                     'logfire.msg': 'chat gpt-4o',
                     'gen_ai.input.messages': [

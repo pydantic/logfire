@@ -35,7 +35,6 @@ This page is a quick walk-through for setting up a Python app:
 2. Follow the prompts to create your account
 3. Once logged in, you'll see the **Welcome to Logfire** prompt. Click **Let's go!** to go to the **starter-project** Setup page.
 
-![Welcome to Logfire](images/logfire-screenshot-welcome-to-logfire.png)
 
 4. You will find how to send data to your **starter-project** there. Also, there are some code snippets to help you get started.
 
@@ -152,6 +151,7 @@ Ready to keep going?
 
 - Read about [Concepts](concepts.md)
 - Complete the [Onboarding Checklist](guides/onboarding-checklist/index.md)
+- Building AI applications? See [AI & LLM Observability](ai-observability.md)
 
 More topics to explore...
 
