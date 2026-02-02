@@ -251,15 +251,13 @@ def _extract_set_of_str(value: str | set[str]) -> set[str]:
     return set(map(str.strip, value.split(','))) if isinstance(value, str) else value
 
 
-def extract_list_of_str(value: str | Sequence[str] | None) -> list[str] | None:
+def extract_list_of_str(value: str | Sequence[str]) -> list[str] | None:
     """Extract a list of strings from a string, sequence, or None.
 
     If value is a comma-separated string, split it into a list of non-empty trimmed strings.
     If value is a sequence, convert to list.
     If value is None, return None.
     """
-    if value is None:
-        return None
     if isinstance(value, str):
         tokens = [t.strip() for t in value.split(',') if t.strip()]
         return tokens if tokens else None
@@ -273,8 +271,12 @@ def normalize_token(value: str | Sequence[str] | None) -> str | list[str] | None
     If there are multiple tokens, return them as a list.
     If there are no tokens, return None.
     """
+    if not value:
+        # This covers `''`, `None`, and empty sequences
+        return None
+    # Now we must have a non-empty string or sequence
     tokens = extract_list_of_str(value)
-    if tokens is None:
+    if tokens is None or not tokens:
         return None
     if len(tokens) == 1:
         return tokens[0]

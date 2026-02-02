@@ -2422,9 +2422,6 @@ def test_multiple_tokens_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def testextract_list_of_str():
     """Test extract_list_of_str function for various inputs."""
-    # None input
-    assert extract_list_of_str(None) is None
-
     # Empty sequences
     assert extract_list_of_str([]) is None
     assert extract_list_of_str(()) is None
