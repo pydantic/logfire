@@ -626,12 +626,7 @@ class _LogfireConfigData:
 
         self.send_to_logfire = param_manager.load_param('send_to_logfire', send_to_logfire)
         # Normalize token: single token as str, multiple tokens as list[str], no tokens as None
-        if token is None or token == '':
-            # Load from env var / config file, then normalize
-            self.token = normalize_token(param_manager.load_param('token', None))
-        else:
-            # Normalize the provided token(s)
-            self.token = normalize_token(token)
+        self.token  = normalize_token(token) or normalize_token(param_manager.load_param('token', None))
         self.service_name = param_manager.load_param('service_name', service_name)
         self.service_version = param_manager.load_param('service_version', service_version)
         self.environment = param_manager.load_param('environment', environment)
