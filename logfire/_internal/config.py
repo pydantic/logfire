@@ -69,7 +69,7 @@ from logfire.version import VERSION
 from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
 from ..types import ExceptionCallback
 from .client import InvalidProjectName, LogfireClient, ProjectAlreadyExists
-from .config_params import ParamManager, PydanticPluginRecordValues
+from .config_params import ParamManager, PydanticPluginRecordValues, normalize_token
 from .constants import (
     LEVEL_NUMBERS,
     RESOURCE_ATTRIBUTES_CODE_ROOT_PATH,
@@ -552,8 +552,8 @@ class _LogfireConfigData:
     send_to_logfire: bool | Literal['if-token-present']
     """Whether to send logs and spans to Logfire."""
 
-    token: list[str] | None
-    """The Logfire API token(s) to use. Multiple tokens enable sending to multiple projects."""
+    token: str | list[str] | None
+    """The Logfire write token(s) to use. Multiple tokens enable sending to multiple projects."""
 
     service_name: str
     """The name of this service."""
@@ -625,18 +625,13 @@ class _LogfireConfigData:
         self.param_manager = param_manager = ParamManager.create(config_dir)
 
         self.send_to_logfire = param_manager.load_param('send_to_logfire', send_to_logfire)
-        # Normalize token to a list of strings
-        raw_token = token
-        if raw_token is None or raw_token == '':
-            # Load from env var / config file
-            self.token = param_manager.load_param('token', None)
-        elif isinstance(raw_token, str):
-            # Single token string passed directly
-            self.token = [raw_token]
+        # Normalize token: single token as str, multiple tokens as list[str], no tokens as None
+        if token is None or token == '':
+            # Load from env var / config file, then normalize
+            self.token = normalize_token(param_manager.load_param('token', None))
         else:
-            # List of tokens passed directly (filter out empty strings)
-            filtered = [t for t in raw_token if t]
-            self.token = filtered if filtered else None
+            # Normalize the provided token(s)
+            self.token = normalize_token(token)
         self.service_name = param_manager.load_param('service_name', service_name)
         self.service_version = param_manager.load_param('service_version', service_version)
         self.environment = param_manager.load_param('environment', environment)
@@ -978,46 +973,38 @@ class LogfireConfig(_LogfireConfigData):
                     # Get token and base_url from credentials if not already set.
                     # This means that e.g. a token in an env var takes priority over a token in a creds file.
                     if not self.token:
-                        self.token = [credentials.token]
+                        self.token = credentials.token
                     self.advanced.base_url = self.advanced.base_url or credentials.logfire_api_url
 
                 if self.token:
-                    if credentials and self.token[0] == credentials.token and show_project_link:
-                        # The creds file contains the project link, so we can display it immediately.
-                        # We do this if the token comes from the creds file or if it was explicitly configured
-                        # and happens to match the creds file anyway.
+                    # Convert to list for iteration (handles both str and list[str])
+                    token_list = [self.token] if isinstance(self.token, str) else self.token
+
+                    # Track tokens we've already printed info for (to avoid duplicates)
+                    printed_tokens: set[str] = set()
+
+                    # If we have credentials, we can print the project link immediately
+                    if credentials and show_project_link and credentials.token in token_list:
                         credentials.print_token_summary()
-                        # Don't print it again in check_token below.
-                        show_project_link = False
+                        printed_tokens.add(credentials.token)
 
-                    # Regardless of where the token comes from, check that it's valid.
-                    # Even if it comes from a creds file, it could be revoked or expired.
-                    # If it's valid and we haven't already printed a project link, print it here.
-                    # This may happen some time later in a background thread which can be annoying,
-                    # hence we try to print it eagerly above.
-                    # But we only have the link if we have a creds file, otherwise we only know the token at this point.
-
-                    # Capture for the closure below
-                    tokens = self.token
-
-                    def check_token():
+                    # Validate each token and print project info (skipping already printed ones)
+                    def check_tokens():
                         with suppress_instrumentation():
-                            for i, token in enumerate(tokens):
+                            for token in token_list:
                                 validated_credentials = self._initialize_credentials_from_token(token)
-                                if validated_credentials is not None:
-                                    # show_project_link is False if the first token was already printed early
-                                    if i == 0 and not show_project_link:
-                                        continue
+                                if validated_credentials is not None and show_project_link and token not in printed_tokens:
                                     validated_credentials.print_token_summary()
+                                    printed_tokens.add(token)
 
                     if emscripten:  # pragma: no cover
-                        check_token()
+                        check_tokens()
                     else:
-                        thread = Thread(target=check_token, name='check_logfire_token')
+                        thread = Thread(target=check_tokens, name='check_logfire_token')
                         thread.start()
 
                     # Create exporters for each token
-                    for token in self.token:
+                    for token in token_list:
                         base_url = self.advanced.generate_base_url(token)
                         headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': token}
                         session = OTLPExporterHttpSession()

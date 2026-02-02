@@ -266,6 +266,21 @@ def extract_list_of_str(value: str | Sequence[str] | None) -> list[str] | None:
     return list(value) if value else None
 
 
+def normalize_token(value: str | Sequence[str] | None) -> str | list[str] | None:
+    """Normalize a token value to str (single token), list[str] (multiple tokens), or None.
+
+    If there's exactly one token, return it as a string.
+    If there are multiple tokens, return them as a list.
+    If there are no tokens, return None.
+    """
+    tokens = extract_list_of_str(value)
+    if tokens is None:
+        return None
+    if len(tokens) == 1:
+        return tokens[0]
+    return tokens
+
+
 def _load_config_from_file(config_dir: Path) -> dict[str, Any]:
     config_file = config_dir / 'pyproject.toml'
     if not config_file.exists():

@@ -1443,6 +1443,7 @@ def test_send_to_logfire_if_token_present_in_logfire_dir(tmp_path: Path, capsys:
             json={'project_name': 'myproject', 'project_url': 'https://logfire-us.pydantic.dev'},
         )
         configure(send_to_logfire='if-token-present', data_dir=tmp_path)
+        # Project link is printed immediately from credentials file (no need to wait for background thread)
         assert capsys.readouterr().err == 'Logfire project URL: https://logfire-us.pydantic.dev\n'
         wait_for_check_token_thread()
         assert len(request_mocker.request_history) == 1
@@ -1505,7 +1506,7 @@ def test_load_creds_file_with_token_different_from_env(tmp_path: Path, capsys: p
         )
         logfire.configure(data_dir=tmp_path, send_to_logfire=True)
         # not 'foobar' from the creds file. The token in the env var takes precedence.
-        assert logfire.DEFAULT_LOGFIRE_INSTANCE.config.token == ['fake_token']
+        assert logfire.DEFAULT_LOGFIRE_INSTANCE.config.token == 'fake_token'
 
         wait_for_check_token_thread()
         assert len(request_mocker.request_history) == 1
