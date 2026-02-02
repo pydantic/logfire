@@ -55,7 +55,7 @@ from logfire._internal.config import (
     get_base_url_from_token,
     sanitize_project_name,
 )
-from logfire._internal.config_params import extract_list_of_str
+from logfire._internal.config_params import extract_list_of_str, normalize_token
 from logfire._internal.exporters.console import ConsoleLogExporter, ShowParentsConsoleSpanExporter
 from logfire._internal.exporters.dynamic_batch import DynamicBatchSpanProcessor
 from logfire._internal.exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper, MainLogProcessorWrapper
@@ -2448,3 +2448,48 @@ def testextract_list_of_str():
     # List with empty strings (note: empty strings are NOT filtered by extract_list_of_str)
     # The filtering happens in LogfireConfig._load_configuration
     assert extract_list_of_str(['token1', '', 'token2']) == ['token1', '', 'token2']
+
+
+def test_normalize_token():
+    """Test normalize_token function for various inputs."""
+    # None returns None
+    assert normalize_token(None) is None
+
+    # Empty string returns None
+    assert normalize_token('') is None
+
+    # Empty sequences return None
+    assert normalize_token([]) is None
+    assert normalize_token(()) is None
+
+    # String with only commas returns None
+    assert normalize_token(',,,,') is None
+    assert normalize_token(',, ,') is None
+
+    # Single token string returns the token as a string (not a list)
+    assert normalize_token('token1') == 'token1'
+
+    # Single token with surrounding whitespace
+    assert normalize_token('  token1  ') == 'token1'
+
+    # Multiple tokens returns a list
+    assert normalize_token('token1,token2') == ['token1', 'token2']
+    assert normalize_token('token1, token2, token3') == ['token1', 'token2', 'token3']
+
+    # Tokens with empty entries filtered out
+    assert normalize_token('token1,,token2') == ['token1', 'token2']
+    assert normalize_token(',token1,') == 'token1'
+    assert normalize_token(',,token1,,token2,,') == ['token1', 'token2']
+
+    # Whitespace around tokens is trimmed
+    assert normalize_token(' token1 , token2 ') == ['token1', 'token2']
+
+    # Single-element list returns string
+    assert normalize_token(['token1']) == 'token1'
+
+    # Multi-element list returns list
+    assert normalize_token(['token1', 'token2']) == ['token1', 'token2']
+
+    # Tuple input
+    assert normalize_token(('token1',)) == 'token1'
+    assert normalize_token(('token1', 'token2')) == ['token1', 'token2']
