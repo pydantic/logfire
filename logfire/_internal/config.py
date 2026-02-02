@@ -69,7 +69,7 @@ from logfire.version import VERSION
 from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
 from ..types import ExceptionCallback
 from .client import InvalidProjectName, LogfireClient, ProjectAlreadyExists
-from .config_params import ParamManager, PydanticPluginRecordValues
+from .config_params import ParamManager, PydanticPluginRecordValues, extract_list_of_str
 from .constants import (
     LEVEL_NUMBERS,
     RESOURCE_ATTRIBUTES_CODE_ROOT_PATH,
@@ -626,16 +626,14 @@ class _LogfireConfigData:
 
         self.send_to_logfire = param_manager.load_param('send_to_logfire', send_to_logfire)
         # Normalize token to a list of strings
-        raw_token = token
-        if raw_token is None or raw_token == '':
-            # Load from env var / config file
+        # Use extract_list_of_str to handle empty strings and empty lists consistently
+        normalized_token = extract_list_of_str(token)
+        if normalized_token is None:
+            # Load from env var / config file when token is None, empty string, or empty list
             self.token = param_manager.load_param('token', None)
-        elif isinstance(raw_token, str):
-            # Single token string passed directly
-            self.token = [raw_token]
         else:
-            # List of tokens passed directly (filter out empty strings)
-            filtered = [t for t in raw_token if t]
+            # Filter out empty strings from the normalized list
+            filtered = [t for t in normalized_token if t]
             self.token = filtered if filtered else None
         self.service_name = param_manager.load_param('service_name', service_name)
         self.service_version = param_manager.load_param('service_version', service_version)

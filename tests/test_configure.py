@@ -2419,7 +2419,7 @@ def test_multiple_tokens_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
         del os.environ['LOGFIRE_TOKEN']
 
 
-def testextract_list_of_str():
+def test_extract_list_of_str():
     """Test extract_list_of_str function for various inputs."""
     # None input
     assert extract_list_of_str(None) is None
@@ -2450,3 +2450,45 @@ def testextract_list_of_str():
     # List with empty strings (note: empty strings are NOT filtered by extract_list_of_str)
     # The filtering happens in LogfireConfig._load_configuration
     assert extract_list_of_str(['token1', '', 'token2']) == ['token1', '', 'token2']
+
+
+def test_token_empty_list_loads_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that empty list behaves like empty string and loads from env var."""
+    monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
+
+    # Set env var
+    os.environ['LOGFIRE_TOKEN'] = 'pylf_v1_us_from_env'
+    try:
+        # Pass empty list - should load from env var
+        configure(
+            token=[],
+            send_to_logfire=True,
+            console=False,
+        )
+        wait_for_check_token_thread()
+
+        # Should load token from env var
+        assert GLOBAL_CONFIG.token == ['pylf_v1_us_from_env']
+    finally:
+        del os.environ['LOGFIRE_TOKEN']
+
+
+def test_token_empty_string_loads_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that empty string loads from env var."""
+    monkeypatch.setattr(LogfireConfig, '_initialize_credentials_from_token', lambda *args: None)  # type: ignore
+
+    # Set env var
+    os.environ['LOGFIRE_TOKEN'] = 'pylf_v1_us_from_env'
+    try:
+        # Pass empty string - should load from env var
+        configure(
+            token='',
+            send_to_logfire=True,
+            console=False,
+        )
+        wait_for_check_token_thread()
+
+        # Should load token from env var
+        assert GLOBAL_CONFIG.token == ['pylf_v1_us_from_env']
+    finally:
+        del os.environ['LOGFIRE_TOKEN']
