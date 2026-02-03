@@ -2445,9 +2445,9 @@ def testextract_list_of_str():
     # Non-empty list
     assert extract_list_of_str(['token1', 'token2']) == ['token1', 'token2']
 
-    # List with empty strings (note: empty strings are NOT filtered by extract_list_of_str)
+    # List with empty strings
     # The filtering happens in LogfireConfig._load_configuration
-    assert extract_list_of_str(['token1', '', 'token2']) == ['token1', '', 'token2']
+    assert extract_list_of_str(['token1', '', 'token2']) == ['token1', 'token2']
 
 
 def test_normalize_token():

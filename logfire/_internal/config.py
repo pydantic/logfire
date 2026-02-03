@@ -967,8 +967,7 @@ class LogfireConfig(_LogfireConfigData):
                 if credentials is not None:
                     # Get token and base_url from credentials if not already set.
                     # This means that e.g. a token in an env var takes priority over a token in a creds file.
-                    if not self.token:
-                        self.token = credentials.token
+                    self.token = self.token or credentials.token
                     self.advanced.base_url = self.advanced.base_url or credentials.logfire_api_url
 
                 if self.token:

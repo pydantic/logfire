@@ -261,7 +261,7 @@ def extract_list_of_str(value: str | Sequence[str]) -> list[str] | None:
     if isinstance(value, str):
         tokens = [t.strip() for t in value.split(',') if t.strip()]
         return tokens if tokens else None
-    return list(value) if value else None
+    return [v for v in value if v] if value else None
 
 
 def normalize_token(value: str | Sequence[str] | None) -> str | list[str] | None:
