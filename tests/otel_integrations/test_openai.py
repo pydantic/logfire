@@ -3188,6 +3188,12 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'gen_ai.request.model': 'gpt-4.1',
                     'gen_ai.response.model': 'gpt-4.1-2025-04-14',
                     'events': [
+                        {'event.name': 'gen_ai.system.message', 'content': 'Be nice', 'role': 'system'},
+                        {
+                            'event.name': 'gen_ai.user.message',
+                            'content': 'What is the weather like in Paris today?',
+                            'role': 'user',
+                        },
                         {
                             'event.name': 'gen_ai.assistant.message',
                             'role': 'assistant',
@@ -3198,7 +3204,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                                     'function': {'name': 'get_weather', 'arguments': '{"location":"Paris, France"}'},
                                 }
                             ],
-                        }
+                        },
                     ],
                     'gen_ai.usage.input_tokens': 65,
                     'gen_ai.usage.output_tokens': 17,
@@ -3289,10 +3295,33 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'gen_ai.usage.input_tokens': 43,
                     'events': [
                         {
+                            'event.name': 'gen_ai.user.message',
+                            'content': 'What is the weather like in Paris today?',
+                            'role': 'user',
+                        },
+                        {
+                            'event.name': 'gen_ai.assistant.message',
+                            'role': 'assistant',
+                            'tool_calls': [
+                                {
+                                    'id': 'call_uilZSE2qAuMA2NWct72DBwd6',
+                                    'type': 'function',
+                                    'function': {'name': 'get_weather', 'arguments': '{"location":"Paris, France"}'},
+                                }
+                            ],
+                        },
+                        {
+                            'event.name': 'gen_ai.tool.message',
+                            'role': 'tool',
+                            'id': 'call_uilZSE2qAuMA2NWct72DBwd6',
+                            'content': 'Rainy',
+                            'name': 'get_weather',
+                        },
+                        {
                             'event.name': 'gen_ai.assistant.message',
                             'content': "The weather in Paris today is rainy. If you're planning to go out, don't forget an umbrella!",
                             'role': 'assistant',
-                        }
+                        },
                     ],
                     'gen_ai.usage.output_tokens': 21,
                     'gen_ai.output.messages': [
@@ -3642,7 +3671,14 @@ def test_responses_api_empty_inputs(instrumented_client: openai.Client, exporter
                     'gen_ai.usage.input_tokens': 10,
                     'gen_ai.usage.output_tokens': 1,
                     'gen_ai.output.messages': [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Nine'}]}],
-                    'events': [{'event.name': 'gen_ai.assistant.message', 'content': 'Nine', 'role': 'assistant'}],
+                    'events': [
+                        {
+                            'event.name': 'gen_ai.system.message',
+                            'content': 'You are a helpful assistant.',
+                            'role': 'system',
+                        },
+                        {'event.name': 'gen_ai.assistant.message', 'content': 'Nine', 'role': 'assistant'},
+                    ],
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
