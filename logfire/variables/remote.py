@@ -28,6 +28,7 @@ from logfire.variables.config import VariableConfig, VariablesConfig
 
 if TYPE_CHECKING:
     import logfire
+    from logfire.variables.config import VariableTypeConfig
 
 
 __all__ = ('LogfireRemoteVariableProvider',)
@@ -492,3 +493,63 @@ class LogfireRemoteVariableProvider(VariableProvider):
             pattern = condition.pattern
             return {'pattern': pattern.pattern if hasattr(pattern, 'pattern') else pattern}
         return {}
+
+    # --- Variable Types API ---
+
+    def list_variable_types(self) -> dict[str, VariableTypeConfig]:
+        """List all variable types from the remote API.
+
+        Returns:
+            A dictionary mapping type names to their configurations.
+        """
+        from logfire.variables.config import VariableTypeConfig
+
+        try:
+            response = self._session.get(urljoin(self._base_url, '/v1/variable-types/'))
+            UnexpectedResponse.raise_for_status(response)
+        except UnexpectedResponse as e:
+            raise VariableWriteError(f'Failed to list variable types: {e}') from e
+
+        types_data = response.json()
+        result: dict[str, VariableTypeConfig] = {}
+        for type_data in types_data:
+            config = VariableTypeConfig(
+                name=type_data['name'],
+                json_schema=type_data.get('json_schema', {}),
+                description=type_data.get('description'),
+                source_hint=type_data.get('source_hint'),
+            )
+            result[config.name] = config
+        return result
+
+    def upsert_variable_type(self, config: VariableTypeConfig) -> VariableTypeConfig:
+        """Create or update a variable type via the remote API.
+
+        If a type with the given name exists, it will be updated.
+        Otherwise, a new type will be created.
+
+        Args:
+            config: The type configuration to upsert.
+
+        Returns:
+            The created or updated VariableTypeConfig.
+
+        Raises:
+            VariableWriteError: If the API request fails.
+        """
+        body: dict[str, Any] = {
+            'name': config.name,
+            'json_schema': config.json_schema,
+            'description': config.description,
+        }
+        if config.source_hint is not None:
+            body['source_hint'] = config.source_hint
+
+        try:
+            # POST endpoint is an upsert (create or update by name)
+            response = self._session.post(urljoin(self._base_url, '/v1/variable-types/'), json=body)
+            UnexpectedResponse.raise_for_status(response)
+        except UnexpectedResponse as e:
+            raise VariableWriteError(f'Failed to upsert variable type: {e}') from e
+
+        return config

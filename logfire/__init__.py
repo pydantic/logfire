@@ -97,6 +97,7 @@ metric_up_down_counter_callback = DEFAULT_LOGFIRE_INSTANCE.metric_up_down_counte
 var = DEFAULT_LOGFIRE_INSTANCE.var
 get_variables = DEFAULT_LOGFIRE_INSTANCE.get_variables
 push_variables = DEFAULT_LOGFIRE_INSTANCE.push_variables
+push_variable_types = DEFAULT_LOGFIRE_INSTANCE.push_variable_types
 validate_variables = DEFAULT_LOGFIRE_INSTANCE.validate_variables
 sync_config = DEFAULT_LOGFIRE_INSTANCE.sync_config
 pull_config = DEFAULT_LOGFIRE_INSTANCE.pull_config
@@ -192,6 +193,7 @@ __all__ = (
     'var',
     'get_variables',
     'push_variables',
+    'push_variable_types',
     'validate_variables',
     'sync_config',
     'pull_config',

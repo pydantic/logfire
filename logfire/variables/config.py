@@ -35,6 +35,7 @@ __all__ = (
     'ValueMatchesRegex',
     'VariableConfig',
     'VariablesConfig',
+    'VariableTypeConfig',
     'Variant',
 )
 
@@ -495,3 +496,50 @@ def _matches_all_conditions(conditions: list[Condition], attributes: Mapping[str
         if not condition.matches(attributes):
             return False
     return True
+
+
+class VariableTypeConfig(BaseModel):
+    """Configuration for a variable type (reusable schema definition)."""
+
+    name: str
+    """Unique name identifying this type. Defaults to __name__ or str(type)."""
+    json_schema: dict[str, Any]
+    """JSON schema describing the type structure."""
+    description: str | None = None
+    """Human-readable description of this type."""
+    source_hint: str | None = None
+    """Optional hint about where this type is defined in code (e.g., 'myapp.config.FeatureConfig')."""
+
+
+def get_default_type_name(t: Any) -> str:
+    """Get the default name for a Python type.
+
+    For regular classes, returns __name__ (e.g., 'FeatureConfig').
+    For unions, generics, or other complex types, returns str(type) (e.g., 'FeatureConfig | None').
+
+    Args:
+        t: The Python type to get a name for.
+
+    Returns:
+        A string name for the type.
+    """
+    if isinstance(t, type):
+        return t.__name__
+    return str(t)
+
+
+def get_source_hint(t: Any) -> str | None:
+    """Get a source hint for a type based on its module and qualname.
+
+    Args:
+        t: The Python type to get a source hint for.
+
+    Returns:
+        A source hint string like 'myapp.config.FeatureConfig', or None if not available.
+    """
+    if isinstance(t, type):
+        module = getattr(t, '__module__', None)
+        qualname = getattr(t, '__qualname__', None)
+        if module and qualname:
+            return f'{module}.{qualname}'
+    return None

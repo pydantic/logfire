@@ -2583,6 +2583,69 @@ class Logfire:
         provider = self.config.get_variable_provider()
         return provider.push_variables(variables, dry_run=dry_run, yes=yes, strict=strict)
 
+    def push_variable_types(
+        self,
+        types: Sequence[type[Any] | tuple[type[Any], str]],
+        *,
+        dry_run: bool = False,
+        yes: bool = False,
+    ) -> bool:
+        """Push variable type definitions to the configured variable provider.
+
+        Variable types are reusable schema definitions that can be referenced by variables.
+        They help organize and standardize variable schemas across your project.
+
+        This method syncs local Python types with the provider:
+        - Creates new types that don't exist in the provider
+        - Updates schemas for existing types if they've changed
+        - Shows a diff of changes before applying
+
+        The provider is determined by the Logfire configuration. For remote providers,
+        this requires proper authentication (via RemoteVariablesConfig or LOGFIRE_API_KEY).
+
+        Args:
+            types: Types to push. Items can be:
+                - A type (name defaults to __name__ or str(type))
+                - A tuple of (type, name) for explicit naming
+            dry_run: If True, only show what would change without applying.
+            yes: If True, skip confirmation prompt.
+
+        Returns:
+            True if changes were applied (or would be applied in dry_run mode), False otherwise.
+
+        Example:
+            ```python
+            import logfire
+            from pydantic import BaseModel
+
+
+            class FeatureConfig(BaseModel):
+                enabled: bool = False
+                max_retries: int = 3
+                timeout_seconds: float = 30.0
+
+
+            class UserSettings(BaseModel):
+                theme: str = 'light'
+                notifications_enabled: bool = True
+
+
+            if __name__ == '__main__':
+                # Push type definitions using their class names
+                logfire.push_variable_types([FeatureConfig, UserSettings])
+
+                # Or push with explicit names
+                logfire.push_variable_types(
+                    [
+                        (FeatureConfig, 'my-feature-config'),
+                        (UserSettings, 'my-user-settings'),
+                    ]
+                )
+            ```
+        """
+        provider = self.config.get_variable_provider()
+        return provider.push_variable_types(types, dry_run=dry_run, yes=yes)
+
     def validate_variables(
         self,
         variables: list[Variable[Any]] | None = None,

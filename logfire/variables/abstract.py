@@ -13,11 +13,13 @@ SyncMode = Literal['merge', 'replace']
 
 if TYPE_CHECKING:
     import logfire
-    from logfire.variables.config import VariableConfig, VariablesConfig
+    from logfire.variables.config import VariableConfig, VariablesConfig, VariableTypeConfig
     from logfire.variables.variable import Variable
 
 # ANSI color codes for terminal output
 ANSI_RESET = '\033[0m'
+ANSI_BOLD = '\033[1m'
+ANSI_DIM = '\033[2m'
 ANSI_RED = '\033[31m'
 ANSI_GREEN = '\033[32m'
 ANSI_YELLOW = '\033[33m'
@@ -1051,6 +1053,199 @@ class VariableProvider(ABC):
             variables_not_on_server=variables_not_on_server,
             description_differences=description_differences,
         )
+
+    # --- Variable Types API ---
+
+    def list_variable_types(self) -> dict[str, VariableTypeConfig]:
+        """List all variable types from the provider.
+
+        Returns:
+            A dictionary mapping type names to their configurations.
+        """
+        warnings.warn(
+            f'{type(self).__name__} does not support variable types',
+            stacklevel=2,
+        )
+        return {}
+
+    def get_variable_type(self, name: str) -> VariableTypeConfig | None:
+        """Get a variable type by name.
+
+        Args:
+            name: The name of the type to retrieve.
+
+        Returns:
+            The VariableTypeConfig if found, None otherwise.
+        """
+        return self.list_variable_types().get(name)
+
+    def upsert_variable_type(self, config: VariableTypeConfig) -> VariableTypeConfig:
+        """Create or update a variable type.
+
+        If a type with the given name exists, it will be updated.
+        Otherwise, a new type will be created.
+
+        Args:
+            config: The type configuration to upsert.
+
+        Returns:
+            The created or updated VariableTypeConfig.
+        """
+        warnings.warn(
+            f'{type(self).__name__} does not persist variable type writes',
+            stacklevel=2,
+        )
+        return config
+
+    def push_variable_types(
+        self,
+        types: Sequence[type[Any] | tuple[type[Any], str]],
+        *,
+        dry_run: bool = False,
+        yes: bool = False,
+    ) -> bool:
+        """Push variable type definitions to this provider.
+
+        This method syncs local type definitions with the provider:
+        - Creates new types that don't exist in the provider
+        - Updates JSON schemas for existing types if they've changed
+        - Warns about schema changes
+
+        Args:
+            types: Types to push. Items can be:
+                - A type (name defaults to __name__ or str(type))
+                - A tuple of (type, name) for explicit naming
+            dry_run: If True, only show what would change without applying.
+            yes: If True, skip confirmation prompt.
+
+        Returns:
+            True if changes were applied (or would be applied in dry_run mode), False otherwise.
+
+        Example:
+            ```python
+            from pydantic import BaseModel
+
+
+            class FeatureConfig(BaseModel):
+                enabled: bool
+                max_items: int = 10
+
+
+            # Push using __name__ as type name
+            provider.push_variable_types([FeatureConfig])
+
+            # Push with explicit name
+            provider.push_variable_types([(FeatureConfig, 'my_feature_config')])
+            ```
+        """
+        from pydantic import TypeAdapter
+
+        from logfire.variables.config import VariableTypeConfig, get_default_type_name, get_source_hint
+
+        if not types:
+            print('No types to push.')
+            return False
+
+        # Refresh the provider to ensure we have the latest config
+        try:
+            self.refresh(force=True)
+        except Exception as e:
+            print(f'{ANSI_YELLOW}Warning: Could not refresh provider: {e}{ANSI_RESET}')
+
+        # Get current types from provider
+        try:
+            server_types = self.list_variable_types()
+        except Exception as e:
+            print(f'{ANSI_RED}Error fetching current types: {e}{ANSI_RESET}')
+            return False
+
+        # Build list of type configs to push
+        type_configs: list[VariableTypeConfig] = []
+        for item in types:
+            if isinstance(item, tuple):
+                t, name = item
+            else:
+                t = item
+                name = get_default_type_name(t)
+
+            adapter = TypeAdapter(t)
+            json_schema = adapter.json_schema()
+            source_hint = get_source_hint(t)
+
+            type_configs.append(
+                VariableTypeConfig(
+                    name=name,
+                    json_schema=json_schema,
+                    source_hint=source_hint,
+                )
+            )
+
+        # Compute diff
+        creates: list[str] = []
+        updates: list[str] = []
+        unchanged: list[str] = []
+
+        for config in type_configs:
+            existing = server_types.get(config.name)
+            if existing is None:
+                creates.append(config.name)
+            elif existing.json_schema != config.json_schema:
+                updates.append(config.name)
+            else:
+                unchanged.append(config.name)
+
+        # Show diff
+        print(f'\n{ANSI_BOLD}Variable Types Push Summary{ANSI_RESET}')
+        print('=' * 40)
+
+        if creates:
+            print(f'\n{ANSI_GREEN}New types ({len(creates)}):{ANSI_RESET}')
+            for name in creates:
+                print(f'  + {name}')
+
+        if updates:
+            print(f'\n{ANSI_YELLOW}Schema updates ({len(updates)}):{ANSI_RESET}')
+            for name in updates:
+                print(f'  ~ {name}')
+
+        if unchanged:
+            print(f'\n{ANSI_DIM}Unchanged ({len(unchanged)}):{ANSI_RESET}')
+            for name in unchanged:
+                print(f'  = {name}')
+
+        if not creates and not updates:
+            print(f'\n{ANSI_GREEN}No changes needed. Types are up to date.{ANSI_RESET}')
+            return False
+
+        if dry_run:
+            print(f'\n{ANSI_YELLOW}Dry run mode - no changes applied.{ANSI_RESET}')
+            return True
+
+        # Confirm with user
+        if not yes:  # pragma: no cover
+            print()
+            try:
+                response_input = input('Apply these changes? [y/N] ')
+            except (EOFError, KeyboardInterrupt):
+                print('\nAborted.')
+                return False
+
+            if response_input.lower() not in ('y', 'yes'):
+                print('Aborted.')
+                return False
+
+        # Apply changes
+        print('\nApplying changes...')
+        try:
+            for config in type_configs:
+                if config.name in creates or config.name in updates:
+                    self.upsert_variable_type(config)
+        except Exception as e:
+            print(f'{ANSI_RED}Error applying changes: {e}{ANSI_RESET}')
+            return False
+
+        print(f'\n{ANSI_GREEN}Done! Variable types synced successfully.{ANSI_RESET}')
+        return True
 
 
 @dataclass

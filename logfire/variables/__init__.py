@@ -33,6 +33,7 @@ if TYPE_CHECKING:
             ValueMatchesRegex,
             VariableConfig,
             VariablesConfig,
+            VariableTypeConfig,
             Variant,
         )
         from logfire.variables.local import LocalVariableProvider
@@ -71,6 +72,7 @@ __all__ = [
     'VariableBundle',
     'VariableConfig',
     'VariableNotFoundError',
+    'VariableTypeConfig',
     'VariableProvider',
     'VariablesConfig',
     'VariableWriteError',
@@ -105,6 +107,7 @@ def __getattr__(name: str):
         ValueMatchesRegex,
         VariableConfig,
         VariablesConfig,
+        VariableTypeConfig,
         Variant,
     )
     from logfire.variables.local import LocalVariableProvider

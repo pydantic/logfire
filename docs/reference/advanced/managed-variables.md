@@ -723,6 +723,98 @@ logfire.push_variables(yes=True)
 !!! note "Schema Updates"
     When you push a variable that already exists in Logfire, `push_variables` will update the JSON schema if it has changed but will preserve existing variants and rollout configurations. If existing variant values are incompatible with the new schema, you'll see a warning (or an error if using `strict=True`).
 
+### Pushing Variable Types
+
+When you have multiple variables that share the same type (e.g., several variables all using the same `AgentConfig` Pydantic model), you can push the type definition itself as a reusable schema. This is done with `logfire.push_variable_types()`.
+
+**Why push variable types?**
+
+- **Schema reuse**: Define a schema once and reference it from multiple variables
+- **Centralized management**: Update the schema in one place when your type definition changes
+- **Documentation**: Types serve as documentation for the expected structure of variable values
+
+```python
+from pydantic import BaseModel
+
+import logfire
+from logfire.variables.config import RemoteVariablesConfig
+
+logfire.configure(
+    variables=logfire.VariablesOptions(
+        config=RemoteVariablesConfig(),
+    ),
+)
+
+
+class FeatureConfig(BaseModel):
+    """Configuration for a feature flag with additional settings."""
+
+    enabled: bool = False
+    max_retries: int = 3
+    timeout_seconds: float = 30.0
+
+
+class UserSettings(BaseModel):
+    """User preference settings."""
+
+    theme: str = 'light'
+    notifications_enabled: bool = True
+
+
+if __name__ == '__main__':
+    # Push type definitions using their class names
+    logfire.push_variable_types([FeatureConfig, UserSettings])
+```
+
+**Explicit naming:**
+
+By default, types are named using their `__name__` attribute (e.g., `FeatureConfig`). You can provide explicit names using tuples:
+
+```python
+logfire.push_variable_types([
+    (FeatureConfig, 'my-feature-config'),
+    (UserSettings, 'my-user-settings'),
+])
+```
+
+**Options:**
+
+| Parameter | Description |
+|-----------|-------------|
+| `types` | List of types to push. Items can be a type (uses `__name__`) or a tuple of `(type, name)` for explicit naming. |
+| `dry_run` | If `True`, shows what would change without actually applying changes. |
+| `yes` | If `True`, skips the confirmation prompt. |
+
+**Example output:**
+
+```
+Variable Types Push Summary
+========================================
+
+New types (2):
+  + FeatureConfig
+  + UserSettings
+
+Apply these changes? [y/N] y
+
+Applying changes...
+
+Done! Variable types synced successfully.
+```
+
+When updating existing types, the output shows which types have schema changes:
+
+```
+Variable Types Push Summary
+========================================
+
+Schema updates (1):
+  ~ FeatureConfig
+
+Unchanged (1):
+  = UserSettings
+```
+
 ### Validating Variables
 
 You can validate that your remote variable configurations match your local type definitions using `logfire.validate_variables()`:
@@ -981,6 +1073,17 @@ This workflow is particularly useful for automated prompt optimization, where yo
 | `variants` | Dict of variant key to weight (0.0-1.0). Weights should sum to 1.0 or less. |
 
 If weights sum to less than 1.0, there's a chance no variant is selected and the code default is used.
+
+### VariableTypeConfig
+
+**VariableTypeConfig** - Configuration for a reusable type definition:
+
+| Field | Description |
+|-------|-------------|
+| `name` | Unique name identifying this type |
+| `json_schema` | JSON Schema describing the type structure |
+| `description` | Human-readable description (optional) |
+| `source_hint` | Hint about where this type is defined in code, e.g., `'myapp.config.FeatureConfig'` (optional) |
 
 ### Condition Types
 
