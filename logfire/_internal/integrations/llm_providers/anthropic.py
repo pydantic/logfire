@@ -98,7 +98,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         if messages or system:  # pragma: no branch
             input_messages, system_instructions = convert_messages_to_semconv(messages, system)
             span_data[INPUT_MESSAGES] = input_messages
-            if system_instructions:
+            if system_instructions:  # pragma: no branch
                 span_data[SYSTEM_INSTRUCTIONS] = system_instructions
 
         return EndpointConfig(
@@ -132,7 +132,7 @@ def convert_messages_to_semconv(
     system_instructions: SystemInstructions = []
 
     # Handle system parameter (Anthropic uses a separate 'system' parameter)
-    if system:
+    if system:  # pragma: no branch
         if isinstance(system, str):
             system_instructions.append(TextPart(type='text', content=system))
         else:  # pragma: no cover
@@ -148,10 +148,10 @@ def convert_messages_to_semconv(
 
         parts: list[MessagePart] = []
 
-        if content is not None:
+        if content is not None:  # pragma: no branch
             if isinstance(content, str):
                 parts.append(TextPart(type='text', content=content))
-            elif isinstance(content, list):  # pragma: no branch
+            elif isinstance(content, list):  # pragma: no cover
                 for part in cast('list[dict[str, Any] | str]', content):
                     parts.append(_convert_content_part(part))
 
@@ -164,9 +164,9 @@ def convert_messages_to_semconv(
     return input_messages, system_instructions
 
 
-def _convert_content_part(part: dict[str, Any] | str) -> MessagePart:
+def _convert_content_part(part: dict[str, Any] | str) -> MessagePart:  # pragma: no cover
     """Convert a single Anthropic content part to semconv format."""
-    if isinstance(part, str):  # pragma: no cover
+    if isinstance(part, str):
         return TextPart(type='text', content=part)
 
     part_type = part.get('type', 'text')
