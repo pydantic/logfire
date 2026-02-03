@@ -2420,7 +2420,7 @@ def test_multiple_tokens_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
         del os.environ['LOGFIRE_TOKEN']
 
 
-def testextract_list_of_str():
+def test_extract_list_of_str():
     """Test extract_list_of_str function for various inputs."""
     # Empty sequences
     assert extract_list_of_str([]) is None
@@ -2446,7 +2446,7 @@ def testextract_list_of_str():
     assert extract_list_of_str(['token1', 'token2']) == ['token1', 'token2']
 
     # List with empty strings
-    # The filtering happens in LogfireConfig._load_configuration
+    # The filtering of empty strings happens in extract_list_of_str
     assert extract_list_of_str(['token1', '', 'token2']) == ['token1', 'token2']
 
 
