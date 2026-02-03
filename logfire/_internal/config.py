@@ -977,12 +977,19 @@ class LogfireConfig(_LogfireConfigData):
                     # Track tokens we've already printed info for (to avoid duplicates)
                     printed_tokens: set[str] = set()
 
-                    # If we have credentials, we can print the project link immediately
+                    # The creds file contains the project link, so we can display it immediately.
+                    # We do this if the token comes from the creds file or if it was explicitly configured
+                    # and happens to match the creds file anyway.
                     if credentials and show_project_link and credentials.token in token_list:
                         credentials.print_token_summary()
                         printed_tokens.add(credentials.token)
 
-                    # Validate each token and print project info (skipping already printed ones)
+                    # Regardless of where the token comes from, check that it's valid.
+                    # Even if it comes from a creds file, it could be revoked or expired.
+                    # If it's valid and we haven't already printed a project link, print it here.
+                    # This may happen some time later in a background thread which can be annoying,
+                    # hence we try to print it eagerly above.
+                    # But we only have the link if we have a creds file, otherwise we only know the token at this point.
                     def check_tokens():
                         with suppress_instrumentation():
                             for token in token_list:
