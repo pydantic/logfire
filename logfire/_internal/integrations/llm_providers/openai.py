@@ -610,7 +610,12 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         otel_span = span._span  # pyright: ignore[reportPrivateUsage]
         if otel_span is not None and hasattr(otel_span, 'attributes') and otel_span.attributes:
             events_attr = otel_span.attributes.get('events')
-            if isinstance(events_attr, list):  # pragma: no cover
+            if isinstance(events_attr, str):
+                with contextlib.suppress(json.JSONDecodeError):
+                    parsed = json.loads(events_attr)
+                    if isinstance(parsed, list):
+                        existing_events = cast(list[Any], parsed)
+            elif isinstance(events_attr, list):  # pragma: no cover
                 existing_events = cast(list[Any], events_attr)
         span.set_attribute('events', existing_events + responses_output_events(response))
 
