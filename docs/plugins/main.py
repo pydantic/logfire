@@ -10,7 +10,6 @@ from mkdocs.structure.pages import Page
 
 from logfire._internal import config_params
 
-BLANK_LINES_PATTERN = re.compile(r'\n\s*\n')
 LOGFIRE_DIR = Path(__file__).parent.parent.parent
 
 
@@ -58,14 +57,6 @@ def strip_custom_code_block_attributes(markdown: str) -> str:
     markdown = re.sub(pattern, process_code_fence, markdown)
 
     return markdown
-
-
-def on_post_page(output: str, page: Page, config: Config) -> str:
-    """Called after the page has been rendered to HTML.
-
-    Removes blank lines from the final HTML output.
-    """
-    return BLANK_LINES_PATTERN.sub('\n', output)
 
 
 def on_files(files: Files, config: Config) -> None:
