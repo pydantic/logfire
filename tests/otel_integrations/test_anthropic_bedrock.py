@@ -126,9 +126,7 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                             'parts': [{'type': 'text', 'content': 'What is four plus five?'}],
                         }
                     ],
-                    'gen_ai.system_instructions': [
-                        {'type': 'text', 'content': 'You are a helpful assistant.'}
-                    ],
+                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'You are a helpful assistant.'}],
                     'gen_ai.output.messages': [
                         {
                             'role': 'assistant',
