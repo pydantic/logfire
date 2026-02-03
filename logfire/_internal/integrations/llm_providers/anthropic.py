@@ -10,14 +10,20 @@ from logfire._internal.utils import handle_internal_errors
 
 from .semconv import (
     INPUT_MESSAGES,
+    INPUT_TOKENS,
     OPERATION_NAME,
     OUTPUT_MESSAGES,
+    OUTPUT_TOKENS,
     PROVIDER_NAME,
     REQUEST_MAX_TOKENS,
+    REQUEST_MODEL,
     REQUEST_STOP_SEQUENCES,
     REQUEST_TEMPERATURE,
     REQUEST_TOP_K,
     REQUEST_TOP_P,
+    RESPONSE_FINISH_REASONS,
+    RESPONSE_ID,
+    RESPONSE_MODEL,
     SYSTEM_INSTRUCTIONS,
     TOOL_DEFINITIONS,
     BlobPart,
@@ -82,6 +88,7 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             'request_data': json_data,
             PROVIDER_NAME: 'anthropic',
             OPERATION_NAME: 'chat',
+            REQUEST_MODEL: json_data.get('model'),
         }
         _extract_request_parameters(json_data, span_data)
 
@@ -105,6 +112,8 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
             'url': url,
             PROVIDER_NAME: 'anthropic',
         }
+        if 'model' in json_data:  # pragma: no branch
+            span_data[REQUEST_MODEL] = json_data['model']
         return EndpointConfig(
             message_template='Anthropic API call to {url!r}',
             span_data=span_data,
@@ -282,6 +291,19 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         # Add semantic convention output messages
         output_message = convert_response_to_semconv(response)
         span.set_attribute(OUTPUT_MESSAGES, [output_message])
+
+        # Add semantic convention attributes
+        span.set_attribute(RESPONSE_MODEL, response.model)
+        span.set_attribute(RESPONSE_ID, response.id)
+
+        # Add token usage
+        if response.usage:  # pragma: no branch
+            span.set_attribute(INPUT_TOKENS, response.usage.input_tokens)
+            span.set_attribute(OUTPUT_TOKENS, response.usage.output_tokens)
+
+        # Add finish reason
+        if response.stop_reason:
+            span.set_attribute(RESPONSE_FINISH_REASONS, [response.stop_reason])
 
     return response
 

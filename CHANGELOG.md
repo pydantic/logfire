@@ -1,5 +1,12 @@
 # Release Notes
 
+## [v4.21.0] (2026-01-28)
+
+* feat: Add OTel Gen AI semantic convention scalar attributes by @brightsparc in [#1657](https://github.com/pydantic/logfire/pull/1657)
+* Handle langchain reasoning summaries by @alexmojaki in [#1665](https://github.com/pydantic/logfire/pull/1665)
+* Fix Responses API streaming error handling to not mask original errors by @jordanhboxer in [#1668](https://github.com/pydantic/logfire/pull/1668)
+* Only patch `os.exit` once by @alexmojaki in [#1663](https://github.com/pydantic/logfire/pull/1663)
+
 ## [v4.20.0] (2026-01-26)
 
 * feat: pytest integration by @jirikuncar in [#1648](https://github.com/pydantic/logfire/pull/1648)
@@ -1014,3 +1021,4 @@ First release from new repo!
 [v4.18.0]: https://github.com/pydantic/logfire/compare/v4.17.0...v4.18.0
 [v4.19.0]: https://github.com/pydantic/logfire/compare/v4.18.0...v4.19.0
 [v4.20.0]: https://github.com/pydantic/logfire/compare/v4.19.0...v4.20.0
+[v4.21.0]: https://github.com/pydantic/logfire/compare/v4.20.0...v4.21.0

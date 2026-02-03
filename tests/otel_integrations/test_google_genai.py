@@ -8,6 +8,7 @@ import pydantic
 import pytest
 from dirty_equals import IsInt, IsPartialDict, IsStr
 from inline_snapshot import snapshot
+from opentelemetry._logs import LogRecord, SeverityNumber
 
 import logfire
 from logfire._internal.utils import get_version
@@ -276,6 +277,58 @@ def test_instrument_google_genai_response_schema(exporter: TestExporter) -> None
                     'logfire.json_schema': {'type': 'object', 'properties': {'events': {'type': 'array'}}},
                     'gen_ai.response.model': 'gemini-2.5-flash',
                 },
+            }
+        ]
+    )
+
+
+def test_span_event_logger_with_none_parts(exporter: TestExporter) -> None:
+    """Test that SpanEventLogger handles parts=None gracefully.
+
+    This can happen when Gemini 3 Pro returns a thinking-only response with no text or tool calls.
+    See https://github.com/pydantic/logfire/issues/1675
+    """
+    from logfire._internal.integrations.google_genai import SpanEventLogger
+
+    with logfire.span('test'):
+        logger = SpanEventLogger('test_logger')
+        record = LogRecord(
+            event_name='gen_ai.choice',
+            timestamp=2,
+            severity_number=SeverityNumber.INFO,
+            body={'content': {'parts': None}, 'index': 0, 'finish_reason': 'STOP'},
+        )
+        logger.emit(record)
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'test',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'code.filepath': 'test_google_genai.py',
+                    'code.function': 'test_span_event_logger_with_none_parts',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'test',
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'test',
+                },
+                'events': [
+                    {
+                        'name': 'gen_ai.choice',
+                        'timestamp': 2000000000,
+                        'attributes': {
+                            'event_body': {
+                                'index': 0,
+                                'finish_reason': 'STOP',
+                                'message': {'role': 'assistant', 'content': []},
+                            }
+                        },
+                    }
+                ],
             }
         ]
     )

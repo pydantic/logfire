@@ -77,7 +77,7 @@ class SpanEventLogger(Logger):
         if record.event_name == 'gen_ai.choice':
             if 'content' in body and isinstance(body['content'], dict):
                 parts = body.pop('content')['parts']
-                new_parts = [transform_part(part) for part in parts]
+                new_parts = [transform_part(part) for part in parts] if parts else []
                 body['message'] = {'role': 'assistant', 'content': new_parts}
         else:
             if 'content' in body:  # pragma: no branch

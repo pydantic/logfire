@@ -4,11 +4,10 @@ description: "Automatically group exceptions and track Pydantic issues in your a
 ---
 # Issues
 
-!!! warning "Issues in Beta"
-    The Issues feature is still under construction, it could break or behave in unexpected ways.
+!!! note "Found an issue?"
 
-    Please [create an issue](https://github.com/pydantic/logfire/issues/new/choose){:target="\_blank"}
-    if you find bugs, get frustrated, or have questions.
+    Please [create a GitHub issue](https://github.com/pydantic/logfire/issues/new/choose){:target="\_blank"}
+    if you find bugs or have questions.
 
 Issues provide automatic exception tracking and grouping. Enable issues to identify, prioritize, and resolve problems in your application.
 
@@ -56,18 +55,18 @@ For each issue, you can:
 
 ## Turn on Issue Alerts
 
-By default, Issues are only visible in the Logfire web interface. To be notified when Issues occur in your other tools, you can select external channels. 
+By default, Issues are only visible in the Logfire web interface. To be notified when Issues occur in your other tools, you can select external channels.
 
 ### Select an Alert Channel
 
-You can:  
+You can:
 
-1. Create a new channel - Add a webhook URL for services like Slack, Discord, Microsoft Teams, or any service that accepts webhooks  
-2. Use an existing channel - Select from previously configured notification channels. 
+1. Create a new channel - Add a webhook URL for services like Slack, Discord, Microsoft Teams, or any service that accepts webhooks
+2. Use an existing channel - Select from previously configured notification channels.
 
 ### Create a new channel:
 
-1. Go to **Settings** on the **Issues** page 
+1. Go to **Settings** on the **Issues** page
 2. Click **Add another channel**
 3. Enter a channel name and webhook URL
 4. Test the channel before saving
@@ -81,16 +80,16 @@ Notifications are sent when new issues open and when resolved issues reopen. Ign
 
 ### Bulk Actions
 
-To select multiple issues at once, hold down `shift` or `cmd` (macOS) / `ctrl` (windows). 
+To select multiple issues at once, hold down `shift` or `cmd` (macOS) / `ctrl` (windows).
 
 After selecting more than one issue you can:
 
-- Ignore all selected issues  
-- Resolve all selected issues 
+- Ignore all selected issues
+- Resolve all selected issues
 
 ## Fix with AI
 
-Use this feature to debug your exceptions using your local LLM coding tool plus the Logfire MCP server. 
+Use this feature to debug your exceptions using your local LLM coding tool plus the Logfire MCP server.
 
 ![Fix with AI button](../../images/guide/browser-issues-fix-with-ai.png)
 
@@ -105,7 +104,7 @@ Want us to integrate more AI Code assistants? [Let us know](https://logfire.pyda
 
 ## Sorting and Searching
 
-Search for exception message text using the Search field. 
+Search for exception message text using the Search field.
 
 
 Use the sort options to find specific issues:
@@ -114,7 +113,7 @@ _Click twice on any sort to reverse the order_
 - **Sort by Last Seen** - most <> least recent issues
 - **Sort by First Seen** - youngest <> oldest issues
 - **Sort by Message** - sort exception message alphabetically (A-Z) / (Z-A)
-- **Sort by Hits** - most <> least hits 
+- **Sort by Hits** - most <> least hits
 - **Sort by Exception** - sort exception alphabetically (A-Z) / (Z-A)
 
 ## Best Practices
@@ -128,15 +127,15 @@ _Click twice on any sort to reverse the order_
 
 ### When to Resolve vs Ignore
 
-**Resolve** when:  
-- You've fixed the underlying problem  
-- You want to be notified if the issue returns  
-- The exception indicates a real bug or problem  
+**Resolve** when:
+- You've fixed the underlying problem
+- You want to be notified if the issue returns
+- The exception indicates a real bug or problem
 
-**Ignore** when:  
-- The exception is expected behavior (e.g., user input validation errors)  
-- Third-party service errors you can't control  
-- Legacy code issues you've decided not to fix  
+**Ignore** when:
+- The exception is expected behavior (e.g., user input validation errors)
+- Third-party service errors you can't control
+- Legacy code issues you've decided not to fix
 
 ### Cleanup
 
