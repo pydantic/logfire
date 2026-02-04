@@ -299,10 +299,10 @@ def _convert_content_part(part: dict[str, Any] | str) -> MessagePart:  # pragma:
     elif part_type == 'image_url':
         url = part.get('image_url', {}).get('url', '')
         return UriPart(type='uri', uri=url, modality='image')
-    elif part_type in ('input_audio', 'audio'):  # pragma: no cover
+    elif part_type == 'input_audio':  # pragma: no cover
         return BlobPart(
             type='blob',
-            content=part.get('data', ''),
+            content=part.get('input_audio', {}).get('data', ''),
             modality='audio',
         )
     else:  # pragma: no cover
