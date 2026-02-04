@@ -342,6 +342,10 @@ def convert_responses_inputs_to_semconv(
                                 parts.append(TextPart(type='text', content=str(item)))
                     input_messages.append(cast('ChatMessage', {'role': role, 'parts': parts}))
                 elif typ == 'function_call':
+                    arguments: Any = inp.get('arguments')
+                    if isinstance(arguments, str):
+                        with contextlib.suppress(json.JSONDecodeError):
+                            arguments = json.loads(arguments)
                     input_messages.append(
                         cast(
                             'ChatMessage',
@@ -352,7 +356,7 @@ def convert_responses_inputs_to_semconv(
                                         type='tool_call',
                                         id=inp.get('call_id', ''),
                                         name=inp.get('name', ''),
-                                        arguments=inp.get('arguments'),
+                                        arguments=arguments,
                                     )
                                 ],
                             },
@@ -399,12 +403,10 @@ def convert_openai_response_to_semconv(
         for tc in message.tool_calls:
             # Only handle function tool calls (not custom tool calls)
             if isinstance(tc, ChatCompletionMessageFunctionToolCall):  # pragma: no cover
-                # Non-FunctionToolCall types are not handled - this is expected as OpenAI SDK only provides FunctionToolCall
                 func_args: Any = tc.function.arguments
                 if isinstance(func_args, str):
                     with contextlib.suppress(json.JSONDecodeError):
                         func_args = json.loads(func_args)
-                # else: func_args is not a string (already a dict) - pragma: no cover (handled by passing as-is)
                 parts.append(
                     ToolCallPart(
                         type='tool_call',
@@ -447,6 +449,10 @@ def convert_responses_outputs_to_semconv(response: Response) -> OutputMessages:
                 )
             )
         elif typ == 'function_call':  # pragma: no cover - outputs are typically 'message' type
+            arguments: Any = out_dict.get('arguments')
+            if isinstance(arguments, str):
+                with contextlib.suppress(json.JSONDecodeError):
+                    arguments = json.loads(arguments)
             output_messages.append(
                 cast(
                     'OutputMessage',
@@ -457,7 +463,7 @@ def convert_responses_outputs_to_semconv(response: Response) -> OutputMessages:
                                 type='tool_call',
                                 id=out_dict.get('call_id', ''),
                                 name=out_dict.get('name', ''),
-                                arguments=out_dict.get('arguments'),
+                                arguments=arguments,
                             )
                         ],
                     },

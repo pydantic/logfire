@@ -2908,7 +2908,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                                     'type': 'tool_call',
                                     'id': 'call_uilZSE2qAuMA2NWct72DBwd6',
                                     'name': 'get_weather',
-                                    'arguments': '{"location":"Paris, France"}',
+                                    'arguments': {'location': 'Paris, France'},
                                 }
                             ],
                         }
@@ -2963,7 +2963,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                                     'type': 'tool_call',
                                     'id': 'call_uilZSE2qAuMA2NWct72DBwd6',
                                     'name': 'get_weather',
-                                    'arguments': '{"location":"Paris, France"}',
+                                    'arguments': {'location': 'Paris, France'},
                                 }
                             ],
                         },
