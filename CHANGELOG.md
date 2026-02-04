@@ -1,5 +1,10 @@
 # Release Notes
 
+## [v4.22.0] (2026-02-04)
+
+* feat: Add multi-token support for project migration by @adriangb in [#1672](https://github.com/pydantic/logfire/pull/1672)
+* Fix google_genai integration crash when Gemini returns parts=None by @alexmojaki in [#1678](https://github.com/pydantic/logfire/pull/1678)
+
 ## [v4.21.0] (2026-01-28)
 
 * feat: Add OTel Gen AI semantic convention scalar attributes by @brightsparc in [#1657](https://github.com/pydantic/logfire/pull/1657)
@@ -1022,3 +1027,4 @@ First release from new repo!
 [v4.19.0]: https://github.com/pydantic/logfire/compare/v4.18.0...v4.19.0
 [v4.20.0]: https://github.com/pydantic/logfire/compare/v4.19.0...v4.20.0
 [v4.21.0]: https://github.com/pydantic/logfire/compare/v4.20.0...v4.21.0
+[v4.22.0]: https://github.com/pydantic/logfire/compare/v4.21.0...v4.22.0

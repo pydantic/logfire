@@ -4,7 +4,7 @@ import requests
 from ..propagate import NoExtractTraceContextPropagator as NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator as WarnOnExtractTraceContextPropagator
 from ..types import ExceptionCallback as ExceptionCallback
 from .client import InvalidProjectName as InvalidProjectName, LogfireClient as LogfireClient, ProjectAlreadyExists as ProjectAlreadyExists
-from .config_params import ParamManager as ParamManager, PydanticPluginRecordValues as PydanticPluginRecordValues
+from .config_params import ParamManager as ParamManager, PydanticPluginRecordValues as PydanticPluginRecordValues, normalize_token as normalize_token
 from .constants import LEVEL_NUMBERS as LEVEL_NUMBERS, LevelName as LevelName, RESOURCE_ATTRIBUTES_CODE_ROOT_PATH as RESOURCE_ATTRIBUTES_CODE_ROOT_PATH, RESOURCE_ATTRIBUTES_CODE_WORK_DIR as RESOURCE_ATTRIBUTES_CODE_WORK_DIR, RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME as RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME, RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION as RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION, RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL as RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL
 from .exporters.console import ConsoleColorsValues as ConsoleColorsValues, ConsoleLogExporter as ConsoleLogExporter, IndentedConsoleSpanExporter as IndentedConsoleSpanExporter, ShowParentsConsoleSpanExporter as ShowParentsConsoleSpanExporter, SimpleConsoleSpanExporter as SimpleConsoleSpanExporter
 from .exporters.dynamic_batch import DynamicBatchSpanProcessor as DynamicBatchSpanProcessor
@@ -105,7 +105,7 @@ def configure(*, local: bool = False, send_to_logfire: bool | Literal['if-token-
             Defaults to the `LOGFIRE_SEND_TO_LOGFIRE` environment variable if set, otherwise defaults to `True`.
             If `if-token-present` is provided, logs will only be sent if a token is present.
 
-        token: The project token(s). Can be a single token string or a list of tokens to send data
+        token: The project write token(s). Can be a single token string or a list of tokens to send data
             to multiple projects simultaneously (useful for project migration).
 
             Defaults to the `LOGFIRE_TOKEN` environment variable (supports comma-separated tokens).
