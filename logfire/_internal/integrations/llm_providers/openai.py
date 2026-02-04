@@ -252,7 +252,7 @@ def convert_chat_completions_to_semconv(
             if content is not None:  # pragma: no branch
                 if isinstance(content, str):
                     parts.append(TextPart(type='text', content=content))
-                elif isinstance(content, list):  # pragma: no cover
+                elif isinstance(content, list):  # pragma: no branch
                     for part in cast('list[dict[str, Any] | str]', content):
                         parts.append(_convert_content_part(part))
                 # else: content is neither str nor list - unreachable in practice
@@ -288,15 +288,15 @@ def convert_chat_completions_to_semconv(
     return input_messages
 
 
-def _convert_content_part(part: dict[str, Any] | str) -> MessagePart:  # pragma: no cover
+def _convert_content_part(part: dict[str, Any] | str) -> MessagePart:
     """Convert a single content part to semconv format."""
-    if isinstance(part, str):
+    if isinstance(part, str):  # pragma: no cover
         return TextPart(type='text', content=part)
 
     part_type = part.get('type', 'unknown')
     if part_type == 'text':
         return TextPart(type='text', content=part.get('text', ''))
-    elif part_type == 'image_url':
+    elif part_type == 'image_url':  # pragma: no cover
         url = part.get('image_url', {}).get('url', '')
         return UriPart(type='uri', uri=url, modality='image')
     elif part_type == 'input_audio':  # pragma: no cover

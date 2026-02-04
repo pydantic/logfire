@@ -9,7 +9,7 @@ import httpx
 import openai
 import pydantic
 import pytest
-from dirty_equals import IsNumeric
+from dirty_equals import IsNumeric, IsStr
 from httpx._transports.mock import MockTransport
 from inline_snapshot import snapshot
 from openai.types import (
@@ -3235,5 +3235,181 @@ I'm zeroing in on the core of the query. The "how are you" is basic, but the "tr
                     'gen_ai.response.model': 'google/gemini-2.5-flash',
                 },
             },
+        ]
+    )
+
+
+@pytest.mark.vcr()
+def test_chat_completions_with_audio_input(exporter: TestExporter) -> None:
+    import base64
+
+    client = openai.Client()
+    logfire.instrument_openai(client)
+    import io
+    import struct
+    import wave
+
+    # Generate 0.2s of silence at 16kHz mono 16-bit — minimum for OpenAI
+    buf = io.BytesIO()
+    with wave.open(buf, 'wb') as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(16000)
+        wf.writeframes(struct.pack('<' + 'h' * 3200, *([0] * 3200)))
+    wav_data = buf.getvalue()
+    response = client.chat.completions.create(
+        model='gpt-4o-audio-preview',
+        messages=[
+            {
+                'role': 'user',
+                'content': [
+                    {'type': 'text', 'text': 'Respond with just the word "hello".'},
+                    {
+                        'type': 'input_audio',
+                        'input_audio': {'data': base64.b64encode(wav_data).decode(), 'format': 'wav'},
+                    },
+                ],
+            }
+        ],
+    )
+    assert response.choices[0].message.content is not None
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Chat Completion with {request_data[model]!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_chat_completions_with_audio_input',
+                    'code.lineno': 123,
+                    'request_data': {
+                        'messages': [
+                            {
+                                'role': 'user',
+                                'content': [
+                                    {'type': 'text', 'text': 'Respond with just the word "hello".'},
+                                    {
+                                        'type': 'input_audio',
+                                        'input_audio': {
+                                            'data': IsStr(),
+                                            'format': 'wav',
+                                        },
+                                    },
+                                ],
+                            }
+                        ],
+                        'model': 'gpt-4o-audio-preview',
+                    },
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'gpt-4o-audio-preview',
+                    'gen_ai.input.messages': [
+                        {
+                            'role': 'user',
+                            'parts': [
+                                {'type': 'text', 'content': 'Respond with just the word "hello".'},
+                                {
+                                    'type': 'blob',
+                                    'content': IsStr(),
+                                    'modality': 'audio',
+                                },
+                            ],
+                        }
+                    ],
+                    'async': False,
+                    'logfire.msg_template': 'Chat Completion with {request_data[model]!r}',
+                    'logfire.msg': "Chat Completion with 'gpt-4o-audio-preview'",
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.system': 'openai',
+                    'gen_ai.response.model': 'gpt-4o-audio-preview-2025-06-03',
+                    'operation.cost': 1.5e-05,
+                    'gen_ai.response.id': 'chatcmpl-D5caSDR31gOd1Qpyucf0b5VvVy9zY',
+                    'gen_ai.usage.input_tokens': 21,
+                    'gen_ai.usage.output_tokens': 1,
+                    'response_data': {
+                        'message': {
+                            'content': 'Hello',
+                            'refusal': None,
+                            'role': 'assistant',
+                            'annotations': [],
+                            'audio': None,
+                            'function_call': None,
+                            'tool_calls': None,
+                        },
+                        'usage': {
+                            'completion_tokens': 1,
+                            'prompt_tokens': 21,
+                            'total_tokens': 22,
+                            'completion_tokens_details': {
+                                'accepted_prediction_tokens': 0,
+                                'audio_tokens': 0,
+                                'reasoning_tokens': 0,
+                                'rejected_prediction_tokens': 0,
+                                'text_tokens': 1,
+                            },
+                            'prompt_tokens_details': {
+                                'audio_tokens': 2,
+                                'cached_tokens': 0,
+                                'text_tokens': 19,
+                                'image_tokens': 0,
+                            },
+                        },
+                    },
+                    'gen_ai.output.messages': [
+                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Hello'}], 'finish_reason': 'stop'}
+                    ],
+                    'gen_ai.response.finish_reasons': ['stop'],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'async': {},
+                            'gen_ai.system': {},
+                            'gen_ai.response.model': {},
+                            'operation.cost': {},
+                            'gen_ai.response.id': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'response_data': {
+                                'type': 'object',
+                                'properties': {
+                                    'message': {
+                                        'type': 'object',
+                                        'title': 'ChatCompletionMessage',
+                                        'x-python-datatype': 'PydanticModel',
+                                    },
+                                    'usage': {
+                                        'type': 'object',
+                                        'title': 'CompletionUsage',
+                                        'x-python-datatype': 'PydanticModel',
+                                        'properties': {
+                                            'completion_tokens_details': {
+                                                'type': 'object',
+                                                'title': 'CompletionTokensDetails',
+                                                'x-python-datatype': 'PydanticModel',
+                                            },
+                                            'prompt_tokens_details': {
+                                                'type': 'object',
+                                                'title': 'PromptTokensDetails',
+                                                'x-python-datatype': 'PydanticModel',
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                            'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
+                        },
+                    },
+                },
+            }
         ]
     )
