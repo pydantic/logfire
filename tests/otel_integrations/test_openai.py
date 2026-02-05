@@ -2587,8 +2587,9 @@ async def test_create_files_async(instrumented_async_client: openai.AsyncClient,
     )
 
 
+@pytest.mark.filterwarnings('ignore::DeprecationWarning')
 def test_create_assistant(instrumented_client: openai.Client, exporter: TestExporter) -> None:
-    assistant = instrumented_client.beta.assistants.create(
+    assistant = instrumented_client.beta.assistants.create(  # pyright: ignore[reportDeprecated]
         name='Math Tutor',
         instructions='You are a personal math tutor. Write and run code to answer math questions.',
         tools=[{'type': 'code_interpreter'}],

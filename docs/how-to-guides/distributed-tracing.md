@@ -42,7 +42,7 @@ OpenTelemetry instrumentation libraries (which **Logfire** uses for its integrat
 
 - Instrumented HTTP clients such as [`requests`](../integrations/http-clients/requests.md) and [`httpx`](../integrations/http-clients/httpx.md) will automatically set the `traceparent` header when making requests.
 - Instrumented web servers such as [`flask`](../integrations/web-frameworks/flask.md) and [`fastapi`](../integrations/web-frameworks/fastapi.md) will automatically extract the `traceparent` header and use it to set the context for server spans.
-- The [`celery` integration](../integrations/event-streams/celery.md) will automatically propagate the context to child tasks.
+- The [`celery` integration](../integrations/event-streams/celery.md) will automatically propagate the context to child tasks. Note that `logfire.instrument_celery()` must be called in **both** the worker processes and the application that enqueues tasks.
 
 ## Thread and Pool executors
 

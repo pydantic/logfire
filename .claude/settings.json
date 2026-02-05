@@ -12,7 +12,20 @@
       "Bash(git push origin HEAD)",
       "Bash(make:*)",
       "Bash(uv run pytest:*)",
+      "Bash(uv run pre-commit:*)",
       "Bash(gh pr create:*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$CLAUDE_PROJECT_DIR\" && uv run pre-commit install"
+          }
+        ]
+      }
     ]
   }
 }

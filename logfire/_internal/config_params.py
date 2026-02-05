@@ -2,6 +2,7 @@ from __future__ import annotations as _annotations
 
 import os
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
@@ -57,8 +58,8 @@ SEND_TO_LOGFIRE = ConfigParam(env_vars=['LOGFIRE_SEND_TO_LOGFIRE'], allow_file_c
 """Whether to send spans to Logfire."""
 MIN_LEVEL = ConfigParam(env_vars=['LOGFIRE_MIN_LEVEL'], allow_file_config=True, default=None, tp=LevelName)
 """Minimum log level for logs and spans to be created. By default, all logs and spans are created."""
-TOKEN = ConfigParam(env_vars=['LOGFIRE_TOKEN'])
-"""Token for sending application telemetry data to Logfire, also known as a "write token"."""
+TOKEN = ConfigParam(env_vars=['LOGFIRE_TOKEN'], tp=list[str])
+"""Token for sending application telemetry data to Logfire, also known as a "write token". Can be a comma-separated list for multi-project export."""
 API_KEY = ConfigParam(env_vars=['LOGFIRE_API_KEY'])
 """API key for Logfire API access (used for managed variables and other public APIs)."""
 SERVICE_NAME = ConfigParam(env_vars=['LOGFIRE_SERVICE_NAME', OTEL_SERVICE_NAME], allow_file_config=True, default='')
@@ -222,6 +223,8 @@ class ParamManager:
             return Path(value)  # type: ignore
         if get_origin(tp) is set and get_args(tp) == (str,):  # pragma: no branch
             return _extract_set_of_str(value)  # type: ignore
+        if get_origin(tp) is list and get_args(tp) == (str,):
+            return extract_list_of_str(value)  # type: ignore
         raise RuntimeError(f'Unexpected type {tp}')  # pragma: no cover
 
 
@@ -249,6 +252,38 @@ def _check_bool(value: Any, name: str) -> bool | None:
 
 def _extract_set_of_str(value: str | set[str]) -> set[str]:
     return set(map(str.strip, value.split(','))) if isinstance(value, str) else value
+
+
+def extract_list_of_str(value: str | Sequence[str]) -> list[str] | None:
+    """Extract a list of strings from a string, sequence, or None.
+
+    If value is a comma-separated string, split it into a list of non-empty trimmed strings.
+    If value is a sequence, convert to list.
+    If value is None, return None.
+    """
+    if isinstance(value, str):
+        tokens = [t.strip() for t in value.split(',') if t.strip()]
+        return tokens if tokens else None
+    return [v for v in value if v] if value else None
+
+
+def normalize_token(value: str | Sequence[str] | None) -> str | list[str] | None:
+    """Normalize a token value to str (single token), list[str] (multiple tokens), or None.
+
+    If there's exactly one token, return it as a string.
+    If there are multiple tokens, return them as a list.
+    If there are no tokens, return None.
+    """
+    if not value:
+        # This covers `''`, `None`, and empty sequences
+        return None
+    # Now we must have a non-empty string or sequence
+    tokens = extract_list_of_str(value)
+    if tokens is None or not tokens:
+        return None
+    if len(tokens) == 1:
+        return tokens[0]
+    return tokens
 
 
 def _load_config_from_file(config_dir: Path) -> dict[str, Any]:
