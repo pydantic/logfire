@@ -127,10 +127,10 @@ async def test_requests_instrumentation(exporter: TestExporter):
                                         'net.peer.name': 'example.org',
                                         'net.peer.port': 8080,
                                     },
-                                    'total': IsNumeric,
+                                    'total': IsNumeric(),
                                 }
                             ],
-                            'total': IsNumeric,
+                            'total': IsNumeric(),
                         },
                         'http.client.request.duration': {
                             'details': [

@@ -2370,10 +2370,10 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                                         'http.status_code': 200,
                                         'net.peer.name': 'api.openai.com',
                                     },
-                                    'total': IsNumeric,
+                                    'total': IsNumeric(),
                                 }
                             ],
-                            'total': IsNumeric,
+                            'total': IsNumeric(),
                         },
                         'http.client.request.duration': {
                             'details': [
