@@ -99,7 +99,10 @@ Here's the typical workflow using the `AgentConfig` example from above:
 
 ## Managing Variables in the Logfire UI
 
-The Logfire web UI provides a complete interface for managing your variables without any code changes. You can find it under **Settings > Variables** in your project.
+The Logfire web UI provides a complete interface for managing your variables without any code changes. You can find it under **Settings > Variables** in your project. The page includes two tabs:
+
+- **Variables**: create, edit, and delete managed variables
+- **Variable Types**: define reusable JSON schemas for custom types
 
 ![Variables list](images/variables-list.png)
 
@@ -109,13 +112,15 @@ To create a new variable, click **New variable** and fill in:
 
 - **Name**: A valid Python identifier (e.g., `agent_config`, `feature_flag`)
 - **Description**: Optional text explaining what the variable controls
-- **Value Type**: Choose from:
+- **Type**: Choose from:
     - **Text**: Plain text values, ideal for prompts and messages
     - **Number**: Numeric values for thresholds, limits, etc.
     - **Boolean**: True/false flags for feature toggles
     - **JSON**: Complex structured data matching your Pydantic models
+    - **Custom Types**: Reusable schemas created under the **Variable Types** tab
 
-For JSON variables, you can optionally provide a **JSON Schema** to validate variant values.
+For **JSON** variables, you can optionally provide a **JSON Schema** to validate variant values.
+For **Custom Types**, the schema is derived from the type and shown read-only; edit the type in the **Variable Types** tab.
 
 ![Create variable form](images/variable-create-form.png)
 
@@ -125,7 +130,7 @@ Each variable can have multiple **variants**—different values that can be serv
 
 To add variants:
 
-1. Click **Add Variant** in the Variants section
+1. Click **Add** in the Variants section
 2. Enter a unique key for the variant (e.g., `premium`, `experimental`, `v2_detailed`)
 3. Provide an optional description
 4. Enter the value (the format depends on your value type)
@@ -134,6 +139,9 @@ To add variants:
     When you push a variable from code using `logfire.push_variables()`, the code's default value is stored as an "example". This example appears pre-filled when you create a new variant in the UI, making it easy to start from a working configuration and modify it.
 
 Each variant tracks its version history, accessible via the **View history** button. You can also browse all variant history using **Browse All History** to see changes over time or restore previous versions.
+
+!!! note "Variant keys are immutable"
+    Variant keys must be valid Python identifiers. Once created, variant keys cannot be renamed—create a new variant and delete the old one instead.
 
 !!! note "No variants = code default"
     If a variable has no variants configured, your application uses the code default value. This is the expected state immediately after `push_variables()`. You create variants in the UI when you want to serve different values to different users or run experiments.
@@ -145,6 +153,11 @@ The **Default Rollout** section controls what percentage of requests receive eac
 - Set `default` to `0.5` and `premium` to `0.5` for a 50/50 A/B test
 - Set `default` to `0.9` and `experimental` to `0.1` for a 10% canary deployment
 - If weights sum to less than 1.0, the remaining percentage uses your code's default value
+
+The UI offers **Simple** and **Advanced** modes:
+
+- **Simple**: pick a single active variant or use code default
+- **Advanced**: set weighted rollouts, add overrides, and manage aliases
 
 ### Targeting with Override Rules
 
@@ -606,7 +619,8 @@ agent_config = logfire.var(
 1. Your application connects to Logfire using your API key
 2. Variable configurations are fetched from the Logfire API
 3. A background thread polls for updates (default: every 30 seconds)
-4. When you change a variant or rollout in the UI, running applications pick up the change automatically while polling
+4. If available, the SDK listens for Server-Sent Events (SSE) on `GET /v1/variable-updates/` and triggers an immediate refresh
+5. When you change a variant or rollout in the UI, running applications pick up the change automatically via SSE or the next poll
 
 **Configuration options:**
 
@@ -627,6 +641,39 @@ logfire.configure(
     ),
 )
 ```
+
+### OpenFeature (OFREP) Endpoints
+
+Logfire exposes managed variables via the OpenFeature Remote Evaluation Protocol (OFREP). These endpoints evaluate variables as feature flags using a targeting context.
+
+**Endpoints (API base URL + paths):**
+
+```text
+POST /v1/ofrep/v1/evaluate/flags/{key}
+POST /v1/ofrep/v1/evaluate/flags
+```
+
+**Request body (single or bulk):**
+
+```json
+{
+  "context": {
+    "targetingKey": "user-123",
+    "plan": "enterprise",
+    "region": "us-east"
+  }
+}
+```
+
+- `targetingKey` is required and is used for deterministic rollout selection.
+- Any additional fields in `context` become attributes for override rules.
+
+**Caching (bulk endpoint):**
+
+- The bulk endpoint returns an `ETag` header.
+- If the client sends `If-None-Match` with the same value, the server returns `304 Not Modified`.
+
+These endpoints require an API key with the `project:read_variables` scope.
 
 ### Pushing Variables from Code
 
@@ -707,8 +754,8 @@ Successfully applied changes.
 **Pushing specific variables:**
 
 ```python
-feature_flag = logfire.var(name='feature-enabled', type=bool, default=False)
-max_retries = logfire.var(name='max-retries', type=int, default=3)
+feature_flag = logfire.var(name='feature_enabled', type=bool, default=False)
+max_retries = logfire.var(name='max_retries', type=int, default=3)
 
 # Push only the feature flag
 logfire.push_variables([feature_flag])
@@ -722,6 +769,9 @@ logfire.push_variables(yes=True)
 
 !!! note "Schema Updates"
     When you push a variable that already exists in Logfire, `push_variables` will update the JSON schema if it has changed but will preserve existing variants and rollout configurations. If existing variant values are incompatible with the new schema, you'll see a warning (or an error if using `strict=True`).
+
+!!! note "Write scope required"
+    `push_variables()` and `push_variable_types()` require an API key with the `project:write_variables` scope.
 
 ### Pushing Variable Types
 
@@ -849,9 +899,9 @@ The `ValidationReport` provides detailed information about validation results:
 
 This is useful in CI/CD pipelines to catch configuration drift where someone may have edited a variant value in the UI that no longer matches your expected type.
 
-### Config File Workflow
+### Config Sync Workflow (Programmatic)
 
-For more control over your variable configurations, you can work with config files directly. This workflow allows you to:
+For more control over your variable configurations, you can work with config data directly. This workflow allows you to:
 
 - Generate a template config from your code
 - Edit the config locally (add variants, rollouts, overrides)
@@ -861,69 +911,81 @@ For more control over your variable configurations, you can work with config fil
 **Generating a config template:**
 
 ```python
+import json
+
 import logfire
 from logfire.variables import VariablesConfig
 
 # Define your variables
 agent_config = logfire.var(name='agent_config', type=AgentConfig, default=AgentConfig(...))
-feature_flag = logfire.var(name='feature-enabled', type=bool, default=False)
+feature_flag = logfire.var(name='feature_enabled', type=bool, default=False)
 
 # Generate a config with name, schema, and example for each variable
 config = logfire.generate_config()
 
-# Save to a YAML file (JSON also supported)
-config.write('variables.yaml')
+# Save to a JSON file
+with open('variables.json', 'w', encoding='utf-8') as f:
+    f.write(config.model_dump_json(indent=2))
 ```
 
 The generated file will look like:
 
-```yaml
-variables:
-  agent_config:
-    name: agent_config
-    variants: {}
-    rollout:
-      variants: {}
-    overrides: []
-    json_schema:
-      type: object
-      properties:
-        instructions: {type: string}
-        model: {type: string}
-        temperature: {type: number}
-        max_tokens: {type: integer}
-    example: '{"instructions":"You are a helpful assistant.","model":"openai:gpt-4o-mini","temperature":0.7,"max_tokens":500}'
-  feature-enabled:
-    name: feature-enabled
-    variants: {}
-    rollout:
-      variants: {}
-    overrides: []
-    json_schema: {type: boolean}
-    example: 'false'
+```json
+{
+  "variables": {
+    "agent_config": {
+      "name": "agent_config",
+      "variants": {},
+      "rollout": {"variants": {}},
+      "overrides": [],
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "instructions": {"type": "string"},
+          "model": {"type": "string"},
+          "temperature": {"type": "number"},
+          "max_tokens": {"type": "integer"}
+        }
+      },
+      "example": "{\"instructions\":\"You are a helpful assistant.\",\"model\":\"openai:gpt-4o-mini\",\"temperature\":0.7,\"max_tokens\":500}"
+    },
+    "feature_enabled": {
+      "name": "feature_enabled",
+      "variants": {},
+      "rollout": {"variants": {}},
+      "overrides": [],
+      "json_schema": {"type": "boolean"},
+      "example": "false"
+    }
+  }
+}
 ```
 
 **Editing and syncing:**
 
-Edit the YAML file to add variants and rollouts:
+Edit the JSON file to add variants and rollouts:
 
-```yaml
-variables:
-  agent_config:
-    name: agent_config
-    variants:
-      concise:
-        key: concise
-        serialized_value: '{"instructions":"Be brief.","model":"openai:gpt-4o-mini","temperature":0.7,"max_tokens":300}'
-      detailed:
-        key: detailed
-        serialized_value: '{"instructions":"Provide thorough explanations.","model":"openai:gpt-4o","temperature":0.3,"max_tokens":1000}'
-    rollout:
-      variants:
-        concise: 0.8
-        detailed: 0.2
-    overrides: []
-    json_schema: {...}
+```json
+{
+  "variables": {
+    "agent_config": {
+      "name": "agent_config",
+      "variants": {
+        "concise": {
+          "key": "concise",
+          "serialized_value": "{\"instructions\":\"Be brief.\",\"model\":\"openai:gpt-4o-mini\",\"temperature\":0.7,\"max_tokens\":300}"
+        },
+        "detailed": {
+          "key": "detailed",
+          "serialized_value": "{\"instructions\":\"Provide thorough explanations.\",\"model\":\"openai:gpt-4o\",\"temperature\":0.3,\"max_tokens\":1000}"
+        }
+      },
+      "rollout": {"variants": {"concise": 0.8, "detailed": 0.2}},
+      "overrides": [],
+      "json_schema": {"type": "object"}
+    }
+  }
+}
 ```
 
 Then sync to Logfire:
@@ -932,7 +994,8 @@ Then sync to Logfire:
 from logfire.variables import VariablesConfig
 
 # Read the edited config
-config = VariablesConfig.read('variables.yaml')
+with open('variables.json', 'r', encoding='utf-8') as f:
+    config = VariablesConfig.model_validate_json(f.read())
 
 # Sync to the server
 logfire.sync_config(config)
@@ -963,7 +1026,8 @@ logfire.sync_config(config, dry_run=True)
 server_config = logfire.pull_config()
 
 # Save for backup or migration
-server_config.write('backup.yaml')
+with open('backup.json', 'w', encoding='utf-8') as f:
+    f.write(server_config.model_dump_json(indent=2))
 
 # Merge with local changes
 merged = server_config.merge(local_config)
@@ -1204,7 +1268,7 @@ The `force=True` parameter bypasses the polling interval check and fetches the l
 
 ### Migrating Variable Names
 
-Variable names serve as the identifier used to reference the variable in your code, so they cannot be changed directly. However, you can migrate to a new name using **aliases**.
+Variable names serve as the identifier used to reference the variable in your code. You can rename a variable in the UI or API, but any deployed code still using the old name will fall back to its code default. For zero-downtime migrations, use **aliases**.
 
 Aliases allow a variable to be found by alternative names. When your code requests a variable by name, if that name isn't found directly, the system checks if it matches any alias of an existing variable and returns that variable's value instead.
 
