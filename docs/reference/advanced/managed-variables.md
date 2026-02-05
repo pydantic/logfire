@@ -404,7 +404,7 @@ with agent_config.get() as config:
 
 Instead of passing `targeting_key` to every `.get()` call, you can set it once at a higher level using `targeting_context`. This is useful when you want to set the targeting key early in your request lifecycle (e.g., in middleware) and have it apply to all variable resolutions within that context:
 
-```python
+```python skip="true"
 from logfire.variables import targeting_context
 
 async def handle_request(user_id: str, message: str) -> str:
@@ -1200,7 +1200,7 @@ Conditions within an override are AND-ed together. Overrides are evaluated in or
 
 Use `variable.override()` to temporarily override a variable's value within a context. This is useful for testing:
 
-```python
+```python skip="true"
 def test_premium_config_handling():
     """Test that premium configuration works correctly."""
     premium_config = AgentConfig(
