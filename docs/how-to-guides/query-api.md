@@ -232,3 +232,24 @@ The Logfire API supports various response formats and query parameters to give y
     - **`row_oriented`**: Only affects JSON responses. If set to `true`, the JSON response will be row-oriented; otherwise, it will be column-oriented.
 
 All query parameters besides `sql` are optional and can be used in any combination to tailor the API response to your needs.
+
+### Pagination
+
+The Logfire API limits query results to 10,000 rows per request. To download larger datasets, use the built-in pagination support via `iter_paginated_records()`:
+
+```python skip-run="true" skip-reason="external-connection"
+from logfire.query_client import LogfireQueryClient
+
+with LogfireQueryClient(read_token='<your_read_token>') as client:
+    all_rows = []
+    for rows, next_cursor in client.iter_paginated_records(
+        select='*',
+        where="level >= 'error'",
+        page_size=1000,
+    ):
+        all_rows.extend(rows)
+        if next_cursor is None:
+            break
+```
+
+The method uses cursor-based pagination with `(start_timestamp, trace_id, span_id)` by default. When paginating over recent data where new rows may be inserted during the process, set `use_created_at=True` to use `(created_at, trace_id, span_id, kind)` instead, which avoids missing or duplicating rows.
