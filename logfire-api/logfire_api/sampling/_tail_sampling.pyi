@@ -60,11 +60,19 @@ class SamplingOptions:
 def check_trace_id_ratio(trace_id: int, rate: float) -> bool: ...
 
 class TailSamplingProcessor(WrapperSpanProcessor):
-    """Passes spans to the wrapped processor if any span in a trace meets the sampling criteria."""
+    """Buffers spans until a span in the trace meets the sampling criteria.
+
+    Two types of wrapped processors are supported:
+    - `processor`: Both `on_start` and `on_end` are buffered until sampling decision.
+      Use for processors like `PendingSpanProcessor` that create spans in `on_start`.
+    - `immediate_on_start_processor`: `on_start` is called immediately, only `on_end` is buffered.
+      Use for processors that just set attributes (like `DirectBaggageAttributesSpanProcessor`).
+    """
     get_tail_sample_rate: Incomplete
+    immediate_on_start_processor: SpanProcessor | None
     traces: dict[int, TraceBuffer]
     lock: Incomplete
-    def __init__(self, processor: SpanProcessor, get_tail_sample_rate: Callable[[TailSamplingSpanInfo], float]) -> None: ...
+    def __init__(self, processor: SpanProcessor, get_tail_sample_rate: Callable[[TailSamplingSpanInfo], float], immediate_on_start_processor: SpanProcessor | None = None) -> None: ...
     def on_start(self, span: Span, parent_context: context.Context | None = None) -> None: ...
     def on_end(self, span: ReadableSpan) -> None: ...
     def check_span(self, span_info: TailSamplingSpanInfo) -> bool:
