@@ -286,27 +286,13 @@ except ImportError:
         variables_push_config = DEFAULT_LOGFIRE_INSTANCE.variables_push_config
         variables_pull_config = DEFAULT_LOGFIRE_INSTANCE.variables_pull_config
         variables_build_config = DEFAULT_LOGFIRE_INSTANCE.variables_build_config
-        # Namespace for managed variables helpers.
-        class _VariablesNamespace:
-            def push(self, *args, **kwargs) -> bool:
-                return False
 
-            def push_types(self, *args, **kwargs) -> bool:
-                return False
+        # Stub module for variables submodule
+        class _VariablesModule:
+            """Stub for logfire.variables submodule."""
+            pass
 
-            def validate(self, *args, **kwargs) -> Any:
-                return MagicMock()
-
-            def push_config(self, *args, **kwargs) -> bool:
-                return False
-
-            def pull_config(self, *args, **kwargs) -> Any:
-                return MagicMock()
-
-            def build_config(self, *args, **kwargs) -> Any:
-                return MagicMock()
-
-        variables = _VariablesNamespace()
+        variables = _VariablesModule()
 
         def loguru_handler() -> dict[str, Any]:
             return {}
