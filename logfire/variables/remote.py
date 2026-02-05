@@ -2,6 +2,7 @@ from __future__ import annotations as _annotations
 
 import json
 import os
+import re
 import threading
 import warnings
 import weakref
@@ -24,7 +25,18 @@ from logfire.variables.abstract import (
     VariableProvider,
     VariableWriteError,
 )
-from logfire.variables.config import VariableConfig, VariablesConfig
+from logfire.variables.config import (
+    KeyIsNotPresent,
+    KeyIsPresent,
+    ValueDoesNotEqual,
+    ValueDoesNotMatchRegex,
+    ValueEquals,
+    ValueIsIn,
+    ValueIsNotIn,
+    ValueMatchesRegex,
+    VariableConfig,
+    VariablesConfig,
+)
 
 if TYPE_CHECKING:
     import logfire
@@ -543,13 +555,15 @@ class LogfireRemoteVariableProvider(VariableProvider):
         Returns:
             A dictionary of extra fields for the condition.
         """
-        if hasattr(condition, 'value'):
+        if isinstance(condition, (ValueEquals, ValueDoesNotEqual)):
             return {'value': condition.value}
-        elif hasattr(condition, 'values'):
+        elif isinstance(condition, (ValueIsIn, ValueIsNotIn)):
             return {'values': list(condition.values)}
-        elif hasattr(condition, 'pattern'):
+        elif isinstance(condition, (ValueMatchesRegex, ValueDoesNotMatchRegex)):
             pattern = condition.pattern
-            return {'pattern': pattern.pattern if hasattr(pattern, 'pattern') else pattern}
+            return {'pattern': pattern.pattern if isinstance(pattern, re.Pattern) else pattern}
+        elif isinstance(condition, (KeyIsPresent, KeyIsNotPresent)):
+            return {}
         return {}
 
     # --- Variable Types API ---

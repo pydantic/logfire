@@ -382,6 +382,10 @@ class VariablesConfig(BaseModel):
                     alias_map[alias] = var_config.name
         return alias_map
 
+    def _invalidate_alias_map(self) -> None:
+        """Invalidate the cached alias map so it gets rebuilt on next access."""
+        self.__dict__.pop('_alias_map', None)  # pyright: ignore[reportUnknownMemberType,reportAttributeAccessIssue]
+
     def resolve_serialized_value(
         self, name: VariableName, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
     ) -> ResolvedVariable[str | None]:

@@ -5,7 +5,6 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import ExitStack, contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
-from functools import lru_cache
 from importlib.util import find_spec
 from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar
 
@@ -163,13 +162,26 @@ class Variable(Generic[T_co]):
         self._on_change_callbacks: list[Callable[[], None]] = []
 
         # Create a cached deserialization function for this variable instance.
-        # Returns T | Exception to cache both successful deserializations and errors.
-        @lru_cache(maxsize=128)
+        # Returns T | Exception. Only successful results are cached; exceptions are
+        # returned but not cached so that transient errors don't persist permanently.
+        _cache: dict[str, T_co] = {}
+        _cache_order: list[str] = []
+        _cache_maxsize = 128
+
         def _deserialize_cached(serialized_value: str) -> T_co | Exception:
+            if serialized_value in _cache:
+                return _cache[serialized_value]
             try:
-                return self.type_adapter.validate_json(serialized_value)
+                result = self.type_adapter.validate_json(serialized_value)
             except Exception as e:
                 return e
+            # Evict oldest entry if cache is full
+            if len(_cache) >= _cache_maxsize:
+                oldest = _cache_order.pop(0)
+                _cache.pop(oldest, None)
+            _cache[serialized_value] = result
+            _cache_order.append(serialized_value)
+            return result
 
         self._deserialize_cached = _deserialize_cached
 
