@@ -41,10 +41,8 @@ if TYPE_CHECKING:
     from logfire.variables.local import LocalVariableProvider
     from logfire.variables.remote import LogfireRemoteVariableProvider
     from logfire.variables.variable import (
-        PromptVariable,
         ResolveFunction,
         Variable,
-        VariableBundle,
         override_variables,
         targeting_context,
     )
@@ -61,8 +59,6 @@ __all__ = [
     'build_config',
     # Variable classes
     'Variable',
-    'VariableBundle',
-    'PromptVariable',
     'ResolvedVariable',
     'ResolveFunction',
     # Configuration classes
@@ -132,10 +128,8 @@ def __getattr__(name: str):
     from logfire.variables.local import LocalVariableProvider
     from logfire.variables.remote import LogfireRemoteVariableProvider
     from logfire.variables.variable import (
-        PromptVariable,
         ResolveFunction,
         Variable,
-        VariableBundle,
         override_variables,
         targeting_context,
     )

@@ -114,11 +114,9 @@ if TYPE_CHECKING:
     from ..integrations.sqlalchemy import CommenterOptions as SQLAlchemyCommenterOptions
     from ..integrations.wsgi import RequestHook as WSGIRequestHook, ResponseHook as WSGIResponseHook
     from ..variables import (
-        PromptVariable,
         ResolveFunction,
         ValidationReport,
         Variable,
-        VariableBundle,
         VariablesConfig,
     )
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
@@ -2452,89 +2450,6 @@ class Logfire:
         variable = Variable[T](name, default=default, type=tp, logfire_instance=self, description=description)
         self._variables[name] = variable
         return variable
-
-    def prompt_var(
-        self,
-        name: str,
-        *,
-        default: str | ResolveFunction[str],
-        description: str | None = None,
-        template_vars: Sequence[str] | None = None,
-    ) -> PromptVariable:
-        """Create a prompt variable - a convenience for string variables representing prompts.
-
-        PromptVariable is a specialized Variable for prompt templates that:
-        - Automatically sets type to `str`
-        - Optionally tracks expected template variable names
-
-        Args:
-            name: Unique name identifying this variable.
-            default: Default prompt value, or a function that computes it.
-            description: Optional human-readable description.
-            template_vars: Optional list of expected template variable names (e.g., ["user_name"]).
-                This is informational metadata - no runtime validation is performed.
-
-        Returns:
-            A PromptVariable instance.
-
-        Example:
-            ```python skip="true"
-            system_prompt = logfire.prompt_var(
-                name='system_prompt',
-                default='Hello, {user_name}! Welcome to {context}.',
-                template_vars=['user_name', 'context'],  # Informational
-            )
-            ```
-        """
-        from logfire.variables.variable import PromptVariable
-
-        variable = PromptVariable(
-            name,
-            default=default,
-            description=description,
-            template_vars=template_vars,
-            logfire_instance=self,
-        )
-        self._variables[name] = variable
-        return variable
-
-    def var_bundle(
-        self,
-        name: str,
-        variables: Mapping[str, Variable[Any]],
-    ) -> VariableBundle:
-        """Create a bundle of related variables that can be managed together.
-
-        VariableBundle allows grouping related variables and overriding them as a unit,
-        making it easier to manage configuration for components that use multiple variables.
-
-        Args:
-            name: Name identifying this bundle.
-            variables: Mapping of keys to Variable instances. Keys are used for
-                accessing variables and for override mappings.
-
-        Returns:
-            A VariableBundle instance.
-
-        Example:
-            ```python skip="true"
-            system_prompt = logfire.var(name='system_prompt', type=str, default='Default')
-            model = logfire.var(name='model', type=str, default='gpt-4')
-            temperature = logfire.var(name='temperature', type=float, default=0.7)
-
-            agent_config = logfire.var_bundle(
-                name='support_agent',
-                variables={'system_prompt': system_prompt, 'model': model, 'temperature': temperature},
-            )
-
-            # Override multiple variables at once
-            with agent_config.override({'system_prompt': 'New prompt', 'model': 'gpt-4o'}):
-                result = await agent.run(query)
-            ```
-        """
-        from logfire.variables.variable import VariableBundle
-
-        return VariableBundle(name, variables)
 
     def get_variables(self) -> list[Variable[Any]]:
         """Get all variables registered with this Logfire instance."""
