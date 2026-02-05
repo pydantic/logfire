@@ -67,8 +67,7 @@ class ValueDoesNotEqual(BaseModel):
 
     def matches(self, attributes: Mapping[str, Any]) -> bool:
         """Check if the attribute does not equal the specified value."""
-        if self.attribute not in attributes:
-            return False
+        # If attribute is missing, use object() sentinel which won't equal any value
         return attributes.get(self.attribute, object()) != self.value
 
 
@@ -100,8 +99,7 @@ class ValueIsNotIn(BaseModel):
 
     def matches(self, attributes: Mapping[str, Any]) -> bool:
         """Check if the attribute value is not in the excluded set."""
-        if self.attribute not in attributes:
-            return False
+        # If attribute is missing, use object() sentinel which won't be in the list
         value = attributes.get(self.attribute, object())
         return value not in self.values
 

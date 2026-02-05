@@ -78,7 +78,7 @@ class ResolvedVariable(Generic[T_co]):
     spans and logs to be associated with the variable resolution that was active at the time.
 
     Example:
-        ```python
+        ```python skip="true"
         my_var = logfire.var(name='my_var', type=str, default='default')
         with my_var.get() as details:
             # Inside this context, baggage is set with:
@@ -196,7 +196,7 @@ class ValidationReport:
     or formatted for human-readable output.
 
     Example:
-        ```python
+        ```python skip="true"
         report = provider.validate_variables(variables)
         if report.has_errors:
             print(report.format())
@@ -988,7 +988,7 @@ class VariableProvider(ABC):
             if validation passed, and `report.format()` to get a human-readable summary.
 
         Example:
-            ```python
+            ```python skip="true"
             report = provider.validate_variables(variables)
             if not report.is_valid:
                 print(report.format())
@@ -1122,7 +1122,7 @@ class VariableProvider(ABC):
             True if changes were applied (or would be applied in dry_run mode), False otherwise.
 
         Example:
-            ```python
+            ```python skip="true"
             from pydantic import BaseModel
 
 

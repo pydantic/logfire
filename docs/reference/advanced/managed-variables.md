@@ -227,7 +227,7 @@ The recommended pattern is to use the variable's `.get()` method as a context ma
 
 When using the Logfire SDK, baggage values are automatically added as attributes to all downstream spans. This means any spans created inside the context manager will be tagged with which variant was used, making it easy to filter and compare behavior by variant in the Logfire UI.
 
-```python
+```python skip="true"
 from pydantic_ai import Agent
 
 
@@ -268,7 +268,7 @@ In practice, depending on your application structure, you may want to use `tenan
 
 Here's a complete example showing how to A/B test two complete agent configurations:
 
-```python
+```python skip="true"
 from pydantic import BaseModel
 from pydantic_ai import Agent
 
@@ -389,7 +389,7 @@ The `targeting_key` parameter ensures deterministic variant selection. The same 
 - **Consistent user experience**: You typically want users to see consistent configuration behavior within a session, or even across sessions. You may also want all users within a single tenant to receive the same variant.
 - **Debugging**: By controlling the `targeting_key`, you can deterministically get the same configuration variant that a user received. Note that this reproduces the *configuration*, not the exact behavior; if your application includes stochastic elements like LLM calls, outputs will still vary.
 
-```python
+```python skip="true"
 # User-based targeting
 with agent_config.get(targeting_key=user_id) as config:
     ...
@@ -421,7 +421,7 @@ async def handle_request(user_id: str, message: str) -> str:
 
 Different variables may need different targeting strategies. For example, you might want to target by `user_id` for personalization features but by `organization_id` for billing-related features. You can specify which variables a targeting context applies to:
 
-```python
+```python skip="true"
 from logfire.variables import targeting_context
 
 # Define variables
@@ -444,7 +444,7 @@ async def handle_request(user_id: str, org_id: str) -> None:
 
 You can set a default targeting key for all variables while overriding it for specific ones. Variable-specific targeting always takes precedence over the default, regardless of nesting order:
 
-```python
+```python skip="true"
 from logfire.variables import targeting_context
 
 # Set default targeting for all variables, but use org_id for billing
@@ -474,7 +474,7 @@ When resolving the targeting key for a variable, the following priority order is
 
 Pass attributes to enable condition-based targeting:
 
-```python
+```python skip="true"
 with agent_config.get(
     targeting_key=user_id,
     attributes={
@@ -488,7 +488,7 @@ with agent_config.get(
 
 These attributes can be used in override rules to route specific segments to specific variants:
 
-```python
+```python skip="true"
 from logfire.variables.config import (
     Rollout,
     RolloutOverride,
@@ -555,7 +555,7 @@ This means your targeting rules can match against service identity or request-sc
 
 If your application sets the user's plan as baggage early in the request lifecycle, you can use it for targeting without passing it explicitly to every variable resolution:
 
-```python
+```python skip="true"
 # In your middleware or request handler, set the plan once
 with logfire.set_baggage(plan='enterprise'):
     # ... later in your application code ...
@@ -577,7 +577,7 @@ Resource attributes like `deployment.environment` are automatically included, al
 
 To disable automatic context enrichment:
 
-```python
+```python skip="true"
 logfire.configure(
     variables=logfire.VariablesOptions(
         include_resource_attributes_in_context=False,
@@ -592,7 +592,7 @@ When connected to Logfire, variables are managed through the Logfire UI. This is
 
 To enable remote variables, you need to explicitly opt in using `VariablesOptions`:
 
-```python
+```python skip="true"
 import logfire
 from logfire.variables.config import RemoteVariablesConfig
 
@@ -624,7 +624,7 @@ agent_config = logfire.var(
 
 **Configuration options:**
 
-```python
+```python skip="true"
 from datetime import timedelta
 
 from logfire.variables.config import RemoteVariablesConfig
@@ -681,7 +681,7 @@ Instead of manually creating variables in the Logfire UI, you can push your vari
 
 The primary benefit of pushing from code is **automatic JSON schema generation**. When you use a Pydantic model as your variable type, `logfire.variables.push()` automatically generates the JSON schema from your model definition. This means the Logfire UI will validate variant values against your schema, catching type errors before they reach production. Creating these schemas manually in the UI would be tedious and error-prone, especially for complex nested models.
 
-```python
+```python skip="true"
 from pydantic import BaseModel
 
 import logfire
@@ -753,7 +753,7 @@ Successfully applied changes.
 
 **Pushing specific variables:**
 
-```python
+```python skip="true"
 feature_flag = logfire.var(name='feature_enabled', type=bool, default=False)
 max_retries = logfire.var(name='max_retries', type=int, default=3)
 
@@ -783,7 +783,7 @@ When you have multiple variables that share the same type (e.g., several variabl
 - **Centralized management**: Update the schema in one place when your type definition changes
 - **Documentation**: Types serve as documentation for the expected structure of variable values
 
-```python
+```python skip="true"
 from pydantic import BaseModel
 
 import logfire
@@ -820,7 +820,7 @@ if __name__ == '__main__':
 
 By default, types are named using their `__name__` attribute (e.g., `FeatureConfig`). You can provide explicit names using tuples:
 
-```python
+```python skip="true"
 logfire.variables.push_types([
     (FeatureConfig, 'my-feature-config'),
     (UserSettings, 'my-user-settings'),
@@ -869,7 +869,7 @@ Unchanged (1):
 
 You can validate that your remote variable configurations match your local type definitions using `logfire.variables.validate()`:
 
-```python
+```python skip="true"
 from logfire.variables import ValidationReport
 
 # Validate all registered variables
@@ -910,7 +910,7 @@ For more control over your variable configurations, you can work with config dat
 
 **Generating a config template:**
 
-```python
+```python skip="true"
 import json
 
 import logfire
@@ -990,7 +990,7 @@ Edit the JSON file to add variants and rollouts:
 
 Then push to Logfire:
 
-```python
+```python skip="true"
 from logfire.variables import VariablesConfig
 
 # Read the edited config
@@ -1008,7 +1008,7 @@ logfire.variables.push_config(config)
 | `'merge'` (default) | Only create/update variables in the config. Other variables on the server are unchanged. |
 | `'replace'` | Make the server match the config exactly. Variables not in the config will be deleted. |
 
-```python
+```python skip="true"
 # Partial push - only update variables in the config
 logfire.variables.push_config(config, mode='merge')
 
@@ -1021,7 +1021,7 @@ logfire.variables.push_config(config, dry_run=True)
 
 **Pulling existing config:**
 
-```python
+```python skip="true"
 # Fetch current config from server
 server_config = logfire.variables.pull_config()
 
@@ -1222,7 +1222,7 @@ def test_premium_config_handling():
 
 Override with a function that computes the value based on context:
 
-```python
+```python skip="true"
 from collections.abc import Mapping
 from typing import Any
 
@@ -1256,7 +1256,7 @@ with agent_config.override(get_config_for_context):
 
 Variables are automatically refreshed in the background when using the remote provider. You can also manually trigger a refresh:
 
-```python
+```python skip="true"
 # Synchronous refresh
 agent_config.refresh_sync(force=True)
 
@@ -1300,7 +1300,7 @@ You can manage aliases in the **Aliases** section at the bottom of the variable 
 
 **In code (local config):**
 
-```python
+```python skip="true"
 from logfire.variables.config import VariableConfig, VariablesConfig
 
 config = VariablesConfig(

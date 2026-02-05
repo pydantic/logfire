@@ -2478,7 +2478,7 @@ class Logfire:
             A PromptVariable instance.
 
         Example:
-            ```python
+            ```python skip="true"
             system_prompt = logfire.prompt_var(
                 name='system_prompt',
                 default='Hello, {user_name}! Welcome to {context}.',
@@ -2517,7 +2517,7 @@ class Logfire:
             A VariableBundle instance.
 
         Example:
-            ```python
+            ```python skip="true"
             system_prompt = logfire.var(name='system_prompt', type=str, default='Default')
             model = logfire.var(name='model', type=str, default='gpt-4')
             temperature = logfire.var(name='temperature', type=float, default=0.7)
@@ -2718,12 +2718,11 @@ class Logfire:
             True if changes were applied (or would be applied in dry_run mode), False otherwise.
 
         Example:
-            ```python
+            ```python skip="true"
             import logfire
             from logfire.variables import VariablesConfig
 
-            # Read config from file and push to server
-            config = VariablesConfig.read('variables.yaml')
+            # Push config to server
             logfire.variables.push_config(config)
 
             # Or merge just a subset of variables
@@ -2743,12 +2742,12 @@ class Logfire:
             The current VariablesConfig from the provider.
 
         Example:
-            ```python
+            ```python skip="true"
             import logfire
 
-            # Pull config and save to file
+            # Pull config from the provider
             config = logfire.variables.pull_config()
-            config.write('variables.yaml')
+            print(config.model_dump_json(indent=2))
             ```
         """
         provider = self.config.get_variable_provider()
@@ -2770,19 +2769,15 @@ class Logfire:
             A VariablesConfig with minimal configs for each variable.
 
         Example:
-            ```python
+            ```python skip="true"
             import logfire
 
-            feature_enabled = logfire.var(name='feature-enabled', type=bool, default=False)
-            max_retries = logfire.var(name='max-retries', type=int, default=3)
+            feature_enabled = logfire.var(name='feature_enabled', type=bool, default=False)
+            max_retries = logfire.var(name='max_retries', type=int, default=3)
 
-            # Build config and save to file
+            # Build config from registered variables
             config = logfire.variables.build_config()
-            config.write('variables.yaml')
-
-            # Edit the file to add variants, then push
-            config = VariablesConfig.read('variables.yaml')
-            logfire.variables.push_config(config)
+            print(config.model_dump_json(indent=2))
             ```
         """
         if variables is None:

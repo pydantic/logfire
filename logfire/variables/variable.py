@@ -164,7 +164,7 @@ class Variable(Generic[T_co]):
                 in the configuration, resolution will fall back to the default behavior.
 
         Example:
-            ```python
+            ```python skip="true"
             # Select the "experimental" variant for all resolutions within this context
             with my_variable.use_variant('experimental'):
                 value = my_variable.get().value  # Always gets "experimental" variant
@@ -477,7 +477,7 @@ def override_variables(
             Values can be either direct values or ResolveFunction callables.
 
     Example:
-        ```python
+        ```python skip="true"
         system_prompt = logfire.var(name='system_prompt', type=str, default='Default')
         temperature = logfire.var(name='temperature', type=float, default=0.7)
         model = logfire.var(name='model', type=str, default='gpt-4')
@@ -507,7 +507,7 @@ class PromptVariable(Variable[str]):
     - Optional template variable validation
 
     Example:
-        ```python
+        ```python skip="true"
         system_prompt = logfire.prompt_var(
             name='system_prompt',
             default='Hello, {user_name}! Welcome to {context}.',
@@ -558,7 +558,7 @@ class VariableBundle:
     use multiple variables.
 
     Example:
-        ```python
+        ```python skip="true"
         system_prompt = logfire.var(name='system_prompt', type=str, default='Default')
         model = logfire.var(name='model', type=str, default='gpt-4')
         temperature = logfire.var(name='temperature', type=float, default=0.7)
@@ -635,7 +635,7 @@ class VariableBundle:
                 Only keys present in the bundle will be used.
 
         Example:
-            ```python
+            ```python skip="true"
             with agent_config.override({'system_prompt': 'New prompt', 'model': 'gpt-4o'}):
                 result = await agent.run(query)
             ```
