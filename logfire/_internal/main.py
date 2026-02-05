@@ -2487,8 +2487,8 @@ class Logfire:
             ```python
             import logfire
 
-            feature_enabled = logfire.var(name='feature-enabled', type=bool, default=False)
-            max_retries = logfire.var(name='max-retries', type=int, default=3)
+            feature_enabled = logfire.var(name='feature_enabled', type=bool, default=False)
+            max_retries = logfire.var(name='max_retries', type=int, default=3)
 
             if __name__ == '__main__':
                 # Push all registered variables
@@ -2588,8 +2588,8 @@ class Logfire:
             ```python
             import logfire
 
-            feature_enabled = logfire.var(name='feature-enabled', type=bool, default=False)
-            max_retries = logfire.var(name='max-retries', type=int, default=3)
+            feature_enabled = logfire.var(name='feature_enabled', type=bool, default=False)
+            max_retries = logfire.var(name='max_retries', type=int, default=3)
 
             if __name__ == '__main__':
                 # Validate all registered variables
