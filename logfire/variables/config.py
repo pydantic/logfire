@@ -67,6 +67,8 @@ class ValueDoesNotEqual(BaseModel):
 
     def matches(self, attributes: Mapping[str, Any]) -> bool:
         """Check if the attribute does not equal the specified value."""
+        if self.attribute not in attributes:
+            return False
         return attributes.get(self.attribute, object()) != self.value
 
 
@@ -98,6 +100,8 @@ class ValueIsNotIn(BaseModel):
 
     def matches(self, attributes: Mapping[str, Any]) -> bool:
         """Check if the attribute value is not in the excluded set."""
+        if self.attribute not in attributes:
+            return False
         value = attributes.get(self.attribute, object())
         return value not in self.values
 
@@ -220,6 +224,8 @@ class Rollout(BaseModel):
     def _validate_variant_proportions(cls, v: dict[VariantKey, float]):
         # Note: if the values sum to _less_ than 1, the remaining proportion corresponds to the probability of using
         # the code default.
+        if any(weight < 0 for weight in v.values()):
+            raise ValueError('Variant proportions must not be negative.')
         if sum(v.values()) > 1:
             raise ValueError('Variant proportions must not sum to more than 1.')
         return v
@@ -366,7 +372,7 @@ class VariablesConfig(BaseModel):
                 raise ValueError(f'`variables` has invalid lookup key {k!r} for value with name {v.name!r}.')
         return self
 
-    @cached_property
+    @property
     def _alias_map(self) -> dict[VariableName, str]:
         # Build alias lookup map for efficient lookups
         alias_map: dict[VariableName, VariableName] = {}

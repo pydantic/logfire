@@ -109,11 +109,11 @@ class LogfireRemoteVariableProvider(VariableProvider):
             logfire_instance: The Logfire instance to use for error logging, or None if
                 variable instrumentation is disabled (errors will be reported via warnings).
         """
+        if logfire_instance is not None:
+            self._logfire = logfire_instance.with_settings(custom_scope_suffix='variables.provider')
         if self._started:
             return
         self._started = True
-        if logfire_instance is not None:
-            self._logfire = logfire_instance.with_settings(custom_scope_suffix='variables.provider')
 
         # Start the worker thread
         self._worker_thread = threading.Thread(
@@ -393,7 +393,22 @@ class LogfireRemoteVariableProvider(VariableProvider):
             VariableNotFoundError: If the variable does not exist.
             VariableWriteError: If the API request fails.
         """
-        body = self._config_to_api_body(config)
+        variants_to_send: dict[str, Any] | None = None
+        if self._config is not None:
+            existing = self._config.variables.get(name)
+            if existing is not None:
+                variants_to_send = {}
+                for key, variant in config.variants.items():
+                    existing_variant = existing.variants.get(key)
+                    existing_description = existing_variant.description if existing_variant else None
+                    new_description = variant.description
+                    if (
+                        existing_variant is None
+                        or existing_variant.serialized_value != variant.serialized_value
+                        or existing_description != new_description
+                    ):
+                        variants_to_send[key] = variant
+        body = self._config_to_api_body(config, variants_override=variants_to_send)
         try:
             response = self._session.put(urljoin(self._base_url, f'/v1/variables/{name}/'), json=body)
             if response.status_code == 404:
@@ -427,11 +442,14 @@ class LogfireRemoteVariableProvider(VariableProvider):
         # Refresh cache after successful write
         self.refresh(force=True)
 
-    def _config_to_api_body(self, config: VariableConfig) -> dict[str, Any]:
+    def _config_to_api_body(
+        self, config: VariableConfig, *, variants_override: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Convert a VariableConfig to the API request body format.
 
         Args:
             config: The VariableConfig to convert.
+            variants_override: Optional mapping of variants to send instead of all variants.
 
         Returns:
             A dictionary suitable for the API request body.
@@ -444,14 +462,24 @@ class LogfireRemoteVariableProvider(VariableProvider):
         if config.json_schema is not None:
             body['json_schema'] = config.json_schema
 
-        body['variants'] = {
-            key: {
-                'key': variant.key,
-                'serialized_value': variant.serialized_value,
-                **({'description': variant.description} if variant.description else {}),
+        if variants_override is None:
+            body['variants'] = {
+                key: {
+                    'key': variant.key,
+                    'serialized_value': variant.serialized_value,
+                    **({'description': variant.description} if variant.description else {}),
+                }
+                for key, variant in config.variants.items()
             }
-            for key, variant in config.variants.items()
-        }
+        elif variants_override:
+            body['variants'] = {
+                key: {
+                    'key': variant.key,
+                    'serialized_value': variant.serialized_value,
+                    **({'description': variant.description} if variant.description else {}),
+                }
+                for key, variant in variants_override.items()
+            }
 
         body['rollout'] = {'variants': config.rollout.variants}
 
