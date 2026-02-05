@@ -156,6 +156,7 @@ class Logfire:
         self._console_log = console_log
         self._otel_scope = otel_scope
         self._variables: dict[str, Variable[Any]] = {}
+        self._change_notifications_setup = False
 
     @property
     def config(self) -> LogfireConfig:
@@ -2455,9 +2456,31 @@ class Logfire:
         else:
             tp = type
 
+        if name in self._variables:
+            raise ValueError(
+                f"A variable with name '{name}' has already been registered. Each variable must have a unique name."
+            )
+
         variable = Variable[T](name, default=default, type=tp, logfire_instance=self, description=description)
         self._variables[name] = variable
+
+        if not self._change_notifications_setup:
+            self._setup_variable_change_notifications()
+            self._change_notifications_setup = True
+
         return variable
+
+    def _setup_variable_change_notifications(self) -> None:
+        """Set up the on_config_change callback on the provider to dispatch to variables."""
+        provider = self.config.get_variable_provider()
+
+        def on_config_change(changed_names: set[str]) -> None:
+            for name in changed_names:
+                variable = self._variables.get(name)
+                if variable is not None:
+                    variable._notify_change()  # pyright: ignore[reportPrivateUsage]
+
+        provider.set_on_config_change(on_config_change)
 
     def variables_get(self) -> list[Variable[Any]]:
         """Get all variables registered with this Logfire instance."""
@@ -2590,7 +2613,8 @@ class Logfire:
                 registered with this Logfire instance will be validated.
 
         Returns:
-            True if all variables validated successfully, False if there were errors.
+            A ValidationReport containing any errors found. Use `report.is_valid` to check
+            if validation passed, and `report.format()` to get a human-readable summary.
 
         Example:
             ```python

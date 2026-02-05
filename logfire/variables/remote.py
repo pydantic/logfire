@@ -60,6 +60,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
             timedelta(seconds=polling_interval) if isinstance(polling_interval, (float, int)) else polling_interval
         )
 
+        self._session_lock = threading.Lock()
         self._reset_once = Once()
         self._has_attempted_fetch: bool = False
         self._last_fetched_at: datetime | None = None
@@ -70,7 +71,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._shutdown_timeout_exceeded = False
         self._refresh_lock = threading.Lock()
         self._worker_awaken = threading.Event()
-        self._force_next_refresh = False  # Set by SSE listener to force immediate refresh
+        self._force_refresh_event = threading.Event()  # Set by SSE listener to force immediate refresh
 
         # SSE listener for real-time updates
         self._sse_connected = False
@@ -88,7 +89,9 @@ class LogfireRemoteVariableProvider(VariableProvider):
     def _at_fork_reinit(self):  # pragma: no cover
         # Recreate all things threading related
         self._refresh_lock = threading.Lock()
+        self._session_lock = threading.Lock()
         self._worker_awaken = threading.Event()
+        self._force_refresh_event = threading.Event()
         # Only restart threads if we were started before the fork
         if self._started:
             self._worker_thread = threading.Thread(
@@ -214,7 +217,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
                                 # On any variable event, trigger a forced refresh
                                 if event_type in ('created', 'updated', 'deleted'):
                                     # Set flag to force refresh and wake up the worker
-                                    self._force_next_refresh = True
+                                    self._force_refresh_event.set()
                                     self._worker_awaken.set()
                             except (json.JSONDecodeError, TypeError):
                                 # Invalid JSON, ignore
@@ -244,8 +247,9 @@ class LogfireRemoteVariableProvider(VariableProvider):
             # We can change this if we run into issues, but it doesn't seem to be causing any now.
 
             # Check if SSE event requested a forced refresh
-            force = self._force_next_refresh
-            self._force_next_refresh = False
+            force = self._force_refresh_event.is_set()
+            if force:
+                self._force_refresh_event.clear()
 
             self.refresh(force=force)
             self._worker_awaken.clear()
@@ -275,9 +279,10 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 return  # nothing to do
 
             try:
-                variables_response = self._session.get(urljoin(self._base_url, '/v1/variables/'))
-                UnexpectedResponse.raise_for_status(variables_response)
-                variables_config_data = variables_response.json()
+                with self._session_lock:
+                    variables_response = self._session.get(urljoin(self._base_url, '/v1/variables/'))
+                    UnexpectedResponse.raise_for_status(variables_response)
+                    variables_config_data = variables_response.json()
             except Exception as e:
                 # Catch all request/HTTP/JSON exceptions (ConnectionError, Timeout, UnexpectedResponse,
                 # JSONDecodeError, etc.) to prevent crashing the user's application on failures.
@@ -285,13 +290,26 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 return
 
             try:
-                self._config = VariablesConfig.model_validate(variables_config_data)
+                old_config = self._config
+                new_config = VariablesConfig.model_validate(variables_config_data)
+                self._config = new_config
+                self._last_fetched_at = datetime.now(tz=timezone.utc)
+
+                # Detect changed variables and notify
+                if old_config is not None:
+                    changed: set[str] = set()
+                    all_names = set(old_config.variables.keys()) | set(new_config.variables.keys())
+                    for name in all_names:
+                        old_var = old_config.variables.get(name)
+                        new_var = new_config.variables.get(name)
+                        if old_var != new_var:
+                            changed.add(name)
+                    if changed:
+                        self._notify_config_change(changed)
             except ValidationError as e:
                 self._log_error('Failed to parse variables configuration from Logfire API', e)
             finally:
                 self._has_attempted_fetch = True
-
-            self._last_fetched_at = datetime.now(tz=timezone.utc)
 
     def get_serialized_value(
         self,
@@ -377,10 +395,11 @@ class LogfireRemoteVariableProvider(VariableProvider):
         """
         body = self._config_to_api_body(config)
         try:
-            response = self._session.post(urljoin(self._base_url, '/v1/variables/'), json=body)
-            if response.status_code == 409:
-                raise VariableAlreadyExistsError(f"Variable '{config.name}' already exists")
-            UnexpectedResponse.raise_for_status(response)
+            with self._session_lock:
+                response = self._session.post(urljoin(self._base_url, '/v1/variables/'), json=body)
+                if response.status_code == 409:
+                    raise VariableAlreadyExistsError(f"Variable '{config.name}' already exists")
+                UnexpectedResponse.raise_for_status(response)
         except UnexpectedResponse as e:
             raise VariableWriteError(f'Failed to create variable: {e}') from e
 
@@ -419,10 +438,11 @@ class LogfireRemoteVariableProvider(VariableProvider):
                         variants_to_send[key] = variant
         body = self._config_to_api_body(config, variants_override=variants_to_send)
         try:
-            response = self._session.put(urljoin(self._base_url, f'/v1/variables/{name}/'), json=body)
-            if response.status_code == 404:
-                raise VariableNotFoundError(f"Variable '{name}' not found")
-            UnexpectedResponse.raise_for_status(response)
+            with self._session_lock:
+                response = self._session.put(urljoin(self._base_url, f'/v1/variables/{name}/'), json=body)
+                if response.status_code == 404:
+                    raise VariableNotFoundError(f"Variable '{name}' not found")
+                UnexpectedResponse.raise_for_status(response)
         except UnexpectedResponse as e:
             raise VariableWriteError(f'Failed to update variable: {e}') from e
 
@@ -441,10 +461,11 @@ class LogfireRemoteVariableProvider(VariableProvider):
             VariableWriteError: If the API request fails.
         """
         try:
-            response = self._session.delete(urljoin(self._base_url, f'/v1/variables/{name}/'))
-            if response.status_code == 404:
-                raise VariableNotFoundError(f"Variable '{name}' not found")
-            UnexpectedResponse.raise_for_status(response)
+            with self._session_lock:
+                response = self._session.delete(urljoin(self._base_url, f'/v1/variables/{name}/'))
+                if response.status_code == 404:
+                    raise VariableNotFoundError(f"Variable '{name}' not found")
+                UnexpectedResponse.raise_for_status(response)
         except UnexpectedResponse as e:
             raise VariableWriteError(f'Failed to delete variable: {e}') from e
 
@@ -542,12 +563,12 @@ class LogfireRemoteVariableProvider(VariableProvider):
         from logfire.variables.config import VariableTypeConfig
 
         try:
-            response = self._session.get(urljoin(self._base_url, '/v1/variable-types/'))
-            UnexpectedResponse.raise_for_status(response)
+            with self._session_lock:
+                response = self._session.get(urljoin(self._base_url, '/v1/variable-types/'))
+                UnexpectedResponse.raise_for_status(response)
+                types_data = response.json()
         except UnexpectedResponse as e:
             raise VariableWriteError(f'Failed to list variable types: {e}') from e
-
-        types_data = response.json()
         result: dict[str, VariableTypeConfig] = {}
         for type_data in types_data:
             config = VariableTypeConfig(
@@ -583,9 +604,10 @@ class LogfireRemoteVariableProvider(VariableProvider):
             body['source_hint'] = config.source_hint
 
         try:
-            # POST endpoint is an upsert (create or update by name)
-            response = self._session.post(urljoin(self._base_url, '/v1/variable-types/'), json=body)
-            UnexpectedResponse.raise_for_status(response)
+            with self._session_lock:
+                # POST endpoint is an upsert (create or update by name)
+                response = self._session.post(urljoin(self._base_url, '/v1/variable-types/'), json=body)
+                UnexpectedResponse.raise_for_status(response)
         except UnexpectedResponse as e:
             raise VariableWriteError(f'Failed to upsert variable type: {e}') from e
 

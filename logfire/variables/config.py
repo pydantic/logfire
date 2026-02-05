@@ -226,7 +226,7 @@ class Rollout(BaseModel):
         # the code default.
         if any(weight < 0 for weight in v.values()):
             raise ValueError('Variant proportions must not be negative.')
-        if sum(v.values()) > 1:
+        if sum(v.values()) > 1.0 + 1e-9:
             raise ValueError('Variant proportions must not sum to more than 1.')
         return v
 
@@ -372,7 +372,7 @@ class VariablesConfig(BaseModel):
                 raise ValueError(f'`variables` has invalid lookup key {k!r} for value with name {v.name!r}.')
         return self
 
-    @property
+    @cached_property
     def _alias_map(self) -> dict[VariableName, str]:
         # Build alias lookup map for efficient lookups
         alias_map: dict[VariableName, VariableName] = {}

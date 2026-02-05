@@ -1,5 +1,6 @@
 from __future__ import annotations as _annotations
 
+import threading
 from collections.abc import Mapping
 from typing import Any
 
@@ -27,6 +28,7 @@ class LocalVariableProvider(VariableProvider):
             config: A VariablesConfig instance to use for variable resolution and mutation.
         """
         self._config = config
+        self._lock = threading.Lock()
 
     def get_serialized_value(
         self,
@@ -46,7 +48,8 @@ class LocalVariableProvider(VariableProvider):
         Returns:
             A ResolvedVariable containing the serialized value (or None if not found).
         """
-        return self._config.resolve_serialized_value(variable_name, targeting_key, attributes)
+        with self._lock:
+            return self._config.resolve_serialized_value(variable_name, targeting_key, attributes)
 
     def get_variable_config(self, name: str) -> VariableConfig | None:
         """Retrieve the full configuration for a variable.
@@ -60,7 +63,8 @@ class LocalVariableProvider(VariableProvider):
         Returns:
             The VariableConfig if found, or None if the variable doesn't exist.
         """
-        return self._config._get_variable_config(name)  # pyright: ignore[reportPrivateUsage]
+        with self._lock:
+            return self._config._get_variable_config(name)  # pyright: ignore[reportPrivateUsage]
 
     def get_all_variables_config(self) -> VariablesConfig:
         """Retrieve all variable configurations.
@@ -82,9 +86,11 @@ class LocalVariableProvider(VariableProvider):
         Raises:
             VariableAlreadyExistsError: If a variable with this name already exists.
         """
-        if config.name in self._config.variables:
-            raise VariableAlreadyExistsError(f"Variable '{config.name}' already exists")
-        self._config.variables[config.name] = config
+        with self._lock:
+            if config.name in self._config.variables:
+                raise VariableAlreadyExistsError(f"Variable '{config.name}' already exists")
+            self._config.variables[config.name] = config
+        self._notify_config_change({config.name})
         return config
 
     def update_variable(self, name: str, config: VariableConfig) -> VariableConfig:
@@ -100,9 +106,11 @@ class LocalVariableProvider(VariableProvider):
         Raises:
             VariableNotFoundError: If the variable does not exist.
         """
-        if name not in self._config.variables:
-            raise VariableNotFoundError(f"Variable '{name}' not found")
-        self._config.variables[name] = config
+        with self._lock:
+            if name not in self._config.variables:
+                raise VariableNotFoundError(f"Variable '{name}' not found")
+            self._config.variables[name] = config
+        self._notify_config_change({name})
         return config
 
     def delete_variable(self, name: str) -> None:
@@ -114,6 +122,8 @@ class LocalVariableProvider(VariableProvider):
         Raises:
             VariableNotFoundError: If the variable does not exist.
         """
-        if name not in self._config.variables:
-            raise VariableNotFoundError(f"Variable '{name}' not found")
-        del self._config.variables[name]
+        with self._lock:
+            if name not in self._config.variables:
+                raise VariableNotFoundError(f"Variable '{name}' not found")
+            del self._config.variables[name]
+        self._notify_config_change({name})

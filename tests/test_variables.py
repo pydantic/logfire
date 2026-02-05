@@ -3437,3 +3437,262 @@ class TestUseVariant:
             # Call-site variant wins (variant param is checked first in get method)
             # Actually, checking the code - the call-site variant is used directly
             assert result.value == 'legacy_value'
+
+
+# =============================================================================
+# Test on_change callbacks
+# =============================================================================
+
+
+class TestOnChangeCallbacks:
+    def test_on_change_callback(self, config_kwargs: dict[str, Any]):
+        """Test that on_change callbacks fire when variable config changes."""
+        config = VariablesConfig(
+            variables={
+                'my_var': VariableConfig(
+                    name='my_var',
+                    variants={'a': Variant(key='a', serialized_value='"hello"')},
+                    rollout=Rollout(variants={'a': 1.0}),
+                    overrides=[],
+                ),
+            }
+        )
+        provider = LocalVariableProvider(config)
+        config_kwargs['variables'] = VariablesOptions(config=provider)
+        lf = logfire.configure(**config_kwargs)
+
+        my_var = lf.var('my_var', default='default', type=str)
+
+        changes: list[str] = []
+
+        @my_var.on_change
+        def on_change():  # pyright: ignore[reportUnusedFunction]
+            changes.append(my_var.get().value)
+
+        # Update the variable
+        provider.update_variable(
+            'my_var',
+            VariableConfig(
+                name='my_var',
+                variants={'a': Variant(key='a', serialized_value='"world"')},
+                rollout=Rollout(variants={'a': 1.0}),
+                overrides=[],
+            ),
+        )
+
+        assert changes == ['world']
+
+    def test_on_change_decorator_returns_callback(self, config_kwargs: dict[str, Any]):
+        """Test that on_change can be used as a decorator and returns the callback."""
+        config = VariablesConfig(
+            variables={
+                'my_var': VariableConfig(
+                    name='my_var',
+                    variants={'a': Variant(key='a', serialized_value='"hello"')},
+                    rollout=Rollout(variants={'a': 1.0}),
+                    overrides=[],
+                ),
+            }
+        )
+        provider = LocalVariableProvider(config)
+        config_kwargs['variables'] = VariablesOptions(config=provider)
+        lf = logfire.configure(**config_kwargs)
+
+        my_var = lf.var('my_var', default='default', type=str)
+
+        @my_var.on_change
+        def callback():
+            pass
+
+        assert callback is not None
+        assert callable(callback)
+
+    def test_on_change_callback_exception_doesnt_break_provider(self, config_kwargs: dict[str, Any]):
+        """Test that exceptions in callbacks are caught and logged."""
+        config = VariablesConfig(
+            variables={
+                'my_var': VariableConfig(
+                    name='my_var',
+                    variants={'a': Variant(key='a', serialized_value='"hello"')},
+                    rollout=Rollout(variants={'a': 1.0}),
+                    overrides=[],
+                ),
+            }
+        )
+        provider = LocalVariableProvider(config)
+        config_kwargs['variables'] = VariablesOptions(config=provider)
+        lf = logfire.configure(**config_kwargs)
+
+        my_var = lf.var('my_var', default='default', type=str)
+
+        good_changes: list[str] = []
+
+        def bad_callback():
+            raise ValueError('boom')
+
+        def good_callback():
+            good_changes.append(my_var.get().value)
+
+        my_var.on_change(bad_callback)
+        my_var.on_change(good_callback)
+
+        # Update the variable -- bad callback raises, but good callback still runs
+        provider.update_variable(
+            'my_var',
+            VariableConfig(
+                name='my_var',
+                variants={'a': Variant(key='a', serialized_value='"world"')},
+                rollout=Rollout(variants={'a': 1.0}),
+                overrides=[],
+            ),
+        )
+
+        assert good_changes == ['world']
+
+    def test_on_change_multiple_callbacks(self, config_kwargs: dict[str, Any]):
+        """Test that multiple on_change callbacks fire."""
+        config = VariablesConfig(
+            variables={
+                'my_var': VariableConfig(
+                    name='my_var',
+                    variants={'a': Variant(key='a', serialized_value='"hello"')},
+                    rollout=Rollout(variants={'a': 1.0}),
+                    overrides=[],
+                ),
+            }
+        )
+        provider = LocalVariableProvider(config)
+        config_kwargs['variables'] = VariablesOptions(config=provider)
+        lf = logfire.configure(**config_kwargs)
+
+        my_var = lf.var('my_var', default='default', type=str)
+
+        calls_1: list[str] = []
+        calls_2: list[str] = []
+
+        @my_var.on_change
+        def callback_1():  # pyright: ignore[reportUnusedFunction]
+            calls_1.append('called')
+
+        @my_var.on_change
+        def callback_2():  # pyright: ignore[reportUnusedFunction]
+            calls_2.append('called')
+
+        provider.update_variable(
+            'my_var',
+            VariableConfig(
+                name='my_var',
+                variants={'a': Variant(key='a', serialized_value='"world"')},
+                rollout=Rollout(variants={'a': 1.0}),
+                overrides=[],
+            ),
+        )
+
+        assert calls_1 == ['called']
+        assert calls_2 == ['called']
+
+    def test_on_change_fires_on_create_variable(self, config_kwargs: dict[str, Any]):
+        """Test that on_change fires when a variable is created via the provider."""
+        config = VariablesConfig(variables={})
+        provider = LocalVariableProvider(config)
+        config_kwargs['variables'] = VariablesOptions(config=provider)
+        lf = logfire.configure(**config_kwargs)
+
+        # Register a variable that doesn't exist yet in the provider
+        my_var = lf.var('new_var', default='default', type=str)
+
+        changes: list[str] = []
+
+        @my_var.on_change
+        def on_change():  # pyright: ignore[reportUnusedFunction]
+            changes.append('changed')
+
+        # Create the variable in the provider
+        provider.create_variable(
+            VariableConfig(
+                name='new_var',
+                variants={'a': Variant(key='a', serialized_value='"hello"')},
+                rollout=Rollout(variants={'a': 1.0}),
+                overrides=[],
+            ),
+        )
+
+        assert changes == ['changed']
+
+    def test_on_change_fires_on_delete_variable(self, config_kwargs: dict[str, Any]):
+        """Test that on_change fires when a variable is deleted via the provider."""
+        config = VariablesConfig(
+            variables={
+                'my_var': VariableConfig(
+                    name='my_var',
+                    variants={'a': Variant(key='a', serialized_value='"hello"')},
+                    rollout=Rollout(variants={'a': 1.0}),
+                    overrides=[],
+                ),
+            }
+        )
+        provider = LocalVariableProvider(config)
+        config_kwargs['variables'] = VariablesOptions(config=provider)
+        lf = logfire.configure(**config_kwargs)
+
+        my_var = lf.var('my_var', default='default', type=str)
+
+        changes: list[str] = []
+
+        @my_var.on_change
+        def on_change():  # pyright: ignore[reportUnusedFunction]
+            changes.append('deleted')
+
+        provider.delete_variable('my_var')
+
+        assert changes == ['deleted']
+
+    def test_on_change_only_fires_for_changed_variable(self, config_kwargs: dict[str, Any]):
+        """Test that on_change only fires for the variable that actually changed."""
+        config = VariablesConfig(
+            variables={
+                'var_a': VariableConfig(
+                    name='var_a',
+                    variants={'x': Variant(key='x', serialized_value='"a_value"')},
+                    rollout=Rollout(variants={'x': 1.0}),
+                    overrides=[],
+                ),
+                'var_b': VariableConfig(
+                    name='var_b',
+                    variants={'x': Variant(key='x', serialized_value='"b_value"')},
+                    rollout=Rollout(variants={'x': 1.0}),
+                    overrides=[],
+                ),
+            }
+        )
+        provider = LocalVariableProvider(config)
+        config_kwargs['variables'] = VariablesOptions(config=provider)
+        lf = logfire.configure(**config_kwargs)
+
+        var_a = lf.var('var_a', default='default', type=str)
+        var_b = lf.var('var_b', default='default', type=str)
+
+        a_changes: list[str] = []
+        b_changes: list[str] = []
+
+        @var_a.on_change
+        def on_a_change():  # pyright: ignore[reportUnusedFunction]
+            a_changes.append('a_changed')
+
+        @var_b.on_change
+        def on_b_change():  # pyright: ignore[reportUnusedFunction]
+            b_changes.append('b_changed')
+
+        # Only update var_a
+        provider.update_variable(
+            'var_a',
+            VariableConfig(
+                name='var_a',
+                variants={'x': Variant(key='x', serialized_value='"new_a"')},
+                rollout=Rollout(variants={'x': 1.0}),
+                overrides=[],
+            ),
+        )
+
+        assert a_changes == ['a_changed']
+        assert b_changes == []
