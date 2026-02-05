@@ -96,6 +96,13 @@ metric_up_down_counter_callback = DEFAULT_LOGFIRE_INSTANCE.metric_up_down_counte
 
 # Variables
 var = DEFAULT_LOGFIRE_INSTANCE.var
+variables_get = DEFAULT_LOGFIRE_INSTANCE.variables_get
+variables_push = DEFAULT_LOGFIRE_INSTANCE.variables_push
+variables_push_types = DEFAULT_LOGFIRE_INSTANCE.variables_push_types
+variables_validate = DEFAULT_LOGFIRE_INSTANCE.variables_validate
+variables_push_config = DEFAULT_LOGFIRE_INSTANCE.variables_push_config
+variables_pull_config = DEFAULT_LOGFIRE_INSTANCE.variables_pull_config
+variables_build_config = DEFAULT_LOGFIRE_INSTANCE.variables_build_config
 
 
 def loguru_handler() -> Any:
@@ -186,6 +193,13 @@ __all__ = (
     'VariablesOptions',
     'variables',
     'var',
+    'variables_get',
+    'variables_push',
+    'variables_push_types',
+    'variables_validate',
+    'variables_push_config',
+    'variables_pull_config',
+    'variables_build_config',
     'logfire_info',
     'get_baggage',
     'set_baggage',

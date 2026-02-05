@@ -153,13 +153,13 @@ def push(
 ) -> bool:
     """Push variable definitions using the default Logfire instance."""
     _require_pydantic()
-    return _default_logfire().push_variables(variables, dry_run=dry_run, yes=yes, strict=strict)
+    return _default_logfire().variables_push(variables, dry_run=dry_run, yes=yes, strict=strict)
 
 
 def push_types(types: Sequence[type[Any] | tuple[type[Any], str]], *, dry_run: bool = False, yes: bool = False) -> bool:
     """Push variable type definitions using the default Logfire instance."""
     _require_pydantic()
-    return _default_logfire().push_variable_types(types, dry_run=dry_run, yes=yes)
+    return _default_logfire().variables_push_types(types, dry_run=dry_run, yes=yes)
 
 
 def push_variable_types(
@@ -172,22 +172,22 @@ def push_variable_types(
 def validate(variables: list[Variable[Any]] | None = None) -> ValidationReport:
     """Validate variable definitions using the default Logfire instance."""
     _require_pydantic()
-    return _default_logfire().validate_variables(variables)
+    return _default_logfire().variables_validate(variables)
 
 
 def push_config(config: VariablesConfig, *, mode: SyncMode = 'merge', dry_run: bool = False, yes: bool = False) -> bool:
     """Sync variable config using the default Logfire instance."""
     _require_pydantic()
-    return _default_logfire().push_config(config, mode=mode, dry_run=dry_run, yes=yes)
+    return _default_logfire().variables_push_config(config, mode=mode, dry_run=dry_run, yes=yes)
 
 
 def pull_config():
     """Pull variable config using the default Logfire instance."""
     _require_pydantic()
-    return _default_logfire().pull_config()
+    return _default_logfire().variables_pull_config()
 
 
 def build_config():
     """Build variable config using the default Logfire instance."""
     _require_pydantic()
-    return _default_logfire().build_config()
+    return _default_logfire().variables_build_config()

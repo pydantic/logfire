@@ -136,7 +136,7 @@ To add variants:
 4. Enter the value (the format depends on your value type)
 
 !!! tip "Using the example value"
-    When you push a variable from code using `logfire.variables.push()`, the code's default value is stored as an "example". This example appears pre-filled when you create a new variant in the UI, making it easy to start from a working configuration and modify it.
+    When you push a variable from code using `logfire.variables_push()`, the code's default value is stored as an "example". This example appears pre-filled when you create a new variant in the UI, making it easy to start from a working configuration and modify it.
 
 Each variant tracks its version history, accessible via the **View history** button. You can also browse all variant history using **Browse All History** to see changes over time or restore previous versions.
 
@@ -144,7 +144,7 @@ Each variant tracks its version history, accessible via the **View history** but
     Variant keys must be valid Python identifiers. Once created, variant keys cannot be renamed—create a new variant and delete the old one instead.
 
 !!! note "No variants = code default"
-    If a variable has no variants configured, your application uses the code default value. This is the expected state immediately after `logfire.variables.push()`. You create variants in the UI when you want to serve different values to different users or run experiments.
+    If a variable has no variants configured, your application uses the code default value. This is the expected state immediately after `logfire.variables_push()`. You create variants in the UI when you want to serve different values to different users or run experiments.
 
 ### Configuring Rollouts
 
@@ -677,9 +677,9 @@ These endpoints require an API key with the `project:read_variables` scope.
 
 ### Pushing Variables from Code
 
-Instead of manually creating variables in the Logfire UI, you can push your variable definitions directly from your code using `logfire.variables.push()`.
+Instead of manually creating variables in the Logfire UI, you can push your variable definitions directly from your code using `logfire.variables_push()`.
 
-The primary benefit of pushing from code is **automatic JSON schema generation**. When you use a Pydantic model as your variable type, `logfire.variables.push()` automatically generates the JSON schema from your model definition. This means the Logfire UI will validate variant values against your schema, catching type errors before they reach production. Creating these schemas manually in the UI would be tedious and error-prone, especially for complex nested models.
+The primary benefit of pushing from code is **automatic JSON schema generation**. When you use a Pydantic model as your variable type, `logfire.variables_push()` automatically generates the JSON schema from your model definition. This means the Logfire UI will validate variant values against your schema, catching type errors before they reach production. Creating these schemas manually in the UI would be tedious and error-prone, especially for complex nested models.
 
 ```python skip="true"
 from pydantic import BaseModel
@@ -717,7 +717,7 @@ agent_config = logfire.var(
 
 # Push all registered variables to the remote provider
 if __name__ == '__main__':
-    logfire.variables.push()
+    logfire.variables_push()
 ```
 
 When you run this script, it will:
@@ -727,7 +727,7 @@ When you run this script, it will:
 3. Prompt for confirmation before applying changes
 
 !!! note "No variants created by push"
-    When `logfire.variables.push()` creates a new variable, it does **not** create any variants. Instead, it stores your code's default value as an "example" that can be used as a template when creating variants in the Logfire UI. Until you create variants, your application will use the code default.
+    When `logfire.variables_push()` creates a new variable, it does **not** create any variants. Instead, it stores your code's default value as an "example" that can be used as a template when creating variants in the Logfire UI. Until you create variants, your application will use the code default.
 
 **Example output:**
 
@@ -758,24 +758,24 @@ feature_flag = logfire.var(name='feature_enabled', type=bool, default=False)
 max_retries = logfire.var(name='max_retries', type=int, default=3)
 
 # Push only the feature flag
-logfire.variables.push([feature_flag])
+logfire.variables_push([feature_flag])
 
 # Dry run to see what would change
-logfire.variables.push(dry_run=True)
+logfire.variables_push(dry_run=True)
 
 # Skip confirmation prompt (useful in CI/CD)
-logfire.variables.push(yes=True)
+logfire.variables_push(yes=True)
 ```
 
 !!! note "Schema Updates"
-    When you push a variable that already exists in Logfire, `logfire.variables.push()` will update the JSON schema if it has changed but will preserve existing variants and rollout configurations. If existing variant values are incompatible with the new schema, you'll see a warning (or an error if using `strict=True`).
+    When you push a variable that already exists in Logfire, `logfire.variables_push()` will update the JSON schema if it has changed but will preserve existing variants and rollout configurations. If existing variant values are incompatible with the new schema, you'll see a warning (or an error if using `strict=True`).
 
 !!! note "Write scope required"
-    `logfire.variables.push()` and `logfire.variables.push_types()` require an API key with the `project:write_variables` scope.
+    `logfire.variables_push()` and `logfire.variables_push_types()` require an API key with the `project:write_variables` scope.
 
 ### Pushing Variable Types
 
-When you have multiple variables that share the same type (e.g., several variables all using the same `AgentConfig` Pydantic model), you can push the type definition itself as a reusable schema. This is done with `logfire.variables.push_types()`.
+When you have multiple variables that share the same type (e.g., several variables all using the same `AgentConfig` Pydantic model), you can push the type definition itself as a reusable schema. This is done with `logfire.variables_push_types()`.
 
 **Why push variable types?**
 
@@ -813,7 +813,7 @@ class UserSettings(BaseModel):
 
 if __name__ == '__main__':
     # Push type definitions using their class names
-    logfire.variables.push_types([FeatureConfig, UserSettings])
+    logfire.variables_push_types([FeatureConfig, UserSettings])
 ```
 
 **Explicit naming:**
@@ -821,7 +821,7 @@ if __name__ == '__main__':
 By default, types are named using their `__name__` attribute (e.g., `FeatureConfig`). You can provide explicit names using tuples:
 
 ```python skip="true"
-logfire.variables.push_types([
+logfire.variables_push_types([
     (FeatureConfig, 'my-feature-config'),
     (UserSettings, 'my-user-settings'),
 ])
@@ -867,13 +867,13 @@ Unchanged (1):
 
 ### Validating Variables
 
-You can validate that your remote variable configurations match your local type definitions using `logfire.variables.validate()`:
+You can validate that your remote variable configurations match your local type definitions using `logfire.variables_validate()`:
 
 ```python skip="true"
 from logfire.variables import ValidationReport
 
 # Validate all registered variables
-report: ValidationReport = logfire.variables.validate()
+report: ValidationReport = logfire.variables_validate()
 
 if report.has_errors:
     print('Validation errors found:')
@@ -921,7 +921,7 @@ agent_config = logfire.var(name='agent_config', type=AgentConfig, default=AgentC
 feature_flag = logfire.var(name='feature_enabled', type=bool, default=False)
 
 # Build a config with name, schema, and example for each variable
-config = logfire.variables.build_config()
+config = logfire.variables_build_config()
 
 # Save to a JSON file
 with open('variables.json', 'w', encoding='utf-8') as f:
@@ -998,7 +998,7 @@ with open('variables.json', 'r', encoding='utf-8') as f:
     config = VariablesConfig.model_validate_json(f.read())
 
 # Sync to the server
-logfire.variables.push_config(config)
+logfire.variables_push_config(config)
 ```
 
 **Push modes:**
@@ -1010,20 +1010,20 @@ logfire.variables.push_config(config)
 
 ```python skip="true"
 # Partial push - only update variables in the config
-logfire.variables.push_config(config, mode='merge')
+logfire.variables_push_config(config, mode='merge')
 
 # Full push - delete server variables not in config
-logfire.variables.push_config(config, mode='replace')
+logfire.variables_push_config(config, mode='replace')
 
 # Preview changes without applying
-logfire.variables.push_config(config, dry_run=True)
+logfire.variables_push_config(config, dry_run=True)
 ```
 
 **Pulling existing config:**
 
 ```python skip="true"
 # Fetch current config from server
-server_config = logfire.variables.pull_config()
+server_config = logfire.variables_pull_config()
 
 # Save for backup or migration
 with open('backup.json', 'w', encoding='utf-8') as f:

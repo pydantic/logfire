@@ -137,6 +137,34 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire_api.var(name='test_var', default='default', type=str)
     logfire__all__.remove('var')
 
+    assert hasattr(logfire_api, 'variables_get')
+    logfire_api.variables_get()
+    logfire__all__.remove('variables_get')
+
+    assert hasattr(logfire_api, 'variables_push')
+    logfire_api.variables_push([])
+    logfire__all__.remove('variables_push')
+
+    assert hasattr(logfire_api, 'variables_push_types')
+    logfire_api.variables_push_types([int])
+    logfire__all__.remove('variables_push_types')
+
+    assert hasattr(logfire_api, 'variables_validate')
+    logfire_api.variables_validate([])
+    logfire__all__.remove('variables_validate')
+
+    assert hasattr(logfire_api, 'variables_push_config')
+    logfire_api.variables_push_config(VariablesConfig(variables={}))
+    logfire__all__.remove('variables_push_config')
+
+    assert hasattr(logfire_api, 'variables_pull_config')
+    logfire_api.variables_pull_config()
+    logfire__all__.remove('variables_pull_config')
+
+    assert hasattr(logfire_api, 'variables_build_config')
+    logfire_api.variables_build_config()
+    logfire__all__.remove('variables_build_config')
+
     assert hasattr(logfire_api, 'PydanticPlugin')
     logfire_api.PydanticPlugin()
     logfire__all__.remove('PydanticPlugin')
@@ -299,7 +327,6 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('attach_context')
 
     assert hasattr(logfire_api, 'variables')
-    logfire_api.variables.get()
     logfire_api.variables.push()
     logfire_api.variables.push_types([int])
     logfire_api.variables.validate()

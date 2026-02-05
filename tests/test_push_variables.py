@@ -312,7 +312,7 @@ def test_variable_diff_has_changes_false() -> None:
 def test_push_variables_no_variables() -> None:
     """Test push_variables with no variables."""
     # Use an explicit empty list to avoid picking up variables from the global DEFAULT_LOGFIRE_INSTANCE
-    result = logfire.variables.push([])
+    result = logfire.variables_push([])
     assert result is False
 
 
@@ -321,15 +321,15 @@ def test_var_registers_variable() -> None:
     from logfire._internal.main import Logfire
 
     lf = Logfire()
-    assert lf.get_variables() == []
+    assert lf.variables_get() == []
 
     var1 = lf.var(name='test_var_1', default=True, type=bool)
-    assert len(lf.get_variables()) == 1
-    assert lf.get_variables()[0] is var1
+    assert len(lf.variables_get()) == 1
+    assert lf.variables_get()[0] is var1
 
     var2 = lf.var(name='test_var_2', default=42, type=int)
-    assert len(lf.get_variables()) == 2
-    assert var2 in lf.get_variables()
+    assert len(lf.variables_get()) == 2
+    assert var2 in lf.variables_get()
 
 
 def test_get_variables_returns_all_registered() -> None:
@@ -341,7 +341,7 @@ def test_get_variables_returns_all_registered() -> None:
     var2 = lf.var(name='feature_b', default='hello', type=str)
     var3 = lf.var(name='feature_c', default=100, type=int)
 
-    variables = lf.get_variables()
+    variables = lf.variables_get()
     assert len(variables) == 3
     assert var1 in variables
     assert var2 in variables
@@ -438,5 +438,5 @@ def test_format_validation_report_all_valid() -> None:
 def test_validate_variables_no_variables() -> None:
     """Test validate_variables with no variables."""
     # Use an explicit empty list to avoid picking up variables from the global DEFAULT_LOGFIRE_INSTANCE
-    result = logfire.variables.validate([])
+    result = logfire.variables_validate([])
     assert result.errors == []  # No variables to validate means no errors

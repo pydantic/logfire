@@ -206,15 +206,25 @@ except ImportError:
             def var(self, *args, **kwargs):
                 return MagicMock()
 
-            def get_variables(self, *args, **kwargs) -> list[Any]:
+            def variables_get(self, *args, **kwargs) -> list[Any]:
                 return []
 
-            def push_config(self, *args, **kwargs) -> None: ...
+            def variables_push(self, *args, **kwargs) -> bool:
+                return False
 
-            def pull_config(self, *args, **kwargs) -> Any:
+            def variables_push_types(self, *args, **kwargs) -> bool:
+                return False
+
+            def variables_validate(self, *args, **kwargs) -> Any:
                 return MagicMock()
 
-            def build_config(self, *args, **kwargs) -> Any:
+            def variables_push_config(self, *args, **kwargs) -> bool:
+                return False
+
+            def variables_pull_config(self, *args, **kwargs) -> Any:
+                return MagicMock()
+
+            def variables_build_config(self, *args, **kwargs) -> Any:
                 return MagicMock()
 
         DEFAULT_LOGFIRE_INSTANCE = Logfire()
@@ -269,11 +279,15 @@ except ImportError:
         shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
         suppress_scopes = DEFAULT_LOGFIRE_INSTANCE.suppress_scopes
         var = DEFAULT_LOGFIRE_INSTANCE.var
+        variables_get = DEFAULT_LOGFIRE_INSTANCE.variables_get
+        variables_push = DEFAULT_LOGFIRE_INSTANCE.variables_push
+        variables_push_types = DEFAULT_LOGFIRE_INSTANCE.variables_push_types
+        variables_validate = DEFAULT_LOGFIRE_INSTANCE.variables_validate
+        variables_push_config = DEFAULT_LOGFIRE_INSTANCE.variables_push_config
+        variables_pull_config = DEFAULT_LOGFIRE_INSTANCE.variables_pull_config
+        variables_build_config = DEFAULT_LOGFIRE_INSTANCE.variables_build_config
         # Namespace for managed variables helpers.
         class _VariablesNamespace:
-            def get(self, *args, **kwargs):
-                return []
-
             def push(self, *args, **kwargs) -> bool:
                 return False
 

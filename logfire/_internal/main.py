@@ -2451,11 +2451,11 @@ class Logfire:
         self._variables[name] = variable
         return variable
 
-    def get_variables(self) -> list[Variable[Any]]:
+    def variables_get(self) -> list[Variable[Any]]:
         """Get all variables registered with this Logfire instance."""
         return list(self._variables.values())
 
-    def push_variables(
+    def variables_push(
         self,
         variables: list[Variable[Any]] | None = None,
         *,
@@ -2492,19 +2492,19 @@ class Logfire:
 
             if __name__ == '__main__':
                 # Push all registered variables
-                logfire.variables.push()
+                logfire.variables_push()
 
                 # Or push specific variables only
-                logfire.variables.push([feature_enabled])
+                logfire.variables_push([feature_enabled])
             ```
         """
         if variables is None:
-            variables = self.get_variables()  # pragma: no cover
+            variables = self.variables_get()  # pragma: no cover
 
         provider = self.config.get_variable_provider()
         return provider.push_variables(variables, dry_run=dry_run, yes=yes, strict=strict)
 
-    def push_variable_types(
+    def variables_push_types(
         self,
         types: Sequence[type[Any] | tuple[type[Any], str]],
         *,
@@ -2553,10 +2553,10 @@ class Logfire:
 
             if __name__ == '__main__':
                 # Push type definitions using their class names
-                logfire.variables.push_types([FeatureConfig, UserSettings])
+                logfire.variables_push_types([FeatureConfig, UserSettings])
 
                 # Or push with explicit names
-                logfire.variables.push_types(
+                logfire.variables_push_types(
                     [
                         (FeatureConfig, 'my-feature-config'),
                         (UserSettings, 'my-user-settings'),
@@ -2567,7 +2567,7 @@ class Logfire:
         provider = self.config.get_variable_provider()
         return provider.push_variable_types(types, dry_run=dry_run, yes=yes)
 
-    def validate_variables(
+    def variables_validate(
         self,
         variables: list[Variable[Any]] | None = None,
     ) -> ValidationReport:
@@ -2593,20 +2593,20 @@ class Logfire:
 
             if __name__ == '__main__':
                 # Validate all registered variables
-                logfire.variables.validate()
+                logfire.variables_validate()
 
                 # Or validate specific variables only
-                report = logfire.variables.validate([feature_enabled])
+                report = logfire.variables_validate([feature_enabled])
                 assert report.is_valid
             ```
         """
         if variables is None:
-            variables = self.get_variables()  # pragma: no cover
+            variables = self.variables_get()  # pragma: no cover
 
         provider = self.config.get_variable_provider()
         return provider.validate_variables(variables)
 
-    def push_config(
+    def variables_push_config(
         self,
         config: VariablesConfig,
         *,
@@ -2638,16 +2638,16 @@ class Logfire:
             from logfire.variables import VariablesConfig
 
             # Push config to server
-            logfire.variables.push_config(config)
+            logfire.variables_push_config(config)
 
             # Or merge just a subset of variables
-            logfire.variables.push_config(config, mode='merge')
+            logfire.variables_push_config(config, mode='merge')
             ```
         """
         provider = self.config.get_variable_provider()
         return provider.push_config(config, mode=mode, dry_run=dry_run, yes=yes)
 
-    def pull_config(self) -> VariablesConfig:  # pragma: no cover
+    def variables_pull_config(self) -> VariablesConfig:  # pragma: no cover
         """Pull the current variable configuration from the provider.
 
         This method fetches the complete configuration from the provider,
@@ -2661,14 +2661,14 @@ class Logfire:
             import logfire
 
             # Pull config from the provider
-            config = logfire.variables.pull_config()
+            config = logfire.variables_pull_config()
             print(config.model_dump_json(indent=2))
             ```
         """
         provider = self.config.get_variable_provider()
         return provider.pull_config()
 
-    def build_config(
+    def variables_build_config(
         self,
         variables: list[Variable[Any]] | None = None,
     ) -> VariablesConfig:
@@ -2691,12 +2691,12 @@ class Logfire:
             max_retries = logfire.var(name='max_retries', type=int, default=3)
 
             # Build config from registered variables
-            config = logfire.variables.build_config()
+            config = logfire.variables_build_config()
             print(config.model_dump_json(indent=2))
             ```
         """
         if variables is None:
-            variables = self.get_variables()  # pragma: no cover
+            variables = self.variables_get()  # pragma: no cover
 
         from logfire.variables.config import VariablesConfig
 
