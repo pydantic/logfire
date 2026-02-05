@@ -343,7 +343,7 @@ def convert_responses_inputs_to_semconv(
                     input_messages.append(cast('ChatMessage', {'role': role, 'parts': parts}))
                 elif typ == 'function_call':
                     arguments: Any = inp.get('arguments')
-                    if isinstance(arguments, str):
+                    if isinstance(arguments, str):  # pragma: no branch
                         with contextlib.suppress(json.JSONDecodeError):
                             arguments = json.loads(arguments)
                     input_messages.append(
