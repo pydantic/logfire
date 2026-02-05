@@ -2577,10 +2577,10 @@ class Logfire:
 
             if __name__ == '__main__':
                 # Push all registered variables
-                logfire.push_variables()
+                logfire.variables.push()
 
                 # Or push specific variables only
-                logfire.push_variables([feature_enabled])
+                logfire.variables.push([feature_enabled])
             ```
         """
         if variables is None:
@@ -2638,10 +2638,10 @@ class Logfire:
 
             if __name__ == '__main__':
                 # Push type definitions using their class names
-                logfire.push_variable_types([FeatureConfig, UserSettings])
+                logfire.variables.push_types([FeatureConfig, UserSettings])
 
                 # Or push with explicit names
-                logfire.push_variable_types(
+                logfire.variables.push_types(
                     [
                         (FeatureConfig, 'my-feature-config'),
                         (UserSettings, 'my-user-settings'),
@@ -2678,10 +2678,10 @@ class Logfire:
 
             if __name__ == '__main__':
                 # Validate all registered variables
-                logfire.validate_variables()
+                logfire.variables.validate()
 
                 # Or validate specific variables only
-                report = logfire.validate_variables([feature_enabled])
+                report = logfire.variables.validate([feature_enabled])
                 assert report.is_valid
             ```
         """
@@ -2691,7 +2691,7 @@ class Logfire:
         provider = self.config.get_variable_provider()
         return provider.validate_variables(variables)
 
-    def sync_config(
+    def push_config(
         self,
         config: VariablesConfig,
         *,
@@ -2699,12 +2699,12 @@ class Logfire:
         dry_run: bool = False,
         yes: bool = False,
     ) -> bool:  # pragma: no cover
-        """Synchronize a VariablesConfig with the configured provider.
+        """Push a VariablesConfig to the configured provider.
 
         This method pushes a complete VariablesConfig (including variants and rollouts)
         to the provider. It's useful for:
         - Pushing configs generated or modified locally
-        - Syncing configs read from files
+        - Pushing configs read from files
         - Partial updates (merge mode) or full replacement (replace mode)
 
         Args:
@@ -2724,14 +2724,14 @@ class Logfire:
 
             # Read config from file and push to server
             config = VariablesConfig.read('variables.yaml')
-            logfire.sync_config(config)
+            logfire.variables.push_config(config)
 
             # Or merge just a subset of variables
-            logfire.sync_config(config, mode='merge')
+            logfire.variables.push_config(config, mode='merge')
             ```
         """
         provider = self.config.get_variable_provider()
-        return provider.sync_config(config, mode=mode, dry_run=dry_run, yes=yes)
+        return provider.push_config(config, mode=mode, dry_run=dry_run, yes=yes)
 
     def pull_config(self) -> VariablesConfig:  # pragma: no cover
         """Pull the current variable configuration from the provider.
@@ -2747,21 +2747,21 @@ class Logfire:
             import logfire
 
             # Pull config and save to file
-            config = logfire.pull_config()
+            config = logfire.variables.pull_config()
             config.write('variables.yaml')
             ```
         """
         provider = self.config.get_variable_provider()
         return provider.pull_config()
 
-    def generate_config(
+    def build_config(
         self,
         variables: list[Variable[Any]] | None = None,
     ) -> VariablesConfig:
-        """Generate a VariablesConfig from registered Variable instances.
+        """Build a VariablesConfig from registered Variable instances.
 
         This creates a minimal config with just the name, schema, and example for each variable.
-        No variants are created - use this to generate a template config that can be edited.
+        No variants are created - use this to build a template config that can be edited.
 
         Args:
             variables: Variable instances to include. If None, uses all registered variables.
@@ -2776,13 +2776,13 @@ class Logfire:
             feature_enabled = logfire.var(name='feature-enabled', type=bool, default=False)
             max_retries = logfire.var(name='max-retries', type=int, default=3)
 
-            # Generate config and save to file
-            config = logfire.generate_config()
+            # Build config and save to file
+            config = logfire.variables.build_config()
             config.write('variables.yaml')
 
             # Edit the file to add variants, then push
             config = VariablesConfig.read('variables.yaml')
-            logfire.sync_config(config)
+            logfire.variables.push_config(config)
             ```
         """
         if variables is None:

@@ -735,7 +735,7 @@ class VariableProvider(ABC):
             else:
                 self.update_variable(name, config)
 
-    def sync_config(  # pragma: no cover
+    def push_config(  # pragma: no cover
         self,
         config: VariablesConfig,
         *,
@@ -743,16 +743,16 @@ class VariableProvider(ABC):
         dry_run: bool = False,
         yes: bool = False,
     ) -> bool:
-        """Synchronize a VariablesConfig with this provider.
+        """Push a VariablesConfig to this provider.
 
         This method pushes a complete VariablesConfig (including variants and rollouts)
         to the provider. It's useful for:
         - Pushing configs generated or modified locally
-        - Syncing configs read from files
+        - Pushing configs read from files
         - Partial updates (merge mode) or full replacement (replace mode)
 
         Args:
-            config: The VariablesConfig to sync.
+            config: The VariablesConfig to push.
             mode: 'merge' updates/creates only variables in config (leaves others unchanged).
                   'replace' makes the server match the config exactly (deletes missing variables).
             dry_run: If True, only show what would change without applying.
@@ -762,7 +762,7 @@ class VariableProvider(ABC):
             True if changes were applied (or would be applied in dry_run mode), False otherwise.
         """
         if not config.variables:
-            print('No variables in config to sync.')
+            print('No variables in config to push.')
             return False
 
         # Refresh the provider to ensure we have the latest config
@@ -866,7 +866,7 @@ class VariableProvider(ABC):
             print(f'{ANSI_RED}Error applying changes: {e}{ANSI_RESET}')
             return False
 
-        print(f'\n{ANSI_GREEN}Done! Variables synced successfully.{ANSI_RESET}')
+        print(f'\n{ANSI_GREEN}Done! Variables pushed successfully.{ANSI_RESET}')
         return True
 
     def pull_config(self) -> VariablesConfig:  # pragma: no cover

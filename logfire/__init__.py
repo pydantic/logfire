@@ -7,6 +7,7 @@ from typing import Any
 from logfire.propagate import attach_context, get_context
 from logfire.sampling import SamplingOptions
 
+from . import variables as variables
 from ._internal.auto_trace import AutoTraceModule
 from ._internal.auto_trace.rewrite_ast import no_auto_trace
 from ._internal.baggage import get_baggage, set_baggage
@@ -95,13 +96,6 @@ metric_up_down_counter_callback = DEFAULT_LOGFIRE_INSTANCE.metric_up_down_counte
 
 # Variables
 var = DEFAULT_LOGFIRE_INSTANCE.var
-get_variables = DEFAULT_LOGFIRE_INSTANCE.get_variables
-push_variables = DEFAULT_LOGFIRE_INSTANCE.push_variables
-push_variable_types = DEFAULT_LOGFIRE_INSTANCE.push_variable_types
-validate_variables = DEFAULT_LOGFIRE_INSTANCE.validate_variables
-sync_config = DEFAULT_LOGFIRE_INSTANCE.sync_config
-pull_config = DEFAULT_LOGFIRE_INSTANCE.pull_config
-generate_config = DEFAULT_LOGFIRE_INSTANCE.generate_config
 
 
 def loguru_handler() -> Any:
@@ -190,14 +184,8 @@ __all__ = (
     'SamplingOptions',
     'MetricsOptions',
     'VariablesOptions',
+    'variables',
     'var',
-    'get_variables',
-    'push_variables',
-    'push_variable_types',
-    'validate_variables',
-    'sync_config',
-    'pull_config',
-    'generate_config',
     'logfire_info',
     'get_baggage',
     'set_baggage',

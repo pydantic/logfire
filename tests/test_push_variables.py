@@ -312,7 +312,7 @@ def test_variable_diff_has_changes_false() -> None:
 def test_push_variables_no_variables() -> None:
     """Test push_variables with no variables."""
     # Use an explicit empty list to avoid picking up variables from the global DEFAULT_LOGFIRE_INSTANCE
-    result = logfire.push_variables([])
+    result = logfire.variables.push([])
     assert result is False
 
 
@@ -438,5 +438,5 @@ def test_format_validation_report_all_valid() -> None:
 def test_validate_variables_no_variables() -> None:
     """Test validate_variables with no variables."""
     # Use an explicit empty list to avoid picking up variables from the global DEFAULT_LOGFIRE_INSTANCE
-    result = logfire.validate_variables([])
+    result = logfire.variables.validate([])
     assert result.errors == []  # No variables to validate means no errors

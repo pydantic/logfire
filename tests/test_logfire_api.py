@@ -298,29 +298,15 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         pass
     logfire__all__.remove('attach_context')
 
-    assert hasattr(logfire_api, 'get_variables')
-    assert isinstance(logfire_api.get_variables(), list)
-    logfire__all__.remove('get_variables')
-
-    assert hasattr(logfire_api, 'push_variables')
-    logfire_api.push_variables()
-    logfire__all__.remove('push_variables')
-
-    assert hasattr(logfire_api, 'validate_variables')
-    logfire_api.validate_variables()
-    logfire__all__.remove('validate_variables')
-
-    assert hasattr(logfire_api, 'sync_config')
-    logfire_api.sync_config(VariablesConfig(variables={}))
-    logfire__all__.remove('sync_config')
-
-    assert hasattr(logfire_api, 'pull_config')
-    logfire_api.pull_config()
-    logfire__all__.remove('pull_config')
-
-    assert hasattr(logfire_api, 'generate_config')
-    logfire_api.generate_config()
-    logfire__all__.remove('generate_config')
+    assert hasattr(logfire_api, 'variables')
+    logfire_api.variables.get()
+    logfire_api.variables.push()
+    logfire_api.variables.push_types([int])
+    logfire_api.variables.validate()
+    logfire_api.variables.push_config(VariablesConfig(variables={}))
+    logfire_api.variables.pull_config()
+    logfire_api.variables.build_config()
+    logfire__all__.remove('variables')
 
     # If it's not empty, it means that some of the __all__ members are not tested.
     assert logfire__all__ == set(), logfire__all__

@@ -1228,8 +1228,6 @@ class LogfireConfig(_LogfireConfigData):
                         token=api_key,
                         config=remote_config,
                     )
-            self._variable_provider.start(None)
-
             multi_log_processor = SynchronousMultiLogRecordProcessor()
             for processor in log_record_processors:
                 multi_log_processor.add_log_record_processor(processor)

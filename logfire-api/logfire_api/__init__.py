@@ -209,12 +209,12 @@ except ImportError:
             def get_variables(self, *args, **kwargs) -> list[Any]:
                 return []
 
-            def sync_config(self, *args, **kwargs) -> None: ...
+            def push_config(self, *args, **kwargs) -> None: ...
 
             def pull_config(self, *args, **kwargs) -> Any:
                 return MagicMock()
 
-            def generate_config(self, *args, **kwargs) -> Any:
+            def build_config(self, *args, **kwargs) -> Any:
                 return MagicMock()
 
         DEFAULT_LOGFIRE_INSTANCE = Logfire()
@@ -269,16 +269,30 @@ except ImportError:
         shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
         suppress_scopes = DEFAULT_LOGFIRE_INSTANCE.suppress_scopes
         var = DEFAULT_LOGFIRE_INSTANCE.var
-        get_variables = DEFAULT_LOGFIRE_INSTANCE.get_variables
-        sync_config = DEFAULT_LOGFIRE_INSTANCE.sync_config
-        pull_config = DEFAULT_LOGFIRE_INSTANCE.pull_config
-        generate_config = DEFAULT_LOGFIRE_INSTANCE.generate_config
+        # Namespace for managed variables helpers.
+        class _VariablesNamespace:
+            def get(self, *args, **kwargs):
+                return []
 
-        def push_variables(*args, **kwargs) -> bool:
-            return False
+            def push(self, *args, **kwargs) -> bool:
+                return False
 
-        def validate_variables(*args, **kwargs) -> bool:
-            return True
+            def push_types(self, *args, **kwargs) -> bool:
+                return False
+
+            def validate(self, *args, **kwargs) -> Any:
+                return MagicMock()
+
+            def push_config(self, *args, **kwargs) -> bool:
+                return False
+
+            def pull_config(self, *args, **kwargs) -> Any:
+                return MagicMock()
+
+            def build_config(self, *args, **kwargs) -> Any:
+                return MagicMock()
+
+        variables = _VariablesNamespace()
 
         def loguru_handler() -> dict[str, Any]:
             return {}
