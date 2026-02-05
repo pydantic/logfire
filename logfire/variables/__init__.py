@@ -43,13 +43,11 @@ if TYPE_CHECKING:
     from logfire.variables.variable import (
         ResolveFunction,
         Variable,
-        override_variables,
         targeting_context,
     )
 
 __all__ = [
     # Module-level convenience functions
-    'get',
     'push',
     'push_types',
     'push_variable_types',
@@ -85,7 +83,6 @@ __all__ = [
     'LogfireRemoteVariableProvider',
     'NoOpVariableProvider',
     # Context managers and utilities
-    'override_variables',
     'targeting_context',
     # Types
     'SyncMode',
@@ -130,7 +127,6 @@ def __getattr__(name: str):
     from logfire.variables.variable import (
         ResolveFunction,
         Variable,
-        override_variables,
         targeting_context,
     )
 
@@ -150,12 +146,6 @@ def _default_logfire():
     import logfire
 
     return logfire.DEFAULT_LOGFIRE_INSTANCE
-
-
-def get():
-    """Return all variables registered on the default Logfire instance."""
-    _require_pydantic()
-    return _default_logfire().get_variables()
 
 
 def push(

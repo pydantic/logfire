@@ -30,7 +30,6 @@ __all__ = (
     'is_resolve_function',
     'Variable',
     'targeting_context',
-    'override_variables',
 )
 
 T_co = TypeVar('T_co', covariant=True)
@@ -458,39 +457,3 @@ def _get_contextvar_variant_override(variable_name: str) -> str | None:
     if ctx is None:
         return None
     return ctx.get(variable_name)
-
-
-@contextmanager
-def override_variables(
-    overrides: Mapping[Variable[Any], Any],
-) -> Iterator[None]:
-    """Context manager to temporarily override multiple variables' values at once.
-
-    This is a convenience function for overriding multiple variables without nested
-    context managers. Useful for testing or playground scenarios where you want to
-    try different combinations of values.
-
-    Args:
-        overrides: A mapping of Variable instances to their override values.
-            Values can be either direct values or ResolveFunction callables.
-
-    Example:
-        ```python skip="true"
-        system_prompt = logfire.var(name='system_prompt', type=str, default='Default')
-        temperature = logfire.var(name='temperature', type=float, default=0.7)
-        model = logfire.var(name='model', type=str, default='gpt-4')
-
-        # Override all at once instead of nested context managers
-        with override_variables({system_prompt: 'Custom prompt', temperature: 0.9, model: 'claude-3.5-sonnet'}):
-            result = await agent.run(query)
-        ```
-    """
-    # Convert Variable instances to their names
-    name_to_value = {var.name: value for var, value in overrides.items()}
-
-    current = _VARIABLE_OVERRIDES.get() or {}
-    token = _VARIABLE_OVERRIDES.set({**current, **name_to_value})
-    try:
-        yield
-    finally:
-        _VARIABLE_OVERRIDES.reset(token)
