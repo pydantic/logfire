@@ -203,6 +203,30 @@ except ImportError:
 
             def shutdown(self, *args, **kwargs) -> None: ...
 
+            def var(self, *args, **kwargs):
+                return MagicMock()
+
+            def variables_get(self, *args, **kwargs) -> list[Any]:
+                return []
+
+            def variables_push(self, *args, **kwargs) -> bool:
+                return False
+
+            def variables_push_types(self, *args, **kwargs) -> bool:
+                return False
+
+            def variables_validate(self, *args, **kwargs) -> Any:
+                return MagicMock()
+
+            def variables_push_config(self, *args, **kwargs) -> bool:
+                return False
+
+            def variables_pull_config(self, *args, **kwargs) -> Any:
+                return MagicMock()
+
+            def variables_build_config(self, *args, **kwargs) -> Any:
+                return MagicMock()
+
         DEFAULT_LOGFIRE_INSTANCE = Logfire()
         span = DEFAULT_LOGFIRE_INSTANCE.span
         log = DEFAULT_LOGFIRE_INSTANCE.log
@@ -254,6 +278,21 @@ except ImportError:
         instrument_mcp = DEFAULT_LOGFIRE_INSTANCE.instrument_mcp
         shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
         suppress_scopes = DEFAULT_LOGFIRE_INSTANCE.suppress_scopes
+        var = DEFAULT_LOGFIRE_INSTANCE.var
+        variables_get = DEFAULT_LOGFIRE_INSTANCE.variables_get
+        variables_push = DEFAULT_LOGFIRE_INSTANCE.variables_push
+        variables_push_types = DEFAULT_LOGFIRE_INSTANCE.variables_push_types
+        variables_validate = DEFAULT_LOGFIRE_INSTANCE.variables_validate
+        variables_push_config = DEFAULT_LOGFIRE_INSTANCE.variables_push_config
+        variables_pull_config = DEFAULT_LOGFIRE_INSTANCE.variables_pull_config
+        variables_build_config = DEFAULT_LOGFIRE_INSTANCE.variables_build_config
+
+        # Stub module for variables submodule
+        class _VariablesModule:
+            """Stub for logfire.variables submodule."""
+            pass
+
+        variables = _VariablesModule()
 
         def loguru_handler() -> dict[str, Any]:
             return {}
@@ -283,6 +322,9 @@ except ImportError:
             def __init__(self, *args, **kwargs) -> None: ...
 
         class MetricsOptions:
+            def __init__(self, *args, **kwargs) -> None: ...
+
+        class VariablesOptions:
             def __init__(self, *args, **kwargs) -> None: ...
 
         class PydanticPlugin:

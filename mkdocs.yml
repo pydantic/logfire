@@ -198,6 +198,7 @@ nav:
       - Reference:
           - SQL: reference/sql.md
           - Advanced:
+              - Managed Variables: reference/advanced/managed-variables.md
               - Baggage: reference/advanced/baggage.md
               - Generators: reference/advanced/generators.md
               - Testing Logfire Instrumentation: reference/advanced/testing.md

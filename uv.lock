@@ -3242,6 +3242,9 @@ starlette = [
 system-metrics = [
     { name = "opentelemetry-instrumentation-system-metrics" },
 ]
+variables = [
+    { name = "pydantic" },
+]
 wsgi = [
     { name = "opentelemetry-instrumentation-wsgi" },
 ]
@@ -3406,11 +3409,12 @@ requires-dist = [
     { name = "packaging", marker = "extra == 'psycopg'" },
     { name = "packaging", marker = "extra == 'psycopg2'" },
     { name = "protobuf", specifier = ">=4.23.4" },
+    { name = "pydantic", marker = "extra == 'variables'", specifier = ">=2" },
     { name = "rich", specifier = ">=13.4.2" },
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0.1" },
     { name = "typing-extensions", specifier = ">=4.1.0" },
 ]
-provides-extras = ["system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "aws-lambda", "google-genai", "litellm", "dspy"]
+provides-extras = ["system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "aws-lambda", "google-genai", "litellm", "dspy", "variables"]
 
 [package.metadata.requires-dev]
 dev = [
