@@ -9,6 +9,8 @@ from openai._legacy_response import LegacyAPIResponse
 from openai.lib.streaming.responses import ResponseStreamState
 from openai.types.chat.chat_completion import ChatCompletion
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
+from openai.types.chat.chat_completion_message import ChatCompletionMessage
+from openai.types.chat.chat_completion_message_function_tool_call import ChatCompletionMessageFunctionToolCall
 from openai.types.completion import Completion
 from openai.types.create_embedding_response import CreateEmbeddingResponse
 from openai.types.images_response import ImagesResponse
@@ -19,8 +21,10 @@ from logfire import LogfireSpan
 
 from ...utils import handle_internal_errors, log_internal_error
 from .semconv import (
+    INPUT_MESSAGES,
     INPUT_TOKENS,
     OPERATION_NAME,
+    OUTPUT_MESSAGES,
     OUTPUT_TOKENS,
     PROVIDER_NAME,
     REQUEST_FREQUENCY_PENALTY,
@@ -34,7 +38,20 @@ from .semconv import (
     RESPONSE_FINISH_REASONS,
     RESPONSE_ID,
     RESPONSE_MODEL,
+    SYSTEM_INSTRUCTIONS,
     TOOL_DEFINITIONS,
+    BlobPart,
+    ChatMessage,
+    InputMessages,
+    MessagePart,
+    OutputMessage,
+    OutputMessages,
+    Role,
+    SystemInstructions,
+    TextPart,
+    ToolCallPart,
+    ToolCallResponsePart,
+    UriPart,
 )
 from .types import EndpointConfig, StreamState
 
@@ -105,6 +122,12 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         }
         _extract_request_parameters(json_data, span_data)
 
+        # Convert messages to semantic convention format
+        messages: list[dict[str, Any]] = json_data.get('messages', [])
+        if messages:  # pragma: no branch
+            input_messages = convert_chat_completions_to_semconv(messages)
+            span_data[INPUT_MESSAGES] = input_messages
+
         return EndpointConfig(
             message_template='Chat Completion with {request_data[model]!r}',
             span_data=span_data,
@@ -117,15 +140,22 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         stream = json_data.get('stream', False)
         span_data = {
             'request_data': {'model': json_data.get('model'), 'stream': stream},
-            'events': inputs_to_events(
-                json_data.get('input'),
-                json_data.get('instructions'),
-            ),
+            # Keep 'events' for backward compatibility
+            'events': inputs_to_events(json_data.get('input'), json_data.get('instructions')),
             PROVIDER_NAME: 'openai',
             OPERATION_NAME: 'chat',
             REQUEST_MODEL: json_data.get('model'),
         }
         _extract_request_parameters(json_data, span_data)
+
+        # Convert inputs to semantic convention format
+        input_messages, system_instructions = convert_responses_inputs_to_semconv(
+            json_data.get('input'), json_data.get('instructions')
+        )
+        if input_messages:  # pragma: no branch
+            span_data[INPUT_MESSAGES] = input_messages
+        if system_instructions:  # pragma: no branch
+            span_data[SYSTEM_INSTRUCTIONS] = system_instructions
 
         return EndpointConfig(
             message_template='Responses API with {gen_ai.request.model!r}',
@@ -184,6 +214,171 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         )
 
 
+def convert_chat_completions_to_semconv(
+    messages: list[dict[str, Any]],
+) -> InputMessages:
+    """Convert OpenAI Chat Completions API messages format to OTel Gen AI Semantic Convention format.
+
+    Returns input_messages.
+
+    Note: For OpenAI Chat Completions API, system messages are part of the chat history
+    and should be recorded in gen_ai.input.messages, not gen_ai.system_instructions.
+    system_instructions is only used for dedicated instruction parameters (which don't
+    exist for chat completions).
+    """
+    input_messages: InputMessages = []
+
+    for msg in messages:
+        role = msg.get('role', 'unknown')
+        content = msg.get('content')
+        tool_call_id = msg.get('tool_call_id')
+        tool_calls = msg.get('tool_calls')
+
+        # Build parts based on message type
+        parts: list[MessagePart] = []
+
+        if role == 'tool' and tool_call_id:  # pragma: no cover
+            # Tool messages: content is the tool response
+            parts.append(
+                ToolCallResponsePart(
+                    type='tool_call_response',
+                    id=tool_call_id,
+                    response=content,
+                )
+            )
+        else:
+            # Regular messages: build parts from content and tool calls
+            # Add content parts
+            if content is not None:  # pragma: no branch
+                if isinstance(content, str):
+                    parts.append(TextPart(type='text', content=content))
+                elif isinstance(content, list):  # pragma: no branch
+                    for part in cast('list[dict[str, Any] | str]', content):
+                        parts.append(_convert_content_part(part))
+                # else: content is neither str nor list - unreachable in practice
+
+            # Add tool call parts (for assistant messages with tool calls)
+            if tool_calls:  # pragma: no cover
+                for tc in tool_calls:
+                    function = tc.get('function', {})
+                    arguments = function.get('arguments')
+                    if isinstance(arguments, str):  # pragma: no branch
+                        with contextlib.suppress(json.JSONDecodeError):
+                            arguments = json.loads(arguments)
+                    parts.append(
+                        ToolCallPart(
+                            type='tool_call',
+                            id=tc.get('id', ''),
+                            name=function.get('name', ''),
+                            arguments=arguments,
+                        )
+                    )
+
+        # Build message structure
+        message: ChatMessage = {
+            'role': cast('Role', role),
+            'parts': parts,
+        }
+        if name := msg.get('name'):  # pragma: no cover
+            message['name'] = name
+
+        # All messages (including system) go to input_messages since they're part of chat history
+        input_messages.append(message)
+
+    return input_messages
+
+
+def _convert_content_part(part: dict[str, Any] | str) -> MessagePart:
+    """Convert a single content part to semconv format."""
+    if isinstance(part, str):  # pragma: no cover
+        return TextPart(type='text', content=part)
+
+    part_type = part.get('type', 'unknown')
+    if part_type == 'text':
+        return TextPart(type='text', content=part.get('text', ''))
+    elif part_type == 'image_url':  # pragma: no cover
+        url = part.get('image_url', {}).get('url', '')
+        return UriPart(type='uri', uri=url, modality='image')
+    elif part_type == 'input_audio':  # pragma: no cover
+        return BlobPart(
+            type='blob',
+            content=part.get('input_audio', {}).get('data', ''),
+            modality='audio',
+        )
+    else:  # pragma: no cover
+        # Return as generic dict for unknown types
+        return {**part, 'type': part_type}
+
+
+def convert_responses_inputs_to_semconv(
+    inputs: str | list[dict[str, Any]] | None, instructions: str | None
+) -> tuple[InputMessages, SystemInstructions]:
+    """Convert Responses API inputs to OTel Gen AI Semantic Convention format."""
+    input_messages: InputMessages = []
+    system_instructions: SystemInstructions = []
+    if instructions:
+        system_instructions.append(TextPart(type='text', content=instructions))
+    if inputs:  # pragma: no branch
+        if isinstance(inputs, str):
+            input_messages.append(
+                cast('ChatMessage', {'role': 'user', 'parts': [TextPart(type='text', content=inputs)]})
+            )
+        else:
+            for inp in inputs:
+                role, typ, content = inp.get('role', 'user'), inp.get('type'), inp.get('content')
+                if typ in (None, 'message') and content:
+                    parts: list[MessagePart] = []
+                    if isinstance(content, str):
+                        parts.append(TextPart(type='text', content=content))
+                    elif isinstance(content, list):  # pragma: no cover
+                        for item in cast(list[Any], content):
+                            if isinstance(item, dict):
+                                item_dict = cast(dict[str, Any], item)
+                                if item_dict.get('type') == 'output_text':
+                                    parts.append(TextPart(type='text', content=item_dict.get('text', '')))
+                                else:
+                                    parts.append(cast('MessagePart', item_dict))
+                            else:
+                                parts.append(TextPart(type='text', content=str(item)))
+                    input_messages.append(cast('ChatMessage', {'role': role, 'parts': parts}))
+                elif typ == 'function_call':
+                    arguments: Any = inp.get('arguments')
+                    if isinstance(arguments, str):  # pragma: no branch
+                        with contextlib.suppress(json.JSONDecodeError):
+                            arguments = json.loads(arguments)
+                    input_messages.append(
+                        cast(
+                            'ChatMessage',
+                            {
+                                'role': 'assistant',
+                                'parts': [
+                                    ToolCallPart(
+                                        type='tool_call',
+                                        id=inp.get('call_id', ''),
+                                        name=inp.get('name', ''),
+                                        arguments=arguments,
+                                    )
+                                ],
+                            },
+                        )
+                    )
+                elif typ == 'function_call_output':  # pragma: no branch
+                    msg: ChatMessage = {
+                        'role': 'tool',
+                        'parts': [
+                            ToolCallResponsePart(
+                                type='tool_call_response',
+                                id=inp.get('call_id', ''),
+                                response=inp.get('output'),
+                            )
+                        ],
+                    }
+                    if 'name' in inp:  # pragma: no cover - optional field
+                        msg['name'] = inp['name']
+                    input_messages.append(msg)
+    return input_messages, system_instructions
+
+
 def is_current_agent_span(*span_names: str):
     current_span = get_current_span()
     return (
@@ -192,6 +387,89 @@ def is_current_agent_span(*span_names: str):
         and instrumentation_scope.name == 'logfire.openai_agents'
         and getattr(current_span, 'name', None) in span_names
     )
+
+
+def convert_openai_response_to_semconv(
+    message: ChatCompletionMessage,
+    finish_reason: str | None = None,
+) -> OutputMessage:
+    """Convert an OpenAI ChatCompletionMessage to OTel Gen AI Semantic Convention format."""
+    parts: list[MessagePart] = []
+
+    if message.content:  # pragma: no branch
+        parts.append(TextPart(type='text', content=message.content))
+
+    if message.tool_calls:  # pragma: no cover
+        for tc in message.tool_calls:
+            # Only handle function tool calls (not custom tool calls)
+            if isinstance(tc, ChatCompletionMessageFunctionToolCall):  # pragma: no cover
+                func_args: Any = tc.function.arguments
+                if isinstance(func_args, str):
+                    with contextlib.suppress(json.JSONDecodeError):
+                        func_args = json.loads(func_args)
+                parts.append(
+                    ToolCallPart(
+                        type='tool_call',
+                        id=tc.id,
+                        name=tc.function.name,
+                        arguments=func_args,
+                    )
+                )
+
+    result: OutputMessage = {
+        'role': cast('Role', message.role),
+        'parts': parts,
+    }
+    if finish_reason:  # pragma: no branch
+        result['finish_reason'] = finish_reason
+
+    return result
+
+
+def convert_responses_outputs_to_semconv(response: Response) -> OutputMessages:
+    """Convert Responses API outputs to OTel Gen AI Semantic Convention format."""
+    output_messages: OutputMessages = []
+    for out in response.output:
+        out_dict = out.model_dump()
+        typ = out_dict.get('type')
+        content = out_dict.get('content')
+
+        if typ in (None, 'message') and content:
+            parts: list[MessagePart] = []
+            for item in cast('list[dict[str, Any]]', content):
+                if item.get('type') == 'output_text':  # pragma: no branch
+                    parts.append(TextPart(type='text', content=cast(str, item.get('text', ''))))
+            output_messages.append(
+                cast(
+                    'OutputMessage',
+                    {
+                        'role': 'assistant',
+                        'parts': parts,
+                    },
+                )
+            )
+        elif typ == 'function_call':  # pragma: no cover - outputs are typically 'message' type
+            arguments: Any = out_dict.get('arguments')
+            if isinstance(arguments, str):
+                with contextlib.suppress(json.JSONDecodeError):
+                    arguments = json.loads(arguments)
+            output_messages.append(
+                cast(
+                    'OutputMessage',
+                    {
+                        'role': 'assistant',
+                        'parts': [
+                            ToolCallPart(
+                                type='tool_call',
+                                id=out_dict.get('call_id', ''),
+                                name=out_dict.get('name', ''),
+                                arguments=arguments,
+                            )
+                        ],
+                    },
+                )
+            )
+    return output_messages
 
 
 def content_from_completions(chunk: Completion | None) -> str | None:
@@ -228,7 +506,10 @@ class OpenaiResponsesStreamState(StreamState):
     def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
         response = self.get_response_data()
         if response:
-            span_data['events'] = span_data['events'] + responses_output_events(response)
+            output_messages = convert_responses_outputs_to_semconv(response)
+            span_data[OUTPUT_MESSAGES] = output_messages
+            # Keep 'events' for backward compatibility
+            span_data['events'] = span_data.get('events', []) + responses_output_events(response)
         return span_data
 
 
@@ -309,11 +590,14 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
             'response_data',
             {'message': response.choices[0].message, 'usage': usage},
         )
-        # Add finish reasons
+        # Add semantic convention output messages
+        output_messages: OutputMessages = []
         finish_reasons: list[str] = []
         for choice in response.choices:
+            output_messages.append(convert_openai_response_to_semconv(choice.message, choice.finish_reason))
             if choice.finish_reason:  # pragma: no branch
                 finish_reasons.append(choice.finish_reason)
+        span.set_attribute(OUTPUT_MESSAGES, output_messages)
         if finish_reasons:  # pragma: no branch
             span.set_attribute(RESPONSE_FINISH_REASONS, finish_reasons)
     elif isinstance(response, Completion) and response.choices:
@@ -322,11 +606,20 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
             'response_data',
             {'finish_reason': first_choice.finish_reason, 'text': first_choice.text, 'usage': usage},
         )
-        # Add finish reasons
+        # Add semantic convention output messages for text completion
+        output_messages_completion: list[dict[str, Any]] = []
         finish_reasons_completion: list[str] = []
         for choice in response.choices:
+            output_messages_completion.append(
+                {
+                    'role': 'assistant',
+                    'parts': [{'type': 'text', 'content': choice.text}],
+                    'finish_reason': choice.finish_reason,
+                }
+            )
             if choice.finish_reason:  # pragma: no branch
                 finish_reasons_completion.append(choice.finish_reason)
+        span.set_attribute(OUTPUT_MESSAGES, output_messages_completion)
         if finish_reasons_completion:  # pragma: no branch
             span.set_attribute(RESPONSE_FINISH_REASONS, finish_reasons_completion)
     elif isinstance(response, CreateEmbeddingResponse):
@@ -334,6 +627,9 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
     elif isinstance(response, ImagesResponse):
         span.set_attribute('response_data', {'images': response.data})
     elif isinstance(response, Response):  # pragma: no branch
+        response_output_messages: OutputMessages = convert_responses_outputs_to_semconv(response)
+        span.set_attribute(OUTPUT_MESSAGES, response_output_messages)
+        # Keep 'events' for backward compatibility
         try:
             events = json.loads(span.attributes['events'])  # type: ignore
         except Exception:
