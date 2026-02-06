@@ -3696,3 +3696,1261 @@ class TestOnChangeCallbacks:
 
         assert a_changes == ['a_changed']
         assert b_changes == []
+
+
+# =============================================================================
+# Tests for additional coverage
+# =============================================================================
+
+
+class TestIsResolveFunctionEdgeCases:
+    """Test edge cases in is_resolve_function."""
+
+    def test_uninspectable_callable(self):
+        """Callables that raise ValueError from inspect.signature return False."""
+
+        class Uninspectable:
+            def __call__(self) -> None:
+                pass  # pragma: no cover
+
+            __signature__: Any = 'not a signature'
+
+        assert is_resolve_function(Uninspectable()) is False
+
+    def test_no_params(self):
+        """A callable with no parameters is not a resolve function."""
+
+        def no_args():
+            pass  # pragma: no cover
+
+        assert is_resolve_function(no_args) is False
+
+    def test_var_positional(self):
+        """A callable with *args counts as a resolve function."""
+
+        def with_args(*args: Any):
+            pass  # pragma: no cover
+
+        assert is_resolve_function(with_args) is True
+
+    def test_var_positional_with_required(self):
+        """A callable with 3 required args + *args is not a resolve function."""
+
+        def three_required(a: Any, b: Any, c: Any, *args: Any):
+            pass  # pragma: no cover
+
+        assert is_resolve_function(three_required) is False
+
+    def test_var_keyword_only(self):
+        """**kwargs doesn't count toward positional."""
+
+        def two_pos_with_kwargs(a: Any, b: Any, **kwargs: Any):
+            pass  # pragma: no cover
+
+        assert is_resolve_function(two_pos_with_kwargs) is True
+
+    def test_optional_positional(self):
+        """A callable with one required and one optional positional param."""
+
+        def one_required_one_optional(a: Any, b: Any = None):
+            pass  # pragma: no cover
+
+        assert is_resolve_function(one_required_one_optional) is True
+
+    def test_all_optional(self):
+        """A callable with two optional positional params."""
+
+        def both_optional(a: Any = 1, b: Any = 2):
+            pass  # pragma: no cover
+
+        assert is_resolve_function(both_optional) is True
+
+    def test_keyword_only_param(self):
+        """Keyword-only params don't affect positional count."""
+
+        def with_keyword_only(a: Any, b: Any, *, c: Any):
+            pass  # pragma: no cover
+
+        assert is_resolve_function(with_keyword_only) is True
+
+
+class TestDeserializationCacheEviction:
+    """Test cache eviction in Variable._deserialize_cached."""
+
+    def test_cache_eviction(self, config_kwargs: dict[str, Any]):
+        """Test that cache evicts oldest entries when full."""
+        variables_config = VariablesConfig(variables={})
+        config_kwargs['variables'] = VariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='cached_var', default='default', type=int)
+
+        # Fill the cache beyond _cache_maxsize (128)
+        for i in range(140):
+            result = var._deserialize_cached(str(i))
+            assert result == i
+
+        # Verify cache eviction happened — first entries should have been evicted
+        # but re-calling should still work (just re-parses)
+        result = var._deserialize_cached('0')
+        assert result == 0
+
+
+class TestVariableGetReprFallback:
+    """Test that variable.get() falls back to repr() when dump_json fails."""
+
+    def test_repr_fallback_when_dump_json_fails(self, config_kwargs: dict[str, Any]):
+        """When type_adapter.dump_json raises, we fall back to repr()."""
+        from unittest.mock import patch
+
+        variables_config = VariablesConfig(
+            variables={
+                'repr_var': VariableConfig(
+                    name='repr_var',
+                    variants={'v1': Variant(key='v1', serialized_value='"hello"')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                ),
+            }
+        )
+        config_kwargs['variables'] = VariablesOptions(config=variables_config, instrument=True)
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='repr_var', default='default', type=str)
+
+        # Patch dump_json to raise an exception
+        with patch.object(var.type_adapter, 'dump_json', side_effect=RuntimeError('Cannot serialize')):
+            result = var.get()
+            # Value should still be resolved correctly
+            assert result.value == 'hello'
+
+
+class TestValidationReportHasErrors:
+    """Test the has_errors property of ValidationReport."""
+
+    def test_has_errors_with_errors(self):
+        """has_errors returns True when there are validation errors."""
+        from logfire.variables.abstract import ValidationReport, VariantValidationError
+
+        report = ValidationReport(
+            errors=[VariantValidationError(variable_name='test', variant_key='v1', error=ValueError('bad'))],
+            variables_checked=1,
+            variables_not_on_server=[],
+            description_differences=[],
+        )
+        assert report.has_errors is True
+
+    def test_has_errors_without_errors(self):
+        """has_errors returns False when validation passed."""
+        from logfire.variables.abstract import ValidationReport
+
+        report = ValidationReport(
+            errors=[],
+            variables_checked=1,
+            variables_not_on_server=[],
+            description_differences=[],
+        )
+        assert report.has_errors is False
+
+    def test_has_errors_with_variables_not_on_server(self):
+        """has_errors returns True when variables are not on the server."""
+        from logfire.variables.abstract import ValidationReport
+
+        report = ValidationReport(
+            errors=[],
+            variables_checked=1,
+            variables_not_on_server=['missing'],
+            description_differences=[],
+        )
+        assert report.has_errors is True
+
+
+class TestNotifyConfigChangeError:
+    """Test _notify_config_change when the callback raises."""
+
+    def test_callback_exception_is_caught(self):
+        """When the on_config_change callback raises, it's caught and logged."""
+
+        class SimpleProvider(VariableProvider):
+            def get_serialized_value(
+                self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+            ) -> ResolvedVariable[str | None]:
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+
+        provider = SimpleProvider()
+        called = False
+
+        def bad_callback(changed_names: set[str]) -> None:
+            nonlocal called
+            called = True
+            raise RuntimeError('Callback failed!')
+
+        provider.set_on_config_change(bad_callback)
+
+        # The _notify_config_change method catches exceptions and logs them
+        provider._notify_config_change({'test'})
+        assert called
+
+
+class TestGetSerializedValueForVariantUnknown:
+    """Test get_serialized_value_for_variant when the variable doesn't exist."""
+
+    def test_unknown_variable_returns_unrecognized(self):
+        """Default implementation returns unrecognized when variable config is None."""
+        provider = NoOpVariableProvider()
+        result = provider.get_serialized_value_for_variant('nonexistent', 'v1')
+        assert result.value is None
+        assert result._reason == 'unrecognized_variable'
+
+
+class TestBaseVariableProviderTypesMethods:
+    """Test base VariableProvider methods for variable types."""
+
+    def test_list_variable_types_warns(self):
+        """Default list_variable_types emits warning and returns empty dict."""
+
+        class MinimalProvider(VariableProvider):
+            def get_serialized_value(
+                self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+            ) -> ResolvedVariable[str | None]:
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+
+        provider = MinimalProvider()
+        with pytest.warns(UserWarning, match='does not support variable types'):
+            result = provider.list_variable_types()
+        assert result == {}
+
+    def test_get_variable_type(self):
+        """Default get_variable_type delegates to list_variable_types."""
+
+        class MinimalProvider(VariableProvider):
+            def get_serialized_value(
+                self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+            ) -> ResolvedVariable[str | None]:
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+
+        provider = MinimalProvider()
+        with pytest.warns(UserWarning, match='does not support variable types'):
+            result = provider.get_variable_type('some_type')
+        assert result is None
+
+    def test_upsert_variable_type_warns(self):
+        """Default upsert_variable_type emits warning and returns config."""
+        from logfire.variables.config import VariableTypeConfig
+
+        class MinimalProvider(VariableProvider):
+            def get_serialized_value(
+                self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+            ) -> ResolvedVariable[str | None]:
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+
+        provider = MinimalProvider()
+        config = VariableTypeConfig(name='test_type', json_schema={'type': 'string'})
+        with pytest.warns(UserWarning, match='does not persist variable type writes'):
+            result = provider.upsert_variable_type(config)
+        assert result.name == 'test_type'
+
+
+class TestNegativeRolloutWeights:
+    """Test that negative rollout weights are rejected."""
+
+    def test_negative_weight_raises_validation_error(self):
+        """Negative variant proportions should raise."""
+        with pytest.raises(ValidationError, match='Variant proportions must not be negative'):
+            VariableConfig.model_validate(
+                {
+                    'name': 'test',
+                    'variants': {'v1': {'key': 'v1', 'serialized_value': '"value"'}},
+                    'rollout': {'variants': {'v1': -0.5}},
+                    'overrides': [],
+                }
+            )
+
+
+class TestGetDefaultTypeName:
+    """Test get_default_type_name function."""
+
+    def test_class_type(self):
+        from logfire.variables.config import get_default_type_name
+
+        assert get_default_type_name(int) == 'int'
+
+    def test_non_class_type(self):
+        from typing import Union
+
+        from logfire.variables.config import get_default_type_name
+
+        # Union types are not `type` instances
+        result = get_default_type_name(Union[int, str])
+        assert isinstance(result, str)
+        assert result  # Should be a non-empty string
+
+
+class TestGetSourceHint:
+    """Test get_source_hint function."""
+
+    def test_class_with_module(self):
+        from pydantic import BaseModel
+
+        from logfire.variables.config import get_source_hint
+
+        class MyModel(BaseModel):
+            x: int
+
+        hint = get_source_hint(MyModel)
+        assert hint is not None
+        assert 'MyModel' in hint
+
+    def test_non_class(self):
+        from logfire.variables.config import get_source_hint
+
+        assert get_source_hint('not a type') is None
+
+
+class TestReconfigureWithExistingVariables:
+    """Test re-wiring change notifications after reconfigure."""
+
+    def test_reconfigure_rewires_change_notifications(self, config_kwargs: dict[str, Any]):
+        """When variables exist and logfire is reconfigured, change notifications should be re-wired."""
+        config = VariablesConfig(
+            variables={
+                'my_var': VariableConfig(
+                    name='my_var',
+                    variants={'a': Variant(key='a', serialized_value='"hello"')},
+                    rollout=Rollout(variants={'a': 1.0}),
+                    overrides=[],
+                ),
+            }
+        )
+        provider = LocalVariableProvider(config)
+        config_kwargs['variables'] = VariablesOptions(config=provider)
+        lf = logfire.configure(**config_kwargs)
+
+        my_var = lf.var('my_var', default='default', type=str)
+
+        changes: list[str] = []
+
+        @my_var.on_change
+        def on_change():  # pyright: ignore[reportUnusedFunction]
+            changes.append(my_var.get().value)
+
+        # Now reconfigure with a new provider — this should re-wire the callback
+        config2 = VariablesConfig(
+            variables={
+                'my_var': VariableConfig(
+                    name='my_var',
+                    variants={'a': Variant(key='a', serialized_value='"reconfigured"')},
+                    rollout=Rollout(variants={'a': 1.0}),
+                    overrides=[],
+                ),
+            }
+        )
+        provider2 = LocalVariableProvider(config2)
+        config_kwargs['variables'] = VariablesOptions(config=provider2)
+        # Manually reset flag so reconfigure can re-wire
+        lf._change_notifications_setup = False
+        logfire.configure(**config_kwargs)
+
+        # Now update via the new provider — should trigger the callback
+        provider2.update_variable(
+            'my_var',
+            VariableConfig(
+                name='my_var',
+                variants={'a': Variant(key='a', serialized_value='"after_reconfigure"')},
+                rollout=Rollout(variants={'a': 1.0}),
+                overrides=[],
+            ),
+        )
+
+        assert changes == ['after_reconfigure']
+
+
+@pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
+class TestRemoteProviderChangeDetection:
+    """Test change detection and notification in remote provider refresh."""
+
+    def test_change_detection_notifies_callback(self):
+        """When remote config changes between fetches, on_config_change callback fires."""
+        request_mocker = requests_mock_module.Mocker()
+        responses: list[dict[str, Any]] = [
+            {
+                'json': {
+                    'variables': {
+                        'my_var': {
+                            'name': 'my_var',
+                            'variants': {'v1': {'key': 'v1', 'serialized_value': '"initial"'}},
+                            'rollout': {'variants': {'v1': 1.0}},
+                            'overrides': [],
+                        }
+                    }
+                }
+            },
+            {
+                'json': {
+                    'variables': {
+                        'my_var': {
+                            'name': 'my_var',
+                            'variants': {'v1': {'key': 'v1', 'serialized_value': '"updated"'}},
+                            'rollout': {'variants': {'v1': 1.0}},
+                            'overrides': [],
+                        }
+                    }
+                }
+            },
+        ]
+        request_mocker.get('http://localhost:8000/v1/variables/', responses)
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                changed_vars: list[set[str]] = []
+                provider.set_on_config_change(lambda names: changed_vars.append(names))
+
+                # First fetch
+                provider.refresh(force=True)
+                assert changed_vars == []  # No old config to compare to
+
+                # Second fetch — config changed
+                provider.refresh(force=True)
+                assert len(changed_vars) == 1
+                assert 'my_var' in changed_vars[0]
+            finally:
+                provider.shutdown()
+
+    def test_no_notification_when_config_unchanged(self):
+        """No notification when remote config is the same between fetches."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            json={
+                'variables': {
+                    'my_var': {
+                        'name': 'my_var',
+                        'variants': {'v1': {'key': 'v1', 'serialized_value': '"same"'}},
+                        'rollout': {'variants': {'v1': 1.0}},
+                        'overrides': [],
+                    }
+                }
+            },
+        )
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                changed_vars: list[set[str]] = []
+                provider.set_on_config_change(lambda names: changed_vars.append(names))
+
+                provider.refresh(force=True)
+                provider.refresh(force=True)
+                assert changed_vars == []  # No changes
+            finally:
+                provider.shutdown()
+
+
+@pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
+class TestRemoteProviderForceRefreshEvent:
+    """Test the force refresh event (SSE trigger)."""
+
+    def test_force_refresh_via_worker(self):
+        """When _force_refresh_event is set, the worker makes a forced fetch."""
+        request_mocker = requests_mock_module.Mocker()
+        adapter = request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),  # Long poll so worker won't auto-refresh
+                ),
+            )
+            try:
+                # Start the provider to launch the worker thread
+                provider.start(None)
+
+                # Wait for initial fetch
+                start_time = time.time()
+                while adapter.call_count < 1:
+                    if time.time() - start_time > 5:  # pragma: no cover
+                        raise AssertionError(f'Timed out, call_count={adapter.call_count}')
+                    time.sleep(0.01)  # pragma: no cover
+
+                initial_count = adapter.call_count
+
+                # Simulate an SSE event triggering a force refresh
+                provider._force_refresh_event.set()
+                provider._worker_awaken.set()  # Wake the worker
+
+                # Wait for the forced fetch
+                start_time = time.time()
+                while adapter.call_count <= initial_count:
+                    if time.time() - start_time > 5:  # pragma: no cover
+                        raise AssertionError(f'Timed out, call_count={adapter.call_count}')
+                    time.sleep(0.01)  # pragma: no cover
+
+                # Force refresh event should have been cleared by the worker
+                assert not provider._force_refresh_event.is_set()
+                assert adapter.call_count > initial_count
+            finally:
+                provider.shutdown()
+
+
+@pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
+class TestRemoteProviderUpdateVariantDiff:
+    """Test update_variable with existing config (variant diff logic)."""
+
+    def test_update_sends_only_changed_variants(self):
+        """When updating a variable, only changed variants are sent."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            json={
+                'variables': {
+                    'my_var': {
+                        'name': 'my_var',
+                        'variants': {
+                            'v1': {'key': 'v1', 'serialized_value': '"old_value"'},
+                            'v2': {'key': 'v2', 'serialized_value': '"unchanged"'},
+                        },
+                        'rollout': {'variants': {'v1': 0.5, 'v2': 0.5}},
+                        'overrides': [],
+                    }
+                }
+            },
+        )
+        put_adapter = request_mocker.put('http://localhost:8000/v1/variables/my_var/', json={'name': 'my_var'})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=True, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                provider.refresh(force=True)
+
+                # Update with v1 changed and v2 unchanged
+                new_config = VariableConfig(
+                    name='my_var',
+                    variants={
+                        'v1': Variant(key='v1', serialized_value='"new_value"'),
+                        'v2': Variant(key='v2', serialized_value='"unchanged"'),
+                    },
+                    rollout=Rollout(variants={'v1': 0.5, 'v2': 0.5}),
+                    overrides=[],
+                )
+                provider.update_variable('my_var', new_config)
+
+                assert put_adapter.call_count == 1
+                assert put_adapter.last_request is not None
+                body = put_adapter.last_request.json()
+                # Only v1 should be in the variants (v2 is unchanged)
+                assert 'variants' in body
+                assert 'v1' in body['variants']
+                assert 'v2' not in body['variants']
+            finally:
+                provider.shutdown()
+
+    def test_update_sends_new_variant(self):
+        """When updating with a new variant not in existing config, it's sent."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            json={
+                'variables': {
+                    'my_var': {
+                        'name': 'my_var',
+                        'variants': {'v1': {'key': 'v1', 'serialized_value': '"value"'}},
+                        'rollout': {'variants': {'v1': 1.0}},
+                        'overrides': [],
+                    }
+                }
+            },
+        )
+        put_adapter = request_mocker.put('http://localhost:8000/v1/variables/my_var/', json={'name': 'my_var'})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=True, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                provider.refresh(force=True)
+
+                # Add v2 which doesn't exist on server
+                new_config = VariableConfig(
+                    name='my_var',
+                    variants={
+                        'v1': Variant(key='v1', serialized_value='"value"'),
+                        'v2': Variant(key='v2', serialized_value='"new_variant"'),
+                    },
+                    rollout=Rollout(variants={'v1': 0.5, 'v2': 0.5}),
+                    overrides=[],
+                )
+                provider.update_variable('my_var', new_config)
+
+                assert put_adapter.call_count == 1
+                assert put_adapter.last_request is not None
+                body = put_adapter.last_request.json()
+                # v2 is new, should be sent. v1 unchanged, should not be sent.
+                assert 'variants' in body
+                assert 'v2' in body['variants']
+                assert 'v1' not in body['variants']
+            finally:
+                provider.shutdown()
+
+    def test_update_sends_variant_with_changed_description(self):
+        """When variant description changes, the variant is sent."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            json={
+                'variables': {
+                    'my_var': {
+                        'name': 'my_var',
+                        'variants': {
+                            'v1': {'key': 'v1', 'serialized_value': '"value"', 'description': 'Old description'},
+                        },
+                        'rollout': {'variants': {'v1': 1.0}},
+                        'overrides': [],
+                    }
+                }
+            },
+        )
+        put_adapter = request_mocker.put('http://localhost:8000/v1/variables/my_var/', json={'name': 'my_var'})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=True, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                provider.refresh(force=True)
+
+                new_config = VariableConfig(
+                    name='my_var',
+                    variants={
+                        'v1': Variant(key='v1', serialized_value='"value"', description='New description'),
+                    },
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                )
+                provider.update_variable('my_var', new_config)
+
+                assert put_adapter.call_count == 1
+                assert put_adapter.last_request is not None
+                body = put_adapter.last_request.json()
+                assert 'variants' in body
+                assert 'v1' in body['variants']
+                assert body['variants']['v1']['description'] == 'New description'
+            finally:
+                provider.shutdown()
+
+
+@pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
+class TestRemoteProviderConditionExtraFields:
+    """Test _condition_extra_fields with various condition types."""
+
+    def test_value_does_not_equal_condition(self):
+        """Test ValueDoesNotEqual serialization."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        post_adapter = request_mocker.post('http://localhost:8000/v1/variables/', json={'name': 'test'})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                config = VariableConfig(
+                    name='test',
+                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[
+                        RolloutOverride(
+                            conditions=[
+                                ValueDoesNotEqual(attribute='status', value='blocked'),
+                                ValueIsNotIn(attribute='region', values=['eu', 'us']),
+                                ValueDoesNotMatchRegex(attribute='email', pattern=r'@test\.com$'),
+                            ],
+                            rollout=Rollout(variants={'v1': 1.0}),
+                        )
+                    ],
+                )
+                provider.create_variable(config)
+
+                assert post_adapter.last_request is not None
+                body = post_adapter.last_request.json()
+                conditions = body['overrides'][0]['conditions']
+                assert len(conditions) == 3
+                assert conditions[0]['kind'] == 'value-does-not-equal'
+                assert conditions[0]['value'] == 'blocked'
+                assert conditions[1]['kind'] == 'value-is-not-in'
+                assert conditions[1]['values'] == ['eu', 'us']
+                assert conditions[2]['kind'] == 'value-does-not-match-regex'
+                assert conditions[2]['pattern'] == r'@test\.com$'
+            finally:
+                provider.shutdown()
+
+    def test_compiled_regex_pattern(self):
+        """Test that compiled regex patterns are serialized correctly."""
+        import re
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        post_adapter = request_mocker.post('http://localhost:8000/v1/variables/', json={'name': 'test'})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                config = VariableConfig(
+                    name='test',
+                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[
+                        RolloutOverride(
+                            conditions=[
+                                ValueMatchesRegex(attribute='name', pattern=re.compile(r'^test_\d+')),
+                            ],
+                            rollout=Rollout(variants={'v1': 1.0}),
+                        )
+                    ],
+                )
+                provider.create_variable(config)
+
+                assert post_adapter.last_request is not None
+                body = post_adapter.last_request.json()
+                conditions = body['overrides'][0]['conditions']
+                assert conditions[0]['pattern'] == r'^test_\d+'
+            finally:
+                provider.shutdown()
+
+
+@pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
+class TestRemoteProviderVariableTypes:
+    """Test remote provider variable type operations."""
+
+    def test_list_variable_types(self):
+        """Test listing variable types from remote API."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        request_mocker.get(
+            'http://localhost:8000/v1/variable-types/',
+            json=[
+                {
+                    'name': 'FeatureConfig',
+                    'json_schema': {'type': 'object', 'properties': {'enabled': {'type': 'boolean'}}},
+                    'description': 'Feature configuration',
+                    'source_hint': 'myapp.config.FeatureConfig',
+                },
+                {
+                    'name': 'SimpleType',
+                    'json_schema': {'type': 'string'},
+                },
+            ],
+        )
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                types = provider.list_variable_types()
+                assert len(types) == 2
+                assert 'FeatureConfig' in types
+                assert types['FeatureConfig'].description == 'Feature configuration'
+                assert types['FeatureConfig'].source_hint == 'myapp.config.FeatureConfig'
+                assert 'SimpleType' in types
+                assert types['SimpleType'].description is None
+            finally:
+                provider.shutdown()
+
+    def test_list_variable_types_api_error(self):
+        """Test listing variable types when API fails."""
+        from logfire.variables.abstract import VariableWriteError
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        request_mocker.get('http://localhost:8000/v1/variable-types/', status_code=500)
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                with pytest.raises(VariableWriteError, match='Failed to list variable types'):
+                    provider.list_variable_types()
+            finally:
+                provider.shutdown()
+
+    def test_upsert_variable_type(self):
+        """Test creating/updating a variable type via remote API."""
+        from logfire.variables.config import VariableTypeConfig
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        post_adapter = request_mocker.post('http://localhost:8000/v1/variable-types/', json={'name': 'MyType'})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                config = VariableTypeConfig(
+                    name='MyType',
+                    json_schema={'type': 'object'},
+                    description='My type',
+                    source_hint='myapp.MyType',
+                )
+                result = provider.upsert_variable_type(config)
+                assert result.name == 'MyType'
+
+                assert post_adapter.last_request is not None
+                body = post_adapter.last_request.json()
+                assert body['name'] == 'MyType'
+                assert body['json_schema'] == {'type': 'object'}
+                assert body['description'] == 'My type'
+                assert body['source_hint'] == 'myapp.MyType'
+            finally:
+                provider.shutdown()
+
+    def test_upsert_variable_type_without_source_hint(self):
+        """Test upsert without source_hint."""
+        from logfire.variables.config import VariableTypeConfig
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        post_adapter = request_mocker.post('http://localhost:8000/v1/variable-types/', json={'name': 'MyType'})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                config = VariableTypeConfig(name='MyType', json_schema={'type': 'string'})
+                provider.upsert_variable_type(config)
+
+                assert post_adapter.last_request is not None
+                body = post_adapter.last_request.json()
+                assert 'source_hint' not in body
+            finally:
+                provider.shutdown()
+
+    def test_upsert_variable_type_api_error(self):
+        """Test upsert variable type when API fails."""
+        from logfire.variables.abstract import VariableWriteError
+        from logfire.variables.config import VariableTypeConfig
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        request_mocker.post('http://localhost:8000/v1/variable-types/', status_code=500)
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                config = VariableTypeConfig(name='MyType', json_schema={'type': 'string'})
+                with pytest.raises(VariableWriteError, match='Failed to upsert variable type'):
+                    provider.upsert_variable_type(config)
+            finally:
+                provider.shutdown()
+
+
+class TestPushVariableTypes:
+    """Test the push_variable_types method on VariableProvider."""
+
+    @staticmethod
+    def _make_types_provider(
+        existing_types: dict[str, Any] | None = None,
+    ) -> VariableProvider:
+        """Create a provider that supports variable types for testing push_variable_types."""
+        from logfire.variables.config import VariableTypeConfig
+
+        class TypesProvider(VariableProvider):
+            def __init__(self) -> None:
+                self._types: dict[str, VariableTypeConfig] = {}
+                if existing_types:
+                    for name, schema in existing_types.items():
+                        self._types[name] = VariableTypeConfig(name=name, json_schema=schema)
+
+            def get_serialized_value(
+                self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+            ) -> ResolvedVariable[str | None]:
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+
+            def list_variable_types(self) -> dict[str, VariableTypeConfig]:
+                return dict(self._types)
+
+            def upsert_variable_type(self, config: VariableTypeConfig) -> VariableTypeConfig:
+                self._types[config.name] = config
+                return config
+
+        return TypesProvider()
+
+    def test_push_variable_types_empty(self, capsys: pytest.CaptureFixture[str]):
+        """Test pushing empty types list."""
+        provider = self._make_types_provider()
+        result = provider.push_variable_types([])
+        assert result is False
+        captured = capsys.readouterr()
+        assert 'No types to push' in captured.out
+
+    def test_push_variable_types_create(self, capsys: pytest.CaptureFixture[str]):
+        """Test pushing new types."""
+        from pydantic import BaseModel
+
+        class FeatureConfig(BaseModel):
+            enabled: bool
+            max_items: int = 10
+
+        provider = self._make_types_provider()
+        result = provider.push_variable_types([FeatureConfig], yes=True)
+        assert result is True
+        captured = capsys.readouterr()
+        assert 'FeatureConfig' in captured.out
+        assert 'New types' in captured.out
+
+    def test_push_variable_types_with_explicit_name(self, capsys: pytest.CaptureFixture[str]):
+        """Test pushing types with explicit names."""
+        from pydantic import BaseModel
+
+        class FeatureConfig(BaseModel):
+            enabled: bool
+
+        provider = self._make_types_provider()
+        result = provider.push_variable_types([(FeatureConfig, 'my_feature')], yes=True)
+        assert result is True
+        captured = capsys.readouterr()
+        assert 'my_feature' in captured.out
+
+    def test_push_variable_types_no_changes(self, capsys: pytest.CaptureFixture[str]):
+        """Test pushing when types are already up to date."""
+        from pydantic import BaseModel, TypeAdapter
+
+        class FeatureConfig(BaseModel):
+            enabled: bool
+
+        adapter = TypeAdapter(FeatureConfig)
+        existing_schema = adapter.json_schema()
+
+        provider = self._make_types_provider(existing_types={'FeatureConfig': existing_schema})
+
+        result = provider.push_variable_types([FeatureConfig])
+        assert result is False
+        captured = capsys.readouterr()
+        assert 'No changes needed' in captured.out
+
+    def test_push_variable_types_schema_update(self, capsys: pytest.CaptureFixture[str]):
+        """Test pushing when type schema has changed."""
+        from pydantic import BaseModel
+
+        class FeatureConfig(BaseModel):
+            enabled: bool
+            new_field: str = 'default'
+
+        # Existing schema is different from current
+        provider = self._make_types_provider(existing_types={'FeatureConfig': {'type': 'object'}})
+
+        result = provider.push_variable_types([FeatureConfig], yes=True)
+        assert result is True
+        captured = capsys.readouterr()
+        assert 'Schema updates' in captured.out
+
+    def test_push_variable_types_dry_run(self, capsys: pytest.CaptureFixture[str]):
+        """Test pushing types in dry run mode."""
+        from pydantic import BaseModel
+
+        class FeatureConfig(BaseModel):
+            enabled: bool
+
+        provider = self._make_types_provider()
+        result = provider.push_variable_types([FeatureConfig], dry_run=True)
+        assert result is True
+        captured = capsys.readouterr()
+        assert 'Dry run mode' in captured.out
+
+    def test_push_variable_types_refresh_error(self, capsys: pytest.CaptureFixture[str]):
+        """Test pushing types when refresh fails."""
+        from pydantic import BaseModel
+
+        class FeatureConfig(BaseModel):
+            enabled: bool
+
+        class FailingRefreshProvider(VariableProvider):
+            def get_serialized_value(
+                self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+            ) -> ResolvedVariable[str | None]:
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+
+            def refresh(self, force: bool = False):
+                raise RuntimeError('Refresh failed!')
+
+            def list_variable_types(self) -> dict[str, Any]:
+                return {}
+
+        provider = FailingRefreshProvider()
+        provider.push_variable_types([FeatureConfig], yes=True)
+        captured = capsys.readouterr()
+        assert 'Could not refresh provider' in captured.out or 'Warning' in captured.out
+
+    def test_push_variable_types_list_error(self, capsys: pytest.CaptureFixture[str]):
+        """Test pushing types when listing types fails."""
+        from pydantic import BaseModel
+
+        class FeatureConfig(BaseModel):
+            enabled: bool
+
+        class FailingListProvider(VariableProvider):
+            def get_serialized_value(
+                self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+            ) -> ResolvedVariable[str | None]:
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+
+            def list_variable_types(self) -> dict[str, Any]:
+                raise RuntimeError('List failed!')
+
+        provider = FailingListProvider()
+        result = provider.push_variable_types([FeatureConfig])
+        assert result is False
+        captured = capsys.readouterr()
+        assert 'Error fetching current types' in captured.out
+
+    def test_push_variable_types_apply_error(self, capsys: pytest.CaptureFixture[str]):
+        """Test pushing types when applying changes fails."""
+        from pydantic import BaseModel
+
+        class FeatureConfig(BaseModel):
+            enabled: bool
+
+        class FailingApplyProvider(VariableProvider):
+            def get_serialized_value(
+                self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+            ) -> ResolvedVariable[str | None]:
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+
+            def list_variable_types(self) -> dict[str, Any]:
+                return {}
+
+            def upsert_variable_type(self, config: Any) -> Any:
+                raise RuntimeError('Upsert failed!')
+
+        provider = FailingApplyProvider()
+        result = provider.push_variable_types([FeatureConfig], yes=True)
+        assert result is False
+        captured = capsys.readouterr()
+        assert 'Error applying changes' in captured.out
+
+
+@pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
+class TestRemoteProviderVariantsOverrideBody:
+    """Test _config_to_api_body with non-empty variants_override."""
+
+    def test_variants_override_non_empty(self):
+        """When variants_override is non-empty, only those variants are serialized."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                config = VariableConfig(
+                    name='test',
+                    variants={
+                        'v1': Variant(key='v1', serialized_value='"a"', description='Variant 1'),
+                        'v2': Variant(key='v2', serialized_value='"b"'),
+                    },
+                    rollout=Rollout(variants={'v1': 0.5, 'v2': 0.5}),
+                    overrides=[],
+                )
+
+                # Test with variants_override containing only v1
+                override = {'v1': Variant(key='v1', serialized_value='"new_a"', description='Updated')}
+                body = provider._config_to_api_body(config, variants_override=override)
+                assert 'variants' in body
+                assert len(body['variants']) == 1
+                assert 'v1' in body['variants']
+                assert body['variants']['v1']['description'] == 'Updated'
+            finally:
+                provider.shutdown()
+
+    def test_variants_override_empty_dict(self):
+        """When variants_override is an empty dict, no variants key in body."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                config = VariableConfig(
+                    name='test',
+                    variants={'v1': Variant(key='v1', serialized_value='"a"')},
+                    rollout=Rollout(variants={'v1': 1.0}),
+                    overrides=[],
+                )
+
+                # Empty override dict — no variants sent
+                body = provider._config_to_api_body(config, variants_override={})
+                assert 'variants' not in body
+            finally:
+                provider.shutdown()
+
+
+class TestResolveVariantDeserializationError:
+    """Test the error path when deserialization fails for an explicitly requested variant."""
+
+    def test_variant_deserialization_error_falls_back_to_default(self, config_kwargs: dict[str, Any]):
+        """When an explicit variant value can't be deserialized, resolve falls back to the default."""
+        variables_config = VariablesConfig(
+            variables={
+                'typed_var': VariableConfig(
+                    name='typed_var',
+                    json_schema={'type': 'integer'},
+                    variants={
+                        'bad_variant': Variant(key='bad_variant', serialized_value='"not_an_int"'),
+                    },
+                    rollout=Rollout(variants={'bad_variant': 1.0}),
+                    overrides=[],
+                )
+            }
+        )
+        config_kwargs['variables'] = VariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='typed_var', default=99, type=int)
+
+        result = var.get(variant='bad_variant')
+        # Should fall back to default because the variant value is invalid
+        assert result.value == 99
+        assert result.exception is not None
+
+
+@pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
+class TestRemoteProviderUpdateVariableNotInExistingConfig:
+    """Test update_variable when the variable is in _config but not in the variables dict."""
+
+    def test_update_variable_not_in_existing_config(self):
+        """When _config is set but variable isn't in it, all variants should be sent."""
+        request_mocker = requests_mock_module.Mocker()
+        # Server returns config with a DIFFERENT variable, not the one we're updating
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            json={
+                'variables': {
+                    'other_var': {
+                        'name': 'other_var',
+                        'variants': {'v1': {'key': 'v1', 'serialized_value': '"x"'}},
+                        'rollout': {'variants': {'v1': 1.0}},
+                        'overrides': [],
+                    }
+                }
+            },
+        )
+        put_adapter = request_mocker.put('http://localhost:8000/v1/variables/my_var/', json={'name': 'my_var'})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(block_before_first_resolve=True, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                provider.refresh(force=True)
+
+                new_config = VariableConfig(
+                    name='my_var',
+                    variants={
+                        'v1': Variant(key='v1', serialized_value='"hello"'),
+                        'v2': Variant(key='v2', serialized_value='"world"'),
+                    },
+                    rollout=Rollout(variants={'v1': 0.5, 'v2': 0.5}),
+                    overrides=[],
+                )
+                provider.update_variable('my_var', new_config)
+
+                assert put_adapter.call_count == 1
+                assert put_adapter.last_request is not None
+                body = put_adapter.last_request.json()
+                # Since 'my_var' is not in existing config, all variants should be sent (no diff optimization)
+                assert 'variants' in body
+                assert 'v1' in body['variants']
+                assert 'v2' in body['variants']
+            finally:
+                provider.shutdown()
+
+
+class TestGetSourceHintNoModule:
+    """Test get_source_hint when a type has no module attribute."""
+
+    def test_type_without_module(self):
+        """A type with no __module__ should return None."""
+        from logfire.variables.config import get_source_hint
+
+        # Create a type-like object without __module__
+        t = type('NoModule', (), {})
+        # Remove __module__ to simulate edge case
+        t.__module__ = ''  # empty module
+        assert get_source_hint(t) is None
+
+
+class TestPushVariableTypesWithUnchangedTypes:
+    """Test push_variable_types with a mix of changed and unchanged types to cover loop skip."""
+
+    def test_push_with_unchanged_and_new_types(self, capsys: pytest.CaptureFixture[str]):
+        """When pushing multiple types where some are unchanged, unchanged ones are skipped in apply."""
+        from pydantic import BaseModel, TypeAdapter
+
+        from logfire.variables.config import VariableTypeConfig
+
+        class ExistingType(BaseModel):
+            value: int
+
+        class NewType(BaseModel):
+            name: str
+
+        # ExistingType is already on server with same schema
+        adapter = TypeAdapter(ExistingType)
+        existing_schema = adapter.json_schema()
+
+        class TypesProvider(VariableProvider):
+            def __init__(self) -> None:
+                self._types: dict[str, VariableTypeConfig] = {
+                    'ExistingType': VariableTypeConfig(name='ExistingType', json_schema=existing_schema),
+                }
+                self.upserted: list[str] = []
+
+            def get_serialized_value(
+                self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+            ) -> ResolvedVariable[str | None]:
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+
+            def list_variable_types(self) -> dict[str, VariableTypeConfig]:
+                return dict(self._types)
+
+            def upsert_variable_type(self, config: VariableTypeConfig) -> VariableTypeConfig:
+                self.upserted.append(config.name)
+                self._types[config.name] = config
+                return config
+
+        provider = TypesProvider()
+        result = provider.push_variable_types([ExistingType, NewType], yes=True)
+        assert result is True
+        # Only NewType should be upserted; ExistingType is unchanged
+        assert 'NewType' in provider.upserted
+        assert 'ExistingType' not in provider.upserted

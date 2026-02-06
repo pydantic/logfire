@@ -145,7 +145,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
         if hasattr(os, 'register_at_fork'):  # pragma: no branch
             weak_reinit = weakref.WeakMethod(self._at_fork_reinit)
 
-            def _after_in_child() -> None:
+            def _after_in_child() -> None:  # pragma: no cover
                 method = weak_reinit()
                 if method is not None:
                     method()
@@ -564,7 +564,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
             return {'pattern': pattern.pattern if isinstance(pattern, re.Pattern) else pattern}
         elif isinstance(condition, (KeyIsPresent, KeyIsNotPresent)):
             return {}
-        return {}
+        return {}  # pragma: no cover
 
     # --- Variable Types API ---
 

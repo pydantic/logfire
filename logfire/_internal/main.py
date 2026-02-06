@@ -2444,6 +2444,41 @@ class Logfire:
         default: T | ResolveFunction[T],
         description: str | None = None,
     ) -> Variable[T]:
+        """Define a managed variable.
+
+        Managed variables let you externalize runtime configuration from your code,
+        controlling values from the Logfire UI without redeploying. Use `.get()` on the
+        returned `Variable` to resolve the current value.
+
+        See the [managed variables guide](https://logfire.pydantic.dev/docs/reference/advanced/managed-variables/)
+        for more details.
+
+        ```py
+        import logfire
+
+        logfire.configure()
+
+        # Simple primitive variable (type inferred from default)
+        feature_enabled = logfire.var('feature_enabled', default=False)
+
+        # Use the variable
+        with feature_enabled.get(targeting_key='user-123') as resolved:
+            if resolved.value:
+                ...
+        ```
+
+        Args:
+            name: Unique identifier for the variable. Must match the name configured in the
+                Logfire UI when using remote variables.
+            type: Expected type for validation and JSON schema generation. Can be a primitive
+                type or a Pydantic model. If not provided, the type is inferred from `default`.
+                Required when `default` is a resolve function.
+            default: Default value used when no remote configuration is found.
+                When `type` is not provided, the type is inferred from this value.
+                Can also be a callable with `targeting_key` and `attributes` parameters
+                (requires `type` to be set explicitly).
+            description: Optional human-readable description of what the variable controls.
+        """
         from logfire.variables.variable import Variable, is_resolve_function
 
         if type is None:
