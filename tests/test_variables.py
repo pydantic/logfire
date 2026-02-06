@@ -4954,3 +4954,50 @@ class TestPushVariableTypesWithUnchangedTypes:
         # Only NewType should be upserted; ExistingType is unchanged
         assert 'NewType' in provider.upserted
         assert 'ExistingType' not in provider.upserted
+
+
+class TestVarResolveFunctionWithoutType:
+    """Test that var() raises when default is a resolve function but type is not provided."""
+
+    def test_resolve_function_default_without_type(self, config_kwargs: dict[str, Any]):
+        lf = logfire.configure(**config_kwargs)
+
+        def resolver(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
+            return 'value'  # pragma: no cover
+
+        with pytest.raises(TypeError, match='`type` must be provided'):
+            lf.var(name='my_var', default=resolver)
+
+
+class TestVarDuplicateName:
+    """Test that var() raises when registering a variable with a duplicate name."""
+
+    def test_duplicate_name_raises(self, config_kwargs: dict[str, Any]):
+        lf = logfire.configure(**config_kwargs)
+        lf.var(name='dup_var', default='hello', type=str)
+
+        with pytest.raises(ValueError, match="A variable with name 'dup_var' has already been registered"):
+            lf.var(name='dup_var', default='world', type=str)
+
+
+class TestOnConfigChangeUnknownVariable:
+    """Test on_config_change callback when changed names include unknown variables."""
+
+    def test_unknown_variable_name_is_ignored(self, config_kwargs: dict[str, Any]):
+        lf = logfire.configure(**config_kwargs)
+        # Register a variable so on_config_change gets set up
+        lf.var(name='known_var', default='default', type=str)
+
+        provider = lf.config.get_variable_provider()
+        # Trigger the callback with a name that has no registered variable
+        provider._notify_config_change({'unknown_var'})
+
+
+class TestIsResolveFunctionMultipleKeywordOnly:
+    """Test is_resolve_function with multiple keyword-only params (covers 108->97 branch)."""
+
+    def test_multiple_keyword_only_params(self):
+        def with_multiple_kw_only(a: Any, b: Any, *, c: Any, d: Any):
+            pass  # pragma: no cover
+
+        assert is_resolve_function(with_multiple_kw_only) is True
