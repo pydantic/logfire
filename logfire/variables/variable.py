@@ -1,6 +1,7 @@
 from __future__ import annotations as _annotations
 
 import inspect
+import threading
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import ExitStack, contextmanager
 from contextvars import ContextVar
@@ -167,20 +168,23 @@ class Variable(Generic[T_co]):
         _cache: dict[str, T_co] = {}
         _cache_order: list[str] = []
         _cache_maxsize = 128
+        _cache_lock = threading.Lock()
 
         def _deserialize_cached(serialized_value: str) -> T_co | Exception:
-            if serialized_value in _cache:
-                return _cache[serialized_value]
+            with _cache_lock:
+                if serialized_value in _cache:
+                    return _cache[serialized_value]
             try:
                 result = self.type_adapter.validate_json(serialized_value)
             except Exception as e:
                 return e
-            # Evict oldest entry if cache is full
-            if len(_cache) >= _cache_maxsize:
-                oldest = _cache_order.pop(0)
-                _cache.pop(oldest, None)
-            _cache[serialized_value] = result
-            _cache_order.append(serialized_value)
+            with _cache_lock:
+                # Evict oldest entry if cache is full
+                if len(_cache) >= _cache_maxsize:
+                    oldest = _cache_order.pop(0)
+                    _cache.pop(oldest, None)
+                _cache[serialized_value] = result
+                _cache_order.append(serialized_value)
             return result
 
         self._deserialize_cached = _deserialize_cached
