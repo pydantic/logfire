@@ -137,6 +137,10 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire_api.var(name='test_var', default='default', type=str)
     logfire__all__.remove('var')
 
+    assert hasattr(logfire_api, 'variables_clear')
+    logfire_api.variables_clear()
+    logfire__all__.remove('variables_clear')
+
     assert hasattr(logfire_api, 'variables_get')
     logfire_api.variables_get()
     logfire__all__.remove('variables_get')

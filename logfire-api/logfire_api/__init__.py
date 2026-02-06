@@ -206,6 +206,9 @@ except ImportError:
             def var(self, *args, **kwargs):
                 return MagicMock()
 
+            def variables_clear(self, *args, **kwargs) -> None:
+                pass
+
             def variables_get(self, *args, **kwargs) -> list[Any]:
                 return []
 
@@ -279,6 +282,7 @@ except ImportError:
         shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
         suppress_scopes = DEFAULT_LOGFIRE_INSTANCE.suppress_scopes
         var = DEFAULT_LOGFIRE_INSTANCE.var
+        variables_clear = DEFAULT_LOGFIRE_INSTANCE.variables_clear
         variables_get = DEFAULT_LOGFIRE_INSTANCE.variables_get
         variables_push = DEFAULT_LOGFIRE_INSTANCE.variables_push
         variables_push_types = DEFAULT_LOGFIRE_INSTANCE.variables_push_types

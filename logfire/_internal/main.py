@@ -2482,6 +2482,16 @@ class Logfire:
 
         provider.set_on_config_change(on_config_change)
 
+    def variables_clear(self) -> None:
+        """Clear all registered variables from this Logfire instance.
+
+        This removes all variables previously registered via [`var()`][logfire.Logfire.var],
+        allowing them to be re-registered. This is primarily intended for use in tests
+        to ensure a clean state between test cases.
+        """
+        self._variables.clear()
+        self._change_notifications_setup = False
+
     def variables_get(self) -> list[Variable[Any]]:
         """Get all variables registered with this Logfire instance."""
         return list(self._variables.values())
