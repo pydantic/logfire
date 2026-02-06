@@ -2388,34 +2388,37 @@ class Logfire:
         """
         start = time()
 
-        self.config.get_variable_provider().shutdown(timeout_millis=timeout_millis)
-        remaining = max(0, timeout_millis - 1000 * (time() - start))
+        def remaining_ms() -> int:
+            return max(0, int(timeout_millis - (time() - start) * 1000))
+
+        self.config.get_variable_provider().shutdown()
+        remaining = remaining_ms()
         if not remaining:  # pragma: no cover
             return False
 
         if flush:  # pragma: no branch
-            self._tracer_provider.force_flush(int(remaining))
-            remaining = max(0, timeout_millis - 1000 * (time() - start))
+            self._tracer_provider.force_flush(remaining)
+            remaining = remaining_ms()
             if not remaining:  # pragma: no cover
                 return False
 
         self._tracer_provider.shutdown()
-        remaining = max(0, timeout_millis - 1000 * (time() - start))
+        remaining = remaining_ms()
         if not remaining:  # pragma: no cover
             return False
 
         if flush:  # pragma: no branch
             self._meter_provider.force_flush(remaining)
-            remaining = max(0, timeout_millis - 1000 * (time() - start))
+            remaining = remaining_ms()
             if not remaining:  # pragma: no cover
                 return False
 
         self._meter_provider.shutdown(remaining)
-        remaining = max(0, timeout_millis - 1000 * (time() - start))
+        remaining = remaining_ms()
         if not remaining:  # pragma: no cover
             return False
 
-        return (time() - start) * 1000 < timeout_millis
+        return remaining_ms() > 0
 
     @overload
     def var(
