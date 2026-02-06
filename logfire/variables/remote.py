@@ -365,6 +365,8 @@ class LogfireRemoteVariableProvider(VariableProvider):
         if self._sse_thread is not None:
             self._sse_thread.join(timeout=2)
 
+        with self._session_lock:
+            self._session.close()
     def get_variable_config(self, name: str) -> VariableConfig | None:
         """Retrieve the full configuration for a variable from the cached config.
 
