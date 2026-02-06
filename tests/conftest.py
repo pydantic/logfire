@@ -112,6 +112,7 @@ def config_kwargs(
 
 @pytest.fixture(autouse=True)
 def config(config_kwargs: dict[str, Any], metrics_reader: InMemoryMetricReader) -> None:
+    logfire.variables_clear()
     configure(
         **config_kwargs,
         metrics=logfire.MetricsOptions(
