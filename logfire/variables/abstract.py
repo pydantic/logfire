@@ -631,8 +631,12 @@ class VariableProvider(ABC):
         """
         pass
 
-    def shutdown(self):
-        """Clean up any resources used by the provider."""
+    def shutdown(self, timeout_millis: float = 5000):
+        """Clean up any resources used by the provider.
+
+        Args:
+            timeout_millis: The timeout budget in milliseconds for shutdown operations.
+        """
         pass
 
     def start(self, logfire_instance: logfire.Logfire | None) -> None:

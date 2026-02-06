@@ -318,6 +318,8 @@ class RemoteVariablesConfig:
     If not provided, will be loaded from LOGFIRE_API_KEY environment variable.
     This key should have at least the 'project:read_variables' scope.
     """
+    timeout: tuple[float, float] = (10, 10)
+    """Timeout for HTTP requests to the variables API as (connect_timeout, read_timeout) in seconds."""
 
 
 @dataclass

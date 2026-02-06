@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import time
+import unittest.mock
 import warnings
 from collections.abc import Mapping
 from datetime import timedelta
@@ -12,6 +13,7 @@ from typing import Any
 import pytest
 import requests_mock as requests_mock_module
 from pydantic import BaseModel, ValidationError
+from requests import Session
 
 import logfire
 from logfire._internal.config import RemoteVariablesConfig, VariablesOptions
@@ -1014,6 +1016,34 @@ class TestLogfireRemoteVariableProvider:
             provider.shutdown()
             provider.shutdown()  # Should not raise
 
+    def test_shutdown_passes_timeout_to_thread_joins(self) -> None:
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            json={'variables': {}},
+        )
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            # Replace threads with mocks so we can inspect join() calls
+            mock_worker = unittest.mock.MagicMock()
+            mock_sse = unittest.mock.MagicMock()
+            provider._worker_thread = mock_worker
+            provider._sse_thread = mock_sse
+
+            provider.shutdown(timeout_millis=10000)
+
+            # 70% of 10000ms = 7000ms = 7.0s for worker
+            mock_worker.join.assert_called_once_with(timeout=7.0)
+            # 30% of 10000ms = 3000ms = 3.0s for SSE
+            mock_sse.join.assert_called_once_with(timeout=3.0)
+
     def test_refresh_with_force(self) -> None:
         request_mocker = requests_mock_module.Mocker()
         request_mocker.get(
@@ -1071,6 +1101,121 @@ class TestLogfireRemoteVariableProvider:
                 result = provider.get_serialized_value('partial_var')
                 assert result.value is None
                 assert result._reason == 'resolved'
+            finally:
+                provider.shutdown()
+
+
+@pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
+class TestLogfireRemoteVariableProviderTimeout:
+    def test_refresh_passes_timeout_default(self) -> None:
+        """refresh() should pass the default timeout=(10, 10) to Session.get."""
+        request_mocker = requests_mock_module.Mocker()
+        adapter = request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            json={'variables': {}},
+        )
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            try:
+                provider.refresh(force=True)
+                assert adapter.call_count == 1
+                assert adapter.last_request is not None
+                # Verify the timeout was passed by checking the provider's stored value
+                assert provider._timeout == (10, 10)
+            finally:
+                provider.shutdown()
+
+    def test_refresh_passes_custom_timeout(self) -> None:
+        """refresh() should pass a custom timeout to Session.get."""
+        request_mocker = requests_mock_module.Mocker()
+        adapter = request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            json={'variables': {}},
+        )
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                    timeout=(5, 15),
+                ),
+            )
+            try:
+                provider.refresh(force=True)
+                assert adapter.call_count == 1
+                assert provider._timeout == (5, 15)
+            finally:
+                provider.shutdown()
+
+    def test_refresh_timeout_passed_to_session_get(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Verify that the timeout kwarg is actually forwarded to Session.get."""
+        captured_kwargs: dict[str, Any] = {}
+        original_get = Session.get
+
+        def patched_get(self: Any, url: Any, **kwargs: Any) -> Any:
+            captured_kwargs.update(kwargs)
+            return original_get(self, url, **kwargs)
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            json={'variables': {}},
+        )
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(
+                    block_before_first_resolve=False,
+                    polling_interval=timedelta(seconds=60),
+                    timeout=(3, 7),
+                ),
+            )
+            try:
+                monkeypatch.setattr(Session, 'get', patched_get)
+                provider.refresh(force=True)
+                assert captured_kwargs['timeout'] == (3, 7)
+            finally:
+                provider.shutdown()
+
+    def test_blocking_first_resolve_uses_timeout(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The first-resolve blocking path should also use the timeout."""
+        captured_kwargs: dict[str, Any] = {}
+        original_get = Session.get
+
+        def patched_get(self: Any, url: Any, **kwargs: Any) -> Any:
+            captured_kwargs.update(kwargs)
+            return original_get(self, url, **kwargs)
+
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            json={'variables': {}},
+        )
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                config=RemoteVariablesConfig(
+                    block_before_first_resolve=True,
+                    polling_interval=timedelta(seconds=60),
+                    timeout=(2, 5),
+                ),
+            )
+            try:
+                monkeypatch.setattr(Session, 'get', patched_get)
+                # get_serialized_value triggers blocking refresh on first call
+                provider.get_serialized_value('some_var')
+                assert captured_kwargs['timeout'] == (2, 5)
             finally:
                 provider.shutdown()
 

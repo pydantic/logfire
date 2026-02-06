@@ -67,6 +67,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._token = token
         self._session = Session()
         self._session.headers.update({'Authorization': f'bearer {token}', 'User-Agent': UA_HEADER})
+        self._timeout = config.timeout
         self._block_before_first_fetch = block_before_first_resolve
         self._polling_interval: timedelta = (
             timedelta(seconds=polling_interval) if isinstance(polling_interval, (float, int)) else polling_interval
@@ -292,7 +293,9 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
             try:
                 with self._session_lock:
-                    variables_response = self._session.get(urljoin(self._base_url, '/v1/variables/'))
+                    variables_response = self._session.get(
+                        urljoin(self._base_url, '/v1/variables/'), timeout=self._timeout
+                    )
                     UnexpectedResponse.raise_for_status(variables_response)
                     variables_config_data = variables_response.json()
             except Exception as e:
@@ -351,8 +354,12 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
         return self._config.resolve_serialized_value(variable_name, targeting_key, attributes)
 
-    def shutdown(self):
-        """Stop the background polling thread and clean up resources."""
+    def shutdown(self, timeout_millis: float = 5000):
+        """Stop the background polling thread and clean up resources.
+
+        Args:
+            timeout_millis: The timeout budget in milliseconds for shutdown operations.
+        """
         if self._shutdown:
             return
         self._shutdown = True
@@ -360,13 +367,17 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
         # Join the threads so that resources get cleaned up in tests
         # It might be reasonable to modify this so this _only_ happens in tests, but for now it seems fine.
+        # Split the budget: 70% for worker (does HTTP), 30% for SSE.
+        worker_timeout = max(timeout_millis * 0.7, 0) / 1000
+        sse_timeout = max(timeout_millis * 0.3, 0) / 1000
         if self._worker_thread is not None:
-            self._worker_thread.join(timeout=5)
+            self._worker_thread.join(timeout=worker_timeout)
         if self._sse_thread is not None:
-            self._sse_thread.join(timeout=2)
+            self._sse_thread.join(timeout=sse_timeout)
 
         with self._session_lock:
             self._session.close()
+
     def get_variable_config(self, name: str) -> VariableConfig | None:
         """Retrieve the full configuration for a variable from the cached config.
 

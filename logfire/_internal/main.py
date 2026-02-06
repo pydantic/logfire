@@ -2388,7 +2388,7 @@ class Logfire:
         """
         start = time()
 
-        self.config.get_variable_provider().shutdown()
+        self.config.get_variable_provider().shutdown(timeout_millis=timeout_millis)
         remaining = max(0, timeout_millis - 1000 * (time() - start))
         if not remaining:  # pragma: no cover
             return False

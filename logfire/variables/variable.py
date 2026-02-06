@@ -105,7 +105,7 @@ def is_resolve_function(f: Any) -> TypeIs[ResolveFunction[Any]]:
                 required_positional += 1
             else:
                 optional_positional += 1
-        elif param.kind == inspect.Parameter.KEYWORD_ONLY:
+        elif param.kind == inspect.Parameter.KEYWORD_ONLY:  # pragma: no branch
             # Keyword-only params don't affect positional argument count
             pass
 
