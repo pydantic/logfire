@@ -1,8 +1,5 @@
 # Managed Variables
 
-!!! warning "Early Access"
-    The Logfire web UI functionality for managed variables is currently behind a feature flag and not yet generally available. This includes everything related to `RemoteVariablesConfig` — creating and managing variables in the UI, configuring variants and rollouts remotely, and syncing configuration from the server. You can still use managed variables locally with `VariablesConfig` without the feature flag. If you'd like access to the remote functionality, please reach out to us on [Slack][slack] for instructions on how to enable it.
-
 Managed variables let you define and reference configuration in your code, but control the runtime values from the Logfire UI without redeploying.
 
 Define a variable once with a sensible default, deploy your application, then iterate on the values in production. You can target specific populations (opted-in beta users, internal developers, enterprise customers, etc.) using flexible targeting rules that integrate with your existing OpenTelemetry attributes.
@@ -20,7 +17,7 @@ Managed variables are a way to externalize runtime configuration from your code.
 
 ## Structured Configuration
 
-While you can use simple primitive types as variables, the real power comes from using **structured types**—Pydantic models that group related configuration together:
+While you can use simple primitive types as variables, you can also use them with **structured types** that group related configuration together:
 
 ```python
 from pydantic import BaseModel
@@ -119,7 +116,7 @@ To create a new variable, click **New variable** and fill in:
     - **JSON**: Complex structured data matching your Pydantic models
     - **Custom Types**: Reusable schemas created under the **Variable Types** tab
 
-For **JSON** variables, you can optionally provide a **JSON Schema** to validate variant values.
+For **JSON** variables, you can optionally provide a **JSON Schema** to validate variant values in the UI.
 For **Custom Types**, the schema is derived from the type and shown read-only; edit the type in the **Variable Types** tab.
 
 ![Create variable form](images/variable-create-form.png)
@@ -144,7 +141,7 @@ Each variant tracks its version history, accessible via the **View history** but
     Variant keys must be valid Python identifiers. Once created, variant keys cannot be renamed—create a new variant and delete the old one instead.
 
 !!! note "No variants = code default"
-    If a variable has no variants configured, your application uses the code default value. This is the expected state immediately after `logfire.variables_push()`. You create variants in the UI when you want to serve different values to different users or run experiments.
+    If a variable has no variants configured, your application will use the code default value. This is the expected state immediately after `logfire.variables_push()`. You create variants in the UI when you want to serve different values to different users or run experiments.
 
 ### Configuring Rollouts
 
@@ -1292,7 +1289,7 @@ Suppose you have a variable named `agent_config` and want to rename it to `suppo
 5. After deployment, delete the old `agent_config` variable
 6. Optionally remove `agent_config` from the aliases list
 
-This approach ensures zero-downtime migrations—existing deployed applications continue to receive the correct configuration while you update and redeploy.
+This approach ensures zero-downtime migrations. Existing deployed applications continue to receive the correct configuration while you update and redeploy.
 
 **In the UI:**
 
