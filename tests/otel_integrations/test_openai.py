@@ -1954,6 +1954,8 @@ def test_responses_stream(exporter: TestExporter) -> None:
                     'async': False,
                     'gen_ai.operation.name': 'chat',
                     'duration': 1.0,
+                    'gen_ai.usage.input_tokens': 13,
+                    'gen_ai.usage.output_tokens': 9,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -1964,6 +1966,8 @@ def test_responses_stream(exporter: TestExporter) -> None:
                             'async': {},
                             'gen_ai.operation.name': {},
                             'duration': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
                         },
                     },
                     'logfire.tags': ('LLM',),

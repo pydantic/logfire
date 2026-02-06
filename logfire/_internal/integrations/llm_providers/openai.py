@@ -229,6 +229,13 @@ class OpenaiResponsesStreamState(StreamState):
         response = self.get_response_data()
         if response:
             span_data['events'] = span_data['events'] + responses_output_events(response)
+            usage = getattr(response, 'usage', None)
+            input_tokens = getattr(usage, 'input_tokens', None)
+            output_tokens = getattr(usage, 'output_tokens', None)
+            if isinstance(input_tokens, int):
+                span_data[INPUT_TOKENS] = input_tokens
+            if isinstance(output_tokens, int):
+                span_data[OUTPUT_TOKENS] = output_tokens
         return span_data
 
 
