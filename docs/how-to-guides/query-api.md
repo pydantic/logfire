@@ -162,6 +162,94 @@ Here's an example of how to use these clients:
         main()
     ```
 
+## DB API 2.0 Interface
+
+Logfire also provides a [PEP 249](https://peps.python.org/pep-0249/) (DB API 2.0) compatible interface via
+`logfire.db_api`. This makes Logfire query data work out of the box with any tool that supports standard
+Python database connections — including [pandas](https://pandas.pydata.org/docs/reference/api/pandas.read_sql.html),
+[marimo SQL cells](https://docs.marimo.io/guides/working_with_data/sql/), and Jupyter `%%sql` magic.
+
+### Basic Usage
+
+```python skip-run="true" skip-reason="external-connection"
+import logfire.db_api
+
+conn = logfire.db_api.connect(read_token='<your_read_token>')
+cursor = conn.cursor()
+cursor.execute('SELECT start_timestamp, message FROM records LIMIT 10')
+rows = cursor.fetchall()
+print(rows)
+conn.close()
+```
+
+The connection can also be used as a context manager:
+
+```python skip-run="true" skip-reason="external-connection"
+import logfire.db_api
+
+with logfire.db_api.connect(read_token='<your_read_token>') as conn:
+    cursor = conn.cursor()
+    cursor.execute('SELECT start_timestamp, message FROM records LIMIT 10')
+    print(cursor.fetchall())
+```
+
+### Using with pandas
+
+```python skip-run="true" skip-reason="external-connection"
+import pandas as pd
+import logfire.db_api
+
+conn = logfire.db_api.connect(read_token='<your_read_token>')
+df = pd.read_sql('SELECT start_timestamp, message FROM records LIMIT 100', conn)
+print(df)
+conn.close()
+```
+
+### Using with marimo
+
+In a [marimo](https://marimo.io/) notebook, you can register the connection and then use SQL cells directly:
+
+```python skip="true" skip-reason="incomplete"
+import marimo as mo
+import logfire.db_api
+
+conn = logfire.db_api.connect(read_token='<your_read_token>')
+# Register connection — now you can use SQL cells with the "logfire" connection
+```
+
+### Parameters
+
+The DB API module supports `pyformat`-style parameters (`%(name)s` placeholders):
+
+```python skip-run="true" skip-reason="external-connection"
+import logfire.db_api
+
+with logfire.db_api.connect(read_token='<your_read_token>') as conn:
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT message FROM records WHERE service_name = %(service)s LIMIT 10",
+        {'service': 'my-app'},
+    )
+    print(cursor.fetchall())
+```
+
+### Row Limits
+
+By default, the DB API module requests up to 10,000 rows per query (the server-side maximum).
+If the number of returned rows equals the limit, a warning is emitted suggesting you add explicit
+`LIMIT`/`OFFSET` clauses to your SQL. You can customize the default limit:
+
+```python skip-run="true" skip-reason="external-connection"
+import logfire.db_api
+
+# Set a lower default limit
+conn = logfire.db_api.connect(read_token='<your_read_token>', limit=1000)
+
+# Or override per-cursor
+cursor = conn.cursor()
+cursor.limit = 500
+```
+
 ## Making Direct HTTP Requests
 
 If you prefer not to use the provided clients, you can make direct HTTP requests to the Logfire API using any HTTP
