@@ -344,8 +344,8 @@ from pydantic_ai import Agent
 import logfire
 from logfire.variables.config import (
     LabeledValue,
-    LatestVersion,
     LabelRef,
+    LatestVersion,
     Rollout,
     VariableConfig,
     VariablesConfig,
@@ -565,8 +565,8 @@ These attributes can be used in override rules to route specific segments to spe
 ```python skip="true"
 from logfire.variables.config import (
     LabeledValue,
-    LatestVersion,
     LabelRef,
+    LatestVersion,
     Rollout,
     RolloutOverride,
     ValueEquals,
@@ -1104,8 +1104,8 @@ For development, testing, or self-hosted deployments, you can configure variable
 import logfire
 from logfire.variables.config import (
     LabeledValue,
-    LatestVersion,
     LabelRef,
+    LatestVersion,
     Rollout,
     RolloutOverride,
     ValueEquals,
