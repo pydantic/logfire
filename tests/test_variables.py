@@ -4744,3 +4744,376 @@ class TestIsResolveFunctionMultipleKeywordOnly:
             pass  # pragma: no cover
 
         assert is_resolve_function(with_multiple_kw_only) is True
+
+
+# =============================================================================
+# Additional coverage tests
+# =============================================================================
+
+
+class TestRolloutSelectLabelEmptyLabels:
+    """Test Rollout.select_label with empty labels dict."""
+
+    def test_empty_labels_returns_none(self):
+        rollout = Rollout(labels={})
+        assert rollout.select_label('any_seed') is None
+        assert rollout.select_label(None) is None
+
+
+class TestVariableConfigValidateRefToNonExistentLabel:
+    """Test _validate_labels rejects ref to non-existent label."""
+
+    def test_ref_to_nonexistent_label_raises(self):
+        with pytest.raises(ValidationError, match="has ref 'nonexistent' which is not present"):
+            VariableConfig.model_validate(
+                {
+                    'name': 'test',
+                    'labels': {
+                        'v1': {'version': 1, 'serialized_value': '"value"', 'ref': 'nonexistent'},
+                    },
+                    'rollout': {'labels': {}},
+                    'overrides': [],
+                }
+            )
+
+
+class TestVariableConfigResolveValueDisabled:
+    """Test resolve_value on a disabled VariableConfig."""
+
+    def test_disabled_returns_none(self):
+        config = VariableConfig(
+            name='test_var',
+            labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+            rollout=Rollout(labels={'v1': 1.0}),
+            overrides=[],
+            enabled=False,
+        )
+        result = config.resolve_value()
+        assert result == (None, None, None)
+
+
+class TestVariableConfigResolveValueExplicitLabel:
+    """Test resolve_value with an explicit label parameter."""
+
+    def test_explicit_label_found(self):
+        config = VariableConfig(
+            name='test_var',
+            labels={
+                'v1': LabeledValue(version=1, serialized_value='"value_v1"'),
+                'v2': LabeledValue(version=2, serialized_value='"value_v2"'),
+            },
+            rollout=Rollout(labels={'v1': 1.0}),
+            overrides=[],
+        )
+        serialized, label, version = config.resolve_value(label='v2')
+        assert serialized == '"value_v2"'
+        assert label == 'v2'
+        assert version == 2
+
+    def test_explicit_label_not_found_falls_through(self):
+        config = VariableConfig(
+            name='test_var',
+            labels={
+                'v1': LabeledValue(version=1, serialized_value='"value_v1"'),
+            },
+            rollout=Rollout(labels={'v1': 1.0}),
+            overrides=[],
+        )
+        # Label 'missing' doesn't exist, should fall through to rollout
+        serialized, label, _version = config.resolve_value(label='missing')
+        assert serialized == '"value_v1"'
+        assert label == 'v1'
+
+
+class TestVariableConfigResolveValueLatestVersionFallback:
+    """Test resolve_value falls back to latest_version when no label is selected."""
+
+    def test_latest_version_used_when_no_label_selected(self):
+        from logfire.variables.config import LatestVersion
+
+        config = VariableConfig(
+            name='test_var',
+            labels={},
+            rollout=Rollout(labels={}),  # No labels in rollout -> selects None
+            overrides=[],
+            latest_version=LatestVersion(version=5, serialized_value='"latest_val"'),
+        )
+        serialized, label, version = config.resolve_value()
+        assert serialized == '"latest_val"'
+        assert label is None
+        assert version == 5
+
+
+class TestVariableConfigFollowRef:
+    """Test follow_ref method on VariableConfig."""
+
+    def test_follow_ref_to_latest(self):
+        from logfire.variables.config import LatestVersion
+
+        config = VariableConfig(
+            name='test_var',
+            labels={
+                'v1': LabeledValue(version=1, ref='latest'),
+            },
+            rollout=Rollout(labels={}),
+            overrides=[],
+            latest_version=LatestVersion(version=3, serialized_value='"latest_val"'),
+        )
+        serialized, version = config.follow_ref(config.labels['v1'])
+        assert serialized == '"latest_val"'
+        assert version == 3
+
+    def test_follow_ref_to_latest_no_latest_version(self):
+        config = VariableConfig(
+            name='test_var',
+            labels={
+                'v1': LabeledValue(version=1, ref='latest'),
+            },
+            rollout=Rollout(labels={}),
+            overrides=[],
+            latest_version=None,
+        )
+        serialized, version = config.follow_ref(config.labels['v1'])
+        assert serialized is None
+        assert version == 1
+
+    def test_follow_ref_chain(self):
+        config = VariableConfig(
+            name='test_var',
+            labels={
+                'v1': LabeledValue(version=1, serialized_value='"final_value"'),
+                'v2': LabeledValue(version=2, ref='v1'),
+            },
+            rollout=Rollout(labels={}),
+            overrides=[],
+        )
+        serialized, version = config.follow_ref(config.labels['v2'])
+        assert serialized == '"final_value"'
+        assert version == 1
+
+    def test_follow_ref_cycle_detection(self):
+        config = VariableConfig.__new__(VariableConfig)
+        # Bypass validation to create a cycle
+        object.__setattr__(
+            config,
+            '__dict__',
+            {
+                'name': 'test_var',
+                'labels': {
+                    'a': LabeledValue(version=1, ref='b'),
+                    'b': LabeledValue(version=2, ref='a'),
+                },
+                'rollout': Rollout(labels={}),
+                'overrides': [],
+                'enabled': True,
+                'latest_version': None,
+                'description': None,
+                'json_schema': None,
+                'aliases': None,
+                'example': None,
+            },
+        )
+        serialized, version = config.follow_ref(config.labels['a'])
+        assert serialized is None  # Cycle detected, returns None
+        assert version == 1
+
+    def test_follow_ref_to_nonexistent_label(self):
+        config = VariableConfig.__new__(VariableConfig)
+        # Bypass validation to create a ref to missing label
+        object.__setattr__(
+            config,
+            '__dict__',
+            {
+                'name': 'test_var',
+                'labels': {
+                    'v1': LabeledValue(version=1, ref='missing'),
+                },
+                'rollout': Rollout(labels={}),
+                'overrides': [],
+                'enabled': True,
+                'latest_version': None,
+                'description': None,
+                'json_schema': None,
+                'aliases': None,
+                'example': None,
+            },
+        )
+        serialized, version = config.follow_ref(config.labels['v1'])
+        assert serialized is None
+        assert version == 1
+
+
+class TestVariablesConfigResolveSerializedValueDisabled:
+    """Test resolve_serialized_value with disabled variable."""
+
+    def test_disabled_variable_returns_none(self):
+        config = VariablesConfig(
+            variables={
+                'test_var': VariableConfig(
+                    name='test_var',
+                    labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
+                    overrides=[],
+                    enabled=False,
+                ),
+            }
+        )
+        result = config.resolve_serialized_value('test_var')
+        assert result.value is None
+        assert result._reason == 'resolved'
+
+
+class TestVariablesConfigValidationErrorsWithLatestVersion:
+    """Test get_validation_errors validates latest_version values."""
+
+    def test_invalid_latest_version_value(self, config_kwargs: dict[str, Any]):
+        from logfire.variables.config import LatestVersion
+
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='typed_var', default=0, type=int)
+
+        config = VariablesConfig(
+            variables={
+                'typed_var': VariableConfig(
+                    name='typed_var',
+                    labels={},
+                    rollout=Rollout(labels={}),
+                    overrides=[],
+                    latest_version=LatestVersion(version=1, serialized_value='"not_an_int"'),
+                ),
+            }
+        )
+        errors = config.get_validation_errors([var])
+        assert 'typed_var' in errors
+        assert 'latest' in errors['typed_var']
+
+    def test_valid_latest_version_value(self, config_kwargs: dict[str, Any]):
+        from logfire.variables.config import LatestVersion
+
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='typed_var2', default=0, type=int)
+
+        config = VariablesConfig(
+            variables={
+                'typed_var2': VariableConfig(
+                    name='typed_var2',
+                    labels={},
+                    rollout=Rollout(labels={}),
+                    overrides=[],
+                    latest_version=LatestVersion(version=1, serialized_value='42'),
+                ),
+            }
+        )
+        errors = config.get_validation_errors([var])
+        assert errors == {}
+
+    def test_ref_only_label_skipped_in_validation(self, config_kwargs: dict[str, Any]):
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var(name='typed_var3', default=0, type=int)
+
+        config = VariablesConfig(
+            variables={
+                'typed_var3': VariableConfig(
+                    name='typed_var3',
+                    labels={
+                        'v1': LabeledValue(version=1, serialized_value='42'),
+                        'v2': LabeledValue(version=2, ref='v1'),  # ref-only, serialized_value is None
+                    },
+                    rollout=Rollout(labels={}),
+                    overrides=[],
+                ),
+            }
+        )
+        errors = config.get_validation_errors([var])
+        assert errors == {}  # v1 is valid, v2 is skipped (ref-only)
+
+
+class TestGetSerializedValueForLabelDisabled:
+    """Test get_serialized_value_for_label when the variable is disabled."""
+
+    def test_disabled_variable_returns_none(self):
+        config = VariablesConfig(
+            variables={
+                'test_var': VariableConfig(
+                    name='test_var',
+                    labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
+                    overrides=[],
+                    enabled=False,
+                ),
+            }
+        )
+        provider = LocalVariableProvider(config)
+        result = provider.get_serialized_value_for_label('test_var', 'v1')
+        assert result.value is None
+        assert result._reason == 'resolved'
+
+
+class TestGetSerializedValueForLabelNotFound:
+    """Test get_serialized_value_for_label when the label doesn't exist."""
+
+    def test_missing_label_returns_none(self):
+        config = VariablesConfig(
+            variables={
+                'test_var': VariableConfig(
+                    name='test_var',
+                    labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
+                    overrides=[],
+                ),
+            }
+        )
+        provider = LocalVariableProvider(config)
+        result = provider.get_serialized_value_for_label('test_var', 'nonexistent')
+        assert result.value is None
+        assert result._reason == 'resolved'
+
+
+class TestVariableGetWithExplicitLabel:
+    """Test Variable.get() with explicit label parameter."""
+
+    def test_explicit_label_resolves_successfully(self, config_kwargs: dict[str, Any]):
+        variables_config = VariablesConfig(
+            variables={
+                'label_test': VariableConfig(
+                    name='label_test',
+                    labels={
+                        'control': LabeledValue(version=1, serialized_value='"control_value"'),
+                        'experiment': LabeledValue(version=2, serialized_value='"experiment_value"'),
+                    },
+                    rollout=Rollout(labels={'control': 1.0}),
+                    overrides=[],
+                ),
+            }
+        )
+        config_kwargs['variables'] = VariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='label_test', default='default', type=str)
+        result = var.get(label='experiment')
+        assert result.value == 'experiment_value'
+        assert result.label == 'experiment'
+        assert result.version == 2
+        assert result._reason == 'resolved'
+
+    def test_explicit_label_not_found_falls_through(self, config_kwargs: dict[str, Any]):
+        variables_config = VariablesConfig(
+            variables={
+                'label_test2': VariableConfig(
+                    name='label_test2',
+                    labels={
+                        'control': LabeledValue(version=1, serialized_value='"control_value"'),
+                    },
+                    rollout=Rollout(labels={'control': 1.0}),
+                    overrides=[],
+                ),
+            }
+        )
+        config_kwargs['variables'] = VariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+
+        var = lf.var(name='label_test2', default='default', type=str)
+        # Label 'missing' doesn't exist, falls through to normal resolution
+        result = var.get(label='missing')
+        assert result.value == 'control_value'
+        assert result.label == 'control'

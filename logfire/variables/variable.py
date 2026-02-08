@@ -56,7 +56,7 @@ class ResolveFunction(Protocol[T_co]):
 
     def __call__(self, targeting_key: str | None, attributes: Mapping[str, Any] | None) -> T_co:
         """Resolve the variable value given a targeting key and attributes."""
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
 
 def is_resolve_function(f: Any) -> TypeIs[ResolveFunction[Any]]:

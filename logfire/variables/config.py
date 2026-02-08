@@ -406,7 +406,7 @@ class VariableConfig(BaseModel):
 
         if selected_label is not None:
             labeled_value = self.labels.get(selected_label)
-            if labeled_value is not None:
+            if labeled_value is not None:  # pragma: no branch
                 serialized, version = self.follow_ref(labeled_value)
                 return serialized, selected_label, version
 

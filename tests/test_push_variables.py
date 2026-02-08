@@ -440,3 +440,99 @@ def test_validate_variables_no_variables() -> None:
     # Use an explicit empty list to avoid picking up variables from the global DEFAULT_LOGFIRE_INSTANCE
     result = logfire.variables_validate([])
     assert result.errors == []  # No variables to validate means no errors
+
+
+def test_compute_diff_schema_change_with_ref_label(mock_logfire_instance: MockLogfire) -> None:
+    """Test diff computation when schema changes and a label uses a ref (serialized_value=None)."""
+    var = Variable[int](
+        name='config_value',
+        default=10,
+        type=int,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    server_config = VariablesConfig(
+        variables={
+            'config_value': VariableConfig(
+                name='config_value',
+                json_schema={'type': 'string'},  # Was string, now int
+                labels={
+                    'v1': LabeledValue(version=1, serialized_value='"hello"'),
+                    'v2': LabeledValue(version=2, ref='v1'),  # ref-only label, serialized_value is None
+                },
+                rollout=Rollout(labels={'v1': 1.0}),
+                overrides=[],
+            )
+        }
+    )
+
+    diff = _compute_diff([var], server_config)
+
+    assert len(diff.changes) == 1
+    assert diff.changes[0].change_type == 'update_schema'
+    # Only v1 should be checked (v2 has serialized_value=None due to ref)
+    assert diff.changes[0].incompatible_labels is not None
+    assert len(diff.changes[0].incompatible_labels) == 1
+    assert diff.changes[0].incompatible_labels[0].label == 'v1'
+
+
+def test_compute_diff_schema_change_with_latest_version_incompatible(mock_logfire_instance: MockLogfire) -> None:
+    """Test diff computation when schema changes and latest_version value is incompatible."""
+    from logfire.variables.config import LatestVersion
+
+    var = Variable[int](
+        name='config_value',
+        default=10,
+        type=int,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    server_config = VariablesConfig(
+        variables={
+            'config_value': VariableConfig(
+                name='config_value',
+                json_schema={'type': 'string'},  # Was string, now int
+                labels={},
+                rollout=Rollout(labels={}),
+                overrides=[],
+                latest_version=LatestVersion(version=3, serialized_value='"not_an_int"'),
+            )
+        }
+    )
+
+    diff = _compute_diff([var], server_config)
+
+    assert len(diff.changes) == 1
+    assert diff.changes[0].change_type == 'update_schema'
+    assert diff.changes[0].incompatible_labels is not None
+    # The latest version value is incompatible
+    assert any(c.label == 'latest' for c in diff.changes[0].incompatible_labels)
+
+
+def test_compute_diff_schema_change_with_latest_version_compatible(mock_logfire_instance: MockLogfire) -> None:
+    """Test diff computation when schema changes and latest_version value is compatible."""
+    from logfire.variables.config import LatestVersion
+
+    var = Variable[int](
+        name='config_value',
+        default=10,
+        type=int,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    server_config = VariablesConfig(
+        variables={
+            'config_value': VariableConfig(
+                name='config_value',
+                json_schema={'type': 'string'},  # Was string, now int
+                labels={},
+                rollout=Rollout(labels={}),
+                overrides=[],
+                latest_version=LatestVersion(version=3, serialized_value='42'),
+            )
+        }
+    )
+
+    diff = _compute_diff([var], server_config)
+
+    assert len(diff.changes) == 1
+    assert diff.changes[0].change_type == 'update_schema'
+    # The latest version value is compatible, so no incompatible labels
+    assert diff.changes[0].incompatible_labels is None

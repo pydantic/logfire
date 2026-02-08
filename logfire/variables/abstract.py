@@ -591,7 +591,7 @@ class VariableProvider(ABC):
         Returns:
             A ResolvedVariable containing the serialized value (or None if not found).
         """
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def get_serialized_value_for_label(
         self,
