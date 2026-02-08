@@ -620,9 +620,6 @@ class VariableProvider(ABC):
         if config is None:
             return ResolvedVariable(name=variable_name, value=None, _reason='unrecognized_variable')
 
-        if not config.enabled:
-            return ResolvedVariable(name=variable_name, value=None, _reason='resolved')
-
         labeled_value = config.labels.get(label)
         if labeled_value is None:
             return ResolvedVariable(name=variable_name, value=None, _reason='resolved')

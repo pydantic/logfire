@@ -4780,19 +4780,18 @@ class TestVariableConfigValidateRefToNonExistentLabel:
             )
 
 
-class TestVariableConfigResolveValueDisabled:
-    """Test resolve_value on a disabled VariableConfig."""
+class TestVariableConfigResolveValueCodeDefault:
+    """Test resolve_value when labels point to code_default."""
 
-    def test_disabled_returns_none(self):
+    def test_code_default_ref_returns_none(self):
         config = VariableConfig(
             name='test_var',
-            labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+            labels={'v1': LabelRef(ref='code_default')},
             rollout=Rollout(labels={'v1': 1.0}),
             overrides=[],
-            enabled=False,
         )
         result = config.resolve_value()
-        assert result == (None, None, None)
+        assert result == (None, 'v1', None)
 
 
 class TestVariableConfigResolveValueExplicitLabel:
@@ -4908,7 +4907,6 @@ class TestVariableConfigFollowRef:
                 },
                 'rollout': Rollout(labels={}),
                 'overrides': [],
-                'enabled': True,
                 'latest_version': None,
                 'description': None,
                 'json_schema': None,
@@ -4933,7 +4931,6 @@ class TestVariableConfigFollowRef:
                 },
                 'rollout': Rollout(labels={}),
                 'overrides': [],
-                'enabled': True,
                 'latest_version': None,
                 'description': None,
                 'json_schema': None,
@@ -4945,19 +4942,50 @@ class TestVariableConfigFollowRef:
         assert serialized is None
         assert version == 1
 
+    def test_follow_ref_to_code_default(self):
+        from logfire.variables.config import LatestVersion
 
-class TestVariablesConfigResolveSerializedValueDisabled:
-    """Test resolve_serialized_value with disabled variable."""
+        config = VariableConfig(
+            name='test_var',
+            labels={
+                'v1': LabelRef(ref='code_default'),
+            },
+            rollout=Rollout(labels={}),
+            overrides=[],
+            latest_version=LatestVersion(version=3, serialized_value='"latest_val"'),
+        )
+        serialized, version = config.follow_ref(config.labels['v1'])
+        assert serialized is None
+        assert version is None
 
-    def test_disabled_variable_returns_none(self):
+    def test_label_ref_without_version(self):
+        """LabelRef with version=None (default) parses correctly."""
+        config = VariableConfig(
+            name='test_var',
+            labels={
+                'staging': LabeledValue(version=1, serialized_value='"val"'),
+                'prod': LabelRef(ref='staging'),
+            },
+            rollout=Rollout(labels={}),
+            overrides=[],
+        )
+        prod_label = config.labels['prod']
+        assert isinstance(prod_label, LabelRef)
+        assert prod_label.version is None
+        assert prod_label.ref == 'staging'
+
+
+class TestVariablesConfigResolveSerializedValueCodeDefault:
+    """Test resolve_serialized_value when labels point to code_default."""
+
+    def test_code_default_variable_returns_none(self):
         config = VariablesConfig(
             variables={
                 'test_var': VariableConfig(
                     name='test_var',
-                    labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+                    labels={'v1': LabelRef(ref='code_default')},
                     rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
-                    enabled=False,
                 ),
             }
         )
@@ -5031,18 +5059,17 @@ class TestVariablesConfigValidationErrorsWithLatestVersion:
         assert errors == {}  # v1 is valid, v2 is skipped (ref-only)
 
 
-class TestGetSerializedValueForLabelDisabled:
-    """Test get_serialized_value_for_label when the variable is disabled."""
+class TestGetSerializedValueForLabelCodeDefault:
+    """Test get_serialized_value_for_label when the label points to code_default."""
 
-    def test_disabled_variable_returns_none(self):
+    def test_code_default_label_returns_none(self):
         config = VariablesConfig(
             variables={
                 'test_var': VariableConfig(
                     name='test_var',
-                    labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+                    labels={'v1': LabelRef(ref='code_default')},
                     rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
-                    enabled=False,
                 ),
             }
         )

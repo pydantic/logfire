@@ -204,12 +204,12 @@ class LabeledValue(BaseModel):
 
 
 class LabelRef(BaseModel):
-    """A label pointing to a version via a reference to another label or 'latest'."""
+    """A label pointing to a version via a reference to another label, 'latest', or 'code_default'."""
 
-    version: int
-    """The version number this label points to."""
+    version: int | None = None
+    """The version number this label points to. None for label-to-label refs or code_default."""
     ref: str
-    """Reference to another label or 'latest' for dedup."""
+    """Reference to another label, 'latest', or 'code_default'."""
 
 
 class LatestVersion(BaseModel):
@@ -295,8 +295,6 @@ class VariableConfig(BaseModel):
     """Default rollout configuration for label selection."""
     overrides: list[RolloutOverride]
     """Conditional overrides evaluated in order; first match takes precedence."""
-    enabled: bool = True
-    """Whether this variable is enabled. When disabled, resolution returns None."""
     latest_version: LatestVersion | None = None
     """The latest (highest) version of the variable, if any versions exist."""
     description: str | None = (
@@ -327,7 +325,7 @@ class VariableConfig(BaseModel):
 
         # Validate ref chains don't reference non-existent labels
         for k, labeled_value in self.labels.items():
-            if isinstance(labeled_value, LabelRef) and labeled_value.ref != 'latest':
+            if isinstance(labeled_value, LabelRef) and labeled_value.ref not in ('latest', 'code_default'):
                 if labeled_value.ref not in self.labels:
                     raise ValueError(f'Label {k!r} has ref {labeled_value.ref!r} which is not present in `labels`.')
 
@@ -378,13 +376,13 @@ class VariableConfig(BaseModel):
         """Resolve the serialized value for this variable.
 
         Resolution order:
-        1. If not enabled, return (None, None, None)
-        2. If explicit label requested, look up in labels, follow refs
-        3. If rollout selects a label, look up, follow refs
-        4. If no label selected (empty rollout), use latest_version
+        1. If explicit label requested, look up in labels, follow refs
+        2. If rollout selects a label, look up, follow refs
+        3. If no label selected (empty rollout), use latest_version
 
         Following refs: if a LabeledValue has a `ref`, look up that label's value.
         If ref == 'latest', use latest_version.
+        If ref == 'code_default', return (None, None, None) to trigger code default fallthrough.
 
         Args:
             targeting_key: A string identifying the subject of evaluation (e.g., user ID).
@@ -397,9 +395,6 @@ class VariableConfig(BaseModel):
             - label is the name of the label that was selected or None
             - version is the version number or None
         """
-        if not self.enabled:
-            return None, None, None
-
         # If explicit label requested, look it up directly
         if label is not None:
             labeled_value = self.labels.get(label)
@@ -425,7 +420,7 @@ class VariableConfig(BaseModel):
 
     def follow_ref(
         self, labeled_value: LabeledValue | LabelRef, _visited: set[str] | None = None
-    ) -> tuple[str | None, int]:
+    ) -> tuple[str | None, int | None]:
         """Follow ref chains to get the actual serialized value.
 
         Args:
@@ -436,6 +431,9 @@ class VariableConfig(BaseModel):
             A tuple of (serialized_value, version).
         """
         if isinstance(labeled_value, LabelRef):
+            if labeled_value.ref == 'code_default':
+                return None, None
+
             if labeled_value.ref == 'latest':
                 # Reference to latest version
                 if self.latest_version is not None:
@@ -508,9 +506,6 @@ class VariablesConfig(BaseModel):
         variable_config = self._get_variable_config(name)
         if variable_config is None:
             return ResolvedVariable(name=name, value=None, _reason='unrecognized_variable')
-
-        if not variable_config.enabled:
-            return ResolvedVariable(name=variable_config.name, value=None, _reason='resolved')
 
         serialized_value, selected_label, version = variable_config.resolve_value(
             targeting_key, attributes, label=label
