@@ -205,6 +205,17 @@ print(df)
 conn.close()
 ```
 
+!!! note "pandas warning about non-SQLAlchemy connections"
+
+    You may see a warning from pandas:
+
+    > `UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.`
+
+    This is safe to ignore. pandas uses the standard DB API 2.0 cursor interface under the hood and
+    it works correctly with `logfire.db_api` — the warning just means pandas hasn't explicitly tested
+    third-party DB API connections. If you do run into any issues, please
+    [open an issue](https://github.com/pydantic/logfire/issues).
+
 ### Using with marimo
 
 In a [marimo](https://marimo.io/) notebook, you can register the connection and then use SQL cells directly:
