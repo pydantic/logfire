@@ -20,7 +20,7 @@ from logfire.variables.abstract import (
     _get_default_serialized,
     _get_json_schema,
 )
-from logfire.variables.config import LabeledValue, Rollout, VariableConfig, VariablesConfig
+from logfire.variables.config import LabeledValue, LabelRef, Rollout, VariableConfig, VariablesConfig
 from logfire.variables.variable import Variable
 
 
@@ -457,7 +457,7 @@ def test_compute_diff_schema_change_with_ref_label(mock_logfire_instance: MockLo
                 json_schema={'type': 'string'},  # Was string, now int
                 labels={
                     'v1': LabeledValue(version=1, serialized_value='"hello"'),
-                    'v2': LabeledValue(version=2, ref='v1'),  # ref-only label, serialized_value is None
+                    'v2': LabelRef(version=2, ref='v1'),
                 },
                 rollout=Rollout(labels={'v1': 1.0}),
                 overrides=[],

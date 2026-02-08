@@ -345,6 +345,7 @@ import logfire
 from logfire.variables.config import (
     LabeledValue,
     LatestVersion,
+    LabelRef,
     Rollout,
     VariableConfig,
     VariablesConfig,
@@ -389,7 +390,7 @@ variables_config = VariablesConfig(
                         "max_tokens": 300
                     }""",
                 ),
-                'treatment': LabeledValue(
+                'treatment': LabelRef(
                     version=2,
                     ref='latest',  # Points to the same value as latest_version
                 ),
@@ -565,6 +566,7 @@ These attributes can be used in override rules to route specific segments to spe
 from logfire.variables.config import (
     LabeledValue,
     LatestVersion,
+    LabelRef,
     Rollout,
     RolloutOverride,
     ValueEquals,
@@ -585,7 +587,7 @@ variables_config = VariablesConfig(
                     version=1,
                     serialized_value='{"instructions": "Be helpful and concise.", ...}',
                 ),
-                'premium': LabeledValue(
+                'premium': LabelRef(
                     version=2,
                     ref='latest',
                 ),
@@ -1103,6 +1105,7 @@ import logfire
 from logfire.variables.config import (
     LabeledValue,
     LatestVersion,
+    LabelRef,
     Rollout,
     RolloutOverride,
     ValueEquals,
@@ -1123,7 +1126,7 @@ variables_config = VariablesConfig(
                     version=1,
                     serialized_value='{"instructions": "...", "model": "...", "temperature": 0.7, "max_tokens": 500}',
                 ),
-                'canary': LabeledValue(
+                'canary': LabelRef(
                     version=2,
                     ref='latest',  # Same as latest_version
                 ),
@@ -1173,7 +1176,7 @@ This workflow is particularly useful for automated prompt optimization, where yo
 | Field | Description |
 |-------|-------------|
 | `name` | Variable name (must match the name in `logfire.var()`) |
-| `labels` | Dict of label name to `LabeledValue` objects |
+| `labels` | Dict of label name to `LabeledValue` or `LabelRef` objects |
 | `latest_version` | `LatestVersion` with the most recent version's number and value |
 | `enabled` | Whether the variable is enabled (disabled variables return the code default) |
 | `rollout` | Default `Rollout` specifying label weights |
@@ -1183,15 +1186,21 @@ This workflow is particularly useful for automated prompt optimization, where yo
 | `aliases` | Alternative names that resolve to this variable (optional, for migrations) |
 | `example` | JSON-serialized example value, used as template in UI (optional) |
 
-**LabeledValue** — A label pointing to a specific version:
+**LabeledValue** — A label with an inline serialized value:
 
 | Field | Description |
 |-------|-------------|
 | `version` | The version number this label points to |
-| `serialized_value` | JSON-serialized value for this version (None if `ref` is set) |
-| `ref` | Reference to another label or `'latest'` for deduplication (None if `serialized_value` is set) |
+| `serialized_value` | JSON-serialized value for this version |
 
-Either `serialized_value` or `ref` must be set, but not both. When `ref` is set, the SDK follows the reference to get the actual value. This avoids duplicating large values when multiple labels point to the same version.
+**LabelRef** — A label that references another label or `'latest'`:
+
+| Field | Description |
+|-------|-------------|
+| `version` | The version number this label points to |
+| `ref` | Reference to another label or `'latest'` for deduplication |
+
+Use `LabeledValue` when the label has its own value, or `LabelRef` when it should reference another label or `'latest'`. When `ref` is set, the SDK follows the reference to get the actual value. This avoids duplicating large values when multiple labels point to the same version.
 
 **LatestVersion** — The most recent version of a variable:
 

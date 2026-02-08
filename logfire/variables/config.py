@@ -25,6 +25,7 @@ __all__ = (
     'KeyIsNotPresent',
     'KeyIsPresent',
     'LabeledValue',
+    'LabelRef',
     'LatestVersion',
     'RemoteVariablesConfig',
     'Rollout',
@@ -193,16 +194,22 @@ VariableName = Annotated[str, Field(pattern=r'^[a-zA-Z_][a-zA-Z0-9_]*$'), WithJs
 At least for now, must be a valid Python identifier."""
 
 
-# TODO: Turn this into a union of two structs without optional fields
 class LabeledValue(BaseModel):
-    """A label pointing to a version, with the value or a ref to another label."""
+    """A label pointing to a version with an inline serialized value."""
 
     version: int
     """The version number this label points to."""
-    serialized_value: str | None = None
-    """The JSON-serialized value for this version. None when using ref."""
-    ref: str | None = None
-    """Reference to another label or 'latest' for dedup. None when value is inline."""
+    serialized_value: str
+    """The JSON-serialized value for this version."""
+
+
+class LabelRef(BaseModel):
+    """A label pointing to a version via a reference to another label or 'latest'."""
+
+    version: int
+    """The version number this label points to."""
+    ref: str
+    """Reference to another label or 'latest' for dedup."""
 
 
 class LatestVersion(BaseModel):
@@ -282,7 +289,7 @@ class VariableConfig(BaseModel):
     # * To migrate variable names, update the "aliases" field on the VariableConfig
     name: VariableName
     """Unique name identifying this variable."""
-    labels: dict[str, LabeledValue] = {}
+    labels: dict[str, LabeledValue | LabelRef] = {}
     """Mapping of label names to their configurations."""
     rollout: Rollout
     """Default rollout configuration for label selection."""
@@ -320,7 +327,7 @@ class VariableConfig(BaseModel):
 
         # Validate ref chains don't reference non-existent labels
         for k, labeled_value in self.labels.items():
-            if labeled_value.ref is not None and labeled_value.ref != 'latest':
+            if isinstance(labeled_value, LabelRef) and labeled_value.ref != 'latest':
                 if labeled_value.ref not in self.labels:
                     raise ValueError(f'Label {k!r} has ref {labeled_value.ref!r} which is not present in `labels`.')
 
@@ -416,38 +423,39 @@ class VariableConfig(BaseModel):
 
         return None, None, None
 
-    def follow_ref(self, labeled_value: LabeledValue, _visited: set[str] | None = None) -> tuple[str | None, int]:
+    def follow_ref(
+        self, labeled_value: LabeledValue | LabelRef, _visited: set[str] | None = None
+    ) -> tuple[str | None, int]:
         """Follow ref chains to get the actual serialized value.
 
         Args:
-            labeled_value: The LabeledValue to resolve.
+            labeled_value: The LabeledValue or LabelRef to resolve.
             _visited: Set of already-visited ref names to detect cycles.
 
         Returns:
             A tuple of (serialized_value, version).
         """
-        if labeled_value.ref is None:
-            # Inline value
-            return labeled_value.serialized_value, labeled_value.version
+        if isinstance(labeled_value, LabelRef):
+            if labeled_value.ref == 'latest':
+                # Reference to latest version
+                if self.latest_version is not None:
+                    return self.latest_version.serialized_value, self.latest_version.version
+                return None, labeled_value.version
 
-        if labeled_value.ref == 'latest':
-            # Reference to latest version
-            if self.latest_version is not None:
-                return self.latest_version.serialized_value, self.latest_version.version
-            return None, labeled_value.version
+            # Reference to another label - follow the chain
+            if _visited is None:
+                _visited = set()
+            if labeled_value.ref in _visited:
+                # Cycle detected, return None
+                return None, labeled_value.version
+            _visited.add(labeled_value.ref)
 
-        # Reference to another label - follow the chain
-        if _visited is None:
-            _visited = set()
-        if labeled_value.ref in _visited:
-            # Cycle detected, return None
-            return None, labeled_value.version
-        _visited.add(labeled_value.ref)
+            target = self.labels.get(labeled_value.ref)
+            if target is None:
+                return None, labeled_value.version
+            return self.follow_ref(target, _visited)
 
-        target = self.labels.get(labeled_value.ref)
-        if target is None:
-            return None, labeled_value.version
-        return self.follow_ref(target, _visited)
+        return labeled_value.serialized_value, labeled_value.version
 
 
 class VariablesConfig(BaseModel):
@@ -544,7 +552,7 @@ class VariablesConfig(BaseModel):
                     raise ValueError(f'No config for variable with name {variable.name!r}')
                 # Validate inline label values
                 for k, labeled_value in config.labels.items():
-                    if labeled_value.serialized_value is not None:
+                    if isinstance(labeled_value, LabeledValue):
                         try:
                             variable.type_adapter.validate_json(labeled_value.serialized_value)
                         except ValidationError as e:

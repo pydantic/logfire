@@ -382,10 +382,12 @@ def _compute_diff(
             description_differs = local_desc_normalized != server_desc_normalized
 
             if schema_changed:
+                from logfire.variables.config import LabeledValue
+
                 # Schema changed - check label value compatibility
                 incompatible: list[LabelCompatibility] = []
                 for label, labeled_value in server_var.labels.items():
-                    if labeled_value.serialized_value is not None:
+                    if isinstance(labeled_value, LabeledValue):
                         compat = _check_label_compatibility(
                             variable,
                             label,

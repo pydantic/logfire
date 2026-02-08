@@ -24,6 +24,7 @@ if TYPE_CHECKING:
         KeyIsNotPresent,
         KeyIsPresent,
         LabeledValue,
+        LabelRef,
         LatestVersion,
         RemoteVariablesConfig,
         Rollout,
@@ -58,6 +59,7 @@ __all__ = [
     'RemoteVariablesConfig',
     # Label and rollout configuration
     'LabeledValue',
+    'LabelRef',
     'LatestVersion',
     'Rollout',
     'RolloutOverride',
@@ -102,6 +104,7 @@ def __getattr__(name: str):
         KeyIsNotPresent,
         KeyIsPresent,
         LabeledValue,
+        LabelRef,
         LatestVersion,
         RemoteVariablesConfig,
         Rollout,

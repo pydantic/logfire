@@ -23,6 +23,7 @@ from logfire.variables.config import (
     KeyIsNotPresent,
     KeyIsPresent,
     LabeledValue,
+    LabelRef,
     Rollout,
     RolloutOverride,
     ValueDoesNotEqual,
@@ -2185,7 +2186,9 @@ class TestLocalVariableProviderWriteOperations:
             overrides=[],
         )
         result = provider.update_variable('existing_var', updated_config)
-        assert result.labels['v2'].serialized_value == '"updated_value"'
+        v2 = result.labels['v2']
+        assert isinstance(v2, LabeledValue)
+        assert v2.serialized_value == '"updated_value"'
 
     def test_update_variable_not_found(self, empty_config: VariablesConfig):
         from logfire.variables.abstract import VariableNotFoundError
@@ -4769,7 +4772,7 @@ class TestVariableConfigValidateRefToNonExistentLabel:
                 {
                     'name': 'test',
                     'labels': {
-                        'v1': {'version': 1, 'serialized_value': '"value"', 'ref': 'nonexistent'},
+                        'v1': {'version': 1, 'ref': 'nonexistent'},
                     },
                     'rollout': {'labels': {}},
                     'overrides': [],
@@ -4853,7 +4856,7 @@ class TestVariableConfigFollowRef:
         config = VariableConfig(
             name='test_var',
             labels={
-                'v1': LabeledValue(version=1, ref='latest'),
+                'v1': LabelRef(version=1, ref='latest'),
             },
             rollout=Rollout(labels={}),
             overrides=[],
@@ -4867,7 +4870,7 @@ class TestVariableConfigFollowRef:
         config = VariableConfig(
             name='test_var',
             labels={
-                'v1': LabeledValue(version=1, ref='latest'),
+                'v1': LabelRef(version=1, ref='latest'),
             },
             rollout=Rollout(labels={}),
             overrides=[],
@@ -4882,7 +4885,7 @@ class TestVariableConfigFollowRef:
             name='test_var',
             labels={
                 'v1': LabeledValue(version=1, serialized_value='"final_value"'),
-                'v2': LabeledValue(version=2, ref='v1'),
+                'v2': LabelRef(version=2, ref='v1'),
             },
             rollout=Rollout(labels={}),
             overrides=[],
@@ -4900,8 +4903,8 @@ class TestVariableConfigFollowRef:
             {
                 'name': 'test_var',
                 'labels': {
-                    'a': LabeledValue(version=1, ref='b'),
-                    'b': LabeledValue(version=2, ref='a'),
+                    'a': LabelRef(version=1, ref='b'),
+                    'b': LabelRef(version=2, ref='a'),
                 },
                 'rollout': Rollout(labels={}),
                 'overrides': [],
@@ -4926,7 +4929,7 @@ class TestVariableConfigFollowRef:
             {
                 'name': 'test_var',
                 'labels': {
-                    'v1': LabeledValue(version=1, ref='missing'),
+                    'v1': LabelRef(version=1, ref='missing'),
                 },
                 'rollout': Rollout(labels={}),
                 'overrides': [],
@@ -5017,7 +5020,7 @@ class TestVariablesConfigValidationErrorsWithLatestVersion:
                     name='typed_var3',
                     labels={
                         'v1': LabeledValue(version=1, serialized_value='42'),
-                        'v2': LabeledValue(version=2, ref='v1'),  # ref-only, serialized_value is None
+                        'v2': LabelRef(version=2, ref='v1'),
                     },
                     rollout=Rollout(labels={}),
                     overrides=[],
