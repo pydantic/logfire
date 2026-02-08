@@ -1178,7 +1178,6 @@ This workflow is particularly useful for automated prompt optimization, where yo
 | `name` | Variable name (must match the name in `logfire.var()`) |
 | `labels` | Dict of label name to `LabeledValue` or `LabelRef` objects |
 | `latest_version` | `LatestVersion` with the most recent version's number and value |
-| `enabled` | Whether the variable is enabled (disabled variables return the code default) |
 | `rollout` | Default `Rollout` specifying label weights |
 | `overrides` | List of `RolloutOverride` for conditional targeting |
 | `json_schema` | JSON Schema for validation (optional) |
@@ -1193,14 +1192,18 @@ This workflow is particularly useful for automated prompt optimization, where yo
 | `version` | The version number this label points to |
 | `serialized_value` | JSON-serialized value for this version |
 
-**LabelRef** — A label that references another label or `'latest'`:
+**LabelRef** — A label that references another label, `'latest'`, or `'code_default'`:
 
 | Field | Description |
 |-------|-------------|
-| `version` | The version number this label points to |
-| `ref` | Reference to another label or `'latest'` for deduplication |
+| `version` | The version number this label points to (optional, can be `None` for label-to-label refs or `code_default`) |
+| `ref` | Reference target: another label name, `'latest'`, or `'code_default'` |
 
-Use `LabeledValue` when the label has its own value, or `LabelRef` when it should reference another label or `'latest'`. When `ref` is set, the SDK follows the reference to get the actual value. This avoids duplicating large values when multiple labels point to the same version.
+Use `LabeledValue` when the label has its own inline value. Use `LabelRef` when the label should follow a reference:
+
+- **Another label name**: Keeps two labels in sync — when the target label is moved, this label follows automatically. Useful when you want e.g. `staging` to always match `production`.
+- **`'latest'`**: Always resolves to the most recently created version. This avoids duplicating large values when multiple labels point to the same version.
+- **`'code_default'`**: Resolves to `None`, causing the SDK to fall back to the default value defined in code. Useful for disabling remote config for a specific label without removing it.
 
 **LatestVersion** — The most recent version of a variable:
 
