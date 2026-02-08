@@ -24,6 +24,8 @@ except ImportError:  # pragma: no cover
 __all__ = (
     'KeyIsNotPresent',
     'KeyIsPresent',
+    'LabeledValue',
+    'LatestVersion',
     'RemoteVariablesConfig',
     'Rollout',
     'RolloutOverride',
@@ -36,7 +38,6 @@ __all__ = (
     'VariableConfig',
     'VariablesConfig',
     'VariableTypeConfig',
-    'Variant',
 )
 
 
@@ -186,76 +187,82 @@ Condition = TypeAliasType(
 )
 
 
-# Note: We've added the WithJsonSchema to simplify the schema to just {"type": "string"}
-# to work around shortcomings in some API client generators.
-VariantKey = Annotated[str, Field(pattern=r'^[a-zA-Z_][a-zA-Z0-9_]*$'), WithJsonSchema({'type': 'string'})]
-"""The identifier of a variant value for a variable.
-
-At least for now, must be a valid Python identifier."""
 VariableName = Annotated[str, Field(pattern=r'^[a-zA-Z_][a-zA-Z0-9_]*$'), WithJsonSchema({'type': 'string'})]
 """The name of a variable.
 
 At least for now, must be a valid Python identifier."""
 
 
-class Rollout(BaseModel):
-    """Configuration for variant selection with weighted probabilities."""
+# TODO: Turn this into a union of two structs without optional fields
+class LabeledValue(BaseModel):
+    """A label pointing to a version, with the value or a ref to another label."""
 
-    variants: dict[VariantKey, float]
-    """Mapping of variant keys to their selection weights (must sum to at most 1.0)."""
+    version: int
+    """The version number this label points to."""
+    serialized_value: str | None = None
+    """The JSON-serialized value for this version. None when using ref."""
+    ref: str | None = None
+    """Reference to another label or 'latest' for dedup. None when value is inline."""
+
+
+class LatestVersion(BaseModel):
+    """The latest (highest) version of the variable."""
+
+    version: int
+    """The version number of the latest version."""
+    serialized_value: str
+    """The JSON-serialized value of the latest version."""
+
+
+class Rollout(BaseModel):
+    """Configuration for label selection with weighted probabilities."""
+
+    labels: dict[str, float] = {}
+    """Mapping of label names to their selection weights (must sum to at most 1.0).
+    An empty dict means 'serve latest version'."""
 
     @cached_property
-    def _population_and_weights(self) -> tuple[list[VariantKey | None], list[float]]:
-        # Note that the caching means that the `variants` field should be treated as immutable
-        population: list[VariantKey | None] = []
+    def _population_and_weights(self) -> tuple[list[str | None], list[float]]:
+        # Note that the caching means that the `labels` field should be treated as immutable
+        population: list[str | None] = []
         weights: list[float] = []
-        for k, v in self.variants.items():
+        for k, v in self.labels.items():
             population.append(k)
             weights.append(v)
 
-        p_code_default = 1 - sum(weights)
-        if p_code_default > 0:
+        p_none = 1 - sum(weights)
+        if p_none > 0:
             population.append(None)
-            weights.append(p_code_default)
+            weights.append(p_none)
         return population, weights
 
-    @field_validator('variants')
+    @field_validator('labels')
     @classmethod
-    def _validate_variant_proportions(cls, v: dict[VariantKey, float]):
+    def _validate_label_proportions(cls, v: dict[str, float]):
         # Note: if the values sum to _less_ than 1, the remaining proportion corresponds to the probability of using
-        # the code default.
+        # the latest version / code default.
         if any(weight < 0 for weight in v.values()):
-            raise ValueError('Variant proportions must not be negative.')
+            raise ValueError('Label proportions must not be negative.')
         if sum(v.values()) > 1.0 + 1e-9:
-            raise ValueError('Variant proportions must not sum to more than 1.')
+            raise ValueError('Label proportions must not sum to more than 1.')
         return v
 
-    def select_variant(self, seed: str | None) -> VariantKey | None:
-        """Select a variant based on configured weights using optional seeded randomness.
+    def select_label(self, seed: str | None) -> str | None:
+        """Select a label based on configured weights using optional seeded randomness.
 
         Args:
-            seed: Optional seed for deterministic variant selection. If provided, the same seed
-                will always select the same variant.
+            seed: Optional seed for deterministic label selection. If provided, the same seed
+                will always select the same label.
 
         Returns:
-            The key of the selected variant, or None if no variant is selected (when weights sum to less than 1.0).
+            The name of the selected label, or None if no label is selected
+            (when labels is empty or weights sum to less than 1.0).
         """
+        if not self.labels:
+            return None
         rand = random.Random(seed)
         population, weights = self._population_and_weights
         return rand.choices(population, weights)[0]
-
-
-class Variant(BaseModel):
-    """A specific variant of a managed variable with its serialized value."""
-
-    key: VariantKey
-    """Unique identifier for this variant."""
-    serialized_value: str
-    """The JSON-serialized value for this variant."""
-    description: str | None = None
-    """Optional human-readable description of this variant."""
-    version: int | None = None
-    """Optional version identifier for this variant."""
 
 
 class RolloutOverride(BaseModel):
@@ -268,19 +275,23 @@ class RolloutOverride(BaseModel):
 
 
 class VariableConfig(BaseModel):
-    """Configuration for a single managed variable including variants and rollout rules."""
+    """Configuration for a single managed variable including labels, versions, and rollout rules."""
 
     # A note on migrations:
     # * To migrate value types, copy the variable using a new name, update the values, and use the new variable name in updated code
     # * To migrate variable names, update the "aliases" field on the VariableConfig
     name: VariableName
     """Unique name identifying this variable."""
-    variants: dict[VariantKey, Variant]
-    """Mapping of variant keys to their configurations."""
+    labels: dict[str, LabeledValue] = {}
+    """Mapping of label names to their configurations."""
     rollout: Rollout
-    """Default rollout configuration for variant selection."""
+    """Default rollout configuration for label selection."""
     overrides: list[RolloutOverride]
     """Conditional overrides evaluated in order; first match takes precedence."""
+    enabled: bool = True
+    """Whether this variable is enabled. When disabled, resolution returns None."""
+    latest_version: LatestVersion | None = None
+    """The latest (highest) version of the variable, if any versions exist."""
     description: str | None = (
         None  # Note: When we drop support for python 3.9, move this field immediately after `name`
     )
@@ -290,55 +301,53 @@ class VariableConfig(BaseModel):
     aliases: list[VariableName] | None = None
     """Alternative names that resolve to this variable; useful for name migrations."""
     example: str | None = None
-    """JSON-serialized example value from code; used as a template when creating new variants in the UI."""
+    """JSON-serialized example value from code; used as a template when creating new values in the UI."""
     # NOTE: Context-based targeting_key can be set via targeting_context() from logfire.variables.
     # TODO(DavidM): Consider adding remotely-managed targeting_key_attribute for automatic attribute-based targeting.
 
     @model_validator(mode='after')
-    def _validate_variants(self):
-        # Validate lookup keys on variants dict
-        for k, v in self.variants.items():
-            if v.key != k:
-                raise ValueError(f'`variants` has invalid lookup key {k!r} for value with key {v.key!r}.')
+    def _validate_labels(self):
+        # Validate rollout label references
+        for k in self.rollout.labels:
+            if k not in self.labels:
+                raise ValueError(f'Label {k!r} present in `rollout.labels` is not present in `labels`.')
 
-        # Validate rollout variant references
-        for k, v in self.rollout.variants.items():
-            if k not in self.variants:
-                raise ValueError(f'Variant {k!r} present in `rollout.variants` is not present in `variants`.')
-
-        # Validate rollout override variant references
+        # Validate rollout override label references
         for i, override in enumerate(self.overrides):  # pragma: no branch
-            for k, v in override.rollout.variants.items():  # pragma: no branch
-                if k not in self.variants:  # pragma: no branch
-                    raise ValueError(f'Variant {k!r} present in `overrides[{i}].rollout` is not present in `variants`.')
+            for k in override.rollout.labels:  # pragma: no branch
+                if k not in self.labels:  # pragma: no branch
+                    raise ValueError(f'Label {k!r} present in `overrides[{i}].rollout` is not present in `labels`.')
+
+        # Validate ref chains don't reference non-existent labels
+        for k, labeled_value in self.labels.items():
+            if labeled_value.ref is not None and labeled_value.ref != 'latest':
+                if labeled_value.ref not in self.labels:
+                    raise ValueError(f'Label {k!r} has ref {labeled_value.ref!r} which is not present in `labels`.')
 
         return self
 
-    def resolve_variant(
+    def resolve_label(
         self, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
-    ) -> Variant | None:
-        """Evaluate a managed variable configuration and return the selected variant.
+    ) -> str | None:
+        """Evaluate rollout rules and return the selected label name.
 
         The resolution process:
-        1. Check if there's an active rollout schedule with a current stage
-        2. If a schedule stage is active, use that stage's rollout and overrides
-        3. Otherwise, use the base rollout and overrides from this config
-        4. Evaluate overrides in order; the first match takes precedence
-        5. Select a variant based on the rollout weights (deterministic if targeting_key is provided)
+        1. Evaluate overrides in order; the first match takes precedence
+        2. Select a label based on the rollout weights (deterministic if targeting_key is provided)
 
         Args:
             targeting_key: A string identifying the subject of evaluation (e.g., user ID).
-                When provided, ensures deterministic variant selection for the same key.
+                When provided, ensures deterministic label selection for the same key.
             attributes: Additional attributes for condition matching in override rules.
 
         Returns:
-            The selected Variant, or None if no variant is selected (can happen when
-            rollout weights sum to less than 1.0).
+            The name of the selected label, or None if no label is selected (empty rollout
+            means 'serve latest version').
         """
         if attributes is None:
             attributes = {}
 
-        # Step 1: Determine the rollout and overrides to use (from schedule or base config)
+        # Step 1: Determine the rollout and overrides to use
         base_rollout = self.rollout
         base_overrides = self.overrides
 
@@ -350,12 +359,95 @@ class VariableConfig(BaseModel):
                 break  # First match takes precedence
 
         seed = None if targeting_key is None else f'{self.name!r}:{targeting_key!r}'
-        selected_variant_key = selected_rollout.select_variant(seed)
+        return selected_rollout.select_label(seed)
 
-        if selected_variant_key is None:
-            return None
+    def resolve_value(
+        self,
+        targeting_key: str | None = None,
+        attributes: Mapping[str, Any] | None = None,
+        *,
+        label: str | None = None,
+    ) -> tuple[str | None, str | None, int | None]:
+        """Resolve the serialized value for this variable.
 
-        return self.variants[selected_variant_key]
+        Resolution order:
+        1. If not enabled, return (None, None, None)
+        2. If explicit label requested, look up in labels, follow refs
+        3. If rollout selects a label, look up, follow refs
+        4. If no label selected (empty rollout), use latest_version
+
+        Following refs: if a LabeledValue has a `ref`, look up that label's value.
+        If ref == 'latest', use latest_version.
+
+        Args:
+            targeting_key: A string identifying the subject of evaluation (e.g., user ID).
+            attributes: Additional attributes for condition matching in override rules.
+            label: Optional explicit label to select, bypassing rollout.
+
+        Returns:
+            A tuple of (serialized_value, label, version) where:
+            - serialized_value is the JSON-serialized value or None
+            - label is the name of the label that was selected or None
+            - version is the version number or None
+        """
+        if not self.enabled:
+            return None, None, None
+
+        # If explicit label requested, look it up directly
+        if label is not None:
+            labeled_value = self.labels.get(label)
+            if labeled_value is not None:
+                serialized, version = self.follow_ref(labeled_value)
+                return serialized, label, version
+            # Label not found, fall through to rollout-based resolution
+
+        # Use rollout to select a label
+        selected_label = self.resolve_label(targeting_key, attributes)
+
+        if selected_label is not None:
+            labeled_value = self.labels.get(selected_label)
+            if labeled_value is not None:
+                serialized, version = self.follow_ref(labeled_value)
+                return serialized, selected_label, version
+
+        # No label selected (empty rollout or label not found) -> use latest_version
+        if self.latest_version is not None:
+            return self.latest_version.serialized_value, None, self.latest_version.version
+
+        return None, None, None
+
+    def follow_ref(self, labeled_value: LabeledValue, _visited: set[str] | None = None) -> tuple[str | None, int]:
+        """Follow ref chains to get the actual serialized value.
+
+        Args:
+            labeled_value: The LabeledValue to resolve.
+            _visited: Set of already-visited ref names to detect cycles.
+
+        Returns:
+            A tuple of (serialized_value, version).
+        """
+        if labeled_value.ref is None:
+            # Inline value
+            return labeled_value.serialized_value, labeled_value.version
+
+        if labeled_value.ref == 'latest':
+            # Reference to latest version
+            if self.latest_version is not None:
+                return self.latest_version.serialized_value, self.latest_version.version
+            return None, labeled_value.version
+
+        # Reference to another label - follow the chain
+        if _visited is None:
+            _visited = set()
+        if labeled_value.ref in _visited:
+            # Cycle detected, return None
+            return None, labeled_value.version
+        _visited.add(labeled_value.ref)
+
+        target = self.labels.get(labeled_value.ref)
+        if target is None:
+            return None, labeled_value.version
+        return self.follow_ref(target, _visited)
 
 
 class VariablesConfig(BaseModel):
@@ -366,7 +458,7 @@ class VariablesConfig(BaseModel):
 
     @model_validator(mode='after')
     def _validate_variables(self):
-        # Validate lookup keys on variants dict
+        # Validate lookup keys on variables dict
         for k, v in self.variables.items():
             if v.name != k:
                 raise ValueError(f'`variables` has invalid lookup key {k!r} for value with name {v.name!r}.')
@@ -387,20 +479,41 @@ class VariablesConfig(BaseModel):
         self.__dict__.pop('_alias_map', None)  # pyright: ignore[reportUnknownMemberType,reportAttributeAccessIssue]
 
     def resolve_serialized_value(
-        self, name: VariableName, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+        self,
+        name: VariableName,
+        targeting_key: str | None = None,
+        attributes: Mapping[str, Any] | None = None,
+        *,
+        label: str | None = None,
     ) -> ResolvedVariable[str | None]:
-        """Evaluate a managed variable configuration and resolve the selected variant's serialized value."""
+        """Evaluate a managed variable configuration and resolve the selected value.
+
+        Args:
+            name: The name of the variable to resolve.
+            targeting_key: Optional key for deterministic label selection.
+            attributes: Optional attributes for condition matching.
+            label: Optional explicit label to select, bypassing rollout.
+
+        Returns:
+            A ResolvedVariable containing the serialized value (or None if not found).
+        """
         variable_config = self._get_variable_config(name)
         if variable_config is None:
             return ResolvedVariable(name=name, value=None, _reason='unrecognized_variable')
 
-        variant = variable_config.resolve_variant(targeting_key, attributes)
-        if variant is None:
+        if not variable_config.enabled:
             return ResolvedVariable(name=variable_config.name, value=None, _reason='resolved')
-        else:
-            return ResolvedVariable(
-                name=variable_config.name, value=variant.serialized_value, variant=variant.key, _reason='resolved'
-            )
+
+        serialized_value, selected_label, version = variable_config.resolve_value(
+            targeting_key, attributes, label=label
+        )
+        return ResolvedVariable(
+            name=variable_config.name,
+            value=serialized_value,
+            label=selected_label,
+            version=version,
+            _reason='resolved',
+        )
 
     def _get_variable_config(self, name: VariableName) -> VariableConfig | None:
         # First try direct lookup
@@ -415,13 +528,13 @@ class VariablesConfig(BaseModel):
         return None
 
     def get_validation_errors(self, variables: list[Variable[Any]]) -> dict[str, dict[str | None, Exception]]:
-        """Validate that all variable variants can be deserialized to their expected types.
+        """Validate that all variable label values can be deserialized to their expected types.
 
         Args:
             variables: List of Variable instances to validate against this configuration.
 
         Returns:
-            A dict mapping variable names to dicts of variant keys (or None for general errors) to exceptions.
+            A dict mapping variable names to dicts of label names (or None for general errors) to exceptions.
         """
         errors: dict[str, dict[str | None, Exception]] = {}
         for variable in variables:
@@ -429,11 +542,19 @@ class VariablesConfig(BaseModel):
                 config = self._get_variable_config(variable.name)
                 if config is None:
                     raise ValueError(f'No config for variable with name {variable.name!r}')
-                for k, v in config.variants.items():
+                # Validate inline label values
+                for k, labeled_value in config.labels.items():
+                    if labeled_value.serialized_value is not None:
+                        try:
+                            variable.type_adapter.validate_json(labeled_value.serialized_value)
+                        except ValidationError as e:
+                            errors.setdefault(variable.name, {})[k] = e
+                # Validate latest version value
+                if config.latest_version is not None:
                     try:
-                        variable.type_adapter.validate_json(v.serialized_value)
+                        variable.type_adapter.validate_json(config.latest_version.serialized_value)
                     except ValidationError as e:
-                        errors.setdefault(variable.name, {})[k] = e
+                        errors.setdefault(variable.name, {})['latest'] = e
             except Exception as e:
                 errors.setdefault(variable.name, {})[None] = e
         return errors
@@ -443,7 +564,7 @@ class VariablesConfig(BaseModel):
         """Create a VariablesConfig from a list of Variable instances.
 
         This creates a minimal config with just the name, schema, and example for each variable.
-        No variants are created - use this to generate a template config that can be edited.
+        No labels or versions are created - use this to generate a template config that can be edited.
 
         Args:
             variables: List of Variable instances to create configs from.
@@ -466,8 +587,8 @@ class VariablesConfig(BaseModel):
             config = VariableConfig(
                 name=variable.name,
                 description=variable.description,
-                variants={},
-                rollout=Rollout(variants={}),
+                labels={},
+                rollout=Rollout(labels={}),
                 overrides=[],
                 json_schema=json_schema,
                 example=example,

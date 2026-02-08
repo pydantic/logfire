@@ -2542,12 +2542,12 @@ class Logfire:
         yes: bool = False,
         strict: bool = False,
     ) -> bool:
-        """Push variable definitions to the configured variable provider.
+        """Push variable definitions (metadata only) to the configured variable provider.
 
         This method syncs local variable definitions with the provider:
         - Creates new variables that don't exist in the provider
         - Updates JSON schemas for existing variables if they've changed
-        - Warns about existing variants that are incompatible with new schemas
+        - Warns about existing label values that are incompatible with new schemas
 
         The provider is determined by the Logfire configuration. For remote providers,
         this requires proper authentication (via RemoteVariablesConfig or LOGFIRE_API_KEY).
@@ -2557,7 +2557,7 @@ class Logfire:
                 registered with this Logfire instance will be pushed.
             dry_run: If True, only show what would change without applying.
             yes: If True, skip confirmation prompt.
-            strict: If True, fail if any existing variants are incompatible with new schemas.
+            strict: If True, fail if any existing label values are incompatible with new schemas.
 
         Returns:
             True if changes were applied (or would be applied in dry_run mode), False otherwise.
@@ -2650,10 +2650,10 @@ class Logfire:
         self,
         variables: list[Variable[Any]] | None = None,
     ) -> ValidationReport:
-        """Validate that provider-side variable variants match local type definitions.
+        """Validate that provider-side variable label values match local type definitions.
 
         This method fetches the current variable configuration from the provider and
-        validates that all variant values can be deserialized to the expected types
+        validates that all label values can be deserialized to the expected types
         defined in the local Variable instances.
 
         Args:
@@ -2696,7 +2696,7 @@ class Logfire:
     ) -> bool:  # pragma: no cover
         """Push a VariablesConfig to the configured provider.
 
-        This method pushes a complete VariablesConfig (including variants and rollouts)
+        This method pushes a complete VariablesConfig (including labels and rollouts)
         to the provider. It's useful for:
         - Pushing configs generated or modified locally
         - Pushing configs read from files
@@ -2755,7 +2755,7 @@ class Logfire:
         """Build a VariablesConfig from registered Variable instances.
 
         This creates a minimal config with just the name, schema, and example for each variable.
-        No variants are created - use this to build a template config that can be edited.
+        No labels or versions are created - use this to build a template config that can be edited.
 
         Args:
             variables: Variable instances to include. If None, uses all registered variables.

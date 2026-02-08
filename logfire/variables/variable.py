@@ -37,9 +37,6 @@ T_co = TypeVar('T_co', covariant=True)
 
 _VARIABLE_OVERRIDES: ContextVar[dict[str, Any] | None] = ContextVar('_VARIABLE_OVERRIDES', default=None)
 
-# Context var for explicit variant selection (bypasses rollout)
-_VARIANT_OVERRIDES: ContextVar[dict[str, str] | None] = ContextVar('_VARIANT_OVERRIDES', default=None)
-
 
 @dataclass
 class _TargetingContextData:
@@ -204,32 +201,6 @@ class Variable(Generic[T_co]):
         finally:
             _VARIABLE_OVERRIDES.reset(token)
 
-    @contextmanager
-    def use_variant(self, variant_key: str) -> Iterator[None]:
-        """Context manager to select a specific variant, bypassing rollout weights.
-
-        This allows you to explicitly select a configured variant by key, regardless of
-        the rollout configuration. Useful for testing specific variants or for playground
-        scenarios where you want to preview a particular variant.
-
-        Args:
-            variant_key: The key of the variant to select. If the variant doesn't exist
-                in the configuration, resolution will fall back to the default behavior.
-
-        Example:
-            ```python skip="true"
-            # Select the "experimental" variant for all resolutions within this context
-            with my_variable.use_variant('experimental'):
-                value = my_variable.get().value  # Always gets "experimental" variant
-            ```
-        """
-        current = _VARIANT_OVERRIDES.get() or {}
-        token = _VARIANT_OVERRIDES.set({**current, self.name: variant_key})
-        try:
-            yield
-        finally:
-            _VARIANT_OVERRIDES.reset(token)
-
     async def refresh(self, force: bool = False):
         """Asynchronously refresh the variable."""
         await to_thread(self.refresh_sync, force)
@@ -276,26 +247,23 @@ class Variable(Generic[T_co]):
         targeting_key: str | None = None,
         attributes: Mapping[str, Any] | None = None,
         *,
-        variant: str | None = None,
+        label: str | None = None,
     ) -> ResolvedVariable[T_co]:
-        """Resolve the variable and return full details including variant and any errors.
+        """Resolve the variable and return full details including label, version, and any errors.
 
         Args:
-            targeting_key: Optional key for deterministic variant selection (e.g., user ID).
+            targeting_key: Optional key for deterministic label selection (e.g., user ID).
                 If not provided, falls back to contextvar targeting key (set via targeting_context),
                 then to the current trace ID if there is an active trace.
             attributes: Optional attributes for condition-based targeting rules.
-            variant: Optional explicit variant key to select. If provided, bypasses rollout
-                weights and targeting, directly selecting the specified variant. If the variant
+            label: Optional explicit label name to select. If provided, bypasses rollout
+                weights and targeting, directly selecting the specified label. If the label
                 doesn't exist in the configuration, falls back to default resolution.
 
         Returns:
-            A ResolvedVariable object containing the resolved value, selected variant,
-            and any errors that occurred.
+            A ResolvedVariable object containing the resolved value, selected label,
+            version, and any errors that occurred.
         """
-        # Check for variant override from context if not specified at call-site
-        if variant is None:
-            variant = _get_contextvar_variant_override(self.name)
         merged_attributes = self._get_merged_attributes(attributes)
 
         # Targeting key resolution: call-site > contextvar > trace_id
@@ -321,7 +289,7 @@ class Variable(Generic[T_co]):
                         attributes=merged_attributes,
                     )
                 )
-            result = self._resolve(targeting_key, merged_attributes, span, variant)
+            result = self._resolve(targeting_key, merged_attributes, span, label)
             if span is not None:
                 # Serialize value safely for OTel span attributes, which only support primitives.
                 # Try to JSON serialize the value; if that fails, fall back to string representation.
@@ -333,7 +301,8 @@ class Variable(Generic[T_co]):
                     {
                         'name': result.name,
                         'value': serialized_value,
-                        'variant': result.variant,
+                        'label': result.label,
+                        'version': result.version,
                         'reason': result._reason,  # pyright: ignore[reportPrivateUsage]
                     }
                 )
@@ -348,7 +317,7 @@ class Variable(Generic[T_co]):
         targeting_key: str | None,
         attributes: Mapping[str, Any] | None,
         span: logfire.LogfireSpan | None,
-        variant: str | None = None,
+        label: str | None = None,
     ) -> ResolvedVariable[T_co]:
         serialized_result: ResolvedVariable[str | None] | None = None
         try:
@@ -360,23 +329,27 @@ class Variable(Generic[T_co]):
 
             provider = self.logfire_instance.config.get_variable_provider()
 
-            # If explicit variant is requested, try to get that specific variant
-            if variant is not None:
-                serialized_result = provider.get_serialized_value_for_variant(self.name, variant)
+            # If explicit label is requested, try to get that specific label
+            if label is not None:
+                serialized_result = provider.get_serialized_value_for_label(self.name, label)
                 if serialized_result.value is not None:
-                    # Successfully got the explicit variant
+                    # Successfully got the explicit label
                     value_or_exc = self._deserialize_cached(serialized_result.value)
                     if isinstance(value_or_exc, Exception):
                         if span:  # pragma: no branch
-                            span.set_attribute('invalid_serialized_variant', serialized_result.variant)
+                            span.set_attribute('invalid_serialized_label', serialized_result.label)
                             span.set_attribute('invalid_serialized_value', serialized_result.value)
                         default = self._get_default(targeting_key, attributes)
                         reason: str = 'validation_error' if isinstance(value_or_exc, ValidationError) else 'other_error'
                         return ResolvedVariable(name=self.name, value=default, exception=value_or_exc, _reason=reason)
                     return ResolvedVariable(
-                        name=self.name, value=value_or_exc, variant=serialized_result.variant, _reason='resolved'
+                        name=self.name,
+                        value=value_or_exc,
+                        label=serialized_result.label,
+                        version=serialized_result.version,
+                        _reason='resolved',
                     )
-                # Variant not found - fall through to default resolution
+                # Label not found - fall through to default resolution
 
             serialized_result = provider.get_serialized_value(self.name, targeting_key, attributes)
 
@@ -388,19 +361,23 @@ class Variable(Generic[T_co]):
             value_or_exc = self._deserialize_cached(serialized_result.value)
             if isinstance(value_or_exc, Exception):
                 if span:  # pragma: no branch
-                    span.set_attribute('invalid_serialized_variant', serialized_result.variant)
+                    span.set_attribute('invalid_serialized_label', serialized_result.label)
                     span.set_attribute('invalid_serialized_value', serialized_result.value)
                 default = self._get_default(targeting_key, attributes)
                 reason: str = 'validation_error' if isinstance(value_or_exc, ValidationError) else 'other_error'
                 return ResolvedVariable(name=self.name, value=default, exception=value_or_exc, _reason=reason)
 
             return ResolvedVariable(
-                name=self.name, value=value_or_exc, variant=serialized_result.variant, _reason='resolved'
+                name=self.name,
+                value=value_or_exc,
+                label=serialized_result.label,
+                version=serialized_result.version,
+                _reason='resolved',
             )
 
         except Exception as e:
             if span and serialized_result is not None:  # pragma: no cover
-                span.set_attribute('invalid_serialized_variant', serialized_result.variant)
+                span.set_attribute('invalid_serialized_label', serialized_result.label)
                 span.set_attribute('invalid_serialized_value', serialized_result.value)
             default = self._get_default(targeting_key, attributes)
             return ResolvedVariable(name=self.name, value=default, exception=e, _reason='other_error')
@@ -426,7 +403,7 @@ class Variable(Generic[T_co]):
         """Create a VariableConfig from this Variable instance.
 
         This creates a minimal config with just the name, schema, and example.
-        No variants are created - use this to generate a template config that can be edited.
+        No labels or versions are created - use this to generate a template config that can be edited.
 
         Returns:
             A VariableConfig with minimal configuration.
@@ -444,8 +421,8 @@ class Variable(Generic[T_co]):
         return VariableConfig(
             name=self.name,
             description=self.description,
-            variants={},
-            rollout=Rollout(variants={}),
+            labels={},
+            rollout=Rollout(labels={}),
             overrides=[],
             json_schema=json_schema,
             example=example,
@@ -472,11 +449,11 @@ def targeting_context(
 ) -> Iterator[None]:
     """Set the targeting key for variable resolution within this context.
 
-    The targeting key is used for deterministic variant selection - the same targeting key
-    will always resolve to the same variant for a given variable configuration.
+    The targeting key is used for deterministic label selection - the same targeting key
+    will always resolve to the same label for a given variable configuration.
 
     Args:
-        targeting_key: The targeting key to use for deterministic variant selection
+        targeting_key: The targeting key to use for deterministic label selection
             (e.g., user ID, organization ID).
         variables: If provided, only apply this targeting key to these specific variables.
             If not provided, this becomes the default targeting key for all variables.
@@ -536,18 +513,3 @@ def _get_contextvar_targeting_key(variable_name: str) -> str | None:
         return None
     # Variable-specific takes precedence over default
     return ctx.by_variable.get(variable_name, ctx.default)
-
-
-def _get_contextvar_variant_override(variable_name: str) -> str | None:
-    """Get the variant override from context for a specific variable.
-
-    Args:
-        variable_name: The name of the variable to get the variant override for.
-
-    Returns:
-        The variant key if one is set in context, None otherwise.
-    """
-    ctx = _VARIANT_OVERRIDES.get()
-    if ctx is None:
-        return None
-    return ctx.get(variable_name)

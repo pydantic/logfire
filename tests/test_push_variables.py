@@ -10,17 +10,17 @@ import pytest
 
 import logfire
 from logfire.variables.abstract import (
+    LabelValidationError,
     ValidationReport,
     VariableChange,
     VariableDiff,
-    VariantValidationError,
-    _check_variant_compatibility,
+    _check_label_compatibility,
     _compute_diff,
     _format_diff,
     _get_default_serialized,
     _get_json_schema,
 )
-from logfire.variables.config import Rollout, VariableConfig, VariablesConfig, Variant
+from logfire.variables.config import LabeledValue, Rollout, VariableConfig, VariablesConfig
 from logfire.variables.variable import Variable
 
 
@@ -121,20 +121,20 @@ def test_check_variant_compatibility_valid(mock_logfire_instance: MockLogfire) -
         type=int,
         logfire_instance=mock_logfire_instance,  # type: ignore
     )
-    result = _check_variant_compatibility(var, 'test-variant', '42')
+    result = _check_label_compatibility(var, 'test-label', '42')
     assert result.is_compatible is True
     assert result.error is None
 
 
-def test_check_variant_compatibility_invalid(mock_logfire_instance: MockLogfire) -> None:
-    """Test variant compatibility check with invalid value."""
+def test_check_label_compatibility_invalid(mock_logfire_instance: MockLogfire) -> None:
+    """Test label compatibility check with invalid value."""
     var = Variable[int](
         name='test',
         default=0,
         type=int,
         logfire_instance=mock_logfire_instance,  # type: ignore
     )
-    result = _check_variant_compatibility(var, 'test-variant', '"not an int"')
+    result = _check_label_compatibility(var, 'test-label', '"not an int"')
     assert result.is_compatible is False
     assert result.error is not None
 
@@ -154,7 +154,7 @@ def test_compute_diff_new_variable(mock_logfire_instance: MockLogfire) -> None:
     assert len(diff.changes) == 1
     assert diff.changes[0].name == 'new_feature'
     assert diff.changes[0].change_type == 'create'
-    assert diff.changes[0].initial_variant_value == 'false'
+    assert diff.changes[0].initial_value == 'false'
     assert diff.has_changes is True
 
 
@@ -171,8 +171,8 @@ def test_compute_diff_no_change(mock_logfire_instance: MockLogfire) -> None:
             'existing_feature': VariableConfig(
                 name='existing_feature',
                 json_schema={'type': 'boolean'},
-                variants={},
-                rollout=Rollout(variants={}),
+                labels={},
+                rollout=Rollout(labels={}),
                 overrides=[],
             )
         }
@@ -199,10 +199,10 @@ def test_compute_diff_schema_change(mock_logfire_instance: MockLogfire) -> None:
             'config_value': VariableConfig(
                 name='config_value',
                 json_schema={'type': 'string'},  # Was string, now int
-                variants={
-                    'default': Variant(key='default', serialized_value='"hello"'),
+                labels={
+                    'default': LabeledValue(version=1, serialized_value='"hello"'),
                 },
-                rollout=Rollout(variants={'default': 1.0}),
+                rollout=Rollout(labels={'default': 1.0}),
                 overrides=[],
             )
         }
@@ -213,8 +213,8 @@ def test_compute_diff_schema_change(mock_logfire_instance: MockLogfire) -> None:
     assert len(diff.changes) == 1
     assert diff.changes[0].name == 'config_value'
     assert diff.changes[0].change_type == 'update_schema'
-    assert diff.changes[0].incompatible_variants is not None
-    assert len(diff.changes[0].incompatible_variants) == 1
+    assert diff.changes[0].incompatible_labels is not None
+    assert len(diff.changes[0].incompatible_labels) == 1
     assert diff.has_changes is True
 
 
@@ -231,15 +231,15 @@ def test_compute_diff_orphaned_variables(mock_logfire_instance: MockLogfire) -> 
             'my_feature': VariableConfig(
                 name='my_feature',
                 json_schema={'type': 'boolean'},
-                variants={},
-                rollout=Rollout(variants={}),
+                labels={},
+                rollout=Rollout(labels={}),
                 overrides=[],
             ),
             'orphan_feature': VariableConfig(
                 name='orphan_feature',
                 json_schema={'type': 'boolean'},
-                variants={},
-                rollout=Rollout(variants={}),
+                labels={},
+                rollout=Rollout(labels={}),
                 overrides=[],
             ),
         }
@@ -259,7 +259,7 @@ def test_format_diff_creates() -> None:
                 name='new_feature',
                 change_type='create',
                 local_schema={'type': 'boolean'},
-                initial_variant_value='false',
+                initial_value='false',
             )
         ],
         orphaned_server_variables=[],
@@ -355,9 +355,9 @@ def test_validation_report_is_valid_false_with_errors() -> None:
     """Test is_valid when there are validation errors."""
     report = ValidationReport(
         errors=[
-            VariantValidationError(
+            LabelValidationError(
                 variable_name='test',
-                variant_key='default',
+                label='default',
                 error=ValueError('invalid'),
             )
         ],
@@ -394,9 +394,9 @@ def test_format_validation_report_with_errors() -> None:
     """Test validation report formatting with errors."""
     report = ValidationReport(
         errors=[
-            VariantValidationError(
+            LabelValidationError(
                 variable_name='my_feature',
-                variant_key='default',
+                label='default',
                 error=ValueError('value is not valid'),
             )
         ],

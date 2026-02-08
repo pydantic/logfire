@@ -336,7 +336,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
         Args:
             variable_name: The name of the variable to resolve.
-            targeting_key: Optional key for deterministic variant selection (e.g., user ID).
+            targeting_key: Optional key for deterministic label selection (e.g., user ID).
             attributes: Optional attributes for condition-based targeting rules.
 
         Returns:
@@ -435,6 +435,9 @@ class LogfireRemoteVariableProvider(VariableProvider):
     def update_variable(self, name: str, config: VariableConfig) -> VariableConfig:
         """Update an existing variable configuration via the remote API.
 
+        This is a metadata-only update (name, description, schema, example).
+        Labels and versions are managed through the UI.
+
         Args:
             name: The name of the variable to update.
             config: The new configuration for the variable.
@@ -446,22 +449,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
             VariableNotFoundError: If the variable does not exist.
             VariableWriteError: If the API request fails.
         """
-        variants_to_send: dict[str, Any] | None = None
-        if self._config is not None:
-            existing = self._config.variables.get(name)
-            if existing is not None:
-                variants_to_send = {}
-                for key, variant in config.variants.items():
-                    existing_variant = existing.variants.get(key)
-                    existing_description = existing_variant.description if existing_variant else None
-                    new_description = variant.description
-                    if (
-                        existing_variant is None
-                        or existing_variant.serialized_value != variant.serialized_value
-                        or existing_description != new_description
-                    ):
-                        variants_to_send[key] = variant
-        body = self._config_to_api_body(config, variants_override=variants_to_send)
+        body = self._config_to_api_body(config)
         try:
             with self._session_lock:
                 response = self._session.put(urljoin(self._base_url, f'/v1/variables/{name}/'), json=body)
@@ -497,46 +485,27 @@ class LogfireRemoteVariableProvider(VariableProvider):
         # Refresh cache after successful write
         self.refresh(force=True)
 
-    def _config_to_api_body(
-        self, config: VariableConfig, *, variants_override: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
+    def _config_to_api_body(self, config: VariableConfig) -> dict[str, Any]:
         """Convert a VariableConfig to the API request body format.
+
+        This sends metadata only (name, description, schema, example, aliases).
+        Labels and versions are managed through the UI.
 
         Args:
             config: The VariableConfig to convert.
-            variants_override: Optional mapping of variants to send instead of all variants.
 
         Returns:
             A dictionary suitable for the API request body.
         """
         body: dict[str, Any] = {'name': config.name}
 
-        # description and overrides are always required by the API
+        # description is always required by the API
         body['description'] = config.description
 
         if config.json_schema is not None:
             body['json_schema'] = config.json_schema
 
-        if variants_override is None:
-            body['variants'] = {
-                key: {
-                    'key': variant.key,
-                    'serialized_value': variant.serialized_value,
-                    **({'description': variant.description} if variant.description else {}),
-                }
-                for key, variant in config.variants.items()
-            }
-        elif variants_override:
-            body['variants'] = {
-                key: {
-                    'key': variant.key,
-                    'serialized_value': variant.serialized_value,
-                    **({'description': variant.description} if variant.description else {}),
-                }
-                for key, variant in variants_override.items()
-            }
-
-        body['rollout'] = {'variants': config.rollout.variants}
+        body['rollout'] = {'labels': config.rollout.labels}
 
         body['overrides'] = [
             {
@@ -544,7 +513,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
                     {'kind': cond.kind, 'attribute': cond.attribute, **self._condition_extra_fields(cond)}
                     for cond in override.conditions
                 ],
-                'rollout': {'variants': override.rollout.variants},
+                'rollout': {'labels': override.rollout.labels},
             }
             for override in config.overrides
         ]

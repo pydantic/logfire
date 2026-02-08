@@ -71,10 +71,10 @@ class VariableAlreadyExistsError(VariableWriteError):
 
 @dataclass(kw_only=True)
 class ResolvedVariable(Generic[T_co]):
-    """Details about a variable resolution including value, variant, and any errors.
+    """Details about a variable resolution including value, label, version, and any errors.
 
     This class can be used as a context manager. When used as a context manager, it
-    automatically sets baggage with the variable name and variant, enabling downstream
+    automatically sets baggage with the variable name and label, enabling downstream
     spans and logs to be associated with the variable resolution that was active at the time.
 
     Example:
@@ -82,7 +82,7 @@ class ResolvedVariable(Generic[T_co]):
         my_var = logfire.var(name='my_var', type=str, default='default')
         with my_var.get() as details:
             # Inside this context, baggage is set with:
-            # logfire.variables.my_var = <variant_name> (or '<code_default>' if no variant)
+            # logfire.variables.my_var = <label> (or '<code_default>' if no label)
             value = details.value
             # Any spans/logs created here will have the baggage attached
         ```
@@ -104,8 +104,10 @@ class ResolvedVariable(Generic[T_co]):
     """Internal field indicating how the value was resolved."""
     # Note: I had to put _reason before fields with defaults due to lack of kw_only
     # Note: When we drop support for python 3.9, move _reason to the end
-    variant: str | None = None
-    """The key of the selected variant, if any."""
+    label: str | None = None
+    """The name of the selected label, if any."""
+    version: int | None = None
+    """The version number of the resolved value, if any."""
     exception: Exception | None = None
     """Any exception that occurred during resolution."""
 
@@ -118,7 +120,7 @@ class ResolvedVariable(Generic[T_co]):
         import logfire
 
         self._exit_stack.enter_context(
-            logfire.set_baggage(**{f'logfire.variables.{self.name}': self.variant or '<code_default>'})
+            logfire.set_baggage(**{f'logfire.variables.{self.name}': self.label or '<code_default>'})
         )
 
         return self
@@ -131,10 +133,10 @@ class ResolvedVariable(Generic[T_co]):
 
 
 @dataclass
-class VariantCompatibility:
-    """Result of checking a variant's compatibility with a schema."""
+class LabelCompatibility:
+    """Result of checking a label value's compatibility with a schema."""
 
-    variant_key: str
+    label: str
     serialized_value: str
     is_compatible: bool
     error: str | None = None
@@ -148,8 +150,8 @@ class VariableChange:
     change_type: str  # 'create', 'update_schema', 'update_description', 'no_change'
     local_schema: dict[str, Any] | None = None
     server_schema: dict[str, Any] | None = None
-    initial_variant_value: str | None = None  # JSON serialized
-    incompatible_variants: list[VariantCompatibility] | None = None
+    initial_value: str | None = None  # JSON serialized
+    incompatible_labels: list[LabelCompatibility] | None = None
     server_id: str | None = None  # For updates
     local_description: str | None = None
     server_description: str | None = None
@@ -170,11 +172,11 @@ class VariableDiff:
 
 
 @dataclass
-class VariantValidationError:
-    """Represents a validation error for a specific variant."""
+class LabelValidationError:
+    """Represents a validation error for a specific label value."""
 
     variable_name: str
-    variant_key: str | None
+    label: str | None
     error: Exception
 
 
@@ -204,7 +206,7 @@ class ValidationReport:
         ```
     """
 
-    errors: list[VariantValidationError]
+    errors: list[LabelValidationError]
     """List of validation errors found."""
     variables_checked: int
     """Total number of variables that were checked."""
@@ -243,10 +245,10 @@ class ValidationReport:
         if self.errors:
             lines.append(f'\n{red}=== Validation Errors ==={reset}')
             for error in self.errors:
-                if error.variant_key is None:  # pragma: no cover
+                if error.label is None:  # pragma: no cover
                     lines.append(f'  {red}✗ {error.variable_name}: {error.error}{reset}')
                 else:
-                    lines.append(f'  {red}✗ {error.variable_name} (variant: {error.variant_key}){reset}')
+                    lines.append(f'  {red}✗ {error.variable_name} (label: {error.label}){reset}')
                     # Format the error message, indenting each line
                     error_lines = str(error.error).split('\n')
                     for line in error_lines[:5]:  # Limit to first 5 lines
@@ -305,24 +307,24 @@ def _get_default_serialized(variable: Variable[object]) -> str | None:
     return variable.type_adapter.dump_json(variable.default).decode('utf-8')
 
 
-def _check_variant_compatibility(
+def _check_label_compatibility(
     variable: Variable[object],
-    variant_key: str,
+    label: str,
     serialized_value: str,
-) -> VariantCompatibility:
-    """Check if a variant's value is compatible with the variable's type."""
+) -> LabelCompatibility:
+    """Check if a label's value is compatible with the variable's type."""
     from pydantic import ValidationError
 
     try:
         variable.type_adapter.validate_json(serialized_value)
-        return VariantCompatibility(
-            variant_key=variant_key,
+        return LabelCompatibility(
+            label=label,
             serialized_value=serialized_value,
             is_compatible=True,
         )
     except ValidationError as e:
-        return VariantCompatibility(
-            variant_key=variant_key,
+        return LabelCompatibility(
+            label=label,
             serialized_value=serialized_value,
             is_compatible=False,
             error=str(e),
@@ -358,7 +360,7 @@ def _compute_diff(
                     name=variable.name,
                     change_type='create',
                     local_schema=local_schema,
-                    initial_variant_value=default_serialized,
+                    initial_value=default_serialized,
                     local_description=local_description,
                 )
             )
@@ -380,13 +382,23 @@ def _compute_diff(
             description_differs = local_desc_normalized != server_desc_normalized
 
             if schema_changed:
-                # Schema changed - check variant compatibility
-                incompatible: list[VariantCompatibility] = []
-                for variant_key, variant in server_var.variants.items():
-                    compat = _check_variant_compatibility(
+                # Schema changed - check label value compatibility
+                incompatible: list[LabelCompatibility] = []
+                for label, labeled_value in server_var.labels.items():
+                    if labeled_value.serialized_value is not None:
+                        compat = _check_label_compatibility(
+                            variable,
+                            label,
+                            labeled_value.serialized_value,
+                        )
+                        if not compat.is_compatible:
+                            incompatible.append(compat)
+                # Also check latest version
+                if server_var.latest_version is not None:
+                    compat = _check_label_compatibility(
                         variable,
-                        variant_key,
-                        variant.serialized_value,
+                        'latest',
+                        server_var.latest_version.serialized_value,
                     )
                     if not compat.is_compatible:
                         incompatible.append(compat)
@@ -397,7 +409,7 @@ def _compute_diff(
                         change_type='update_schema',
                         local_schema=local_schema,
                         server_schema=server_schema,
-                        incompatible_variants=incompatible if incompatible else None,
+                        incompatible_labels=incompatible if incompatible else None,
                         local_description=local_description,
                         server_description=server_description,
                         description_differs=description_differs,
@@ -436,8 +448,8 @@ def _format_diff(diff: VariableDiff) -> str:
             lines.append(f'  {ANSI_GREEN}+ {change.name}{ANSI_RESET}')
             if change.local_description:
                 lines.append(f'    Description: {change.local_description}')
-            if change.initial_variant_value:
-                lines.append(f'    Example value: {change.initial_variant_value}')
+            if change.initial_value:
+                lines.append(f'    Example value: {change.initial_value}')
             else:
                 lines.append('    (No example value - default is a function)')
 
@@ -445,10 +457,10 @@ def _format_diff(diff: VariableDiff) -> str:
         lines.append(f'\n{ANSI_YELLOW}=== Variables to UPDATE (schema changed) ==={ANSI_RESET}')
         for change in updates:
             lines.append(f'  {ANSI_YELLOW}~ {change.name}{ANSI_RESET}')
-            if change.incompatible_variants:
-                lines.append(f'    {ANSI_RED}Warning: Incompatible variants:{ANSI_RESET}')
-                for compat in change.incompatible_variants:
-                    lines.append(f'      - {compat.variant_key}: {compat.error}')
+            if change.incompatible_labels:
+                lines.append(f'    {ANSI_RED}Warning: Incompatible label values:{ANSI_RESET}')
+                for compat in change.incompatible_labels:
+                    lines.append(f'      - {compat.label}: {compat.error}')
 
     if unchanged:
         lines.append(f'\n{ANSI_GRAY}=== No changes needed ({len(unchanged)} variables) ==={ANSI_RESET}')
@@ -494,16 +506,16 @@ def _create_variable(
     """Create a new variable via the provider."""
     from logfire.variables.config import Rollout, VariableConfig
 
-    # No variants are created - the code default is used when no variants exist
+    # No labels or versions are created - the code default is used when none exist
     # The example field stores the serialized default for use as a template in the UI
     config = VariableConfig(
         name=change.name,
         description=change.local_description,
-        variants={},
-        rollout=Rollout(variants={}),
+        labels={},
+        rollout=Rollout(labels={}),
         overrides=[],
         json_schema=change.local_schema,
-        example=change.initial_variant_value,  # Store the code default as an example for the UI
+        example=change.initial_value,  # Store the code default as an example for the UI
     )
 
     provider.create_variable(config)
@@ -518,7 +530,7 @@ def _update_variable_schema(
     """Update an existing variable's schema via the provider."""
     from logfire.variables.config import VariableConfig
 
-    # Get the existing config to preserve variants, rollout, overrides
+    # Get the existing config to preserve labels, rollout, overrides
     existing = server_config.variables.get(change.name)
     if existing is None:  # pragma: no cover
         # Should not happen, but handle gracefully
@@ -529,7 +541,7 @@ def _update_variable_schema(
     config = VariableConfig(
         name=existing.name,
         description=existing.description,
-        variants=existing.variants,
+        labels=existing.labels,
         rollout=existing.rollout,
         overrides=existing.overrides,
         json_schema=change.local_schema,
@@ -573,7 +585,7 @@ class VariableProvider(ABC):
 
         Args:
             variable_name: The name of the variable to resolve.
-            targeting_key: Optional key for deterministic variant selection (e.g., user ID).
+            targeting_key: Optional key for deterministic label selection (e.g., user ID).
             attributes: Optional attributes for condition-based targeting rules.
 
         Returns:
@@ -581,39 +593,44 @@ class VariableProvider(ABC):
         """
         raise NotImplementedError
 
-    def get_serialized_value_for_variant(
+    def get_serialized_value_for_label(
         self,
         variable_name: str,
-        variant_key: str,
+        label: str,
     ) -> ResolvedVariable[str | None]:
-        """Retrieve the serialized value for a specific variant of a variable.
+        """Retrieve the serialized value for a specific label of a variable.
 
         This method bypasses rollout weights and targeting, directly selecting the
-        specified variant. Used for explicit variant selection.
+        specified label. Used for explicit label selection.
 
         Args:
             variable_name: The name of the variable to resolve.
-            variant_key: The key of the variant to select.
+            label: The name of the label to select.
 
         Returns:
             A ResolvedVariable containing the serialized value (or None if not found).
 
         Note:
-            The default implementation uses get_variable_config to look up the variant.
+            The default implementation uses get_variable_config to look up the label.
             Subclasses may override this for more efficient implementations.
         """
         config = self.get_variable_config(variable_name)
         if config is None:
             return ResolvedVariable(name=variable_name, value=None, _reason='unrecognized_variable')
 
-        variant = config.variants.get(variant_key)
-        if variant is None:
+        if not config.enabled:
             return ResolvedVariable(name=variable_name, value=None, _reason='resolved')
 
+        labeled_value = config.labels.get(label)
+        if labeled_value is None:
+            return ResolvedVariable(name=variable_name, value=None, _reason='resolved')
+
+        serialized, version = config.follow_ref(labeled_value)
         return ResolvedVariable(
             name=variable_name,
-            value=variant.serialized_value,
-            variant=variant.key,
+            value=serialized,
+            label=label,
+            version=version,
             _reason='resolved',
         )
 
@@ -774,7 +791,7 @@ class VariableProvider(ABC):
     ) -> bool:
         """Push a VariablesConfig to this provider.
 
-        This method pushes a complete VariablesConfig (including variants and rollouts)
+        This method pushes a complete VariablesConfig (including labels and rollouts)
         to the provider. It's useful for:
         - Pushing configs generated or modified locally
         - Pushing configs read from files
@@ -838,8 +855,8 @@ class VariableProvider(ABC):
                 var_config = config.variables[name]
                 if var_config.description:
                     lines.append(f'    Description: {var_config.description}')
-                if var_config.variants:
-                    lines.append(f'    Variants: {", ".join(var_config.variants.keys())}')
+                if var_config.labels:
+                    lines.append(f'    Labels: {", ".join(var_config.labels.keys())}')
 
         if updates:
             lines.append(f'\n{ANSI_YELLOW}=== Variables to UPDATE ==={ANSI_RESET}')
@@ -920,16 +937,16 @@ class VariableProvider(ABC):
     ) -> bool:
         """Push variable definitions to this provider.
 
-        This method syncs local variable definitions with the provider:
+        This method syncs local variable definitions (metadata only) with the provider:
         - Creates new variables that don't exist in the provider
         - Updates JSON schemas for existing variables if they've changed
-        - Warns about existing variants that are incompatible with new schemas
+        - Warns about existing label values that are incompatible with new schemas
 
         Args:
             variables: Variable instances to push.
             dry_run: If True, only show what would change without applying.
             yes: If True, skip confirmation prompt.
-            strict: If True, fail if any existing variants are incompatible with new schemas.
+            strict: If True, fail if any existing label values are incompatible with new schemas.
 
         Returns:
             True if changes were applied (or would be applied in dry_run mode), False otherwise.
@@ -961,10 +978,10 @@ class VariableProvider(ABC):
             print(f'\n{ANSI_GREEN}No changes needed. Provider is up to date.{ANSI_RESET}')
             return False
 
-        # Check for incompatible variants
-        incompatible_changes = [c for c in diff.changes if c.change_type == 'update_schema' and c.incompatible_variants]
+        # Check for incompatible label values
+        incompatible_changes = [c for c in diff.changes if c.change_type == 'update_schema' and c.incompatible_labels]
         if incompatible_changes:
-            message = 'Some changes will result in variants incompatible with the new schema.'
+            message = 'Some changes will result in label values incompatible with the new schema.'
             if strict:
                 print(f'\n{ANSI_RED}Error: {message}\nRemove --strict flag to proceed anyway.{ANSI_RESET}')
                 return False
@@ -1003,10 +1020,10 @@ class VariableProvider(ABC):
         self,
         variables: Sequence[Variable[object]],
     ) -> ValidationReport:
-        """Validate that provider-side variable variants match local type definitions.
+        """Validate that provider-side variable label values match local type definitions.
 
         This method fetches the current variable configuration from the provider and
-        validates that all variant values can be deserialized to the expected types
+        validates that all label values can be deserialized to the expected types
         defined in the local Variable instances.
 
         Args:
@@ -1048,13 +1065,13 @@ class VariableProvider(ABC):
         error_dict = server_config.get_validation_errors(variables_on_server)
 
         # Build report
-        errors: list[VariantValidationError] = []
-        for var_name, variant_errors in error_dict.items():
-            for variant_key, error in variant_errors.items():
+        errors: list[LabelValidationError] = []
+        for var_name, label_errors in error_dict.items():
+            for label, error in label_errors.items():
                 errors.append(
-                    VariantValidationError(
+                    LabelValidationError(
                         variable_name=var_name,
-                        variant_key=variant_key,
+                        label=label,
                         error=error,
                     )
                 )
@@ -1291,7 +1308,7 @@ class NoOpVariableProvider(VariableProvider):
 
         Args:
             variable_name: The name of the variable to resolve (ignored).
-            targeting_key: Optional key for deterministic variant selection (ignored).
+            targeting_key: Optional key for deterministic label selection (ignored).
             attributes: Optional attributes for condition-based targeting rules (ignored).
 
         Returns:

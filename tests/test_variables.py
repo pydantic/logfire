@@ -22,6 +22,7 @@ from logfire.variables.abstract import NoOpVariableProvider, ResolvedVariable, V
 from logfire.variables.config import (
     KeyIsNotPresent,
     KeyIsPresent,
+    LabeledValue,
     Rollout,
     RolloutOverride,
     ValueDoesNotEqual,
@@ -32,7 +33,6 @@ from logfire.variables.config import (
     ValueMatchesRegex,
     VariableConfig,
     VariablesConfig,
-    Variant,
 )
 from logfire.variables.local import LocalVariableProvider
 from logfire.variables.remote import LogfireRemoteVariableProvider
@@ -205,66 +205,42 @@ class TestKeyIsNotPresent:
 
 
 class TestRollout:
-    def test_select_variant_deterministic_with_seed(self):
-        rollout = Rollout(variants={'v1': 0.5, 'v2': 0.5})
+    def test_select_label_deterministic_with_seed(self):
+        rollout = Rollout(labels={'v1': 0.5, 'v2': 0.5})
         # With a seed, the result should be deterministic
-        result1 = rollout.select_variant('user123')
-        result2 = rollout.select_variant('user123')
+        result1 = rollout.select_label('user123')
+        result2 = rollout.select_label('user123')
         assert result1 == result2
 
-    def test_select_variant_different_seeds_can_differ(self):
-        rollout = Rollout(variants={'v1': 0.5, 'v2': 0.5})
+    def test_select_label_different_seeds_can_differ(self):
+        rollout = Rollout(labels={'v1': 0.5, 'v2': 0.5})
         # Different seeds may produce different results
-        results = {rollout.select_variant(f'user{i}') for i in range(100)}
-        # With 50/50 split, we should see both variants
+        results = {rollout.select_label(f'user{i}') for i in range(100)}
+        # With 50/50 split, we should see both labels
         assert results == {'v1', 'v2'}
 
-    def test_select_variant_can_return_none(self):
-        rollout = Rollout(variants={'v1': 0.3})  # 70% chance of None
-        results = {rollout.select_variant(f'user{i}') for i in range(100)}
+    def test_select_label_can_return_none(self):
+        rollout = Rollout(labels={'v1': 0.3})  # 70% chance of None
+        results = {rollout.select_label(f'user{i}') for i in range(100)}
         # Should include None in results
         assert None in results
         assert 'v1' in results
 
-    def test_select_variant_full_probability(self):
-        rollout = Rollout(variants={'v1': 1.0})
+    def test_select_label_full_probability(self):
+        rollout = Rollout(labels={'v1': 1.0})
         for i in range(10):
-            assert rollout.select_variant(f'user{i}') == 'v1'
+            assert rollout.select_label(f'user{i}') == 'v1'
 
-    def test_select_variant_without_seed(self):
-        rollout = Rollout(variants={'v1': 0.5, 'v2': 0.5})
+    def test_select_label_without_seed(self):
+        rollout = Rollout(labels={'v1': 0.5, 'v2': 0.5})
         # Without seed, still works but isn't deterministic
-        result = rollout.select_variant(None)
+        result = rollout.select_label(None)
         assert result in {'v1', 'v2'}
 
     def test_validation_sum_exceeds_one(self):
         # Note: Validation only runs when using TypeAdapter (not direct instantiation)
-        with pytest.raises(ValidationError, match='Variant proportions must not sum to more than 1'):
-            VariableConfig.model_validate({'rollout': {'variants': {'v1': 0.6, 'v2': 0.6}}})
-
-
-# =============================================================================
-# Test Variant
-# =============================================================================
-
-
-class TestVariant:
-    def test_basic_variant(self):
-        variant = Variant(key='v1', serialized_value='"hello"')
-        assert variant.key == 'v1'
-        assert variant.serialized_value == '"hello"'
-        assert variant.description is None
-        assert variant.version is None
-
-    def test_variant_with_metadata(self):
-        variant = Variant(
-            key='v1',
-            serialized_value='"hello"',
-            description='Test variant',
-            version=1,
-        )
-        assert variant.description == 'Test variant'
-        assert variant.version == 1
+        with pytest.raises(ValidationError, match='Label proportions must not sum to more than 1'):
+            VariableConfig.model_validate({'rollout': {'labels': {'v1': 0.6, 'v2': 0.6}}})
 
 
 # =============================================================================
@@ -277,90 +253,82 @@ class TestRolloutOverride:
         """Test that override applies when single condition matches."""
         config = VariableConfig(
             name='test_var',
-            variants={
-                'default': Variant(key='default', serialized_value='"default_value"'),
-                'premium': Variant(key='premium', serialized_value='"premium_value"'),
+            labels={
+                'default': LabeledValue(version=1, serialized_value='"default_value"'),
+                'premium': LabeledValue(version=1, serialized_value='"premium_value"'),
             },
-            rollout=Rollout(variants={'default': 1.0}),
+            rollout=Rollout(labels={'default': 1.0}),
             overrides=[
                 RolloutOverride(
                     conditions=[ValueEquals(attribute='plan', value='enterprise')],
-                    rollout=Rollout(variants={'premium': 1.0}),
+                    rollout=Rollout(labels={'premium': 1.0}),
                 ),
             ],
         )
 
         # Without matching attribute, default rollout applies
-        variant = config.resolve_variant(targeting_key='user1')
-        assert variant is not None
-        assert variant.key == 'default'
+        label = config.resolve_label(targeting_key='user1')
+        assert label == 'default'
 
         # With matching attribute, override applies
-        variant = config.resolve_variant(targeting_key='user1', attributes={'plan': 'enterprise'})
-        assert variant is not None
-        assert variant.key == 'premium'
+        label = config.resolve_label(targeting_key='user1', attributes={'plan': 'enterprise'})
+        assert label == 'premium'
 
         # With non-matching attribute, default rollout applies
-        variant = config.resolve_variant(targeting_key='user1', attributes={'plan': 'free'})
-        assert variant is not None
-        assert variant.key == 'default'
+        label = config.resolve_label(targeting_key='user1', attributes={'plan': 'free'})
+        assert label == 'default'
 
     def test_multiple_conditions_require_all_to_match(self):
         """Test that all conditions must match for an override to apply (AND logic)."""
         config = VariableConfig(
             name='test_var',
-            variants={
-                'default': Variant(key='default', serialized_value='"default_value"'),
-                'premium': Variant(key='premium', serialized_value='"premium_value"'),
+            labels={
+                'default': LabeledValue(version=1, serialized_value='"default_value"'),
+                'premium': LabeledValue(version=1, serialized_value='"premium_value"'),
             },
-            rollout=Rollout(variants={'default': 1.0}),
+            rollout=Rollout(labels={'default': 1.0}),
             overrides=[
                 RolloutOverride(
                     conditions=[
                         ValueEquals(attribute='plan', value='enterprise'),
                         ValueIsIn(attribute='country', values=['US', 'UK']),
                     ],
-                    rollout=Rollout(variants={'premium': 1.0}),
+                    rollout=Rollout(labels={'premium': 1.0}),
                 ),
             ],
         )
 
         # Both conditions match -> override applies
-        variant = config.resolve_variant(
+        label = config.resolve_label(
             targeting_key='user1',
             attributes={'plan': 'enterprise', 'country': 'US'},
         )
-        assert variant is not None
-        assert variant.key == 'premium'
+        assert label == 'premium'
 
         # Only first condition matches -> override does not apply
-        variant = config.resolve_variant(
+        label = config.resolve_label(
             targeting_key='user1',
             attributes={'plan': 'enterprise', 'country': 'DE'},
         )
-        assert variant is not None
-        assert variant.key == 'default'
+        assert label == 'default'
 
         # Only second condition matches -> override does not apply
-        variant = config.resolve_variant(
+        label = config.resolve_label(
             targeting_key='user1',
             attributes={'plan': 'free', 'country': 'UK'},
         )
-        assert variant is not None
-        assert variant.key == 'default'
+        assert label == 'default'
 
         # Neither condition matches -> override does not apply
-        variant = config.resolve_variant(
+        label = config.resolve_label(
             targeting_key='user1',
             attributes={'plan': 'free', 'country': 'DE'},
         )
-        assert variant is not None
-        assert variant.key == 'default'
+        assert label == 'default'
 
         # No attributes -> override does not apply
-        variant = config.resolve_variant(targeting_key='user1')
-        assert variant is not None
-        assert variant.key == 'default'
+        label = config.resolve_label(targeting_key='user1')
+        assert label == 'default'
 
 
 # =============================================================================
@@ -373,11 +341,11 @@ class TestVariableConfig:
     def simple_config(self) -> VariableConfig:
         return VariableConfig(
             name='test_var',
-            variants={
-                'default': Variant(key='default', serialized_value='"default value"'),
-                'experimental': Variant(key='experimental', serialized_value='"experimental value"'),
+            labels={
+                'default': LabeledValue(version=1, serialized_value='"default value"'),
+                'experimental': LabeledValue(version=1, serialized_value='"experimental value"'),
             },
-            rollout=Rollout(variants={'default': 0.8, 'experimental': 0.2}),
+            rollout=Rollout(labels={'default': 0.8, 'experimental': 0.2}),
             overrides=[],
         )
 
@@ -385,90 +353,86 @@ class TestVariableConfig:
     def config_with_overrides(self) -> VariableConfig:
         return VariableConfig(
             name='test_var',
-            variants={
-                'default': Variant(key='default', serialized_value='"default value"'),
-                'premium': Variant(key='premium', serialized_value='"premium value"'),
+            labels={
+                'default': LabeledValue(version=1, serialized_value='"default value"'),
+                'premium': LabeledValue(version=1, serialized_value='"premium value"'),
             },
-            rollout=Rollout(variants={'default': 1.0}),
+            rollout=Rollout(labels={'default': 1.0}),
             overrides=[
                 RolloutOverride(
                     conditions=[ValueEquals(attribute='plan', value='enterprise')],
-                    rollout=Rollout(variants={'premium': 1.0}),
+                    rollout=Rollout(labels={'premium': 1.0}),
                 ),
             ],
         )
 
-    def test_resolve_variant_basic(self, simple_config: VariableConfig):
+    def test_resolve_label_basic(self, simple_config: VariableConfig):
         # Deterministic selection with targeting_key
-        variant = simple_config.resolve_variant(targeting_key='user123')
-        assert variant is not None
-        assert variant.key in {'default', 'experimental'}
+        label = simple_config.resolve_label(targeting_key='user123')
+        assert label in {'default', 'experimental'}
 
-    def test_resolve_variant_with_override(self, config_with_overrides: VariableConfig):
+    def test_resolve_label_with_override(self, config_with_overrides: VariableConfig):
         # Without matching attributes, uses default rollout
-        variant = config_with_overrides.resolve_variant(targeting_key='user1')
-        assert variant is not None
-        assert variant.key == 'default'
+        label = config_with_overrides.resolve_label(targeting_key='user1')
+        assert label == 'default'
 
         # With matching attributes, uses override rollout
-        variant = config_with_overrides.resolve_variant(
+        label = config_with_overrides.resolve_label(
             targeting_key='user1',
             attributes={'plan': 'enterprise'},
         )
-        assert variant is not None
-        assert variant.key == 'premium'
+        assert label == 'premium'
 
-    def test_resolve_variant_can_return_none(self):
+    def test_resolve_label_can_return_none(self):
         config = VariableConfig(
             name='test_var',
-            variants={'v1': Variant(key='v1', serialized_value='"value"')},
-            rollout=Rollout(variants={'v1': 0.5}),  # 50% chance of None
+            labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+            rollout=Rollout(labels={'v1': 0.5}),  # 50% chance of None
             overrides=[],
         )
         # Try many times to get None
-        results = [config.resolve_variant(targeting_key=f'user{i}') for i in range(100)]
-        keys = {v.key if v else None for v in results}
-        assert None in keys
+        results = [config.resolve_label(targeting_key=f'user{i}') for i in range(100)]
+        assert None in results
 
-    def test_validation_invalid_variant_key(self):
-        with pytest.raises(ValidationError, match='invalid lookup key'):
+    def test_validation_invalid_label_key(self):
+        with pytest.raises(ValidationError, match="Label 'correct_key' present in `rollout.labels` is not present"):
             VariableConfig.model_validate(
                 {
                     'name': 'test',
-                    'variants': {
-                        'wrong_key': {'key': 'correct_key', 'serialized_value': '"value"'},
+                    'labels': {
+                        'wrong_key': {'version': 1, 'serialized_value': '"value"'},
                     },
-                    'rollout': {'variants': {'correct_key': 1.0}},
+                    'rollout': {'labels': {'correct_key': 1.0}},
                     'overrides': [],
                 }
             )
 
-    def test_validation_rollout_references_missing_variant(self):
-        with pytest.raises(ValidationError, match="Variant 'missing' present in `rollout.variants` is not present"):
+    def test_validation_rollout_references_missing_label(self):
+        with pytest.raises(ValidationError, match="Label 'missing' present in `rollout.labels` is not present"):
             VariableConfig.model_validate(
                 {
                     'name': 'test',
-                    'variants': {
-                        'v1': {'key': 'v1', 'serialized_value': '"value"'},
+                    'labels': {
+                        'v1': {'version': 1, 'serialized_value': '"value"'},
                     },
-                    'rollout': {'variants': {'missing': 1.0}},
+                    'rollout': {'labels': {'missing': 1.0}},
                     'overrides': [],
                 }
             )
 
-    def test_validation_override_references_missing_variant(self):
-        with pytest.raises(ValidationError, match="Variant 'missing' present in `overrides"):
+    def test_validation_override_references_missing_label(self):
+        with pytest.raises(ValidationError, match="Label 'missing' present in `overrides"):
             VariableConfig.model_validate(
                 {
                     'name': 'test',
-                    'variants': {
-                        'v1': {'key': 'v1', 'serialized_value': '"value"'},
+                    'labels': {
+                        'v1': {'version': 1, 'serialized_value': '"value"'},
                     },
-                    'rollout': {'variants': {'v1': 1.0}},
+                    'rollout': {'labels': {'v1': 1.0}},
                     'overrides': [
                         {
                             'conditions': [],
-                            'rollout': {'variants': {'missing': 1.0}},
+                            'rollout': {'labels': {'missing': 1.0}},
                         }
                     ],
                 }
@@ -486,8 +450,8 @@ class TestVariablesConfig:
             variables={
                 'my_var': VariableConfig(
                     name='my_var',
-                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
                 ),
             }
@@ -501,8 +465,8 @@ class TestVariablesConfig:
                     'variables': {
                         'wrong_key': {
                             'name': 'correct_name',
-                            'variants': {'v1': {'key': 'v1', 'serialized_value': '"value"'}},
-                            'rollout': {'variants': {'v1': 1.0}},
+                            'labels': {'v1': {'version': 1, 'serialized_value': '"value"'}},
+                            'rollout': {'labels': {'v1': 1.0}},
                             'overrides': [],
                         }
                     }
@@ -515,8 +479,8 @@ class TestVariablesConfig:
                 'variables': {
                     'my_var': {
                         'name': 'my_var',
-                        'variants': {'v1': {'key': 'v1', 'serialized_value': '"value"'}},
-                        'rollout': {'variants': {'v1': 1.0}},
+                        'labels': {'v1': {'version': 1, 'serialized_value': '"value"'}},
+                        'rollout': {'labels': {'v1': 1.0}},
                         'overrides': [],
                     }
                 }
@@ -526,14 +490,14 @@ class TestVariablesConfig:
         assert 'my_var' in config.variables
 
     def test_get_validation_errors_no_errors(self, config_kwargs: dict[str, Any]):
-        """Test that get_validation_errors returns empty dict when all variants are valid."""
+        """Test that get_validation_errors returns empty dict when all labels are valid."""
         lf = logfire.configure(**config_kwargs)
         config = VariablesConfig(
             variables={
                 'valid_var': VariableConfig(
                     name='valid_var',
-                    variants={'v1': Variant(key='v1', serialized_value='"valid_string"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"valid_string"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
                 ),
             }
@@ -559,8 +523,8 @@ class TestVariablesConfig:
             variables={
                 'my_var': VariableConfig(
                     name='my_var',
-                    variants={'v1': Variant(key='v1', serialized_value='"not_an_int"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"not_an_int"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
                 ),
             }
@@ -586,8 +550,8 @@ class TestVariablesConfig:
         str_config = config.variables['str_var']
         assert str_config.name == 'str_var'
         assert str_config.description == 'A string variable'
-        assert str_config.variants == {}  # No variants created
-        assert str_config.rollout.variants == {}  # Empty rollout
+        assert str_config.labels == {}  # No labels created
+        assert str_config.rollout.labels == {}  # Empty rollout
         assert str_config.json_schema is not None
         assert str_config.example == '"hello"'  # Default value as example
 
@@ -615,14 +579,14 @@ class TestVariablesConfig:
             variables={
                 'var_a': VariableConfig(
                     name='var_a',
-                    variants={'v1': Variant(key='v1', serialized_value='"value_a1"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"value_a1"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
                 ),
                 'var_b': VariableConfig(
                     name='var_b',
-                    variants={'v1': Variant(key='v1', serialized_value='"value_b1"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"value_b1"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
                 ),
             }
@@ -631,14 +595,14 @@ class TestVariablesConfig:
             variables={
                 'var_b': VariableConfig(
                     name='var_b',
-                    variants={'v2': Variant(key='v2', serialized_value='"value_b2"')},
-                    rollout=Rollout(variants={'v2': 1.0}),
+                    labels={'v2': LabeledValue(version=1, serialized_value='"value_b2"')},
+                    rollout=Rollout(labels={'v2': 1.0}),
                     overrides=[],
                 ),
                 'var_c': VariableConfig(
                     name='var_c',
-                    variants={'v1': Variant(key='v1', serialized_value='"value_c1"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"value_c1"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
                 ),
             }
@@ -653,8 +617,8 @@ class TestVariablesConfig:
         assert 'var_c' in merged.variables
 
         # var_b should be from config2 (overwritten)
-        assert 'v2' in merged.variables['var_b'].variants
-        assert 'v1' not in merged.variables['var_b'].variants
+        assert 'v2' in merged.variables['var_b'].labels
+        assert 'v1' not in merged.variables['var_b'].labels
 
 
 # =============================================================================
@@ -698,12 +662,12 @@ class TestResolvedVariable:
         details = ResolvedVariable(name='test_var', value='test', _reason='resolved')
         assert details.name == 'test_var'
         assert details.value == 'test'
-        assert details.variant is None
+        assert details.label is None
         assert details.exception is None
 
-    def test_with_variant(self):
-        details = ResolvedVariable(name='test_var', value='test', variant='v1', _reason='resolved')
-        assert details.variant == 'v1'
+    def test_with_label(self):
+        details = ResolvedVariable(name='test_var', value='test', label='v1', _reason='resolved')
+        assert details.label == 'v1'
 
     def test_with_exception(self):
         error = ValueError('test error')
@@ -724,22 +688,22 @@ class TestResolvedVariable:
         with details:
             baggage_inside = logfire.get_baggage()
             assert 'logfire.variables.context_test_var' in baggage_inside
-            # Value should be '<code_default>' since no variant was selected (no config)
+            # Value should be '<code_default>' since no label was selected (no config)
             assert baggage_inside['logfire.variables.context_test_var'] == '<code_default>'
 
         # After exiting context, baggage should be unset
         baggage_after = logfire.get_baggage()
         assert 'logfire.variables.context_test_var' not in baggage_after
 
-    def test_context_manager_sets_variant_name_in_baggage(self, config_kwargs: dict[str, Any]):
+    def test_context_manager_sets_label_in_baggage(self, config_kwargs: dict[str, Any]):
         variables_config = VariablesConfig(
             variables={
                 'cm_var': VariableConfig(
                     name='cm_var',
-                    variants={
-                        'my_variant': Variant(key='my_variant', serialized_value='"variant_value"'),
+                    labels={
+                        'my_label': LabeledValue(version=1, serialized_value='"labeled_value"'),
                     },
-                    rollout=Rollout(variants={'my_variant': 1.0}),
+                    rollout=Rollout(labels={'my_label': 1.0}),
                     overrides=[],
                 ),
             }
@@ -750,11 +714,11 @@ class TestResolvedVariable:
         var = lf.var(name='cm_var', default='default', type=str)
         details = var.get()
 
-        assert details.variant == 'my_variant'
+        assert details.label == 'my_label'
 
         with details:
             baggage = logfire.get_baggage()
-            assert baggage['logfire.variables.cm_var'] == 'my_variant'
+            assert baggage['logfire.variables.cm_var'] == 'my_label'
 
     def test_context_manager_returns_self(self, config_kwargs: dict[str, Any]):
         lf = logfire.configure(**config_kwargs)
@@ -769,14 +733,14 @@ class TestResolvedVariable:
             variables={
                 'var_a': VariableConfig(
                     name='var_a',
-                    variants={'a1': Variant(key='a1', serialized_value='"value_a"')},
-                    rollout=Rollout(variants={'a1': 1.0}),
+                    labels={'a1': LabeledValue(version=1, serialized_value='"value_a"')},
+                    rollout=Rollout(labels={'a1': 1.0}),
                     overrides=[],
                 ),
                 'var_b': VariableConfig(
                     name='var_b',
-                    variants={'b1': Variant(key='b1', serialized_value='"value_b"')},
-                    rollout=Rollout(variants={'b1': 1.0}),
+                    labels={'b1': LabeledValue(version=1, serialized_value='"value_b"')},
+                    rollout=Rollout(labels={'b1': 1.0}),
                     overrides=[],
                 ),
             }
@@ -835,15 +799,15 @@ class TestLocalVariableProvider:
             variables={
                 'test_var': VariableConfig(
                     name='test_var',
-                    variants={
-                        'default': Variant(key='default', serialized_value='"default_value"'),
-                        'premium': Variant(key='premium', serialized_value='"premium_value"'),
+                    labels={
+                        'default': LabeledValue(version=1, serialized_value='"default_value"'),
+                        'premium': LabeledValue(version=1, serialized_value='"premium_value"'),
                     },
-                    rollout=Rollout(variants={'default': 1.0}),
+                    rollout=Rollout(labels={'default': 1.0}),
                     overrides=[
                         RolloutOverride(
                             conditions=[ValueEquals(attribute='plan', value='enterprise')],
-                            rollout=Rollout(variants={'premium': 1.0}),
+                            rollout=Rollout(labels={'premium': 1.0}),
                         ),
                     ],
                 ),
@@ -854,7 +818,7 @@ class TestLocalVariableProvider:
         provider = LocalVariableProvider(simple_config)
         result = provider.get_serialized_value('test_var')
         assert result.value == '"default_value"'
-        assert result.variant == 'default'
+        assert result.label == 'default'
         assert result._reason == 'resolved'
 
     def test_get_serialized_value_with_override(self, simple_config: VariablesConfig):
@@ -864,7 +828,7 @@ class TestLocalVariableProvider:
             attributes={'plan': 'enterprise'},
         )
         assert result.value == '"premium_value"'
-        assert result.variant == 'premium'
+        assert result.label == 'premium'
 
     def test_get_serialized_value_unrecognized(self, simple_config: VariablesConfig):
         provider = LocalVariableProvider(simple_config)
@@ -877,8 +841,8 @@ class TestLocalVariableProvider:
             variables={
                 'partial_var': VariableConfig(
                     name='partial_var',
-                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
-                    rollout=Rollout(variants={'v1': 0.0}),  # 0% chance
+                    labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+                    rollout=Rollout(labels={'v1': 0.0}),  # 0% chance
                     overrides=[],
                 ),
             }
@@ -908,15 +872,14 @@ class TestLogfireRemoteVariableProvider:
                 'variables': {
                     'test_var': {
                         'name': 'test_var',
-                        'variants': {
+                        'labels': {
                             'default': {
-                                'key': 'default',
+                                'version': 1,
                                 'serialized_value': '"remote_value"',
                                 'description': None,
-                                'version': None,
                             }
                         },
-                        'rollout': {'variants': {'default': 1.0}},
+                        'rollout': {'labels': {'default': 1.0}},
                         'overrides': [],
                         'json_schema': {'type': 'string'},
                     }
@@ -935,7 +898,7 @@ class TestLogfireRemoteVariableProvider:
             try:
                 result = provider.get_serialized_value('test_var')
                 assert result.value == '"remote_value"'
-                assert result.variant == 'default'
+                assert result.label == 'default'
             finally:
                 provider.shutdown()
 
@@ -970,13 +933,13 @@ class TestLogfireRemoteVariableProvider:
                 'variables': {
                     'other_var': {
                         'name': 'other_var',
-                        'variants': {
+                        'labels': {
                             'default': {
-                                'key': 'default',
+                                'version': 1,
                                 'serialized_value': '"value"',
                             }
                         },
-                        'rollout': {'variants': {'default': 1.0}},
+                        'rollout': {'labels': {'default': 1.0}},
                         'overrides': [],
                     }
                 }
@@ -1066,8 +1029,8 @@ class TestLogfireRemoteVariableProvider:
             finally:
                 provider.shutdown()
 
-    def test_rollout_returns_none_variant(self) -> None:
-        """Test case where rollout returns None (no variant selected)."""
+    def test_rollout_returns_none_label(self) -> None:
+        """Test case where rollout returns None (no label selected)."""
         request_mocker = requests_mock_module.Mocker()
         request_mocker.get(
             'http://localhost:8000/v1/variables/',
@@ -1075,14 +1038,14 @@ class TestLogfireRemoteVariableProvider:
                 'variables': {
                     'partial_var': {
                         'name': 'partial_var',
-                        'variants': {
+                        'labels': {
                             'v1': {
-                                'key': 'v1',
+                                'version': 1,
                                 'serialized_value': '"value"',
                             }
                         },
-                        # 0% rollout means no variant is ever selected
-                        'rollout': {'variants': {'v1': 0.0}},
+                        # 0% rollout means no label is ever selected
+                        'rollout': {'labels': {'v1': 0.0}},
                         'overrides': [],
                     }
                 }
@@ -1437,15 +1400,14 @@ class TestApiKeySupport:
                 'variables': {
                     'test_var': {
                         'name': 'test_var',
-                        'variants': {
+                        'labels': {
                             'default': {
-                                'key': 'default',
+                                'version': 1,
                                 'serialized_value': '"api_key_value"',
                                 'description': None,
-                                'version': None,
                             }
                         },
-                        'rollout': {'variants': {'default': 1.0}},
+                        'rollout': {'labels': {'default': 1.0}},
                         'overrides': [],
                         'json_schema': {'type': 'string'},
                     }
@@ -1465,7 +1427,7 @@ class TestApiKeySupport:
             try:
                 result = provider.get_serialized_value('test_var')
                 assert result.value == '"api_key_value"'
-                assert result.variant == 'default'
+                assert result.label == 'default'
                 # Verify that the api_key was used in the request header
                 assert request_mocker.last_request is not None
                 assert request_mocker.last_request.headers['Authorization'] == f'bearer {api_key}'
@@ -1496,39 +1458,39 @@ class TestVariable:
             variables={
                 'string_var': VariableConfig(
                     name='string_var',
-                    variants={
-                        'default': Variant(key='default', serialized_value='"hello"'),
-                        'alt': Variant(key='alt', serialized_value='"world"'),
+                    labels={
+                        'default': LabeledValue(version=1, serialized_value='"hello"'),
+                        'alt': LabeledValue(version=1, serialized_value='"world"'),
                     },
-                    rollout=Rollout(variants={'default': 1.0}),
+                    rollout=Rollout(labels={'default': 1.0}),
                     overrides=[
                         RolloutOverride(
                             conditions=[ValueEquals(attribute='use_alt', value=True)],
-                            rollout=Rollout(variants={'alt': 1.0}),
+                            rollout=Rollout(labels={'alt': 1.0}),
                         ),
                     ],
                 ),
                 'int_var': VariableConfig(
                     name='int_var',
-                    variants={'default': Variant(key='default', serialized_value='42')},
-                    rollout=Rollout(variants={'default': 1.0}),
+                    labels={'default': LabeledValue(version=1, serialized_value='42')},
+                    rollout=Rollout(labels={'default': 1.0}),
                     overrides=[],
                 ),
                 'model_var': VariableConfig(
                     name='model_var',
-                    variants={
-                        'default': Variant(
-                            key='default',
+                    labels={
+                        'default': LabeledValue(
+                            version=1,
                             serialized_value='{"name": "test", "value": 123}',
                         )
                     },
-                    rollout=Rollout(variants={'default': 1.0}),
+                    rollout=Rollout(labels={'default': 1.0}),
                     overrides=[],
                 ),
                 'invalid_var': VariableConfig(
                     name='invalid_var',
-                    variants={'default': Variant(key='default', serialized_value='"not_an_int"')},
-                    rollout=Rollout(variants={'default': 1.0}),
+                    labels={'default': LabeledValue(version=1, serialized_value='"not_an_int"')},
+                    rollout=Rollout(labels={'default': 1.0}),
                     overrides=[],
                 ),
             }
@@ -1582,7 +1544,7 @@ class TestVariable:
         var = lf.var(name='string_var', default='default_value', type=str)
         details = var.get()
         assert details.value == 'hello'
-        assert details.variant == 'default'
+        assert details.label == 'default'
         assert details.exception is None
 
     def test_get_details_with_validation_error(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
@@ -1686,7 +1648,7 @@ class TestVariable:
 
         # Verify the variable was resolved correctly
         assert details.value == 'hello'
-        assert details.variant == 'default'
+        assert details.label == 'default'
 
         # Verify a "Resolve variable string_var" span was created
         spans = exporter.exported_spans
@@ -1698,7 +1660,7 @@ class TestVariable:
         assert attrs.get('name') == 'string_var'
         # Value is JSON serialized for OTel-safe span attributes
         assert attrs.get('value') == '"hello"'
-        assert attrs.get('variant') == 'default'
+        assert attrs.get('label') == 'default'
 
     def test_get_records_exception_on_span_when_validation_error(
         self, config_kwargs: dict[str, Any], variables_config: VariablesConfig, exporter: TestExporter
@@ -1740,7 +1702,7 @@ class TestVariable:
 
         # Verify the variable was resolved correctly
         assert details.value == 'hello'
-        assert details.variant == 'default'
+        assert details.label == 'default'
 
         # Verify NO "Resolve variable" span was created
         spans = exporter.exported_spans
@@ -1763,21 +1725,21 @@ class TestTargetingContext:
             variables={
                 'var_a': VariableConfig(
                     name='var_a',
-                    variants={
-                        'v1': Variant(key='v1', serialized_value='"value_1"'),
-                        'v2': Variant(key='v2', serialized_value='"value_2"'),
+                    labels={
+                        'v1': LabeledValue(version=1, serialized_value='"value_1"'),
+                        'v2': LabeledValue(version=1, serialized_value='"value_2"'),
                     },
-                    # 50/50 split - targeting_key determines which variant
-                    rollout=Rollout(variants={'v1': 0.5, 'v2': 0.5}),
+                    # 50/50 split - targeting_key determines which label
+                    rollout=Rollout(labels={'v1': 0.5, 'v2': 0.5}),
                     overrides=[],
                 ),
                 'var_b': VariableConfig(
                     name='var_b',
-                    variants={
-                        'v1': Variant(key='v1', serialized_value='"b_value_1"'),
-                        'v2': Variant(key='v2', serialized_value='"b_value_2"'),
+                    labels={
+                        'v1': LabeledValue(version=1, serialized_value='"b_value_1"'),
+                        'v2': LabeledValue(version=1, serialized_value='"b_value_2"'),
                     },
-                    rollout=Rollout(variants={'v1': 0.5, 'v2': 0.5}),
+                    rollout=Rollout(labels={'v1': 0.5, 'v2': 0.5}),
                     overrides=[],
                 ),
             }
@@ -1992,15 +1954,15 @@ class TestVariableContextEnrichment:
             variables={
                 'targeted_var': VariableConfig(
                     name='targeted_var',
-                    variants={
-                        'default': Variant(key='default', serialized_value='"default"'),
-                        'premium': Variant(key='premium', serialized_value='"premium"'),
+                    labels={
+                        'default': LabeledValue(version=1, serialized_value='"default"'),
+                        'premium': LabeledValue(version=1, serialized_value='"premium"'),
                     },
-                    rollout=Rollout(variants={'default': 1.0}),
+                    rollout=Rollout(labels={'default': 1.0}),
                     overrides=[
                         RolloutOverride(
                             conditions=[ValueEquals(attribute='plan', value='enterprise')],
-                            rollout=Rollout(variants={'premium': 1.0}),
+                            rollout=Rollout(labels={'premium': 1.0}),
                         ),
                     ],
                 ),
@@ -2117,8 +2079,8 @@ class TestLogfireVarIntegration:
                 variables={
                     'default_var': VariableConfig(
                         name='default_var',
-                        variants={'v1': Variant(key='v1', serialized_value='"string_value"')},
-                        rollout=Rollout(variants={'v1': 1.0}),
+                        labels={'v1': LabeledValue(version=1, serialized_value='"string_value"')},
+                        rollout=Rollout(labels={'v1': 1.0}),
                         overrides=[],
                     ),
                 }
@@ -2166,8 +2128,8 @@ class TestLocalVariableProviderWriteOperations:
             variables={
                 'existing_var': VariableConfig(
                     name='existing_var',
-                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
                 ),
             }
@@ -2193,8 +2155,8 @@ class TestLocalVariableProviderWriteOperations:
         provider = LocalVariableProvider(empty_config)
         new_config = VariableConfig(
             name='new_var',
-            variants={'v1': Variant(key='v1', serialized_value='"new_value"')},
-            rollout=Rollout(variants={'v1': 1.0}),
+            labels={'v1': LabeledValue(version=1, serialized_value='"new_value"')},
+            rollout=Rollout(labels={'v1': 1.0}),
             overrides=[],
         )
         result = provider.create_variable(new_config)
@@ -2207,8 +2169,8 @@ class TestLocalVariableProviderWriteOperations:
         provider = LocalVariableProvider(config_with_var)
         duplicate_config = VariableConfig(
             name='existing_var',
-            variants={'v1': Variant(key='v1', serialized_value='"value"')},
-            rollout=Rollout(variants={'v1': 1.0}),
+            labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+            rollout=Rollout(labels={'v1': 1.0}),
             overrides=[],
         )
         with pytest.raises(VariableAlreadyExistsError, match="Variable 'existing_var' already exists"):
@@ -2218,12 +2180,12 @@ class TestLocalVariableProviderWriteOperations:
         provider = LocalVariableProvider(config_with_var)
         updated_config = VariableConfig(
             name='existing_var',
-            variants={'v2': Variant(key='v2', serialized_value='"updated_value"')},
-            rollout=Rollout(variants={'v2': 1.0}),
+            labels={'v2': LabeledValue(version=1, serialized_value='"updated_value"')},
+            rollout=Rollout(labels={'v2': 1.0}),
             overrides=[],
         )
         result = provider.update_variable('existing_var', updated_config)
-        assert result.variants['v2'].serialized_value == '"updated_value"'
+        assert result.labels['v2'].serialized_value == '"updated_value"'
 
     def test_update_variable_not_found(self, empty_config: VariablesConfig):
         from logfire.variables.abstract import VariableNotFoundError
@@ -2231,8 +2193,8 @@ class TestLocalVariableProviderWriteOperations:
         provider = LocalVariableProvider(empty_config)
         new_config = VariableConfig(
             name='nonexistent',
-            variants={'v1': Variant(key='v1', serialized_value='"value"')},
-            rollout=Rollout(variants={'v1': 1.0}),
+            labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+            rollout=Rollout(labels={'v1': 1.0}),
             overrides=[],
         )
         with pytest.raises(VariableNotFoundError, match="Variable 'nonexistent' not found"):
@@ -2266,8 +2228,8 @@ class TestLogfireRemoteVariableProviderWriteOperations:
                 'variables': {
                     'my_var': {
                         'name': 'my_var',
-                        'variants': {'v1': {'key': 'v1', 'serialized_value': '"value"'}},
-                        'rollout': {'variants': {'v1': 1.0}},
+                        'labels': {'v1': {'version': 1, 'serialized_value': '"value"'}},
+                        'rollout': {'labels': {'v1': 1.0}},
                         'overrides': [],
                     }
                 }
@@ -2328,8 +2290,8 @@ class TestLogfireRemoteVariableProviderWriteOperations:
                 'variables': {
                     'my_var': {
                         'name': 'my_var',
-                        'variants': {'v1': {'key': 'v1', 'serialized_value': '"value"'}},
-                        'rollout': {'variants': {'v1': 1.0}},
+                        'labels': {'v1': {'version': 1, 'serialized_value': '"value"'}},
+                        'rollout': {'labels': {'v1': 1.0}},
                         'overrides': [],
                     }
                 }
@@ -2361,8 +2323,8 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             try:
                 config = VariableConfig(
                     name='new_var',
-                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
                     description='Test variable',
                     json_schema={'type': 'string'},
@@ -2386,8 +2348,8 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             try:
                 config = VariableConfig(
                     name='new_var',
-                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
                     description='Test variable',
                     json_schema={'type': 'string'},
@@ -2420,8 +2382,8 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             try:
                 config = VariableConfig(
                     name='existing_var',
-                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
                 )
                 with pytest.raises(VariableAlreadyExistsError, match="Variable 'existing_var' already exists"):
@@ -2444,8 +2406,8 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             try:
                 config = VariableConfig(
                     name='new_var',
-                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
                 )
                 with pytest.raises(VariableWriteError, match='Failed to create variable'):
@@ -2466,8 +2428,8 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             try:
                 config = VariableConfig(
                     name='my_var',
-                    variants={'v2': Variant(key='v2', serialized_value='"updated"')},
-                    rollout=Rollout(variants={'v2': 1.0}),
+                    labels={'v2': LabeledValue(version=1, serialized_value='"updated"')},
+                    rollout=Rollout(labels={'v2': 1.0}),
                     overrides=[],
                 )
                 result = provider.update_variable('my_var', config)
@@ -2490,8 +2452,8 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             try:
                 config = VariableConfig(
                     name='nonexistent',
-                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
                 )
                 with pytest.raises(VariableNotFoundError, match="Variable 'nonexistent' not found"):
@@ -2514,8 +2476,8 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             try:
                 config = VariableConfig(
                     name='my_var',
-                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
                 )
                 with pytest.raises(VariableWriteError, match='Failed to update variable'):
@@ -2588,8 +2550,8 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             try:
                 config = VariableConfig(
                     name='test_var',
-                    variants={'v1': Variant(key='v1', serialized_value='"value"', description='variant desc')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[
                         RolloutOverride(
                             conditions=[
@@ -2597,7 +2559,7 @@ class TestLogfireRemoteVariableProviderWriteOperations:
                                 ValueIsIn(attribute='attr2', values=['a', 'b']),
                                 ValueMatchesRegex(attribute='attr3', pattern=r'test.*'),
                             ],
-                            rollout=Rollout(variants={'v1': 1.0}),
+                            rollout=Rollout(labels={'v1': 1.0}),
                         )
                     ],
                     description='Test description',
@@ -2636,15 +2598,15 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             try:
                 config = VariableConfig(
                     name='test_var',
-                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[
                         RolloutOverride(
                             conditions=[
                                 KeyIsPresent(attribute='must_exist'),
                                 KeyIsNotPresent(attribute='must_not_exist'),
                             ],
-                            rollout=Rollout(variants={'v1': 1.0}),
+                            rollout=Rollout(labels={'v1': 1.0}),
                         )
                     ],
                 )
@@ -2681,8 +2643,8 @@ class TestVariablesConfigAliases:
             variables={
                 'new_name': VariableConfig(
                     name='new_name',
-                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
                     aliases=['old_name'],  # Aliases are now defined on each variable
                 ),
@@ -2699,8 +2661,8 @@ class TestVariablesConfigAliases:
             variables={
                 'actual_name': VariableConfig(
                     name='actual_name',
-                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
                     aliases=['alias1', 'alias2', 'alias3'],
                 ),
@@ -2718,8 +2680,8 @@ class TestVariablesConfigAliases:
             variables={
                 'real_var': VariableConfig(
                     name='real_var',
-                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
                 ),
             },
@@ -2734,8 +2696,8 @@ class TestVariablesConfigAliases:
             variables={
                 'var_name': VariableConfig(
                     name='var_name',
-                    variants={'v1': Variant(key='v1', serialized_value='"direct"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"direct"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
                     aliases=['some_alias'],
                 ),
@@ -2782,8 +2744,8 @@ class TestBaseVariableProviderWriteMethods:
         provider = MinimalProvider()
         config = VariableConfig(
             name='test',
-            variants={'v1': Variant(key='v1', serialized_value='"value"')},
-            rollout=Rollout(variants={'v1': 1.0}),
+            labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+            rollout=Rollout(labels={'v1': 1.0}),
             overrides=[],
         )
         with pytest.warns(UserWarning, match='does not persist variable writes'):
@@ -2802,8 +2764,8 @@ class TestBaseVariableProviderWriteMethods:
         provider = MinimalProvider()
         config = VariableConfig(
             name='test',
-            variants={'v1': Variant(key='v1', serialized_value='"value"')},
-            rollout=Rollout(variants={'v1': 1.0}),
+            labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+            rollout=Rollout(labels={'v1': 1.0}),
             overrides=[],
         )
         with pytest.warns(UserWarning, match='does not persist variable writes'):
@@ -2859,22 +2821,22 @@ class TestBaseVariableProviderWriteMethods:
         # Pre-create an existing var
         provider.configs['existing'] = VariableConfig(
             name='existing',
-            variants={'v1': Variant(key='v1', serialized_value='"old"')},
-            rollout=Rollout(variants={'v1': 1.0}),
+            labels={'v1': LabeledValue(version=1, serialized_value='"old"')},
+            rollout=Rollout(labels={'v1': 1.0}),
             overrides=[],
         )
 
         updates: dict[str, VariableConfig | None] = {
             'new_var': VariableConfig(
                 name='new_var',
-                variants={'v1': Variant(key='v1', serialized_value='"new"')},
-                rollout=Rollout(variants={'v1': 1.0}),
+                labels={'v1': LabeledValue(version=1, serialized_value='"new"')},
+                rollout=Rollout(labels={'v1': 1.0}),
                 overrides=[],
             ),
             'existing': VariableConfig(
                 name='existing',
-                variants={'v2': Variant(key='v2', serialized_value='"updated"')},
-                rollout=Rollout(variants={'v2': 1.0}),
+                labels={'v2': LabeledValue(version=1, serialized_value='"updated"')},
+                rollout=Rollout(labels={'v2': 1.0}),
                 overrides=[],
             ),
             'to_delete': None,
@@ -2882,8 +2844,8 @@ class TestBaseVariableProviderWriteMethods:
         # Add to_delete to configs first
         provider.configs['to_delete'] = VariableConfig(
             name='to_delete',
-            variants={'v1': Variant(key='v1', serialized_value='"value"')},
-            rollout=Rollout(variants={'v1': 1.0}),
+            labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+            rollout=Rollout(labels={'v1': 1.0}),
             overrides=[],
         )
 
@@ -2941,8 +2903,8 @@ class TestPushVariables:
             variables={
                 'my_var': VariableConfig(
                     name='my_var',
-                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
                     json_schema={'type': 'string'},
                 ),
@@ -2972,7 +2934,7 @@ class TestPushVariables:
     def test_push_variables_create_with_function_default(
         self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]
     ):
-        """Test push_variables with a function default (no default variant)."""
+        """Test push_variables with a function default (no default label)."""
 
         def resolve_fn(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
             return 'computed'  # pragma: no cover
@@ -2991,8 +2953,8 @@ class TestPushVariables:
             variables={
                 'my_var': VariableConfig(
                     name='my_var',
-                    variants={'v1': Variant(key='v1', serialized_value='123')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='123')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
                     json_schema={'type': 'integer'},  # Old schema
                 ),
@@ -3007,16 +2969,16 @@ class TestPushVariables:
         captured = capsys.readouterr()
         assert 'Variables to UPDATE' in captured.out
 
-    def test_push_variables_update_with_incompatible_variants(
+    def test_push_variables_update_with_incompatible_labels(
         self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]
     ):
-        """Test push_variables with incompatible variants warning."""
+        """Test push_variables with incompatible labels warning."""
         server_config = VariablesConfig(
             variables={
                 'my_var': VariableConfig(
                     name='my_var',
-                    variants={'v1': Variant(key='v1', serialized_value='"not_an_int"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"not_an_int"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
                     json_schema={'type': 'string'},
                 ),
@@ -3024,7 +2986,7 @@ class TestPushVariables:
         )
         provider = LocalVariableProvider(server_config)
         lf = logfire.configure(**config_kwargs)
-        # Changing from string to int - existing variant is incompatible
+        # Changing from string to int - existing label is incompatible
         var = lf.var(name='my_var', default=0, type=int)
         result = provider.push_variables([var], yes=True)
         assert result is True
@@ -3034,13 +2996,13 @@ class TestPushVariables:
     def test_push_variables_strict_mode_fails_with_incompatible(
         self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]
     ):
-        """Test push_variables in strict mode fails with incompatible variants."""
+        """Test push_variables in strict mode fails with incompatible labels."""
         server_config = VariablesConfig(
             variables={
                 'my_var': VariableConfig(
                     name='my_var',
-                    variants={'v1': Variant(key='v1', serialized_value='"not_an_int"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"not_an_int"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
                     json_schema={'type': 'string'},
                 ),
@@ -3076,8 +3038,8 @@ class TestPushVariables:
             variables={
                 'orphaned_var': VariableConfig(
                     name='orphaned_var',
-                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
                 ),
             }
@@ -3099,8 +3061,8 @@ class TestPushVariables:
             variables={
                 'my_var': VariableConfig(
                     name='my_var',
-                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
                     description='Old description',
                     json_schema={'type': 'string'},
@@ -3131,13 +3093,13 @@ class TestValidateVariables:
         assert result.variables_not_on_server == []
 
     def test_validate_variables_all_valid(self, config_kwargs: dict[str, Any]):
-        """Test validate_variables with all valid variants."""
+        """Test validate_variables with all valid labels."""
         server_config = VariablesConfig(
             variables={
                 'my_var': VariableConfig(
                     name='my_var',
-                    variants={'v1': Variant(key='v1', serialized_value='"valid_string"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"valid_string"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
                 ),
             }
@@ -3157,8 +3119,8 @@ class TestValidateVariables:
             variables={
                 'my_var': VariableConfig(
                     name='my_var',
-                    variants={'v1': Variant(key='v1', serialized_value='"not_an_int"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"not_an_int"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
                 ),
             }
@@ -3170,7 +3132,7 @@ class TestValidateVariables:
         assert not result.is_valid
         assert len(result.errors) == 1
         assert result.errors[0].variable_name == 'my_var'
-        assert result.errors[0].variant_key == 'v1'
+        assert result.errors[0].label == 'v1'
         # Check that format() produces output about the error
         formatted = result.format(colors=False)
         assert 'my_var' in formatted
@@ -3195,8 +3157,8 @@ class TestValidateVariables:
             variables={
                 'my_var': VariableConfig(
                     name='my_var',
-                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
                     description='Server description',
                 ),
@@ -3206,7 +3168,7 @@ class TestValidateVariables:
         lf = logfire.configure(**config_kwargs)
         var = lf.var(name='my_var', default='default', type=str, description='Local description')
         result = provider.validate_variables([var])
-        # The variable is valid (variants match) but has description differences
+        # The variable is valid (labels match) but has description differences
         assert result.is_valid  # No validation errors
         assert len(result.description_differences) == 1
         assert result.description_differences[0].variable_name == 'my_var'
@@ -3349,17 +3311,17 @@ class TestPushValidateErrorHandling:
 
 
 class TestAdditionalEdgeCases:
-    def test_push_variables_with_compatible_variants(
+    def test_push_variables_with_compatible_labels(
         self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]
     ):
-        """Test push_variables when existing variants are compatible with the new schema."""
-        # Server has a string variable with string variants
+        """Test push_variables when existing labels are compatible with the new schema."""
+        # Server has a string variable with string labels
         server_config = VariablesConfig(
             variables={
                 'my_var': VariableConfig(
                     name='my_var',
-                    variants={'v1': Variant(key='v1', serialized_value='"compatible_value"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"compatible_value"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
                     json_schema={'type': 'integer'},  # Old schema is integer
                 ),
@@ -3419,14 +3381,14 @@ class TestAdditionalEdgeCases:
             variables={
                 'complex_var': VariableConfig(
                     name='complex_var',
-                    variants={
-                        'v1': Variant(
-                            key='v1',
+                    labels={
+                        'v1': LabeledValue(
+                            version=1,
                             # This JSON won't validate against a complex Pydantic model
                             serialized_value='{"invalid": "structure", "with": "many", "fields": "that", "are": "wrong"}',
                         )
                     },
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
                 ),
             }
@@ -3466,8 +3428,8 @@ class TestVariableToConfig:
         assert config.name == 'my_var'
         assert config.description == 'Test desc'
         assert config.example == '"hello"'
-        assert config.variants == {}
-        assert config.rollout.variants == {}
+        assert config.labels == {}
+        assert config.rollout.labels == {}
         assert config.overrides == []
 
     def test_to_config_with_function_default(self, config_kwargs: dict[str, Any]):
@@ -3485,106 +3447,6 @@ class TestVariableToConfig:
 
 
 # =============================================================================
-# Test use_variant (explicit variant selection)
-# =============================================================================
-
-
-class TestUseVariant:
-    """Tests for the use_variant context manager and variant parameter."""
-
-    @pytest.fixture
-    def variant_config(self) -> VariablesConfig:
-        """Config with multiple variants."""
-        return VariablesConfig(
-            variables={
-                'feature_var': VariableConfig(
-                    name='feature_var',
-                    variants={
-                        'default': Variant(key='default', serialized_value='"default_value"'),
-                        'experimental': Variant(key='experimental', serialized_value='"experimental_value"'),
-                        'legacy': Variant(key='legacy', serialized_value='"legacy_value"'),
-                    },
-                    rollout=Rollout(variants={'default': 1.0}),  # 100% default
-                    overrides=[],
-                ),
-            }
-        )
-
-    def test_get_with_variant_parameter(self, config_kwargs: dict[str, Any], variant_config: VariablesConfig):
-        """Test getting a specific variant via the variant parameter."""
-        config_kwargs['variables'] = VariablesOptions(config=variant_config)
-        lf = logfire.configure(**config_kwargs)
-        var = lf.var(name='feature_var', default='code_default', type=str)
-
-        # Without variant param, uses rollout (100% default)
-        assert var.get().value == 'default_value'
-        assert var.get().variant == 'default'
-
-        # With variant param, bypasses rollout
-        result = var.get(variant='experimental')
-        assert result.value == 'experimental_value'
-        assert result.variant == 'experimental'
-
-        result = var.get(variant='legacy')
-        assert result.value == 'legacy_value'
-        assert result.variant == 'legacy'
-
-    def test_get_with_nonexistent_variant(self, config_kwargs: dict[str, Any], variant_config: VariablesConfig):
-        """Test that nonexistent variant falls back to normal resolution."""
-        config_kwargs['variables'] = VariablesOptions(config=variant_config)
-        lf = logfire.configure(**config_kwargs)
-        var = lf.var(name='feature_var', default='code_default', type=str)
-
-        # Nonexistent variant should fall through to normal resolution
-        result = var.get(variant='nonexistent')
-        assert result.value == 'default_value'  # Falls back to rollout resolution
-        assert result.variant == 'default'
-
-    def test_use_variant_context_manager(self, config_kwargs: dict[str, Any], variant_config: VariablesConfig):
-        """Test the use_variant context manager."""
-        config_kwargs['variables'] = VariablesOptions(config=variant_config)
-        lf = logfire.configure(**config_kwargs)
-        var = lf.var(name='feature_var', default='code_default', type=str)
-
-        assert var.get().value == 'default_value'
-
-        with var.use_variant('experimental'):
-            assert var.get().value == 'experimental_value'
-            assert var.get().variant == 'experimental'
-
-        assert var.get().value == 'default_value'
-
-    def test_use_variant_nested(self, config_kwargs: dict[str, Any], variant_config: VariablesConfig):
-        """Test nested use_variant contexts."""
-        config_kwargs['variables'] = VariablesOptions(config=variant_config)
-        lf = logfire.configure(**config_kwargs)
-        var = lf.var(name='feature_var', default='code_default', type=str)
-
-        with var.use_variant('experimental'):
-            assert var.get().value == 'experimental_value'
-
-            with var.use_variant('legacy'):
-                assert var.get().value == 'legacy_value'
-
-            assert var.get().value == 'experimental_value'
-
-        assert var.get().value == 'default_value'
-
-    def test_variant_param_overrides_context(self, config_kwargs: dict[str, Any], variant_config: VariablesConfig):
-        """Test that call-site variant param overrides context."""
-        config_kwargs['variables'] = VariablesOptions(config=variant_config)
-        lf = logfire.configure(**config_kwargs)
-        var = lf.var(name='feature_var', default='code_default', type=str)
-
-        with var.use_variant('experimental'):
-            # Context says experimental, but call-site says legacy
-            result = var.get(variant='legacy')
-            # Call-site variant wins (variant param is checked first in get method)
-            # Actually, checking the code - the call-site variant is used directly
-            assert result.value == 'legacy_value'
-
-
-# =============================================================================
 # Test on_change callbacks
 # =============================================================================
 
@@ -3596,8 +3458,8 @@ class TestOnChangeCallbacks:
             variables={
                 'my_var': VariableConfig(
                     name='my_var',
-                    variants={'a': Variant(key='a', serialized_value='"hello"')},
-                    rollout=Rollout(variants={'a': 1.0}),
+                    labels={'a': LabeledValue(version=1, serialized_value='"hello"')},
+                    rollout=Rollout(labels={'a': 1.0}),
                     overrides=[],
                 ),
             }
@@ -3619,8 +3481,8 @@ class TestOnChangeCallbacks:
             'my_var',
             VariableConfig(
                 name='my_var',
-                variants={'a': Variant(key='a', serialized_value='"world"')},
-                rollout=Rollout(variants={'a': 1.0}),
+                labels={'a': LabeledValue(version=1, serialized_value='"world"')},
+                rollout=Rollout(labels={'a': 1.0}),
                 overrides=[],
             ),
         )
@@ -3633,8 +3495,8 @@ class TestOnChangeCallbacks:
             variables={
                 'my_var': VariableConfig(
                     name='my_var',
-                    variants={'a': Variant(key='a', serialized_value='"hello"')},
-                    rollout=Rollout(variants={'a': 1.0}),
+                    labels={'a': LabeledValue(version=1, serialized_value='"hello"')},
+                    rollout=Rollout(labels={'a': 1.0}),
                     overrides=[],
                 ),
             }
@@ -3658,8 +3520,8 @@ class TestOnChangeCallbacks:
             variables={
                 'my_var': VariableConfig(
                     name='my_var',
-                    variants={'a': Variant(key='a', serialized_value='"hello"')},
-                    rollout=Rollout(variants={'a': 1.0}),
+                    labels={'a': LabeledValue(version=1, serialized_value='"hello"')},
+                    rollout=Rollout(labels={'a': 1.0}),
                     overrides=[],
                 ),
             }
@@ -3686,8 +3548,8 @@ class TestOnChangeCallbacks:
             'my_var',
             VariableConfig(
                 name='my_var',
-                variants={'a': Variant(key='a', serialized_value='"world"')},
-                rollout=Rollout(variants={'a': 1.0}),
+                labels={'a': LabeledValue(version=1, serialized_value='"world"')},
+                rollout=Rollout(labels={'a': 1.0}),
                 overrides=[],
             ),
         )
@@ -3700,8 +3562,8 @@ class TestOnChangeCallbacks:
             variables={
                 'my_var': VariableConfig(
                     name='my_var',
-                    variants={'a': Variant(key='a', serialized_value='"hello"')},
-                    rollout=Rollout(variants={'a': 1.0}),
+                    labels={'a': LabeledValue(version=1, serialized_value='"hello"')},
+                    rollout=Rollout(labels={'a': 1.0}),
                     overrides=[],
                 ),
             }
@@ -3727,8 +3589,8 @@ class TestOnChangeCallbacks:
             'my_var',
             VariableConfig(
                 name='my_var',
-                variants={'a': Variant(key='a', serialized_value='"world"')},
-                rollout=Rollout(variants={'a': 1.0}),
+                labels={'a': LabeledValue(version=1, serialized_value='"world"')},
+                rollout=Rollout(labels={'a': 1.0}),
                 overrides=[],
             ),
         )
@@ -3756,8 +3618,8 @@ class TestOnChangeCallbacks:
         provider.create_variable(
             VariableConfig(
                 name='new_var',
-                variants={'a': Variant(key='a', serialized_value='"hello"')},
-                rollout=Rollout(variants={'a': 1.0}),
+                labels={'a': LabeledValue(version=1, serialized_value='"hello"')},
+                rollout=Rollout(labels={'a': 1.0}),
                 overrides=[],
             ),
         )
@@ -3770,8 +3632,8 @@ class TestOnChangeCallbacks:
             variables={
                 'my_var': VariableConfig(
                     name='my_var',
-                    variants={'a': Variant(key='a', serialized_value='"hello"')},
-                    rollout=Rollout(variants={'a': 1.0}),
+                    labels={'a': LabeledValue(version=1, serialized_value='"hello"')},
+                    rollout=Rollout(labels={'a': 1.0}),
                     overrides=[],
                 ),
             }
@@ -3798,14 +3660,14 @@ class TestOnChangeCallbacks:
             variables={
                 'var_a': VariableConfig(
                     name='var_a',
-                    variants={'x': Variant(key='x', serialized_value='"a_value"')},
-                    rollout=Rollout(variants={'x': 1.0}),
+                    labels={'x': LabeledValue(version=1, serialized_value='"a_value"')},
+                    rollout=Rollout(labels={'x': 1.0}),
                     overrides=[],
                 ),
                 'var_b': VariableConfig(
                     name='var_b',
-                    variants={'x': Variant(key='x', serialized_value='"b_value"')},
-                    rollout=Rollout(variants={'x': 1.0}),
+                    labels={'x': LabeledValue(version=1, serialized_value='"b_value"')},
+                    rollout=Rollout(labels={'x': 1.0}),
                     overrides=[],
                 ),
             }
@@ -3833,8 +3695,8 @@ class TestOnChangeCallbacks:
             'var_a',
             VariableConfig(
                 name='var_a',
-                variants={'x': Variant(key='x', serialized_value='"new_a"')},
-                rollout=Rollout(variants={'x': 1.0}),
+                labels={'x': LabeledValue(version=1, serialized_value='"new_a"')},
+                rollout=Rollout(labels={'x': 1.0}),
                 overrides=[],
             ),
         )
@@ -3951,8 +3813,8 @@ class TestVariableGetReprFallback:
             variables={
                 'repr_var': VariableConfig(
                     name='repr_var',
-                    variants={'v1': Variant(key='v1', serialized_value='"hello"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"hello"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[],
                 ),
             }
@@ -3973,10 +3835,10 @@ class TestValidationReportHasErrors:
 
     def test_has_errors_with_errors(self):
         """has_errors returns True when there are validation errors."""
-        from logfire.variables.abstract import ValidationReport, VariantValidationError
+        from logfire.variables.abstract import LabelValidationError, ValidationReport
 
         report = ValidationReport(
-            errors=[VariantValidationError(variable_name='test', variant_key='v1', error=ValueError('bad'))],
+            errors=[LabelValidationError(variable_name='test', label='staging', error=ValueError('bad'))],
             variables_checked=1,
             variables_not_on_server=[],
             description_differences=[],
@@ -4036,12 +3898,12 @@ class TestNotifyConfigChangeError:
 
 
 class TestGetSerializedValueForVariantUnknown:
-    """Test get_serialized_value_for_variant when the variable doesn't exist."""
+    """Test get_serialized_value_for_label when the variable doesn't exist."""
 
     def test_unknown_variable_returns_unrecognized(self):
         """Default implementation returns unrecognized when variable config is None."""
         provider = NoOpVariableProvider()
-        result = provider.get_serialized_value_for_variant('nonexistent', 'v1')
+        result = provider.get_serialized_value_for_label('nonexistent', 'v1')
         assert result.value is None
         assert result._reason == 'unrecognized_variable'
 
@@ -4099,12 +3961,12 @@ class TestNegativeRolloutWeights:
 
     def test_negative_weight_raises_validation_error(self):
         """Negative variant proportions should raise."""
-        with pytest.raises(ValidationError, match='Variant proportions must not be negative'):
+        with pytest.raises(ValidationError, match='Label proportions must not be negative'):
             VariableConfig.model_validate(
                 {
                     'name': 'test',
-                    'variants': {'v1': {'key': 'v1', 'serialized_value': '"value"'}},
-                    'rollout': {'variants': {'v1': -0.5}},
+                    'labels': {'v1': {'version': 1, 'serialized_value': '"value"'}},
+                    'rollout': {'labels': {'v1': -0.5}},
                     'overrides': [],
                 }
             )
@@ -4159,8 +4021,8 @@ class TestReconfigureWithExistingVariables:
             variables={
                 'my_var': VariableConfig(
                     name='my_var',
-                    variants={'a': Variant(key='a', serialized_value='"hello"')},
-                    rollout=Rollout(variants={'a': 1.0}),
+                    labels={'a': LabeledValue(version=1, serialized_value='"hello"')},
+                    rollout=Rollout(labels={'a': 1.0}),
                     overrides=[],
                 ),
             }
@@ -4182,8 +4044,8 @@ class TestReconfigureWithExistingVariables:
             variables={
                 'my_var': VariableConfig(
                     name='my_var',
-                    variants={'a': Variant(key='a', serialized_value='"reconfigured"')},
-                    rollout=Rollout(variants={'a': 1.0}),
+                    labels={'a': LabeledValue(version=1, serialized_value='"reconfigured"')},
+                    rollout=Rollout(labels={'a': 1.0}),
                     overrides=[],
                 ),
             }
@@ -4199,8 +4061,8 @@ class TestReconfigureWithExistingVariables:
             'my_var',
             VariableConfig(
                 name='my_var',
-                variants={'a': Variant(key='a', serialized_value='"after_reconfigure"')},
-                rollout=Rollout(variants={'a': 1.0}),
+                labels={'a': LabeledValue(version=1, serialized_value='"after_reconfigure"')},
+                rollout=Rollout(labels={'a': 1.0}),
                 overrides=[],
             ),
         )
@@ -4221,8 +4083,8 @@ class TestRemoteProviderChangeDetection:
                     'variables': {
                         'my_var': {
                             'name': 'my_var',
-                            'variants': {'v1': {'key': 'v1', 'serialized_value': '"initial"'}},
-                            'rollout': {'variants': {'v1': 1.0}},
+                            'labels': {'v1': {'version': 1, 'serialized_value': '"initial"'}},
+                            'rollout': {'labels': {'v1': 1.0}},
                             'overrides': [],
                         }
                     }
@@ -4233,8 +4095,8 @@ class TestRemoteProviderChangeDetection:
                     'variables': {
                         'my_var': {
                             'name': 'my_var',
-                            'variants': {'v1': {'key': 'v1', 'serialized_value': '"updated"'}},
-                            'rollout': {'variants': {'v1': 1.0}},
+                            'labels': {'v1': {'version': 2, 'serialized_value': '"updated"'}},
+                            'rollout': {'labels': {'v1': 1.0}},
                             'overrides': [],
                         }
                     }
@@ -4272,8 +4134,8 @@ class TestRemoteProviderChangeDetection:
                 'variables': {
                     'my_var': {
                         'name': 'my_var',
-                        'variants': {'v1': {'key': 'v1', 'serialized_value': '"same"'}},
-                        'rollout': {'variants': {'v1': 1.0}},
+                        'labels': {'v1': {'version': 1, 'serialized_value': '"same"'}},
+                        'rollout': {'labels': {'v1': 1.0}},
                         'overrides': [],
                     }
                 }
@@ -4345,157 +4207,6 @@ class TestRemoteProviderForceRefreshEvent:
 
 
 @pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
-class TestRemoteProviderUpdateVariantDiff:
-    """Test update_variable with existing config (variant diff logic)."""
-
-    def test_update_sends_only_changed_variants(self):
-        """When updating a variable, only changed variants are sent."""
-        request_mocker = requests_mock_module.Mocker()
-        request_mocker.get(
-            'http://localhost:8000/v1/variables/',
-            json={
-                'variables': {
-                    'my_var': {
-                        'name': 'my_var',
-                        'variants': {
-                            'v1': {'key': 'v1', 'serialized_value': '"old_value"'},
-                            'v2': {'key': 'v2', 'serialized_value': '"unchanged"'},
-                        },
-                        'rollout': {'variants': {'v1': 0.5, 'v2': 0.5}},
-                        'overrides': [],
-                    }
-                }
-            },
-        )
-        put_adapter = request_mocker.put('http://localhost:8000/v1/variables/my_var/', json={'name': 'my_var'})
-        with request_mocker:
-            provider = LogfireRemoteVariableProvider(
-                base_url=REMOTE_BASE_URL,
-                token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(block_before_first_resolve=True, polling_interval=timedelta(seconds=60)),
-            )
-            try:
-                provider.refresh(force=True)
-
-                # Update with v1 changed and v2 unchanged
-                new_config = VariableConfig(
-                    name='my_var',
-                    variants={
-                        'v1': Variant(key='v1', serialized_value='"new_value"'),
-                        'v2': Variant(key='v2', serialized_value='"unchanged"'),
-                    },
-                    rollout=Rollout(variants={'v1': 0.5, 'v2': 0.5}),
-                    overrides=[],
-                )
-                provider.update_variable('my_var', new_config)
-
-                assert put_adapter.call_count == 1
-                assert put_adapter.last_request is not None
-                body = put_adapter.last_request.json()
-                # Only v1 should be in the variants (v2 is unchanged)
-                assert 'variants' in body
-                assert 'v1' in body['variants']
-                assert 'v2' not in body['variants']
-            finally:
-                provider.shutdown()
-
-    def test_update_sends_new_variant(self):
-        """When updating with a new variant not in existing config, it's sent."""
-        request_mocker = requests_mock_module.Mocker()
-        request_mocker.get(
-            'http://localhost:8000/v1/variables/',
-            json={
-                'variables': {
-                    'my_var': {
-                        'name': 'my_var',
-                        'variants': {'v1': {'key': 'v1', 'serialized_value': '"value"'}},
-                        'rollout': {'variants': {'v1': 1.0}},
-                        'overrides': [],
-                    }
-                }
-            },
-        )
-        put_adapter = request_mocker.put('http://localhost:8000/v1/variables/my_var/', json={'name': 'my_var'})
-        with request_mocker:
-            provider = LogfireRemoteVariableProvider(
-                base_url=REMOTE_BASE_URL,
-                token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(block_before_first_resolve=True, polling_interval=timedelta(seconds=60)),
-            )
-            try:
-                provider.refresh(force=True)
-
-                # Add v2 which doesn't exist on server
-                new_config = VariableConfig(
-                    name='my_var',
-                    variants={
-                        'v1': Variant(key='v1', serialized_value='"value"'),
-                        'v2': Variant(key='v2', serialized_value='"new_variant"'),
-                    },
-                    rollout=Rollout(variants={'v1': 0.5, 'v2': 0.5}),
-                    overrides=[],
-                )
-                provider.update_variable('my_var', new_config)
-
-                assert put_adapter.call_count == 1
-                assert put_adapter.last_request is not None
-                body = put_adapter.last_request.json()
-                # v2 is new, should be sent. v1 unchanged, should not be sent.
-                assert 'variants' in body
-                assert 'v2' in body['variants']
-                assert 'v1' not in body['variants']
-            finally:
-                provider.shutdown()
-
-    def test_update_sends_variant_with_changed_description(self):
-        """When variant description changes, the variant is sent."""
-        request_mocker = requests_mock_module.Mocker()
-        request_mocker.get(
-            'http://localhost:8000/v1/variables/',
-            json={
-                'variables': {
-                    'my_var': {
-                        'name': 'my_var',
-                        'variants': {
-                            'v1': {'key': 'v1', 'serialized_value': '"value"', 'description': 'Old description'},
-                        },
-                        'rollout': {'variants': {'v1': 1.0}},
-                        'overrides': [],
-                    }
-                }
-            },
-        )
-        put_adapter = request_mocker.put('http://localhost:8000/v1/variables/my_var/', json={'name': 'my_var'})
-        with request_mocker:
-            provider = LogfireRemoteVariableProvider(
-                base_url=REMOTE_BASE_URL,
-                token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(block_before_first_resolve=True, polling_interval=timedelta(seconds=60)),
-            )
-            try:
-                provider.refresh(force=True)
-
-                new_config = VariableConfig(
-                    name='my_var',
-                    variants={
-                        'v1': Variant(key='v1', serialized_value='"value"', description='New description'),
-                    },
-                    rollout=Rollout(variants={'v1': 1.0}),
-                    overrides=[],
-                )
-                provider.update_variable('my_var', new_config)
-
-                assert put_adapter.call_count == 1
-                assert put_adapter.last_request is not None
-                body = put_adapter.last_request.json()
-                assert 'variants' in body
-                assert 'v1' in body['variants']
-                assert body['variants']['v1']['description'] == 'New description'
-            finally:
-                provider.shutdown()
-
-
-@pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
 class TestRemoteProviderConditionExtraFields:
     """Test _condition_extra_fields with various condition types."""
 
@@ -4513,8 +4224,8 @@ class TestRemoteProviderConditionExtraFields:
             try:
                 config = VariableConfig(
                     name='test',
-                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[
                         RolloutOverride(
                             conditions=[
@@ -4522,7 +4233,7 @@ class TestRemoteProviderConditionExtraFields:
                                 ValueIsNotIn(attribute='region', values=['eu', 'us']),
                                 ValueDoesNotMatchRegex(attribute='email', pattern=r'@test\.com$'),
                             ],
-                            rollout=Rollout(variants={'v1': 1.0}),
+                            rollout=Rollout(labels={'v1': 1.0}),
                         )
                     ],
                 )
@@ -4557,14 +4268,14 @@ class TestRemoteProviderConditionExtraFields:
             try:
                 config = VariableConfig(
                     name='test',
-                    variants={'v1': Variant(key='v1', serialized_value='"value"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
+                    labels={'v1': LabeledValue(version=1, serialized_value='"value"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
                     overrides=[
                         RolloutOverride(
                             conditions=[
                                 ValueMatchesRegex(attribute='name', pattern=re.compile(r'^test_\d+')),
                             ],
-                            rollout=Rollout(variants={'v1': 1.0}),
+                            rollout=Rollout(labels={'v1': 1.0}),
                         )
                     ],
                 )
@@ -4899,66 +4610,6 @@ class TestPushVariableTypes:
         assert 'Error applying changes' in captured.out
 
 
-@pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
-class TestRemoteProviderVariantsOverrideBody:
-    """Test _config_to_api_body with non-empty variants_override."""
-
-    def test_variants_override_non_empty(self):
-        """When variants_override is non-empty, only those variants are serialized."""
-        request_mocker = requests_mock_module.Mocker()
-        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
-        with request_mocker:
-            provider = LogfireRemoteVariableProvider(
-                base_url=REMOTE_BASE_URL,
-                token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
-            )
-            try:
-                config = VariableConfig(
-                    name='test',
-                    variants={
-                        'v1': Variant(key='v1', serialized_value='"a"', description='Variant 1'),
-                        'v2': Variant(key='v2', serialized_value='"b"'),
-                    },
-                    rollout=Rollout(variants={'v1': 0.5, 'v2': 0.5}),
-                    overrides=[],
-                )
-
-                # Test with variants_override containing only v1
-                override = {'v1': Variant(key='v1', serialized_value='"new_a"', description='Updated')}
-                body = provider._config_to_api_body(config, variants_override=override)
-                assert 'variants' in body
-                assert len(body['variants']) == 1
-                assert 'v1' in body['variants']
-                assert body['variants']['v1']['description'] == 'Updated'
-            finally:
-                provider.shutdown()
-
-    def test_variants_override_empty_dict(self):
-        """When variants_override is an empty dict, no variants key in body."""
-        request_mocker = requests_mock_module.Mocker()
-        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
-        with request_mocker:
-            provider = LogfireRemoteVariableProvider(
-                base_url=REMOTE_BASE_URL,
-                token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
-            )
-            try:
-                config = VariableConfig(
-                    name='test',
-                    variants={'v1': Variant(key='v1', serialized_value='"a"')},
-                    rollout=Rollout(variants={'v1': 1.0}),
-                    overrides=[],
-                )
-
-                # Empty override dict — no variants sent
-                body = provider._config_to_api_body(config, variants_override={})
-                assert 'variants' not in body
-            finally:
-                provider.shutdown()
-
-
 class TestResolveVariantDeserializationError:
     """Test the error path when deserialization fails for an explicitly requested variant."""
 
@@ -4969,10 +4620,10 @@ class TestResolveVariantDeserializationError:
                 'typed_var': VariableConfig(
                     name='typed_var',
                     json_schema={'type': 'integer'},
-                    variants={
-                        'bad_variant': Variant(key='bad_variant', serialized_value='"not_an_int"'),
+                    labels={
+                        'bad_variant': LabeledValue(version=1, serialized_value='"not_an_int"'),
                     },
-                    rollout=Rollout(variants={'bad_variant': 1.0}),
+                    rollout=Rollout(labels={'bad_variant': 1.0}),
                     overrides=[],
                 )
             }
@@ -4981,63 +4632,10 @@ class TestResolveVariantDeserializationError:
         lf = logfire.configure(**config_kwargs)
         var = lf.var(name='typed_var', default=99, type=int)
 
-        result = var.get(variant='bad_variant')
+        result = var.get(label='bad_variant')
         # Should fall back to default because the variant value is invalid
         assert result.value == 99
         assert result.exception is not None
-
-
-@pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
-class TestRemoteProviderUpdateVariableNotInExistingConfig:
-    """Test update_variable when the variable is in _config but not in the variables dict."""
-
-    def test_update_variable_not_in_existing_config(self):
-        """When _config is set but variable isn't in it, all variants should be sent."""
-        request_mocker = requests_mock_module.Mocker()
-        # Server returns config with a DIFFERENT variable, not the one we're updating
-        request_mocker.get(
-            'http://localhost:8000/v1/variables/',
-            json={
-                'variables': {
-                    'other_var': {
-                        'name': 'other_var',
-                        'variants': {'v1': {'key': 'v1', 'serialized_value': '"x"'}},
-                        'rollout': {'variants': {'v1': 1.0}},
-                        'overrides': [],
-                    }
-                }
-            },
-        )
-        put_adapter = request_mocker.put('http://localhost:8000/v1/variables/my_var/', json={'name': 'my_var'})
-        with request_mocker:
-            provider = LogfireRemoteVariableProvider(
-                base_url=REMOTE_BASE_URL,
-                token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(block_before_first_resolve=True, polling_interval=timedelta(seconds=60)),
-            )
-            try:
-                provider.refresh(force=True)
-
-                new_config = VariableConfig(
-                    name='my_var',
-                    variants={
-                        'v1': Variant(key='v1', serialized_value='"hello"'),
-                        'v2': Variant(key='v2', serialized_value='"world"'),
-                    },
-                    rollout=Rollout(variants={'v1': 0.5, 'v2': 0.5}),
-                    overrides=[],
-                )
-                provider.update_variable('my_var', new_config)
-
-                assert put_adapter.call_count == 1
-                assert put_adapter.last_request is not None
-                body = put_adapter.last_request.json()
-                # Since 'my_var' is not in existing config, all variants should be sent (no diff optimization)
-                assert 'variants' in body
-                assert 'v1' in body['variants']
-                assert 'v2' in body['variants']
-            finally:
-                provider.shutdown()
 
 
 class TestGetSourceHintNoModule:

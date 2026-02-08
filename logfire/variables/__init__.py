@@ -23,6 +23,8 @@ if TYPE_CHECKING:
     from logfire.variables.config import (
         KeyIsNotPresent,
         KeyIsPresent,
+        LabeledValue,
+        LatestVersion,
         RemoteVariablesConfig,
         Rollout,
         RolloutOverride,
@@ -35,7 +37,6 @@ if TYPE_CHECKING:
         VariableConfig,
         VariablesConfig,
         VariableTypeConfig,
-        Variant,
     )
     from logfire.variables.local import LocalVariableProvider
     from logfire.variables.remote import LogfireRemoteVariableProvider
@@ -55,8 +56,9 @@ __all__ = [
     'VariableConfig',
     'VariableTypeConfig',
     'RemoteVariablesConfig',
-    # Variant and rollout configuration
-    'Variant',
+    # Label and rollout configuration
+    'LabeledValue',
+    'LatestVersion',
     'Rollout',
     'RolloutOverride',
     # Targeting conditions
@@ -99,6 +101,8 @@ def __getattr__(name: str):
     from logfire.variables.config import (
         KeyIsNotPresent,
         KeyIsPresent,
+        LabeledValue,
+        LatestVersion,
         RemoteVariablesConfig,
         Rollout,
         RolloutOverride,
@@ -111,7 +115,6 @@ def __getattr__(name: str):
         VariableConfig,
         VariablesConfig,
         VariableTypeConfig,
-        Variant,
     )
     from logfire.variables.local import LocalVariableProvider
     from logfire.variables.remote import LogfireRemoteVariableProvider
