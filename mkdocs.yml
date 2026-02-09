@@ -94,6 +94,7 @@ nav:
               - vs Grafana: comparisons/grafana.md
           - Concepts: concepts.md
           - Get Help: help.md
+          - Troubleshooting: troubleshooting.md
           - Onboarding Checklist:
               - Onboarding Checklist: guides/onboarding-checklist/index.md
               - Integrate Logfire: guides/onboarding-checklist/integrate.md
