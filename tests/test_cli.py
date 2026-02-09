@@ -1710,11 +1710,8 @@ def test_instrument_fastapi_global_instrumentation(exporter: TestExporter) -> No
         assert 'fastapi.endpoint_function.start_timestamp' in root_span['attributes']
         assert 'fastapi.endpoint_function.end_timestamp' in root_span['attributes']
     finally:
-        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-
         with uninstrument:
             pass
-        FastAPIInstrumentor().uninstrument()
 
 
 def test_split_args_action() -> None:

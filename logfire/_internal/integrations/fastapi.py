@@ -51,7 +51,7 @@ def find_mounted_apps(app: FastAPI) -> list[FastAPI]:
 def instrument_fastapi(
     logfire_instance: Logfire,
     # Note that `Logfire.instrument_fastapi()` requires this argument. It's only omitted when called via the
-    # `logfire run` CLI. This is because `FastAPIInstrumentor.instrument() has to be called before
+    # `logfire run` CLI. This is because `FastAPIInstrumentor.instrument()` has to be called before
     # `from fastapi import FastAPI` which is easy to get wrong.
     app: FastAPI | None = None,
     *,
@@ -186,13 +186,7 @@ class FastAPIInstrumentation:
     def __init__(
         self,
         logfire_instance: Logfire,
-        request_attributes_mapper: Callable[
-            [
-                Request | WebSocket,
-                dict[str, Any],
-            ],
-            dict[str, Any] | None,
-        ],
+        request_attributes_mapper: Callable[[Request | WebSocket, dict[str, Any]], dict[str, Any] | None],
         extra_spans: bool,
     ):
         self.logfire_instance = logfire_instance.with_settings(custom_scope_suffix='fastapi')
