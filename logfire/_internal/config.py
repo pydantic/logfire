@@ -944,18 +944,21 @@ class LogfireConfig(_LogfireConfigData):
             if isinstance(self.metrics, MetricsOptions):
                 metric_readers = list(self.metrics.additional_readers)
 
+            # Try loading credentials from a file.
+            # We do this before checking send_to_logfire so that project_url
+            # is available for url_from_eval even when not sending data.
+            try:
+                credentials = LogfireCredentials.load_creds_file(self.data_dir)
+            except Exception:
+                # If we have tokens configured by other means, e.g. the env, no need to worry about the creds file.
+                if self.send_to_logfire and not self.token:
+                    raise
+                credentials = None
+            if credentials is not None:
+                self.project_url = self.project_url or credentials.project_url
+
             if self.send_to_logfire:
                 show_project_link: bool = self.console and self.console.show_project_link or False
-
-                # Try loading credentials from a file.
-                # If that works, we can use it to immediately print the project link.
-                try:
-                    credentials = LogfireCredentials.load_creds_file(self.data_dir)
-                except Exception:
-                    # If we have tokens configured by other means, e.g. the env, no need to worry about the creds file.
-                    if not self.token:
-                        raise
-                    credentials = None
 
                 if not self.token and self.send_to_logfire is True and credentials is None:
                     # If we don't have tokens or credentials from a file,

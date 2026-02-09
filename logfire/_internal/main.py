@@ -891,7 +891,7 @@ class Logfire:
         span_id = report.span_id
         if not project_url or not trace_id or not span_id:
             return None
-        return f'{project_url}/evals/compare?experiment={trace_id}-{span_id}'
+        return f'{project_url.rstrip("/")}/evals/compare?experiment={trace_id}-{span_id}'
 
     def log_slow_async_callbacks(self, slow_duration: float = 0.1) -> AbstractContextManager[None]:
         """Log a warning whenever a function running in the asyncio event loop blocks for too long.

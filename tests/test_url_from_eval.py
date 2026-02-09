@@ -54,6 +54,16 @@ def test_url_from_eval_no_span_id() -> None:
     assert result is None
 
 
+def test_url_from_eval_trailing_slash() -> None:
+    config = LogfireConfig(send_to_logfire=False, console=False)
+    config.project_url = 'https://logfire.pydantic.dev/my-org/my-project/'
+    instance = logfire.Logfire(config=config)
+
+    report = _make_report(trace_id='abc123', span_id='def456')
+    result = instance.url_from_eval(report)
+    assert result == 'https://logfire.pydantic.dev/my-org/my-project/evals/compare?experiment=abc123-def456'
+
+
 def test_url_from_eval_no_ids() -> None:
     config = LogfireConfig(send_to_logfire=False, console=False)
     config.project_url = 'https://logfire.pydantic.dev/my-org/my-project'
