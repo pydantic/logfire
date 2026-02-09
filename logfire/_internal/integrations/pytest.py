@@ -520,3 +520,50 @@ def logfire_pytest(request: pytest.FixtureRequest) -> Logfire:
         send_to_logfire=False,
         console=False,
     )
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_pyfunc_call(pyfuncitem: pytest.Function) -> Generator[None]:
+    """Re-attach the per-test span context for async test functions.
+
+    The ``pytest_runtest_protocol`` hook creates a span per test and attaches it
+    to the OTel context via ``context_api.attach()`` in the **synchronous** hook
+    thread.  However, when tests are async (e.g. with anyio/pytest-asyncio), they
+    may run inside an event-loop task whose ``contextvars`` snapshot was taken
+    before the per-test span was attached (e.g. when ``asyncio.Runner`` reuses a
+    saved context on Python 3.11+).  As a result, ``logfire.get_context()`` inside
+    an async test can return a stale traceparent from a previous test (or no
+    context at all).
+
+    This hook wraps async test functions so that ``context_api.attach()`` is called
+    *inside* the coroutine body, making the span visible to the test and any
+    callbacks (e.g. httpx event hooks) that call ``logfire.get_context()``.
+    """
+    import inspect
+
+    if not _is_enabled(pyfuncitem.config):
+        yield
+        return
+
+    otel_span = pyfuncitem.stash.get(_SPAN_KEY, None)
+    if otel_span is None or not inspect.iscoroutinefunction(pyfuncitem.obj):
+        yield
+        return
+
+    import functools
+
+    from opentelemetry import context as context_api, trace
+
+    original = pyfuncitem.obj
+
+    @functools.wraps(original)
+    async def _wrapped(*args: Any, **kwargs: Any) -> Any:
+        ctx = trace.set_span_in_context(otel_span)
+        token = context_api.attach(ctx)
+        try:
+            return await original(*args, **kwargs)
+        finally:
+            context_api.detach(token)
+
+    pyfuncitem.obj = _wrapped
+    yield
