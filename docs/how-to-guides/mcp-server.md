@@ -9,18 +9,62 @@ access to OpenTelemetry traces and metrics through Logfire. This server enables 
 application's telemetry data, analyze distributed traces, and perform custom queries using
 **Logfire**'s OpenTelemetry-native API.
 
+You can check the [Logfire MCP server](https://github.com/pydantic/logfire-mcp) repository
+for more information.
+
+## Remote MCP Server (Recommended)
+
+Pydantic Logfire provides a hosted remote MCP server that you can use without installing anything locally.
+This is the easiest way to get started with the Logfire MCP server.
+
+To use the remote MCP server, add the following configuration to your MCP client.
+
+**Choose the endpoint that matches your Logfire data region:**
+
+For **US region** (`logfire-us.pydantic.dev`):
+
+```json
+{
+  "mcpServers": {
+    "logfire": {
+      "type": "http",
+      "url": "https://logfire-us.pydantic.dev/mcp"
+    }
+  }
+}
+```
+
+For **EU region** (`logfire-eu.pydantic.dev`):
+
+```json
+{
+  "mcpServers": {
+    "logfire": {
+      "type": "http",
+      "url": "https://logfire-eu.pydantic.dev/mcp"
+    }
+  }
+}
+```
+
+!!! note
+    The remote MCP server handles authentication automatically through your browser. When you first connect,
+    you'll be prompted to authenticate with your Pydantic Logfire account.
+
+---
+
+## Running Locally
+
+If you prefer to run the MCP server locally (for example, for offline use or custom configurations),
+you can use the [`logfire-mcp`](https://pypi.org/project/logfire-mcp/) package instead.
+
 <div class="video-wrapper">
   <iframe width="560" height="315" src="https://www.youtube.com/embed/z56NOvrtG74" frameborder="0" allowfullscreen></iframe>
 </div>
 
-You can check the [Logfire MCP server](https://github.com/pydantic/logfire-mcp) repository
-for more information.
+### Installation
 
-## Installation
-
-The MCP server is a CLI tool that you can run from the command line.
-
-You'll need a read token to use the MCP server. See
+You'll need a read token to use the MCP server locally. See
 [Create Read Token](./query-api.md#how-to-create-a-read-token) for more information.
 
 You can then start the MCP server with the following command:
@@ -38,7 +82,7 @@ LOGFIRE_READ_TOKEN=<your-token> uvx logfire-mcp@latest
 The way to configure the MCP server depends on the software you're using.
 
 !!! note
-  If you are in the EU region, you need to set the `LOGFIRE_BASE_URL` environment variable to `https://api-eu.pydantic.dev`. You can also use the `--base-url` flag to set the base URL.
+    If you are in the EU region, you need to set the `LOGFIRE_BASE_URL` environment variable to `https://api-eu.pydantic.dev`. You can also use the `--base-url` flag to set the base URL.
 
 #### Cursor
 
