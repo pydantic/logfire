@@ -319,7 +319,7 @@ async def test_mcp(exporter: TestExporter):
                     'logfire.span_type': 'span',
                     'name': 'random_number',
                     'input': {},
-                    'output': "{'type': 'text', 'text': '4'}",
+                    'output': {'type': 'text', 'text': '4'},
                     'mcp_data': {'server': 'MyMCPServer'},
                     'gen_ai.system': 'openai',
                     'logfire.msg': 'Function: random_number',
