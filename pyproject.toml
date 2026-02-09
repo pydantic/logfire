@@ -180,6 +180,7 @@ dev = [
     "pytest-xdist>=3.6.1",
     "openai-agents[voice]>=0.0.7",
     "pydantic-ai-slim>=0.0.39",
+    "pydantic-evals>=0.0.39",
     "langchain>=0.0.27",
     "langchain-openai>=0.3.17",
     "langgraph >= 0",
