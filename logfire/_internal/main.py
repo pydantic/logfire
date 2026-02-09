@@ -997,7 +997,7 @@ class Logfire:
             import pydantic
 
             if get_version(pydantic.__version__) < get_version('2.5.0'):
-                raise RuntimeError('The Pydantic plugin requires Pydantic 2.5.0 or newer.')
+                raise RuntimeError('The Pydantic plugin requires Pydantic 2.5.0 or newer.')  # pragma: no cover
 
         from logfire.integrations.pydantic import PydanticPlugin, set_pydantic_plugin_config
 
