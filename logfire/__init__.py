@@ -13,6 +13,7 @@ from ._internal.baggage import get_baggage, set_baggage
 from ._internal.cli import logfire_info
 from ._internal.config import AdvancedOptions, CodeSource, ConsoleOptions, MetricsOptions, PydanticPlugin, configure
 from ._internal.constants import LevelName
+from ._internal.integrations.forwarding import ForwardRequestResponse
 from ._internal.main import Logfire, LogfireSpan
 from ._internal.scrubbing import ScrubbingOptions, ScrubMatch
 from ._internal.stack_info import add_non_user_code_prefix
@@ -25,6 +26,7 @@ DEFAULT_LOGFIRE_INSTANCE: Logfire = Logfire()
 span = DEFAULT_LOGFIRE_INSTANCE.span
 instrument = DEFAULT_LOGFIRE_INSTANCE.instrument
 force_flush = DEFAULT_LOGFIRE_INSTANCE.force_flush
+forward_request = DEFAULT_LOGFIRE_INSTANCE.forward_request
 log_slow_async_callbacks = DEFAULT_LOGFIRE_INSTANCE.log_slow_async_callbacks
 install_auto_tracing = DEFAULT_LOGFIRE_INSTANCE.install_auto_tracing
 instrument_pydantic = DEFAULT_LOGFIRE_INSTANCE.instrument_pydantic
@@ -32,6 +34,7 @@ instrument_pydantic_ai = DEFAULT_LOGFIRE_INSTANCE.instrument_pydantic_ai
 instrument_asgi = DEFAULT_LOGFIRE_INSTANCE.instrument_asgi
 instrument_wsgi = DEFAULT_LOGFIRE_INSTANCE.instrument_wsgi
 instrument_fastapi = DEFAULT_LOGFIRE_INSTANCE.instrument_fastapi
+instrument_fastapi_proxy = DEFAULT_LOGFIRE_INSTANCE.instrument_fastapi_proxy
 instrument_openai = DEFAULT_LOGFIRE_INSTANCE.instrument_openai
 instrument_openai_agents = DEFAULT_LOGFIRE_INSTANCE.instrument_openai_agents
 instrument_anthropic = DEFAULT_LOGFIRE_INSTANCE.instrument_anthropic
@@ -121,6 +124,7 @@ __all__ = (
     'exception',
     'fatal',
     'force_flush',
+    'forward_request',
     'log_slow_async_callbacks',
     'install_auto_tracing',
     'instrument_asgi',
@@ -128,6 +132,7 @@ __all__ = (
     'instrument_pydantic',
     'instrument_pydantic_ai',
     'instrument_fastapi',
+    'instrument_fastapi_proxy',
     'instrument_openai',
     'instrument_openai_agents',
     'instrument_anthropic',
@@ -176,4 +181,5 @@ __all__ = (
     'set_baggage',
     'get_context',
     'attach_context',
+    'ForwardRequestResponse',
 )

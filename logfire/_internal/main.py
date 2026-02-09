@@ -5,7 +5,7 @@ import inspect
 import json
 import sys
 import warnings
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from contextlib import AbstractContextManager
 from contextvars import Token
 from enum import Enum
@@ -113,6 +113,7 @@ if TYPE_CHECKING:
     from ..integrations.wsgi import RequestHook as WSGIRequestHook, ResponseHook as WSGIResponseHook
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
     from .integrations.aws_lambda import LambdaEvent, LambdaHandler
+    from .integrations.forwarding import ForwardRequestResponse
     from .integrations.mysql import MySQLConnection
     from .integrations.psycopg import Psycopg2Connection, PsycopgConnection
     from .integrations.sqlite3 import SQLite3Connection
@@ -280,6 +281,30 @@ class Logfire:
         except Exception:  # pragma: no cover
             log_internal_error()
             return NoopSpan()  # type: ignore
+
+    def forward_request(
+        self,
+        method: str,
+        path: str,
+        headers: Mapping[str, str],
+        body: bytes | None,
+    ) -> ForwardRequestResponse:
+        """Forward a request to the Logfire API.
+
+        This is useful for proxying requests from a browser or other client to Logfire.
+
+        Args:
+            method: The HTTP method.
+            path: The path to forward to (e.g. '/v1/traces').
+            headers: The headers to forward.
+            body: The body to forward.
+
+        Returns:
+            A `ForwardRequestResponse` object containing the status code, headers, and content.
+        """
+        from .integrations.forwarding import forward_request
+
+        return forward_request(self.config, method, path, headers, body)
 
     def trace(
         self,
@@ -1094,6 +1119,45 @@ class Logfire:
             include_content=include_content,
             include_binary_content=include_binary_content,
             **kwargs,
+        )
+
+    def instrument_fastapi_proxy(
+        self,
+        app: FastAPI,
+        *,
+        prefix: str = '/logfire-proxy',
+    ) -> None:
+        """Instrument a FastAPI app to proxy requests to Logfire.
+
+        This adds a route to the app that forwards requests to the Logfire API.
+        This is useful for proxying requests from a browser to Logfire,
+        to avoid exposing your write token in the browser.
+
+        Args:
+            app: The FastAPI app to instrument.
+            prefix: The path prefix to use for the proxy.
+        """
+        from starlette.responses import Response
+
+        async def logfire_proxy(request: Request):
+            path = request.path_params['path']
+            response = self.forward_request(
+                method=request.method,
+                path=path,
+                headers=request.headers,
+                body=await request.body(),
+            )
+            return Response(
+                content=response.content,
+                status_code=response.status_code,
+                headers=dict(response.headers),
+            )
+
+        app.add_route(
+            f'{prefix}/{{path:path}}',
+            logfire_proxy,
+            methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+            include_in_schema=False,
         )
 
     def instrument_fastapi(
