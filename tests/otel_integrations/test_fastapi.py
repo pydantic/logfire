@@ -14,7 +14,7 @@ from starlette.responses import PlainTextResponse
 from starlette.testclient import TestClient
 
 # FastAPI 0.128.5+ requires pydantic>=2.7
-pytest.importorskip('fastapi', reason='FastAPI requires pydantic>=2.7')
+pytest.importorskip('fastapi', reason='FastAPI requires pydantic>=2.7', exc_type=ImportError)
 
 from fastapi import BackgroundTasks, FastAPI, Response, WebSocket
 from fastapi.exceptions import HTTPException, RequestValidationError
