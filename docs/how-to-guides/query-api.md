@@ -196,8 +196,8 @@ with logfire.db_api.connect(read_token='<your_read_token>') as conn:
 ### Using with pandas
 
 ```python skip-run="true" skip-reason="external-connection"
-import pandas as pd
 import logfire.db_api
+import pandas as pd
 
 conn = logfire.db_api.connect(read_token='<your_read_token>')
 df = pd.read_sql('SELECT start_timestamp, message FROM records LIMIT 100', conn)

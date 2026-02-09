@@ -76,16 +76,15 @@ DEFAULT_LIMIT = 10_000  # server-side maximum
 
 
 # ---------------------------------------------------------------------------
-# Parameter substitution helpers (phase 1 — client-side interpolation)
+# Parameter substitution helpers
 # ---------------------------------------------------------------------------
 
 
 def _escape_value(value: Any) -> str:
     """Escape a Python value for safe interpolation into SQL.
 
-    This is best-effort client-side escaping. The Logfire query API is
-    read-only so injection risk is limited. Phase 2 will replace this with
-    server-side parameterization.
+    This is client-side escaping. The Logfire query API is read-only so
+    injection risk is limited to the caller's own data.
     """
     if value is None:
         return 'NULL'
