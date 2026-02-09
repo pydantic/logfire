@@ -1285,6 +1285,154 @@ def test_multiple_async_tests_have_distinct_spans(logfire_pytester: pytest.Pytes
     )
 
 
+def test_pytest_asyncio_span_context_propagation(logfire_pytester: pytest.Pytester):
+    """Async tests using pytest-asyncio should have correct span context propagation.
+
+    Verifies that the pytest_pyfunc_call hook (which re-attaches per-test span
+    context inside coroutine bodies) works correctly with pytest-asyncio's runner.
+
+    Note: pytest-asyncio internally calls ``contextvars.copy_context()`` per test,
+    so context propagation works even without the hook. These tests verify
+    correctness and compatibility as defense-in-depth.
+
+    A module-scoped event loop (loop_scope="module") forces pytest-asyncio to
+    reuse the same event loop across tests in the module.
+    """
+    logfire_pytester.makepyfile("""
+        import pytest
+        import pytest_asyncio
+        from opentelemetry import trace
+
+        @pytest_asyncio.fixture(loop_scope="module", scope="module")
+        async def shared_resource():
+            yield "shared"
+
+        @pytest.mark.asyncio(loop_scope="module")
+        async def test_asyncio_span_context(shared_resource, logfire_pytest):
+            # Verify the current span is valid (not INVALID_SPAN)
+            current = trace.get_current_span()
+            assert current is not trace.INVALID_SPAN, (
+                "Span context was not propagated into the async test body"
+            )
+
+            # Create a child span and verify it's properly nested
+            with logfire_pytest.span("asyncio child span"):
+                inner = trace.get_current_span()
+                assert inner is not trace.INVALID_SPAN
+
+        @pytest.mark.asyncio(loop_scope="module")
+        async def test_asyncio_span_context_second(shared_resource, logfire_pytest):
+            # This second test reuses the event loop from the first test.
+            # Without the fix, it would see stale context from the first test.
+            current = trace.get_current_span()
+            assert current is not trace.INVALID_SPAN, (
+                "Span context was not propagated into the second async test body"
+            )
+
+            with logfire_pytest.span("second asyncio child span"):
+                inner = trace.get_current_span()
+                assert inner is not trace.INVALID_SPAN
+    """)
+    result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire')
+    result.assert_outcomes(passed=2)
+
+    spans = load_spans(logfire_pytester)
+
+    test_span = find_span_by_pattern(spans, 'test_asyncio_span_context_second')
+    child_span = find_span_by_pattern(spans, 'second asyncio child span')
+
+    assert test_span is not None, 'Test span not found'
+    assert child_span is not None, 'Child span not found'
+
+    # The child span must be nested under its own test span (not the first test's span)
+    assert child_span['parent'] is not None, 'Child span should have a parent'
+    assert child_span['parent']['span_id'] == test_span['context']['span_id'], (
+        'Child span in async test should be nested under the test span'
+    )
+    assert child_span['context']['trace_id'] == test_span['context']['trace_id']
+
+
+def test_pytest_asyncio_get_context_has_traceparent(logfire_pytester: pytest.Pytester):
+    """logfire.get_context() inside a pytest-asyncio test should return a valid traceparent.
+
+    Mirror of test_async_test_get_context_has_traceparent but using pytest-asyncio
+    instead of anyio. A module-scoped event loop forces loop sharing across tests.
+    """
+    logfire_pytester.makepyfile("""
+        import pytest
+        import pytest_asyncio
+        import logfire
+
+        @pytest_asyncio.fixture(loop_scope="module", scope="module")
+        async def shared_resource():
+            yield "shared"
+
+        @pytest.mark.asyncio(loop_scope="module")
+        async def test_asyncio_get_context_first(shared_resource):
+            ctx = logfire.get_context()
+            assert 'traceparent' in ctx, (
+                f"get_context() should return traceparent in async test, got: {ctx}"
+            )
+
+        @pytest.mark.asyncio(loop_scope="module")
+        async def test_asyncio_get_context_second(shared_resource):
+            ctx = logfire.get_context()
+            assert 'traceparent' in ctx, (
+                f"get_context() should return traceparent in second async test, got: {ctx}"
+            )
+    """)
+    result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire')
+    result.assert_outcomes(passed=2)
+
+
+def test_pytest_asyncio_multiple_tests_have_distinct_spans(logfire_pytester: pytest.Pytester):
+    """Each pytest-asyncio test should get its own span context, not a stale one.
+
+    Mirror of test_multiple_async_tests_have_distinct_spans but using pytest-asyncio.
+    A module-scoped event loop forces pytest-asyncio to reuse the same loop.
+    """
+    logfire_pytester.makepyfile("""
+        import pytest
+        import pytest_asyncio
+
+        @pytest_asyncio.fixture(loop_scope="module", scope="module")
+        async def shared_resource():
+            yield "shared"
+
+        @pytest.mark.asyncio(loop_scope="module")
+        async def test_asyncio_first(shared_resource, logfire_pytest):
+            with logfire_pytest.span("first asyncio child"):
+                pass
+
+        @pytest.mark.asyncio(loop_scope="module")
+        async def test_asyncio_second(shared_resource, logfire_pytest):
+            with logfire_pytest.span("second asyncio child"):
+                pass
+    """)
+    result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire')
+    result.assert_outcomes(passed=2)
+
+    spans = load_spans(logfire_pytester)
+
+    first_test = find_span_by_pattern(spans, 'test_asyncio_first')
+    second_test = find_span_by_pattern(spans, 'test_asyncio_second')
+    first_child = find_span_by_pattern(spans, 'first asyncio child')
+    second_child = find_span_by_pattern(spans, 'second asyncio child')
+
+    assert first_test is not None
+    assert second_test is not None
+    assert first_child is not None
+    assert second_child is not None
+
+    # Each child span should be nested under its own test span, not the other
+    assert first_child['parent']['span_id'] == first_test['context']['span_id'], (
+        'first child should be under test_asyncio_first'
+    )
+    assert second_child['parent']['span_id'] == second_test['context']['span_id'], (
+        'second child should be under test_asyncio_second, not test_asyncio_first (stale context)'
+    )
+
+
 def test_github_actions_without_repo(
     logfire_pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch, no_ci_envs: None
 ):
