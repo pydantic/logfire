@@ -53,6 +53,7 @@ Click an LLM span to open the details panel.
 | [LangChain](../../integrations/llms/langchain.md)                                     | ✅            | ✅     | ✅                 |
 | [LiteLLM](../../integrations/llms/litellm.md)                                         | ✅            | ✅     | ✅                 |
 | [Anthropic](../../integrations/llms/anthropic.md)                                     |              |       | ✅                 |
+| [Claude Agent SDK](../../integrations/llms/claude-agent-sdk.md)                       |              |       | ✅                 |
 | [Google ADK](https://github.com/pydantic/logfire/issues/1201#issuecomment-3012423974) | ✅            |       |                   |
 
 Tokens and costs are more generally supported by any instrumentation that follows the standard [OpenTelemetry semantic conventions for GenAI spans](https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/). The following snippet shows the attributes required if you want to log the data manually:
@@ -80,7 +81,7 @@ We are actively engaged with the OpenTelemetry community to improve the GenAI sp
 
 ### Single‑prompt calls
 
-```python
+```python skip="true" skip-reason="incomplete"
 agent = Agent("google-gla:gemini-1.5-flash")
 result = agent.run_sync("Which city is the capital of France?")
 print(result.output)
@@ -90,7 +91,7 @@ print(result.output)
 
 Add a system prompt and Logfire captures it too:
 
-```python
+```python skip="true" skip-reason="incomplete"
 agent = Agent(
     "google-gla:gemini-1.5-flash",
     system_prompt="You are a helpful assistant."

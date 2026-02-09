@@ -93,6 +93,33 @@ def test_whoami_eu_token_env_var(capsys: pytest.CaptureFixture[str]) -> None:
         assert capsys.readouterr().err == 'Logfire project URL: fake_project_url\n'
 
 
+def test_whoami_multiple_tokens(capsys: pytest.CaptureFixture[str]) -> None:
+    with (
+        patch.dict(os.environ, {'LOGFIRE_TOKEN': 'pylf_v1_us_token1,pylf_v1_eu_token2'}),
+        requests_mock.Mocker() as request_mocker,
+    ):
+        request_mocker.get(
+            'https://logfire-us.pydantic.dev/v1/info',
+            json={'project_name': 'project1', 'project_url': 'https://logfire-us.pydantic.dev/project1'},
+        )
+        request_mocker.get(
+            'https://logfire-eu.pydantic.dev/v1/info',
+            json={'project_name': 'project2', 'project_url': 'https://logfire-eu.pydantic.dev/project2'},
+        )
+
+        main(['whoami'])
+
+        assert len(request_mocker.request_history) == 2
+        output_lines = capsys.readouterr().err.splitlines()
+        assert output_lines == [
+            'Token 1 of 2:',
+            'Logfire project URL: https://logfire-us.pydantic.dev/project1',
+            '',
+            'Token 2 of 2:',
+            'Logfire project URL: https://logfire-eu.pydantic.dev/project2',
+        ]
+
+
 def test_whoami(tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, capsys: pytest.CaptureFixture[str]) -> None:
     with patch.dict(os.environ, {'LOGFIRE_TOKEN': 'foobar'}), requests_mock.Mocker() as request_mocker:
         # Also test LOGFIRE_TOKEN being set but the API being healthy, so it can't be checked
@@ -1578,7 +1605,7 @@ def test_instrument_packages_openai() -> None:
 
     import openai
 
-    client = openai.Client()
+    client = openai.Client(api_key='test-key')
     assert getattr(client, '_is_instrumented_by_logfire', False) is True
 
 
@@ -2084,3 +2111,8 @@ def test_base_url_and_logfire_url(
         DeprecationWarning, match='The `--logfire-url` argument is deprecated. Use `--base-url` instead.'
     ):
         main(['--logfire-url', 'https://logfire-us.pydantic.dev', 'whoami'])
+
+
+def test_main_module() -> None:
+    """Test that logfire.__main__ is importable for coverage."""
+    assert subprocess.run([sys.executable, '-m', 'logfire', '--help'], check=True).returncode == 0

@@ -62,9 +62,9 @@ jobs:
           echo "203.0.113.0 logfire.pydantic.dev" | sudo tee -a /etc/hosts
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v7
         with:
-          version: "0.6.2"
+          version: "0.9.22"
           enable-cache: true
 
         # upgrade deps to the latest versions for this test

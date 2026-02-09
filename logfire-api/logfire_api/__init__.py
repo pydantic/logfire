@@ -191,6 +191,8 @@ except ImportError:
 
             def instrument_litellm(self, *args, **kwargs) -> None: ...
 
+            def instrument_dspy(self, *args, **kwargs) -> None: ...
+
             def instrument_aiohttp_client(self, *args, **kwargs) -> None: ...
 
             def instrument_aiohttp_server(self, *args, **kwargs) -> None: ...
@@ -229,6 +231,7 @@ except ImportError:
         instrument_anthropic = DEFAULT_LOGFIRE_INSTANCE.instrument_anthropic
         instrument_google_genai = DEFAULT_LOGFIRE_INSTANCE.instrument_google_genai
         instrument_litellm = DEFAULT_LOGFIRE_INSTANCE.instrument_litellm
+        instrument_dspy = DEFAULT_LOGFIRE_INSTANCE.instrument_dspy
         instrument_asyncpg = DEFAULT_LOGFIRE_INSTANCE.instrument_asyncpg
         instrument_print = DEFAULT_LOGFIRE_INSTANCE.instrument_print
         instrument_celery = DEFAULT_LOGFIRE_INSTANCE.instrument_celery

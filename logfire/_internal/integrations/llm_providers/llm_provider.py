@@ -4,6 +4,8 @@ from collections.abc import AsyncIterator, Iterable, Iterator
 from contextlib import AbstractContextManager, ExitStack, contextmanager, nullcontext
 from typing import TYPE_CHECKING, Any, Callable, cast
 
+from opentelemetry.trace import SpanKind
+
 from logfire import attach_context, get_context
 from logfire.propagate import ContextCarrier
 
@@ -136,7 +138,7 @@ def instrument_llm_provider(
         message_template, span_data, kwargs = _instrumentation_setup(*args, **kwargs)
         if message_template is None:
             return original_request_method(*args, **kwargs)
-        with logfire_llm.span(message_template, **span_data) as span:
+        with logfire_llm.span(message_template, _span_kind=SpanKind.CLIENT, **span_data) as span:
             with maybe_suppress_instrumentation(suppress_otel):
                 if kwargs.get('stream'):
                     return original_request_method(*args, **kwargs)
@@ -148,7 +150,7 @@ def instrument_llm_provider(
         message_template, span_data, kwargs = _instrumentation_setup(*args, **kwargs)
         if message_template is None:
             return await original_request_method(*args, **kwargs)
-        with logfire_llm.span(message_template, **span_data) as span:
+        with logfire_llm.span(message_template, _span_kind=SpanKind.CLIENT, **span_data) as span:
             with maybe_suppress_instrumentation(suppress_otel):
                 if kwargs.get('stream'):
                     return await original_request_method(*args, **kwargs)

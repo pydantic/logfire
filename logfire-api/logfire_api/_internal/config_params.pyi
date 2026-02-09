@@ -3,6 +3,7 @@ from .constants import LevelName as LevelName
 from .exporters.console import ConsoleColorsValues as ConsoleColorsValues
 from .utils import read_toml_file as read_toml_file
 from _typeshed import Incomplete
+from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from logfire.exceptions import LogfireConfigError as LogfireConfigError
@@ -53,6 +54,7 @@ IGNORE_NO_CONFIG: Incomplete
 BASE_URL: Incomplete
 DISTRIBUTED_TRACING: Incomplete
 HTTPX_CAPTURE_ALL: Incomplete
+AIOHTTP_CLIENT_CAPTURE_ALL: Incomplete
 CONFIG_PARAMS: Incomplete
 
 @dataclass
@@ -80,3 +82,18 @@ class ParamManager:
         """
     @cached_property
     def pydantic_plugin(self): ...
+
+def extract_list_of_str(value: str | Sequence[str]) -> list[str] | None:
+    """Extract a list of strings from a string, sequence, or None.
+
+    If value is a comma-separated string, split it into a list of non-empty trimmed strings.
+    If value is a sequence, convert to list.
+    If value is None, return None.
+    """
+def normalize_token(value: str | Sequence[str] | None) -> str | list[str] | None:
+    """Normalize a token value to str (single token), list[str] (multiple tokens), or None.
+
+    If there's exactly one token, return it as a string.
+    If there are multiple tokens, return them as a list.
+    If there are no tokens, return None.
+    """

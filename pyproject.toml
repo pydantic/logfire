@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "4.17.0"
+version = "4.22.0"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.9"
 authors = [
@@ -16,6 +16,7 @@ authors = [
     { name = "Marcelo Trylesinski", email = "marcelo@pydantic.dev" },
     { name = "David Hewitt", email = "david.hewitt@pydantic.dev" },
     { name = "Alex Hall", email = "alex@pydantic.dev" },
+    { name = "Jiri Kuncar", email = "jiri@pydantic.dev" },
 ]
 license = "MIT"
 license-files = ["LICENSE"]
@@ -81,6 +82,7 @@ sqlite3 = ["opentelemetry-instrumentation-sqlite3 >= 0.42b0"]
 aws-lambda = ["opentelemetry-instrumentation-aws-lambda >= 0.42b0"]
 google-genai = ["opentelemetry-instrumentation-google-genai >= 0.4b0"]
 litellm = ["openinference-instrumentation-litellm >= 0"]
+dspy = ["openinference-instrumentation-dspy >= 0"]
 
 [project.urls]
 Homepage = "https://logfire.pydantic.dev/"
@@ -96,6 +98,7 @@ logfire-plugin = "logfire.integrations.pydantic:plugin"
 
 [project.entry-points."pytest11"]
 logfire = "logfire.testing"
+pytest_logfire = "logfire._internal.integrations.pytest"
 
 [dependency-groups]
 dev = [
@@ -145,7 +148,8 @@ dev = [
     "ruff >= 0.8.3",
     "pyright != 1.1.407",
     "pre-commit>=3.5.0",
-    "coverage[toml]>=7.5.0",
+    "coverage[toml]>=7.5.0; python_version < '3.10'",
+    "coverage[toml]>=7.13.0; python_version >= '3.10'",
     "psycopg[binary] >= 3.2.3",
     "psycopg2-binary >= 2.9.10",
     "asyncpg >= 0.30.0",
@@ -183,8 +187,12 @@ dev = [
     "google-genai >= 0",
     "openinference-instrumentation-litellm >= 0",
     "litellm != 1.80.9",
+    "openinference-instrumentation-dspy >= 0; python_version >= '3.10'",
+    "dspy >= 3.1.0; python_version >= '3.10'",
     "pip >= 0",
     "surrealdb >= 0",
+    "pytest-examples>=0.0.18",
+    "pytest-timeout>=2.4.0",
 ]
 docs = [
     "black>=23.12.0",
@@ -306,6 +314,22 @@ DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_tes
 # https://coverage.readthedocs.io/en/latest/config.html#run
 [tool.coverage.run]
 branch = true
+source = ["logfire", "logfire-api"]
+omit = [
+    "*/tmp/*",
+    "*/temp/*",
+    "*/.pytest_cache/*",
+    "*/pytest-of-*/*",
+]
+#
+# Subprocess coverage patching is enabled to measure coverage in child processes.
+# This is particularly useful for tests that spawn subprocesses (e.g., Pytester tests).
+#
+# Note: This previously exposed a race condition in test_sqlalchemy_async_instrumentation
+# which has been fixed by using unique temporary files per parametrized test instead of
+# hardcoded filenames.
+#
+patch = ["subprocess"]
 # Use this to get the tests that are covering the code. This is disabled by default because it can be slow.
 # dynamic_context = "test_function"
 

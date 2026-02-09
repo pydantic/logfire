@@ -9,6 +9,7 @@ import re
 import sys
 import time
 import warnings
+import weakref
 from collections.abc import Sequence
 from contextlib import suppress
 from dataclasses import dataclass, field
@@ -68,7 +69,7 @@ from logfire.version import VERSION
 from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
 from ..types import ExceptionCallback
 from .client import InvalidProjectName, LogfireClient, ProjectAlreadyExists
-from .config_params import ParamManager, PydanticPluginRecordValues
+from .config_params import ParamManager, PydanticPluginRecordValues, normalize_token
 from .constants import (
     LEVEL_NUMBERS,
     RESOURCE_ATTRIBUTES_CODE_ROOT_PATH,
@@ -310,7 +311,7 @@ def configure(
     *,
     local: bool = False,
     send_to_logfire: bool | Literal['if-token-present'] | None = None,
-    token: str | None = None,
+    token: str | list[str] | None = None,
     service_name: str | None = None,
     service_version: str | None = None,
     environment: str | None = None,
@@ -339,9 +340,10 @@ def configure(
             Defaults to the `LOGFIRE_SEND_TO_LOGFIRE` environment variable if set, otherwise defaults to `True`.
             If `if-token-present` is provided, logs will only be sent if a token is present.
 
-        token: The project token.
+        token: The project write token(s). Can be a single token string or a list of tokens to send data
+            to multiple projects simultaneously (useful for project migration).
 
-            Defaults to the `LOGFIRE_TOKEN` environment variable.
+            Defaults to the `LOGFIRE_TOKEN` environment variable (supports comma-separated tokens).
 
         service_name: Name of this service.
 
@@ -550,8 +552,8 @@ class _LogfireConfigData:
     send_to_logfire: bool | Literal['if-token-present']
     """Whether to send logs and spans to Logfire."""
 
-    token: str | None
-    """The Logfire API token to use."""
+    token: str | list[str] | None
+    """The Logfire write token(s) to use. Multiple tokens enable sending to multiple projects."""
 
     service_name: str
     """The name of this service."""
@@ -601,7 +603,7 @@ class _LogfireConfigData:
         # defaults exist is `__init__` and we don't forgot a parameter when
         # forwarding parameters from `__init__` to `load_configuration`
         send_to_logfire: bool | Literal['if-token-present'] | None,
-        token: str | None,
+        token: str | list[str] | None,
         service_name: str | None,
         service_version: str | None,
         environment: str | None,
@@ -623,7 +625,8 @@ class _LogfireConfigData:
         self.param_manager = param_manager = ParamManager.create(config_dir)
 
         self.send_to_logfire = param_manager.load_param('send_to_logfire', send_to_logfire)
-        self.token = param_manager.load_param('token', token)
+        # Normalize token: single token as str, multiple tokens as list[str], no tokens as None
+        self.token = normalize_token(token) or normalize_token(param_manager.load_param('token', None))
         self.service_name = param_manager.load_param('service_name', service_name)
         self.service_version = param_manager.load_param('service_version', service_version)
         self.environment = param_manager.load_param('environment', environment)
@@ -711,7 +714,7 @@ class LogfireConfig(_LogfireConfigData):
     def __init__(
         self,
         send_to_logfire: bool | Literal['if-token-present'] | None = None,
-        token: str | None = None,
+        token: str | list[str] | None = None,
         service_name: str | None = None,
         service_version: str | None = None,
         environment: str | None = None,
@@ -772,7 +775,7 @@ class LogfireConfig(_LogfireConfigData):
     def configure(
         self,
         send_to_logfire: bool | Literal['if-token-present'] | None,
-        token: str | None,
+        token: str | list[str] | None,
         service_name: str | None,
         service_version: str | None,
         environment: str | None,
@@ -948,13 +951,13 @@ class LogfireConfig(_LogfireConfigData):
                 try:
                     credentials = LogfireCredentials.load_creds_file(self.data_dir)
                 except Exception:
-                    # If we have a token configured by other means, e.g. the env, no need to worry about the creds file.
+                    # If we have tokens configured by other means, e.g. the env, no need to worry about the creds file.
                     if not self.token:
                         raise
                     credentials = None
 
                 if not self.token and self.send_to_logfire is True and credentials is None:
-                    # If we don't have a token or credentials from a file,
+                    # If we don't have tokens or credentials from a file,
                     # try initializing a new project and writing a new creds file.
                     # note, we only do this if `send_to_logfire` is explicitly `True`, not 'if-token-present'
                     client = LogfireClient.from_url(self.advanced.base_url)
@@ -968,13 +971,18 @@ class LogfireConfig(_LogfireConfigData):
                     self.advanced.base_url = self.advanced.base_url or credentials.logfire_api_url
 
                 if self.token:
-                    if credentials and self.token == credentials.token and show_project_link:
-                        # The creds file contains the project link, so we can display it immediately.
-                        # We do this if the token comes from the creds file or if it was explicitly configured
-                        # and happens to match the creds file anyway.
+                    # Convert to list for iteration (handles both str and list[str])
+                    token_list = [self.token] if isinstance(self.token, str) else self.token
+
+                    # Track tokens we've already printed info for (to avoid duplicates)
+                    printed_tokens: set[str] = set()
+
+                    # The creds file contains the project link, so we can display it immediately.
+                    # We do this if the token comes from the creds file or if it was explicitly configured
+                    # and happens to match the creds file anyway.
+                    if credentials and show_project_link and credentials.token in token_list:
                         credentials.print_token_summary()
-                        # Don't print it again in check_token below.
-                        show_project_link = False
+                        printed_tokens.add(credentials.token)
 
                     # Regardless of where the token comes from, check that it's valid.
                     # Even if it comes from a creds file, it could be revoked or expired.
@@ -982,79 +990,84 @@ class LogfireConfig(_LogfireConfigData):
                     # This may happen some time later in a background thread which can be annoying,
                     # hence we try to print it eagerly above.
                     # But we only have the link if we have a creds file, otherwise we only know the token at this point.
-
-                    def check_token():
-                        assert self.token is not None
+                    def check_tokens():
                         with suppress_instrumentation():
-                            validated_credentials = self._initialize_credentials_from_token(self.token)
-                        if show_project_link and validated_credentials is not None:
-                            validated_credentials.print_token_summary()
+                            for token in token_list:
+                                validated_credentials = self._initialize_credentials_from_token(token)
+                                if (
+                                    validated_credentials is not None
+                                    and show_project_link
+                                    and token not in printed_tokens
+                                ):
+                                    validated_credentials.print_token_summary()
 
                     if emscripten:  # pragma: no cover
-                        check_token()
+                        check_tokens()
                     else:
-                        thread = Thread(target=check_token, name='check_logfire_token')
+                        thread = Thread(target=check_tokens, name='check_logfire_token')
                         thread.start()
 
-                    base_url = self.advanced.generate_base_url(self.token)
-                    headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': self.token}
-                    session = OTLPExporterHttpSession()
-                    span_exporter = BodySizeCheckingOTLPSpanExporter(
-                        endpoint=urljoin(base_url, '/v1/traces'),
-                        session=session,
-                        compression=Compression.Gzip,
-                        headers=headers,
-                    )
-                    span_exporter = QuietSpanExporter(span_exporter)
-                    span_exporter = RetryFewerSpansSpanExporter(span_exporter)
-                    span_exporter = RemovePendingSpansExporter(span_exporter)
-                    if emscripten:  # pragma: no cover
-                        # BatchSpanProcessor uses threads which fail in Pyodide / Emscripten
-                        logfire_processor = SimpleSpanProcessor(span_exporter)
-                    else:
-                        logfire_processor = DynamicBatchSpanProcessor(span_exporter)
-                    add_span_processor(logfire_processor)
+                    # Create exporters for each token
+                    for token in token_list:
+                        base_url = self.advanced.generate_base_url(token)
+                        headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': token}
+                        session = OTLPExporterHttpSession()
+                        span_exporter = BodySizeCheckingOTLPSpanExporter(
+                            endpoint=urljoin(base_url, '/v1/traces'),
+                            session=session,
+                            compression=Compression.Gzip,
+                            headers=headers,
+                        )
+                        span_exporter = QuietSpanExporter(span_exporter)
+                        span_exporter = RetryFewerSpansSpanExporter(span_exporter)
+                        span_exporter = RemovePendingSpansExporter(span_exporter)
+                        if emscripten:  # pragma: no cover
+                            # BatchSpanProcessor uses threads which fail in Pyodide / Emscripten
+                            logfire_processor = SimpleSpanProcessor(span_exporter)
+                        else:
+                            logfire_processor = DynamicBatchSpanProcessor(span_exporter)
+                        add_span_processor(logfire_processor)
 
-                    # TODO should we warn here if we have metrics but we're in emscripten?
-                    # I guess we could do some hack to use InMemoryMetricReader and call it after user code has run?
-                    if metric_readers is not None and not emscripten:
-                        metric_readers.append(
-                            PeriodicExportingMetricReader(
-                                QuietMetricExporter(
-                                    OTLPMetricExporter(
-                                        endpoint=urljoin(base_url, '/v1/metrics'),
-                                        headers=headers,
-                                        session=session,
-                                        compression=Compression.Gzip,
-                                        # I'm pretty sure that this line here is redundant,
-                                        # and that passing it to the QuietMetricExporter is what matters
-                                        # because the PeriodicExportingMetricReader will read it from there.
+                        # TODO should we warn here if we have metrics but we're in emscripten?
+                        # I guess we could do some hack to use InMemoryMetricReader and call it after user code has run?
+                        if metric_readers is not None and not emscripten:
+                            metric_readers.append(
+                                PeriodicExportingMetricReader(
+                                    QuietMetricExporter(
+                                        OTLPMetricExporter(
+                                            endpoint=urljoin(base_url, '/v1/metrics'),
+                                            headers=headers,
+                                            session=session,
+                                            compression=Compression.Gzip,
+                                            # I'm pretty sure that this line here is redundant,
+                                            # and that passing it to the QuietMetricExporter is what matters
+                                            # because the PeriodicExportingMetricReader will read it from there.
+                                            preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
+                                        ),
                                         preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
-                                    ),
-                                    preferred_temporality=METRICS_PREFERRED_TEMPORALITY,
+                                    )
                                 )
                             )
+
+                        log_exporter = OTLPLogExporter(
+                            endpoint=urljoin(base_url, '/v1/logs'),
+                            session=session,
+                            headers=headers,
+                            compression=Compression.Gzip,
                         )
+                        log_exporter = QuietLogExporter(log_exporter)
 
-                    log_exporter = OTLPLogExporter(
-                        endpoint=urljoin(base_url, '/v1/logs'),
-                        session=session,
-                        headers=headers,
-                        compression=Compression.Gzip,
-                    )
-                    log_exporter = QuietLogExporter(log_exporter)
+                        if emscripten:  # pragma: no cover
+                            # BatchLogRecordProcessor uses threads which fail in Pyodide / Emscripten
+                            logfire_log_processor = SimpleLogRecordProcessor(log_exporter)
+                        else:
+                            logfire_log_processor = BatchLogRecordProcessor(log_exporter)
+                        log_record_processors.append(logfire_log_processor)
 
-                    if emscripten:  # pragma: no cover
-                        # BatchLogRecordProcessor uses threads which fail in Pyodide / Emscripten
-                        logfire_log_processor = SimpleLogRecordProcessor(log_exporter)
-                    else:
-                        logfire_log_processor = BatchLogRecordProcessor(log_exporter)
-                    log_record_processors.append(logfire_log_processor)
-
-                    # Forgetting to include `headers=headers` in all exporters previously allowed
-                    # env vars like OTEL_EXPORTER_OTLP_HEADERS to override ours since one session is shared.
-                    # This line is just to make sure.
-                    session.headers.update(headers)
+                        # Forgetting to include `headers=headers` in all exporters previously allowed
+                        # env vars like OTEL_EXPORTER_OTLP_HEADERS to override ours since one session is shared.
+                        # This line is just to make sure.
+                        session.headers.update(headers)
 
             if processors_with_pending_spans:
                 pending_multiprocessor = SynchronousMultiSpanProcessor()
@@ -1140,35 +1153,8 @@ class LogfireConfig(_LogfireConfigData):
                 set_meter_provider(self._meter_provider)
                 set_logger_provider(self._logger_provider)
 
-            @atexit.register
-            def exit_open_spans():  # pragma: no cover
-                # Ensure that all open spans are closed when the program exits.
-                # OTEL registers its own atexit callback in the tracer/meter providers to shut them down.
-                # Registering this callback here after the OTEL one means that this runs first.
-                # Otherwise OTEL would log an error "Already shutdown, dropping span."
-                # The reason that spans may be lingering open is that they're in suspended generator frames.
-                # Apart from here, they will be ended when the generator is garbage collected
-                # as the interpreter shuts down, but that's too late.
-                for span in list(OPEN_SPANS.values()):
-                    # TODO maybe we should be recording something about what happened here?
-                    span.end()
-                    # Interpreter shutdown may trigger another call to .end(),
-                    # which would log a warning "Calling end() on an ended span."
-                    span.end = lambda *_, **__: None  # type: ignore
-
-            # atexit isn't called in forked processes, patch os._exit to ensure cleanup.
-            # https://github.com/pydantic/logfire/issues/779
-            original_os_exit = os._exit
-
-            def patched_os_exit(code: int):  # pragma: no cover
-                try:
-                    exit_open_spans()
-                    self.force_flush()
-                except:  # noqa  # weird errors can happen during shutdown, ignore them *all* with a bare except
-                    pass
-                return original_os_exit(code)
-
-            os._exit = patched_os_exit
+            # Track this instance for cleanup on exit
+            _LOGFIRE_CONFIG_INSTANCES.append(weakref.ref(self))
 
             self._initialized = True
 
@@ -1301,6 +1287,46 @@ class LogfireConfig(_LogfireConfigData):
         self._meter_provider.suppress_scopes(*scopes)
         self._logger_provider.suppress_scopes(*scopes)
 
+
+# Global list to track all LogfireConfig instances for cleanup on exit
+_LOGFIRE_CONFIG_INSTANCES: list[weakref.ref[LogfireConfig]] = []
+
+
+@atexit.register
+def exit_open_spans():  # pragma: no cover
+    # Ensure that all open spans are closed when the program exits.
+    # OTEL registers its own atexit callback in the tracer/meter providers to shut them down.
+    # Registering this callback here after the OTEL one means that this runs first.
+    # Otherwise OTEL would log an error "Already shutdown, dropping span."
+    # The reason that spans may be lingering open is that they're in suspended generator frames.
+    # Apart from here, they will be ended when the generator is garbage collected
+    # as the interpreter shuts down, but that's too late.
+    for span in list(OPEN_SPANS.values()):
+        # TODO maybe we should be recording something about what happened here?
+        span.end()
+        # Interpreter shutdown may trigger another call to .end(),
+        # which would log a warning "Calling end() on an ended span."
+        span.end = lambda *_, **__: None  # type: ignore
+
+
+# atexit isn't called in forked processes, patch os._exit to ensure cleanup.
+# https://github.com/pydantic/logfire/issues/779
+original_os_exit = os._exit
+
+
+def patched_os_exit(code: int):  # pragma: no cover
+    try:
+        exit_open_spans()
+        for config_ref in _LOGFIRE_CONFIG_INSTANCES:
+            config = config_ref()
+            if config is not None:
+                config.force_flush()
+    except:  # noqa  # weird errors can happen during shutdown, ignore them *all* with a bare except
+        pass
+    return original_os_exit(code)
+
+
+os._exit = patched_os_exit
 
 # The global config is the single global object in logfire
 # It also does not initialize anything when it's created (right now)

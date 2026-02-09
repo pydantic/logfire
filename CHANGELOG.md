@@ -1,5 +1,34 @@
 # Release Notes
 
+## [v4.22.0] (2026-02-04)
+
+* feat: Add multi-token support for project migration by @adriangb in [#1672](https://github.com/pydantic/logfire/pull/1672)
+* Fix google_genai integration crash when Gemini returns parts=None by @alexmojaki in [#1678](https://github.com/pydantic/logfire/pull/1678)
+
+## [v4.21.0] (2026-01-28)
+
+* feat: Add OTel Gen AI semantic convention scalar attributes by @brightsparc in [#1657](https://github.com/pydantic/logfire/pull/1657)
+* Handle langchain reasoning summaries by @alexmojaki in [#1665](https://github.com/pydantic/logfire/pull/1665)
+* Fix Responses API streaming error handling to not mask original errors by @jordanhboxer in [#1668](https://github.com/pydantic/logfire/pull/1668)
+* Only patch `os.exit` once by @alexmojaki in [#1663](https://github.com/pydantic/logfire/pull/1663)
+
+## [v4.20.0] (2026-01-26)
+
+* feat: pytest integration by @jirikuncar in [#1648](https://github.com/pydantic/logfire/pull/1648)
+* fix: anthropic response data should include tool call id by @mathislucka in [#1636](https://github.com/pydantic/logfire/pull/1636)
+
+## [v4.19.0] (2026-01-16)
+
+* Add DSPy integration to logfire by @bdsaglam in [#1625](https://github.com/pydantic/logfire/pull/1625)
+* Set log level based on HTTP status code, create issues for handled exceptions in FastAPI when the status code is 5xx by @alexmojaki in [#1628](https://github.com/pydantic/logfire/pull/1628)
+* Add OTel GenAI semantic convention attributes to LLM instrumentations by @jimilp7 in [#1619](https://github.com/pydantic/logfire/pull/1619)
+* Minor optimization: move tweaking of ASGI send/receive span level by @alexmojaki in [#1629](https://github.com/pydantic/logfire/pull/1629)
+
+## [v4.18.0] (2026-01-12)
+
+* Adds `aiohttp` request body capture. by @adtyavrdhn in [#1595](https://github.com/pydantic/logfire/pull/1595)
+* Claude SDK instrumentation by @alexmojaki in [#1618](https://github.com/pydantic/logfire/pull/1618)
+
 ## [v4.17.0] (2026-01-07)
 
 * `logfire.instrument_surrealdb` by @alexmojaki in [#1573](https://github.com/pydantic/logfire/pull/1573)
@@ -994,3 +1023,8 @@ First release from new repo!
 [v4.15.1]: https://github.com/pydantic/logfire/compare/v4.15.0...v4.15.1
 [v4.16.0]: https://github.com/pydantic/logfire/compare/v4.15.1...v4.16.0
 [v4.17.0]: https://github.com/pydantic/logfire/compare/v4.16.0...v4.17.0
+[v4.18.0]: https://github.com/pydantic/logfire/compare/v4.17.0...v4.18.0
+[v4.19.0]: https://github.com/pydantic/logfire/compare/v4.18.0...v4.19.0
+[v4.20.0]: https://github.com/pydantic/logfire/compare/v4.19.0...v4.20.0
+[v4.21.0]: https://github.com/pydantic/logfire/compare/v4.20.0...v4.21.0
+[v4.22.0]: https://github.com/pydantic/logfire/compare/v4.21.0...v4.22.0

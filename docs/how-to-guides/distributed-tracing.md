@@ -16,8 +16,6 @@ logfire.configure()
 with logfire.span('parent'):
     ctx = logfire.get_context()
 
-print(ctx)
-
 # Attach the context in another execution environment
 with logfire.attach_context(ctx):
     logfire.info('child')  # This log will be a child of the parent span.
@@ -44,28 +42,29 @@ OpenTelemetry instrumentation libraries (which **Logfire** uses for its integrat
 
 - Instrumented HTTP clients such as [`requests`](../integrations/http-clients/requests.md) and [`httpx`](../integrations/http-clients/httpx.md) will automatically set the `traceparent` header when making requests.
 - Instrumented web servers such as [`flask`](../integrations/web-frameworks/flask.md) and [`fastapi`](../integrations/web-frameworks/fastapi.md) will automatically extract the `traceparent` header and use it to set the context for server spans.
-- The [`celery` integration](../integrations/event-streams/celery.md) will automatically propagate the context to child tasks.
+- The [`celery` integration](../integrations/event-streams/celery.md) will automatically propagate the context to child tasks. Note that `logfire.instrument_celery()` must be called in **both** the worker processes and the application that enqueues tasks.
 
 ## Thread and Pool executors
 
 **Logfire** automatically patches [`ThreadPoolExecutor`][concurrent.futures.ThreadPoolExecutor] and [`ProcessPoolExecutor`][concurrent.futures.ProcessPoolExecutor] to propagate context to child threads and processes. This means that logs and spans created in child threads and processes will be correctly associated with the parent span. Here's an example to demonstrate:
 
 ```python
-import logfire
 from concurrent.futures import ThreadPoolExecutor
+
+import logfire
 
 logfire.configure()
 
 
-@logfire.instrument("Doubling {x}")
+@logfire.instrument('Doubling {x}')
 def double(x: int):
     return x * 2
 
 
-with logfire.span("Doubling everything") as span:
+with logfire.span('Doubling everything') as span:
     executor = ThreadPoolExecutor()
     results = list(executor.map(double, range(3)))
-    span.set_attribute("results", results)
+    span.set_attribute('results', results)
 ```
 
 !!! note "`ProcessPoolExecutor` and exception_callback"

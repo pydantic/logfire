@@ -12,7 +12,7 @@ To instrument [FastStream][faststream] with OpenTelemetry, you need to:
 
 Let's see an example:
 
-```python title="main.py"
+```python title="main.py" skip-run="true" skip-reason="external-connection"
 from faststream import FastStream
 from faststream.redis import RedisBroker
 from faststream.redis.opentelemetry import RedisTelemetryMiddleware
@@ -26,20 +26,20 @@ broker = RedisBroker(middlewares=(RedisTelemetryMiddleware(),))
 app = FastStream(broker)
 
 
-@broker.subscriber("test-channel")
-@broker.publisher("another-channel")
+@broker.subscriber('test-channel')
+@broker.publisher('another-channel')
 async def handle():
-    return "Hi!"
+    return 'Hi!'
 
 
-@broker.subscriber("another-channel")
+@broker.subscriber('another-channel')
 async def handle_next(msg: str):
-    assert msg == "Hi!"
+    assert msg == 'Hi!'
 
 
 @app.after_startup
 async def test():
-    await broker.publish("", channel="test-channel")
+    await broker.publish('', channel='test-channel')
 ```
 
 Since we are using Redis, we added the [`RedisTelemetryMiddleware`][faststream.redis.opentelemetry.RedisTelemetryMiddleware]

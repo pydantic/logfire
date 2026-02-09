@@ -14,6 +14,16 @@ import logfire._internal.integrations.django
 from logfire.testing import CaptureLogfire, TestExporter
 
 
+def test_django_test_project_modules() -> None:
+    """Test that Django test project modules are importable for coverage."""
+    from tests.otel_integrations.django_test_project.django_test_app import apps as django_test_app_apps
+    from tests.otel_integrations.django_test_project.django_test_site import wsgi as django_test_site_wsgi
+
+    # Verify the modules loaded correctly
+    assert django_test_app_apps.TestAppConfig.name == 'django_test_app'
+    assert django_test_site_wsgi.application is not None
+
+
 def test_good_route(client: Client, capfire: CaptureLogfire):
     logfire.instrument_django()
     response: HttpResponse = client.get(  # type: ignore
@@ -116,7 +126,7 @@ def test_good_route(client: Client, capfire: CaptureLogfire):
     )
 
     # TODO route and target should consistently start with /, including in the name/message
-    assert capfire.exporter.exported_spans_as_dict() == snapshot(
+    assert capfire.exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'GET django_test_app/<int:item_id>/',
@@ -154,7 +164,7 @@ def test_error_route(client: Client, exporter: TestExporter):
     response: HttpResponse = client.get('/django_test_app/bad/?foo=1')  # type: ignore
     assert response.status_code == 400
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'GET django_test_app/bad/',
@@ -206,7 +216,7 @@ def test_no_matching_route(client: Client, exporter: TestExporter):
     response: HttpResponse = client.get('/django_test_app/nowhere/?foo=1')  # type: ignore
     assert response.status_code == 404
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'GET',
@@ -232,6 +242,7 @@ def test_no_matching_route(client: Client, exporter: TestExporter):
                     'http.status_code': 404,
                     'http.response.status_code': 404,
                     'http.target': '/django_test_app/nowhere/',
+                    'logfire.level_num': 13,
                 },
             }
         ]
