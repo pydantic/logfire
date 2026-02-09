@@ -87,31 +87,39 @@ def instrument_fastapi(
         **opentelemetry_kwargs,
     }
 
+    registry = patch_fastapi()
+    instrumentation = FastAPIInstrumentation(
+        logfire_instance,
+        request_attributes_mapper or _default_request_attributes_mapper,
+        extra_spans=extra_spans,
+    )
+
     if app is None:
         FastAPIInstrumentor().instrument(**opentelemetry_kwargs)
+        # Set up global instrumentation so that logfire's custom FastAPI features
+        # (request_attributes_mapper, extra_spans, pseudo_span timestamps) work for all apps.
+        registry.global_instrumentation = instrumentation
 
         @contextmanager
         def uninstrument_context():  # pragma: no cover
-            yield
-            FastAPIInstrumentor().uninstrument()
+            try:
+                yield
+            finally:
+                registry.global_instrumentation = None
+                FastAPIInstrumentor().uninstrument()
 
         return uninstrument_context()
     else:
         FastAPIInstrumentor.instrument_app(app, **opentelemetry_kwargs)
 
-        registry = patch_fastapi()
-        if app in registry:  # pragma: no cover
+        if app in registry.per_app:  # pragma: no cover
             raise ValueError('This app has already been instrumented.')
 
         mounted_apps = find_mounted_apps(app)
         mounted_apps.append(app)
 
         for _app in mounted_apps:
-            registry[_app] = FastAPIInstrumentation(
-                logfire_instance,
-                request_attributes_mapper or _default_request_attributes_mapper,
-                extra_spans=extra_spans,
-            )
+            registry.per_app[_app] = instrumentation
 
         @contextmanager
         def uninstrument_context():
@@ -122,20 +130,29 @@ def instrument_fastapi(
                 yield
             finally:
                 for _app in mounted_apps:
-                    del registry[_app]
+                    del registry.per_app[_app]
                     FastAPIInstrumentor.uninstrument_app(_app)
 
         return uninstrument_context()
 
 
+class _FastAPIRegistry:
+    """Holds per-app and global FastAPIInstrumentation instances for the patched fastapi functions."""
+
+    def __init__(self) -> None:
+        self.per_app: WeakKeyDictionary[FastAPI, FastAPIInstrumentation] = WeakKeyDictionary()
+        self.global_instrumentation: FastAPIInstrumentation | None = None
+
+
 @lru_cache  # only patch once
-def patch_fastapi():
-    """Globally monkeypatch fastapi functions and return a dictionary for recording instrumentation config per app."""
-    registry: WeakKeyDictionary[FastAPI, FastAPIInstrumentation] = WeakKeyDictionary()
+def patch_fastapi() -> _FastAPIRegistry:
+    """Globally monkeypatch fastapi functions and return a registry for recording instrumentation config."""
+    registry = _FastAPIRegistry()
 
     async def patched_solve_dependencies(*, request: Request | WebSocket, **kwargs: Any) -> Any:
         original = original_solve_dependencies(request=request, **kwargs)
-        if instrumentation := registry.get(request.app):
+        # Check per-app registry first, then fall back to global instrumentation (used by `logfire run` CLI).
+        if instrumentation := (registry.per_app.get(request.app) or registry.global_instrumentation):
             return await instrumentation.solve_dependencies(request, original)
         else:
             return await original  # pragma: no cover
@@ -150,7 +167,10 @@ def patch_fastapi():
     async def patched_run_endpoint_function(*, dependant: Any, values: dict[str, Any], **kwargs: Any) -> Any:
         if isinstance(values, _InstrumentedValues):
             request = values.request
-            if instrumentation := registry.get(request.app):  # pragma: no branch
+            # Check per-app registry first, then fall back to global instrumentation.
+            if instrumentation := (
+                registry.per_app.get(request.app) or registry.global_instrumentation
+            ):  # pragma: no branch
                 return await instrumentation.run_endpoint_function(
                     original_run_endpoint_function, request, dependant, values, **kwargs
                 )

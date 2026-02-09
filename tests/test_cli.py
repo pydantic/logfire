@@ -1648,6 +1648,48 @@ def test_instrument_web_frameworks(exporter: TestExporter) -> None:
         FlaskInstrumentor().uninstrument()
 
 
+def test_instrument_fastapi_global_instrumentation(exporter: TestExporter) -> None:
+    """Test that logfire's custom FastAPI features (pseudo_span timestamps, route attributes)
+    work when instrumenting without an app instance (the `logfire run` CLI path).
+    """
+    from starlette.testclient import TestClient
+
+    from logfire._internal.integrations.fastapi import instrument_fastapi
+
+    uninstrument = instrument_fastapi(logfire.DEFAULT_LOGFIRE_INSTANCE, app=None)
+    try:
+        from fastapi import FastAPI
+
+        app = FastAPI()
+
+        @app.get('/')
+        async def homepage() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+            return {'hello': 'world'}
+
+        client = TestClient(app)
+        response = client.get('/')
+        assert response.status_code == 200
+
+        spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+        assert len(spans) == 1
+        root_span = spans[0]
+        assert root_span['name'] == 'GET /'
+        # Verify logfire's custom FastAPI features are active via the global FastAPIInstrumentation:
+        # - Route attributes set by solve_dependencies
+        assert root_span['attributes']['fastapi.route.name'] == 'homepage'
+        # - Pseudo_span timestamps set by FastAPIInstrumentation
+        assert 'fastapi.arguments.start_timestamp' in root_span['attributes']
+        assert 'fastapi.arguments.end_timestamp' in root_span['attributes']
+        assert 'fastapi.endpoint_function.start_timestamp' in root_span['attributes']
+        assert 'fastapi.endpoint_function.end_timestamp' in root_span['attributes']
+    finally:
+        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+        with uninstrument:
+            pass
+        FastAPIInstrumentor().uninstrument()
+
+
 def test_split_args_action() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('--foo', action=SplitArgs)
