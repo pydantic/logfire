@@ -96,6 +96,11 @@ jobs:
         # installs the most recent patch on the minor version's track, ex 2.6.* -> 2.6.4
         run: uv pip install 'pydantic==${{ matrix.pydantic-version }}.*'
 
+      - name: Install compatible fastapi for old pydantic
+        if: matrix.pydantic-version == '2.4'
+        # fastapi 0.128.5+ requires pydantic>=2.7
+        run: uv pip install 'fastapi<0.128.5'
+
       - name: Install OTel SDK ${{ matrix.otel-version }}
         # installs the most recent patch on the minor version's track, ex 2.6.* -> 2.6.4
         run: |
