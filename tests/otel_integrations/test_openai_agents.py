@@ -949,7 +949,14 @@ async def test_chat_completions(exporter: TestExporter):
                         }
                     ],
                     'model_config': IsPartialDict(),
-                    'usage': {'input_tokens': 11, 'output_tokens': 8},
+                    'usage': {
+                        'requests': 1,
+                        'input_tokens': 11,
+                        'output_tokens': 8,
+                        'total_tokens': 19,
+                        'input_tokens_details': {'cached_tokens': 0},
+                        'output_tokens_details': {'reasoning_tokens': 0},
+                    },
                     'gen_ai.system': 'openai',
                     'gen_ai.request.model': 'gpt-4o',
                     'gen_ai.response.model': 'gpt-4o',

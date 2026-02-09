@@ -319,7 +319,7 @@ async def test_mcp(exporter: TestExporter):
                     'logfire.span_type': 'span',
                     'name': 'random_number',
                     'input': {},
-                    'output': {'type': 'text', 'text': '4', 'annotations': None, 'meta': None},
+                    'output': "{'type': 'text', 'text': '4'}",
                     'mcp_data': {'server': 'MyMCPServer'},
                     'gen_ai.system': 'openai',
                     'logfire.msg': 'Function: random_number',
@@ -426,7 +426,7 @@ async def test_mcp(exporter: TestExporter):
                         },
                         {
                             'call_id': 'call_jfYaCkab5PQtyNrcrSgMdlRf',
-                            'output': '{"type":"text","text":"4","annotations":null,"meta":null}',
+                            'output': [{'type': 'input_text', 'text': '4'}],
                             'type': 'function_call_output',
                         },
                     ],
@@ -447,7 +447,7 @@ async def test_mcp(exporter: TestExporter):
                             'event.name': 'gen_ai.tool.message',
                             'role': 'tool',
                             'id': 'call_jfYaCkab5PQtyNrcrSgMdlRf',
-                            'content': '{"type":"text","text":"4","annotations":null,"meta":null}',
+                            'content': [{'type': 'input_text', 'text': '4'}],
                             'name': 'random_number',
                         },
                         {

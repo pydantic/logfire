@@ -125,12 +125,12 @@ def test_instrument_langchain(exporter: TestExporter) -> None:
         [
             ('LangGraph', 4),  # Full conversation in outermost span
             # First request and response
-            ('model', 2),
+            ('model', 1),
             ('ChatOpenAI', 2),
             ('tools', 0),
             ('add', 0),
             # Second request and response included, thus the whole conversation
-            ('model', 4),
+            ('model', 3),
             ('ChatOpenAI', 4),
         ]
     )
