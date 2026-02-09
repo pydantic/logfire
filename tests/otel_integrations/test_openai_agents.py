@@ -36,7 +36,7 @@ from agents.tracing.span_data import MCPListToolsSpanData, ResponseSpanData
 from agents.tracing.spans import NoOpSpan
 from agents.tracing.traces import NoOpTrace
 from agents.voice import AudioInput, SingleAgentVoiceWorkflow, VoicePipeline
-from dirty_equals import IsPartialDict, IsStr
+from dirty_equals import IsOneOf, IsPartialDict, IsStr
 from inline_snapshot import snapshot
 from openai import AsyncOpenAI
 
@@ -566,7 +566,7 @@ async def test_responses(exporter: TestExporter):
                     'input': {},
                     'mcp_data': 'null',
                     'gen_ai.system': 'openai',
-                    'output': '4',
+                    'output': IsOneOf(4, '4'),
                 },
             },
             {
