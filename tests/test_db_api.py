@@ -375,6 +375,40 @@ def test_params_float():
     conn.close()
 
 
+def test_params_non_string_fallback():
+    """Cover the fallback branch in _escape_value for types that aren't str/int/float/bool/None."""
+    capture: dict[str, Any] = {}
+    conn = make_connection(capture=capture)
+    cur = conn.cursor()
+    ts = datetime(2024, 1, 15, 12, 30, 0, tzinfo=timezone.utc)
+    cur.execute(
+        'SELECT * FROM records WHERE start_timestamp > %(ts)s',
+        {'ts': ts},
+    )
+    sql = capture['params']['sql'][0]
+    assert "start_timestamp > '2024-01-15 12:30:00+00:00'" in sql
+    conn.close()
+
+
+def test_params_non_string_fallback_with_quotes():
+    """Cover the quote-escaping in the fallback branch of _escape_value."""
+    capture: dict[str, Any] = {}
+    conn = make_connection(capture=capture)
+    cur = conn.cursor()
+
+    class HasQuotes:
+        def __str__(self) -> str:
+            return "it's tricky"
+
+    cur.execute(
+        'SELECT * FROM records WHERE label = %(val)s',
+        {'val': HasQuotes()},
+    )
+    sql = capture['params']['sql'][0]
+    assert "label = 'it''s tricky'" in sql
+    conn.close()
+
+
 def test_params_sequence():
     capture: dict[str, Any] = {}
     conn = make_connection(capture=capture)

@@ -141,7 +141,7 @@ class Connection:
 
     def close(self) -> None:
         """Close the connection and the underlying HTTP client."""
-        if not self.closed:
+        if not self.closed:  # pragma: no branch
             self.client.__exit__(None, None, None)
             self.closed = True
 
