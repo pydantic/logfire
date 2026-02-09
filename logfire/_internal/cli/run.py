@@ -302,9 +302,9 @@ def installed_packages() -> set[str]:
         # Fall back to pkg_resources
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', category=UserWarning)
-            import pkg_resources
+            import pkg_resources  # type: ignore[reportMissingImports]
 
-            return {pkg.key for pkg in pkg_resources.working_set}
+            return {pkg.key for pkg in pkg_resources.working_set}  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
 
 
 def _full_install_command(recommendations: list[tuple[str, str]]) -> str:
