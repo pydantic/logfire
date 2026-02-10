@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any
 
 from logfire.experimental.query_client import LogfireQueryClient
@@ -73,6 +73,7 @@ class NotSupportedError(DatabaseError):
 # ---------------------------------------------------------------------------
 
 DEFAULT_LIMIT = 10_000  # server-side maximum
+DEFAULT_MIN_TIMESTAMP_AGE = timedelta(days=30)
 
 
 # ---------------------------------------------------------------------------
@@ -109,6 +110,8 @@ def _substitute_params(operation: str, parameters: dict[str, Any] | Sequence[Any
     if isinstance(parameters, dict):
         escaped = {key: _escape_value(val) for key, val in parameters.items()}
         return operation % escaped
+    if isinstance(parameters, (str, bytes, bytearray)):
+        raise ProgrammingError('parameters must be a sequence (e.g. list or tuple) or a dict, not a string/bytes')
     # Sequence of positional parameters
     escaped_seq = tuple(_escape_value(val) for val in parameters)
     return operation % escaped_seq
@@ -126,13 +129,15 @@ class Connection:
         self,
         client: LogfireQueryClient,
         *,
-        min_timestamp: datetime | None = None,
+        min_timestamp: datetime | timedelta | None = DEFAULT_MIN_TIMESTAMP_AGE,
         max_timestamp: datetime | None = None,
         limit: int = DEFAULT_LIMIT,
     ) -> None:
         self.client = client
         self.client.__enter__()
         self.closed = False
+        if isinstance(min_timestamp, timedelta):
+            min_timestamp = datetime.now(timezone.utc) - min_timestamp
         self.min_timestamp = min_timestamp
         self.max_timestamp = max_timestamp
         self.limit = limit
@@ -309,7 +314,7 @@ def connect(
     base_url: str | None = None,
     timeout: float = 30.0,
     *,
-    min_timestamp: datetime | None = None,
+    min_timestamp: datetime | timedelta | None = DEFAULT_MIN_TIMESTAMP_AGE,
     max_timestamp: datetime | None = None,
     limit: int = DEFAULT_LIMIT,
     **kwargs: Any,
@@ -321,6 +326,9 @@ def connect(
         base_url: Override the default API base URL (inferred from token region).
         timeout: HTTP request timeout in seconds.
         min_timestamp: Default lower bound for ``start_timestamp`` filtering.
+            Accepts a `datetime` for an exact bound, a `timedelta` for a
+            relative window (computed as ``now - timedelta``), or ``None`` to
+            disable the filter.  Defaults to 30 days ago.
         max_timestamp: Default upper bound for ``start_timestamp`` filtering.
         limit: Default row limit per query (max 10,000). When the number of
             returned rows equals the limit a warning is emitted.

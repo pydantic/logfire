@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import warnings
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
@@ -60,7 +60,7 @@ def make_connection(
     rows: list[dict[str, Any]] | None = None,
     capture: dict[str, Any] | None = None,
     limit: int = logfire.db_api.DEFAULT_LIMIT,
-    min_timestamp: datetime | None = None,
+    min_timestamp: datetime | timedelta | None = None,
     max_timestamp: datetime | None = None,
 ) -> Connection:
     """Create a Connection backed by a mock transport."""
@@ -462,12 +462,8 @@ def test_truncation_warning():
     conn = make_connection(rows=rows, limit=5)
     cur = conn.cursor()
 
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter('always')
+    with pytest.warns(UserWarning, match='returned 5 rows which is the limit'):
         cur.execute('SELECT kind, message, count FROM records')
-
-    assert len(w) == 1
-    assert 'returned 5 rows which is the limit' in str(w[0].message)
     conn.close()
 
 
@@ -587,4 +583,86 @@ def test_connect_custom_limit():
     cur = conn.cursor()
     cur.execute('SELECT 1')
     assert capture['params']['limit'] == ['200']
+    conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Tests: default min_timestamp
+# ---------------------------------------------------------------------------
+
+
+def test_connect_default_min_timestamp():
+    """connect() without min_timestamp defaults to ~30 days ago."""
+    capture: dict[str, Any] = {}
+    transport = make_mock_transport(capture=capture)
+    conn = connect(
+        read_token='pylf_v1_us_fake',
+        base_url='https://logfire-us.pydantic.dev',
+        transport=transport,
+    )
+    cur = conn.cursor()
+    cur.execute('SELECT 1')
+    assert 'min_timestamp' in capture['params']
+    # The default should be approximately 30 days ago
+    assert conn.min_timestamp is not None
+    age = datetime.now(timezone.utc) - conn.min_timestamp
+    assert timedelta(days=29) < age < timedelta(days=31)
+    conn.close()
+
+
+def test_connect_min_timestamp_none_disables_filter():
+    """Passing min_timestamp=None disables the timestamp filter."""
+    capture: dict[str, Any] = {}
+    transport = make_mock_transport(capture=capture)
+    conn = connect(
+        read_token='pylf_v1_us_fake',
+        base_url='https://logfire-us.pydantic.dev',
+        min_timestamp=None,
+        transport=transport,
+    )
+    cur = conn.cursor()
+    cur.execute('SELECT 1')
+    assert 'min_timestamp' not in capture['params']
+    conn.close()
+
+
+def test_connect_min_timestamp_timedelta():
+    """Passing a timedelta computes min_timestamp relative to now."""
+    capture: dict[str, Any] = {}
+    transport = make_mock_transport(capture=capture)
+    conn = connect(
+        read_token='pylf_v1_us_fake',
+        base_url='https://logfire-us.pydantic.dev',
+        min_timestamp=timedelta(days=7),
+        transport=transport,
+    )
+    cur = conn.cursor()
+    cur.execute('SELECT 1')
+    assert 'min_timestamp' in capture['params']
+    assert conn.min_timestamp is not None
+    age = datetime.now(timezone.utc) - conn.min_timestamp
+    assert timedelta(days=6) < age < timedelta(days=8)
+    conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Tests: string/bytes parameter rejection
+# ---------------------------------------------------------------------------
+
+
+def test_params_string_rejected():
+    """Passing a string as parameters should raise ProgrammingError."""
+    conn = make_connection()
+    cur = conn.cursor()
+    with pytest.raises(ProgrammingError, match='parameters must be a sequence'):
+        cur.execute('SELECT * FROM records WHERE kind = %s', 'log')
+    conn.close()
+
+
+def test_params_bytes_rejected():
+    """Passing bytes as parameters should raise ProgrammingError."""
+    conn = make_connection()
+    cur = conn.cursor()
+    with pytest.raises(ProgrammingError, match='parameters must be a sequence'):
+        cur.execute('SELECT * FROM records WHERE kind = %s', b'log')
     conn.close()
