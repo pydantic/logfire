@@ -205,10 +205,15 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     assert getattr(logfire_api, 'instrument_wsgi')(app=MagicMock()) is not None
     logfire__all__.remove('instrument_wsgi')
 
-    for member in [m for m in ('instrument_flask', 'instrument_fastapi', 'instrument_starlette')]:
+    for member in [m for m in ('instrument_flask', 'instrument_starlette')]:
         assert hasattr(logfire_api, member), member
         getattr(logfire_api, member)(app=MagicMock())
         logfire__all__.remove(member)
+
+    assert hasattr(logfire_api, 'instrument_fastapi')
+    if get_version(pydantic_version) >= get_version('2.7.0'):
+        logfire_api.instrument_fastapi(app=MagicMock())
+    logfire__all__.remove('instrument_fastapi')
 
     for member in [m for m in ('instrument_openai', 'instrument_anthropic', 'instrument_print')]:
         assert hasattr(logfire_api, member), member

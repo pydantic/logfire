@@ -3,8 +3,11 @@
 import gc
 import os
 
+import pydantic
 import pytest
 from pytest_examples import CodeExample, EvalExample, find_examples
+
+from logfire._internal.utils import get_version
 
 # Prevent accidental live API calls during testing
 os.environ.setdefault('LOGFIRE_SEND_TO_LOGFIRE', 'false')
@@ -58,6 +61,9 @@ def _get_runnable_examples():
 @pytest.mark.timeout(3)
 def test_runnable(example: CodeExample, eval_example: EvalExample):
     """Ensure examples in documentation are runnable."""
+    if 'from fastapi' in example.source and get_version(pydantic.__version__) < get_version('2.7.0'):
+        pytest.skip('FastAPI requires pydantic>=2.7')
+
     set_eval_config(eval_example)
 
     if eval_example.update_examples:  # pragma: no cover

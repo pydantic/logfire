@@ -5,33 +5,29 @@ import os
 from typing import Annotated, Any
 from unittest import mock
 
-import pydantic
 import pytest
 from dirty_equals import IsFloat, IsInt
-from fastapi import BackgroundTasks, FastAPI, Response, WebSocket
-from fastapi.exceptions import HTTPException, RequestValidationError
-from fastapi.params import Depends, Header
-from fastapi.security import SecurityScopes
-from fastapi.staticfiles import StaticFiles
 from inline_snapshot import snapshot
 from opentelemetry.propagate import inject
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
 from starlette.testclient import TestClient
 
+# FastAPI 0.128.5+ requires pydantic>=2.7
+pytest.importorskip('fastapi', reason='FastAPI requires pydantic>=2.7', exc_type=ImportError)
+
+from fastapi import BackgroundTasks, FastAPI, Response, WebSocket
+from fastapi.exceptions import HTTPException, RequestValidationError
+from fastapi.params import Depends, Header
+from fastapi.security import SecurityScopes
+from fastapi.staticfiles import StaticFiles
+
 import logfire
 import logfire._internal
 import logfire._internal.integrations
 import logfire._internal.integrations.fastapi
 from logfire._internal.main import set_user_attributes_on_raw_span
-from logfire._internal.utils import get_version
 from logfire.testing import TestExporter
-
-pytestmark = [
-    pytest.mark.skipif(
-        get_version(pydantic.__version__) < get_version('2.7.0'), reason='Requires newer pydantic version'
-    ),
-]
 
 
 def test_missing_opentelemetry_dependency() -> None:
