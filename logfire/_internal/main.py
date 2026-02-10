@@ -1145,7 +1145,12 @@ class Logfire:
         async def logfire_proxy(request: Request):
             # DoS Prevention: Check Content-Length before reading body
             content_length = request.headers.get('content-length')
-            if content_length and int(content_length) > max_body_size:
+            if content_length:
+                try:
+                    if int(content_length) > max_body_size:
+                        return Response(status_code=413, content='Payload too large')
+                except ValueError:
+                    return Response(status_code=400, content='Invalid Content-Length header')
                 return Response(status_code=413, content='Payload too large')
 
             body = await request.body()
