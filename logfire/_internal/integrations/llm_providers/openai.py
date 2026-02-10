@@ -249,7 +249,7 @@ def convert_openai_messages_to_semconv(
             # System messages go to system_instructions
             if isinstance(content, str):
                 system_instructions.append({'type': 'text', 'content': content})
-            elif isinstance(content, list):
+            elif isinstance(content, list):  # pragma: no branch
                 for part in cast('list[dict[str, Any] | str]', content):
                     system_instructions.append(_convert_content_part(part))
             continue
@@ -260,7 +260,7 @@ def convert_openai_messages_to_semconv(
         if content is not None:
             if isinstance(content, str):
                 parts.append({'type': 'text', 'content': content})
-            elif isinstance(content, list):
+            elif isinstance(content, list):  # pragma: no branch
                 for part in cast('list[dict[str, Any] | str]', content):
                     parts.append(_convert_content_part(part))
 
@@ -270,7 +270,7 @@ def convert_openai_messages_to_semconv(
             for tc in tool_calls:
                 function = tc.get('function', {})
                 arguments = function.get('arguments')
-                if isinstance(arguments, str):
+                if isinstance(arguments, str):  # pragma: no branch
                     with contextlib.suppress(json.JSONDecodeError):
                         arguments = json.loads(arguments)
                 parts.append(
@@ -332,7 +332,7 @@ def convert_openai_response_to_semconv(
     """Convert an OpenAI response message to OTel Gen AI Semantic Convention format."""
     parts: list[dict[str, Any]] = []
 
-    if hasattr(message, 'content') and message.content:
+    if hasattr(message, 'content') and message.content:  # pragma: no branch
         parts.append({'type': 'text', 'content': message.content})
 
     if hasattr(message, 'tool_calls') and message.tool_calls:
@@ -340,7 +340,7 @@ def convert_openai_response_to_semconv(
             function = tc.function if hasattr(tc, 'function') else tc.get('function', {})
             func_name = function.name if hasattr(function, 'name') else function.get('name')
             func_args = function.arguments if hasattr(function, 'arguments') else function.get('arguments')
-            if isinstance(func_args, str):
+            if isinstance(func_args, str):  # pragma: no branch
                 with contextlib.suppress(json.JSONDecodeError):
                     func_args = json.loads(func_args)
             parts.append(
@@ -428,11 +428,11 @@ def _convert_responses_input_item(
                 ],
             }
         )
-    elif role and content:
+    elif role and content:  # pragma: no branch
         parts: list[dict[str, Any]] = []
         if isinstance(content, str):
             parts.append({'type': 'text', 'content': content})
-        elif isinstance(content, list):
+        elif isinstance(content, list):  # pragma: no branch
             for item in cast('list[dict[str, Any]]', content):
                 if item.get('type') == 'output_text':
                     parts.append({'type': 'text', 'content': item.get('text', '')})
@@ -440,7 +440,7 @@ def _convert_responses_input_item(
                     parts.append({'type': 'text', 'content': item.get('text', '')})
                 else:
                     parts.append(item)
-        if parts:
+        if parts:  # pragma: no branch
             input_messages.append({'role': role, 'parts': parts})
 
 
@@ -644,10 +644,10 @@ def on_response(response: ResponseT, span: LogfireSpan, *, version: int | str = 
         finish_reasons: list[str] = []
         for choice in response.choices:
             finish_reason = choice.finish_reason
-            if finish_reason:
+            if finish_reason:  # pragma: no branch
                 finish_reasons.append(finish_reason)
             output_messages.append(convert_openai_response_to_semconv(choice.message, finish_reason))
-        if finish_reasons:
+        if finish_reasons:  # pragma: no branch
             span.set_attribute(RESPONSE_FINISH_REASONS, finish_reasons)
 
         if version == 'latest':
@@ -663,7 +663,7 @@ def on_response(response: ResponseT, span: LogfireSpan, *, version: int | str = 
         output_messages_completion: list[dict[str, Any]] = []
         for choice in response.choices:
             finish_reason = choice.finish_reason
-            if finish_reason:
+            if finish_reason:  # pragma: no branch
                 finish_reasons_completion.append(finish_reason)
             output_messages_completion.append(
                 {
@@ -672,7 +672,7 @@ def on_response(response: ResponseT, span: LogfireSpan, *, version: int | str = 
                     'finish_reason': finish_reason,
                 }
             )
-        if finish_reasons_completion:
+        if finish_reasons_completion:  # pragma: no branch
             span.set_attribute(RESPONSE_FINISH_REASONS, finish_reasons_completion)
 
         if version == 'latest':

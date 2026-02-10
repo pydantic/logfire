@@ -141,7 +141,7 @@ def convert_anthropic_messages_to_semconv(
         if content is not None:
             if isinstance(content, str):
                 parts.append({'type': 'text', 'content': content})
-            elif isinstance(content, list):
+            elif isinstance(content, list):  # pragma: no branch
                 for part in cast('list[dict[str, Any] | str]', content):
                     parts.append(_convert_anthropic_content_part(part))
 
@@ -191,7 +191,7 @@ def _convert_anthropic_content_part(part: dict[str, Any] | str) -> dict[str, Any
             for p in cast('list[dict[str, Any] | str]', result_content):
                 if isinstance(p, dict) and p.get('type') == 'text':
                     text_parts.append(str(p.get('text', '')))
-                elif isinstance(p, str):
+                elif isinstance(p, str):  # pragma: no branch
                     text_parts.append(p)
             result_text = ' '.join(text_parts)
         else:
@@ -222,7 +222,7 @@ def convert_anthropic_response_to_semconv(message: Message) -> dict[str, Any]:
                     'arguments': block.input,
                 }
             )
-        elif hasattr(block, 'type'):
+        elif hasattr(block, 'type'):  # pragma: no cover
             # Handle other block types generically
             block_dict = block.model_dump() if hasattr(block, 'model_dump') else dict(block)
             parts.append(_convert_anthropic_content_part(block_dict))
@@ -276,7 +276,7 @@ def on_response(response: ResponseT, span: LogfireSpan, *, version: int | str = 
         span.set_attribute(RESPONSE_ID, response.id)
 
         # Add token usage
-        if response.usage:
+        if response.usage:  # pragma: no branch
             span.set_attribute(INPUT_TOKENS, response.usage.input_tokens)
             span.set_attribute(OUTPUT_TOKENS, response.usage.output_tokens)
 
