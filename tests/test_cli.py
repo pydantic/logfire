@@ -1649,6 +1649,23 @@ async def test_instrument_packages_aiohttp_client() -> None:
         AioHttpClientInstrumentor().uninstrument()
 
 
+def test_instrument_starlette_without_fastapi(exporter: TestExporter) -> None:
+    """When only starlette instrumentation is installed (no fastapi), it should be instrumented."""
+    try:
+        instrument_packages(
+            {'opentelemetry-instrumentation-starlette'},
+            {'opentelemetry-instrumentation-starlette': 'starlette'},
+        )
+
+        from starlette.applications import Starlette
+
+        assert getattr(Starlette(), '_is_instrumented_by_opentelemetry', False) is True
+    finally:
+        from opentelemetry.instrumentation.starlette import StarletteInstrumentor
+
+        StarletteInstrumentor().uninstrument()
+
+
 @requires_pydantic_2_7
 def test_instrument_web_frameworks(exporter: TestExporter) -> None:
     try:
