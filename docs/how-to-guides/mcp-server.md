@@ -51,11 +51,19 @@ For **EU region** (`logfire-eu.pydantic.dev`):
     The remote MCP server handles authentication automatically through your browser. When you first connect,
     you'll be prompted to authenticate with your Pydantic Logfire account.
 
+!!! note
+    If you are running a self-hosted Logfire instance, you should use the [Running Locally](#running-locally-deprecated) section below
+    to configure the MCP server with your custom base URL.
+
 ---
 
-## Running Locally
+## Running Locally (Deprecated)
 
-If you prefer to run the MCP server locally (for example, for offline use or custom configurations),
+!!! warning
+    Running the MCP server locally is deprecated. Please use the [Remote MCP Server](#remote-mcp-server-recommended) instead.
+    The local server will continue to work, but we recommend migrating to the remote server for a better experience.
+
+If you prefer to run the MCP server locally (for example, for self-hosted Logfire or custom configurations),
 you can use the [`logfire-mcp`](https://pypi.org/project/logfire-mcp/) package instead.
 
 <div class="video-wrapper">
