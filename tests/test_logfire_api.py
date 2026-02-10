@@ -12,7 +12,6 @@ import pytest
 from pydantic import __version__ as pydantic_version
 
 from logfire._internal.utils import get_version
-from logfire.variables import VariablesConfig
 
 pydantic_pre_2_5 = get_version(pydantic_version) < get_version('2.5.0')
 
@@ -129,45 +128,21 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire_api.ConsoleOptions(colors='auto')
     logfire__all__.remove('ConsoleOptions')
 
-    assert hasattr(logfire_api, 'VariablesOptions')
-    logfire_api.VariablesOptions()
-    logfire__all__.remove('VariablesOptions')
-
-    assert hasattr(logfire_api, 'var')
-    logfire_api.var(name='test_var', default='default', type=str)
-    logfire__all__.remove('var')
-
-    assert hasattr(logfire_api, 'variables_clear')
-    logfire_api.variables_clear()
-    logfire__all__.remove('variables_clear')
-
-    assert hasattr(logfire_api, 'variables_get')
-    logfire_api.variables_get()
-    logfire__all__.remove('variables_get')
-
-    assert hasattr(logfire_api, 'variables_push')
-    logfire_api.variables_push([])
-    logfire__all__.remove('variables_push')
-
-    assert hasattr(logfire_api, 'variables_push_types')
-    logfire_api.variables_push_types([int])
-    logfire__all__.remove('variables_push_types')
-
-    assert hasattr(logfire_api, 'variables_validate')
-    logfire_api.variables_validate([])
-    logfire__all__.remove('variables_validate')
-
-    assert hasattr(logfire_api, 'variables_push_config')
-    logfire_api.variables_push_config(VariablesConfig(variables={}))
-    logfire__all__.remove('variables_push_config')
-
-    assert hasattr(logfire_api, 'variables_pull_config')
-    logfire_api.variables_pull_config()
-    logfire__all__.remove('variables_pull_config')
-
-    assert hasattr(logfire_api, 'variables_build_config')
-    logfire_api.variables_build_config()
-    logfire__all__.remove('variables_build_config')
+    # Variables APIs are intentionally not in logfire-api — users of variables should use the full SDK
+    for name in [
+        'var',
+        'variables',
+        'variables_clear',
+        'variables_get',
+        'variables_push',
+        'variables_push_types',
+        'variables_validate',
+        'variables_push_config',
+        'variables_pull_config',
+        'variables_build_config',
+        'VariablesOptions',
+    ]:
+        logfire__all__.discard(name)
 
     assert hasattr(logfire_api, 'PydanticPlugin')
     logfire_api.PydanticPlugin()
@@ -334,10 +309,6 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     with logfire_api.attach_context({'traceparent': '00-d1b9e555b056907ee20b0daebf62282c-7dcd821387246e1c-01'}):
         pass
     logfire__all__.remove('attach_context')
-
-    # logfire.variables is a submodule, not a function - just verify it exists
-    assert hasattr(logfire_api, 'variables')
-    logfire__all__.remove('variables')
 
     # If it's not empty, it means that some of the __all__ members are not tested.
     assert logfire__all__ == set(), logfire__all__
