@@ -52,8 +52,8 @@ For **EU region** (`logfire-eu.pydantic.dev`):
     you'll be prompted to authenticate with your Pydantic Logfire account.
 
 !!! note
-    If you are running a self-hosted Logfire instance, you should use the [Running Locally](#running-locally-deprecated) section below
-    to configure the MCP server with your custom base URL.
+    If you are running a self-hosted Logfire instance, replace the URL above with your own Logfire instance URL
+    (e.g., `https://logfire.my-company.com/mcp`), as the remote MCP server is hosted alongside your Logfire deployment.
 
 ---
 
@@ -63,8 +63,7 @@ For **EU region** (`logfire-eu.pydantic.dev`):
     Running the MCP server locally is deprecated. Please use the [Remote MCP Server](#remote-mcp-server-recommended) instead.
     The local server will continue to work, but we recommend migrating to the remote server for a better experience.
 
-If you prefer to run the MCP server locally (for example, for self-hosted Logfire or custom configurations),
-you can use the [`logfire-mcp`](https://pypi.org/project/logfire-mcp/) package instead.
+If you prefer to run the MCP server locally, you can use the [`logfire-mcp`](https://pypi.org/project/logfire-mcp/) package instead.
 
 <div class="video-wrapper">
   <iframe width="560" height="315" src="https://www.youtube.com/embed/z56NOvrtG74" frameborder="0" allowfullscreen></iframe>
