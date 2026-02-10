@@ -35,7 +35,7 @@ def forward_request(
     path = posixpath.normpath(path)
 
     allowed_prefixes = ('/v1/traces', '/v1/logs', '/v1/metrics')
-    if not any(path.startswith(prefix) for prefix in allowed_prefixes):
+    if not any(path == prefix or path.startswith(prefix + '/') for prefix in allowed_prefixes):
         return ForwardRequestResponse(
             status_code=400,
             headers={'Content-Type': 'text/plain'},
