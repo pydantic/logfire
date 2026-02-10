@@ -261,6 +261,36 @@ cursor = conn.cursor()
 cursor.limit = 500
 ```
 
+### Timestamp Filtering
+
+By default, the DB API module only queries data from the **last 24 hours**. This keeps queries fast and avoids
+accidentally scanning large amounts of data. If you need to query older data, set `min_timestamp` explicitly:
+
+```python skip-run="true" skip-reason="external-connection"
+from datetime import timedelta
+
+import logfire.db_api
+
+# Query the last 7 days
+conn = logfire.db_api.connect(read_token='<your_read_token>', min_timestamp=timedelta(days=7))
+
+# Or disable the filter entirely
+conn = logfire.db_api.connect(read_token='<your_read_token>', min_timestamp=None)
+```
+
+You can also override the timestamp filter per-cursor:
+
+```python skip-run="true" skip-reason="external-connection"
+from datetime import datetime, timedelta, timezone
+
+import logfire.db_api
+
+conn = logfire.db_api.connect(read_token='<your_read_token>')
+cursor = conn.cursor()
+cursor.min_timestamp = datetime.now(timezone.utc) - timedelta(days=14)
+cursor.execute('SELECT start_timestamp, message FROM records LIMIT 10')
+```
+
 ## Making Direct HTTP Requests
 
 If you prefer not to use the provided clients, you can make direct HTTP requests to the Logfire API using any HTTP
