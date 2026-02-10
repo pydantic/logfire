@@ -46,7 +46,7 @@ __all__ = (
 )
 
 
-def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
+def get_endpoint_config(options: FinalRequestOptions, *, version: int | str = 1) -> EndpointConfig:
     """Returns the endpoint config for OpenAI depending on the url."""
     url = options.url
 
@@ -56,88 +56,175 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         json_data = {}
     json_data = cast('dict[str, Any]', json_data)
 
+    model = json_data.get('model')
+
     if url == '/chat/completions':
         if is_current_agent_span('Chat completion with {gen_ai.request.model!r}'):
             return EndpointConfig(message_template='', span_data={})
 
-        span_data: dict[str, Any] = {
-            'request_data': json_data,
-            PROVIDER_NAME: 'openai',
-            OPERATION_NAME: 'chat',
-            REQUEST_MODEL: json_data.get('model'),
-        }
-        # Convert messages to semantic convention format
-        messages: list[dict[str, Any]] = json_data.get('messages', [])
-        if messages:
-            input_messages, system_instructions = convert_openai_messages_to_semconv(messages)
-            span_data[INPUT_MESSAGES] = input_messages
-            if system_instructions:
-                span_data[SYSTEM_INSTRUCTIONS] = system_instructions
-
-        return EndpointConfig(
-            message_template='Chat Completion with {request_data[model]!r}',
-            span_data=span_data,
-            stream_state_cls=OpenaiChatCompletionStreamState,
-        )
+        if version == 'latest':
+            span_data: dict[str, Any] = {
+                PROVIDER_NAME: 'openai',
+                OPERATION_NAME: 'chat',
+                REQUEST_MODEL: model,
+            }
+            messages: list[dict[str, Any]] = json_data.get('messages', [])
+            if messages:
+                input_messages, system_instructions = convert_openai_messages_to_semconv(messages)
+                span_data[INPUT_MESSAGES] = input_messages
+                if system_instructions:
+                    span_data[SYSTEM_INSTRUCTIONS] = system_instructions
+            # Minimal request_data for streaming template compatibility
+            span_data['request_data'] = {'model': model}
+            return EndpointConfig(
+                message_template='Chat Completion with {gen_ai.request.model!r}',
+                span_data=span_data,
+                stream_state_cls=OpenaiChatCompletionStreamStateLatest,
+            )
+        else:
+            span_data = {
+                'request_data': json_data,
+                PROVIDER_NAME: 'openai',
+                OPERATION_NAME: 'chat',
+                REQUEST_MODEL: model,
+            }
+            messages = json_data.get('messages', [])
+            if messages:
+                input_messages, system_instructions = convert_openai_messages_to_semconv(messages)
+                span_data[INPUT_MESSAGES] = input_messages
+                if system_instructions:
+                    span_data[SYSTEM_INSTRUCTIONS] = system_instructions
+            return EndpointConfig(
+                message_template='Chat Completion with {request_data[model]!r}',
+                span_data=span_data,
+                stream_state_cls=OpenaiChatCompletionStreamState,
+            )
     elif url == '/responses':
         if is_current_agent_span('Responses API', 'Responses API with {gen_ai.request.model!r}'):
             return EndpointConfig(message_template='', span_data={})
 
         stream = json_data.get('stream', False)
-        span_data = {
-            PROVIDER_NAME: 'openai',
-            OPERATION_NAME: 'chat',
-            REQUEST_MODEL: json_data.get('model'),
-            'request_data': {'model': json_data.get('model'), 'stream': stream},
-            'events': inputs_to_events(
+
+        if version == 'latest':
+            span_data = {
+                PROVIDER_NAME: 'openai',
+                OPERATION_NAME: 'chat',
+                REQUEST_MODEL: model,
+            }
+            input_msgs, sys_instructions = convert_responses_input_to_semconv(
                 json_data.get('input'),
                 json_data.get('instructions'),
-            ),
-        }
-
-        return EndpointConfig(
-            message_template='Responses API with {request_data[model]!r}',
-            span_data=span_data,
-            stream_state_cls=OpenaiResponsesStreamState,
-        )
+            )
+            if input_msgs:
+                span_data[INPUT_MESSAGES] = input_msgs
+            if sys_instructions:
+                span_data[SYSTEM_INSTRUCTIONS] = sys_instructions
+            # Minimal request_data for streaming template compatibility
+            span_data['request_data'] = {'model': model, 'stream': stream}
+            return EndpointConfig(
+                message_template='Responses API with {gen_ai.request.model!r}',
+                span_data=span_data,
+                stream_state_cls=OpenaiResponsesStreamStateLatest,
+            )
+        else:
+            span_data = {
+                PROVIDER_NAME: 'openai',
+                OPERATION_NAME: 'chat',
+                REQUEST_MODEL: model,
+                'request_data': {'model': model, 'stream': stream},
+                'events': inputs_to_events(
+                    json_data.get('input'),
+                    json_data.get('instructions'),
+                ),
+            }
+            return EndpointConfig(
+                message_template='Responses API with {request_data[model]!r}',
+                span_data=span_data,
+                stream_state_cls=OpenaiResponsesStreamState,
+            )
     elif url == '/completions':
-        span_data = {
-            'request_data': json_data,
-            PROVIDER_NAME: 'openai',
-            OPERATION_NAME: 'text_completion',
-            REQUEST_MODEL: json_data.get('model'),
-        }
-        return EndpointConfig(
-            message_template='Completion with {request_data[model]!r}',
-            span_data=span_data,
-            stream_state_cls=OpenaiCompletionStreamState,
-        )
+        if version == 'latest':
+            span_data = {
+                PROVIDER_NAME: 'openai',
+                OPERATION_NAME: 'text_completion',
+                REQUEST_MODEL: model,
+                'request_data': {'model': model},
+            }
+            return EndpointConfig(
+                message_template='Completion with {gen_ai.request.model!r}',
+                span_data=span_data,
+                stream_state_cls=OpenaiCompletionStreamStateLatest,
+            )
+        else:
+            span_data = {
+                'request_data': json_data,
+                PROVIDER_NAME: 'openai',
+                OPERATION_NAME: 'text_completion',
+                REQUEST_MODEL: model,
+            }
+            return EndpointConfig(
+                message_template='Completion with {request_data[model]!r}',
+                span_data=span_data,
+                stream_state_cls=OpenaiCompletionStreamState,
+            )
     elif url == '/embeddings':
-        span_data = {
-            'request_data': json_data,
-            PROVIDER_NAME: 'openai',
-            OPERATION_NAME: 'embeddings',
-            REQUEST_MODEL: json_data.get('model'),
-        }
-        return EndpointConfig(
-            message_template='Embedding Creation with {request_data[model]!r}',
-            span_data=span_data,
-        )
+        if version == 'latest':
+            span_data = {
+                PROVIDER_NAME: 'openai',
+                OPERATION_NAME: 'embeddings',
+                REQUEST_MODEL: model,
+                'request_data': {'model': model},
+            }
+            return EndpointConfig(
+                message_template='Embedding Creation with {gen_ai.request.model!r}',
+                span_data=span_data,
+            )
+        else:
+            span_data = {
+                'request_data': json_data,
+                PROVIDER_NAME: 'openai',
+                OPERATION_NAME: 'embeddings',
+                REQUEST_MODEL: model,
+            }
+            return EndpointConfig(
+                message_template='Embedding Creation with {request_data[model]!r}',
+                span_data=span_data,
+            )
     elif url == '/images/generations':
-        span_data = {
-            'request_data': json_data,
-            PROVIDER_NAME: 'openai',
-            OPERATION_NAME: 'generate_content',
-            REQUEST_MODEL: json_data.get('model'),
-        }
-        return EndpointConfig(
-            message_template='Image Generation with {request_data[model]!r}',
-            span_data=span_data,
-        )
+        if version == 'latest':
+            span_data = {
+                PROVIDER_NAME: 'openai',
+                OPERATION_NAME: 'generate_content',
+                REQUEST_MODEL: model,
+                'request_data': {'model': model},
+            }
+            return EndpointConfig(
+                message_template='Image Generation with {gen_ai.request.model!r}',
+                span_data=span_data,
+            )
+        else:
+            span_data = {
+                'request_data': json_data,
+                PROVIDER_NAME: 'openai',
+                OPERATION_NAME: 'generate_content',
+                REQUEST_MODEL: model,
+            }
+            return EndpointConfig(
+                message_template='Image Generation with {request_data[model]!r}',
+                span_data=span_data,
+            )
     else:
-        span_data = {'request_data': json_data, 'url': url, PROVIDER_NAME: 'openai'}
-        if 'model' in json_data:
-            span_data[REQUEST_MODEL] = json_data['model']
+        if version == 'latest':
+            span_data = {'url': url, PROVIDER_NAME: 'openai'}
+            if 'model' in json_data:
+                span_data[REQUEST_MODEL] = json_data['model']
+                span_data['request_data'] = {'model': json_data['model']}
+            else:
+                span_data['request_data'] = {}
+        else:
+            span_data = {'request_data': json_data, 'url': url, PROVIDER_NAME: 'openai'}
+            if 'model' in json_data:
+                span_data[REQUEST_MODEL] = json_data['model']
         return EndpointConfig(
             message_template='OpenAI API call to {url!r}',
             span_data=span_data,
@@ -275,6 +362,133 @@ def convert_openai_response_to_semconv(
     return result
 
 
+def convert_responses_input_to_semconv(
+    inputs: str | list[dict[str, Any]] | None,
+    instructions: str | None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Convert Responses API inputs to semconv format.
+
+    Returns a tuple of (input_messages, system_instructions).
+    """
+    input_messages: list[dict[str, Any]] = []
+    system_instructions: list[dict[str, Any]] = []
+
+    if instructions:
+        system_instructions.append({'type': 'text', 'content': instructions})
+
+    if inputs:
+        if isinstance(inputs, str):
+            input_messages.append(
+                {
+                    'role': 'user',
+                    'parts': [{'type': 'text', 'content': inputs}],
+                }
+            )
+        else:
+            for inp in inputs:
+                _convert_responses_input_item(inp, input_messages, system_instructions)
+
+    return input_messages, system_instructions
+
+
+def _convert_responses_input_item(
+    inp: dict[str, Any],
+    input_messages: list[dict[str, Any]],
+    system_instructions: list[dict[str, Any]],
+) -> None:
+    """Convert a single Responses API input item to semconv format."""
+    role = inp.get('role', 'user')
+    typ = inp.get('type')
+    content = inp.get('content')
+
+    if typ == 'function_call':
+        input_messages.append(
+            {
+                'role': 'assistant',
+                'parts': [
+                    {
+                        'type': 'tool_call',
+                        'id': inp.get('call_id'),
+                        'name': inp.get('name'),
+                        'arguments': inp.get('arguments'),
+                    }
+                ],
+            }
+        )
+    elif typ == 'function_call_output':
+        input_messages.append(
+            {
+                'role': 'tool',
+                'parts': [
+                    {
+                        'type': 'tool_call_response',
+                        'id': inp.get('call_id'),
+                        'response': inp.get('output'),
+                    }
+                ],
+            }
+        )
+    elif role and content:
+        parts: list[dict[str, Any]] = []
+        if isinstance(content, str):
+            parts.append({'type': 'text', 'content': content})
+        elif isinstance(content, list):
+            for item in cast('list[dict[str, Any]]', content):
+                if item.get('type') == 'output_text':
+                    parts.append({'type': 'text', 'content': item.get('text', '')})
+                elif item.get('type') == 'text':
+                    parts.append({'type': 'text', 'content': item.get('text', '')})
+                else:
+                    parts.append(item)
+        if parts:
+            input_messages.append({'role': role, 'parts': parts})
+
+
+def convert_responses_outputs_to_semconv(response: Response) -> list[dict[str, Any]]:
+    """Convert Responses API output to semconv format."""
+    output_messages: list[dict[str, Any]] = []
+    for out in response.output:
+        out_dict = out.model_dump()
+        typ = out_dict.get('type')
+        if typ == 'message':
+            content: list[dict[str, Any]] = out_dict.get('content', [])
+            parts: list[dict[str, Any]] = []
+            for item in content:
+                if item.get('type') == 'output_text':
+                    parts.append({'type': 'text', 'content': item.get('text', '')})
+                else:
+                    parts.append(item)
+            output_messages.append(
+                {
+                    'role': out_dict.get('role', 'assistant'),
+                    'parts': parts,
+                }
+            )
+        elif typ == 'function_call':
+            output_messages.append(
+                {
+                    'role': 'assistant',
+                    'parts': [
+                        {
+                            'type': 'tool_call',
+                            'id': out_dict.get('call_id'),
+                            'name': out_dict.get('name'),
+                            'arguments': out_dict.get('arguments'),
+                        }
+                    ],
+                }
+            )
+        else:
+            # Generic fallback
+            output_messages.append(
+                {
+                    'role': 'assistant',
+                    'parts': [{'type': str(typ), **{k: v for k, v in out_dict.items() if k != 'type'}}],
+                }
+            )
+    return output_messages
+
+
 def is_current_agent_span(*span_names: str):
     current_span = get_current_span()
     return (
@@ -304,6 +518,15 @@ class OpenaiCompletionStreamState(StreamState):
         return {'combined_chunk_content': ''.join(self._content), 'chunk_count': len(self._content)}
 
 
+class OpenaiCompletionStreamStateLatest(OpenaiCompletionStreamState):
+    def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
+        text = ''.join(self._content)
+        return {
+            **span_data,
+            OUTPUT_MESSAGES: [{'role': 'assistant', 'parts': [{'type': 'text', 'content': text}]}],
+        }
+
+
 class OpenaiResponsesStreamState(StreamState):
     def __init__(self):
         self._state = ResponseStreamState(input_tools=openai.omit, text_format=openai.omit)
@@ -322,6 +545,12 @@ class OpenaiResponsesStreamState(StreamState):
         response = self.get_response_data()
         span_data['events'] = span_data['events'] + responses_output_events(response)
         return span_data
+
+
+class OpenaiResponsesStreamStateLatest(OpenaiResponsesStreamState):
+    def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
+        response = self.get_response_data()
+        return {**span_data, OUTPUT_MESSAGES: convert_responses_outputs_to_semconv(response)}
 
 
 try:
@@ -351,15 +580,28 @@ try:
             else:
                 message = None
             return {'message': message, 'usage': final_completion.usage}
+
+    class OpenaiChatCompletionStreamStateLatest(OpenaiChatCompletionStreamState):
+        def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
+            try:
+                final_completion = self._stream_state.current_completion_snapshot
+            except AssertionError:
+                return {**span_data, OUTPUT_MESSAGES: []}
+            output_messages: list[dict[str, Any]] = []
+            for choice in final_completion.choices:
+                output_messages.append(convert_openai_response_to_semconv(choice.message, choice.finish_reason))
+            return {**span_data, OUTPUT_MESSAGES: output_messages}
+
 except ImportError:  # pragma: no cover
     OpenaiChatCompletionStreamState = OpenaiCompletionStreamState  # type: ignore
+    OpenaiChatCompletionStreamStateLatest = OpenaiCompletionStreamStateLatest  # type: ignore
 
 
 @handle_internal_errors
-def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
+def on_response(response: ResponseT, span: LogfireSpan, *, version: int | str = 1) -> ResponseT:
     """Updates the span based on the type of response."""
     if isinstance(response, LegacyAPIResponse):  # pragma: no cover
-        on_response(response.parse(), span)  # type: ignore
+        on_response(response.parse(), span, version=version)  # type: ignore
         return cast('ResponseT', response)
 
     # Keep gen_ai.system for backward compatibility
@@ -398,12 +640,6 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         span.set_attribute(OUTPUT_TOKENS, output_tokens)
 
     if isinstance(response, ChatCompletion) and response.choices:
-        # Keep response_data for backward compatibility
-        span.set_attribute(
-            'response_data',
-            {'message': response.choices[0].message, 'usage': usage},
-        )
-        # Add semantic convention output messages
         output_messages: list[dict[str, Any]] = []
         finish_reasons: list[str] = []
         for choice in response.choices:
@@ -411,18 +647,20 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
             if finish_reason:
                 finish_reasons.append(finish_reason)
             output_messages.append(convert_openai_response_to_semconv(choice.message, finish_reason))
-        span.set_attribute(OUTPUT_MESSAGES, output_messages)
         if finish_reasons:
             span.set_attribute(RESPONSE_FINISH_REASONS, finish_reasons)
+
+        if version == 'latest':
+            span.set_attribute(OUTPUT_MESSAGES, output_messages)
+        else:
+            span.set_attribute(
+                'response_data',
+                {'message': response.choices[0].message, 'usage': usage},
+            )
+            span.set_attribute(OUTPUT_MESSAGES, output_messages)
     elif isinstance(response, Completion) and response.choices:
-        first_choice = response.choices[0]
-        span.set_attribute(
-            'response_data',
-            {'finish_reason': first_choice.finish_reason, 'text': first_choice.text, 'usage': usage},
-        )
-        # Add semantic convention output messages for text completion
-        output_messages_completion: list[dict[str, Any]] = []
         finish_reasons_completion: list[str] = []
+        output_messages_completion: list[dict[str, Any]] = []
         for choice in response.choices:
             finish_reason = choice.finish_reason
             if finish_reason:
@@ -434,21 +672,35 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
                     'finish_reason': finish_reason,
                 }
             )
-        span.set_attribute(OUTPUT_MESSAGES, output_messages_completion)
         if finish_reasons_completion:
             span.set_attribute(RESPONSE_FINISH_REASONS, finish_reasons_completion)
-    elif isinstance(response, CreateEmbeddingResponse):
-        span.set_attribute('response_data', {'usage': usage})
-    elif isinstance(response, ImagesResponse):
-        span.set_attribute('response_data', {'images': response.data})
-    elif isinstance(response, Response):  # pragma: no branch
-        try:
-            events = json.loads(span.attributes['events'])  # type: ignore
-        except Exception:
-            pass
+
+        if version == 'latest':
+            span.set_attribute(OUTPUT_MESSAGES, output_messages_completion)
         else:
-            events += responses_output_events(response)
-            span.set_attribute('events', events)
+            first_choice = response.choices[0]
+            span.set_attribute(
+                'response_data',
+                {'finish_reason': first_choice.finish_reason, 'text': first_choice.text, 'usage': usage},
+            )
+            span.set_attribute(OUTPUT_MESSAGES, output_messages_completion)
+    elif isinstance(response, CreateEmbeddingResponse):
+        if version != 'latest':
+            span.set_attribute('response_data', {'usage': usage})
+    elif isinstance(response, ImagesResponse):
+        if version != 'latest':
+            span.set_attribute('response_data', {'images': response.data})
+    elif isinstance(response, Response):  # pragma: no branch
+        if version == 'latest':
+            span.set_attribute(OUTPUT_MESSAGES, convert_responses_outputs_to_semconv(response))
+        else:
+            try:
+                events = json.loads(span.attributes['events'])  # type: ignore
+            except Exception:
+                pass
+            else:
+                events += responses_output_events(response)
+                span.set_attribute('events', events)
 
     return response
 

@@ -2791,3 +2791,428 @@ I'm zeroing in on the core of the query. The "how are you" is basic, but the "tr
             },
         ]
     )
+
+
+def test_sync_chat_completions_latest(exporter: TestExporter) -> None:
+    with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
+        openai_client = openai.Client(api_key='foobar', http_client=httpx_client)
+        with logfire.instrument_openai(openai_client, version='latest'):
+            response = openai_client.chat.completions.create(
+                model='gpt-4',
+                messages=[
+                    {'role': 'system', 'content': 'You are a helpful assistant.'},
+                    {'role': 'user', 'content': 'What is four plus five?'},
+                ],
+            )
+    assert response.choices[0].message.content == 'Nine'
+    result = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert result == snapshot(
+        [
+            {
+                'name': 'Chat Completion with {gen_ai.request.model!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_sync_chat_completions_latest',
+                    'code.lineno': 123,
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'gpt-4',
+                    'gen_ai.input.messages': [
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
+                    ],
+                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'You are a helpful assistant.'}],
+                    'request_data': {'model': 'gpt-4'},
+                    'async': False,
+                    'logfire.msg_template': 'Chat Completion with {gen_ai.request.model!r}',
+                    'logfire.msg': "Chat Completion with 'gpt-4'",
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.system': 'openai',
+                    'gen_ai.response.model': 'gpt-4',
+                    'operation.cost': 0.00012,
+                    'gen_ai.response.id': 'test_id',
+                    'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.usage.output_tokens': 1,
+                    'gen_ai.response.finish_reasons': ['stop'],
+                    'gen_ai.output.messages': [
+                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Nine'}], 'finish_reason': 'stop'}
+                    ],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'gen_ai.provider.name': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'gen_ai.system_instructions': {'type': 'array'},
+                            'request_data': {'type': 'object'},
+                            'async': {},
+                            'gen_ai.system': {},
+                            'gen_ai.response.model': {},
+                            'operation.cost': {},
+                            'gen_ai.response.id': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
+                            'gen_ai.output.messages': {'type': 'array'},
+                        },
+                    },
+                },
+            }
+        ]
+    )
+
+
+async def test_async_chat_completions_latest(exporter: TestExporter) -> None:
+    async with httpx.AsyncClient(transport=MockTransport(request_handler)) as httpx_client:
+        openai_client = openai.AsyncClient(api_key='foobar', http_client=httpx_client)
+        with logfire.instrument_openai(openai_client, version='latest'):
+            response = await openai_client.chat.completions.create(
+                model='gpt-4',
+                messages=[
+                    {'role': 'system', 'content': 'You are a helpful assistant.'},
+                    {'role': 'user', 'content': 'What is four plus five?'},
+                ],
+            )
+    assert response.choices[0].message.content == 'Nine'
+    result = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert result == snapshot(
+        [
+            {
+                'name': 'Chat Completion with {gen_ai.request.model!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_async_chat_completions_latest',
+                    'code.lineno': 123,
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'gpt-4',
+                    'gen_ai.input.messages': [
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
+                    ],
+                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'You are a helpful assistant.'}],
+                    'request_data': {'model': 'gpt-4'},
+                    'async': True,
+                    'logfire.msg_template': 'Chat Completion with {gen_ai.request.model!r}',
+                    'logfire.msg': "Chat Completion with 'gpt-4'",
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.system': 'openai',
+                    'gen_ai.response.model': 'gpt-4',
+                    'operation.cost': 0.00012,
+                    'gen_ai.response.id': 'test_id',
+                    'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.usage.output_tokens': 1,
+                    'gen_ai.response.finish_reasons': ['stop'],
+                    'gen_ai.output.messages': [
+                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Nine'}], 'finish_reason': 'stop'}
+                    ],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'gen_ai.provider.name': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'gen_ai.system_instructions': {'type': 'array'},
+                            'request_data': {'type': 'object'},
+                            'async': {},
+                            'gen_ai.system': {},
+                            'gen_ai.response.model': {},
+                            'operation.cost': {},
+                            'gen_ai.response.id': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
+                            'gen_ai.output.messages': {'type': 'array'},
+                        },
+                    },
+                },
+            }
+        ]
+    )
+
+
+def test_sync_chat_completions_stream_latest(exporter: TestExporter) -> None:
+    with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
+        openai_client = openai.Client(api_key='foobar', http_client=httpx_client)
+        with logfire.instrument_openai(openai_client, version='latest'):
+            response = openai_client.chat.completions.create(
+                model='gpt-4',
+                messages=[
+                    {'role': 'system', 'content': 'You are a helpful assistant.'},
+                    {'role': 'user', 'content': 'What is four plus five?'},
+                ],
+                stream=True,
+            )
+            combined = ''.join(
+                chunk.choices[0].delta.content
+                for chunk in response
+                if chunk.choices and chunk.choices[0].delta.content is not None
+            )
+    assert combined == 'The answer is secret'
+    result = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert result == snapshot(
+        [
+            {
+                'name': 'Chat Completion with {gen_ai.request.model!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_sync_chat_completions_stream_latest',
+                    'code.lineno': 123,
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'gpt-4',
+                    'gen_ai.input.messages': [
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
+                    ],
+                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'You are a helpful assistant.'}],
+                    'request_data': {'model': 'gpt-4'},
+                    'async': False,
+                    'logfire.msg_template': 'Chat Completion with {gen_ai.request.model!r}',
+                    'logfire.msg': "Chat Completion with 'gpt-4'",
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'gen_ai.provider.name': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'gen_ai.system_instructions': {'type': 'array'},
+                            'request_data': {'type': 'object'},
+                            'async': {},
+                        },
+                    },
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.response.model': 'gpt-4',
+                },
+            },
+            {
+                'name': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 5000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                    'logfire.msg': "streaming response from 'gpt-4' took 1.00s",
+                    'code.filepath': 'test_openai.py',
+                    'code.function': '<genexpr>',
+                    'code.lineno': 123,
+                    'duration': 1.0,
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'gpt-4',
+                    'gen_ai.input.messages': [
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
+                    ],
+                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'You are a helpful assistant.'}],
+                    'request_data': {'model': 'gpt-4'},
+                    'async': False,
+                    'gen_ai.output.messages': [
+                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'The answer is secret'}]}
+                    ],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'duration': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'gen_ai.system_instructions': {'type': 'array'},
+                            'request_data': {'type': 'object'},
+                            'async': {},
+                            'gen_ai.output.messages': {'type': 'array'},
+                        },
+                    },
+                    'logfire.tags': ('LLM',),
+                    'gen_ai.response.model': 'gpt-4',
+                },
+            },
+        ]
+    )
+
+
+def test_completions_latest(exporter: TestExporter) -> None:
+    with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
+        openai_client = openai.Client(api_key='foobar', http_client=httpx_client)
+        with logfire.instrument_openai(openai_client, version='latest'):
+            response = openai_client.completions.create(
+                model='gpt-3.5-turbo-instruct', prompt='What is four plus five?'
+            )
+    assert response.choices[0].text == 'Nine'
+    result = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert result == snapshot(
+        [
+            {
+                'name': 'Completion with {gen_ai.request.model!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_completions_latest',
+                    'code.lineno': 123,
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.operation.name': 'text_completion',
+                    'gen_ai.request.model': 'gpt-3.5-turbo-instruct',
+                    'request_data': {'model': 'gpt-3.5-turbo-instruct'},
+                    'async': False,
+                    'logfire.msg_template': 'Completion with {gen_ai.request.model!r}',
+                    'logfire.msg': "Completion with 'gpt-3.5-turbo-instruct'",
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.system': 'openai',
+                    'gen_ai.response.model': 'gpt-3.5-turbo-instruct',
+                    'operation.cost': 5e-06,
+                    'gen_ai.response.id': 'test_id',
+                    'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.usage.output_tokens': 1,
+                    'gen_ai.response.finish_reasons': ['stop'],
+                    'gen_ai.output.messages': [
+                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Nine'}], 'finish_reason': 'stop'}
+                    ],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'gen_ai.provider.name': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
+                            'request_data': {'type': 'object'},
+                            'async': {},
+                            'gen_ai.system': {},
+                            'gen_ai.response.model': {},
+                            'operation.cost': {},
+                            'gen_ai.response.id': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
+                            'gen_ai.output.messages': {'type': 'array'},
+                        },
+                    },
+                },
+            }
+        ]
+    )
+
+
+def test_embeddings_latest(exporter: TestExporter) -> None:
+    with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
+        openai_client = openai.Client(api_key='foobar', http_client=httpx_client)
+        with logfire.instrument_openai(openai_client, version='latest'):
+            response = openai_client.embeddings.create(
+                model='text-embedding-3-small',
+                input='What is four plus five?',
+            )
+    assert len(response.data[0].embedding) == 3
+    result = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert result == snapshot(
+        [
+            {
+                'name': 'Embedding Creation with {gen_ai.request.model!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_embeddings_latest',
+                    'code.lineno': 123,
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.operation.name': 'embeddings',
+                    'gen_ai.request.model': 'text-embedding-3-small',
+                    'request_data': {'model': 'text-embedding-3-small'},
+                    'async': False,
+                    'logfire.msg_template': 'Embedding Creation with {gen_ai.request.model!r}',
+                    'logfire.msg': "Embedding Creation with 'text-embedding-3-small'",
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.system': 'openai',
+                    'gen_ai.response.model': 'text-embedding-3-small',
+                    'gen_ai.usage.input_tokens': 1,
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'gen_ai.provider.name': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
+                            'request_data': {'type': 'object'},
+                            'async': {},
+                            'gen_ai.system': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.usage.input_tokens': {},
+                        },
+                    },
+                },
+            }
+        ]
+    )
+
+
+def test_images_latest(exporter: TestExporter) -> None:
+    with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
+        openai_client = openai.Client(api_key='foobar', http_client=httpx_client)
+        with logfire.instrument_openai(openai_client, version='latest'):
+            response = openai_client.images.generate(
+                model='dall-e-3',
+                prompt='A cute baby sea otter',
+                n=1,
+                size='1024x1024',
+            )
+    assert response.data is not None and len(response.data) == 1
+    result = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert result == snapshot(
+        [
+            {
+                'name': 'Image Generation with {gen_ai.request.model!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_images_latest',
+                    'code.lineno': 123,
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.operation.name': 'generate_content',
+                    'gen_ai.request.model': 'dall-e-3',
+                    'request_data': {'model': 'dall-e-3'},
+                    'async': False,
+                    'logfire.msg_template': 'Image Generation with {gen_ai.request.model!r}',
+                    'logfire.msg': "Image Generation with 'dall-e-3'",
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.system': 'openai',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'gen_ai.provider.name': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
+                            'request_data': {'type': 'object'},
+                            'async': {},
+                            'gen_ai.system': {},
+                        },
+                    },
+                    'gen_ai.response.model': 'dall-e-3',
+                },
+            }
+        ]
+    )

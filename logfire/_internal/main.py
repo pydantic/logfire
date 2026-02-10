@@ -9,7 +9,7 @@ from collections.abc import Iterable, Sequence
 from contextlib import AbstractContextManager
 from contextvars import Token
 from enum import Enum
-from functools import cached_property
+from functools import cached_property, partial
 from time import time
 from typing import (
     TYPE_CHECKING,
@@ -1154,6 +1154,7 @@ class Logfire:
         | None = None,
         *,
         suppress_other_instrumentation: bool = True,
+        version: Literal[1, 'latest'] = 1,
     ) -> AbstractContextManager[None]:
         """Instrument an OpenAI client so that spans are automatically created for each request.
 
@@ -1202,6 +1203,13 @@ class Logfire:
                 enabled. In reality, this means the HTTPX instrumentation, which could otherwise be called since
                 OpenAI uses HTTPX to make HTTP requests.
 
+            version: The version of the span attribute format to use:
+
+                - `1` (the default): Uses `request_data` and `response_data` attributes.
+                - `'latest'`: Uses OpenTelemetry Gen AI semantic convention attributes
+                  (`gen_ai.input.messages`, `gen_ai.output.messages`, etc.) instead of
+                  `request_data`/`response_data`, avoiding data duplication.
+
         Returns:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
@@ -1217,8 +1225,8 @@ class Logfire:
             openai_client or (openai.OpenAI, openai.AsyncOpenAI),
             suppress_other_instrumentation,
             'OpenAI',
-            get_endpoint_config,
-            on_response,
+            partial(get_endpoint_config, version=version),
+            partial(on_response, version=version),
             is_async_client,
         )
 
@@ -1249,6 +1257,7 @@ class Logfire:
         ) = None,
         *,
         suppress_other_instrumentation: bool = True,
+        version: Literal[1, 'latest'] = 1,
     ) -> AbstractContextManager[None]:
         """Instrument an Anthropic client so that spans are automatically created for each request.
 
@@ -1292,6 +1301,13 @@ class Logfire:
                 enabled. In reality, this means the HTTPX instrumentation, which could otherwise be called since
                 OpenAI uses HTTPX to make HTTP requests.
 
+            version: The version of the span attribute format to use:
+
+                - `1` (the default): Uses `request_data` and `response_data` attributes.
+                - `'latest'`: Uses OpenTelemetry Gen AI semantic convention attributes
+                  (`gen_ai.input.messages`, `gen_ai.output.messages`, etc.) instead of
+                  `request_data`/`response_data`, avoiding data duplication.
+
         Returns:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
@@ -1313,8 +1329,8 @@ class Logfire:
             ),
             suppress_other_instrumentation,
             'Anthropic',
-            get_endpoint_config,
-            on_response,
+            partial(get_endpoint_config, version=version),
+            partial(on_response, version=version),
             is_async_client,
         )
 

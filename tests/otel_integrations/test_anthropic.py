@@ -23,6 +23,7 @@ from httpx._transports.mock import MockTransport
 from inline_snapshot import snapshot
 
 import logfire
+from logfire._internal.integrations.llm_providers.anthropic import content_from_messages
 from logfire.testing import TestExporter
 
 ANY_ADAPTER = pydantic.TypeAdapter(Any)  # type: ignore
@@ -676,5 +677,171 @@ def test_unknown_method(instrumented_client: anthropic.Anthropic, exporter: Test
                     'gen_ai.response.model': 'claude-2.1',
                 },
             }
+        ]
+    )
+
+
+def test_sync_messages_latest(exporter: TestExporter) -> None:
+    with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
+        anthropic_client = anthropic.Anthropic(api_key='foobar', http_client=httpx_client)
+        with logfire.instrument_anthropic(anthropic_client, version='latest'):
+            response = anthropic_client.messages.create(
+                max_tokens=1000,
+                model='claude-3-haiku-20240307',
+                system='You are a helpful assistant.',
+                messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+            )
+    assert isinstance(response.content[0], TextBlock)
+    assert response.content[0].text == 'Nine'
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'Message with {gen_ai.request.model!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_anthropic.py',
+                    'code.function': 'test_sync_messages_latest',
+                    'code.lineno': 123,
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'claude-3-haiku-20240307',
+                    'gen_ai.input.messages': '[{"role":"user","parts":[{"type":"text","content":"What is four plus five?"}]}]',
+                    'gen_ai.system_instructions': '[{"type":"text","content":"You are a helpful assistant."}]',
+                    'request_data': '{"model":"claude-3-haiku-20240307"}',
+                    'async': False,
+                    'logfire.msg_template': 'Message with {gen_ai.request.model!r}',
+                    'logfire.msg': "Message with 'claude-3-haiku-20240307'",
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.response.model': 'claude-3-haiku-20240307',
+                    'gen_ai.response.id': 'test_id',
+                    'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.usage.output_tokens': 3,
+                    'gen_ai.output.messages': '[{"role":"assistant","parts":[{"type":"text","content":"Nine"}]}]',
+                    'logfire.json_schema': '{"type":"object","properties":{"gen_ai.provider.name":{},"gen_ai.operation.name":{},"gen_ai.request.model":{},"gen_ai.input.messages":{"type":"array"},"gen_ai.system_instructions":{"type":"array"},"request_data":{"type":"object"},"async":{},"gen_ai.response.model":{},"gen_ai.response.id":{},"gen_ai.usage.input_tokens":{},"gen_ai.usage.output_tokens":{},"gen_ai.output.messages":{"type":"array"}}}',
+                },
+            }
+        ]
+    )
+
+
+async def test_async_messages_latest(exporter: TestExporter) -> None:
+    async with httpx.AsyncClient(transport=MockTransport(request_handler)) as httpx_client:
+        anthropic_client = anthropic.AsyncAnthropic(api_key='foobar', http_client=httpx_client)
+        with logfire.instrument_anthropic(anthropic_client, version='latest'):
+            response = await anthropic_client.messages.create(
+                max_tokens=1000,
+                model='claude-3-haiku-20240307',
+                system='You are a helpful assistant.',
+                messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+            )
+    assert isinstance(response.content[0], TextBlock)
+    assert response.content[0].text == 'Nine'
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'Message with {gen_ai.request.model!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_anthropic.py',
+                    'code.function': 'test_async_messages_latest',
+                    'code.lineno': 123,
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'claude-3-haiku-20240307',
+                    'gen_ai.input.messages': '[{"role":"user","parts":[{"type":"text","content":"What is four plus five?"}]}]',
+                    'gen_ai.system_instructions': '[{"type":"text","content":"You are a helpful assistant."}]',
+                    'request_data': '{"model":"claude-3-haiku-20240307"}',
+                    'async': True,
+                    'logfire.msg_template': 'Message with {gen_ai.request.model!r}',
+                    'logfire.msg': "Message with 'claude-3-haiku-20240307'",
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.response.model': 'claude-3-haiku-20240307',
+                    'gen_ai.response.id': 'test_id',
+                    'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.usage.output_tokens': 3,
+                    'gen_ai.output.messages': '[{"role":"assistant","parts":[{"type":"text","content":"Nine"}]}]',
+                    'logfire.json_schema': '{"type":"object","properties":{"gen_ai.provider.name":{},"gen_ai.operation.name":{},"gen_ai.request.model":{},"gen_ai.input.messages":{"type":"array"},"gen_ai.system_instructions":{"type":"array"},"request_data":{"type":"object"},"async":{},"gen_ai.response.model":{},"gen_ai.response.id":{},"gen_ai.usage.input_tokens":{},"gen_ai.usage.output_tokens":{},"gen_ai.output.messages":{"type":"array"}}}',
+                },
+            }
+        ]
+    )
+
+
+def test_sync_messages_stream_latest(exporter: TestExporter) -> None:
+    with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
+        anthropic_client = anthropic.Anthropic(api_key='foobar', http_client=httpx_client)
+        with logfire.instrument_anthropic(anthropic_client, version='latest'):
+            response = anthropic_client.messages.create(
+                max_tokens=1000,
+                model='claude-3-haiku-20240307',
+                system='You are a helpful assistant.',
+                messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+                stream=True,
+            )
+            combined = ''.join(chunk for chunk in [content_from_messages(e) for e in response] if chunk is not None)
+    assert combined == 'The answer is secret'
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'Message with {gen_ai.request.model!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_anthropic.py',
+                    'code.function': 'test_sync_messages_stream_latest',
+                    'code.lineno': 123,
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'claude-3-haiku-20240307',
+                    'gen_ai.input.messages': '[{"role":"user","parts":[{"type":"text","content":"What is four plus five?"}]}]',
+                    'gen_ai.system_instructions': '[{"type":"text","content":"You are a helpful assistant."}]',
+                    'request_data': '{"model":"claude-3-haiku-20240307"}',
+                    'async': False,
+                    'logfire.msg_template': 'Message with {gen_ai.request.model!r}',
+                    'logfire.msg': "Message with 'claude-3-haiku-20240307'",
+                    'logfire.json_schema': '{"type":"object","properties":{"gen_ai.provider.name":{},"gen_ai.operation.name":{},"gen_ai.request.model":{},"gen_ai.input.messages":{"type":"array"},"gen_ai.system_instructions":{"type":"array"},"request_data":{"type":"object"},"async":{}}}',
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.response.model': 'claude-3-haiku-20240307',
+                },
+            },
+            {
+                'name': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 5000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                    'logfire.msg': "streaming response from 'claude-3-haiku-20240307' took 1.00s",
+                    'code.filepath': 'test_anthropic.py',
+                    'code.function': 'test_sync_messages_stream_latest',
+                    'code.lineno': 123,
+                    'duration': 1.0,
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'claude-3-haiku-20240307',
+                    'gen_ai.input.messages': '[{"role":"user","parts":[{"type":"text","content":"What is four plus five?"}]}]',
+                    'gen_ai.system_instructions': '[{"type":"text","content":"You are a helpful assistant."}]',
+                    'request_data': '{"model":"claude-3-haiku-20240307"}',
+                    'async': False,
+                    'gen_ai.output.messages': '[{"role":"assistant","parts":[{"type":"text","content":"The answer is secret"}]}]',
+                    'logfire.json_schema': '{"type":"object","properties":{"duration":{},"gen_ai.provider.name":{},"gen_ai.operation.name":{},"gen_ai.request.model":{},"gen_ai.input.messages":{"type":"array"},"gen_ai.system_instructions":{"type":"array"},"request_data":{"type":"object"},"async":{},"gen_ai.output.messages":{"type":"array"}}}',
+                    'logfire.tags': ('LLM',),
+                    'gen_ai.response.model': 'claude-3-haiku-20240307',
+                },
+            },
         ]
     )

@@ -35,7 +35,7 @@ __all__ = (
 )
 
 
-def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
+def get_endpoint_config(options: FinalRequestOptions, *, version: int | str = 1) -> EndpointConfig:
     """Returns the endpoint config for Anthropic or Bedrock depending on the url."""
     url = options.url
     json_data = options.json_data
@@ -44,36 +44,66 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         json_data = {}
     json_data = cast('dict[str, Any]', json_data)
 
-    if url == '/v1/messages':
-        span_data: dict[str, Any] = {
-            'request_data': json_data,
-            PROVIDER_NAME: 'anthropic',
-            OPERATION_NAME: 'chat',
-            REQUEST_MODEL: json_data.get('model'),
-        }
+    model = json_data.get('model')
 
-        # Convert messages to semantic convention format
+    if url == '/v1/messages':
         messages: list[dict[str, Any]] = json_data.get('messages', [])
         system: str | list[dict[str, Any]] | None = json_data.get('system')
-        if messages or system:
-            input_messages, system_instructions = convert_anthropic_messages_to_semconv(messages, system)
-            span_data[INPUT_MESSAGES] = input_messages
-            if system_instructions:
-                span_data[SYSTEM_INSTRUCTIONS] = system_instructions
 
-        return EndpointConfig(
-            message_template='Message with {request_data[model]!r}',
-            span_data=span_data,
-            stream_state_cls=AnthropicMessageStreamState,
-        )
+        if version == 'latest':
+            span_data: dict[str, Any] = {
+                PROVIDER_NAME: 'anthropic',
+                OPERATION_NAME: 'chat',
+                REQUEST_MODEL: model,
+            }
+            if messages or system:
+                input_messages, system_instructions = convert_anthropic_messages_to_semconv(messages, system)
+                span_data[INPUT_MESSAGES] = input_messages
+                if system_instructions:
+                    span_data[SYSTEM_INSTRUCTIONS] = system_instructions
+            # Minimal request_data for streaming template compatibility
+            span_data['request_data'] = {'model': model}
+            return EndpointConfig(
+                message_template='Message with {gen_ai.request.model!r}',
+                span_data=span_data,
+                stream_state_cls=AnthropicMessageStreamStateLatest,
+            )
+        else:
+            span_data = {
+                'request_data': json_data,
+                PROVIDER_NAME: 'anthropic',
+                OPERATION_NAME: 'chat',
+                REQUEST_MODEL: model,
+            }
+            if messages or system:
+                input_messages, system_instructions = convert_anthropic_messages_to_semconv(messages, system)
+                span_data[INPUT_MESSAGES] = input_messages
+                if system_instructions:
+                    span_data[SYSTEM_INSTRUCTIONS] = system_instructions
+            return EndpointConfig(
+                message_template='Message with {request_data[model]!r}',
+                span_data=span_data,
+                stream_state_cls=AnthropicMessageStreamState,
+            )
     else:
-        span_data = {
-            'request_data': json_data,
-            'url': url,
-            PROVIDER_NAME: 'anthropic',
-        }
-        if 'model' in json_data:
-            span_data[REQUEST_MODEL] = json_data['model']
+        if version == 'latest':
+            span_data = {
+                'url': url,
+                PROVIDER_NAME: 'anthropic',
+            }
+            if 'model' in json_data:
+                span_data['request_data'] = {'model': json_data['model']}
+                span_data[REQUEST_MODEL] = json_data['model']
+            else:
+                span_data['request_data'] = {}
+        else:
+            span_data = {
+                'request_data': json_data,
+                'url': url,
+                PROVIDER_NAME: 'anthropic',
+            }
+            if 'model' in json_data:
+                span_data[REQUEST_MODEL] = json_data['model']
         return EndpointConfig(
             message_template='Anthropic API call to {url!r}',
             span_data=span_data,
@@ -228,26 +258,19 @@ class AnthropicMessageStreamState(StreamState):
         return {'combined_chunk_content': ''.join(self._content), 'chunk_count': len(self._content)}
 
 
+class AnthropicMessageStreamStateLatest(AnthropicMessageStreamState):
+    def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
+        text = ''.join(self._content)
+        return {
+            **span_data,
+            OUTPUT_MESSAGES: [{'role': 'assistant', 'parts': [{'type': 'text', 'content': text}]}],
+        }
+
+
 @handle_internal_errors
-def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
+def on_response(response: ResponseT, span: LogfireSpan, *, version: int | str = 1) -> ResponseT:
     """Updates the span based on the type of response."""
     if isinstance(response, Message):  # pragma: no branch
-        # Keep response_data for backward compatibility
-        message: dict[str, Any] = {'role': 'assistant'}
-        for block in response.content:
-            if block.type == 'text':
-                message['content'] = block.text
-            elif block.type == 'tool_use':  # pragma: no branch
-                message.setdefault('tool_calls', []).append(
-                    {
-                        'function': {
-                            'arguments': block.model_dump_json(include={'input'}),
-                            'name': block.name,
-                        }
-                    }
-                )
-        span.set_attribute('response_data', {'message': message, 'usage': response.usage})
-
         # Add semantic convention attributes
         span.set_attribute(RESPONSE_MODEL, response.model)
         span.set_attribute(RESPONSE_ID, response.id)
@@ -261,9 +284,26 @@ def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
         if response.stop_reason:
             span.set_attribute(RESPONSE_FINISH_REASONS, [response.stop_reason])
 
-        # Add semantic convention output messages
-        output_message = convert_anthropic_response_to_semconv(response)
-        span.set_attribute(OUTPUT_MESSAGES, [output_message])
+        if version == 'latest':
+            output_message = convert_anthropic_response_to_semconv(response)
+            span.set_attribute(OUTPUT_MESSAGES, [output_message])
+        else:
+            message: dict[str, Any] = {'role': 'assistant'}
+            for block in response.content:
+                if block.type == 'text':
+                    message['content'] = block.text
+                elif block.type == 'tool_use':  # pragma: no branch
+                    message.setdefault('tool_calls', []).append(
+                        {
+                            'function': {
+                                'arguments': block.model_dump_json(include={'input'}),
+                                'name': block.name,
+                            }
+                        }
+                    )
+            span.set_attribute('response_data', {'message': message, 'usage': response.usage})
+            output_message = convert_anthropic_response_to_semconv(response)
+            span.set_attribute(OUTPUT_MESSAGES, [output_message])
 
     return response
 
