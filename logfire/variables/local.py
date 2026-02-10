@@ -91,7 +91,6 @@ class LocalVariableProvider(VariableProvider):
                 raise VariableAlreadyExistsError(f"Variable '{config.name}' already exists")
             self._config.variables[config.name] = config
             self._config._invalidate_alias_map()  # pyright: ignore[reportPrivateUsage]
-        self._notify_config_change({config.name})
         return config
 
     def update_variable(self, name: str, config: VariableConfig) -> VariableConfig:
@@ -112,7 +111,6 @@ class LocalVariableProvider(VariableProvider):
                 raise VariableNotFoundError(f"Variable '{name}' not found")
             self._config.variables[name] = config
             self._config._invalidate_alias_map()  # pyright: ignore[reportPrivateUsage]
-        self._notify_config_change({name})
         return config
 
     def delete_variable(self, name: str) -> None:
@@ -129,4 +127,3 @@ class LocalVariableProvider(VariableProvider):
                 raise VariableNotFoundError(f"Variable '{name}' not found")
             del self._config.variables[name]
             self._config._invalidate_alias_map()  # pyright: ignore[reportPrivateUsage]
-        self._notify_config_change({name})

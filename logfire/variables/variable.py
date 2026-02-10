@@ -2,7 +2,7 @@ from __future__ import annotations as _annotations
 
 import inspect
 import threading
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import ExitStack, contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
@@ -157,8 +157,6 @@ class Variable(Generic[T_co]):
 
         self.logfire_instance = logfire_instance.with_settings(custom_scope_suffix='variables')
         self.type_adapter = TypeAdapter[T_co](type)
-        self._on_change_callbacks: list[Callable[[], None]] = []
-
         # Create a cached deserialization function for this variable instance.
         # Returns T | Exception. Only successful results are cached; exceptions are
         # returned but not cached so that transient errors don't persist permanently.
@@ -208,39 +206,6 @@ class Variable(Generic[T_co]):
     def refresh_sync(self, force: bool = False):
         """Synchronously refresh the variable."""
         self.logfire_instance.config.get_variable_provider().refresh(force=force)
-
-    def on_change(self, callback: Callable[[], None]) -> Callable[[], None]:
-        """Register a callback to be called when this variable's remote configuration changes.
-
-        The callback receives no arguments. Call `variable.get()` inside the callback
-        to see the new value. Callbacks run on the provider's polling thread, so they
-        should be fast and non-blocking.
-
-        Can be used as a decorator:
-
-            @my_var.on_change
-            def handle_change():
-                new_value = my_var.get().value
-                invalidate_cache()
-
-        Args:
-            callback: A no-argument callable to invoke when the variable's config changes.
-
-        Returns:
-            The callback (for use as a decorator).
-        """
-        self._on_change_callbacks.append(callback)
-        return callback
-
-    def _notify_change(self) -> None:
-        """Internal: fire all registered on_change callbacks."""
-        for callback in self._on_change_callbacks:
-            try:
-                callback()
-            except Exception:
-                import logging
-
-                logging.getLogger('logfire').exception(f'Error in on_change callback for variable {self.name!r}')
 
     def get(
         self,

@@ -572,16 +572,10 @@ def configure(
         logfire_instance = Logfire(config=config)
     else:
         logfire_instance = DEFAULT_LOGFIRE_INSTANCE
-        logfire_instance._change_notifications_setup = False  # pyright: ignore[reportPrivateUsage]
 
     # Start the variable provider now that we have the logfire instance
     # Pass None if instrumentation is disabled to avoid logging errors via logfire
     config.get_variable_provider().start(logfire_instance if config.variables.instrument else None)
-
-    # Re-wire change notifications if there are existing variables from a previous configure() call
-    if logfire_instance._variables and not logfire_instance._change_notifications_setup:  # pyright: ignore[reportPrivateUsage]
-        logfire_instance._setup_variable_change_notifications()  # pyright: ignore[reportPrivateUsage]
-        logfire_instance._change_notifications_setup = True  # pyright: ignore[reportPrivateUsage]
 
     return logfire_instance
 

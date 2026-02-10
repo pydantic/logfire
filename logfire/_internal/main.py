@@ -156,7 +156,6 @@ class Logfire:
         self._console_log = console_log
         self._otel_scope = otel_scope
         self._variables: dict[str, Variable[Any]] = {}
-        self._change_notifications_setup = False
 
     @property
     def config(self) -> LogfireConfig:
@@ -2502,23 +2501,7 @@ class Logfire:
         variable = Variable[T](name, default=default, type=tp, logfire_instance=self, description=description)
         self._variables[name] = variable
 
-        if not self._change_notifications_setup:
-            self._setup_variable_change_notifications()
-            self._change_notifications_setup = True
-
         return variable
-
-    def _setup_variable_change_notifications(self) -> None:
-        """Set up the on_config_change callback on the provider to dispatch to variables."""
-        provider = self.config.get_variable_provider()
-
-        def on_config_change(changed_names: set[str]) -> None:
-            for name in changed_names:
-                variable = self._variables.get(name)
-                if variable is not None:
-                    variable._notify_change()  # pyright: ignore[reportPrivateUsage]
-
-        provider.set_on_config_change(on_config_change)
 
     def variables_clear(self) -> None:
         """Clear all registered variables from this Logfire instance.
@@ -2528,7 +2511,6 @@ class Logfire:
         to ensure a clean state between test cases.
         """
         self._variables.clear()
-        self._change_notifications_setup = False
 
     def variables_get(self) -> list[Variable[Any]]:
         """Get all variables registered with this Logfire instance."""
