@@ -244,19 +244,12 @@ def _build_github_job_url() -> str:
     return ''
 
 
-@pytest.hookimpl(optionalhook=True)
-def pytest_xdist_setupnodes(config: Any, specs: Any) -> None:  # pragma: no cover
-    """Inject TRACEPARENT into env before xdist spawns workers.
-
-    Called in the controller before any ``makegateway()`` call, so all workers
-    inherit the session-level trace context via ``os.environ``.
+def _inject_traceparent_env() -> None:
+    """Inject the current OTel trace context into TRACEPARENT/TRACESTATE env vars.
 
     This allows child processes (xdist workers, subprocess.Popen, etc.) to inherit
     the trace context.
     """
-    if not _is_enabled(config):
-        return
-
     from opentelemetry import propagate
 
     carrier: dict[str, str] = {}
@@ -267,13 +260,39 @@ def pytest_xdist_setupnodes(config: Any, specs: Any) -> None:  # pragma: no cove
         os.environ['TRACESTATE'] = carrier['tracestate']
 
 
+@pytest.hookimpl(optionalhook=True)
+def pytest_xdist_setupnodes(config: Any, specs: Any) -> None:  # pragma: no cover
+    """Inject TRACEPARENT into env before xdist spawns workers.
+
+    Called in the controller before any ``makegateway()`` call, so all workers
+    inherit the session-level trace context via ``os.environ``.
+
+    NOTE: This relies on ``pytest_sessionstart`` (which creates the session span)
+    running at default priority, *before* xdist's ``DSession.pytest_sessionstart``
+    which uses ``trylast=True`` and calls ``setup_nodes()`` →
+    ``pytest_xdist_setupnodes``.  Do not add ``trylast=True`` to our
+    ``pytest_sessionstart`` or this ordering guarantee breaks.
+    """
+    del specs  # unused
+    if not _is_enabled(config):
+        return
+    _inject_traceparent_env()
+
+
 def _get_xdist_worker_id() -> str | None:
     """Get the xdist worker ID if running in a worker process."""
     return os.environ.get('PYTEST_XDIST_WORKER')
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:
-    """Create a session span when the test session starts."""
+    """Create a session span when the test session starts.
+
+    IMPORTANT: This hook must run at default priority (no ``trylast=True``).
+    ``pytest_xdist_setupnodes`` depends on the session span being active when
+    it injects TRACEPARENT into ``os.environ`` for worker processes.  xdist's
+    ``DSession.pytest_sessionstart`` uses ``trylast=True``, so our default-priority
+    hook is guaranteed to run first.
+    """
     if not _is_enabled(session.config):
         return
 
@@ -390,7 +409,23 @@ def pytest_runtest_protocol(
                 span.set_attribute('test.parameters', str(list(item.callspec.params.keys())))  # type: ignore[attr-defined]
 
         item.stash[_SPAN_KEY] = trace.get_current_span()
-        yield
+
+        # Propagate trace context via env vars so child processes
+        # (e.g. subprocess.Popen, subprocess.run) inherit the test's trace.
+        old_traceparent = os.environ.get('TRACEPARENT')
+        old_tracestate = os.environ.get('TRACESTATE')
+        _inject_traceparent_env()
+        try:
+            yield
+        finally:
+            if old_traceparent is not None:
+                os.environ['TRACEPARENT'] = old_traceparent
+            else:
+                os.environ.pop('TRACEPARENT', None)
+            if old_tracestate is not None:
+                os.environ['TRACESTATE'] = old_tracestate
+            else:
+                os.environ.pop('TRACESTATE', None)
 
 
 @pytest.hookimpl(hookwrapper=True)
