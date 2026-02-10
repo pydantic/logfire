@@ -753,7 +753,7 @@ class _LogfireConfigData:
             config = variables.pop('config', None)  # type: ignore
             if isinstance(config, dict):  # pragma: no branch
                 if 'variables' in config:
-                    from logfire.variables import VariablesConfig as _VariablesConfig
+                    from logfire.variables import VariablesConfig as _VariablesConfig  # pragma: no cover
 
                     config = _VariablesConfig(**config)  # type: ignore  # pragma: no cover
                 else:

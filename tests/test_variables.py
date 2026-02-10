@@ -2112,6 +2112,21 @@ class TestLogfireVarIntegration:
         assert details._reason == 'other_error'
         assert isinstance(details.exception, RuntimeError)
 
+    def test_variables_build_config(self, config_kwargs: dict[str, Any]):
+        """Test that variables_build_config on a Logfire instance delegates to VariablesConfig.from_variables."""
+        lf = logfire.configure(**config_kwargs)
+
+        var1 = lf.var(name='build_test_a', default=42, type=int)
+        var2 = lf.var(name='build_test_b', default='hello', type=str)
+
+        config = lf.variables_build_config(variables=[var1, var2])
+
+        assert set(config.variables.keys()) == {'build_test_a', 'build_test_b'}
+        assert config.variables['build_test_a'].example == '42'
+        assert config.variables['build_test_b'].example == '"hello"'
+        assert config.variables['build_test_a'].json_schema == {'type': 'integer'}
+        assert config.variables['build_test_b'].json_schema == {'type': 'string'}
+
 
 # =============================================================================
 # Test LocalVariableProvider Write Operations
