@@ -423,6 +423,17 @@ def test_params_sequence():
     conn.close()
 
 
+def test_params_empty_dict():
+    """Empty dict should still trigger substitution (converts %% to %)."""
+    capture: dict[str, Any] = {}
+    conn = make_connection(capture=capture)
+    cur = conn.cursor()
+    cur.execute("SELECT '100%%' AS pct", {})
+    sql = capture['params']['sql'][0]
+    assert "SELECT '100%' AS pct" == sql
+    conn.close()
+
+
 # ---------------------------------------------------------------------------
 # Tests: timestamps
 # ---------------------------------------------------------------------------

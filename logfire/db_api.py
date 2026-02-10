@@ -220,7 +220,7 @@ class Cursor:
             raise ProgrammingError('Connection is closed')
 
         sql = operation
-        if parameters:
+        if parameters is not None:
             sql = _substitute_params(operation, parameters)
 
         limit = self.limit if self.limit is not None else self._connection.limit

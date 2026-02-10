@@ -222,11 +222,10 @@ conn.close()
 In a [marimo](https://marimo.io/) notebook, you can register the connection and then use SQL cells directly:
 
 ```python skip-run="true" skip-reason="incomplete"
-import marimo as mo
 import logfire.db_api
 
 conn = logfire.db_api.connect(read_token='<your_read_token>')
-# Register connection — now you can use SQL cells with the "logfire" connection
+# Register connection with marimo — now you can use SQL cells with the "logfire" connection
 ```
 
 ### Parameters
