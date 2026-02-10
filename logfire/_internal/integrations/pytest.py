@@ -244,6 +244,7 @@ def _build_github_job_url() -> str:
     return ''
 
 
+@pytest.hookimpl(optionalhook=True)
 def pytest_xdist_setupnodes(config: Any, specs: Any) -> None:  # pragma: no cover
     """Inject TRACEPARENT into env before xdist spawns workers.
 
