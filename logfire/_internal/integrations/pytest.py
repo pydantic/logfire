@@ -254,9 +254,9 @@ def _inject_traceparent_env() -> None:
 
     carrier: dict[str, str] = {}
     propagate.inject(carrier)
-    if 'traceparent' in carrier:
+    if 'traceparent' in carrier:  # pragma: no branch
         os.environ['TRACEPARENT'] = carrier['traceparent']
-    if 'tracestate' in carrier:
+    if 'tracestate' in carrier:  # pragma: no branch
         os.environ['TRACESTATE'] = carrier['tracestate']
 
 
