@@ -1,0 +1,196 @@
+interactions:
+- request:
+    body: "{\"input\":\"What is the weather like in Paris today?\",\"instructions\":\"Be
+      nice\",\"model\":\"gpt-4.1\",\"tools\":[{\"type\":\"function\",\"name\":\"get_weather\",\"description\":\"Get
+      current temperature for a given location.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"location\":{\"type\":\"string\",\"description\":\"City
+      and country e.g. Bogot\xE1, Colombia\"}},\"required\":[\"location\"],\"additionalProperties\":false}}]}"
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate, zstd
+      connection:
+      - keep-alive
+      content-length:
+      - '392'
+      content-type:
+      - application/json
+      host:
+      - api.openai.com
+      user-agent:
+      - OpenAI/Python 1.109.1
+      x-stainless-arch:
+      - arm64
+      x-stainless-async:
+      - 'false'
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - MacOS
+      x-stainless-package-version:
+      - 1.109.1
+      x-stainless-read-timeout:
+      - '600'
+      x-stainless-retry-count:
+      - '0'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.12.9
+    method: POST
+    uri: https://api.openai.com/v1/responses
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAAA3xUy47jNhC8+ysInj2GpPh929lNckqwQA4BEi+EFtnSMEORWrLpXWPgfw9I2Xp4
+        Hzepi12s7i7224IxriQ/Mu7Qd2X2ywF3aym32yrPi0ORZdu9rDHPNsW+2u/zg9gXMi/y9f6wy/L1
+        Ybvmy0hhq/9Q0J3GGo99XDgEQllCxPLd5rDJis1hlzBPQMHHHGHbTiOh7JMqEK+Ns8FEXTVoj31Y
+        aa1Mw4/sbcEYY7yDC7qYL/GM2nbo+IKxazqMztmImaB1Cihzv6WUSKC0n6OeXBCkrEmKnpEZJW5F
+        tPC1tIG6QCXZVzSzzAiStboUoOecrZWoI1nT0dN6lT8VWbF5ytZP+b1piZMf2b+pnr6qYR61+Mk0
+        RFWv0zTkBqv9WkK12cC+PiTiREKXDhNNMKmspG+Ef9T8BIJrQouGEv524toKiBwnfjzxj+CUX7Lf
+        HBiBJ34d0+INZS8+fQal//nr1+Lzu/DHu+LPvwXtig/PX+R2zDDQJpENUvkFgV76ETJ2XTD2KTWp
+        Awdao543mVzoTdE5PCsbfHn3XS9gGELnbNtRKUC8YPmKlynmELw1M0thXVtHk0OxVaFtwd0zB4d5
+        qJEupZJoSNUKZ27z6M5KYEnq7tAagiZ+M751OC2CsO3QAYUUzlfZLfqVRmW1dS2M/5MJp3N9126K
+        z+gq6xVFzbxFqUI7voy+jy822vvIOASyfAD8t258NNI4PYleONWl4JHx35GYCM6hITapiNXWMWCN
+        OqNhdyetfu6BAYzTb5HQ+UnlE1G3vbMckc7FRUAK5xmMDS5+iE/YPLnohuUcfSjzvaILAyOZsMGQ
+        uzBcNSv2bBtLp5BlmC/Ze6ttWyngE6Lr8H2dqHX4OSiHcmj7o9Yh+GmSBVKqiIL+OK02rcrFwyWp
+        qLSao90eHhfZrtS26ZytIkE2BLupD10wQ+e4VB4qfV/VwUODo0mVmS3J7Wb5bXyyft/GzSFeUI6J
+        2czOj7s3330P+B7v8MJ/RE2WQI/gvhieSfDzF90igQSCSH9dXP8HAAD//wMAl3wlJTkHAAA=
+    headers:
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Fri, 03 Oct 2025 14:43:18 GMT
+      Server:
+      - cloudflare
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      openai-processing-ms:
+      - '816'
+      openai-version:
+      - '2020-10-01'
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-envoy-upstream-service-time:
+      - '819'
+      x-ratelimit-limit-requests:
+      - '5000'
+      x-ratelimit-limit-tokens:
+      - '450000'
+      x-ratelimit-remaining-requests:
+      - '4999'
+      x-ratelimit-remaining-tokens:
+      - '449718'
+      x-ratelimit-reset-requests:
+      - 12ms
+      x-ratelimit-reset-tokens:
+      - 37ms
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"input":[{"role":"user","content":"What is the weather like in Paris today?"},{"arguments":"{\"location\":\"Paris,
+      France\"}","call_id":"call_uilZSE2qAuMA2NWct72DBwd6","name":"get_weather","type":"function_call","id":"fc_039e74dd66b112920068dfe105cbf4819c8d5eb84dab55a8f9","status":"completed"},{"type":"function_call_output","call_id":"call_uilZSE2qAuMA2NWct72DBwd6","output":"Rainy"}],"model":"gpt-4.1"}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate, zstd
+      connection:
+      - keep-alive
+      content-length:
+      - '406'
+      content-type:
+      - application/json
+      host:
+      - api.openai.com
+      user-agent:
+      - OpenAI/Python 1.109.1
+      x-stainless-arch:
+      - arm64
+      x-stainless-async:
+      - 'false'
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - MacOS
+      x-stainless-package-version:
+      - 1.109.1
+      x-stainless-read-timeout:
+      - '600'
+      x-stainless-retry-count:
+      - '0'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.12.9
+    method: POST
+    uri: https://api.openai.com/v1/responses
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAAA3RUy3LbMAy8+ytYXXKJM5Lf9h/01kNvmY4GIiGZDUVwSNCNJuN/74iyZKtNbhIW
+        WALYJT8WQmRaZSeReQyuzNdH3G+U2u2qolgdV3m+O6gai3x32FebQ3GUVV7J3fpQHKGSCtfb7Lmn
+        oOo3Sh5pyAYc4tIjMKoSeqzYb4/bfLU9HhIWGDiGvkZS6wwyqqGoAvnWeIq276sGE3AIa2O0bbKT
+        +FgIIUTmoEPf1yu8oCGHPlsIcU3J6D31mI3GpIC24ymlQgZtwhwN7KNkTXYWb+G9pMgucsn0hv+D
+        TGRKCWZO15JC03fWOF5uXorlKl9tl/lmWWxu+0qc2Um8plGGgSYp2tB8rcQ+X1eHXgmA/UrJvCgq
+        3Bcg14k5sXDnMPFgCNDgHfhq5QmUZBntvanHxma040LwnafqlADWEsO4xNdfM9BQ4zxVnyCJ6CSy
+        n2cUfxD4jF5oK36A10EwKeiEDsKDtt2L+F6LjuKTR+EMWKttI5hEQ4IiPwtF9olFTb5BFmBFbCuP
+        xsC3bDrwevuaesg8mTQXhKADg+UhuU9MSZkDD8agmavNPg7GdB4vmmIoR++XScbJDc5T67iUIM9Y
+        vmH3iHmEQHZma6xr8vyQ1AsX2xb8WDm5PECN3JVaoWVda5w5PqC/aIkl6/GW1BDNIFkWmDw+DsHY
+        OvTAMYWLl/wWTdLcOqvJt3D/f7BEyhu2duv4gr6ioLkbjKh0bO+3c9jjmbQcFh+Zsgm4OyRjcuWD
+        b/Ip6B579NHK5Lo0pQ5QmfEpicn/0wDazm7yZv38f/zheZjGTNKpe2E+G/XfB2JVfAZ8xjup/xU1
+        E4O5g7vNtMIY5mq3yKCAoae/Lq5/AQAA//8DAInpJWzZBQAA
+    headers:
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Fri, 03 Oct 2025 14:43:19 GMT
+      Server:
+      - cloudflare
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      openai-processing-ms:
+      - '1023'
+      openai-version:
+      - '2020-10-01'
+      strict-transport-security:
+      - max-age=31536000; includeSubDomains; preload
+      x-envoy-upstream-service-time:
+      - '1025'
+      x-ratelimit-limit-requests:
+      - '5000'
+      x-ratelimit-limit-tokens:
+      - '450000'
+      x-ratelimit-remaining-requests:
+      - '4999'
+      x-ratelimit-remaining-tokens:
+      - '449937'
+      x-ratelimit-reset-requests:
+      - 12ms
+      x-ratelimit-reset-tokens:
+      - 8ms
+    status:
+      code: 200
+      message: OK
+version: 1

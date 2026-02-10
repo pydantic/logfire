@@ -3216,3 +3216,403 @@ def test_images_latest(exporter: TestExporter) -> None:
             }
         ]
     )
+
+
+# --- Unit tests for semconv conversion functions ---
+
+
+def test_convert_openai_messages_to_semconv() -> None:
+    """Test conversion of OpenAI messages to semconv format with complex content types."""
+    from logfire._internal.integrations.llm_providers.openai import convert_openai_messages_to_semconv
+
+    messages: list[dict[str, Any]] = [
+        # System message with list content
+        {'role': 'system', 'content': [{'type': 'text', 'text': 'You are helpful.'}]},
+        # User with list content including a string part
+        {'role': 'user', 'content': [{'type': 'text', 'text': 'Hello'}, 'plain string']},
+        # Assistant with no text content but tool calls
+        {
+            'role': 'assistant',
+            'content': None,
+            'tool_calls': [
+                {
+                    'id': 'call_123',
+                    'function': {'name': 'get_weather', 'arguments': '{"location": "Paris"}'},
+                }
+            ],
+        },
+        # Tool message
+        {'role': 'tool', 'tool_call_id': 'call_123', 'content': 'Sunny, 25C'},
+        # Named user message
+        {'role': 'user', 'content': 'Thanks!', 'name': 'alice'},
+    ]
+
+    input_messages, system_instructions = convert_openai_messages_to_semconv(messages)
+
+    assert system_instructions == [{'type': 'text', 'content': 'You are helpful.'}]
+    assert len(input_messages) == 4
+
+    # User with list content
+    assert input_messages[0] == {
+        'role': 'user',
+        'parts': [
+            {'type': 'text', 'content': 'Hello'},
+            {'type': 'text', 'content': 'plain string'},
+        ],
+    }
+
+    # Assistant with tool calls, no text content
+    assert input_messages[1] == {
+        'role': 'assistant',
+        'parts': [
+            {'type': 'tool_call', 'id': 'call_123', 'name': 'get_weather', 'arguments': {'location': 'Paris'}},
+        ],
+    }
+
+    # Tool message
+    assert input_messages[2] == {
+        'role': 'tool',
+        'parts': [
+            {'type': 'tool_call_response', 'id': 'call_123', 'response': 'Sunny, 25C'},
+        ],
+    }
+
+    # Named user
+    assert input_messages[3] == {
+        'role': 'user',
+        'parts': [{'type': 'text', 'content': 'Thanks!'}],
+        'name': 'alice',
+    }
+
+
+def test_convert_content_part_types() -> None:
+    """Test _convert_content_part with image_url, audio, generic, and string types."""
+    from logfire._internal.integrations.llm_providers.openai import (
+        _convert_content_part,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    # string
+    assert _convert_content_part('hello') == {'type': 'text', 'content': 'hello'}
+    # text
+    assert _convert_content_part({'type': 'text', 'text': 'world'}) == {'type': 'text', 'content': 'world'}
+    # image_url
+    assert _convert_content_part({'type': 'image_url', 'image_url': {'url': 'https://example.com/img.png'}}) == {
+        'type': 'uri',
+        'modality': 'image',
+        'uri': 'https://example.com/img.png',
+    }
+    # audio
+    assert _convert_content_part({'type': 'input_audio', 'data': 'base64audio'}) == {
+        'type': 'blob',
+        'modality': 'audio',
+        'content': 'base64audio',
+    }
+    # generic/unknown type
+    assert _convert_content_part({'type': 'custom_type', 'foo': 'bar'}) == {
+        'type': 'custom_type',
+        'foo': 'bar',
+    }
+
+
+def test_convert_openai_response_to_semconv_with_tools() -> None:
+    """Test convert_openai_response_to_semconv with tool calls."""
+    from unittest.mock import MagicMock
+
+    from logfire._internal.integrations.llm_providers.openai import convert_openai_response_to_semconv
+
+    message = MagicMock()
+    message.role = 'assistant'
+    message.content = 'I will search.'
+
+    tc = MagicMock()
+    tc.id = 'call_456'
+    tc.function = MagicMock()
+    tc.function.name = 'search'
+    tc.function.arguments = '{"query": "test"}'
+    message.tool_calls = [tc]
+
+    result = convert_openai_response_to_semconv(message, 'tool_calls')
+    assert result == {
+        'role': 'assistant',
+        'parts': [
+            {'type': 'text', 'content': 'I will search.'},
+            {'type': 'tool_call', 'id': 'call_456', 'name': 'search', 'arguments': {'query': 'test'}},
+        ],
+        'finish_reason': 'tool_calls',
+    }
+
+
+def test_convert_responses_input_to_semconv() -> None:
+    """Test conversion of Responses API inputs to semconv format."""
+    from logfire._internal.integrations.llm_providers.openai import convert_responses_input_to_semconv
+
+    # String input with instructions
+    msgs, sys_inst = convert_responses_input_to_semconv('Hello!', 'Be nice')
+    assert sys_inst == [{'type': 'text', 'content': 'Be nice'}]
+    assert msgs == [{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hello!'}]}]
+
+    # List input with function calls and various content types
+    inputs: list[dict[str, Any]] = [
+        {'role': 'user', 'content': 'Weather?', 'type': 'message'},
+        {'type': 'function_call', 'call_id': 'c1', 'name': 'get_weather', 'arguments': '{"loc": "NYC"}'},
+        {'type': 'function_call_output', 'call_id': 'c1', 'output': 'Sunny'},
+        {'role': 'assistant', 'content': [{'type': 'output_text', 'text': 'It is sunny!'}]},
+        {'role': 'assistant', 'content': [{'type': 'text', 'text': 'Also warm.'}]},
+        {'role': 'assistant', 'content': [{'type': 'unknown_type', 'data': 'val'}]},
+    ]
+    msgs, sys_inst = convert_responses_input_to_semconv(inputs, None)
+    assert sys_inst == []
+    assert len(msgs) == 6
+    assert msgs[0] == {'role': 'user', 'parts': [{'type': 'text', 'content': 'Weather?'}]}
+    assert msgs[1] == {
+        'role': 'assistant',
+        'parts': [{'type': 'tool_call', 'id': 'c1', 'name': 'get_weather', 'arguments': '{"loc": "NYC"}'}],
+    }
+    assert msgs[2] == {
+        'role': 'tool',
+        'parts': [{'type': 'tool_call_response', 'id': 'c1', 'response': 'Sunny'}],
+    }
+    assert msgs[3] == {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'It is sunny!'}]}
+    assert msgs[4] == {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Also warm.'}]}
+    assert msgs[5] == {'role': 'assistant', 'parts': [{'type': 'unknown_type', 'data': 'val'}]}
+
+    # None input
+    msgs, sys_inst = convert_responses_input_to_semconv(None, None)
+    assert msgs == []
+    assert sys_inst == []
+
+
+def test_convert_responses_outputs_to_semconv() -> None:
+    """Test conversion of Responses API outputs to semconv format."""
+    from unittest.mock import MagicMock
+
+    from logfire._internal.integrations.llm_providers.openai import convert_responses_outputs_to_semconv
+
+    response = MagicMock()
+
+    msg_out = MagicMock()
+    msg_out.model_dump.return_value = {
+        'type': 'message',
+        'role': 'assistant',
+        'content': [{'type': 'output_text', 'text': 'Hello!'}, {'type': 'refusal', 'refusal': 'no'}],
+    }
+
+    fc_out = MagicMock()
+    fc_out.model_dump.return_value = {
+        'type': 'function_call',
+        'call_id': 'c1',
+        'name': 'search',
+        'arguments': '{"q": "test"}',
+    }
+
+    unk_out = MagicMock()
+    unk_out.model_dump.return_value = {'type': 'web_search', 'query': 'test query'}
+
+    response.output = [msg_out, fc_out, unk_out]
+
+    result = convert_responses_outputs_to_semconv(response)
+    assert result == [
+        {
+            'role': 'assistant',
+            'parts': [
+                {'type': 'text', 'content': 'Hello!'},
+                {'type': 'refusal', 'refusal': 'no'},
+            ],
+        },
+        {
+            'role': 'assistant',
+            'parts': [{'type': 'tool_call', 'id': 'c1', 'name': 'search', 'arguments': '{"q": "test"}'}],
+        },
+        {'role': 'assistant', 'parts': [{'type': 'web_search', 'query': 'test query'}]},
+    ]
+
+
+def test_get_endpoint_config_unknown_url_latest() -> None:
+    """Test get_endpoint_config with an unknown URL and version='latest'."""
+    from unittest.mock import MagicMock
+
+    from logfire._internal.integrations.llm_providers.openai import get_endpoint_config
+
+    options = MagicMock()
+    options.url = '/some/other/endpoint'
+    options.json_data = {'model': 'gpt-4', 'data': 'value'}
+
+    config = get_endpoint_config(options, version='latest')
+    assert config.message_template == 'OpenAI API call to {url!r}'
+    assert config.span_data['url'] == '/some/other/endpoint'
+    assert config.span_data['gen_ai.provider.name'] == 'openai'
+    assert config.span_data['gen_ai.request.model'] == 'gpt-4'
+    assert config.span_data['request_data'] == {'model': 'gpt-4'}
+
+    # Without model
+    options.json_data = {'data': 'value'}
+    config = get_endpoint_config(options, version='latest')
+    assert 'gen_ai.request.model' not in config.span_data
+    assert config.span_data['request_data'] == {}
+
+
+def test_get_endpoint_config_empty_messages_latest() -> None:
+    """Test get_endpoint_config for chat completions with no messages (version='latest')."""
+    from unittest.mock import MagicMock
+
+    from logfire._internal.integrations.llm_providers.openai import get_endpoint_config
+
+    options = MagicMock()
+    options.url = '/chat/completions'
+    options.json_data = {'model': 'gpt-4', 'messages': []}
+
+    config = get_endpoint_config(options, version='latest')
+    assert 'gen_ai.input.messages' not in config.span_data
+    assert 'gen_ai.system_instructions' not in config.span_data
+
+    # Messages with only user (no system) → system_instructions should be absent
+    options.json_data = {
+        'model': 'gpt-4',
+        'messages': [{'role': 'user', 'content': 'hi'}],
+    }
+    config = get_endpoint_config(options, version='latest')
+    assert 'gen_ai.input.messages' in config.span_data
+    assert 'gen_ai.system_instructions' not in config.span_data
+
+    # Same for version=1
+    options.json_data = {'model': 'gpt-4', 'messages': []}
+    config = get_endpoint_config(options, version=1)
+    assert 'gen_ai.input.messages' not in config.span_data
+
+    options.json_data = {'model': 'gpt-4', 'messages': [{'role': 'user', 'content': 'hi'}]}
+    config = get_endpoint_config(options, version=1)
+    assert 'gen_ai.input.messages' in config.span_data
+    assert 'gen_ai.system_instructions' not in config.span_data
+
+
+def test_get_endpoint_config_responses_empty_input_latest() -> None:
+    """Test get_endpoint_config for /responses with no input (version='latest')."""
+    from unittest.mock import MagicMock
+
+    from logfire._internal.integrations.llm_providers.openai import get_endpoint_config
+
+    options = MagicMock()
+    options.url = '/responses'
+    options.json_data = {'model': 'gpt-4.1', 'stream': False}
+
+    config = get_endpoint_config(options, version='latest')
+    assert 'gen_ai.input.messages' not in config.span_data
+    assert 'gen_ai.system_instructions' not in config.span_data
+
+
+@pytest.mark.vcr()
+def test_responses_api_latest(exporter: TestExporter) -> None:
+    """Test Responses API with version='latest' semconv format."""
+    client = openai.Client(api_key='foobar')
+    logfire.instrument_openai(client, version='latest')
+    tools: Any = [
+        {
+            'type': 'function',
+            'name': 'get_weather',
+            'description': 'Get current temperature for a given location.',
+            'parameters': {
+                'type': 'object',
+                'properties': {'location': {'type': 'string', 'description': 'City and country e.g. Bogotá, Colombia'}},
+                'required': ['location'],
+                'additionalProperties': False,
+            },
+        }
+    ]
+
+    input_messages: Any = [{'role': 'user', 'content': 'What is the weather like in Paris today?'}]
+    response = client.responses.create(
+        model='gpt-4.1', input=input_messages[0]['content'], tools=tools, instructions='Be nice'
+    )
+    tool_call: Any = response.output[0]
+    input_messages.append(tool_call)
+    input_messages.append({'type': 'function_call_output', 'call_id': tool_call.call_id, 'output': 'Rainy'})
+    response2: Any = client.responses.create(model='gpt-4.1', input=input_messages)
+    assert response2.output[0].content[0].text == snapshot(
+        "The weather in Paris today is rainy. If you're planning to go out, don't forget an umbrella!"
+    )
+    result = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    # Verify version='latest' produces semconv attributes instead of events
+    assert len(result) == 2
+    # First span: string input with instructions
+    span1 = result[0]['attributes']
+    assert span1['logfire.msg_template'] == 'Responses API with {gen_ai.request.model!r}'
+    assert span1['gen_ai.provider.name'] == 'openai'
+    assert span1['gen_ai.operation.name'] == 'chat'
+    assert span1['gen_ai.request.model'] == 'gpt-4.1'
+    assert 'gen_ai.input.messages' in span1
+    assert 'gen_ai.system_instructions' in span1
+    assert 'gen_ai.output.messages' in span1
+    assert 'events' not in span1
+
+    # Second span: list input with function calls
+    span2 = result[1]['attributes']
+    assert 'gen_ai.input.messages' in span2
+    assert 'gen_ai.output.messages' in span2
+    assert 'events' not in span2
+
+
+# --- Unit tests for streaming state classes ---
+
+
+def test_completion_stream_state_latest() -> None:
+    """Test OpenaiCompletionStreamStateLatest.get_attributes."""
+    from openai.types.completion import Completion
+    from openai.types.completion_choice import CompletionChoice
+
+    from logfire._internal.integrations.llm_providers.openai import OpenaiCompletionStreamStateLatest
+
+    state = OpenaiCompletionStreamStateLatest()
+    chunk = Completion(
+        id='test',
+        choices=[CompletionChoice(finish_reason='stop', index=0, text='Hello')],
+        created=1,
+        model='gpt-3.5',
+        object='text_completion',
+    )
+    state.record_chunk(chunk)
+
+    attrs = state.get_attributes({'gen_ai.request.model': 'gpt-3.5'})
+    assert attrs == {
+        'gen_ai.request.model': 'gpt-3.5',
+        'gen_ai.output.messages': [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Hello'}]}],
+    }
+
+
+def test_responses_stream_state_latest() -> None:
+    """Test OpenaiResponsesStreamStateLatest.get_attributes."""
+    from unittest.mock import MagicMock
+
+    from logfire._internal.integrations.llm_providers.openai import OpenaiResponsesStreamStateLatest
+
+    state = OpenaiResponsesStreamStateLatest()
+    # Mock the internal completed response
+    mock_response = MagicMock()
+    msg_out = MagicMock()
+    msg_out.model_dump.return_value = {
+        'type': 'message',
+        'role': 'assistant',
+        'content': [{'type': 'output_text', 'text': 'Streamed response'}],
+    }
+    mock_response.output = [msg_out]
+    state._state._completed_response = mock_response  # pyright: ignore[reportPrivateUsage]
+
+    attrs = state.get_attributes({'gen_ai.request.model': 'gpt-4.1'})
+    assert attrs == {
+        'gen_ai.request.model': 'gpt-4.1',
+        'gen_ai.output.messages': [
+            {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Streamed response'}]},
+        ],
+    }
+
+
+def test_chat_completion_stream_state_latest_empty() -> None:
+    """Test OpenaiChatCompletionStreamStateLatest.get_attributes with no completion snapshot."""
+    from logfire._internal.integrations.llm_providers.openai import OpenaiChatCompletionStreamStateLatest
+
+    state = OpenaiChatCompletionStreamStateLatest()
+    # No chunks recorded, so current_completion_snapshot raises AssertionError
+    attrs = state.get_attributes({'gen_ai.request.model': 'gpt-4'})
+    assert attrs == {
+        'gen_ai.request.model': 'gpt-4',
+        'gen_ai.output.messages': [],
+    }

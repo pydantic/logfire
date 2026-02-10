@@ -845,3 +845,241 @@ def test_sync_messages_stream_latest(exporter: TestExporter) -> None:
             },
         ]
     )
+
+
+# --- Unit tests for semconv conversion functions ---
+
+
+def test_convert_anthropic_content_part() -> None:
+    """Test _convert_anthropic_content_part with all content part types."""
+    from logfire._internal.integrations.llm_providers.anthropic import (
+        _convert_anthropic_content_part,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    # String
+    assert _convert_anthropic_content_part('hello') == {'type': 'text', 'content': 'hello'}
+
+    # Text block
+    assert _convert_anthropic_content_part({'type': 'text', 'text': 'world'}) == {'type': 'text', 'content': 'world'}
+
+    # Image with base64 source
+    assert _convert_anthropic_content_part(
+        {
+            'type': 'image',
+            'source': {'type': 'base64', 'data': 'abc123', 'media_type': 'image/png'},
+        }
+    ) == {'type': 'blob', 'modality': 'image', 'content': 'abc123', 'media_type': 'image/png'}
+
+    # Image with URL source
+    assert _convert_anthropic_content_part(
+        {
+            'type': 'image',
+            'source': {'type': 'url', 'url': 'https://example.com/img.png'},
+        }
+    ) == {'type': 'uri', 'modality': 'image', 'uri': 'https://example.com/img.png'}
+
+    # Image with unknown source type
+    assert _convert_anthropic_content_part(
+        {
+            'type': 'image',
+            'source': {'type': 'other'},
+        }
+    ) == {'type': 'image', 'source': {'type': 'other'}}
+
+    # Tool use
+    assert _convert_anthropic_content_part(
+        {
+            'type': 'tool_use',
+            'id': 'tool_1',
+            'name': 'search',
+            'input': {'query': 'test'},
+        }
+    ) == {'type': 'tool_call', 'id': 'tool_1', 'name': 'search', 'arguments': {'query': 'test'}}
+
+    # Tool result with list content (text + string)
+    assert _convert_anthropic_content_part(
+        {
+            'type': 'tool_result',
+            'tool_use_id': 'tool_1',
+            'content': [{'type': 'text', 'text': 'result1'}, 'plain text'],
+        }
+    ) == {'type': 'tool_call_response', 'id': 'tool_1', 'response': 'result1 plain text'}
+
+    # Tool result with string content
+    assert _convert_anthropic_content_part(
+        {
+            'type': 'tool_result',
+            'tool_use_id': 'tool_1',
+            'content': 'simple result',
+        }
+    ) == {'type': 'tool_call_response', 'id': 'tool_1', 'response': 'simple result'}
+
+    # Tool result with None content
+    assert _convert_anthropic_content_part(
+        {
+            'type': 'tool_result',
+            'tool_use_id': 'tool_1',
+        }
+    ) == {'type': 'tool_call_response', 'id': 'tool_1', 'response': ''}
+
+    # Generic/unknown type
+    assert _convert_anthropic_content_part(
+        {
+            'type': 'custom',
+            'foo': 'bar',
+        }
+    ) == {'type': 'custom', 'foo': 'bar'}
+
+
+def test_convert_anthropic_messages_to_semconv_complex() -> None:
+    """Test conversion with system as list and content as list."""
+    from logfire._internal.integrations.llm_providers.anthropic import convert_anthropic_messages_to_semconv
+
+    messages: list[dict[str, Any]] = [
+        # User with list content
+        {'role': 'user', 'content': [{'type': 'text', 'text': 'Hello'}]},
+        # Assistant with no content
+        {'role': 'assistant'},
+    ]
+    # System as list of blocks including non-text type
+    system: list[dict[str, Any]] = [
+        {'type': 'text', 'text': 'Be helpful'},
+        {'type': 'custom', 'data': 'value'},
+    ]
+
+    input_msgs, sys_inst = convert_anthropic_messages_to_semconv(messages, system)
+
+    assert sys_inst == [
+        {'type': 'text', 'content': 'Be helpful'},
+        {'type': 'custom', 'data': 'value'},
+    ]
+    assert len(input_msgs) == 2
+    assert input_msgs[0] == {'role': 'user', 'parts': [{'type': 'text', 'content': 'Hello'}]}
+    assert input_msgs[1] == {'role': 'assistant', 'parts': []}
+
+    # No system, no messages
+    input_msgs, sys_inst = convert_anthropic_messages_to_semconv([])
+    assert input_msgs == []
+    assert sys_inst == []
+
+
+def test_convert_anthropic_response_to_semconv_with_stop_reason() -> None:
+    """Test response conversion with stop_reason."""
+    from logfire._internal.integrations.llm_providers.anthropic import convert_anthropic_response_to_semconv
+
+    message = Message(
+        id='msg_1',
+        content=[
+            TextBlock(text='Let me search', type='text'),
+        ],
+        model='claude-3',
+        role='assistant',
+        type='message',
+        usage=Usage(input_tokens=10, output_tokens=20),
+        stop_reason='end_turn',
+    )
+
+    result = convert_anthropic_response_to_semconv(message)
+    assert result == {
+        'role': 'assistant',
+        'parts': [{'type': 'text', 'content': 'Let me search'}],
+        'finish_reason': 'end_turn',
+    }
+
+
+def test_anthropic_get_endpoint_config_non_messages_url_latest() -> None:
+    """Test get_endpoint_config for non-/v1/messages URL with version='latest'."""
+    from unittest.mock import MagicMock
+
+    from logfire._internal.integrations.llm_providers.anthropic import get_endpoint_config
+
+    options = MagicMock()
+    options.url = '/v1/complete'
+    options.json_data = {'model': 'claude-2.1', 'prompt': 'Hello'}
+
+    config = get_endpoint_config(options, version='latest')
+    assert config.message_template == 'Anthropic API call to {url!r}'
+    assert config.span_data['url'] == '/v1/complete'
+    assert config.span_data['gen_ai.provider.name'] == 'anthropic'
+    assert config.span_data['gen_ai.request.model'] == 'claude-2.1'
+    assert config.span_data['request_data'] == {'model': 'claude-2.1'}
+
+    # Without model
+    options.json_data = {'prompt': 'Hello'}
+    config = get_endpoint_config(options, version='latest')
+    assert 'gen_ai.request.model' not in config.span_data
+    assert config.span_data['request_data'] == {}
+
+
+def test_anthropic_get_endpoint_config_empty_messages() -> None:
+    """Test get_endpoint_config for /v1/messages with no messages (covers branch misses)."""
+    from unittest.mock import MagicMock
+
+    from logfire._internal.integrations.llm_providers.anthropic import get_endpoint_config
+
+    options = MagicMock()
+    options.url = '/v1/messages'
+    options.json_data = {'model': 'claude-3', 'messages': []}
+
+    # version='latest' with no messages → no input_messages or system_instructions
+    config = get_endpoint_config(options, version='latest')
+    assert 'gen_ai.input.messages' not in config.span_data
+    assert 'gen_ai.system_instructions' not in config.span_data
+
+    # version='latest' with messages but no system → input_messages but no system_instructions
+    options.json_data = {'model': 'claude-3', 'messages': [{'role': 'user', 'content': 'hi'}]}
+    config = get_endpoint_config(options, version='latest')
+    assert 'gen_ai.input.messages' in config.span_data
+    assert 'gen_ai.system_instructions' not in config.span_data
+
+    # version=1 with no messages
+    options.json_data = {'model': 'claude-3', 'messages': []}
+    config = get_endpoint_config(options, version=1)
+    assert 'gen_ai.input.messages' not in config.span_data
+
+    # version=1 with messages but no system
+    options.json_data = {'model': 'claude-3', 'messages': [{'role': 'user', 'content': 'hi'}]}
+    config = get_endpoint_config(options, version=1)
+    assert 'gen_ai.input.messages' in config.span_data
+    assert 'gen_ai.system_instructions' not in config.span_data
+
+    # version=1 non-messages URL without model
+    options.url = '/v1/complete'
+    options.json_data = {'prompt': 'Hello'}
+    config = get_endpoint_config(options, version=1)
+    assert 'gen_ai.request.model' not in config.span_data
+
+
+def test_sync_messages_latest_with_stop_reason(exporter: TestExporter) -> None:
+    """Test that stop_reason is captured as finish_reason and RESPONSE_FINISH_REASONS."""
+
+    def handler_with_stop_reason(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=Message(
+                id='test_id',
+                content=[TextBlock(text='Nine', type='text')],
+                model='claude-3-haiku-20240307',
+                role='assistant',
+                type='message',
+                usage=Usage(input_tokens=2, output_tokens=3),
+                stop_reason='end_turn',
+            ).model_dump(mode='json'),
+        )
+
+    with httpx.Client(transport=MockTransport(handler_with_stop_reason)) as httpx_client:
+        anthropic_client = anthropic.Anthropic(api_key='foobar', http_client=httpx_client)
+        with logfire.instrument_anthropic(anthropic_client, version='latest'):
+            response = anthropic_client.messages.create(
+                model='claude-3-haiku-20240307',
+                max_tokens=1000,
+                system='You are a helpful assistant.',
+                messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+            )
+    assert response.content[0].text == 'Nine'  # type: ignore
+    result = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    span = result[0]['attributes']
+    # Verify stop_reason appears in the output message as finish_reason
+    assert span['gen_ai.output.messages'][0].get('finish_reason') == 'end_turn'
+    # Verify RESPONSE_FINISH_REASONS is set
+    assert span['gen_ai.response.finish_reasons'] == ['end_turn']
