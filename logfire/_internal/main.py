@@ -1126,6 +1126,7 @@ class Logfire:
         app: FastAPI,
         *,
         prefix: str = '/logfire-proxy',
+        max_body_size: int = 50 * 1024 * 1024,  # 50 MB
     ) -> None:
         """Instrument a FastAPI app to proxy requests to Logfire.
 
@@ -1136,16 +1137,30 @@ class Logfire:
         Args:
             app: The FastAPI app to instrument.
             prefix: The path prefix to use for the proxy.
+            max_body_size: The maximum allowed request body size in bytes. Defaults to 50MB.
         """
+        from starlette.concurrency import run_in_threadpool
         from starlette.responses import Response
 
         async def logfire_proxy(request: Request):
+            # DoS Prevention: Check Content-Length before reading body
+            content_length = request.headers.get('content-length')
+            if content_length and int(content_length) > max_body_size:
+                return Response(status_code=413, content='Payload too large')
+
+            body = await request.body()
+            if len(body) > max_body_size:
+                return Response(status_code=413, content='Payload too large')
+
             path = request.path_params['path']
-            response = self.forward_request(
+
+            # Performance: Run synchronous requests call in a thread pool to avoid blocking the event loop
+            response = await run_in_threadpool(
+                self.forward_request,
                 method=request.method,
                 path=path,
                 headers=request.headers,
-                body=await request.body(),
+                body=body,
             )
             return Response(
                 content=response.content,

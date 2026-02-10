@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import posixpath
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -29,6 +30,9 @@ def forward_request(
 ) -> ForwardRequestResponse:
     if not path.startswith('/'):
         path = '/' + path
+
+    # Security: Normalize path to prevent directory traversal attacks (e.g. /v1/traces/../secret)
+    path = posixpath.normpath(path)
 
     allowed_prefixes = ('/v1/traces', '/v1/logs', '/v1/metrics')
     if not any(path.startswith(prefix) for prefix in allowed_prefixes):
@@ -81,11 +85,12 @@ def forward_request(
             stream=False,
             timeout=30,
         )
-    except requests.RequestException as e:
+    except requests.RequestException:
+        # Security: Return a generic error to avoid leaking internal URL/configuration details
         return ForwardRequestResponse(
             status_code=502,
             headers={'Content-Type': 'text/plain'},
-            content=str(e).encode('utf-8'),
+            content=b'Upstream service error',
         )
 
     response_headers = {

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from unittest import mock
 
+import requests
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
@@ -33,7 +34,6 @@ def test_forward_request_logic() -> None:
         mock_request.assert_called_once()
         _, kwargs = mock_request.call_args
         assert kwargs['method'] == 'POST'
-        # Base URL depends on token region. 'test_token' defaults to US.
         assert kwargs['url'] == 'https://logfire-us.pydantic.dev/v1/traces'
         assert kwargs['headers']['Authorization'] == 'Bearer test_token'
         assert kwargs['headers']['Content-Type'] == 'application/x-protobuf'
@@ -47,6 +47,26 @@ def test_forward_request_invalid_path() -> None:
     response = logfire.forward_request('POST', '/invalid', {}, b'')
     assert response.status_code == 400
     assert b'Invalid path' in response.content
+
+
+def test_forward_request_path_traversal() -> None:
+    logfire.configure(token='test_token', send_to_logfire=False)
+
+    # Attempt to traverse up from traces to an invalid path
+    response = logfire.forward_request('POST', '/v1/traces/../secret', {}, b'')
+    assert response.status_code == 400
+    assert b'Invalid path' in response.content
+
+
+def test_forward_request_exception_handling() -> None:
+    logfire.configure(token='test_token', send_to_logfire=False)
+
+    with mock.patch('requests.request', side_effect=requests.RequestException('connection failure')):
+        response = logfire.forward_request('POST', '/v1/traces', {}, b'')
+
+        assert response.status_code == 502
+        # Ensure we return the generic error, not the specific exception string
+        assert response.content == b'Upstream service error'
 
 
 def test_fastapi_proxy_instrumentation() -> None:
@@ -73,6 +93,23 @@ def test_fastapi_proxy_instrumentation() -> None:
         assert kwargs['url'].endswith('/v1/traces')
         assert kwargs['data'] == b'trace_data'
         assert kwargs['headers']['Authorization'] == 'Bearer test_token'
+
+
+def test_fastapi_proxy_size_limit() -> None:
+    app = FastAPI()
+    logfire.configure(token='test_token', send_to_logfire=False)
+
+    # Set a small limit for testing
+    logfire.instrument_fastapi_proxy(app, max_body_size=10)
+
+    client = TestClient(app)
+
+    # Content-Length check
+    response = client.post(
+        '/logfire-proxy/v1/traces', content=b'12345678901', headers={'Content-Type': 'application/json'}
+    )
+    assert response.status_code == 413
+    assert response.content == b'Payload too large'
 
 
 def test_fastapi_proxy_custom_prefix() -> None:
