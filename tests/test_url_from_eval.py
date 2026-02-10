@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+import requests_mock
 
 try:
     from pydantic_evals.reporting import EvaluationReport
@@ -72,3 +73,26 @@ def test_url_from_eval_no_ids() -> None:
     report = _make_report()
     result = instance.url_from_eval(report)
     assert result is None
+
+
+def test_url_from_eval_waits_for_token_validation() -> None:
+    """Test that url_from_eval waits for the background token validation thread
+    to populate project_url when the token is provided directly (no creds file)."""
+    with requests_mock.Mocker() as mocker:
+        mocker.get(
+            'https://logfire-us.pydantic.dev/v1/info',
+            json={
+                'project_name': 'myproject',
+                'project_url': 'https://logfire-us.pydantic.dev/my-org/my-project',
+            },
+        )
+        logfire.configure(
+            send_to_logfire=True,
+            token='fake-token',
+            console=False,
+        )
+
+        report = _make_report(trace_id='abc123', span_id='def456')
+        # url_from_eval should wait for the background thread and return the URL
+        result = logfire.url_from_eval(report)
+        assert result == 'https://logfire-us.pydantic.dev/my-org/my-project/evals/compare?experiment=abc123-def456'
