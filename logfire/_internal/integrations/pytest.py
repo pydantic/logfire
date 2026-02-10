@@ -253,6 +253,9 @@ def pytest_xdist_setupnodes(config: Any, specs: Any) -> None:  # pragma: no cove
     This allows child processes (xdist workers, subprocess.Popen, etc.) to inherit
     the trace context.
     """
+    if not _is_enabled(config):
+        return
+
     from opentelemetry import propagate
 
     carrier: dict[str, str] = {}
@@ -323,7 +326,10 @@ def pytest_sessionstart(session: pytest.Session) -> None:
         attrs['pytest.xdist.worker_id'] = worker_id
     worker_count = os.environ.get('PYTEST_XDIST_WORKER_COUNT')
     if worker_count:
-        attrs['pytest.xdist.worker_count'] = int(worker_count)
+        try:
+            attrs['pytest.xdist.worker_count'] = int(worker_count)
+        except ValueError:  # pragma: no cover
+            pass
     span.set_attributes(attrs)
 
     # Add CI metadata if in CI
