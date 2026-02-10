@@ -697,6 +697,7 @@ class _LogfireConfigData:
 
         self.additional_span_processors = additional_span_processors
         self.project_url: str | None = None
+        self._check_tokens_thread: Thread | None = None
 
         if metrics is None:
             metrics = MetricsOptions()
@@ -1007,8 +1008,8 @@ class LogfireConfig(_LogfireConfigData):
                     if emscripten:  # pragma: no cover
                         check_tokens()
                     else:
-                        thread = Thread(target=check_tokens, name='check_logfire_token')
-                        thread.start()
+                        self._check_tokens_thread = Thread(target=check_tokens, name='check_logfire_token')
+                        self._check_tokens_thread.start()
 
                     # Create exporters for each token
                     for token in token_list:
@@ -1229,6 +1230,15 @@ class LogfireConfig(_LogfireConfigData):
                 f'Set the environment variable LOGFIRE_IGNORE_NO_CONFIG=1 or add ignore_no_config=true in pyproject.toml to suppress this warning.',
                 category=LogfireNotConfiguredWarning,
             )
+
+    def wait_for_token_validation(self) -> None:
+        """Wait for the background token validation thread to complete.
+
+        This ensures that `project_url` is populated when the token is provided
+        via environment variable rather than a credentials file.
+        """
+        if self._check_tokens_thread is not None:
+            self._check_tokens_thread.join()
 
     def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
         return LogfireCredentials.from_token(token, requests.Session(), self.advanced.generate_base_url(token))

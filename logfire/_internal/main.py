@@ -886,6 +886,9 @@ class Logfire:
         Returns:
             The URL string, or `None` if the project URL or trace/span IDs are not available.
         """
+        # Wait for the background token validation thread to finish,
+        # since it may populate project_url when no credentials file exists.
+        self._config.wait_for_token_validation()
         project_url = self._config.project_url
         trace_id = report.trace_id
         span_id = report.span_id
