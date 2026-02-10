@@ -603,7 +603,7 @@ def test_connect_custom_limit():
 
 
 def test_connect_default_min_timestamp():
-    """connect() without min_timestamp defaults to ~30 days ago."""
+    """connect() without min_timestamp defaults to ~1 day ago."""
     capture: dict[str, Any] = {}
     transport = make_mock_transport(capture=capture)
     conn = connect(
@@ -614,10 +614,10 @@ def test_connect_default_min_timestamp():
     cur = conn.cursor()
     cur.execute('SELECT 1')
     assert 'min_timestamp' in capture['params']
-    # The default should be approximately 30 days ago
+    # The default should be approximately 1 day ago
     assert conn.min_timestamp is not None
     age = datetime.now(timezone.utc) - conn.min_timestamp
-    assert timedelta(days=29) < age < timedelta(days=31)
+    assert timedelta(hours=23) < age < timedelta(hours=25)
     conn.close()
 
 

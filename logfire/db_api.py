@@ -77,7 +77,7 @@ class NotSupportedError(DatabaseError):
 # ---------------------------------------------------------------------------
 
 DEFAULT_LIMIT = 10_000  # server-side maximum
-DEFAULT_MIN_TIMESTAMP_AGE = timedelta(days=30)
+DEFAULT_MIN_TIMESTAMP_AGE = timedelta(days=1)
 
 
 # ---------------------------------------------------------------------------
@@ -331,7 +331,7 @@ def connect(
         min_timestamp: Default lower bound for ``start_timestamp`` filtering.
             Accepts a `datetime` for an exact bound, a `timedelta` for a
             relative window (computed as ``now - timedelta``), or ``None`` to
-            disable the filter.  Defaults to 30 days ago.
+            disable the filter.  Defaults to 1 day ago.
         max_timestamp: Default upper bound for ``start_timestamp`` filtering.
         limit: Default row limit per query (max 10,000). When the number of
             returned rows equals the limit a warning is emitted.
