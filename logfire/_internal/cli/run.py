@@ -156,6 +156,11 @@ def instrument_packages(installed_otel_packages: set[str], instrument_pkg_map: d
     os.environ.setdefault('LANGSMITH_OTEL_ENABLED', 'true')
     os.environ.setdefault('LANGSMITH_TRACING_ENABLED', 'true')
 
+    # FastAPI extends Starlette, so skip starlette instrumentation when fastapi is present
+    # to avoid double-instrumenting.
+    if 'opentelemetry-instrumentation-fastapi' in installed_otel_packages:
+        installed_otel_packages = installed_otel_packages - {'opentelemetry-instrumentation-starlette'}
+
     # Process all installed OpenTelemetry packages
     for otel_pkg_name in installed_otel_packages:
         base_pkg = otel_pkg_name.replace('opentelemetry-instrumentation-', '')

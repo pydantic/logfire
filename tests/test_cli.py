@@ -1667,17 +1667,14 @@ def test_instrument_web_frameworks(exporter: TestExporter) -> None:
 
         from fastapi import FastAPI
         from flask import Flask
-        from starlette.applications import Starlette
 
-        assert getattr(Starlette(), '_is_instrumented_by_opentelemetry', False) is True
+        # Starlette instrumentation is skipped when fastapi is present to avoid double-instrumenting.
         assert getattr(FastAPI(), '_is_instrumented_by_opentelemetry', False) is True
         assert getattr(Flask(__name__), '_is_instrumented_by_opentelemetry', False) is True
     finally:
         from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
         from opentelemetry.instrumentation.flask import FlaskInstrumentor
-        from opentelemetry.instrumentation.starlette import StarletteInstrumentor
 
-        StarletteInstrumentor().uninstrument()
         FastAPIInstrumentor().uninstrument()
         FlaskInstrumentor().uninstrument()
 
