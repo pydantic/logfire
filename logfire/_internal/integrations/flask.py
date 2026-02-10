@@ -28,7 +28,7 @@ def instrument_flask(
     app: Flask | None = None,
     *,
     capture_headers: bool = False,
-    enable_commenter: bool = False,
+    enable_commenter: bool = True,
     commenter_options: CommenterOptions | None = None,
     excluded_urls: str | None = None,
     request_hook: RequestHook | None = None,
