@@ -20,12 +20,16 @@ from __future__ import annotations
 import warnings
 from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
+from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from logfire.experimental.query_client import LogfireQueryClient
 
 if TYPE_CHECKING:
     from logfire.experimental.query_client import ColumnDetails
+
+_UNSET = Enum('_UNSET', 'UNSET').UNSET
+"""Sentinel to distinguish 'not set' from an explicit ``None``."""
 
 # ---------------------------------------------------------------------------
 # PEP 249 module-level attributes
@@ -189,10 +193,10 @@ class Cursor:
         self.rowcount = -1
         self.arraysize = 1
 
-        # Per-cursor overrides (None means inherit from connection)
-        self.min_timestamp: datetime | None = None
-        self.max_timestamp: datetime | None = None
-        self.limit: int | None = None
+        # Per-cursor overrides (_UNSET means inherit from connection, None means no filter)
+        self.min_timestamp: datetime | None = _UNSET  # type: ignore[assignment]
+        self.max_timestamp: datetime | None = _UNSET  # type: ignore[assignment]
+        self.limit: int | None = _UNSET  # type: ignore[assignment]
 
     # -- PEP 249 properties ------------------------------------------------
 
@@ -223,13 +227,11 @@ class Cursor:
         if parameters is not None:
             sql = _substitute_params(operation, parameters)
 
-        limit = self.limit if self.limit is not None else self._connection.limit
-
         result = self._connection.client.query_json_rows(
             sql=sql,
-            min_timestamp=self.min_timestamp or self._connection.min_timestamp,
-            max_timestamp=self.max_timestamp or self._connection.max_timestamp,
-            limit=limit,
+            min_timestamp=self.min_timestamp if self.min_timestamp is not _UNSET else self._connection.min_timestamp,
+            max_timestamp=self.max_timestamp if self.max_timestamp is not _UNSET else self._connection.max_timestamp,
+            limit=self.limit if self.limit is not _UNSET else self._connection.limit,
         )
 
         self._columns = result['columns']
@@ -240,9 +242,10 @@ class Cursor:
             (col['name'], col['datatype'], None, None, None, None, col.get('nullable')) for col in self._columns
         ]
 
-        if self.rowcount == limit:
+        effective_limit = self.limit if self.limit is not _UNSET else self._connection.limit
+        if self.rowcount == effective_limit:
             warnings.warn(
-                f'Query returned {limit} rows which is the limit. '
+                f'Query returned {effective_limit} rows which is the limit. '
                 'There may be more results. Use LIMIT/OFFSET in your SQL to paginate.',
                 stacklevel=2,
             )
