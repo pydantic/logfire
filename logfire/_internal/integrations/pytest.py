@@ -244,6 +244,30 @@ def _build_github_job_url() -> str:
     return ''
 
 
+def pytest_xdist_setupnodes(config: Any, specs: Any) -> None:
+    """Inject TRACEPARENT into env before xdist spawns workers.
+
+    Called in the controller before any ``makegateway()`` call, so all workers
+    inherit the session-level trace context via ``os.environ``.
+
+    This allows child processes (xdist workers, subprocess.Popen, etc.) to inherit
+    the trace context.
+    """
+    from opentelemetry import propagate
+
+    carrier: dict[str, str] = {}
+    propagate.inject(carrier)
+    if 'traceparent' in carrier:
+        os.environ['TRACEPARENT'] = carrier['traceparent']
+    if 'tracestate' in carrier:
+        os.environ['TRACESTATE'] = carrier['tracestate']
+
+
+def _get_xdist_worker_id() -> str | None:
+    """Get the xdist worker ID if running in a worker process."""
+    return os.environ.get('PYTEST_XDIST_WORKER')
+
+
 def pytest_sessionstart(session: pytest.Session) -> None:
     """Create a session span when the test session starts."""
     if not _is_enabled(session.config):
@@ -276,18 +300,31 @@ def pytest_sessionstart(session: pytest.Session) -> None:
     # Create session span
     rootpath_name = session.config.rootpath.name
     args = ' '.join(session.config.invocation_params.args)
+    worker_id = _get_xdist_worker_id()
 
-    span = logfire_instance.span(
-        'pytest: {project}',
-        project=rootpath_name,
-    )
-    span.set_attributes(
-        {
-            'pytest.args': args,
-            'pytest.rootpath': str(session.config.rootpath),
-            'pytest.startpath': str(session.startpath),
-        }
-    )
+    if worker_id:
+        span = logfire_instance.span(
+            'pytest: {project} ({worker_id})',
+            project=rootpath_name,
+            worker_id=worker_id,
+        )
+    else:
+        span = logfire_instance.span(
+            'pytest: {project}',
+            project=rootpath_name,
+        )
+
+    attrs: dict[str, Any] = {
+        'pytest.args': args,
+        'pytest.rootpath': str(session.config.rootpath),
+        'pytest.startpath': str(session.startpath),
+    }
+    if worker_id:
+        attrs['pytest.xdist.worker_id'] = worker_id
+    worker_count = os.environ.get('PYTEST_XDIST_WORKER_COUNT')
+    if worker_count:
+        attrs['pytest.xdist.worker_count'] = int(worker_count)
+    span.set_attributes(attrs)
 
     # Add CI metadata if in CI
     _add_ci_metadata(span)
