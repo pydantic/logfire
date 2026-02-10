@@ -175,7 +175,7 @@ class Variable(Generic[T_co]):
                 return e
             with _cache_lock:
                 # Re-check after acquiring lock to avoid duplicate entries from concurrent misses
-                if serialized_value not in _cache:
+                if serialized_value not in _cache:  # pragma: no branch
                     if len(_cache) >= _cache_maxsize:
                         oldest = _cache_order.pop(0)
                         _cache.pop(oldest, None)

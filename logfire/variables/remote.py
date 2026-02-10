@@ -270,7 +270,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
             # If SSE sets the event during refresh(), wait() returns immediately
             # and we loop again without sleeping for the full polling interval.
             awakened = self._worker_awaken.wait(self._polling_interval.total_seconds())
-            if awakened:
+            if awakened:  # pragma: no branch
                 self._worker_awaken.clear()
             if self._shutdown:  # pragma: no branch
                 break

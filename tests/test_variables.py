@@ -4294,6 +4294,16 @@ class TestVarDuplicateName:
             lf.var(name='dup_var', default='world', type=str)
 
 
+class TestVarInvalidName:
+    """Test that var() raises when registering a variable with an invalid name."""
+
+    def test_invalid_name_raises(self, config_kwargs: dict[str, Any]):
+        lf = logfire.configure(**config_kwargs)
+
+        with pytest.raises(ValueError, match='Invalid variable name'):
+            lf.var(name='1bad-name!', default='hello', type=str)
+
+
 class TestIsResolveFunctionMultipleKeywordOnly:
     """Test is_resolve_function with multiple keyword-only params (covers 108->97 branch)."""
 
