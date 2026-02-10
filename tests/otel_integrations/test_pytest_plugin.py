@@ -63,8 +63,10 @@ def logfire_pytester(pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch,
     # Create a conftest that captures spans to a JSON file
     # NOTE: We use trylast=True so this runs AFTER the logfire pytest plugin configures
     # And hookwrapper=True with trylast for sessionfinish so we capture after logfire closes session span
+    # When running under xdist, each worker writes to a separate file (spans_gw0.json, etc.)
     pytester.makeconftest('''
 import json
+import os
 import pytest
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from logfire._internal.exporters.test import TestExporter
@@ -87,7 +89,9 @@ def pytest_sessionfinish(session, exitstatus):
     yield
     # Now capture all spans including the session span
     spans_data = _exporter.exported_spans_as_dict()
-    with open("spans.json", "w") as f:
+    worker_id = os.environ.get("PYTEST_XDIST_WORKER")
+    filename = f"spans_{worker_id}.json" if worker_id else "spans.json"
+    with open(filename, "w") as f:
         json.dump(spans_data, f, indent=2)
 ''')
     return pytester
@@ -95,13 +99,25 @@ def pytest_sessionfinish(session, exitstatus):
 
 # Helper functions
 def load_spans(pytester: pytest.Pytester) -> list[dict[str, Any]]:
-    """Load spans from captured file."""
+    """Load spans from captured file(s).
+
+    When running under xdist, each worker writes to a separate file (spans_gw0.json, etc.).
+    This function merges all span files into a single list.
+    """
     import json
 
+    all_spans: list[dict[str, Any]] = []
+
+    # Load main spans file (non-xdist runs)
     spans_file = pytester.path / 'spans.json'
-    if not spans_file.exists():  # pragma: no cover
-        return []
-    return json.loads(spans_file.read_text())
+    if spans_file.exists():
+        all_spans.extend(json.loads(spans_file.read_text()))
+
+    # Load per-worker span files (xdist runs)
+    for worker_file in sorted(pytester.path.glob('spans_gw*.json')):
+        all_spans.extend(json.loads(worker_file.read_text()))
+
+    return all_spans
 
 
 def find_span_by_pattern(spans: list[dict[str, Any]], pattern: str) -> dict[str, Any] | None:
@@ -1486,3 +1502,90 @@ def test_ci_metadata_partial(
     assert session_span is not None
     attrs = session_span['attributes']
     assert attrs.get('ci.system') == ci_system
+
+
+def test_xdist_worker_attributes(logfire_pytester: pytest.Pytester):
+    """Session and test spans should include xdist worker attributes and unique names when using -n."""
+    logfire_pytester.makepyfile("""
+        def test_one():
+            assert True
+
+        def test_two():
+            assert True
+    """)
+    result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire', '-n', '2')
+    result.assert_outcomes(passed=2)
+
+    spans = load_spans(logfire_pytester)
+
+    # Find the controller session span (no worker_id)
+    controller_spans = [
+        s for s in find_spans_by_pattern(spans, 'pytest:') if 'pytest.xdist.worker_id' not in s.get('attributes', {})
+    ]
+    assert len(controller_spans) == 1, 'Should have one controller session span'
+    controller_span = controller_spans[0]
+
+    # Find worker session spans
+    session_spans = [
+        s for s in find_spans_by_pattern(spans, 'pytest:') if 'pytest.xdist.worker_id' in s.get('attributes', {})
+    ]
+    assert len(session_spans) == 2, 'Should have one session span per xdist worker'
+
+    worker_ids: set[str] = set()
+    for session_span in session_spans:
+        attrs = session_span['attributes']
+        # Session span name template should include worker_id placeholder
+        assert '{worker_id}' in session_span['name']
+        # Should have xdist attributes
+        assert attrs['pytest.xdist.worker_id'].startswith('gw')
+        assert attrs['pytest.xdist.worker_count'] == 2
+        worker_ids.add(attrs['pytest.xdist.worker_id'])
+
+        # Worker session span should be a child of the controller session span
+        assert session_span['parent'] is not None, 'Worker session span should have a parent'
+        assert session_span['parent']['span_id'] == controller_span['context']['span_id'], (
+            'Worker session span should be nested under the controller session span'
+        )
+        # All spans should share the same trace
+        assert session_span['context']['trace_id'] == controller_span['context']['trace_id']
+
+    # Workers should have distinct IDs
+    assert len(worker_ids) == 2
+
+    # Build set of worker session span IDs
+    worker_session_span_ids = {s['context']['span_id'] for s in session_spans}
+
+    # Find test spans
+    test_spans = [s for s in spans if s.get('attributes', {}).get('test.name') in ('test_one', 'test_two')]
+    assert len(test_spans) == 2, 'Should have 2 test spans'
+
+    for test_span in test_spans:
+        # Each test span should be a child of a worker session span
+        assert test_span['parent'] is not None, 'Test span should have a parent'
+        assert test_span['parent']['span_id'] in worker_session_span_ids, (
+            f'Test span {test_span["attributes"]["test.name"]} should be nested under a worker session span'
+        )
+
+
+def test_no_xdist_attributes_without_xdist(logfire_pytester: pytest.Pytester):
+    """Spans should not have xdist attributes when not running under xdist."""
+    logfire_pytester.makepyfile("""
+        def test_example():
+            assert True
+    """)
+    result = logfire_pytester.runpytest_subprocess('-p', 'no:django', '-p', 'no:pretty', '--logfire')
+    result.assert_outcomes(passed=1)
+
+    spans = load_spans(logfire_pytester)
+    session_span = find_session_span(spans)
+    assert session_span is not None
+
+    attrs = session_span['attributes']
+    assert 'pytest.xdist.worker_id' not in attrs
+    assert 'pytest.xdist.worker_count' not in attrs
+
+    # Session span name template should not have a worker_id placeholder
+    assert '{worker_id}' not in session_span['name']
+
+    test_span = find_span_by_pattern(spans, 'test_example')
+    assert test_span is not None
