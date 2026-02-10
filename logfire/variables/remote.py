@@ -305,9 +305,22 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 return
 
             try:
+                old_config = self._config
                 new_config = VariablesConfig.model_validate(variables_config_data)
                 self._config = new_config
                 self._last_fetched_at = datetime.now(tz=timezone.utc)
+
+                # Detect changed variables and notify
+                if old_config is not None:
+                    changed: set[str] = set()
+                    all_names = set(old_config.variables.keys()) | set(new_config.variables.keys())
+                    for name in all_names:
+                        old_var = old_config.variables.get(name)
+                        new_var = new_config.variables.get(name)
+                        if old_var != new_var:
+                            changed.add(name)
+                    if changed:
+                        self._notify_config_change(changed)
             except ValidationError as e:
                 self._log_error('Failed to parse variables configuration from Logfire API', e)
             finally:

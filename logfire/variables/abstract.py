@@ -4,7 +4,7 @@ import json
 import sys
 import warnings
 from abc import ABC, abstractmethod
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import ExitStack
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar
@@ -555,6 +555,26 @@ def _update_variable_schema(
 
 class VariableProvider(ABC):
     """Abstract base class for variable value providers."""
+
+    _on_config_change: Callable[[set[str]], None] | None = None
+
+    def set_on_config_change(self, callback: Callable[[set[str]], None]) -> None:
+        """Set a callback that will be called when variable configurations change.
+
+        Args:
+            callback: Called with the set of variable names whose configs changed.
+        """
+        self._on_config_change = callback
+
+    def _notify_config_change(self, changed_names: set[str]) -> None:
+        """Notify the registered callback about changed variables."""
+        if self._on_config_change and changed_names:
+            try:
+                self._on_config_change(changed_names)
+            except Exception:
+                import logging
+
+                logging.getLogger('logfire').exception('Error in on_config_change callback')
 
     @abstractmethod
     def get_serialized_value(
