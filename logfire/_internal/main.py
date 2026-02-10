@@ -9,7 +9,7 @@ from collections.abc import Iterable, Sequence
 from contextlib import AbstractContextManager
 from contextvars import Token
 from enum import Enum
-from functools import cached_property
+from functools import cached_property, partial
 from time import time
 from typing import (
     TYPE_CHECKING,
@@ -113,6 +113,7 @@ if TYPE_CHECKING:
     from ..integrations.wsgi import RequestHook as WSGIRequestHook, ResponseHook as WSGIResponseHook
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
     from .integrations.aws_lambda import LambdaEvent, LambdaHandler
+    from .integrations.llm_providers.semconv import SemconvVersion
     from .integrations.mysql import MySQLConnection
     from .integrations.psycopg import Psycopg2Connection, PsycopgConnection
     from .integrations.sqlite3 import SQLite3Connection
@@ -1179,6 +1180,7 @@ class Logfire:
         | None = None,
         *,
         suppress_other_instrumentation: bool = True,
+        version: SemconvVersion | Sequence[SemconvVersion] = 1,
     ) -> AbstractContextManager[None]:
         """Instrument an OpenAI client so that spans are automatically created for each request.
 
@@ -1228,6 +1230,14 @@ class Logfire:
                 enabled. In reality, this means the HTTPX instrumentation, which could otherwise be called since
                 OpenAI uses HTTPX to make HTTP requests.
 
+            version: The version(s) of the span attribute format to use:
+
+                - `1` (the default): Uses `request_data` and `response_data` attributes.
+                - `2`: Uses OpenTelemetry Gen AI semantic convention attributes
+                  (`gen_ai.input.messages`, `gen_ai.output.messages`, etc.) instead of
+                  `request_data`/`response_data`.
+                - `[1, 2]`: Emits both formats simultaneously, useful for migration and testing.
+
         Returns:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
@@ -1236,15 +1246,17 @@ class Logfire:
 
         from .integrations.llm_providers.llm_provider import instrument_llm_provider
         from .integrations.llm_providers.openai import get_endpoint_config, is_async_client, on_response
+        from .integrations.llm_providers.semconv import normalize_versions
 
+        normalized_versions = normalize_versions(version)
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_llm_provider(
             self,
             openai_client or (openai.OpenAI, openai.AsyncOpenAI),
             suppress_other_instrumentation,
             'OpenAI',
-            get_endpoint_config,
-            on_response,
+            partial(get_endpoint_config, version=normalized_versions),
+            partial(on_response, version=normalized_versions),
             is_async_client,
         )
 
@@ -1275,6 +1287,7 @@ class Logfire:
         ) = None,
         *,
         suppress_other_instrumentation: bool = True,
+        version: SemconvVersion | Sequence[SemconvVersion] = 1,
     ) -> AbstractContextManager[None]:
         """Instrument an Anthropic client so that spans are automatically created for each request.
 
@@ -1319,6 +1332,14 @@ class Logfire:
                 enabled. In reality, this means the HTTPX instrumentation, which could otherwise be called since
                 OpenAI uses HTTPX to make HTTP requests.
 
+            version: The version(s) of the span attribute format to use:
+
+                - `1` (the default): Uses `request_data` and `response_data` attributes.
+                - `2`: Uses OpenTelemetry Gen AI semantic convention attributes
+                  (`gen_ai.input.messages`, `gen_ai.output.messages`, etc.) instead of
+                  `request_data`/`response_data`.
+                - `[1, 2]`: Emits both formats simultaneously, useful for migration and testing.
+
         Returns:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
@@ -1327,7 +1348,9 @@ class Logfire:
 
         from .integrations.llm_providers.anthropic import get_endpoint_config, is_async_client, on_response
         from .integrations.llm_providers.llm_provider import instrument_llm_provider
+        from .integrations.llm_providers.semconv import normalize_versions
 
+        normalized_versions = normalize_versions(version)
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_llm_provider(
             self,
@@ -1340,8 +1363,8 @@ class Logfire:
             ),
             suppress_other_instrumentation,
             'Anthropic',
-            get_endpoint_config,
-            on_response,
+            partial(get_endpoint_config, version=normalized_versions),
+            partial(on_response, version=normalized_versions),
             is_async_client,
         )
 
