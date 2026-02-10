@@ -6,8 +6,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from urllib.parse import urljoin
 
-import requests
-
 from ...version import VERSION
 
 if TYPE_CHECKING:
@@ -28,6 +26,8 @@ def forward_request(
     headers: Mapping[str, str],
     body: bytes | None,
 ) -> ForwardRequestResponse:
+    import requests
+
     if not path.startswith('/'):
         path = '/' + path
 
@@ -73,8 +73,15 @@ def forward_request(
 
     new_headers = {k: v for k, v in headers.items() if k.lower() not in headers_to_remove}
 
+    # Case-insensitive lookup to preserve original User-Agent
+    user_agent_key = next((k for k in new_headers if k.lower() == 'user-agent'), None)
+    if user_agent_key:
+        original_ua = new_headers.pop(user_agent_key)
+        new_headers['User-Agent'] = f'logfire-proxy/{VERSION} {original_ua}'
+    else:
+        new_headers['User-Agent'] = f'logfire-proxy/{VERSION}'
+
     new_headers['Authorization'] = f'Bearer {token}'
-    new_headers['User-Agent'] = f'logfire-proxy/{VERSION} {new_headers.get("User-Agent", "")}'
 
     try:
         response = requests.request(
