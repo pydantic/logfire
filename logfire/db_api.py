@@ -196,7 +196,7 @@ class Cursor:
         # Per-cursor overrides (_UNSET means inherit from connection, None means no filter)
         self.min_timestamp: datetime | None = _UNSET  # type: ignore[assignment]
         self.max_timestamp: datetime | None = _UNSET  # type: ignore[assignment]
-        self.limit: int | None = _UNSET  # type: ignore[assignment]
+        self.limit: int = _UNSET  # type: ignore[assignment]
 
     # -- PEP 249 properties ------------------------------------------------
 
