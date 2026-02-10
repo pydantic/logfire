@@ -39,8 +39,8 @@ from logfire.exceptions import LogfireConfigError
 from logfire.testing import TestExporter
 from tests.import_used_for_tests import run_script_test
 
-requires_pydantic_2_5 = pytest.mark.skipif(
-    get_version(pydantic.__version__) < get_version('2.5.0'), reason='FastAPI requires pydantic>=2.5'
+requires_pydantic_2_7 = pytest.mark.skipif(
+    get_version(pydantic.__version__) < get_version('2.7.0'), reason='FastAPI requires pydantic>=2.7'
 )
 
 
@@ -1649,7 +1649,7 @@ async def test_instrument_packages_aiohttp_client() -> None:
         AioHttpClientInstrumentor().uninstrument()
 
 
-@requires_pydantic_2_5
+@requires_pydantic_2_7
 def test_instrument_web_frameworks(exporter: TestExporter) -> None:
     try:
         instrument_packages(
@@ -1688,7 +1688,7 @@ def test_instrument_web_frameworks(exporter: TestExporter) -> None:
         patch_fastapi().global_instrumentation = None
 
 
-@requires_pydantic_2_5
+@requires_pydantic_2_7
 def test_instrument_fastapi_global_instrumentation(exporter: TestExporter) -> None:
     """Test that logfire's custom FastAPI features (pseudo_span timestamps, route attributes)
     work when instrumenting without an app instance (the `logfire run` CLI path).
