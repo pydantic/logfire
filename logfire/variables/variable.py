@@ -174,12 +174,13 @@ class Variable(Generic[T_co]):
             except Exception as e:
                 return e
             with _cache_lock:
-                # Evict oldest entry if cache is full
-                if len(_cache) >= _cache_maxsize:
-                    oldest = _cache_order.pop(0)
-                    _cache.pop(oldest, None)
-                _cache[serialized_value] = result
-                _cache_order.append(serialized_value)
+                # Re-check after acquiring lock to avoid duplicate entries from concurrent misses
+                if serialized_value not in _cache:
+                    if len(_cache) >= _cache_maxsize:
+                        oldest = _cache_order.pop(0)
+                        _cache.pop(oldest, None)
+                    _cache[serialized_value] = result
+                    _cache_order.append(serialized_value)
             return result
 
         self._deserialize_cached = _deserialize_cached
@@ -356,12 +357,16 @@ class Variable(Generic[T_co]):
             return self.default
 
     def _get_merged_attributes(self, attributes: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
-        result = dict(attributes) if attributes else {}
+        result: dict[str, Any] = {}
         variables_options = self.logfire_instance.config.variables
-        if variables_options.include_baggage_in_context:
-            result.update(logfire.get_baggage())
+        # Apply in order of lowest to highest priority:
+        # resource attributes < baggage < user-provided attributes
         if variables_options.include_resource_attributes_in_context:
             result.update(self.logfire_instance.resource_attributes)
+        if variables_options.include_baggage_in_context:
+            result.update(logfire.get_baggage())
+        if attributes:
+            result.update(attributes)
         return result
 
     def to_config(self) -> VariableConfig:

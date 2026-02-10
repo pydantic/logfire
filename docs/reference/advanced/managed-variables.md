@@ -1217,9 +1217,8 @@ Use `LabeledValue` when the label has its own inline value. Use `LabelRef` when 
 | Field | Description |
 |-------|-------------|
 | `labels` | Dict of label name to weight (0.0–1.0). Weights should sum to 1.0 or less. |
-| `latest_weight` | Optional weight (0.0–1.0) for explicitly routing traffic to the latest version. Combined with `labels` weights, the total must not exceed 1.0. |
 
-If the `labels` dict is empty and no `latest_weight` is set, all traffic receives the latest version. If label weights (plus `latest_weight` if set) sum to less than 1.0, the remaining percentage falls back to the code default.
+If the `labels` dict is empty, all traffic receives the latest version if one exists; otherwise, the SDK uses the default value defined in code. If label weights sum to less than 1.0, the remaining percentage is treated as unlabeled traffic: it uses the latest version when available, and falls back to the code default when no latest version exists.
 
 ### VariableTypeConfig
 

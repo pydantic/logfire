@@ -2390,7 +2390,7 @@ class Logfire:
         def remaining_ms() -> int:
             return max(0, int(timeout_millis - (time() - start) * 1000))
 
-        self.config.get_variable_provider().shutdown()
+        self.config.get_variable_provider().shutdown(timeout_millis=remaining_ms())
         remaining = remaining_ms()
         if not remaining:  # pragma: no cover
             return False
@@ -2492,6 +2492,15 @@ class Logfire:
             tp = cast(Type[T], default.__class__)  # noqa UP006
         else:
             tp = type
+
+        import re
+
+        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name):
+            raise ValueError(
+                f"Invalid variable name '{name}'. "
+                'Variable names must be valid Python identifiers (letters, digits, and underscores, '
+                'not starting with a digit).'
+            )
 
         if name in self._variables:
             raise ValueError(
