@@ -4304,6 +4304,22 @@ class TestVarInvalidName:
             lf.var(name='1bad-name!', default='hello', type=str)
 
 
+class TestRemoteVariablesConfigPollingInterval:
+    """Test that RemoteVariablesConfig validates polling_interval."""
+
+    def test_too_short_timedelta_raises(self):
+        with pytest.raises(ValueError, match='polling_interval must be at least 10 seconds'):
+            RemoteVariablesConfig(polling_interval=timedelta(seconds=5))
+
+    def test_too_short_float_raises(self):
+        with pytest.raises(ValueError, match='polling_interval must be at least 10 seconds'):
+            RemoteVariablesConfig(polling_interval=0.0)
+
+    def test_valid_interval_accepted(self):
+        config = RemoteVariablesConfig(polling_interval=timedelta(seconds=10))
+        assert config.polling_interval == timedelta(seconds=10)
+
+
 class TestIsResolveFunctionMultipleKeywordOnly:
     """Test is_resolve_function with multiple keyword-only params (covers 108->97 branch)."""
 

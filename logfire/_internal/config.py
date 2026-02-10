@@ -310,8 +310,12 @@ class CodeSource:
 class RemoteVariablesConfig:
     block_before_first_resolve: bool = True
     """Whether the remote variables should be fetched before first resolving a value."""
-    polling_interval: timedelta | float = timedelta(seconds=30)
-    """The time interval for polling for updates to the variables config."""
+    polling_interval: timedelta | float = timedelta(seconds=60)
+    """The time interval for polling for updates to the variables config.
+
+    Polling is only a fallback — all updates are delivered instantly via SSE
+    unless something goes wrong. Must be at least 10 seconds. Defaults to 60 seconds.
+    """
     api_key: str | None = None
     """API key for accessing the variables endpoint.
 
@@ -320,6 +324,18 @@ class RemoteVariablesConfig:
     """
     timeout: tuple[float, float] = (10, 10)
     """Timeout for HTTP requests to the variables API as (connect_timeout, read_timeout) in seconds."""
+
+    def __post_init__(self):
+        interval_seconds = (
+            self.polling_interval.total_seconds()
+            if isinstance(self.polling_interval, timedelta)
+            else self.polling_interval
+        )
+        if interval_seconds < 10:
+            raise ValueError(
+                f'polling_interval must be at least 10 seconds, got {interval_seconds}s. '
+                'Polling is only a fallback — updates are delivered instantly via SSE.'
+            )
 
 
 @dataclass
@@ -1200,7 +1216,7 @@ class LogfireConfig(_LogfireConfigData):
             )  # note: this may raise an Exception if it times out, call `logfire.shutdown` first
             self._meter_provider.set_meter_provider(meter_provider)
 
-            self._variable_provider.shutdown()
+            self._variable_provider.shutdown(timeout_millis=200)
             if self.variables.config is None:
                 self._variable_provider = NoOpVariableProvider()
             else:

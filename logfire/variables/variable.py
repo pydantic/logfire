@@ -160,6 +160,8 @@ class Variable(Generic[T_co]):
         # Create a cached deserialization function for this variable instance.
         # Returns T | Exception. Only successful results are cached; exceptions are
         # returned but not cached so that transient errors don't persist permanently.
+        # Note: Like functools.lru_cache, cached results are shared instances.
+        # Callers should not mutate returned values (e.g. modifying fields on a Pydantic model).
         _cache: dict[str, T_co] = {}
         _cache_order: list[str] = []
         _cache_maxsize = 128
