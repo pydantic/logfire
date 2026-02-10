@@ -244,7 +244,7 @@ def _build_github_job_url() -> str:
     return ''
 
 
-def pytest_xdist_setupnodes(config: Any, specs: Any) -> None:
+def pytest_xdist_setupnodes(config: Any, specs: Any) -> None:  # pragma: no cover
     """Inject TRACEPARENT into env before xdist spawns workers.
 
     Called in the controller before any ``makegateway()`` call, so all workers
