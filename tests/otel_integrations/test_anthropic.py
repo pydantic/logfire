@@ -948,6 +948,7 @@ def test_request_parameters(instrumented_client: anthropic.Anthropic, exporter: 
                             'cache_creation': None,
                             'cache_creation_input_tokens': None,
                             'cache_read_input_tokens': None,
+                            'inference_geo': None,
                             'input_tokens': 2,
                             'output_tokens': 3,
                             'server_tool_use': None,
