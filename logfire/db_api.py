@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from logfire.experimental.query_client import ColumnDetails
 
 _UNSET = Enum('_UNSET', 'UNSET').UNSET
-"""Sentinel to distinguish 'not set' from an explicit ``None``."""
+"""Sentinel to distinguish 'not set' from an explicit `None`."""
 
 # ---------------------------------------------------------------------------
 # PEP 249 module-level attributes
@@ -107,9 +107,9 @@ def _escape_value(value: Any) -> str:
 def _substitute_params(operation: str, parameters: dict[str, Any] | Sequence[Any]) -> str:
     """Substitute parameters into the SQL operation string.
 
-    For ``pyformat`` paramstyle, *parameters* should be a dict and the SQL
-    should contain ``%(name)s`` placeholders.  Sequence parameters are also
-    supported for positional ``%s`` placeholders.
+    For `pyformat` paramstyle, `parameters` should be a dict and the SQL
+    should contain `%(name)s` placeholders.  Sequence parameters are also
+    supported for positional `%s` placeholders.
     """
     if isinstance(parameters, dict):
         escaped = {key: _escape_value(val) for key, val in parameters.items()}
@@ -215,7 +215,7 @@ class Cursor:
         """Execute a SQL query.
 
         Args:
-            operation: SQL query string, optionally with ``%(name)s`` placeholders.
+            operation: SQL query string, optionally with `%(name)s` placeholders.
             parameters: Parameter dict (or sequence) for substitution.
         """
         if self._closed:
@@ -260,7 +260,7 @@ class Cursor:
             self.execute(operation, parameters)
 
     def fetchone(self) -> tuple[Any, ...] | None:
-        """Fetch the next row, or ``None`` if no more rows are available."""
+        """Fetch the next row, or `None` if no more rows are available."""
         if self._closed:
             raise ProgrammingError('Cursor is closed')
         if self._row_index >= len(self._rows):
@@ -270,7 +270,7 @@ class Cursor:
         return row
 
     def fetchmany(self, size: int | None = None) -> list[tuple[Any, ...]]:
-        """Fetch the next *size* rows (default: ``arraysize``)."""
+        """Fetch the next `size` rows (default: `arraysize`)."""
         if self._closed:
             raise ProgrammingError('Cursor is closed')
         if size is None:
@@ -328,15 +328,15 @@ def connect(
         read_token: A Logfire read token for authentication.
         base_url: Override the default API base URL (inferred from token region).
         timeout: HTTP request timeout in seconds.
-        min_timestamp: Default lower bound for ``start_timestamp`` filtering.
+        min_timestamp: Default lower bound for `start_timestamp` filtering.
             Accepts a `datetime` for an exact bound, a `timedelta` for a
-            relative window (computed as ``now - timedelta``), or ``None`` to
+            relative window (computed as `now - timedelta`), or `None` to
             disable the filter.  Defaults to 1 day ago.
-        max_timestamp: Default upper bound for ``start_timestamp`` filtering.
+        max_timestamp: Default upper bound for `start_timestamp` filtering.
         limit: Default row limit per query (max 10,000). When the number of
             returned rows equals the limit a warning is emitted.
         **kwargs: Additional keyword arguments forwarded to the underlying
-            ``httpx.Client``.
+            `httpx.Client`.
 
     Returns:
         A PEP 249 `Connection` object.
