@@ -16,6 +16,7 @@ from contextlib import ExitStack
 from pathlib import Path
 from unittest.mock import Mock, call, patch
 
+import pydantic
 import pytest
 import requests
 import requests_mock
@@ -33,8 +34,14 @@ from logfire._internal.cli.run import (
     instrumented_packages_text,
 )
 from logfire._internal.config import LogfireCredentials, sanitize_project_name
+from logfire._internal.utils import get_version
 from logfire.exceptions import LogfireConfigError
+from logfire.testing import TestExporter
 from tests.import_used_for_tests import run_script_test
+
+requires_pydantic_2_7 = pytest.mark.skipif(
+    get_version(pydantic.__version__) < get_version('2.7.0'), reason='FastAPI requires pydantic>=2.7'
+)
 
 
 @pytest.fixture
@@ -1640,6 +1647,99 @@ async def test_instrument_packages_aiohttp_client() -> None:
         from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
 
         AioHttpClientInstrumentor().uninstrument()
+
+
+def test_instrument_starlette_without_fastapi(exporter: TestExporter) -> None:
+    """When only starlette instrumentation is installed (no fastapi), it should be instrumented."""
+    try:
+        instrument_packages(
+            {'opentelemetry-instrumentation-starlette'},
+            {'opentelemetry-instrumentation-starlette': 'starlette'},
+        )
+
+        from starlette.applications import Starlette
+
+        assert getattr(Starlette(), '_is_instrumented_by_opentelemetry', False) is True
+    finally:
+        from opentelemetry.instrumentation.starlette import StarletteInstrumentor
+
+        StarletteInstrumentor().uninstrument()
+
+
+@requires_pydantic_2_7
+def test_instrument_web_frameworks(exporter: TestExporter) -> None:
+    try:
+        instrument_packages(
+            {
+                'opentelemetry-instrumentation-starlette',
+                'opentelemetry-instrumentation-fastapi',
+                'opentelemetry-instrumentation-flask',
+            },
+            {
+                'opentelemetry-instrumentation-starlette': 'starlette',
+                'opentelemetry-instrumentation-fastapi': 'fastapi',
+                'opentelemetry-instrumentation-flask': 'flask',
+            },
+        )
+
+        from fastapi import FastAPI
+        from flask import Flask
+
+        # Starlette instrumentation is skipped when fastapi is present to avoid double-instrumenting.
+        assert getattr(FastAPI(), '_is_instrumented_by_opentelemetry', False) is True
+        assert getattr(Flask(__name__), '_is_instrumented_by_opentelemetry', False) is True
+    finally:
+        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+        from opentelemetry.instrumentation.flask import FlaskInstrumentor
+
+        FastAPIInstrumentor().uninstrument()
+        FlaskInstrumentor().uninstrument()
+
+        # Reset the global instrumentation state set by instrument_fastapi(app=None).
+        # The lru_cache'd patch_fastapi() registry persists across tests.
+        from logfire._internal.integrations.fastapi import patch_fastapi
+
+        patch_fastapi().global_instrumentation = None
+
+
+@requires_pydantic_2_7
+def test_instrument_fastapi_global_instrumentation(exporter: TestExporter) -> None:
+    """Test that logfire's custom FastAPI features (pseudo_span timestamps, route attributes)
+    work when instrumenting without an app instance (the `logfire run` CLI path).
+    """
+    from starlette.testclient import TestClient
+
+    from logfire._internal.integrations.fastapi import instrument_fastapi
+
+    uninstrument = instrument_fastapi(logfire.DEFAULT_LOGFIRE_INSTANCE, app=None)
+    try:
+        from fastapi import FastAPI
+
+        app = FastAPI()
+
+        @app.get('/')
+        async def homepage() -> dict[str, str]:  # pyright: ignore[reportUnusedFunction]
+            return {'hello': 'world'}
+
+        client = TestClient(app)
+        response = client.get('/')
+        assert response.status_code == 200
+
+        spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+        assert len(spans) == 1
+        root_span = spans[0]
+        assert root_span['name'] == 'GET /'
+        # Verify logfire's custom FastAPI features are active via the global FastAPIInstrumentation:
+        # - Route attributes set by solve_dependencies
+        assert root_span['attributes']['fastapi.route.name'] == 'homepage'
+        # - Pseudo_span timestamps set by FastAPIInstrumentation
+        assert 'fastapi.arguments.start_timestamp' in root_span['attributes']
+        assert 'fastapi.arguments.end_timestamp' in root_span['attributes']
+        assert 'fastapi.endpoint_function.start_timestamp' in root_span['attributes']
+        assert 'fastapi.endpoint_function.end_timestamp' in root_span['attributes']
+    finally:
+        with uninstrument:
+            pass
 
 
 def test_split_args_action() -> None:
