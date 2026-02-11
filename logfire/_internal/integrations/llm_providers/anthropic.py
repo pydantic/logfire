@@ -186,12 +186,14 @@ def _convert_content_part(part: dict[str, Any] | str) -> MessagePart:  # pragma:
     elif part_type == 'image':  # pragma: no cover
         source = part.get('source', {})
         if source.get('type') == 'base64':
-            return BlobPart(
+            blob_part = BlobPart(
                 type='blob',
                 modality='image',
                 content=source.get('data', ''),
-                media_type=source.get('media_type'),
             )
+            if (media_type := source.get('media_type')) is not None:
+                blob_part['media_type'] = media_type
+            return blob_part
         elif source.get('type') == 'url':
             return UriPart(type='uri', uri=source.get('url', ''), modality='image')
         else:
