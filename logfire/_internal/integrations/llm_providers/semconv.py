@@ -6,9 +6,21 @@ See: https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-events/
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any, Literal, Union
 
 from typing_extensions import NotRequired, TypeAlias, TypedDict
+
+# Version type for controlling span attribute format
+SemconvVersion = Literal[1, 2]
+
+
+def normalize_versions(version: SemconvVersion | Sequence[SemconvVersion]) -> frozenset[int]:
+    """Normalize a version parameter to a frozenset of version numbers."""
+    if isinstance(version, int):
+        return frozenset({version})
+    return frozenset(version)
+
 
 # Provider and operation
 PROVIDER_NAME = 'gen_ai.provider.name'

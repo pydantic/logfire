@@ -120,20 +120,6 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                             }
                         )
                     ),
-                    'gen_ai.input.messages': [
-                        {
-                            'role': 'user',
-                            'parts': [{'type': 'text', 'content': 'What is four plus five?'}],
-                        }
-                    ],
-                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'You are a helpful assistant.'}],
-                    'gen_ai.output.messages': [
-                        {
-                            'role': 'assistant',
-                            'parts': [{'type': 'text', 'content': 'Nine'}],
-                            'finish_reason': 'end_turn',
-                        }
-                    ],
                     'gen_ai.response.model': model_id,
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
@@ -149,8 +135,6 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                                 'gen_ai.request.model': {},
                                 'gen_ai.request.max_tokens': {},
                                 'async': {},
-                                'gen_ai.input.messages': {'type': 'array'},
-                                'gen_ai.system_instructions': {'type': 'array'},
                                 'response_data': {
                                     'type': 'object',
                                     'properties': {
@@ -161,7 +145,6 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                                         },
                                     },
                                 },
-                                'gen_ai.output.messages': {'type': 'array'},
                                 'gen_ai.response.model': {},
                                 'gen_ai.response.id': {},
                                 'gen_ai.usage.input_tokens': {},
