@@ -32,6 +32,7 @@ from .semconv import (
     MessagePart,
     OutputMessage,
     Role,
+    SemconvVersion,
     SystemInstructions,
     TextPart,
     ToolCallPart,
@@ -74,7 +75,7 @@ def _extract_request_parameters(json_data: dict[str, Any], span_data: dict[str, 
         span_data[TOOL_DEFINITIONS] = json.dumps(tools)
 
 
-def _versioned_stream_cls(base_cls: type[StreamState], versions: frozenset[int]) -> type[StreamState]:
+def _versioned_stream_cls(base_cls: type[StreamState], versions: frozenset[SemconvVersion]) -> type[StreamState]:
     """Create a version-aware stream state subclass."""
 
     class VersionedStreamState(base_cls):
@@ -83,9 +84,11 @@ def _versioned_stream_cls(base_cls: type[StreamState], versions: frozenset[int])
     return VersionedStreamState
 
 
-def get_endpoint_config(options: FinalRequestOptions, *, version: int | frozenset[int] = 1) -> EndpointConfig:
+def get_endpoint_config(
+    options: FinalRequestOptions, *, version: SemconvVersion | frozenset[SemconvVersion] = 1
+) -> EndpointConfig:
     """Returns the endpoint config for Anthropic or Bedrock depending on the url."""
-    versions = version if isinstance(version, frozenset) else frozenset({version})
+    versions: frozenset[SemconvVersion] = version if isinstance(version, frozenset) else frozenset({version})
     url = options.url
     raw_json_data = options.json_data
     if not isinstance(raw_json_data, dict):  # pragma: no cover
@@ -102,7 +105,7 @@ def get_endpoint_config(options: FinalRequestOptions, *, version: int | frozense
         }
         _extract_request_parameters(json_data, span_data)
 
-        if 2 in versions:
+        if 'latest' in versions:
             # Convert messages to semantic convention format
             messages: list[dict[str, Any]] = json_data.get('messages', [])
             system: str | list[dict[str, Any]] | None = json_data.get('system')
@@ -268,7 +271,7 @@ def content_from_messages(chunk: anthropic.types.MessageStreamEvent) -> str | No
 
 
 class AnthropicMessageStreamState(StreamState):
-    _versions: frozenset[int] = frozenset({1})
+    _versions: frozenset[SemconvVersion] = frozenset({1})
 
     def __init__(self):
         self._content: list[str] = []
@@ -286,7 +289,7 @@ class AnthropicMessageStreamState(StreamState):
         result = dict(**span_data)
         if 1 in versions:
             result['response_data'] = self.get_response_data()
-        if 2 in versions and self._content:
+        if 'latest' in versions and self._content:
             combined = ''.join(self._content)
             result[OUTPUT_MESSAGES] = [
                 {
@@ -298,9 +301,11 @@ class AnthropicMessageStreamState(StreamState):
 
 
 @handle_internal_errors
-def on_response(response: ResponseT, span: LogfireSpan, *, version: int | frozenset[int] = 1) -> ResponseT:
+def on_response(
+    response: ResponseT, span: LogfireSpan, *, version: SemconvVersion | frozenset[SemconvVersion] = 1
+) -> ResponseT:
     """Updates the span based on the type of response."""
-    versions = version if isinstance(version, frozenset) else frozenset({version})
+    versions: frozenset[SemconvVersion] = version if isinstance(version, frozenset) else frozenset({version})
 
     if isinstance(response, Message):  # pragma: no branch
         if 1 in versions:
@@ -320,7 +325,7 @@ def on_response(response: ResponseT, span: LogfireSpan, *, version: int | frozen
                     )
             span.set_attribute('response_data', {'message': message, 'usage': response.usage})
 
-        if 2 in versions:
+        if 'latest' in versions:
             output_message = convert_response_to_semconv(response)
             span.set_attribute(OUTPUT_MESSAGES, [output_message])
 

@@ -12,12 +12,12 @@ from typing import Any, Literal, Union
 from typing_extensions import NotRequired, TypeAlias, TypedDict
 
 # Version type for controlling span attribute format
-SemconvVersion = Literal[1, 2]
+SemconvVersion = Literal[1, 'latest']
 
 
-def normalize_versions(version: SemconvVersion | Sequence[SemconvVersion]) -> frozenset[int]:
-    """Normalize a version parameter to a frozenset of version numbers."""
-    if isinstance(version, int):
+def normalize_versions(version: SemconvVersion | Sequence[SemconvVersion]) -> frozenset[SemconvVersion]:
+    """Normalize a version parameter to a frozenset of version values."""
+    if isinstance(version, (int, str)):
         return frozenset({version})
     return frozenset(version)
 

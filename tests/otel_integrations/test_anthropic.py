@@ -1008,11 +1008,11 @@ def test_extract_request_parameters_without_max_tokens() -> None:
     assert 'gen_ai.request.max_tokens' not in span_data
 
 
-def test_sync_messages_version_2(exporter: TestExporter) -> None:
-    """Test that version=2 emits only semconv attributes without request_data/response_data."""
+def test_sync_messages_version_latest(exporter: TestExporter) -> None:
+    """Test that version='latest' emits only semconv attributes without request_data/response_data."""
     with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
         anthropic_client = anthropic.Anthropic(api_key='foobar', http_client=httpx_client)
-        with logfire.instrument_anthropic(anthropic_client, version=2):
+        with logfire.instrument_anthropic(anthropic_client, version='latest'):
             response = anthropic_client.messages.create(
                 max_tokens=1000,
                 model='claude-3-haiku-20240307',
@@ -1031,7 +1031,7 @@ def test_sync_messages_version_2(exporter: TestExporter) -> None:
                 'end_time': 2000000000,
                 'attributes': {
                     'code.filepath': 'test_anthropic.py',
-                    'code.function': 'test_sync_messages_version_2',
+                    'code.function': 'test_sync_messages_version_latest',
                     'code.lineno': 123,
                     'request_data': {'model': 'claude-3-haiku-20240307'},
                     'gen_ai.provider.name': 'anthropic',
@@ -1085,10 +1085,10 @@ def test_sync_messages_version_2(exporter: TestExporter) -> None:
 
 
 def test_sync_messages_version_both(exporter: TestExporter) -> None:
-    """Test that version=[1, 2] emits both v1 and v2 attributes."""
+    """Test that version=[1, 'latest'] emits both v1 and latest attributes."""
     with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
         anthropic_client = anthropic.Anthropic(api_key='foobar', http_client=httpx_client)
-        with logfire.instrument_anthropic(anthropic_client, version=[1, 2]):
+        with logfire.instrument_anthropic(anthropic_client, version=[1, 'latest']):
             response = anthropic_client.messages.create(
                 max_tokens=1000,
                 model='claude-3-haiku-20240307',
@@ -1134,6 +1134,7 @@ def test_sync_messages_version_both(exporter: TestExporter) -> None:
                             'cache_creation': None,
                             'cache_creation_input_tokens': None,
                             'cache_read_input_tokens': None,
+                            'inference_geo': None,
                             'input_tokens': 2,
                             'output_tokens': 3,
                             'server_tool_use': None,

@@ -47,6 +47,7 @@ from .semconv import (
     OutputMessage,
     OutputMessages,
     Role,
+    SemconvVersion,
     SystemInstructions,
     TextPart,
     ToolCallPart,
@@ -100,7 +101,7 @@ def _extract_request_parameters(json_data: dict[str, Any], span_data: dict[str, 
         span_data[TOOL_DEFINITIONS] = json.dumps(tools)
 
 
-def _versioned_stream_cls(base_cls: type[StreamState], versions: frozenset[int]) -> type[StreamState]:
+def _versioned_stream_cls(base_cls: type[StreamState], versions: frozenset[SemconvVersion]) -> type[StreamState]:
     """Create a version-aware stream state subclass."""
 
     class VersionedStreamState(base_cls):
@@ -109,9 +110,11 @@ def _versioned_stream_cls(base_cls: type[StreamState], versions: frozenset[int])
     return VersionedStreamState
 
 
-def get_endpoint_config(options: FinalRequestOptions, *, version: int | frozenset[int] = 1) -> EndpointConfig:
+def get_endpoint_config(
+    options: FinalRequestOptions, *, version: SemconvVersion | frozenset[SemconvVersion] = 1
+) -> EndpointConfig:
     """Returns the endpoint config for OpenAI depending on the url."""
-    versions = version if isinstance(version, frozenset) else frozenset({version})
+    versions: frozenset[SemconvVersion] = version if isinstance(version, frozenset) else frozenset({version})
     url = options.url
 
     raw_json_data = options.json_data
@@ -132,7 +135,7 @@ def get_endpoint_config(options: FinalRequestOptions, *, version: int | frozense
         }
         _extract_request_parameters(json_data, span_data)
 
-        if 2 in versions:
+        if 'latest' in versions:
             # Convert messages to semantic convention format
             messages: list[dict[str, Any]] = json_data.get('messages', [])
             if messages:  # pragma: no branch
@@ -159,7 +162,7 @@ def get_endpoint_config(options: FinalRequestOptions, *, version: int | frozense
             span_data['events'] = inputs_to_events(json_data.get('input'), json_data.get('instructions'))
         _extract_request_parameters(json_data, span_data)
 
-        if 2 in versions:
+        if 'latest' in versions:
             # Convert inputs to semantic convention format
             input_messages_resp, system_instructions = convert_responses_inputs_to_semconv(
                 json_data.get('input'), json_data.get('instructions')
@@ -491,7 +494,7 @@ def content_from_completions(chunk: Completion | None) -> str | None:
 
 
 class OpenaiCompletionStreamState(StreamState):
-    _versions: frozenset[int] = frozenset({1})
+    _versions: frozenset[SemconvVersion] = frozenset({1})
 
     def __init__(self):
         self._content: list[str] = []
@@ -513,7 +516,7 @@ class OpenaiCompletionStreamState(StreamState):
 
 
 class OpenaiResponsesStreamState(StreamState):
-    _versions: frozenset[int] = frozenset({1})
+    _versions: frozenset[SemconvVersion] = frozenset({1})
 
     def __init__(self):
         self._state = ResponseStreamState(input_tools=openai.omit, text_format=openai.omit)
@@ -530,7 +533,7 @@ class OpenaiResponsesStreamState(StreamState):
         versions = self._versions
         response = self.get_response_data()
         if response:
-            if 2 in versions:
+            if 'latest' in versions:
                 output_messages = convert_responses_outputs_to_semconv(response)
                 span_data[OUTPUT_MESSAGES] = output_messages
             if 1 in versions:
@@ -543,7 +546,7 @@ try:
     from openai.lib.streaming.chat._completions import ChatCompletionStreamState
 
     class OpenaiChatCompletionStreamState(StreamState):
-        _versions: frozenset[int] = frozenset({1})
+        _versions: frozenset[SemconvVersion] = frozenset({1})
 
         def __init__(self):
             self._stream_state = ChatCompletionStreamState()
@@ -573,7 +576,7 @@ try:
             result = dict(**span_data)
             if 1 in versions:
                 result['response_data'] = self.get_response_data()
-            if 2 in versions:
+            if 'latest' in versions:
                 try:
                     final_completion = self._stream_state.current_completion_snapshot
                 except AssertionError:
@@ -591,9 +594,11 @@ except ImportError:  # pragma: no cover
 
 
 @handle_internal_errors
-def on_response(response: ResponseT, span: LogfireSpan, *, version: int | frozenset[int] = 1) -> ResponseT:
+def on_response(
+    response: ResponseT, span: LogfireSpan, *, version: SemconvVersion | frozenset[SemconvVersion] = 1
+) -> ResponseT:
     """Updates the span based on the type of response."""
-    versions = version if isinstance(version, frozenset) else frozenset({version})
+    versions: frozenset[SemconvVersion] = version if isinstance(version, frozenset) else frozenset({version})
 
     if isinstance(response, LegacyAPIResponse):  # pragma: no cover
         on_response(response.parse(), span, version=versions)  # type: ignore
@@ -638,7 +643,7 @@ def on_response(response: ResponseT, span: LogfireSpan, *, version: int | frozen
                 'response_data',
                 {'message': response.choices[0].message, 'usage': usage},
             )
-        if 2 in versions:
+        if 'latest' in versions:
             output_messages: OutputMessages = []
             for choice in response.choices:
                 output_messages.append(convert_openai_response_to_semconv(choice.message, choice.finish_reason))
@@ -656,7 +661,7 @@ def on_response(response: ResponseT, span: LogfireSpan, *, version: int | frozen
                 'response_data',
                 {'finish_reason': first_choice.finish_reason, 'text': first_choice.text, 'usage': usage},
             )
-        if 2 in versions:
+        if 'latest' in versions:
             output_messages_completion: list[dict[str, Any]] = []
             for choice in response.choices:
                 output_messages_completion.append(
@@ -680,7 +685,7 @@ def on_response(response: ResponseT, span: LogfireSpan, *, version: int | frozen
         if 1 in versions:
             span.set_attribute('response_data', {'images': response.data})
     elif isinstance(response, Response):  # pragma: no branch
-        if 2 in versions:
+        if 'latest' in versions:
             response_output_messages: OutputMessages = convert_responses_outputs_to_semconv(response)
             span.set_attribute(OUTPUT_MESSAGES, response_output_messages)
         if 1 in versions:
