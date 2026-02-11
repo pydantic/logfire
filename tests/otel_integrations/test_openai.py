@@ -1874,11 +1874,11 @@ def test_completions(instrumented_client: openai.Client, exporter: TestExporter)
     )
 
 
-def test_sync_chat_completions_version_2(exporter: TestExporter) -> None:
-    """Test that version=2 emits only semconv attributes without request_data/response_data."""
+def test_sync_chat_completions_version_latest(exporter: TestExporter) -> None:
+    """Test that version='latest' emits only semconv attributes without request_data/response_data."""
     with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
         openai_client = openai.Client(api_key='foobar', http_client=httpx_client)
-        with logfire.instrument_openai(openai_client, version=2):
+        with logfire.instrument_openai(openai_client, version='latest'):
             response = openai_client.chat.completions.create(
                 model='gpt-4',
                 messages=[
@@ -1897,7 +1897,7 @@ def test_sync_chat_completions_version_2(exporter: TestExporter) -> None:
                 'end_time': 2000000000,
                 'attributes': {
                     'code.filepath': 'test_openai.py',
-                    'code.function': 'test_sync_chat_completions_version_2',
+                    'code.function': 'test_sync_chat_completions_version_latest',
                     'code.lineno': 123,
                     'request_data': {'model': 'gpt-4'},
                     'gen_ai.provider.name': 'openai',
@@ -1948,10 +1948,10 @@ def test_sync_chat_completions_version_2(exporter: TestExporter) -> None:
 
 
 def test_sync_chat_completions_version_both(exporter: TestExporter) -> None:
-    """Test that version=[1, 2] emits both v1 and v2 attributes."""
+    """Test that version=[1, 'latest'] emits both v1 and latest attributes."""
     with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
         openai_client = openai.Client(api_key='foobar', http_client=httpx_client)
-        with logfire.instrument_openai(openai_client, version=[1, 2]):
+        with logfire.instrument_openai(openai_client, version=[1, 'latest']):
             response = openai_client.chat.completions.create(
                 model='gpt-4',
                 messages=[

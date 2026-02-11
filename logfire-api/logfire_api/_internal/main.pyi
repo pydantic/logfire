@@ -493,7 +493,7 @@ class Logfire:
                 without waiting for the context manager to be opened,
                 i.e. it's not necessary to use this as a context manager.
         """
-    def instrument_openai(self, openai_client: openai.OpenAI | openai.AsyncOpenAI | type[openai.OpenAI] | type[openai.AsyncOpenAI] | None = None, *, suppress_other_instrumentation: bool = True, version: Literal[1, 2] | Sequence[Literal[1, 2]] = 1) -> AbstractContextManager[None]:
+    def instrument_openai(self, openai_client: openai.OpenAI | openai.AsyncOpenAI | type[openai.OpenAI] | type[openai.AsyncOpenAI] | None = None, *, suppress_other_instrumentation: bool = True, version: Literal[1, 'latest'] | Sequence[Literal[1, 'latest']] = 1) -> AbstractContextManager[None]:
         '''Instrument an OpenAI client so that spans are automatically created for each request.
 
         This instruments the [standard OpenAI SDK](https://pypi.org/project/openai/) package, for instrumentation
@@ -552,7 +552,7 @@ class Logfire:
         For instrumentation of the standard OpenAI SDK package,
         see [`instrument_openai()`][logfire.Logfire.instrument_openai].
         """
-    def instrument_anthropic(self, anthropic_client: anthropic.Anthropic | anthropic.AsyncAnthropic | anthropic.AnthropicBedrock | anthropic.AsyncAnthropicBedrock | type[anthropic.Anthropic] | type[anthropic.AsyncAnthropic] | type[anthropic.AnthropicBedrock] | type[anthropic.AsyncAnthropicBedrock] | None = None, *, suppress_other_instrumentation: bool = True, version: Literal[1, 2] | Sequence[Literal[1, 2]] = 1) -> AbstractContextManager[None]:
+    def instrument_anthropic(self, anthropic_client: anthropic.Anthropic | anthropic.AsyncAnthropic | anthropic.AnthropicBedrock | anthropic.AsyncAnthropicBedrock | type[anthropic.Anthropic] | type[anthropic.AsyncAnthropic] | type[anthropic.AnthropicBedrock] | type[anthropic.AsyncAnthropicBedrock] | None = None, *, suppress_other_instrumentation: bool = True, version: Literal[1, 'latest'] | Sequence[Literal[1, 'latest']] = 1) -> AbstractContextManager[None]:
         '''Instrument an Anthropic client so that spans are automatically created for each request.
 
         The following methods are instrumented for both the sync and async clients:

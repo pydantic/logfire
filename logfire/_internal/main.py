@@ -1233,10 +1233,10 @@ class Logfire:
             version: The version(s) of the span attribute format to use:
 
                 - `1` (the default): Uses `request_data` and `response_data` attributes.
-                - `2`: Uses OpenTelemetry Gen AI semantic convention attributes
+                - `'latest'`: Uses OpenTelemetry Gen AI semantic convention attributes
                   (`gen_ai.input.messages`, `gen_ai.output.messages`, etc.) instead of
-                  `request_data`/`response_data`.
-                - `[1, 2]`: Emits both formats simultaneously, useful for migration and testing.
+                  `request_data`/`response_data`. This format may change between releases.
+                - `[1, 'latest']`: Emits both formats simultaneously, useful for migration and testing.
 
         Returns:
             A context manager that will revert the instrumentation when exited.
@@ -1335,10 +1335,10 @@ class Logfire:
             version: The version(s) of the span attribute format to use:
 
                 - `1` (the default): Uses `request_data` and `response_data` attributes.
-                - `2`: Uses OpenTelemetry Gen AI semantic convention attributes
+                - `'latest'`: Uses OpenTelemetry Gen AI semantic convention attributes
                   (`gen_ai.input.messages`, `gen_ai.output.messages`, etc.) instead of
-                  `request_data`/`response_data`.
-                - `[1, 2]`: Emits both formats simultaneously, useful for migration and testing.
+                  `request_data`/`response_data`. This format may change between releases.
+                - `[1, 'latest']`: Emits both formats simultaneously, useful for migration and testing.
 
         Returns:
             A context manager that will revert the instrumentation when exited.
