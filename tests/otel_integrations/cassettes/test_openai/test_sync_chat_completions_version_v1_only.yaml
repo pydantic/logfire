@@ -1,0 +1,95 @@
+interactions:
+- request:
+    body: '{"messages":[{"role":"system","content":"You are a helpful assistant."},{"role":"user","content":"What
+      is four plus five?"}],"model":"gpt-4.1"}'
+    headers:
+      Accept:
+      - application/json
+      Accept-Encoding:
+      - gzip, deflate, zstd
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '143'
+      Content-Type:
+      - application/json
+      Host:
+      - api.openai.com
+      User-Agent:
+      - OpenAI/Python 2.17.0
+      X-Stainless-Arch:
+      - arm64
+      X-Stainless-Async:
+      - 'false'
+      X-Stainless-Lang:
+      - python
+      X-Stainless-OS:
+      - MacOS
+      X-Stainless-Package-Version:
+      - 2.17.0
+      X-Stainless-Runtime:
+      - CPython
+      X-Stainless-Runtime-Version:
+      - 3.12.2
+      x-stainless-read-timeout:
+      - '600'
+      x-stainless-retry-count:
+      - '0'
+    method: POST
+    uri: https://api.openai.com/v1/chat/completions
+  response:
+    body:
+      string: !!binary |
+        H4sIAAAAAAAA/41Sy2rrMBDd5yuE1nGIH23S7kpfi64ulEvhUowijW21sqRq5JJS8u9XspPYfUE3
+        As2Zc3TmaN5nhFAp6DmhvGGet1YlV+vri5zfvt3nL63ZbK+eG/HwJ71nl3fq75bOI8NsnoD7A2vB
+        TeCBl0YPMHfAPETVdLVark/yIk97oDUCVKTV1ifFIk2yZXaSLIskLfbMxkgOGFr+hSsh7/0ZPWoB
+        21Bezg+VFhBZDaF2aApFZ1SsUIYo0TPt6XwEudEedG/7xnSOWNUhqeQrEIlESw2LabeDqkMW3epO
+        qQnAtDaexWl7n497ZHd0pkxtndngJyqtpJbYlCEcDEkFF+iNpT26C+djn0D3YSgahFrrS2+eoX8u
+        ywc5OmY+gqd7zAd/asI5m38jVgrwTCqcBEg54w2IkTmmzTohzQSYTUb+6uU77WFsqevfyI8A52DD
+        LpXWgZD847xjm4O4kD+1HSPuDVME9xq2rPQSXPwGARXr1LAqFN/QQ1uGv6rBWSeHfalsud5kWV6s
+        WA50tpv9BzObGcw5AwAA
+    headers:
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 11 Feb 2026 23:43:51 GMT
+      Server:
+      - cloudflare
+      Strict-Transport-Security:
+      - max-age=31536000; includeSubDomains; preload
+      Transfer-Encoding:
+      - chunked
+      X-Content-Type-Options:
+      - nosniff
+      access-control-expose-headers:
+      - X-Request-ID
+      alt-svc:
+      - h3=":443"; ma=86400
+      cf-cache-status:
+      - DYNAMIC
+      openai-processing-ms:
+      - '330'
+      openai-version:
+      - '2020-10-01'
+      x-openai-proxy-wasm:
+      - v0.1
+      x-ratelimit-limit-requests:
+      - '10000'
+      x-ratelimit-limit-tokens:
+      - '30000000'
+      x-ratelimit-remaining-requests:
+      - '9999'
+      x-ratelimit-remaining-tokens:
+      - '29999984'
+      x-ratelimit-reset-requests:
+      - 6ms
+      x-ratelimit-reset-tokens:
+      - 0s
+    status:
+      code: 200
+      message: OK
+version: 1
