@@ -2310,6 +2310,9 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                     'gen_ai.operation.name': 'text_completion',
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
+                    'gen_ai.output.messages': [
+                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'The answer is Nine'}]}
+                    ],
                     'response_data': {'combined_chunk_content': 'The answer is Nine', 'chunk_count': 2},
                     'logfire.json_schema': {
                         'type': 'object',
@@ -2321,6 +2324,7 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                             'gen_ai.operation.name': {},
                             'duration': {},
                             'response_data': {'type': 'object'},
+                            'gen_ai.output.messages': {'type': 'array'},
                         },
                     },
                     'gen_ai.response.model': 'gpt-3.5-turbo-instruct',

@@ -512,6 +512,15 @@ class OpenaiCompletionStreamState(StreamState):
         result = dict(**span_data)
         if 1 in versions:
             result['response_data'] = self.get_response_data()
+        if 'latest' in versions:
+            combined_content = ''.join(self._content)
+            if combined_content:
+                result[OUTPUT_MESSAGES] = [
+                    {
+                        'role': 'assistant',
+                        'parts': [{'type': 'text', 'content': combined_content}],
+                    }
+                ]
         return result
 
 
@@ -537,7 +546,7 @@ class OpenaiResponsesStreamState(StreamState):
                 output_messages = convert_responses_outputs_to_semconv(response)
                 span_data[OUTPUT_MESSAGES] = output_messages
             if 1 in versions:
-                span_data['events'] = span_data.get('events', []) + responses_output_events(response)
+                span_data['events'] = (span_data.get('events') or []) + responses_output_events(response)
         return span_data
 
 
