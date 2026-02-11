@@ -531,14 +531,15 @@ class OpenaiResponsesStreamState(StreamState):
 
     def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
         versions = self._versions
+        result = dict(**span_data)
         response = self.get_response_data()
         if response:
             if 'latest' in versions:
                 output_messages = convert_responses_outputs_to_semconv(response)
-                span_data[OUTPUT_MESSAGES] = output_messages
+                result[OUTPUT_MESSAGES] = output_messages
             if 1 in versions:
-                span_data['events'] = span_data.get('events', []) + responses_output_events(response)
-        return span_data
+                result['events'] = result.get('events', []) + responses_output_events(response)
+        return result
 
 
 try:
