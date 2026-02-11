@@ -16,7 +16,7 @@ from pydantic import ValidationError
 from requests import Session
 
 from logfire._internal.client import UA_HEADER
-from logfire._internal.config import RemoteVariablesConfig
+from logfire._internal.config import VariablesOptions
 from logfire._internal.utils import UnexpectedResponse
 from logfire.variables.abstract import (
     ResolvedVariable,
@@ -52,22 +52,22 @@ class LogfireRemoteVariableProvider(VariableProvider):
     The threading implementation draws heavily from opentelemetry.sdk._shared_internal.BatchProcessor.
     """
 
-    def __init__(self, base_url: str, token: str, config: RemoteVariablesConfig):
+    def __init__(self, base_url: str, token: str, options: VariablesOptions):
         """Create a new remote variable provider.
 
         Args:
             base_url: The base URL of the Logfire API.
             token: Authentication token for the Logfire API.
-            config: Config for retrieving remote variables.
+            options: Options for retrieving remote variables.
         """
-        block_before_first_resolve = config.block_before_first_resolve
-        polling_interval = config.polling_interval
+        block_before_first_resolve = options.block_before_first_resolve
+        polling_interval = options.polling_interval
 
         self._base_url = base_url
         self._token = token
         self._session = Session()
         self._session.headers.update({'Authorization': f'bearer {token}', 'User-Agent': UA_HEADER})
-        self._timeout = config.timeout
+        self._timeout = options.timeout
         self._block_before_first_fetch = block_before_first_resolve
         self._polling_interval: timedelta = (
             timedelta(seconds=polling_interval) if isinstance(polling_interval, (float, int)) else polling_interval

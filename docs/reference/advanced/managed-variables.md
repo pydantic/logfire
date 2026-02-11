@@ -412,7 +412,7 @@ variables_config = VariablesConfig(
 )
 
 logfire.configure(
-    variables=logfire.VariablesOptions(config=variables_config),
+    variables=logfire.LocalVariablesOptions(config=variables_config),
 )
 
 # Define the variable
@@ -670,17 +670,13 @@ logfire.configure(
 
 When connected to Logfire, variables are managed through the Logfire UI. This is the recommended setup for production.
 
-To enable remote variables, you need to explicitly opt in using `VariablesOptions`:
+To enable remote variables, you can explicitly opt in using `VariablesOptions`:
 
 ```python skip="true"
 import logfire
-from logfire.variables.config import RemoteVariablesConfig
-
 # Enable remote variables
 logfire.configure(
-    variables=logfire.VariablesOptions(
-        config=RemoteVariablesConfig(),
-    ),
+    variables=logfire.VariablesOptions(),
 )
 
 # Define your variables
@@ -691,8 +687,11 @@ agent_config = logfire.var(
 )
 ```
 
+!!! tip "Automatic Remote Variables"
+    If `LOGFIRE_API_KEY` is set in your environment, variable APIs will **automatically** use the remote provider without needing `variables=VariablesOptions()` in `configure()`. The first time a variable is resolved, the SDK detects the API key and lazily initializes the remote provider with default options. You only need to pass `variables=VariablesOptions(...)` explicitly if you want to customize options like `polling_interval` or `block_before_first_resolve`.
+
 !!! note "API Key Required"
-    Remote variables require an API key with the `project:read_variables` scope. This is different from the write token (`LOGFIRE_TOKEN`) used to send traces and logs. Set the API key via the `LOGFIRE_API_KEY` environment variable or pass it directly to `RemoteVariablesConfig(api_key=...)`.
+    Remote variables require an API key with the `project:read_variables` scope. This is different from the write token (`LOGFIRE_TOKEN`) used to send traces and logs. Set the API key via the `LOGFIRE_API_KEY` environment variable or pass it directly to `VariablesOptions(api_key=...)`.
 
 **How remote variables work:**
 
@@ -707,17 +706,13 @@ agent_config = logfire.var(
 ```python skip="true"
 from datetime import timedelta
 
-from logfire.variables.config import RemoteVariablesConfig
-
 logfire.configure(
     variables=logfire.VariablesOptions(
-        config=RemoteVariablesConfig(
-            # Block until first fetch completes (default: True)
-            # Set to False if you want the app to start immediately using defaults
-            block_before_first_resolve=True,
-            # How often to poll for updates (default: 30 seconds)
-            polling_interval=timedelta(seconds=30),
-        ),
+        # Block until first fetch completes (default: True)
+        # Set to False if you want the app to start immediately using defaults
+        block_before_first_resolve=True,
+        # How often to poll for updates (default: 30 seconds)
+        polling_interval=timedelta(seconds=30),
     ),
 )
 ```
@@ -766,12 +761,8 @@ The primary benefit of pushing from code is **automatic JSON schema generation**
 from pydantic import BaseModel
 
 import logfire
-from logfire.variables.config import RemoteVariablesConfig
-
 logfire.configure(
-    variables=logfire.VariablesOptions(
-        config=RemoteVariablesConfig(),
-    ),
+    variables=logfire.VariablesOptions(),
 )
 
 
@@ -868,12 +859,8 @@ When you have multiple variables that share the same type (e.g., several variabl
 from pydantic import BaseModel
 
 import logfire
-from logfire.variables.config import RemoteVariablesConfig
-
 logfire.configure(
-    variables=logfire.VariablesOptions(
-        config=RemoteVariablesConfig(),
-    ),
+    variables=logfire.VariablesOptions(),
 )
 
 
@@ -1146,7 +1133,7 @@ variables_config = VariablesConfig(
 )
 
 logfire.configure(
-    variables=logfire.VariablesOptions(config=variables_config),
+    variables=logfire.LocalVariablesOptions(config=variables_config),
 )
 ```
 

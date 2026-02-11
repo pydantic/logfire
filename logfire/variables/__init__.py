@@ -26,7 +26,7 @@ if TYPE_CHECKING:
         LabeledValue,
         LabelRef,
         LatestVersion,
-        RemoteVariablesConfig,
+        LocalVariablesOptions,
         Rollout,
         RolloutOverride,
         ValueDoesNotEqual,
@@ -39,8 +39,6 @@ if TYPE_CHECKING:
         VariablesConfig,
         VariableTypeConfig,
     )
-    from logfire.variables.local import LocalVariableProvider
-    from logfire.variables.remote import LogfireRemoteVariableProvider
     from logfire.variables.variable import (
         ResolveFunction,
         Variable,
@@ -56,7 +54,7 @@ __all__ = [
     'VariablesConfig',
     'VariableConfig',
     'VariableTypeConfig',
-    'RemoteVariablesConfig',
+    'LocalVariablesOptions',
     # Label and rollout configuration
     'LabeledValue',
     'LabelRef',
@@ -74,9 +72,6 @@ __all__ = [
     'ValueDoesNotMatchRegex',
     # Providers
     'VariableProvider',
-    'LocalVariableProvider',
-    'LogfireRemoteVariableProvider',
-    'NoOpVariableProvider',
     # Context managers and utilities
     'targeting_context',
     # Types
@@ -106,7 +101,7 @@ def __getattr__(name: str):
         LabeledValue,
         LabelRef,
         LatestVersion,
-        RemoteVariablesConfig,
+        LocalVariablesOptions,
         Rollout,
         RolloutOverride,
         ValueDoesNotEqual,
@@ -119,8 +114,6 @@ def __getattr__(name: str):
         VariablesConfig,
         VariableTypeConfig,
     )
-    from logfire.variables.local import LocalVariableProvider
-    from logfire.variables.remote import LogfireRemoteVariableProvider
     from logfire.variables.variable import (
         ResolveFunction,
         Variable,

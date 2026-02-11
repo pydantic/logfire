@@ -248,7 +248,7 @@ class Variable(Generic[T_co]):
         span_name = f'Resolve variable {self.name}'
         with ExitStack() as stack:
             span: logfire.LogfireSpan | None = None
-            if self.logfire_instance.config.variables.instrument:
+            if _get_variables_instrument(self.logfire_instance.config.variables):
                 span = stack.enter_context(
                     self.logfire_instance.span(
                         span_name,
@@ -359,13 +359,20 @@ class Variable(Generic[T_co]):
             return self.default
 
     def _get_merged_attributes(self, attributes: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
+        from logfire._internal.config import LocalVariablesOptions, VariablesOptions
+
         result: dict[str, Any] = {}
-        variables_options = self.logfire_instance.config.variables
+        variables = self.logfire_instance.config.variables
         # Apply in order of lowest to highest priority:
         # resource attributes < baggage < user-provided attributes
-        if variables_options.include_resource_attributes_in_context:
+        include_resource = True
+        include_baggage = True
+        if isinstance(variables, (VariablesOptions, LocalVariablesOptions)):
+            include_resource = variables.include_resource_attributes_in_context
+            include_baggage = variables.include_baggage_in_context
+        if include_resource:
             result.update(self.logfire_instance.resource_attributes)
-        if variables_options.include_baggage_in_context:
+        if include_baggage:
             result.update(logfire.get_baggage())
         if attributes:
             result.update(attributes)
@@ -485,3 +492,12 @@ def _get_contextvar_targeting_key(variable_name: str) -> str | None:
         return None
     # Variable-specific takes precedence over default
     return ctx.by_variable.get(variable_name, ctx.default)
+
+
+def _get_variables_instrument(variables: Any) -> bool:
+    """Get the `instrument` setting from variables config, defaulting to True."""
+    from logfire._internal.config import LocalVariablesOptions, VariablesOptions
+
+    if isinstance(variables, (VariablesOptions, LocalVariablesOptions)):
+        return variables.instrument
+    return True

@@ -2541,7 +2541,7 @@ class Logfire:
         - Warns about existing label values that are incompatible with new schemas
 
         The provider is determined by the Logfire configuration. For remote providers,
-        this requires proper authentication (via RemoteVariablesConfig or LOGFIRE_API_KEY).
+        this requires proper authentication (via VariablesOptions or LOGFIRE_API_KEY).
 
         Args:
             variables: Variable instances to push. If None, all variables
@@ -2592,7 +2592,7 @@ class Logfire:
         - Shows a diff of changes before applying
 
         The provider is determined by the Logfire configuration. For remote providers,
-        this requires proper authentication (via RemoteVariablesConfig or LOGFIRE_API_KEY).
+        this requires proper authentication (via VariablesOptions or LOGFIRE_API_KEY).
 
         Args:
             types: Types to push. Items can be:

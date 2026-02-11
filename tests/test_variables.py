@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 import unittest.mock
 import warnings
@@ -16,7 +17,7 @@ from pydantic import BaseModel, ValidationError
 from requests import Session
 
 import logfire
-from logfire._internal.config import RemoteVariablesConfig, VariablesOptions
+from logfire._internal.config import LocalVariablesOptions, VariablesOptions
 from logfire.testing import TestExporter
 from logfire.variables.abstract import NoOpVariableProvider, ResolvedVariable, VariableProvider
 from logfire.variables.config import (
@@ -709,7 +710,7 @@ class TestResolvedVariable:
                 ),
             }
         )
-        config_kwargs['variables'] = VariablesOptions(config=variables_config)
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='cm_var', default='default', type=str)
@@ -746,7 +747,7 @@ class TestResolvedVariable:
                 ),
             }
         )
-        config_kwargs['variables'] = VariablesOptions(config=variables_config)
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
 
         var_a = lf.var(name='var_a', default='default_a', type=str)
@@ -891,7 +892,7 @@ class TestLogfireRemoteVariableProvider:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(
+                options=VariablesOptions(
                     block_before_first_resolve=True,
                     polling_interval=timedelta(seconds=60),
                 ),
@@ -913,7 +914,7 @@ class TestLogfireRemoteVariableProvider:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(
+                options=VariablesOptions(
                     block_before_first_resolve=False,
                     polling_interval=timedelta(seconds=60),
                 ),
@@ -950,7 +951,7 @@ class TestLogfireRemoteVariableProvider:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(
+                options=VariablesOptions(
                     block_before_first_resolve=True,
                     polling_interval=timedelta(seconds=60),
                 ),
@@ -972,7 +973,7 @@ class TestLogfireRemoteVariableProvider:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(
+                options=VariablesOptions(
                     block_before_first_resolve=False,
                     polling_interval=timedelta(seconds=60),
                 ),
@@ -990,7 +991,7 @@ class TestLogfireRemoteVariableProvider:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(
+                options=VariablesOptions(
                     block_before_first_resolve=False,
                     polling_interval=timedelta(seconds=60),
                 ),
@@ -1018,7 +1019,7 @@ class TestLogfireRemoteVariableProvider:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(
+                options=VariablesOptions(
                     block_before_first_resolve=False,
                     polling_interval=timedelta(seconds=60),
                 ),
@@ -1056,7 +1057,7 @@ class TestLogfireRemoteVariableProvider:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(
+                options=VariablesOptions(
                     block_before_first_resolve=True,
                     polling_interval=timedelta(seconds=60),
                 ),
@@ -1082,7 +1083,7 @@ class TestLogfireRemoteVariableProviderTimeout:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(
+                options=VariablesOptions(
                     block_before_first_resolve=False,
                     polling_interval=timedelta(seconds=60),
                 ),
@@ -1107,7 +1108,7 @@ class TestLogfireRemoteVariableProviderTimeout:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(
+                options=VariablesOptions(
                     block_before_first_resolve=False,
                     polling_interval=timedelta(seconds=60),
                     timeout=(5, 15),
@@ -1138,7 +1139,7 @@ class TestLogfireRemoteVariableProviderTimeout:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(
+                options=VariablesOptions(
                     block_before_first_resolve=False,
                     polling_interval=timedelta(seconds=60),
                     timeout=(3, 7),
@@ -1169,7 +1170,7 @@ class TestLogfireRemoteVariableProviderTimeout:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(
+                options=VariablesOptions(
                     block_before_first_resolve=True,
                     polling_interval=timedelta(seconds=60),
                     timeout=(2, 5),
@@ -1198,7 +1199,7 @@ class TestLogfireRemoteVariableProviderErrors:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(
+                options=VariablesOptions(
                     block_before_first_resolve=True,
                     polling_interval=timedelta(seconds=60),
                 ),
@@ -1221,7 +1222,7 @@ class TestLogfireRemoteVariableProviderErrors:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(
+                options=VariablesOptions(
                     block_before_first_resolve=True,
                     polling_interval=timedelta(seconds=60),
                 ),
@@ -1254,7 +1255,7 @@ class TestLogfireRemoteVariableProviderStart:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(
+                options=VariablesOptions(
                     block_before_first_resolve=False,
                     polling_interval=timedelta(seconds=60),
                 ),
@@ -1282,7 +1283,7 @@ class TestLogfireRemoteVariableProviderStart:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(
+                options=VariablesOptions(
                     block_before_first_resolve=False,
                     polling_interval=timedelta(seconds=60),
                 ),
@@ -1313,7 +1314,7 @@ class TestLogfireRemoteVariableProviderStart:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(
+                options=VariablesOptions(
                     block_before_first_resolve=False,
                     polling_interval=timedelta(seconds=60),
                 ),
@@ -1352,7 +1353,7 @@ class TestLogfireRemoteVariableProviderStart:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(
+                options=VariablesOptions(
                     block_before_first_resolve=False,
                     polling_interval=timedelta(seconds=60),  # Long polling interval
                 ),
@@ -1392,7 +1393,7 @@ class TestLogfireRemoteVariableProviderStart:
 @pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
 class TestApiKeySupport:
     def test_api_key_in_config(self) -> None:
-        """Test that api_key can be specified in RemoteVariablesConfig."""
+        """Test that api_key can be specified in VariablesOptions."""
         api_key = 'test_api_key_12345'
         request_mocker = requests_mock_module.Mocker()
         request_mocker.get(
@@ -1419,7 +1420,7 @@ class TestApiKeySupport:
             provider = LogfireRemoteVariableProvider(
                 base_url='http://localhost:8000/',
                 token=api_key,
-                config=RemoteVariablesConfig(
+                options=VariablesOptions(
                     block_before_first_resolve=True,
                     polling_interval=timedelta(seconds=60),
                     api_key=api_key,
@@ -1498,7 +1499,7 @@ class TestVariable:
         )
 
     def test_get_string_variable(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
-        config_kwargs['variables'] = VariablesOptions(config=variables_config)
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='string_var', default='default_value', type=str)
@@ -1506,7 +1507,7 @@ class TestVariable:
         assert details.value == 'hello'
 
     def test_get_int_variable(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
-        config_kwargs['variables'] = VariablesOptions(config=variables_config)
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='int_var', default=0, type=int)
@@ -1518,7 +1519,7 @@ class TestVariable:
             name: str
             value: int
 
-        config_kwargs['variables'] = VariablesOptions(config=variables_config)
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='model_var', default=MyModel(name='default', value=0), type=MyModel)
@@ -1527,7 +1528,7 @@ class TestVariable:
         assert details.value.value == 123
 
     def test_get_with_attributes(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
-        config_kwargs['variables'] = VariablesOptions(config=variables_config)
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='string_var', default='default_value', type=str)
@@ -1539,7 +1540,7 @@ class TestVariable:
         assert var.get(attributes={'use_alt': True}).value == 'world'
 
     def test_get_details(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
-        config_kwargs['variables'] = VariablesOptions(config=variables_config)
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='string_var', default='default_value', type=str)
@@ -1549,7 +1550,7 @@ class TestVariable:
         assert details.exception is None
 
     def test_get_details_with_validation_error(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
-        config_kwargs['variables'] = VariablesOptions(config=variables_config)
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='invalid_var', default=999, type=int)
@@ -1560,7 +1561,7 @@ class TestVariable:
         assert details._reason == 'validation_error'
 
     def test_get_uses_default_when_no_config(self, config_kwargs: dict[str, Any]):
-        config_kwargs['variables'] = VariablesOptions(config=VariablesConfig(variables={}))
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='unconfigured', default='my_default', type=str)
@@ -1568,7 +1569,7 @@ class TestVariable:
         assert value == 'my_default'
 
     def test_override_context_manager(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
-        config_kwargs['variables'] = VariablesOptions(config=variables_config)
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='string_var', default='default_value', type=str)
@@ -1581,7 +1582,7 @@ class TestVariable:
         assert var.get().value == 'hello'
 
     def test_override_nested(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
-        config_kwargs['variables'] = VariablesOptions(config=variables_config)
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='string_var', default='default_value', type=str)
@@ -1593,7 +1594,7 @@ class TestVariable:
             assert var.get().value == 'outer'
 
     def test_override_with_function(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
-        config_kwargs['variables'] = VariablesOptions(config=variables_config)
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='string_var', default='default_value', type=str)
@@ -1608,7 +1609,7 @@ class TestVariable:
             assert var.get(attributes={'mode': 'creative'}).value == 'creative_value'
 
     def test_default_as_function(self, config_kwargs: dict[str, Any]):
-        config_kwargs['variables'] = VariablesOptions(config=VariablesConfig(variables={}))
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
         lf = logfire.configure(**config_kwargs)
 
         def resolve_default(targeting_key: str | None, attributes: Mapping[str, Any] | None) -> str:
@@ -1621,7 +1622,7 @@ class TestVariable:
         assert var.get(targeting_key='user123').value == 'default_for_user123'
 
     def test_refresh_sync(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
-        config_kwargs['variables'] = VariablesOptions(config=variables_config)
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='string_var', default='default_value', type=str)
@@ -1629,7 +1630,7 @@ class TestVariable:
 
     @pytest.mark.anyio
     async def test_refresh_async(self, config_kwargs: dict[str, Any], variables_config: VariablesConfig):
-        config_kwargs['variables'] = VariablesOptions(config=variables_config)
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='string_var', default='default_value', type=str)
@@ -1639,7 +1640,7 @@ class TestVariable:
         self, config_kwargs: dict[str, Any], variables_config: VariablesConfig, exporter: TestExporter
     ):
         """Test that var.get() creates a span when instrument=True."""
-        config_kwargs['variables'] = VariablesOptions(config=variables_config, instrument=True)
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config, instrument=True)
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='string_var', default='default_value', type=str)
@@ -1667,7 +1668,7 @@ class TestVariable:
         self, config_kwargs: dict[str, Any], variables_config: VariablesConfig, exporter: TestExporter
     ):
         """Test that validation errors are recorded on the span when instrument=True."""
-        config_kwargs['variables'] = VariablesOptions(config=variables_config, instrument=True)
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config, instrument=True)
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='invalid_var', default=999, type=int)
@@ -1693,7 +1694,7 @@ class TestVariable:
         self, config_kwargs: dict[str, Any], variables_config: VariablesConfig, exporter: TestExporter
     ):
         """Test that var.get() does NOT create a span when instrument=False."""
-        config_kwargs['variables'] = VariablesOptions(config=variables_config, instrument=False)
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config, instrument=False)
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='string_var', default='default_value', type=str)
@@ -1752,7 +1753,7 @@ class TestTargetingContext:
         """targeting_context without variables sets targeting for all variables."""
         from logfire.variables.variable import targeting_context
 
-        config_kwargs['variables'] = VariablesOptions(config=rollout_config)
+        config_kwargs['variables'] = LocalVariablesOptions(config=rollout_config)
         lf = logfire.configure(**config_kwargs)
 
         var_a = lf.var(name='var_a', default='default', type=str)
@@ -1775,7 +1776,7 @@ class TestTargetingContext:
         """targeting_context with variables list only affects those variables."""
         from logfire.variables.variable import targeting_context
 
-        config_kwargs['variables'] = VariablesOptions(config=rollout_config)
+        config_kwargs['variables'] = LocalVariablesOptions(config=rollout_config)
         lf = logfire.configure(**config_kwargs)
 
         var_a = lf.var(name='var_a', default='default', type=str)
@@ -1794,7 +1795,7 @@ class TestTargetingContext:
         """Variable-specific targeting wins over default, regardless of nesting order."""
         from logfire.variables.variable import targeting_context
 
-        config_kwargs['variables'] = VariablesOptions(config=rollout_config)
+        config_kwargs['variables'] = LocalVariablesOptions(config=rollout_config)
         lf = logfire.configure(**config_kwargs)
 
         var_a = lf.var(name='var_a', default='default', type=str)
@@ -1820,7 +1821,7 @@ class TestTargetingContext:
         """Specific targeting wins even when set before default in nesting."""
         from logfire.variables.variable import targeting_context
 
-        config_kwargs['variables'] = VariablesOptions(config=rollout_config)
+        config_kwargs['variables'] = LocalVariablesOptions(config=rollout_config)
         lf = logfire.configure(**config_kwargs)
 
         var_a = lf.var(name='var_a', default='default', type=str)
@@ -1844,7 +1845,7 @@ class TestTargetingContext:
         """Call-site targeting_key overrides contextvar targeting."""
         from logfire.variables.variable import targeting_context
 
-        config_kwargs['variables'] = VariablesOptions(config=rollout_config)
+        config_kwargs['variables'] = LocalVariablesOptions(config=rollout_config)
         lf = logfire.configure(**config_kwargs)
 
         var_a = lf.var(name='var_a', default='default', type=str)
@@ -1862,7 +1863,7 @@ class TestTargetingContext:
         """Multiple variables can have specific targeting set."""
         from logfire.variables.variable import targeting_context
 
-        config_kwargs['variables'] = VariablesOptions(config=rollout_config)
+        config_kwargs['variables'] = LocalVariablesOptions(config=rollout_config)
         lf = logfire.configure(**config_kwargs)
 
         var_a = lf.var(name='var_a', default='default', type=str)
@@ -1884,7 +1885,7 @@ class TestTargetingContext:
         """Different variables can have different targeting keys."""
         from logfire.variables.variable import targeting_context
 
-        config_kwargs['variables'] = VariablesOptions(config=rollout_config)
+        config_kwargs['variables'] = LocalVariablesOptions(config=rollout_config)
         lf = logfire.configure(**config_kwargs)
 
         var_a = lf.var(name='var_a', default='default', type=str)
@@ -1906,7 +1907,7 @@ class TestTargetingContext:
         """Targeting context is properly reset after exiting the context manager."""
         from logfire.variables.variable import _get_contextvar_targeting_key, targeting_context
 
-        config_kwargs['variables'] = VariablesOptions(config=rollout_config)
+        config_kwargs['variables'] = LocalVariablesOptions(config=rollout_config)
         logfire.configure(**config_kwargs)
 
         # No context set initially
@@ -1924,7 +1925,7 @@ class TestTargetingContext:
         """Variable-specific targeting is properly reset after exiting."""
         from logfire.variables.variable import _get_contextvar_targeting_key, targeting_context
 
-        config_kwargs['variables'] = VariablesOptions(config=rollout_config)
+        config_kwargs['variables'] = LocalVariablesOptions(config=rollout_config)
         lf = logfire.configure(**config_kwargs)
         var_a = lf.var(name='var_a', default='default', type=str)
 
@@ -1973,7 +1974,7 @@ class TestVariableContextEnrichment:
     def test_baggage_included_in_resolution(
         self, config_kwargs: dict[str, Any], config_with_targeting: VariablesConfig
     ):
-        config_kwargs['variables'] = VariablesOptions(
+        config_kwargs['variables'] = LocalVariablesOptions(
             config=config_with_targeting,
             include_baggage_in_context=True,
         )
@@ -1989,7 +1990,7 @@ class TestVariableContextEnrichment:
             assert var.get().value == 'premium'
 
     def test_baggage_can_be_disabled(self, config_kwargs: dict[str, Any], config_with_targeting: VariablesConfig):
-        config_kwargs['variables'] = VariablesOptions(
+        config_kwargs['variables'] = LocalVariablesOptions(
             config=config_with_targeting,
             include_baggage_in_context=False,
         )
@@ -2005,7 +2006,7 @@ class TestVariableContextEnrichment:
     def test_resource_attributes_can_be_disabled(
         self, config_kwargs: dict[str, Any], config_with_targeting: VariablesConfig
     ):
-        config_kwargs['variables'] = VariablesOptions(
+        config_kwargs['variables'] = LocalVariablesOptions(
             config=config_with_targeting,
             include_resource_attributes_in_context=False,
         )
@@ -2075,7 +2076,7 @@ class TestLazyImports:
 
 class TestLogfireVarIntegration:
     def test_var_with_implicit_type(self, config_kwargs: dict[str, Any]):
-        config_kwargs['variables'] = VariablesOptions(
+        config_kwargs['variables'] = LocalVariablesOptions(
             config=VariablesConfig(
                 variables={
                     'default_var': VariableConfig(
@@ -2104,7 +2105,7 @@ class TestLogfireVarIntegration:
             ) -> ResolvedVariable[str | None]:
                 raise RuntimeError('Provider failed!')
 
-        lf = logfire.configure(variables=VariablesOptions(config=FailingProvider()))
+        lf = logfire.configure(variables=FailingProvider())
 
         var = lf.var(name='failing_var', default='fallback', type=str)
         details = var.get()
@@ -2257,7 +2258,7 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(block_before_first_resolve=True, polling_interval=timedelta(seconds=60)),
+                options=VariablesOptions(block_before_first_resolve=True, polling_interval=timedelta(seconds=60)),
             )
             try:
                 provider.refresh(force=True)
@@ -2276,7 +2277,7 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(block_before_first_resolve=True, polling_interval=timedelta(seconds=60)),
+                options=VariablesOptions(block_before_first_resolve=True, polling_interval=timedelta(seconds=60)),
             )
             try:
                 result = provider.get_variable_config('my_var')
@@ -2292,7 +2293,7 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(block_before_first_resolve=True, polling_interval=timedelta(seconds=60)),
+                options=VariablesOptions(block_before_first_resolve=True, polling_interval=timedelta(seconds=60)),
             )
             try:
                 result = provider.get_all_variables_config()
@@ -2319,7 +2320,7 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(block_before_first_resolve=True, polling_interval=timedelta(seconds=60)),
+                options=VariablesOptions(block_before_first_resolve=True, polling_interval=timedelta(seconds=60)),
             )
             try:
                 provider.refresh(force=True)
@@ -2336,7 +2337,7 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
             )
             try:
                 config = VariableConfig(
@@ -2361,7 +2362,7 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
             )
             try:
                 config = VariableConfig(
@@ -2395,7 +2396,7 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
             )
             try:
                 config = VariableConfig(
@@ -2419,7 +2420,7 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
             )
             try:
                 config = VariableConfig(
@@ -2441,7 +2442,7 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
             )
             try:
                 config = VariableConfig(
@@ -2465,7 +2466,7 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
             )
             try:
                 config = VariableConfig(
@@ -2489,7 +2490,7 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
             )
             try:
                 config = VariableConfig(
@@ -2511,7 +2512,7 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
             )
             try:
                 provider.delete_variable('my_var')  # Should not raise
@@ -2528,7 +2529,7 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
             )
             try:
                 with pytest.raises(VariableNotFoundError, match="Variable 'nonexistent' not found"):
@@ -2546,7 +2547,7 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
             )
             try:
                 with pytest.raises(VariableWriteError, match='Failed to delete variable'):
@@ -2563,7 +2564,7 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
             )
             try:
                 config = VariableConfig(
@@ -2611,7 +2612,7 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
             )
             try:
                 config = VariableConfig(
@@ -3546,7 +3547,7 @@ class TestDeserializationCacheEviction:
     def test_cache_eviction(self, config_kwargs: dict[str, Any]):
         """Test that cache evicts oldest entries when full."""
         variables_config = VariablesConfig(variables={})
-        config_kwargs['variables'] = VariablesOptions(config=variables_config)
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
         var = lf.var(name='cached_var', default='default', type=int)
 
@@ -3578,7 +3579,7 @@ class TestVariableGetReprFallback:
                 ),
             }
         )
-        config_kwargs['variables'] = VariablesOptions(config=variables_config, instrument=True)
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config, instrument=True)
         lf = logfire.configure(**config_kwargs)
         var = lf.var(name='repr_var', default='default', type=str)
 
@@ -3756,7 +3757,7 @@ class TestRemoteProviderForceRefreshEvent:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(
+                options=VariablesOptions(
                     block_before_first_resolve=False,
                     polling_interval=timedelta(seconds=60),  # Long poll so worker won't auto-refresh
                 ),
@@ -3805,7 +3806,7 @@ class TestRemoteProviderConditionExtraFields:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
             )
             try:
                 config = VariableConfig(
@@ -3849,7 +3850,7 @@ class TestRemoteProviderConditionExtraFields:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
             )
             try:
                 config = VariableConfig(
@@ -3902,7 +3903,7 @@ class TestRemoteProviderVariableTypes:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
             )
             try:
                 types = provider.list_variable_types()
@@ -3926,7 +3927,7 @@ class TestRemoteProviderVariableTypes:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
             )
             try:
                 with pytest.raises(VariableWriteError, match='Failed to list variable types'):
@@ -3945,7 +3946,7 @@ class TestRemoteProviderVariableTypes:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
             )
             try:
                 config = VariableTypeConfig(
@@ -3977,7 +3978,7 @@ class TestRemoteProviderVariableTypes:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
             )
             try:
                 config = VariableTypeConfig(name='MyType', json_schema={'type': 'string'})
@@ -4001,7 +4002,7 @@ class TestRemoteProviderVariableTypes:
             provider = LogfireRemoteVariableProvider(
                 base_url=REMOTE_BASE_URL,
                 token=REMOTE_TOKEN,
-                config=RemoteVariablesConfig(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
             )
             try:
                 config = VariableTypeConfig(name='MyType', json_schema={'type': 'string'})
@@ -4214,7 +4215,7 @@ class TestResolveVariantDeserializationError:
                 )
             }
         )
-        config_kwargs['variables'] = VariablesOptions(config=variables_config)
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
         var = lf.var(name='typed_var', default=99, type=int)
 
@@ -4319,19 +4320,19 @@ class TestVarInvalidName:
             lf.var(name='1bad-name!', default='hello', type=str)
 
 
-class TestRemoteVariablesConfigPollingInterval:
-    """Test that RemoteVariablesConfig validates polling_interval."""
+class TestVariablesOptionsPollingInterval:
+    """Test that VariablesOptions validates polling_interval."""
 
     def test_too_short_timedelta_raises(self):
         with pytest.raises(ValueError, match='polling_interval must be at least 10 seconds'):
-            RemoteVariablesConfig(polling_interval=timedelta(seconds=5))
+            VariablesOptions(polling_interval=timedelta(seconds=5))
 
     def test_too_short_float_raises(self):
         with pytest.raises(ValueError, match='polling_interval must be at least 10 seconds'):
-            RemoteVariablesConfig(polling_interval=0.0)
+            VariablesOptions(polling_interval=0.0)
 
     def test_valid_interval_accepted(self):
-        config = RemoteVariablesConfig(polling_interval=timedelta(seconds=10))
+        config = VariablesOptions(polling_interval=timedelta(seconds=10))
         assert config.polling_interval == timedelta(seconds=10)
 
 
@@ -4712,7 +4713,7 @@ class TestVariableGetWithExplicitLabel:
                 ),
             }
         )
-        config_kwargs['variables'] = VariablesOptions(config=variables_config)
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='label_test', default='default', type=str)
@@ -4735,7 +4736,7 @@ class TestVariableGetWithExplicitLabel:
                 ),
             }
         )
-        config_kwargs['variables'] = VariablesOptions(config=variables_config)
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
 
         var = lf.var(name='label_test2', default='default', type=str)
@@ -4743,3 +4744,101 @@ class TestVariableGetWithExplicitLabel:
         result = var.get(label='missing')
         assert result.value == 'control_value'
         assert result.label == 'control'
+
+
+# =============================================================================
+# Test Lazy Variable Provider Initialization
+# =============================================================================
+
+
+class TestLazyVariableProviderInit:
+    """Tests for lazy initialization of the variable provider when LOGFIRE_API_KEY is set."""
+
+    def test_lazy_init_when_api_key_set(self, config_kwargs: dict[str, Any]) -> None:
+        """When LOGFIRE_API_KEY is set but variables= is not passed, get_variable_provider()
+        should lazily create a LogfireRemoteVariableProvider."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            json={'variables': {}},
+        )
+        with request_mocker:
+            lf = logfire.configure(**config_kwargs)
+            config = lf.config
+
+            # Before setting API key, should be NoOpVariableProvider
+            assert isinstance(config._variable_provider, NoOpVariableProvider)
+            assert config.variables is None
+
+            # Set the API key in the environment
+            with unittest.mock.patch.dict('os.environ', {'LOGFIRE_API_KEY': REMOTE_TOKEN}):
+                provider = config.get_variable_provider()
+
+            # Should now be a LogfireRemoteVariableProvider
+            assert isinstance(provider, LogfireRemoteVariableProvider)
+            assert isinstance(config._variable_provider, LogfireRemoteVariableProvider)
+            # variables should still be None (unchanged)
+            assert config.variables is None
+
+            provider.shutdown()
+
+    def test_no_lazy_init_when_api_key_absent(self, config_kwargs: dict[str, Any]) -> None:
+        """When LOGFIRE_API_KEY is not set and variables= is not passed, get_variable_provider()
+        should return NoOpVariableProvider."""
+        lf = logfire.configure(**config_kwargs)
+        config = lf.config
+
+        # Ensure no API key is set
+        with unittest.mock.patch.dict('os.environ', {}, clear=False):
+            # Remove LOGFIRE_API_KEY if present
+            env = dict(os.environ)
+            env.pop('LOGFIRE_API_KEY', None)
+            with unittest.mock.patch.dict('os.environ', env, clear=True):
+                provider = config.get_variable_provider()
+
+        # Should still be NoOpVariableProvider
+        assert isinstance(provider, NoOpVariableProvider)
+
+    def test_no_lazy_init_when_variables_explicitly_set(self, config_kwargs: dict[str, Any]) -> None:
+        """When variables= is explicitly passed (e.g., LocalVariablesOptions), lazy init should
+        not interfere even if LOGFIRE_API_KEY is set."""
+        variables_config = VariablesConfig(
+            variables={
+                'test_var': VariableConfig(
+                    name='test_var',
+                    labels={},
+                    rollout=Rollout(labels={}),
+                    overrides=[],
+                ),
+            }
+        )
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+        config = lf.config
+
+        # Even with API key set, should not lazily init because variables was explicitly passed
+        with unittest.mock.patch.dict('os.environ', {'LOGFIRE_API_KEY': REMOTE_TOKEN}):
+            provider = config.get_variable_provider()
+
+        # Should be LocalVariableProvider, not LogfireRemoteVariableProvider
+        assert isinstance(provider, LocalVariableProvider)
+
+    def test_lazy_init_is_idempotent(self, config_kwargs: dict[str, Any]) -> None:
+        """Calling get_variable_provider() multiple times should return the same provider."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            json={'variables': {}},
+        )
+        with request_mocker:
+            lf = logfire.configure(**config_kwargs)
+            config = lf.config
+
+            with unittest.mock.patch.dict('os.environ', {'LOGFIRE_API_KEY': REMOTE_TOKEN}):
+                provider1 = config.get_variable_provider()
+                provider2 = config.get_variable_provider()
+
+            assert provider1 is provider2
+            assert isinstance(provider1, LogfireRemoteVariableProvider)
+
+            provider1.shutdown()

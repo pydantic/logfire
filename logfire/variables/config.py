@@ -9,7 +9,10 @@ from typing import Annotated, Any, Literal, Union
 from pydantic import BaseModel, Field, ValidationError, WithJsonSchema, field_validator, model_validator
 from typing_extensions import TypeAliasType
 
-from logfire._internal.config import RemoteVariablesConfig as RemoteVariablesConfig
+from logfire._internal.config import (
+    LocalVariablesOptions as LocalVariablesOptions,
+    VariablesOptions as VariablesOptions,
+)
 from logfire.variables.abstract import ResolvedVariable
 from logfire.variables.variable import Variable
 
@@ -27,7 +30,7 @@ __all__ = (
     'LabeledValue',
     'LabelRef',
     'LatestVersion',
-    'RemoteVariablesConfig',
+    'LocalVariablesOptions',
     'Rollout',
     'RolloutOverride',
     'ValueDoesNotEqual',
