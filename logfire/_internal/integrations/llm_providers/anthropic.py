@@ -74,8 +74,18 @@ def _extract_request_parameters(json_data: dict[str, Any], span_data: dict[str, 
         span_data[TOOL_DEFINITIONS] = json.dumps(tools)
 
 
-def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
+def _versioned_stream_cls(base_cls: type[StreamState], versions: frozenset[int]) -> type[StreamState]:
+    """Create a version-aware stream state subclass."""
+
+    class VersionedStreamState(base_cls):
+        _versions = versions
+
+    return VersionedStreamState
+
+
+def get_endpoint_config(options: FinalRequestOptions, *, version: int | frozenset[int] = 1) -> EndpointConfig:
     """Returns the endpoint config for Anthropic or Bedrock depending on the url."""
+    versions = version if isinstance(version, frozenset) else frozenset({version})
     url = options.url
     raw_json_data = options.json_data
     if not isinstance(raw_json_data, dict):  # pragma: no cover
@@ -85,30 +95,31 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
 
     if url == '/v1/messages':
         span_data: dict[str, Any] = {
-            'request_data': json_data,
+            'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
             PROVIDER_NAME: 'anthropic',
             OPERATION_NAME: 'chat',
             REQUEST_MODEL: json_data.get('model'),
         }
         _extract_request_parameters(json_data, span_data)
 
-        # Convert messages to semantic convention format
-        messages: list[dict[str, Any]] = json_data.get('messages', [])
-        system: str | list[dict[str, Any]] | None = json_data.get('system')
-        if messages or system:  # pragma: no branch
-            input_messages, system_instructions = convert_messages_to_semconv(messages, system)
-            span_data[INPUT_MESSAGES] = input_messages
-            if system_instructions:  # pragma: no branch
-                span_data[SYSTEM_INSTRUCTIONS] = system_instructions
+        if 2 in versions:
+            # Convert messages to semantic convention format
+            messages: list[dict[str, Any]] = json_data.get('messages', [])
+            system: str | list[dict[str, Any]] | None = json_data.get('system')
+            if messages or system:  # pragma: no branch
+                input_messages, system_instructions = convert_messages_to_semconv(messages, system)
+                span_data[INPUT_MESSAGES] = input_messages
+                if system_instructions:  # pragma: no branch
+                    span_data[SYSTEM_INSTRUCTIONS] = system_instructions
 
         return EndpointConfig(
             message_template='Message with {request_data[model]!r}',
             span_data=span_data,
-            stream_state_cls=AnthropicMessageStreamState,
+            stream_state_cls=_versioned_stream_cls(AnthropicMessageStreamState, versions),
         )
     else:
         span_data = {
-            'request_data': json_data,
+            'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
             'url': url,
             PROVIDER_NAME: 'anthropic',
         }
@@ -255,6 +266,8 @@ def content_from_messages(chunk: anthropic.types.MessageStreamEvent) -> str | No
 
 
 class AnthropicMessageStreamState(StreamState):
+    _versions: frozenset[int] = frozenset({1})
+
     def __init__(self):
         self._content: list[str] = []
 
@@ -266,42 +279,57 @@ class AnthropicMessageStreamState(StreamState):
     def get_response_data(self) -> Any:
         return {'combined_chunk_content': ''.join(self._content), 'chunk_count': len(self._content)}
 
+    def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
+        versions = self._versions
+        result = dict(**span_data)
+        if 1 in versions:
+            result['response_data'] = self.get_response_data()
+        if 2 in versions and self._content:
+            combined = ''.join(self._content)
+            result[OUTPUT_MESSAGES] = [
+                {
+                    'role': 'assistant',
+                    'parts': [TextPart(type='text', content=combined)],
+                }
+            ]
+        return result
+
 
 @handle_internal_errors
-def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
+def on_response(response: ResponseT, span: LogfireSpan, *, version: int | frozenset[int] = 1) -> ResponseT:
     """Updates the span based on the type of response."""
+    versions = version if isinstance(version, frozenset) else frozenset({version})
+
     if isinstance(response, Message):  # pragma: no branch
-        # Keep response_data for backward compatibility
-        message: dict[str, Any] = {'role': 'assistant'}
-        for block in response.content:
-            if block.type == 'text':
-                message['content'] = block.text
-            elif block.type == 'tool_use':  # pragma: no branch
-                message.setdefault('tool_calls', []).append(
-                    {
-                        'id': block.id,
-                        'function': {
-                            'arguments': block.model_dump_json(include={'input'}),
-                            'name': block.name,
-                        },
-                    }
-                )
-        span.set_attribute('response_data', {'message': message, 'usage': response.usage})
+        if 1 in versions:
+            message: dict[str, Any] = {'role': 'assistant'}
+            for block in response.content:
+                if block.type == 'text':
+                    message['content'] = block.text
+                elif block.type == 'tool_use':  # pragma: no branch
+                    message.setdefault('tool_calls', []).append(
+                        {
+                            'id': block.id,
+                            'function': {
+                                'arguments': block.model_dump_json(include={'input'}),
+                                'name': block.name,
+                            },
+                        }
+                    )
+            span.set_attribute('response_data', {'message': message, 'usage': response.usage})
 
-        # Add semantic convention output messages
-        output_message = convert_response_to_semconv(response)
-        span.set_attribute(OUTPUT_MESSAGES, [output_message])
+        if 2 in versions:
+            output_message = convert_response_to_semconv(response)
+            span.set_attribute(OUTPUT_MESSAGES, [output_message])
 
-        # Add semantic convention attributes
+        # Always set scalar semconv attributes
         span.set_attribute(RESPONSE_MODEL, response.model)
         span.set_attribute(RESPONSE_ID, response.id)
 
-        # Add token usage
         if response.usage:  # pragma: no branch
             span.set_attribute(INPUT_TOKENS, response.usage.input_tokens)
             span.set_attribute(OUTPUT_TOKENS, response.usage.output_tokens)
 
-        # Add finish reason
         if response.stop_reason:
             span.set_attribute(RESPONSE_FINISH_REASONS, [response.stop_reason])
 
