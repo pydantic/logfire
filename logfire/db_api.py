@@ -28,6 +28,7 @@ from logfire.experimental.query_client import LogfireQueryClient
 if TYPE_CHECKING:
     from logfire.experimental.query_client import ColumnDetails
 
+# TODO: make use of PEP 661 sentinels once accepted.
 _UNSET = Enum('_UNSET', 'UNSET').UNSET
 """Sentinel to distinguish 'not set' from an explicit `None`."""
 
