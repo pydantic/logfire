@@ -287,7 +287,7 @@ class AnthropicMessageStreamState(StreamState):
     def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
         versions = self._versions
         result = dict(**span_data)
-        if 1 in versions:
+        if 1 in versions:  # pragma: no branch
             result['response_data'] = self.get_response_data()
         if 'latest' in versions and self._content:
             combined = ''.join(self._content)

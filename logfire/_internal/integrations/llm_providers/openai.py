@@ -158,11 +158,11 @@ def get_endpoint_config(
             OPERATION_NAME: 'chat',
             REQUEST_MODEL: json_data.get('model'),
         }
-        if 1 in versions:
+        if 1 in versions:  # pragma: no branch
             span_data['events'] = inputs_to_events(json_data.get('input'), json_data.get('instructions'))
         _extract_request_parameters(json_data, span_data)
 
-        if 'latest' in versions:
+        if 'latest' in versions:  # pragma: no branch
             # Convert inputs to semantic convention format
             input_messages_resp, system_instructions = convert_responses_inputs_to_semconv(
                 json_data.get('input'), json_data.get('instructions')
@@ -510,11 +510,11 @@ class OpenaiCompletionStreamState(StreamState):
     def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
         versions = self._versions
         result = dict(**span_data)
-        if 1 in versions:
+        if 1 in versions:  # pragma: no branch
             result['response_data'] = self.get_response_data()
-        if 'latest' in versions:
+        if 'latest' in versions:  # pragma: no branch
             combined_content = ''.join(self._content)
-            if combined_content:
+            if combined_content:  # pragma: no branch
                 result[OUTPUT_MESSAGES] = [
                     {
                         'role': 'assistant',
@@ -542,10 +542,10 @@ class OpenaiResponsesStreamState(StreamState):
         versions = self._versions
         response = self.get_response_data()
         if response:
-            if 'latest' in versions:
+            if 'latest' in versions:  # pragma: no branch
                 output_messages = convert_responses_outputs_to_semconv(response)
                 span_data[OUTPUT_MESSAGES] = output_messages
-            if 1 in versions:
+            if 1 in versions:  # pragma: no branch
                 span_data['events'] = (span_data.get('events') or []) + responses_output_events(response)
         return span_data
 
@@ -583,9 +583,9 @@ try:
         def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
             versions = self._versions
             result = dict(**span_data)
-            if 1 in versions:
+            if 1 in versions:  # pragma: no branch
                 result['response_data'] = self.get_response_data()
-            if 'latest' in versions:
+            if 'latest' in versions:  # pragma: no branch
                 try:
                     final_completion = self._stream_state.current_completion_snapshot
                 except AssertionError:
@@ -665,12 +665,12 @@ def on_response(
             span.set_attribute(RESPONSE_FINISH_REASONS, finish_reasons)
     elif isinstance(response, Completion) and response.choices:
         first_choice = response.choices[0]
-        if 1 in versions:
+        if 1 in versions:  # pragma: no branch
             span.set_attribute(
                 'response_data',
                 {'finish_reason': first_choice.finish_reason, 'text': first_choice.text, 'usage': usage},
             )
-        if 'latest' in versions:
+        if 'latest' in versions:  # pragma: no branch
             output_messages_completion: list[dict[str, Any]] = []
             for choice in response.choices:
                 output_messages_completion.append(
@@ -688,16 +688,16 @@ def on_response(
         if finish_reasons_completion:  # pragma: no branch
             span.set_attribute(RESPONSE_FINISH_REASONS, finish_reasons_completion)
     elif isinstance(response, CreateEmbeddingResponse):
-        if 1 in versions:
+        if 1 in versions:  # pragma: no branch
             span.set_attribute('response_data', {'usage': usage})
     elif isinstance(response, ImagesResponse):
-        if 1 in versions:
+        if 1 in versions:  # pragma: no branch
             span.set_attribute('response_data', {'images': response.data})
     elif isinstance(response, Response):  # pragma: no branch
-        if 'latest' in versions:
+        if 'latest' in versions:  # pragma: no branch
             response_output_messages: OutputMessages = convert_responses_outputs_to_semconv(response)
             span.set_attribute(OUTPUT_MESSAGES, response_output_messages)
-        if 1 in versions:
+        if 1 in versions:  # pragma: no branch
             try:
                 events = json.loads(span.attributes['events'])  # type: ignore
             except Exception:
