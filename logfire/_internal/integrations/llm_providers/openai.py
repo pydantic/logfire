@@ -573,6 +573,17 @@ try:
             result = dict(**span_data)
             if 1 in versions:
                 result['response_data'] = self.get_response_data()
+            if 2 in versions:
+                try:
+                    final_completion = self._stream_state.current_completion_snapshot
+                except AssertionError:
+                    pass
+                else:
+                    output_messages: OutputMessages = []
+                    for choice in final_completion.choices:
+                        output_messages.append(convert_openai_response_to_semconv(choice.message, choice.finish_reason))
+                    if output_messages:
+                        result[OUTPUT_MESSAGES] = output_messages
             return result
 
 except ImportError:  # pragma: no cover

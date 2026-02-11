@@ -284,6 +284,14 @@ class AnthropicMessageStreamState(StreamState):
         result = dict(**span_data)
         if 1 in versions:
             result['response_data'] = self.get_response_data()
+        if 2 in versions and self._content:
+            combined = ''.join(self._content)
+            result[OUTPUT_MESSAGES] = [
+                {
+                    'role': 'assistant',
+                    'parts': [TextPart(type='text', content=combined)],
+                }
+            ]
         return result
 
 
