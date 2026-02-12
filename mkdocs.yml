@@ -199,6 +199,7 @@ nav:
           - SQL: reference/sql.md
           - Advanced:
               - Baggage: reference/advanced/baggage.md
+              - Export Retry Mechanism: reference/advanced/export-retry.md
               - Generators: reference/advanced/generators.md
               - Testing Logfire Instrumentation: reference/advanced/testing.md
               - Aggregating Metrics in Spans: reference/advanced/metrics-in-spans.md
