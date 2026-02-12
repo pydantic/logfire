@@ -157,7 +157,7 @@ def convert_messages_to_semconv(
                     system_instructions.append(part)
 
     for msg in messages:
-        role = msg.get('role', 'unknown')
+        role: Role = msg.get('role') or 'user'
         content = msg.get('content')
 
         parts: list[MessagePart] = []
@@ -170,7 +170,7 @@ def convert_messages_to_semconv(
                     parts.append(_convert_content_part(part))
 
         message: ChatMessage = {
-            'role': cast(Role, role),
+            'role': role,
             'parts': parts,
         }
         input_messages.append(message)
