@@ -15,11 +15,26 @@ from typing_extensions import NotRequired, TypeAlias, TypedDict
 SemconvVersion = Literal[1, 'latest']
 
 
+ALLOWED_VERSIONS: frozenset[SemconvVersion] = frozenset((1, 'latest'))
+
+
 def normalize_versions(version: SemconvVersion | Sequence[SemconvVersion]) -> frozenset[SemconvVersion]:
-    """Normalize a version parameter to a frozenset of version values."""
+    """Normalize a version parameter to a validated frozenset of version values."""
     if isinstance(version, (int, str)):
-        return frozenset({version})
-    return frozenset(version)
+        versions: frozenset[Any] = frozenset({version})
+    else:
+        versions = frozenset(version)
+
+    invalid = versions - ALLOWED_VERSIONS
+    if invalid:
+        raise ValueError(
+            f"Invalid semconv version(s): {sorted(invalid, key=repr)!r}. Supported versions are: 1, 'latest'."
+        )
+
+    if not versions:
+        raise ValueError("At least one semconv version must be specified. Supported versions are: 1, 'latest'.")
+
+    return versions
 
 
 # Provider and operation
