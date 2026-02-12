@@ -691,7 +691,7 @@ agent_config = logfire.var(
     If `LOGFIRE_API_KEY` is set in your environment, variable APIs will **automatically** use the remote provider without needing `variables=VariablesOptions()` in `configure()`. The first time a variable is resolved, the SDK detects the API key and lazily initializes the remote provider with default options. You only need to pass `variables=VariablesOptions(...)` explicitly if you want to customize options like `polling_interval` or `block_before_first_resolve`.
 
 !!! note "API Key Required"
-    Remote variables require an API key with the `project:read_variables` scope. This is different from the write token (`LOGFIRE_TOKEN`) used to send traces and logs. Set the API key via the `LOGFIRE_API_KEY` environment variable or pass it directly to `VariablesOptions(api_key=...)`.
+    Remote variables require an API key with the `project:read_variables` scope (or `project:read_public_variables` for access to public variables only). This is different from the write token (`LOGFIRE_TOKEN`) used to send traces and logs. Set the API key via the `LOGFIRE_API_KEY` environment variable or pass it directly to `VariablesOptions(api_key=...)`. See [Public and Private Variables](#public-and-private-variables) for details on the different scopes.
 
 **How remote variables work:**
 
@@ -749,7 +749,57 @@ POST /v1/ofrep/v1/evaluate/flags
 - The bulk endpoint returns an `ETag` header.
 - If the client sends `If-None-Match` with the same value, the server returns `304 Not Modified`.
 
-These endpoints require an API key with the `project:read_variables` scope.
+These endpoints require an API key with the `project:read_variables` or `project:read_public_variables` scope (see below).
+
+### Public and Private Variables
+
+By default, variables are **private** — they are only accessible with an API key that has the full `project:read_variables` scope. You can mark a variable as **public** to make it accessible with the more restricted `project:read_public_variables` scope.
+
+This distinction is useful when you need to read variable values from less trusted environments (e.g., client-side applications, third-party integrations, or edge services) without exposing your entire variable configuration:
+
+- **Private variables** (default): Only accessible with `project:read_variables`. Use this for sensitive configuration like internal prompts, pricing parameters, or anything you don't want exposed to client-side code.
+- **Public variables**: Accessible with either `project:read_variables` or `project:read_public_variables`. Use this for configuration that is safe to expose, like feature flags, UI theme settings, or public-facing behavior toggles.
+
+**API key scopes for variables:**
+
+| Scope | Description |
+|-------|-------------|
+| `project:read_variables` | Read all variables (both public and private) |
+| `project:read_public_variables` | Read only variables marked as public |
+| `project:write_variables` | Create, update, and delete variables and variable types |
+
+**Setting a variable as public:**
+
+The `public` field can be set when creating or updating a variable via the API. Variables default to private (`public: false`) when created.
+
+```python skip="true"
+# When pushing variables, the 'public' field can be set in the variable definition
+# via the API. For example, using the bulk upsert endpoint:
+import httpx
+
+httpx.post(
+    'https://logfire-api.pydantic.dev/v1/variables/bulk/',
+    headers={'Authorization': 'Bearer YOUR_API_KEY'},
+    json=[
+        {
+            'name': 'feature_flag',
+            'json_schema': {'type': 'boolean'},
+            'rollout': {'labels': {}},
+            'overrides': [],
+            'public': True,  # Makes this variable accessible with read_public_variables scope
+        },
+    ],
+)
+```
+
+**Typical setup:**
+
+1. Create an API key with `project:read_variables` for your backend services (full access to all variables)
+2. Create a separate API key with only `project:read_public_variables` for client-side or less trusted environments
+3. Mark variables as public that are safe to expose to those environments
+
+!!! note "OFREP and public variables"
+    The OFREP endpoints (`/v1/ofrep/v1/evaluate/flags/...`) accept both `project:read_variables` and `project:read_public_variables` scopes. When using `project:read_public_variables`, only variables marked as public are returned in evaluations. This makes OFREP suitable for client-side feature flag evaluation with restricted API keys.
 
 ### Pushing Variables from Code
 
@@ -902,6 +952,7 @@ logfire.variables_push_types([
 | `types` | List of types to push. Items can be a type (uses `__name__`) or a tuple of `(type, name)` for explicit naming. |
 | `dry_run` | If `True`, shows what would change without actually applying changes. |
 | `yes` | If `True`, skips the confirmation prompt. |
+| `strict` | If `True`, fails if any existing variable label values are incompatible with the new type schema. |
 
 **Example output:**
 
