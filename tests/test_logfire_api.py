@@ -141,6 +141,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         'variables_pull_config',
         'variables_build_config',
         'VariablesOptions',
+        'LocalVariablesOptions',
     ]:
         logfire__all__.discard(name)
 
