@@ -306,6 +306,8 @@ class VariableConfig(BaseModel):
     """Description of the variable."""
     json_schema: dict[str, Any] | None = None
     """JSON schema describing the expected type of this variable's values."""
+    type_name: str | None = None
+    """Name of the variable type this variable references, if any."""
     aliases: list[VariableName] | None = None
     """Alternative names that resolve to this variable; useful for name migrations."""
     example: str | None = None

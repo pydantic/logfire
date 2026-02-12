@@ -2580,6 +2580,7 @@ class Logfire:
         *,
         dry_run: bool = False,
         yes: bool = False,
+        strict: bool = False,
     ) -> bool:
         """Push variable type definitions to the configured variable provider.
 
@@ -2590,6 +2591,7 @@ class Logfire:
         - Creates new types that don't exist in the provider
         - Updates schemas for existing types if they've changed
         - Shows a diff of changes before applying
+        - Checks if existing variable label values are compatible with the new schemas
 
         The provider is determined by the Logfire configuration. For remote providers,
         this requires proper authentication (via VariablesOptions or LOGFIRE_API_KEY).
@@ -2600,6 +2602,8 @@ class Logfire:
                 - A tuple of (type, name) for explicit naming
             dry_run: If True, only show what would change without applying.
             yes: If True, skip confirmation prompt.
+            strict: If True, abort when existing label values are incompatible with
+                the new type schema.
 
         Returns:
             True if changes were applied (or would be applied in dry_run mode), False otherwise.
@@ -2635,7 +2639,7 @@ class Logfire:
             ```
         """
         provider = self.config.get_variable_provider()
-        return provider.push_variable_types(types, dry_run=dry_run, yes=yes)
+        return provider.push_variable_types(types, dry_run=dry_run, yes=yes, strict=strict)
 
     def variables_validate(
         self,

@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar
 SyncMode = Literal['merge', 'replace']
 
 if TYPE_CHECKING:
+    from pydantic import TypeAdapter
+
     import logfire
     from logfire.variables.config import VariableConfig, VariablesConfig, VariableTypeConfig
     from logfire.variables.variable import Variable
@@ -331,6 +333,83 @@ def _check_label_compatibility(
         )
 
 
+def _check_all_label_compatibility(
+    variable: Variable[object],
+    server_var: VariableConfig,
+) -> list[LabelCompatibility]:
+    """Check all labeled values and latest_version against the variable's Python type.
+
+    Returns a list of incompatible labels (empty if all are compatible).
+    """
+    from logfire.variables.config import LabeledValue
+
+    incompatible: list[LabelCompatibility] = []
+    for label, labeled_value in server_var.labels.items():
+        if isinstance(labeled_value, LabeledValue):
+            compat = _check_label_compatibility(
+                variable,
+                label,
+                labeled_value.serialized_value,
+            )
+            if not compat.is_compatible:
+                incompatible.append(compat)
+    # Also check latest version
+    if server_var.latest_version is not None:
+        compat = _check_label_compatibility(
+            variable,
+            'latest',
+            server_var.latest_version.serialized_value,
+        )
+        if not compat.is_compatible:
+            incompatible.append(compat)
+    return incompatible
+
+
+def _check_type_label_compatibility(
+    adapter: TypeAdapter[Any],
+    server_var: VariableConfig,
+) -> list[LabelCompatibility]:
+    """Check all labeled values and latest_version against a TypeAdapter.
+
+    Similar to _check_all_label_compatibility but works with a TypeAdapter
+    instead of a Variable instance, for use with push_variable_types.
+
+    Returns a list of incompatible labels (empty if all are compatible).
+    """
+    from pydantic import ValidationError
+
+    from logfire.variables.config import LabeledValue
+
+    incompatible: list[LabelCompatibility] = []
+    for label, labeled_value in server_var.labels.items():
+        if isinstance(labeled_value, LabeledValue):
+            try:
+                adapter.validate_json(labeled_value.serialized_value)
+            except ValidationError as e:
+                incompatible.append(
+                    LabelCompatibility(
+                        label=label,
+                        serialized_value=labeled_value.serialized_value,
+                        is_compatible=False,
+                        error=str(e),
+                    )
+                )
+    # Also check latest version
+    if server_var.latest_version is not None:
+        try:
+            adapter.validate_json(server_var.latest_version.serialized_value)
+        except ValidationError as e:
+            incompatible.append(
+                LabelCompatibility(
+                    label='latest',
+                    serialized_value=server_var.latest_version.serialized_value,
+                    is_compatible=False,
+                    error=str(e),
+                )
+            )
+    return incompatible
+
+
 def _compute_diff(
     variables: Sequence[Variable[object]],
     server_config: VariablesConfig,
@@ -382,28 +461,8 @@ def _compute_diff(
             description_differs = local_desc_normalized != server_desc_normalized
 
             if schema_changed:
-                from logfire.variables.config import LabeledValue
-
                 # Schema changed - check label value compatibility
-                incompatible: list[LabelCompatibility] = []
-                for label, labeled_value in server_var.labels.items():
-                    if isinstance(labeled_value, LabeledValue):
-                        compat = _check_label_compatibility(
-                            variable,
-                            label,
-                            labeled_value.serialized_value,
-                        )
-                        if not compat.is_compatible:
-                            incompatible.append(compat)
-                # Also check latest version
-                if server_var.latest_version is not None:
-                    compat = _check_label_compatibility(
-                        variable,
-                        'latest',
-                        server_var.latest_version.serialized_value,
-                    )
-                    if not compat.is_compatible:
-                        incompatible.append(compat)
+                incompatible = _check_all_label_compatibility(variable, server_var)
 
                 changes.append(
                     VariableChange(
@@ -418,11 +477,14 @@ def _compute_diff(
                     )
                 )
             else:
-                # No schema change needed
+                # No schema change needed - still check label value compatibility
+                incompatible = _check_all_label_compatibility(variable, server_var)
+
                 changes.append(
                     VariableChange(
                         name=variable.name,
                         change_type='no_change',
+                        incompatible_labels=incompatible if incompatible else None,
                         local_description=local_description,
                         server_description=server_description,
                         description_differs=description_differs,
@@ -468,6 +530,16 @@ def _format_diff(diff: VariableDiff) -> str:
         lines.append(f'\n{ANSI_GRAY}=== No changes needed ({len(unchanged)} variables) ==={ANSI_RESET}')
         for change in unchanged:
             lines.append(f'  {ANSI_GRAY}  {change.name}{ANSI_RESET}')
+
+    # Show validation warnings for unchanged variables with incompatible label values
+    unchanged_with_incompatible = [c for c in unchanged if c.incompatible_labels]
+    if unchanged_with_incompatible:
+        lines.append(f'\n{ANSI_YELLOW}=== Validation warnings (schema unchanged) ==={ANSI_RESET}')
+        for change in unchanged_with_incompatible:
+            lines.append(f'  {ANSI_YELLOW}\u26a0 {change.name}{ANSI_RESET}')
+            lines.append(f'    {ANSI_RED}Incompatible label values:{ANSI_RESET}')
+            for compat in change.incompatible_labels:  # type: ignore[union-attr]
+                lines.append(f'      - {compat.label}: {compat.error}')
 
     if diff.orphaned_server_variables:
         lines.append(f'\n{ANSI_GRAY}=== Server-only variables (not in local code) ==={ANSI_RESET}')
@@ -953,19 +1025,26 @@ class VariableProvider(ABC):
         # Show diff
         print(_format_diff(diff))
 
-        if not diff.has_changes:
-            print(f'\n{ANSI_GREEN}No changes needed. Provider is up to date.{ANSI_RESET}')
-            return False
-
-        # Check for incompatible label values
-        incompatible_changes = [c for c in diff.changes if c.change_type == 'update_schema' and c.incompatible_labels]
+        # Check for incompatible label values across all change types
+        incompatible_changes = [c for c in diff.changes if c.incompatible_labels]
         if incompatible_changes:
-            message = 'Some changes will result in label values incompatible with the new schema.'
+            has_schema_incompatible = any(c.change_type == 'update_schema' for c in incompatible_changes)
+            has_unchanged_incompatible = any(c.change_type == 'no_change' for c in incompatible_changes)
+            if has_schema_incompatible and has_unchanged_incompatible:
+                message = 'Some existing label values are incompatible with the variable types, and some schema changes will make additional values incompatible.'
+            elif has_schema_incompatible:
+                message = 'Some schema changes will result in label values incompatible with the new schema.'
+            else:
+                message = 'Some existing label values are incompatible with the variable types (schema unchanged).'
             if strict:
-                print(f'\n{ANSI_RED}Error: {message}\nRemove --strict flag to proceed anyway.{ANSI_RESET}')
+                print(f'\n{ANSI_RED}Error: {message}\nSet strict=False to proceed anyway.{ANSI_RESET}')
                 return False
             else:
                 print(f'\n{ANSI_YELLOW}Warning: {message}{ANSI_RESET}')
+
+        if not diff.has_changes:
+            print(f'\n{ANSI_GREEN}No changes needed. Provider is up to date.{ANSI_RESET}')
+            return False
 
         if dry_run:
             print(f'\n{ANSI_YELLOW}Dry run mode - no changes applied.{ANSI_RESET}')
@@ -1128,6 +1207,7 @@ class VariableProvider(ABC):
         *,
         dry_run: bool = False,
         yes: bool = False,
+        strict: bool = False,
     ) -> bool:
         """Push variable type definitions to this provider.
 
@@ -1135,6 +1215,7 @@ class VariableProvider(ABC):
         - Creates new types that don't exist in the provider
         - Updates JSON schemas for existing types if they've changed
         - Warns about schema changes
+        - Checks if existing variable label values are compatible with the new schemas
 
         Args:
             types: Types to push. Items can be:
@@ -1142,6 +1223,8 @@ class VariableProvider(ABC):
                 - A tuple of (type, name) for explicit naming
             dry_run: If True, only show what would change without applying.
             yes: If True, skip confirmation prompt.
+            strict: If True, abort when existing label values are incompatible with
+                the new type schema.
 
         Returns:
             True if changes were applied (or would be applied in dry_run mode), False otherwise.
@@ -1184,8 +1267,9 @@ class VariableProvider(ABC):
             print(f'{ANSI_RED}Error fetching current types: {e}{ANSI_RESET}')
             return False
 
-        # Build list of type configs to push
+        # Build list of type configs to push, keeping adapters for validation
         type_configs: list[VariableTypeConfig] = []
+        type_adapters: dict[str, TypeAdapter[Any]] = {}
         for item in types:
             if isinstance(item, tuple):
                 t, name = item
@@ -1197,6 +1281,7 @@ class VariableProvider(ABC):
             json_schema = adapter.json_schema()
             source_hint = get_source_hint(t)
 
+            type_adapters[name] = adapter
             type_configs.append(
                 VariableTypeConfig(
                     name=name,
@@ -1237,6 +1322,40 @@ class VariableProvider(ABC):
             print(f'\n{ANSI_DIM}Unchanged ({len(unchanged)}):{ANSI_RESET}')
             for name in unchanged:
                 print(f'  = {name}')
+
+        # Check label compatibility for updated types
+        incompatible_vars: dict[str, list[tuple[str, LabelCompatibility]]] = {}
+        if updates:
+            try:
+                server_config = self.get_all_variables_config()
+                for type_name in updates:
+                    adapter = type_adapters[type_name]
+                    # Find variables that reference this type
+                    for var_config in server_config.variables.values():
+                        if var_config.type_name != type_name:
+                            continue
+                        incompatible = _check_type_label_compatibility(adapter, var_config)
+                        if incompatible:
+                            var_issues = incompatible_vars.setdefault(type_name, [])
+                            for compat in incompatible:
+                                var_issues.append((var_config.name, compat))
+            except Exception as e:
+                print(f'{ANSI_YELLOW}Warning: Could not check label compatibility: {e}{ANSI_RESET}')
+
+        if incompatible_vars:
+            print(f'\n{ANSI_YELLOW}=== Label compatibility warnings ==={ANSI_RESET}')
+            for type_name, issues in incompatible_vars.items():
+                print(f'  {ANSI_YELLOW}Type: {type_name}{ANSI_RESET}')
+                for var_name, compat in issues:
+                    print(
+                        f'    {ANSI_RED}\u26a0 Variable {var_name!r}, label {compat.label!r}: {compat.error}{ANSI_RESET}'
+                    )
+            message = 'Some existing label values are incompatible with the new type schema.'
+            if strict:
+                print(f'\n{ANSI_RED}Error: {message}\nSet strict=False to proceed anyway.{ANSI_RESET}')
+                return False
+            else:
+                print(f'\n{ANSI_YELLOW}Warning: {message}{ANSI_RESET}')
 
         if not creates and not updates:
             print(f'\n{ANSI_GREEN}No changes needed. Types are up to date.{ANSI_RESET}')
