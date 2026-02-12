@@ -1,0 +1,61 @@
+interactions:
+- request:
+    body: '{"model": "gpt-3.5-turbo-instruct", "prompt": "What is four plus five?",
+      "max_tokens": 10}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate, zstd
+      connection:
+      - keep-alive
+      content-length:
+      - '90'
+      content-type:
+      - application/json
+      host:
+      - api.openai.com
+      user-agent:
+      - OpenAI/Python 1.109.1
+      x-stainless-arch:
+      - arm64
+      x-stainless-async:
+      - 'false'
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - MacOS
+      x-stainless-package-version:
+      - 1.109.1
+      x-stainless-read-timeout:
+      - '600'
+      x-stainless-retry-count:
+      - '0'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.12.9
+    method: POST
+    uri: https://api.openai.com/v1/completions
+  response:
+    body:
+      string: !!binary |
+        H4sIACtAjWkC/0WOWw6CMBBFt0L6LUZE8LEIN2AMoWWEauk0dJqQEPbujB/ye+49d2ZRtlO3TJkx
+        uJwgUnEsW23ULlOo32BIQoKZGoNcAbLoJTQTtASisnCq6vPlemA8YgdOlD5QXu6rnNKkMbc+0pR4
+        TMwBrYHIpcfyW5b63XqQ0PoOZgay5bAPE2pp+uQck5f1Ng4Nn478BWuRMKj1yVGKbQ+MFsXOGKgh
+        /IAXt5Kb/983XjAnpNZtqF7XL1SZr6cQAQAA
+    headers:
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 11 Feb 2026 23:43:50 GMT
+      Server:
+      - cloudflare
+    status:
+      code: 200
+      message: OK
+version: 1

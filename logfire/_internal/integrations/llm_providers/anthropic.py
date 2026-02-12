@@ -109,10 +109,10 @@ def get_endpoint_config(
             # Convert messages to semantic convention format
             messages: list[dict[str, Any]] = json_data.get('messages', [])
             system: str | list[dict[str, Any]] | None = json_data.get('system')
-            if messages or system:  # pragma: no branch
+            if messages or system:
                 input_messages, system_instructions = convert_messages_to_semconv(messages, system)
                 span_data[INPUT_MESSAGES] = input_messages
-                if system_instructions:  # pragma: no branch
+                if system_instructions:
                     span_data[SYSTEM_INSTRUCTIONS] = system_instructions
 
         return EndpointConfig(
@@ -146,7 +146,7 @@ def convert_messages_to_semconv(
     system_instructions: SystemInstructions = []
 
     # Handle system parameter (Anthropic uses a separate 'system' parameter)
-    if system:  # pragma: no branch
+    if system:
         if isinstance(system, str):
             system_instructions.append(TextPart(type='text', content=system))
         else:  # pragma: no cover
@@ -162,7 +162,7 @@ def convert_messages_to_semconv(
 
         parts: list[MessagePart] = []
 
-        if content is not None:  # pragma: no branch
+        if content is not None:
             if isinstance(content, str):
                 parts.append(TextPart(type='text', content=content))
             elif isinstance(content, list):  # pragma: no cover
@@ -287,7 +287,7 @@ class AnthropicMessageStreamState(StreamState):
     def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
         versions = self._versions
         result = dict(**span_data)
-        if 1 in versions:  # pragma: no branch
+        if 1 in versions:
             result['response_data'] = self.get_response_data()
         if 'latest' in versions and self._content:
             combined = ''.join(self._content)
@@ -307,13 +307,13 @@ def on_response(
     """Updates the span based on the type of response."""
     versions: frozenset[SemconvVersion] = version if isinstance(version, frozenset) else frozenset({version})
 
-    if isinstance(response, Message):  # pragma: no branch
+    if isinstance(response, Message):
         if 1 in versions:
             message: dict[str, Any] = {'role': 'assistant'}
             for block in response.content:
                 if block.type == 'text':
                     message['content'] = block.text
-                elif block.type == 'tool_use':  # pragma: no branch
+                elif block.type == 'tool_use':
                     message.setdefault('tool_calls', []).append(
                         {
                             'id': block.id,
