@@ -133,6 +133,7 @@ nav:
           - Collect Metrics from your Cloud Provider: how-to-guides/cloud-metrics.md
           - Connect to the MCP Server: how-to-guides/mcp-server.md
           - Setup Slack Alerts: how-to-guides/setup-slack-alerts.md
+          - Client-Side Feature Flags with OFREP: how-to-guides/client-side-feature-flags.md
       - Integrations:
           - Integrations: integrations/index.md
           - LLMs:

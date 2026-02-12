@@ -751,6 +751,8 @@ POST /v1/ofrep/v1/evaluate/flags
 
 These endpoints require an API key with the `project:read_variables` or `project:read_external_variables` scope (see below).
 
+For a step-by-step guide on using OFREP to evaluate feature flags in a web frontend or other client application, see [Client-Side Feature Flags with OFREP](../../how-to-guides/client-side-feature-flags.md).
+
 ### External and Internal Variables
 
 By default, variables are **internal** — they are only accessible with an API key that has the full `project:read_variables` scope. You can mark a variable as **external** to make it accessible with the more restricted `project:read_external_variables` scope.
