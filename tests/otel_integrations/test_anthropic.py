@@ -1113,7 +1113,7 @@ def test_extract_request_parameters_without_max_tokens() -> None:
 
 
 def test_sync_messages_version_latest(exporter: TestExporter) -> None:
-    """Test that version='latest' emits only semconv attributes without request_data/response_data."""
+    """Test that version='latest' uses semconv attributes with minimal request_data and no response_data."""
     with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
         anthropic_client = anthropic.Anthropic(api_key='foobar', http_client=httpx_client)
         with logfire.instrument_anthropic(anthropic_client, version='latest'):

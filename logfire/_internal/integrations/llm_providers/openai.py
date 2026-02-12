@@ -244,7 +244,7 @@ def convert_chat_completions_to_semconv(
     input_messages: InputMessages = []
 
     for msg in messages:
-        role = msg.get('role', 'unknown')
+        role: Role = msg.get('role') or 'user'
         content = msg.get('content')
         tool_call_id = msg.get('tool_call_id')
         tool_calls = msg.get('tool_calls')
@@ -291,7 +291,7 @@ def convert_chat_completions_to_semconv(
 
         # Build message structure
         message: ChatMessage = {
-            'role': cast('Role', role),
+            'role': role,
             'parts': parts,
         }
         if name := msg.get('name'):  # pragma: no cover
