@@ -770,7 +770,7 @@ This distinction is useful when you need to read variable values from less trust
 
 **Setting a variable as public:**
 
-The `public` field can be set when creating or updating a variable via the API. Variables default to private (`public: false`) when created.
+You can set a variable as public in the Logfire UI when creating a variable (via the "Public" toggle on the create form) or on the variable's **Settings** tab. You can also set the `public` field when creating or updating a variable via the API. Variables default to private (`public: false`) when created.
 
 ```python skip="true"
 # When pushing variables, the 'public' field can be set in the variable definition
