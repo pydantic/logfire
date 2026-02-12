@@ -1112,6 +1112,99 @@ def test_extract_request_parameters_without_max_tokens() -> None:
     assert 'gen_ai.request.max_tokens' not in span_data
 
 
+def test_convert_messages_no_system() -> None:
+    """Test convert_messages_to_semconv with no system parameter."""
+    from logfire._internal.integrations.llm_providers.anthropic import convert_messages_to_semconv
+
+    input_messages, system_instructions = convert_messages_to_semconv([{'role': 'user', 'content': 'Hello'}], None)
+
+    assert (input_messages, system_instructions) == snapshot(
+        ([{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hello'}]}], [])
+    )
+
+
+def test_convert_messages_empty_messages_and_system() -> None:
+    """Test convert_messages_to_semconv with empty messages and no system."""
+    from logfire._internal.integrations.llm_providers.anthropic import convert_messages_to_semconv
+
+    input_messages, system_instructions = convert_messages_to_semconv([], None)
+
+    assert (input_messages, system_instructions) == snapshot(([], []))
+
+
+def test_convert_messages_content_none() -> None:
+    """Test convert_messages_to_semconv with a message that has content=None."""
+    from logfire._internal.integrations.llm_providers.anthropic import convert_messages_to_semconv
+
+    input_messages, system_instructions = convert_messages_to_semconv([{'role': 'user', 'content': None}], None)
+
+    assert (input_messages, system_instructions) == snapshot(([{'role': 'user', 'parts': []}], []))
+
+
+def test_on_response_unknown_block_type() -> None:
+    """Test on_response with a block that's neither text nor tool_use."""
+    from logfire._internal.integrations.llm_providers.anthropic import on_response
+
+    message = Message.model_construct(
+        id='test_id',
+        content=[TextBlock(text='Hello', type='text')],
+        model='claude-3-haiku-20240307',
+        role='assistant',
+        type='message',
+        stop_reason='end_turn',
+        usage=Usage(input_tokens=2, output_tokens=3),
+    )
+
+    class UnknownBlock:
+        type = 'thinking'
+        text = 'some thought'
+
+    message.content.append(UnknownBlock())  # type: ignore
+
+    class MockSpan:
+        def __init__(self):
+            self.attributes: dict[str, Any] = {}
+
+        def set_attribute(self, key: str, value: Any) -> None:
+            self.attributes[key] = value
+
+    span = MockSpan()
+    on_response(message, span, version=1)  # type: ignore
+
+    assert span.attributes.get('response_data') == snapshot(
+        {'message': {'role': 'assistant', 'content': 'Hello'}, 'usage': Usage(input_tokens=2, output_tokens=3)}
+    )
+
+
+def test_get_endpoint_config_latest_no_messages_no_system() -> None:
+    """Test get_endpoint_config with 'latest' version and empty messages + no system."""
+    from logfire._internal.integrations.llm_providers.anthropic import get_endpoint_config
+
+    class MockOptions:
+        url = '/v1/messages'
+        json_data: dict[str, Any] = {'model': 'claude-3-haiku', 'messages': [], 'max_tokens': 100}
+
+    config = get_endpoint_config(MockOptions(), version='latest')  # type: ignore
+
+    assert config.message_template == 'Message with {request_data[model]!r}'
+    assert 'gen_ai.input.messages' not in config.span_data
+    assert 'gen_ai.system_instructions' not in config.span_data
+
+
+def test_get_endpoint_config_latest_messages_no_system() -> None:
+    """Test get_endpoint_config with messages but no system."""
+    from logfire._internal.integrations.llm_providers.anthropic import get_endpoint_config
+
+    class MockOptions:
+        url = '/v1/messages'
+        json_data = {'model': 'claude-3-haiku', 'messages': [{'role': 'user', 'content': 'Hi'}], 'max_tokens': 100}
+
+    config = get_endpoint_config(MockOptions(), version='latest')  # type: ignore
+
+    assert 'gen_ai.input.messages' in config.span_data
+    assert 'gen_ai.system_instructions' not in config.span_data
+
+
 @pytest.mark.vcr()
 def test_sync_messages_version_latest(exporter: TestExporter) -> None:
     """Test that version='latest' uses semconv attributes with minimal request_data and no response_data."""

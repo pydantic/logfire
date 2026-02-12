@@ -2558,7 +2558,7 @@ def test_embeddings_version_v1_only(exporter: TestExporter) -> None:
 
 @pytest.mark.vcr()
 def test_responses_stream(exporter: TestExporter) -> None:
-    client = openai.Client()
+    client = openai.Client(api_key='foobar')
     logfire.instrument_openai(client, version=[1, 'latest'])
     with client.responses.stream(
         model='gpt-4.1',
@@ -3399,7 +3399,7 @@ def test_create_thread(instrumented_client: openai.Client, exporter: TestExporte
 
 @pytest.mark.vcr()
 def test_responses_api(exporter: TestExporter) -> None:
-    client = openai.Client()
+    client = openai.Client(api_key='foobar')
     logfire.instrument_openai(client, version=[1, 'latest'])
     tools: Any = [
         {
@@ -3653,7 +3653,7 @@ def test_responses_api(exporter: TestExporter) -> None:
 
 @pytest.mark.vcr()
 def test_responses_api_nonrecording(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
-    client = openai.Client()
+    client = openai.Client(api_key='foobar')
     logfire.instrument_openai(client, version=[1, 'latest'])
     logfire.configure(**config_kwargs, sampling=logfire.SamplingOptions(head=0))
     with logfire.span('span'):
@@ -3665,7 +3665,7 @@ def test_responses_api_nonrecording(exporter: TestExporter, config_kwargs: dict[
 
 @pytest.mark.vcr()
 def test_openrouter_streaming_reasoning(exporter: TestExporter) -> None:
-    client = openai.Client(base_url='https://openrouter.ai/api/v1')
+    client = openai.Client(api_key='foobar', base_url='https://openrouter.ai/api/v1')
     logfire.instrument_openai(client, version=[1, 'latest'])
 
     response = client.chat.completions.create(
@@ -3860,7 +3860,7 @@ So, while I can't genuinely answer it for myself, how are *you* doing today, and
 def test_chat_completions_with_audio_input(exporter: TestExporter) -> None:
     import base64
 
-    client = openai.Client()
+    client = openai.Client(api_key='foobar')
     logfire.instrument_openai(client, version=[1, 'latest'])
     import struct
     import wave
@@ -4029,3 +4029,686 @@ def test_chat_completions_with_audio_input(exporter: TestExporter) -> None:
             }
         ]
     )
+
+
+def test_input_to_events_unknown_type() -> None:
+    """Test input_to_events with an unknown input type."""
+    from logfire._internal.integrations.llm_providers.openai import input_to_events
+
+    inp: dict[str, Any] = {'type': 'some_unknown_type', 'role': 'user', 'data': 'some data'}
+    events = input_to_events(inp, {})
+
+    assert events == snapshot(
+        [
+            {
+                'event.name': 'gen_ai.unknown',
+                'role': 'user',
+                'content': 'some_unknown_type\n\nSee JSON for details',
+                'data': {'type': 'some_unknown_type', 'role': 'user', 'data': 'some data'},
+            }
+        ]
+    )
+
+
+def test_input_to_events_unknown_type_no_role() -> None:
+    """Test unknown_event with no role."""
+    from logfire._internal.integrations.llm_providers.openai import input_to_events
+
+    inp: dict[str, Any] = {'type': 'weird'}
+    events = input_to_events(inp, {})
+    assert events == snapshot(
+        [
+            {
+                'event.name': 'gen_ai.unknown',
+                'role': 'unknown',
+                'content': 'weird\n\nSee JSON for details',
+                'data': {'type': 'weird'},
+            }
+        ]
+    )
+
+
+def test_inputs_to_events_no_inputs() -> None:
+    """Test inputs_to_events with no inputs."""
+    from logfire._internal.integrations.llm_providers.openai import inputs_to_events
+
+    assert inputs_to_events(None, None) == snapshot([])
+    assert inputs_to_events(None, 'Be nice') == snapshot(
+        [{'event.name': 'gen_ai.system.message', 'content': 'Be nice', 'role': 'system'}]
+    )
+
+
+def test_get_endpoint_config_chat_completions_latest_empty_messages() -> None:
+    """Test get_endpoint_config for /chat/completions with latest version and empty messages."""
+    from logfire._internal.integrations.llm_providers.openai import get_endpoint_config
+
+    class MockOptions:
+        url = '/chat/completions'
+        json_data: dict[str, Any] = {'model': 'gpt-4', 'messages': []}
+
+    config = get_endpoint_config(MockOptions(), version='latest')  # type: ignore
+    assert config.message_template == 'Chat Completion with {request_data[model]!r}'
+    assert 'gen_ai.input.messages' not in config.span_data
+
+
+def test_get_endpoint_config_responses_v1_only() -> None:
+    """Test get_endpoint_config for /responses with version=1 only."""
+    from logfire._internal.integrations.llm_providers.openai import get_endpoint_config
+
+    class MockOptions:
+        url = '/responses'
+        json_data = {'model': 'gpt-4.1', 'input': 'Hello'}
+
+    config = get_endpoint_config(MockOptions(), version=1)  # type: ignore
+    assert config.message_template == 'Responses API with {gen_ai.request.model!r}'
+    assert 'events' in config.span_data
+    assert 'gen_ai.input.messages' not in config.span_data
+
+
+def test_get_endpoint_config_responses_latest_only() -> None:
+    """Test get_endpoint_config for /responses with version='latest' only."""
+    from logfire._internal.integrations.llm_providers.openai import get_endpoint_config
+
+    class MockOptions:
+        url = '/responses'
+        json_data = {'model': 'gpt-4.1', 'input': 'Hello'}
+
+    config = get_endpoint_config(MockOptions(), version='latest')  # type: ignore
+    assert config.message_template == 'Responses API with {gen_ai.request.model!r}'
+    assert 'events' not in config.span_data
+    assert 'gen_ai.input.messages' in config.span_data
+
+
+def test_get_endpoint_config_responses_latest_no_inputs() -> None:
+    """Test get_endpoint_config for /responses with latest but no inputs."""
+    from logfire._internal.integrations.llm_providers.openai import get_endpoint_config
+
+    class MockOptions:
+        url = '/responses'
+        json_data = {'model': 'gpt-4.1'}
+
+    config = get_endpoint_config(MockOptions(), version='latest')  # type: ignore
+    assert 'gen_ai.input.messages' not in config.span_data
+    assert 'gen_ai.system_instructions' not in config.span_data
+
+
+def test_convert_responses_inputs_no_instructions() -> None:
+    """Test convert_responses_inputs_to_semconv with no instructions."""
+    from logfire._internal.integrations.llm_providers.openai import convert_responses_inputs_to_semconv
+
+    input_messages, system_instructions = convert_responses_inputs_to_semconv(
+        [{'role': 'user', 'content': 'Hello'}], None
+    )
+    assert (input_messages, system_instructions) == snapshot(
+        ([{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hello'}]}], [])
+    )
+
+
+def test_convert_responses_inputs_no_inputs() -> None:
+    """Test convert_responses_inputs_to_semconv with no inputs."""
+    from logfire._internal.integrations.llm_providers.openai import convert_responses_inputs_to_semconv
+
+    input_messages, system_instructions = convert_responses_inputs_to_semconv(None, 'Be helpful')
+    assert (input_messages, system_instructions) == snapshot(([], [{'type': 'text', 'content': 'Be helpful'}]))
+
+
+def test_convert_responses_inputs_function_call_non_string_args() -> None:
+    """Test convert_responses_inputs_to_semconv with function_call with dict arguments."""
+    from logfire._internal.integrations.llm_providers.openai import convert_responses_inputs_to_semconv
+
+    inputs: list[dict[str, Any]] = [
+        {'type': 'function_call', 'call_id': 'call_1', 'name': 'get_weather', 'arguments': {'location': 'Paris'}},
+        {'type': 'function_call_output', 'call_id': 'call_1', 'output': 'Sunny'},
+    ]
+    input_messages, system_instructions = convert_responses_inputs_to_semconv(inputs, None)
+
+    assert (input_messages, system_instructions) == snapshot(
+        (
+            [
+                {
+                    'role': 'assistant',
+                    'parts': [
+                        {
+                            'type': 'tool_call',
+                            'id': 'call_1',
+                            'name': 'get_weather',
+                            'arguments': {'location': 'Paris'},
+                        }
+                    ],
+                },
+                {
+                    'role': 'tool',
+                    'parts': [{'type': 'tool_call_response', 'id': 'call_1', 'response': 'Sunny'}],
+                },
+            ],
+            [],
+        )
+    )
+
+
+def test_convert_responses_inputs_unknown_type() -> None:
+    """Test convert_responses_inputs_to_semconv with unknown type."""
+    from logfire._internal.integrations.llm_providers.openai import convert_responses_inputs_to_semconv
+
+    inputs: list[dict[str, Any]] = [
+        {'type': 'unknown_type', 'data': 'something'},
+        {'role': 'user', 'content': 'Hello'},
+    ]
+    input_messages, system_instructions = convert_responses_inputs_to_semconv(inputs, None)
+
+    assert (input_messages, system_instructions) == snapshot(
+        ([{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hello'}]}], [])
+    )
+
+
+def test_convert_responses_outputs_no_content() -> None:
+    """Test convert_responses_outputs_to_semconv with non-message output."""
+    from unittest.mock import MagicMock
+
+    from logfire._internal.integrations.llm_providers.openai import convert_responses_outputs_to_semconv
+
+    response = MagicMock()
+    out1 = MagicMock()
+    out1.model_dump.return_value = {'type': 'message', 'content': [{'type': 'output_text', 'text': 'Hello'}]}
+    out2 = MagicMock()
+    out2.model_dump.return_value = {'type': 'reasoning', 'content': None}
+    response.output = [out1, out2]
+
+    assert convert_responses_outputs_to_semconv(response) == snapshot(
+        [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Hello'}]}]
+    )
+
+
+def test_convert_responses_outputs_non_text_content() -> None:
+    """Test convert_responses_outputs_to_semconv with content items that aren't output_text."""
+    from unittest.mock import MagicMock
+
+    from logfire._internal.integrations.llm_providers.openai import convert_responses_outputs_to_semconv
+
+    response = MagicMock()
+    out = MagicMock()
+    out.model_dump.return_value = {
+        'type': 'message',
+        'content': [{'type': 'refusal', 'refusal': 'I cannot help with that'}],
+    }
+    response.output = [out]
+
+    assert convert_responses_outputs_to_semconv(response) == snapshot([{'role': 'assistant', 'parts': []}])
+
+
+def test_completion_stream_state_version_latest_only() -> None:
+    """Test OpenaiCompletionStreamState.get_attributes with version='latest'."""
+    from logfire._internal.integrations.llm_providers.openai import (
+        OpenaiCompletionStreamState,
+        _versioned_stream_cls,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    stream_cls = _versioned_stream_cls(OpenaiCompletionStreamState, frozenset({'latest'}))
+    state = stream_cls()
+    state._content = ['Hello', ' world']  # type: ignore[attr-defined]
+
+    result = state.get_attributes({'gen_ai.request.model': 'gpt-3.5-turbo'})
+    assert 'response_data' not in result
+    assert result['gen_ai.output.messages'] == snapshot(
+        [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Hello world'}]}]
+    )
+
+
+def test_completion_stream_state_version_latest_empty_content() -> None:
+    """Test OpenaiCompletionStreamState with latest version but no content."""
+    from logfire._internal.integrations.llm_providers.openai import (
+        OpenaiCompletionStreamState,
+        _versioned_stream_cls,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    stream_cls = _versioned_stream_cls(OpenaiCompletionStreamState, frozenset({'latest'}))
+    state = stream_cls()
+
+    result = state.get_attributes({})
+    assert 'response_data' not in result
+    assert 'gen_ai.output.messages' not in result
+
+
+def test_completion_stream_state_v1_only() -> None:
+    """Test OpenaiCompletionStreamState.get_attributes with version=1 only."""
+    from logfire._internal.integrations.llm_providers.openai import (
+        OpenaiCompletionStreamState,
+        _versioned_stream_cls,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    stream_cls = _versioned_stream_cls(OpenaiCompletionStreamState, frozenset({1}))
+    state = stream_cls()
+    state._content = ['Hello']  # type: ignore[attr-defined]
+
+    result = state.get_attributes({})
+    assert result['response_data'] == snapshot({'combined_chunk_content': 'Hello', 'chunk_count': 1})
+    assert 'gen_ai.output.messages' not in result
+
+
+def test_responses_stream_state_version_specific() -> None:
+    """Test OpenaiResponsesStreamState.get_attributes with specific versions."""
+    from unittest.mock import MagicMock
+
+    from logfire._internal.integrations.llm_providers.openai import (
+        OpenaiResponsesStreamState,
+        _versioned_stream_cls,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    # Test with 'latest' only and a truthy response
+    stream_cls = _versioned_stream_cls(OpenaiResponsesStreamState, frozenset({'latest'}))
+    state = stream_cls()
+    mock_response_latest = MagicMock()
+    mock_response_latest.output = []
+    state._state._completed_response = mock_response_latest  # type: ignore[attr-defined]
+
+    result = state.get_attributes({})
+    assert 'gen_ai.output.messages' in result
+    assert 'events' not in result
+
+    # Test with v1 only and a truthy response
+    stream_cls_v1 = _versioned_stream_cls(OpenaiResponsesStreamState, frozenset({1}))
+    state_v1 = stream_cls_v1()
+    mock_response = MagicMock()
+    mock_response.output = []
+    state_v1._state._completed_response = mock_response  # type: ignore[attr-defined]
+
+    result_v1 = state_v1.get_attributes({})
+    assert 'gen_ai.output.messages' not in result_v1
+    assert 'events' in result_v1
+
+    # Test with no response
+    state_none = stream_cls()
+    state_none._state._completed_response = None  # type: ignore[attr-defined]
+
+    result_none = state_none.get_attributes({})
+    assert 'gen_ai.output.messages' not in result_none
+    assert 'events' not in result_none
+
+
+@pytest.mark.vcr()
+def test_completions_version_v1_only(exporter: TestExporter) -> None:
+    """Test text completions with version=1 only."""
+    client = openai.Client(api_key='foobar')
+    logfire.instrument_openai(client, version=1)
+    response = client.completions.create(
+        model='gpt-3.5-turbo-instruct',
+        prompt='What is four plus five?',
+        max_tokens=10,
+    )
+    assert response.choices[0].text == 'Nine'
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Completion with {request_data[model]!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_completions_version_v1_only',
+                    'code.lineno': 123,
+                    'request_data': {
+                        'model': 'gpt-3.5-turbo-instruct',
+                        'prompt': 'What is four plus five?',
+                        'max_tokens': 10,
+                    },
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.operation.name': 'text_completion',
+                    'gen_ai.request.model': 'gpt-3.5-turbo-instruct',
+                    'gen_ai.request.max_tokens': 10,
+                    'async': False,
+                    'logfire.msg_template': 'Completion with {request_data[model]!r}',
+                    'logfire.msg': "Completion with 'gpt-3.5-turbo-instruct'",
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.system': 'openai',
+                    'gen_ai.response.model': IsStr(),
+                    'operation.cost': IsNumeric(),
+                    'gen_ai.response.id': IsStr(),
+                    'gen_ai.usage.input_tokens': IsInt(),
+                    'gen_ai.usage.output_tokens': IsInt(),
+                    'response_data': {
+                        'finish_reason': 'stop',
+                        'text': 'Nine',
+                        'usage': {
+                            'completion_tokens': IsInt(),
+                            'prompt_tokens': IsInt(),
+                            'total_tokens': IsInt(),
+                            'completion_tokens_details': None,
+                            'prompt_tokens_details': None,
+                        },
+                    },
+                    'gen_ai.response.finish_reasons': ['stop'],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.request.max_tokens': {},
+                            'async': {},
+                            'gen_ai.system': {},
+                            'gen_ai.response.model': {},
+                            'operation.cost': {},
+                            'gen_ai.response.id': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'response_data': {
+                                'type': 'object',
+                                'properties': {
+                                    'usage': {
+                                        'type': 'object',
+                                        'title': 'CompletionUsage',
+                                        'x-python-datatype': 'PydanticModel',
+                                    }
+                                },
+                            },
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
+                        },
+                    },
+                },
+            }
+        ]
+    )
+
+
+@pytest.mark.vcr()
+def test_completions_version_latest_only(exporter: TestExporter) -> None:
+    """Test text completions with version='latest' only."""
+    client = openai.Client(api_key='foobar')
+    logfire.instrument_openai(client, version='latest')
+    response = client.completions.create(
+        model='gpt-3.5-turbo-instruct',
+        prompt='What is four plus five?',
+        max_tokens=10,
+    )
+    assert response.choices[0].text == 'Nine'
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Completion with {request_data[model]!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_completions_version_latest_only',
+                    'code.lineno': 123,
+                    'request_data': {'model': 'gpt-3.5-turbo-instruct'},
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.operation.name': 'text_completion',
+                    'gen_ai.request.model': 'gpt-3.5-turbo-instruct',
+                    'gen_ai.request.max_tokens': 10,
+                    'async': False,
+                    'logfire.msg_template': 'Completion with {request_data[model]!r}',
+                    'logfire.msg': "Completion with 'gpt-3.5-turbo-instruct'",
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.system': 'openai',
+                    'gen_ai.response.model': IsStr(),
+                    'operation.cost': IsNumeric(),
+                    'gen_ai.response.id': IsStr(),
+                    'gen_ai.usage.input_tokens': IsInt(),
+                    'gen_ai.usage.output_tokens': IsInt(),
+                    'gen_ai.output.messages': [
+                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Nine'}], 'finish_reason': 'stop'}
+                    ],
+                    'gen_ai.response.finish_reasons': ['stop'],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.request.max_tokens': {},
+                            'async': {},
+                            'gen_ai.system': {},
+                            'gen_ai.response.model': {},
+                            'operation.cost': {},
+                            'gen_ai.response.id': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
+                        },
+                    },
+                },
+            }
+        ]
+    )
+
+
+@pytest.mark.vcr()
+def test_responses_api_version_v1_only(exporter: TestExporter) -> None:
+    """Test responses API with version=1 only."""
+    client = openai.Client(api_key='foobar')
+    logfire.instrument_openai(client, version=1)
+    response = client.responses.create(
+        model='gpt-4.1',
+        input='What is four plus five?',
+    )
+    assert response.output[0].content[0].text == 'Four plus five is nine.'  # type: ignore
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Responses API with {gen_ai.request.model!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_responses_api_version_v1_only',
+                    'code.lineno': 123,
+                    'request_data': {'model': 'gpt-4.1', 'stream': False},
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'gpt-4.1',
+                    'async': False,
+                    'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
+                    'logfire.msg': "Responses API with 'gpt-4.1'",
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.system': 'openai',
+                    'gen_ai.response.model': IsStr(),
+                    'operation.cost': IsNumeric(),
+                    'gen_ai.response.id': IsStr(),
+                    'gen_ai.usage.input_tokens': IsInt(),
+                    'gen_ai.usage.output_tokens': IsInt(),
+                    'events': [
+                        {'event.name': 'gen_ai.user.message', 'content': 'What is four plus five?', 'role': 'user'},
+                        {
+                            'event.name': 'gen_ai.assistant.message',
+                            'content': 'Four plus five is nine.',
+                            'role': 'assistant',
+                        },
+                    ],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
+                            'events': {'type': 'array'},
+                            'async': {},
+                            'gen_ai.system': {},
+                            'gen_ai.response.model': {},
+                            'operation.cost': {},
+                            'gen_ai.response.id': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                        },
+                    },
+                },
+            }
+        ]
+    )
+
+
+@pytest.mark.vcr()
+def test_responses_api_version_latest_only(exporter: TestExporter) -> None:
+    """Test responses API with version='latest' only."""
+    client = openai.Client(api_key='foobar')
+    logfire.instrument_openai(client, version='latest')
+    response = client.responses.create(
+        model='gpt-4.1',
+        input='What is four plus five?',
+    )
+    assert response.output[0].content[0].text == 'Four plus five is nine.'  # type: ignore
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Responses API with {gen_ai.request.model!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_responses_api_version_latest_only',
+                    'code.lineno': 123,
+                    'request_data': {'model': 'gpt-4.1', 'stream': False},
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'gpt-4.1',
+                    'gen_ai.input.messages': [
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
+                    ],
+                    'async': False,
+                    'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
+                    'logfire.msg': "Responses API with 'gpt-4.1'",
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.system': 'openai',
+                    'gen_ai.response.model': IsStr(),
+                    'operation.cost': IsNumeric(),
+                    'gen_ai.response.id': IsStr(),
+                    'gen_ai.usage.input_tokens': IsInt(),
+                    'gen_ai.usage.output_tokens': IsInt(),
+                    'gen_ai.output.messages': [
+                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Four plus five is nine.'}]}
+                    ],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'async': {},
+                            'gen_ai.system': {},
+                            'gen_ai.response.model': {},
+                            'operation.cost': {},
+                            'gen_ai.response.id': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.output.messages': {'type': 'array'},
+                        },
+                    },
+                },
+            }
+        ]
+    )
+
+
+@pytest.mark.vcr()
+def test_images_version_latest_only(exporter: TestExporter) -> None:
+    """Test images API with version='latest' only."""
+    client = openai.Client(api_key='foobar')
+    logfire.instrument_openai(client, version='latest')
+    response = client.images.generate(
+        model='dall-e-2',
+        prompt='A sunset',
+        size='256x256',
+    )
+    assert response.data[0].url == 'https://example.com/image.png'  # type: ignore[union-attr]
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Image Generation with {request_data[model]!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_openai.py',
+                    'code.function': 'test_images_version_latest_only',
+                    'code.lineno': 123,
+                    'request_data': {'model': 'dall-e-2'},
+                    'gen_ai.provider.name': 'openai',
+                    'gen_ai.operation.name': 'image_generation',
+                    'gen_ai.request.model': 'dall-e-2',
+                    'async': False,
+                    'logfire.msg_template': 'Image Generation with {request_data[model]!r}',
+                    'logfire.msg': "Image Generation with 'dall-e-2'",
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.system': 'openai',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
+                            'async': {},
+                            'gen_ai.system': {},
+                        },
+                    },
+                    'gen_ai.response.model': IsStr(),
+                },
+            }
+        ]
+    )
+
+
+def test_convert_chat_completions_with_list_content() -> None:
+    """Test convert_chat_completions_to_semconv with list content parts."""
+    from logfire._internal.integrations.llm_providers.openai import convert_chat_completions_to_semconv
+
+    messages: list[dict[str, Any]] = [
+        {'role': 'user', 'content': [{'type': 'text', 'text': 'Describe this image'}]},
+    ]
+    assert convert_chat_completions_to_semconv(messages) == snapshot(
+        [{'role': 'user', 'parts': [{'type': 'text', 'content': 'Describe this image'}]}]
+    )
+
+
+def test_get_endpoint_config_chat_completions_agent_span() -> None:
+    """Test get_endpoint_config when inside an agent span."""
+    from unittest.mock import patch
+
+    from logfire._internal.integrations.llm_providers.openai import get_endpoint_config
+
+    class MockOptions:
+        url = '/chat/completions'
+        json_data = {'model': 'gpt-4', 'messages': [{'role': 'user', 'content': 'Hi'}]}
+
+    with patch('logfire._internal.integrations.llm_providers.openai.is_current_agent_span', return_value=True):
+        config = get_endpoint_config(MockOptions(), version=frozenset({1, 'latest'}))  # type: ignore
+
+    assert config.message_template == ''
+    assert config.span_data == {}
+
+
+def test_get_endpoint_config_responses_agent_span() -> None:
+    """Test get_endpoint_config for /responses when inside an agent span."""
+    from unittest.mock import patch
+
+    from logfire._internal.integrations.llm_providers.openai import get_endpoint_config
+
+    class MockOptions:
+        url = '/responses'
+        json_data = {'model': 'gpt-4.1', 'input': 'Hello'}
+
+    with patch('logfire._internal.integrations.llm_providers.openai.is_current_agent_span', return_value=True):
+        config = get_endpoint_config(MockOptions(), version=frozenset({1, 'latest'}))  # type: ignore
+
+    assert config.message_template == ''
+    assert config.span_data == {}
