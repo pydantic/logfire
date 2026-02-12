@@ -758,6 +758,21 @@ def test_extract_request_parameters_max_output_tokens() -> None:
     assert span_data['gen_ai.request.max_tokens'] == 200
 
 
+def test_normalize_versions_validation() -> None:
+    from logfire._internal.integrations.llm_providers.semconv import normalize_versions
+
+    assert normalize_versions(1) == frozenset({1})
+    assert normalize_versions('latest') == frozenset({'latest'})
+    assert normalize_versions([1, 'latest']) == frozenset({1, 'latest'})
+
+    with pytest.raises(ValueError, match='Invalid semconv version'):
+        normalize_versions(2)  # type: ignore
+    with pytest.raises(ValueError, match='Invalid semconv version'):
+        normalize_versions('v2')  # type: ignore
+    with pytest.raises(ValueError, match='At least one semconv version'):
+        normalize_versions([])
+
+
 async def test_async_chat_completions(instrumented_async_client: openai.AsyncClient, exporter: TestExporter) -> None:
     response = await instrumented_async_client.chat.completions.create(
         model='gpt-4',
@@ -2004,7 +2019,7 @@ def test_completions(instrumented_client: openai.Client, exporter: TestExporter)
 
 @pytest.mark.vcr()
 def test_sync_chat_completions_version_latest(exporter: TestExporter) -> None:
-    """Test that version='latest' emits only semconv attributes without request_data/response_data."""
+    """Test that version='latest' uses semconv attributes with minimal request_data and no response_data."""
     client = openai.Client(api_key='foobar')
     logfire.instrument_openai(client, version='latest')
     response = client.chat.completions.create(
@@ -3847,12 +3862,11 @@ def test_chat_completions_with_audio_input(exporter: TestExporter) -> None:
 
     client = openai.Client()
     logfire.instrument_openai(client, version=[1, 'latest'])
-    import io
     import struct
     import wave
 
     # Generate 0.2s of silence at 16kHz mono 16-bit — minimum for OpenAI
-    buf = io.BytesIO()
+    buf = BytesIO()
     with wave.open(buf, 'wb') as wf:
         wf.setnchannels(1)
         wf.setsampwidth(2)

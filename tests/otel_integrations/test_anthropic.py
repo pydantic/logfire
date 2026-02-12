@@ -1114,7 +1114,7 @@ def test_extract_request_parameters_without_max_tokens() -> None:
 
 @pytest.mark.vcr()
 def test_sync_messages_version_latest(exporter: TestExporter) -> None:
-    """Test that version='latest' emits only semconv attributes without request_data/response_data."""
+    """Test that version='latest' uses semconv attributes with minimal request_data and no response_data."""
     client = anthropic.Anthropic(api_key='foobar')
     logfire.instrument_anthropic(client, version='latest')
     response = client.messages.create(

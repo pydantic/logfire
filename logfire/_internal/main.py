@@ -1234,9 +1234,12 @@ class Logfire:
 
                 - `1` (the default): Uses `request_data` and `response_data` attributes.
                 - `'latest'`: Uses OpenTelemetry Gen AI semantic convention attributes
-                  (`gen_ai.input.messages`, `gen_ai.output.messages`, etc.) instead of
-                  `request_data`/`response_data`. This format may change between releases.
-                - `[1, 'latest']`: Emits both formats simultaneously, useful for migration and testing.
+                  (`gen_ai.input.messages`, `gen_ai.output.messages`, etc.) and omits the full
+                  `response_data` attribute. A minimal `request_data` (e.g. `{"model": ...}`) is
+                  still recorded for message template compatibility. This format may change between
+                  releases.
+                - `[1, 'latest']`: Emits both the full legacy attributes and the semantic convention
+                  attributes simultaneously, useful for migration and testing.
 
         Returns:
             A context manager that will revert the instrumentation when exited.
@@ -1336,9 +1339,12 @@ class Logfire:
 
                 - `1` (the default): Uses `request_data` and `response_data` attributes.
                 - `'latest'`: Uses OpenTelemetry Gen AI semantic convention attributes
-                  (`gen_ai.input.messages`, `gen_ai.output.messages`, etc.) instead of
-                  `request_data`/`response_data`. This format may change between releases.
-                - `[1, 'latest']`: Emits both formats simultaneously, useful for migration and testing.
+                  (`gen_ai.input.messages`, `gen_ai.output.messages`, etc.) and omits the full
+                  `response_data` attribute. A minimal `request_data` (e.g. `{"model": ...}`) is
+                  still recorded for message template compatibility. This format may change between
+                  releases.
+                - `[1, 'latest']`: Emits both the full legacy attributes and the semantic convention
+                  attributes simultaneously, useful for migration and testing.
 
         Returns:
             A context manager that will revert the instrumentation when exited.
