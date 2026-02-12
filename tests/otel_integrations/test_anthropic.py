@@ -1124,7 +1124,7 @@ def test_sync_messages_version_latest(exporter: TestExporter) -> None:
         messages=[{'role': 'user', 'content': 'What is four plus five?'}],
     )
     assert isinstance(response.content[0], TextBlock)
-    assert len(response.content[0].text) > 0
+    assert response.content[0].text == 'Four plus five equals nine.'
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
@@ -1154,7 +1154,7 @@ def test_sync_messages_version_latest(exporter: TestExporter) -> None:
                     'gen_ai.output.messages': [
                         {
                             'role': 'assistant',
-                            'parts': [{'type': 'text', 'content': IsStr()}],
+                            'parts': [{'type': 'text', 'content': 'Four plus five equals nine.'}],
                             'finish_reason': 'end_turn',
                         }
                     ],
@@ -1200,7 +1200,7 @@ def test_sync_messages_version_v1_only(exporter: TestExporter) -> None:
         messages=[{'role': 'user', 'content': 'What is four plus five?'}],
     )
     assert isinstance(response.content[0], TextBlock)
-    assert len(response.content[0].text) > 0
+    assert response.content[0].text == 'Four plus five equals nine.'
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
@@ -1229,7 +1229,7 @@ def test_sync_messages_version_v1_only(exporter: TestExporter) -> None:
                     'logfire.tags': ('LLM',),
                     'logfire.span_type': 'span',
                     'response_data': {
-                        'message': {'role': 'assistant', 'content': IsStr()},
+                        'message': {'role': 'assistant', 'content': 'Four plus five equals nine.'},
                         'usage': {
                             'cache_creation': {
                                 'ephemeral_1h_input_tokens': IsInt(),
@@ -1306,7 +1306,7 @@ def test_sync_messages_stream_version_latest(exporter: TestExporter) -> None:
             for chunk in stream
             if hasattr(chunk, 'delta') and isinstance(chunk.delta, TextDelta)  # type: ignore
         )
-    assert len(combined) > 0
+    assert combined == 'Four plus five equals nine.'
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
@@ -1374,7 +1374,12 @@ def test_sync_messages_stream_version_latest(exporter: TestExporter) -> None:
                     ],
                     'gen_ai.system_instructions': [{'type': 'text', 'content': 'You are a helpful assistant.'}],
                     'async': False,
-                    'gen_ai.output.messages': [{'role': 'assistant', 'parts': [{'type': 'text', 'content': IsStr()}]}],
+                    'gen_ai.output.messages': [
+                        {
+                            'role': 'assistant',
+                            'parts': [{'type': 'text', 'content': 'Four plus five equals nine.'}],
+                        }
+                    ],
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -1416,7 +1421,7 @@ def test_sync_messages_stream_version_v1_only(exporter: TestExporter) -> None:
             for chunk in stream
             if hasattr(chunk, 'delta') and isinstance(chunk.delta, TextDelta)  # type: ignore
         )
-    assert len(combined) > 0
+    assert combined == 'Four plus five equals nine.'
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
@@ -1486,7 +1491,7 @@ def test_sync_messages_stream_version_v1_only(exporter: TestExporter) -> None:
                     'gen_ai.request.model': 'claude-sonnet-4-20250514',
                     'gen_ai.request.max_tokens': 1000,
                     'async': False,
-                    'response_data': {'combined_chunk_content': IsStr(), 'chunk_count': IsInt()},
+                    'response_data': {'combined_chunk_content': 'Four plus five equals nine.', 'chunk_count': IsInt()},
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {

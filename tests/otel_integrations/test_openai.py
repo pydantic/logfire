@@ -2014,7 +2014,7 @@ def test_sync_chat_completions_version_latest(exporter: TestExporter) -> None:
             {'role': 'user', 'content': 'What is four plus five?'},
         ],
     )
-    assert response.choices[0].message.content is not None
+    assert response.choices[0].message.content == 'Four plus five is nine.'
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
@@ -2049,7 +2049,7 @@ def test_sync_chat_completions_version_latest(exporter: TestExporter) -> None:
                     'gen_ai.output.messages': [
                         {
                             'role': 'assistant',
-                            'parts': [{'type': 'text', 'content': IsStr()}],
+                            'parts': [{'type': 'text', 'content': 'Four plus five is nine.'}],
                             'finish_reason': 'stop',
                         }
                     ],
@@ -2091,7 +2091,7 @@ def test_sync_chat_completions_version_v1_only(exporter: TestExporter) -> None:
             {'role': 'user', 'content': 'What is four plus five?'},
         ],
     )
-    assert response.choices[0].message.content is not None
+    assert response.choices[0].message.content == 'Four plus five is nine.'
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
@@ -2127,7 +2127,7 @@ def test_sync_chat_completions_version_v1_only(exporter: TestExporter) -> None:
                     'gen_ai.usage.output_tokens': IsInt(),
                     'response_data': {
                         'message': {
-                            'content': IsStr(),
+                            'content': 'Four plus five is nine.',
                             'refusal': None,
                             'role': 'assistant',
                             'annotations': [],
@@ -2213,7 +2213,7 @@ def test_sync_chat_completions_stream_version_latest(exporter: TestExporter) -> 
         stream=True,
     )
     combined = ''.join(chunk.choices[0].delta.content for chunk in response if chunk.choices[0].delta.content)
-    assert len(combined) > 0
+    assert combined == 'Four plus five is nine.'
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
@@ -2280,7 +2280,7 @@ def test_sync_chat_completions_stream_version_latest(exporter: TestExporter) -> 
                     'gen_ai.output.messages': [
                         {
                             'role': 'assistant',
-                            'parts': [{'type': 'text', 'content': IsStr()}],
+                            'parts': [{'type': 'text', 'content': 'Four plus five is nine.'}],
                             'finish_reason': 'stop',
                         }
                     ],
@@ -2319,7 +2319,7 @@ def test_sync_chat_completions_stream_version_v1_only(exporter: TestExporter) ->
         stream=True,
     )
     combined = ''.join(chunk.choices[0].delta.content for chunk in response if chunk.choices[0].delta.content)
-    assert len(combined) > 0
+    assert combined == 'Four plus five is nine.'
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
@@ -2390,7 +2390,7 @@ def test_sync_chat_completions_stream_version_v1_only(exporter: TestExporter) ->
                     'async': False,
                     'response_data': {
                         'message': {
-                            'content': IsStr(),
+                            'content': 'Four plus five is nine.',
                             'refusal': None,
                             'role': 'assistant',
                             'annotations': None,
