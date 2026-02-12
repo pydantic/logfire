@@ -10,17 +10,19 @@ import pytest
 
 import logfire
 from logfire.variables.abstract import (
+    LabelCompatibility,
     LabelValidationError,
     ValidationReport,
     VariableChange,
     VariableDiff,
     _check_label_compatibility,
+    _check_type_label_compatibility,
     _compute_diff,
     _format_diff,
     _get_default_serialized,
     _get_json_schema,
 )
-from logfire.variables.config import LabeledValue, LabelRef, Rollout, VariableConfig, VariablesConfig
+from logfire.variables.config import LabeledValue, LabelRef, LatestVersion, Rollout, VariableConfig, VariablesConfig
 from logfire.variables.variable import Variable
 
 
@@ -536,3 +538,94 @@ def test_compute_diff_schema_change_with_latest_version_compatible(mock_logfire_
     assert diff.changes[0].change_type == 'update_schema'
     # The latest version value is compatible, so no incompatible labels
     assert diff.changes[0].incompatible_labels is None
+
+
+# =============================================================================
+# Test _format_diff with unchanged variables having incompatible labels
+# =============================================================================
+
+
+def test_format_diff_unchanged_with_incompatible_labels() -> None:
+    """Test diff formatting for unchanged variables with incompatible label values (lines 538-543)."""
+    diff = VariableDiff(
+        changes=[
+            VariableChange(
+                name='my_var',
+                change_type='no_change',
+                incompatible_labels=[
+                    LabelCompatibility(
+                        label='v1',
+                        serialized_value='"bad_value"',
+                        is_compatible=False,
+                        error='validation error',
+                    ),
+                ],
+            )
+        ],
+        orphaned_server_variables=[],
+    )
+    output = _format_diff(diff)
+    assert 'Validation warnings (schema unchanged)' in output
+    assert 'my_var' in output
+    assert 'Incompatible label values' in output
+    assert 'v1' in output
+    assert 'validation error' in output
+
+
+# =============================================================================
+# Test _check_type_label_compatibility
+# =============================================================================
+
+
+def test_check_type_label_compatibility_with_incompatible_labels() -> None:
+    """Test _check_type_label_compatibility with incompatible labeled values (lines 380-411)."""
+    from pydantic import TypeAdapter
+
+    adapter = TypeAdapter(int)
+    server_var = VariableConfig(
+        name='my_var',
+        labels={
+            'v1': LabeledValue(version=1, serialized_value='"not_an_int"'),
+            'v2': LabeledValue(version=2, serialized_value='42'),
+        },
+        rollout=Rollout(labels={'v1': 0.5, 'v2': 0.5}),
+        overrides=[],
+    )
+    incompatible = _check_type_label_compatibility(adapter, server_var)
+    assert len(incompatible) == 1
+    assert incompatible[0].label == 'v1'
+    assert incompatible[0].is_compatible is False
+
+
+def test_check_type_label_compatibility_with_incompatible_latest_version() -> None:
+    """Test _check_type_label_compatibility with incompatible latest_version (lines 399-410)."""
+    from pydantic import TypeAdapter
+
+    adapter = TypeAdapter(int)
+    server_var = VariableConfig(
+        name='my_var',
+        labels={},
+        rollout=Rollout(labels={}),
+        overrides=[],
+        latest_version=LatestVersion(version=1, serialized_value='"not_an_int"'),
+    )
+    incompatible = _check_type_label_compatibility(adapter, server_var)
+    assert len(incompatible) == 1
+    assert incompatible[0].label == 'latest'
+    assert incompatible[0].is_compatible is False
+
+
+def test_check_type_label_compatibility_all_compatible() -> None:
+    """Test _check_type_label_compatibility when all values are compatible."""
+    from pydantic import TypeAdapter
+
+    adapter = TypeAdapter(int)
+    server_var = VariableConfig(
+        name='my_var',
+        labels={'v1': LabeledValue(version=1, serialized_value='42')},
+        rollout=Rollout(labels={'v1': 1.0}),
+        overrides=[],
+        latest_version=LatestVersion(version=1, serialized_value='100'),
+    )
+    incompatible = _check_type_label_compatibility(adapter, server_var)
+    assert incompatible == []

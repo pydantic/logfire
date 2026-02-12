@@ -3037,6 +3037,65 @@ class TestPushVariables:
         all_output = captured.out + captured.err
         assert 'Error' in all_output or 'strict' in all_output.lower()
 
+    def test_push_variables_both_schema_and_unchanged_incompatible(
+        self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]
+    ):
+        """Test push_variables message when both schema-change and unchanged variables have incompatible labels (line 1035)."""
+        server_config = VariablesConfig(
+            variables={
+                'schema_change_var': VariableConfig(
+                    name='schema_change_var',
+                    labels={'v1': LabeledValue(version=1, serialized_value='"not_an_int"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
+                    overrides=[],
+                    json_schema={'type': 'string'},  # Old schema
+                ),
+                'unchanged_var': VariableConfig(
+                    name='unchanged_var',
+                    labels={'v1': LabeledValue(version=1, serialized_value='"not_an_int"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
+                    overrides=[],
+                    json_schema={'type': 'integer'},  # Same schema as local
+                ),
+            }
+        )
+        provider = LocalVariableProvider(server_config)
+        lf = logfire.configure(**config_kwargs)
+        # schema_change_var: was string, now int → update_schema with incompatible label
+        var1 = lf.var(name='schema_change_var', default=0, type=int)
+        # unchanged_var: same schema (int) but label value is incompatible
+        var2 = lf.var(name='unchanged_var', default=0, type=int)
+        result = provider.push_variables([var1, var2], yes=True)
+        assert result is True
+        captured = capsys.readouterr()
+        assert 'incompatible with the variable types' in captured.out
+        assert 'schema changes will make additional values incompatible' in captured.out
+
+    def test_push_variables_only_unchanged_incompatible(
+        self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]
+    ):
+        """Test push_variables message when only unchanged variables have incompatible labels (line 1039)."""
+        server_config = VariablesConfig(
+            variables={
+                'unchanged_var': VariableConfig(
+                    name='unchanged_var',
+                    labels={'v1': LabeledValue(version=1, serialized_value='"not_an_int"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
+                    overrides=[],
+                    json_schema={'type': 'integer'},  # Same schema as local
+                ),
+            }
+        )
+        provider = LocalVariableProvider(server_config)
+        lf = logfire.configure(**config_kwargs)
+        # Create a new var to ensure there are changes (so push proceeds)
+        var_new = lf.var(name='new_var', default='hello', type=str)
+        var_unchanged = lf.var(name='unchanged_var', default=0, type=int)
+        result = provider.push_variables([var_new, var_unchanged], yes=True)
+        assert result is True
+        captured = capsys.readouterr()
+        assert 'incompatible with the variable types (schema unchanged)' in captured.out
+
     def test_push_variables_dry_run(self, capsys: pytest.CaptureFixture[str], config_kwargs: dict[str, Any]):
         """Test push_variables dry run mode."""
         provider = LocalVariableProvider(VariablesConfig(variables={}))
@@ -4265,6 +4324,132 @@ class TestPushVariableTypesWithUnchangedTypes:
         assert 'ExistingType' not in provider.upserted
 
 
+class TestPushVariableTypesWithIncompatibleLabels:
+    """Test push_variable_types label compatibility checking (lines 1336-1359)."""
+
+    @staticmethod
+    def _make_provider(
+        existing_types: dict[str, Any],
+        variables: dict[str, VariableConfig],
+    ) -> VariableProvider:
+        from logfire.variables.config import VariableTypeConfig
+
+        class TypesWithVarsProvider(VariableProvider):
+            def __init__(self) -> None:
+                self._types: dict[str, VariableTypeConfig] = {}
+                for name, schema in existing_types.items():
+                    self._types[name] = VariableTypeConfig(name=name, json_schema=schema)
+                self._variables_config = VariablesConfig(variables=variables)
+
+            def get_serialized_value(
+                self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+            ) -> ResolvedVariable[str | None]:
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+
+            def get_all_variables_config(self) -> VariablesConfig:
+                return self._variables_config
+
+            def list_variable_types(self) -> dict[str, VariableTypeConfig]:
+                return dict(self._types)
+
+            def upsert_variable_type(self, config: VariableTypeConfig) -> VariableTypeConfig:
+                self._types[config.name] = config
+                return config
+
+        return TypesWithVarsProvider()
+
+    def test_push_types_with_incompatible_labels_warning(self, capsys: pytest.CaptureFixture[str]):
+        """Test push_variable_types shows incompatible label warnings (lines 1336-1359)."""
+        from pydantic import BaseModel
+
+        class FeatureConfig(BaseModel):
+            enabled: bool
+            max_items: int = 10
+
+        # Existing type has a different schema (old), so this will be an update
+        provider = self._make_provider(
+            existing_types={'FeatureConfig': {'type': 'object', 'properties': {'enabled': {'type': 'string'}}}},
+            variables={
+                'my_feature': VariableConfig(
+                    name='my_feature',
+                    labels={'v1': LabeledValue(version=1, serialized_value='"not_valid"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
+                    overrides=[],
+                    type_name='FeatureConfig',
+                ),
+                # A variable with a different type_name to cover the `continue` branch (line 1337)
+                'other_feature': VariableConfig(
+                    name='other_feature',
+                    labels={},
+                    rollout=Rollout(labels={}),
+                    overrides=[],
+                    type_name='OtherType',
+                ),
+            },
+        )
+        result = provider.push_variable_types([FeatureConfig], yes=True)
+        assert result is True
+        captured = capsys.readouterr()
+        assert 'Label compatibility warnings' in captured.out
+        assert 'my_feature' in captured.out
+        assert 'incompatible with the new type schema' in captured.out
+
+    def test_push_types_with_incompatible_labels_strict(self, capsys: pytest.CaptureFixture[str]):
+        """Test push_variable_types in strict mode fails with incompatible labels (line 1356-1357)."""
+        from pydantic import BaseModel
+
+        class FeatureConfig(BaseModel):
+            enabled: bool
+
+        provider = self._make_provider(
+            existing_types={'FeatureConfig': {'type': 'object', 'properties': {'enabled': {'type': 'string'}}}},
+            variables={
+                'my_feature': VariableConfig(
+                    name='my_feature',
+                    labels={'v1': LabeledValue(version=1, serialized_value='"not_valid"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
+                    overrides=[],
+                    type_name='FeatureConfig',
+                ),
+            },
+        )
+        result = provider.push_variable_types([FeatureConfig], strict=True)
+        assert result is False
+        captured = capsys.readouterr()
+        assert 'Error' in captured.out
+        assert 'strict=False' in captured.out
+
+    def test_push_types_compatibility_check_error(self, capsys: pytest.CaptureFixture[str]):
+        """Test push_variable_types when get_all_variables_config fails during compatibility check (line 1343-1344)."""
+        from pydantic import BaseModel
+
+        from logfire.variables.config import VariableTypeConfig
+
+        class FeatureConfig(BaseModel):
+            enabled: bool
+
+        class FailingConfigProvider(VariableProvider):
+            def get_serialized_value(
+                self, variable_name: str, targeting_key: str | None = None, attributes: Mapping[str, Any] | None = None
+            ) -> ResolvedVariable[str | None]:
+                return ResolvedVariable(name=variable_name, value=None, _reason='no_provider')  # pragma: no cover
+
+            def get_all_variables_config(self) -> VariablesConfig:
+                raise RuntimeError('Config fetch failed!')
+
+            def list_variable_types(self) -> dict[str, VariableTypeConfig]:
+                return {'FeatureConfig': VariableTypeConfig(name='FeatureConfig', json_schema={'type': 'object'})}
+
+            def upsert_variable_type(self, config: VariableTypeConfig) -> VariableTypeConfig:
+                return config
+
+        provider = FailingConfigProvider()
+        result = provider.push_variable_types([FeatureConfig], yes=True)
+        assert result is True
+        captured = capsys.readouterr()
+        assert 'Could not check label compatibility' in captured.out
+
+
 class TestVarResolveFunctionWithoutType:
     """Test that var() raises when default is a resolve function but type is not provided."""
 
@@ -4821,3 +5006,38 @@ class TestLazyVariableProviderInit:
             assert isinstance(provider1, LogfireRemoteVariableProvider)
 
             provider1.shutdown()
+
+    def test_lazy_init_double_check_returns_early(self, config_kwargs: dict[str, Any]) -> None:
+        """_lazy_init_variable_provider() returns early if provider is already set (double-check guard)."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            json={'variables': {}},
+        )
+        with request_mocker:
+            lf = logfire.configure(**config_kwargs)
+            config = lf.config
+
+            # Perform lazy init to set the provider
+            with unittest.mock.patch.dict('os.environ', {'LOGFIRE_API_KEY': REMOTE_TOKEN}):
+                provider1 = config.get_variable_provider()
+            assert isinstance(provider1, LogfireRemoteVariableProvider)
+
+            # Now call _lazy_init_variable_provider() again — should hit the double-check guard
+            provider2 = config._lazy_init_variable_provider()
+            assert provider2 is provider1
+
+            provider1.shutdown()
+
+
+class TestConfigVariablesDictDeserialization:
+    """Tests for LogfireConfig deserializing variables from a dict (as in executors.py)."""
+
+    def test_variables_dict_with_config_no_variables_key(self) -> None:
+        """When variables is a dict with 'config' as a dict that does NOT contain 'variables',
+        it should deserialize into VariablesOptions(**config, **variables)."""
+        from logfire._internal.config import LogfireConfig
+
+        lf_config = LogfireConfig(variables={'config': {'block_before_first_resolve': False}})  # type: ignore
+        assert isinstance(lf_config.variables, VariablesOptions)
+        assert lf_config.variables.block_before_first_resolve is False
