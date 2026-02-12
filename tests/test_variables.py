@@ -4385,6 +4385,14 @@ class TestPushVariableTypesWithIncompatibleLabels:
                     overrides=[],
                     type_name='OtherType',
                 ),
+                # A variable with matching type_name but compatible labels (covers 1339->1335)
+                'compatible_feature': VariableConfig(
+                    name='compatible_feature',
+                    labels={'v1': LabeledValue(version=1, serialized_value='{"enabled": true}')},
+                    rollout=Rollout(labels={'v1': 1.0}),
+                    overrides=[],
+                    type_name='FeatureConfig',
+                ),
             },
         )
         result = provider.push_variable_types([FeatureConfig], yes=True)

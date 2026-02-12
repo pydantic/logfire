@@ -587,6 +587,7 @@ def test_check_type_label_compatibility_with_incompatible_labels() -> None:
         labels={
             'v1': LabeledValue(version=1, serialized_value='"not_an_int"'),
             'v2': LabeledValue(version=2, serialized_value='42'),
+            'v3': LabelRef(version=3, ref='v2'),  # LabelRef should be skipped
         },
         rollout=Rollout(labels={'v1': 0.5, 'v2': 0.5}),
         overrides=[],
