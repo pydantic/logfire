@@ -263,7 +263,8 @@ class ValidationReport:
             for name in self.variables_not_on_server:
                 lines.append(f'  {yellow}? {name}{reset}')
 
-        valid_count = self.variables_checked - len(self.errors) - len(self.variables_not_on_server)
+        variables_with_errors = len({e.variable_name for e in self.errors})
+        valid_count = self.variables_checked - variables_with_errors - len(self.variables_not_on_server)
         if valid_count > 0:
             lines.append(f'\n{green}=== Valid ({valid_count} variables) ==={reset}')
 
@@ -280,7 +281,7 @@ class ValidationReport:
 
         # Summary line
         if not self.is_valid:
-            error_count = len(self.errors) + len(self.variables_not_on_server)
+            error_count = variables_with_errors + len(self.variables_not_on_server)
             lines.append(f'\n{red}Validation failed: {error_count} error(s) found.{reset}')
         else:
             lines.append(f'\n{green}Validation passed: All {self.variables_checked} variable(s) are valid.{reset}')

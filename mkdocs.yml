@@ -199,7 +199,14 @@ nav:
       - Reference:
           - SQL: reference/sql.md
           - Advanced:
-              - Managed Variables: reference/advanced/managed-variables.md
+              - Managed Variables:
+                  - Overview: reference/advanced/managed-variables/index.md
+                  - UI Guide: reference/advanced/managed-variables/ui.md
+                  - A/B Testing: reference/advanced/managed-variables/ab-testing.md
+                  - Targeting: reference/advanced/managed-variables/targeting.md
+                  - Remote Variables: reference/advanced/managed-variables/remote.md
+                  - Local Variables: reference/advanced/managed-variables/local.md
+                  - Configuration Reference: reference/advanced/managed-variables/configuration-reference.md
               - Baggage: reference/advanced/baggage.md
               - Generators: reference/advanced/generators.md
               - Testing Logfire Instrumentation: reference/advanced/testing.md

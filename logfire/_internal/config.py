@@ -607,8 +607,13 @@ def configure(
 
     # Start the variable provider now that we have the logfire instance
     # Pass None if instrumentation is disabled to avoid logging errors via logfire
-    instrument = isinstance(config.variables, (VariablesOptions, LocalVariablesOptions)) and config.variables.instrument
-    config.get_variable_provider().start(logfire_instance if instrument else None)
+    # Only start if the user explicitly configured variables — lazy-init providers
+    # are started when first accessed via get_variable_provider().
+    if config.variables is not None:
+        instrument = (
+            isinstance(config.variables, (VariablesOptions, LocalVariablesOptions)) and config.variables.instrument
+        )
+        config.get_variable_provider().start(logfire_instance if instrument else None)
 
     return logfire_instance
 

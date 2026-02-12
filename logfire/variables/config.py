@@ -229,7 +229,7 @@ class Rollout(BaseModel):
 
     labels: dict[str, float] = {}
     """Mapping of label names to their selection weights (must sum to at most 1.0).
-    An empty dict means 'serve latest version'."""
+    An empty dict means 'use code default'."""
 
     @cached_property
     def _population_and_weights(self) -> tuple[list[str | None], list[float]]:
@@ -352,7 +352,7 @@ class VariableConfig(BaseModel):
 
         Returns:
             The name of the selected label, or None if no label is selected (empty rollout
-            means 'serve latest version').
+            means 'use code default').
         """
         if attributes is None:
             attributes = {}
@@ -383,7 +383,7 @@ class VariableConfig(BaseModel):
         Resolution order:
         1. If explicit label requested, look up in labels, follow refs
         2. If rollout selects a label, look up, follow refs
-        3. If no label selected (empty rollout), use latest_version
+        3. If no label selected (empty rollout), use latest_version if available, else code default
 
         Following refs: if a LabeledValue has a `ref`, look up that label's value.
         If ref == 'latest', use latest_version.

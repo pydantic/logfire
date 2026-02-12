@@ -3541,27 +3541,6 @@ class TestIsResolveFunctionEdgeCases:
         assert is_resolve_function(with_keyword_only) is True
 
 
-class TestDeserializationCacheEviction:
-    """Test cache eviction in Variable._deserialize_cached."""
-
-    def test_cache_eviction(self, config_kwargs: dict[str, Any]):
-        """Test that cache evicts oldest entries when full."""
-        variables_config = VariablesConfig(variables={})
-        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
-        lf = logfire.configure(**config_kwargs)
-        var = lf.var(name='cached_var', default='default', type=int)
-
-        # Fill the cache beyond _cache_maxsize (128)
-        for i in range(140):
-            result = var._deserialize_cached(str(i))
-            assert result == i
-
-        # Verify cache eviction happened — first entries should have been evicted
-        # but re-calling should still work (just re-parses)
-        result = var._deserialize_cached('0')
-        assert result == 0
-
-
 class TestVariableGetReprFallback:
     """Test that variable.get() falls back to repr() when dump_json fails."""
 

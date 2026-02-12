@@ -1,7 +1,6 @@
 from __future__ import annotations as _annotations
 
 import inspect
-import threading
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import ExitStack, contextmanager
 from contextvars import ContextVar
@@ -157,35 +156,13 @@ class Variable(Generic[T_co]):
 
         self.logfire_instance = logfire_instance.with_settings(custom_scope_suffix='variables')
         self.type_adapter = TypeAdapter[T_co](type)
-        # Create a cached deserialization function for this variable instance.
-        # Returns T | Exception. Only successful results are cached; exceptions are
-        # returned but not cached so that transient errors don't persist permanently.
-        # Note: Like functools.lru_cache, cached results are shared instances.
-        # Callers should not mutate returned values (e.g. modifying fields on a Pydantic model).
-        _cache: dict[str, T_co] = {}
-        _cache_order: list[str] = []
-        _cache_maxsize = 128
-        _cache_lock = threading.Lock()
 
-        def _deserialize_cached(serialized_value: str) -> T_co | Exception:
-            with _cache_lock:
-                if serialized_value in _cache:
-                    return _cache[serialized_value]
-            try:
-                result = self.type_adapter.validate_json(serialized_value)
-            except Exception as e:
-                return e
-            with _cache_lock:
-                # Re-check after acquiring lock to avoid duplicate entries from concurrent misses
-                if serialized_value not in _cache:  # pragma: no branch
-                    if len(_cache) >= _cache_maxsize:
-                        oldest = _cache_order.pop(0)
-                        _cache.pop(oldest, None)
-                    _cache[serialized_value] = result
-                    _cache_order.append(serialized_value)
-            return result
-
-        self._deserialize_cached = _deserialize_cached
+    def _deserialize(self, serialized_value: str) -> T_co | Exception:
+        """Deserialize a JSON string to the variable's type, returning an Exception on failure."""
+        try:
+            return self.type_adapter.validate_json(serialized_value)
+        except Exception as e:
+            return e
 
     @contextmanager
     def override(self, value: T_co | ResolveFunction[T_co]) -> Iterator[None]:
@@ -302,7 +279,7 @@ class Variable(Generic[T_co]):
                 serialized_result = provider.get_serialized_value_for_label(self.name, label)
                 if serialized_result.value is not None:
                     # Successfully got the explicit label
-                    value_or_exc = self._deserialize_cached(serialized_result.value)
+                    value_or_exc = self._deserialize(serialized_result.value)
                     if isinstance(value_or_exc, Exception):
                         if span:  # pragma: no branch
                             span.set_attribute('invalid_serialized_label', serialized_result.label)
@@ -325,8 +302,8 @@ class Variable(Generic[T_co]):
                 default = self._get_default(targeting_key, attributes)
                 return _with_value(serialized_result, default)
 
-            # Use cached deserialization - returns T | Exception
-            value_or_exc = self._deserialize_cached(serialized_result.value)
+            # Deserialize - returns T | Exception
+            value_or_exc = self._deserialize(serialized_result.value)
             if isinstance(value_or_exc, Exception):
                 if span:  # pragma: no branch
                     span.set_attribute('invalid_serialized_label', serialized_result.label)
