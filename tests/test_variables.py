@@ -4597,22 +4597,24 @@ class TestVariableConfigResolveValueExplicitLabel:
 
 
 class TestVariableConfigResolveValueLatestVersionFallback:
-    """Test resolve_value falls back to latest_version when no label is selected."""
+    """Test resolve_value returns code default (not latest_version) when no label is selected."""
 
-    def test_latest_version_used_when_no_label_selected(self):
+    def test_code_default_used_when_no_label_selected(self):
+        """Empty rollout should return code default, not latest_version."""
         from logfire.variables.config import LatestVersion
 
         config = VariableConfig(
             name='test_var',
             labels={},
-            rollout=Rollout(labels={}),  # No labels in rollout -> selects None
+            rollout=Rollout(labels={}),  # No labels in rollout -> code default
             overrides=[],
             latest_version=LatestVersion(version=5, serialized_value='"latest_val"'),
         )
         serialized, label, version = config.resolve_value()
-        assert serialized == '"latest_val"'
+        # Should return None (code default), NOT latest_version
+        assert serialized is None
         assert label is None
-        assert version == 5
+        assert version is None
 
 
 class TestVariableConfigFollowRef:
@@ -5049,3 +5051,26 @@ class TestConfigVariablesDictDeserialization:
         lf_config = LogfireConfig(variables={'config': {'block_before_first_resolve': False}})  # type: ignore
         assert isinstance(lf_config.variables, VariablesOptions)
         assert lf_config.variables.block_before_first_resolve is False
+
+    def test_variables_dict_with_pydantic_config_preserves_local(self) -> None:
+        """When variables is a dict with 'config' as a VariablesConfig Pydantic model
+        (as produced by dataclasses.asdict() of LocalVariablesOptions), it should
+        deserialize back into LocalVariablesOptions."""
+        from logfire._internal.config import LogfireConfig
+
+        variables_config = VariablesConfig(
+            variables={
+                'test_var': VariableConfig(
+                    name='test_var',
+                    labels={},
+                    rollout=Rollout(labels={}),
+                    overrides=[],
+                ),
+            }
+        )
+        # Simulate what asdict() produces for LocalVariablesOptions:
+        # config is a VariablesConfig instance (not a dict)
+        lf_config = LogfireConfig(variables={'config': variables_config, 'instrument': False})  # type: ignore
+        assert isinstance(lf_config.variables, LocalVariablesOptions)
+        assert lf_config.variables.config is variables_config
+        assert lf_config.variables.instrument is False

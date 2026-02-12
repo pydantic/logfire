@@ -773,7 +773,7 @@ class _LogfireConfigData:
         if isinstance(variables, dict):
             # This is particularly for deserializing from a dict as in executors.py
             config = variables.pop('config', None)  # type: ignore
-            if isinstance(config, dict):  # pragma: no branch
+            if isinstance(config, dict):
                 if 'variables' in config:
                     from logfire.variables import VariablesConfig as _VariablesConfig  # pragma: no cover
 
@@ -781,6 +781,9 @@ class _LogfireConfigData:
                     variables = LocalVariablesOptions(config=config, **variables)  # type: ignore  # pragma: no cover
                 else:
                     variables = VariablesOptions(**config, **variables)  # type: ignore
+            elif config is not None:
+                # config is a VariablesConfig Pydantic model (from asdict() of LocalVariablesOptions)
+                variables = LocalVariablesOptions(config=config, **variables)  # type: ignore
             else:
                 variables = VariablesOptions(**variables)  # type: ignore  # pragma: no cover
         self.variables = variables

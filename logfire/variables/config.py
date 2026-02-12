@@ -417,10 +417,7 @@ class VariableConfig(BaseModel):
                 serialized, version = self.follow_ref(labeled_value)
                 return serialized, selected_label, version
 
-        # No label selected (empty rollout or label not found) -> use latest_version
-        if self.latest_version is not None:
-            return self.latest_version.serialized_value, None, self.latest_version.version
-
+        # No label selected (empty rollout or remainder probability) -> use code default
         return None, None, None
 
     def follow_ref(

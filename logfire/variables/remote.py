@@ -413,7 +413,9 @@ class LogfireRemoteVariableProvider(VariableProvider):
         body = self._config_to_api_body(config)
         try:
             with self._session_lock:
-                response = self._session.post(urljoin(self._base_url, '/v1/variables/'), json=body)
+                response = self._session.post(
+                    urljoin(self._base_url, '/v1/variables/'), json=body, timeout=self._timeout
+                )
                 if response.status_code == 409:
                     raise VariableAlreadyExistsError(f"Variable '{config.name}' already exists")
                 UnexpectedResponse.raise_for_status(response)
@@ -444,7 +446,9 @@ class LogfireRemoteVariableProvider(VariableProvider):
         body = self._config_to_api_body(config)
         try:
             with self._session_lock:
-                response = self._session.put(urljoin(self._base_url, f'/v1/variables/{name}/'), json=body)
+                response = self._session.put(
+                    urljoin(self._base_url, f'/v1/variables/{name}/'), json=body, timeout=self._timeout
+                )
                 if response.status_code == 404:
                     raise VariableNotFoundError(f"Variable '{name}' not found")
                 UnexpectedResponse.raise_for_status(response)
@@ -467,7 +471,9 @@ class LogfireRemoteVariableProvider(VariableProvider):
         """
         try:
             with self._session_lock:
-                response = self._session.delete(urljoin(self._base_url, f'/v1/variables/{name}/'))
+                response = self._session.delete(
+                    urljoin(self._base_url, f'/v1/variables/{name}/'), timeout=self._timeout
+                )
                 if response.status_code == 404:
                     raise VariableNotFoundError(f"Variable '{name}' not found")
                 UnexpectedResponse.raise_for_status(response)
@@ -552,7 +558,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
         try:
             with self._session_lock:
-                response = self._session.get(urljoin(self._base_url, '/v1/variable-types/'))
+                response = self._session.get(urljoin(self._base_url, '/v1/variable-types/'), timeout=self._timeout)
                 UnexpectedResponse.raise_for_status(response)
                 types_data = response.json()
         except UnexpectedResponse as e:
@@ -594,7 +600,9 @@ class LogfireRemoteVariableProvider(VariableProvider):
         try:
             with self._session_lock:
                 # POST endpoint is an upsert (create or update by name)
-                response = self._session.post(urljoin(self._base_url, '/v1/variable-types/'), json=body)
+                response = self._session.post(
+                    urljoin(self._base_url, '/v1/variable-types/'), json=body, timeout=self._timeout
+                )
                 UnexpectedResponse.raise_for_status(response)
         except UnexpectedResponse as e:
             raise VariableWriteError(f'Failed to upsert variable type: {e}') from e
