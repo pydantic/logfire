@@ -13,7 +13,7 @@ from urllib.parse import urljoin
 
 from opentelemetry.util._once import Once
 from pydantic import ValidationError
-from requests import Session
+from requests import RequestException, Session
 
 from logfire._internal.client import UA_HEADER
 from logfire._internal.config import VariablesOptions
@@ -419,7 +419,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 if response.status_code == 409:
                     raise VariableAlreadyExistsError(f"Variable '{config.name}' already exists")
                 UnexpectedResponse.raise_for_status(response)
-        except UnexpectedResponse as e:
+        except (UnexpectedResponse, RequestException) as e:
             raise VariableWriteError(f'Failed to create variable: {e}') from e
 
         # Refresh cache after successful write
@@ -452,7 +452,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 if response.status_code == 404:
                     raise VariableNotFoundError(f"Variable '{name}' not found")
                 UnexpectedResponse.raise_for_status(response)
-        except UnexpectedResponse as e:
+        except (UnexpectedResponse, RequestException) as e:
             raise VariableWriteError(f'Failed to update variable: {e}') from e
 
         # Refresh cache after successful write
@@ -477,7 +477,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
                 if response.status_code == 404:
                     raise VariableNotFoundError(f"Variable '{name}' not found")
                 UnexpectedResponse.raise_for_status(response)
-        except UnexpectedResponse as e:
+        except (UnexpectedResponse, RequestException) as e:
             raise VariableWriteError(f'Failed to delete variable: {e}') from e
 
         # Refresh cache after successful write
