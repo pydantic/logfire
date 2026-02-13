@@ -1069,6 +1069,44 @@ class TestLogfireRemoteVariableProvider:
             finally:
                 provider.shutdown()
 
+    def test_get_serialized_value_for_label_blocks_on_first_call(self) -> None:
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get(
+            'http://localhost:8000/v1/variables/',
+            json={
+                'variables': {
+                    'test_var': {
+                        'name': 'test_var',
+                        'labels': {
+                            'production': {
+                                'version': 1,
+                                'serialized_value': '"prod_value"',
+                                'description': None,
+                            }
+                        },
+                        'rollout': {'labels': {'production': 1.0}},
+                        'overrides': [],
+                        'json_schema': {'type': 'string'},
+                    }
+                }
+            },
+        )
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(
+                    block_before_first_resolve=True,
+                    polling_interval=timedelta(seconds=60),
+                ),
+            )
+            try:
+                result = provider.get_serialized_value_for_label('test_var', 'production')
+                assert result.value == '"prod_value"'
+                assert result.label == 'production'
+            finally:
+                provider.shutdown()
+
 
 @pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
 class TestLogfireRemoteVariableProviderTimeout:

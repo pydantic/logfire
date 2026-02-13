@@ -346,6 +346,28 @@ class LogfireRemoteVariableProvider(VariableProvider):
 
         return self._config.resolve_serialized_value(variable_name, targeting_key, attributes)
 
+    def get_serialized_value_for_label(
+        self,
+        variable_name: str,
+        label: str,
+    ) -> ResolvedVariable[str | None]:
+        """Resolve a variable's serialized value for a specific label from the remote configuration.
+
+        Args:
+            variable_name: The name of the variable to resolve.
+            label: The name of the label to select.
+
+        Returns:
+            A ResolvedVariable containing the serialized value (or None if not found).
+        """
+        if self._pid != os.getpid():  # pragma: no cover
+            self._reset_once.do_once(self._at_fork_reinit)
+
+        if not self._has_attempted_fetch and self._block_before_first_fetch:
+            self.refresh()
+
+        return super().get_serialized_value_for_label(variable_name, label)
+
     def shutdown(self, timeout_millis: float = 5000):
         """Stop the background polling thread and clean up resources.
 

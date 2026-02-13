@@ -112,4 +112,27 @@ POST /v1/ofrep/v1/evaluate/flags
 
 These endpoints require an API key with the `project:read_variables` or `project:read_external_variables` scope. When using `project:read_external_variables`, only variables marked as external are returned in evaluations.
 
+### Response Behavior
+
+When the server resolves a variable successfully, the OFREP response includes the resolved `value`, a `variant` (the label name), and `reason: "TARGETING_MATCH"`.
+
+When no value can be resolved — either because the variable has no versions, or because no label matches the evaluation context (e.g., rollout weights sum to less than 1.0 and no latest version fallback exists) — the server returns:
+
+```json
+{
+  "key": "my_variable",
+  "value": null,
+  "variant": null,
+  "reason": "DEFAULT"
+}
+```
+
+OFREP clients should always provide a client-side default value to handle this case. For example, with the OpenFeature Web SDK:
+
+```typescript
+const client = OpenFeature.getClient();
+// The second argument is used when the server returns value: null
+const theme = await client.getStringValue('ui_theme', 'light');
+```
+
 For a step-by-step guide on using OFREP to evaluate feature flags in a web frontend or other client application, see [Client-Side Feature Flags with OFREP](../../../how-to-guides/client-side-feature-flags.md).
