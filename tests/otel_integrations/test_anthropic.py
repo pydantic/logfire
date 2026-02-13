@@ -18,7 +18,7 @@ from anthropic.types import (
     TextDelta,
     Usage,
 )
-from dirty_equals import IsPartialDict
+from dirty_equals import IsInt, IsPartialDict, IsStr
 from httpx._transports.mock import MockTransport
 from inline_snapshot import snapshot
 
@@ -1112,19 +1112,112 @@ def test_extract_request_parameters_without_max_tokens() -> None:
     assert 'gen_ai.request.max_tokens' not in span_data
 
 
+def test_convert_messages_no_system() -> None:
+    """Test convert_messages_to_semconv with no system parameter."""
+    from logfire._internal.integrations.llm_providers.anthropic import convert_messages_to_semconv
+
+    input_messages, system_instructions = convert_messages_to_semconv([{'role': 'user', 'content': 'Hello'}], None)
+
+    assert (input_messages, system_instructions) == snapshot(
+        ([{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hello'}]}], [])
+    )
+
+
+def test_convert_messages_empty_messages_and_system() -> None:
+    """Test convert_messages_to_semconv with empty messages and no system."""
+    from logfire._internal.integrations.llm_providers.anthropic import convert_messages_to_semconv
+
+    input_messages, system_instructions = convert_messages_to_semconv([], None)
+
+    assert (input_messages, system_instructions) == snapshot(([], []))
+
+
+def test_convert_messages_content_none() -> None:
+    """Test convert_messages_to_semconv with a message that has content=None."""
+    from logfire._internal.integrations.llm_providers.anthropic import convert_messages_to_semconv
+
+    input_messages, system_instructions = convert_messages_to_semconv([{'role': 'user', 'content': None}], None)
+
+    assert (input_messages, system_instructions) == snapshot(([{'role': 'user', 'parts': []}], []))
+
+
+def test_on_response_unknown_block_type() -> None:
+    """Test on_response with a block that's neither text nor tool_use."""
+    from logfire._internal.integrations.llm_providers.anthropic import on_response
+
+    message = Message.model_construct(
+        id='test_id',
+        content=[TextBlock(text='Hello', type='text')],
+        model='claude-3-haiku-20240307',
+        role='assistant',
+        type='message',
+        stop_reason='end_turn',
+        usage=Usage(input_tokens=2, output_tokens=3),
+    )
+
+    class UnknownBlock:
+        type = 'thinking'
+        text = 'some thought'
+
+    message.content.append(UnknownBlock())  # type: ignore
+
+    class MockSpan:
+        def __init__(self):
+            self.attributes: dict[str, Any] = {}
+
+        def set_attribute(self, key: str, value: Any) -> None:
+            self.attributes[key] = value
+
+    span = MockSpan()
+    on_response(message, span, version=1)  # type: ignore
+
+    assert span.attributes.get('response_data') == snapshot(
+        {'message': {'role': 'assistant', 'content': 'Hello'}, 'usage': Usage(input_tokens=2, output_tokens=3)}
+    )
+
+
+def test_get_endpoint_config_latest_no_messages_no_system() -> None:
+    """Test get_endpoint_config with 'latest' version and empty messages + no system."""
+    from logfire._internal.integrations.llm_providers.anthropic import get_endpoint_config
+
+    class MockOptions:
+        url = '/v1/messages'
+        json_data: dict[str, Any] = {'model': 'claude-3-haiku', 'messages': [], 'max_tokens': 100}
+
+    config = get_endpoint_config(MockOptions(), version='latest')  # type: ignore
+
+    assert config.message_template == 'Message with {request_data[model]!r}'
+    assert 'gen_ai.input.messages' not in config.span_data
+    assert 'gen_ai.system_instructions' not in config.span_data
+
+
+def test_get_endpoint_config_latest_messages_no_system() -> None:
+    """Test get_endpoint_config with messages but no system."""
+    from logfire._internal.integrations.llm_providers.anthropic import get_endpoint_config
+
+    class MockOptions:
+        url = '/v1/messages'
+        json_data = {'model': 'claude-3-haiku', 'messages': [{'role': 'user', 'content': 'Hi'}], 'max_tokens': 100}
+
+    config = get_endpoint_config(MockOptions(), version='latest')  # type: ignore
+
+    assert 'gen_ai.input.messages' in config.span_data
+    assert 'gen_ai.system_instructions' not in config.span_data
+
+
+@pytest.mark.vcr()
 def test_sync_messages_version_latest(exporter: TestExporter) -> None:
     """Test that version='latest' uses semconv attributes with minimal request_data and no response_data."""
-    with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
-        anthropic_client = anthropic.Anthropic(api_key='foobar', http_client=httpx_client)
-        with logfire.instrument_anthropic(anthropic_client, version='latest'):
-            response = anthropic_client.messages.create(
-                max_tokens=1000,
-                model='claude-3-haiku-20240307',
-                system='You are a helpful assistant.',
-                messages=[{'role': 'user', 'content': 'What is four plus five?'}],
-            )
+    client = anthropic.Anthropic(api_key='foobar')
+    logfire.instrument_anthropic(client, version='latest')
+    response = client.messages.create(
+        max_tokens=1000,
+        model='claude-sonnet-4-20250514',
+        system='You are a helpful assistant.',
+        messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+    )
     assert isinstance(response.content[0], TextBlock)
-    assert response.content[0].text == 'Nine'
+    assert response.content[0].text == 'Four plus five equals nine.'
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
@@ -1137,10 +1230,10 @@ def test_sync_messages_version_latest(exporter: TestExporter) -> None:
                     'code.filepath': 'test_anthropic.py',
                     'code.function': 'test_sync_messages_version_latest',
                     'code.lineno': 123,
-                    'request_data': {'model': 'claude-3-haiku-20240307'},
+                    'request_data': {'model': 'claude-sonnet-4-20250514'},
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.operation.name': 'chat',
-                    'gen_ai.request.model': 'claude-3-haiku-20240307',
+                    'gen_ai.request.model': 'claude-sonnet-4-20250514',
                     'gen_ai.request.max_tokens': 1000,
                     'gen_ai.input.messages': [
                         {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
@@ -1148,20 +1241,20 @@ def test_sync_messages_version_latest(exporter: TestExporter) -> None:
                     'gen_ai.system_instructions': [{'type': 'text', 'content': 'You are a helpful assistant.'}],
                     'async': False,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
-                    'logfire.msg': "Message with 'claude-3-haiku-20240307'",
+                    'logfire.msg': "Message with 'claude-sonnet-4-20250514'",
                     'logfire.tags': ('LLM',),
                     'logfire.span_type': 'span',
                     'gen_ai.output.messages': [
                         {
                             'role': 'assistant',
-                            'parts': [{'type': 'text', 'content': 'Nine'}],
+                            'parts': [{'type': 'text', 'content': 'Four plus five equals nine.'}],
                             'finish_reason': 'end_turn',
                         }
                     ],
-                    'gen_ai.response.model': 'claude-3-haiku-20240307',
-                    'gen_ai.response.id': 'test_id',
-                    'gen_ai.usage.input_tokens': 2,
-                    'gen_ai.usage.output_tokens': 3,
+                    'gen_ai.response.model': 'claude-sonnet-4-20250514',
+                    'gen_ai.response.id': IsStr(),
+                    'gen_ai.usage.input_tokens': IsInt(),
+                    'gen_ai.usage.output_tokens': IsInt(),
                     'gen_ai.response.finish_reasons': ['end_turn'],
                     'logfire.json_schema': {
                         'type': 'object',
@@ -1188,23 +1281,326 @@ def test_sync_messages_version_latest(exporter: TestExporter) -> None:
     )
 
 
+@pytest.mark.vcr()
 def test_sync_messages_version_v1_only(exporter: TestExporter) -> None:
     """Test that version=1 does not emit gen_ai.input.messages or gen_ai.output.messages."""
-    with httpx.Client(transport=MockTransport(request_handler)) as httpx_client:
-        anthropic_client = anthropic.Anthropic(api_key='foobar', http_client=httpx_client)
-        with logfire.instrument_anthropic(anthropic_client, version=1):
-            response = anthropic_client.messages.create(
-                max_tokens=1000,
-                model='claude-3-haiku-20240307',
-                system='You are a helpful assistant.',
-                messages=[{'role': 'user', 'content': 'What is four plus five?'}],
-            )
+    client = anthropic.Anthropic(api_key='foobar')
+    logfire.instrument_anthropic(client, version=1)
+    response = client.messages.create(
+        max_tokens=1000,
+        model='claude-sonnet-4-20250514',
+        system='You are a helpful assistant.',
+        messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+    )
     assert isinstance(response.content[0], TextBlock)
-    assert response.content[0].text == 'Nine'
-    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-    assert len(spans) == 1
-    attrs = spans[0]['attributes']
-    assert 'gen_ai.input.messages' not in attrs
-    assert 'gen_ai.output.messages' not in attrs
-    assert 'request_data' in attrs
-    assert 'response_data' in attrs
+    assert response.content[0].text == 'Four plus five equals nine.'
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Message with {request_data[model]!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_anthropic.py',
+                    'code.function': 'test_sync_messages_version_v1_only',
+                    'code.lineno': 123,
+                    'request_data': {
+                        'max_tokens': 1000,
+                        'messages': [{'role': 'user', 'content': 'What is four plus five?'}],
+                        'model': 'claude-sonnet-4-20250514',
+                        'system': 'You are a helpful assistant.',
+                    },
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'claude-sonnet-4-20250514',
+                    'gen_ai.request.max_tokens': 1000,
+                    'async': False,
+                    'logfire.msg_template': 'Message with {request_data[model]!r}',
+                    'logfire.msg': "Message with 'claude-sonnet-4-20250514'",
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'response_data': {
+                        'message': {'role': 'assistant', 'content': 'Four plus five equals nine.'},
+                        'usage': {
+                            'cache_creation': {
+                                'ephemeral_1h_input_tokens': IsInt(),
+                                'ephemeral_5m_input_tokens': IsInt(),
+                            },
+                            'cache_creation_input_tokens': IsInt(),
+                            'cache_read_input_tokens': IsInt(),
+                            'inference_geo': IsStr(),
+                            'input_tokens': IsInt(),
+                            'output_tokens': IsInt(),
+                            'server_tool_use': None,
+                            'service_tier': IsStr(),
+                        },
+                    },
+                    'gen_ai.response.model': 'claude-sonnet-4-20250514',
+                    'gen_ai.response.id': IsStr(),
+                    'gen_ai.usage.input_tokens': IsInt(),
+                    'gen_ai.usage.output_tokens': IsInt(),
+                    'gen_ai.response.finish_reasons': ['end_turn'],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.request.max_tokens': {},
+                            'async': {},
+                            'response_data': {
+                                'type': 'object',
+                                'properties': {
+                                    'usage': {
+                                        'type': 'object',
+                                        'title': 'Usage',
+                                        'x-python-datatype': 'PydanticModel',
+                                        'properties': {
+                                            'cache_creation': {
+                                                'type': 'object',
+                                                'title': 'CacheCreation',
+                                                'x-python-datatype': 'PydanticModel',
+                                            }
+                                        },
+                                    }
+                                },
+                            },
+                            'gen_ai.response.model': {},
+                            'gen_ai.response.id': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
+                        },
+                    },
+                },
+            }
+        ]
+    )
+
+
+@pytest.mark.vcr()
+def test_sync_messages_stream_version_latest(exporter: TestExporter) -> None:
+    """Test that streaming with version='latest' emits semconv attributes without response_data."""
+    client = anthropic.Anthropic(api_key='foobar')
+    logfire.instrument_anthropic(client, version='latest')
+    response = client.messages.create(
+        max_tokens=1000,
+        model='claude-sonnet-4-20250514',
+        system='You are a helpful assistant.',
+        messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+        stream=True,
+    )
+    with response as stream:
+        combined = ''.join(
+            chunk.delta.text  # type: ignore
+            for chunk in stream
+            if hasattr(chunk, 'delta') and isinstance(chunk.delta, TextDelta)  # type: ignore
+        )
+    assert combined == 'Four plus five equals nine.'
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Message with {request_data[model]!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_anthropic.py',
+                    'code.function': 'test_sync_messages_stream_version_latest',
+                    'code.lineno': 123,
+                    'request_data': {'model': 'claude-sonnet-4-20250514'},
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'claude-sonnet-4-20250514',
+                    'gen_ai.request.max_tokens': 1000,
+                    'gen_ai.input.messages': [
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
+                    ],
+                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'You are a helpful assistant.'}],
+                    'async': False,
+                    'logfire.msg_template': 'Message with {request_data[model]!r}',
+                    'logfire.msg': "Message with 'claude-sonnet-4-20250514'",
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.request.max_tokens': {},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'gen_ai.system_instructions': {'type': 'array'},
+                            'async': {},
+                        },
+                    },
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.response.model': 'claude-sonnet-4-20250514',
+                },
+            },
+            {
+                'name': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 5000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                    'logfire.msg': "streaming response from 'claude-sonnet-4-20250514' took 1.00s",
+                    'code.filepath': 'test_anthropic.py',
+                    'code.function': '<genexpr>',
+                    'code.lineno': 123,
+                    'duration': 1.0,
+                    'request_data': {'model': 'claude-sonnet-4-20250514'},
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'claude-sonnet-4-20250514',
+                    'gen_ai.request.max_tokens': 1000,
+                    'gen_ai.input.messages': [
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
+                    ],
+                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'You are a helpful assistant.'}],
+                    'async': False,
+                    'gen_ai.output.messages': [
+                        {
+                            'role': 'assistant',
+                            'parts': [{'type': 'text', 'content': 'Four plus five equals nine.'}],
+                        }
+                    ],
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'duration': {},
+                            'request_data': {'type': 'object'},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.request.max_tokens': {},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'gen_ai.system_instructions': {'type': 'array'},
+                            'async': {},
+                            'gen_ai.output.messages': {'type': 'array'},
+                        },
+                    },
+                    'logfire.tags': ('LLM',),
+                    'gen_ai.response.model': 'claude-sonnet-4-20250514',
+                },
+            },
+        ]
+    )
+
+
+@pytest.mark.vcr()
+def test_sync_messages_stream_version_v1_only(exporter: TestExporter) -> None:
+    """Test that streaming with version=1 emits response_data without semconv message attributes."""
+    client = anthropic.Anthropic(api_key='foobar')
+    logfire.instrument_anthropic(client, version=1)
+    response = client.messages.create(
+        max_tokens=1000,
+        model='claude-sonnet-4-20250514',
+        system='You are a helpful assistant.',
+        messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+        stream=True,
+    )
+    with response as stream:
+        combined = ''.join(
+            chunk.delta.text  # type: ignore
+            for chunk in stream
+            if hasattr(chunk, 'delta') and isinstance(chunk.delta, TextDelta)  # type: ignore
+        )
+    assert combined == 'Four plus five equals nine.'
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Message with {request_data[model]!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_anthropic.py',
+                    'code.function': 'test_sync_messages_stream_version_v1_only',
+                    'code.lineno': 123,
+                    'request_data': {
+                        'max_tokens': 1000,
+                        'messages': [{'role': 'user', 'content': 'What is four plus five?'}],
+                        'model': 'claude-sonnet-4-20250514',
+                        'stream': True,
+                        'system': 'You are a helpful assistant.',
+                    },
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'claude-sonnet-4-20250514',
+                    'gen_ai.request.max_tokens': 1000,
+                    'async': False,
+                    'logfire.msg_template': 'Message with {request_data[model]!r}',
+                    'logfire.msg': "Message with 'claude-sonnet-4-20250514'",
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.request.max_tokens': {},
+                            'async': {},
+                        },
+                    },
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.response.model': 'claude-sonnet-4-20250514',
+                },
+            },
+            {
+                'name': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 5000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                    'logfire.msg': "streaming response from 'claude-sonnet-4-20250514' took 1.00s",
+                    'code.filepath': 'test_anthropic.py',
+                    'code.function': '<genexpr>',
+                    'code.lineno': 123,
+                    'duration': 1.0,
+                    'request_data': {
+                        'max_tokens': 1000,
+                        'messages': [{'role': 'user', 'content': 'What is four plus five?'}],
+                        'model': 'claude-sonnet-4-20250514',
+                        'stream': True,
+                        'system': 'You are a helpful assistant.',
+                    },
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'claude-sonnet-4-20250514',
+                    'gen_ai.request.max_tokens': 1000,
+                    'async': False,
+                    'response_data': {'combined_chunk_content': 'Four plus five equals nine.', 'chunk_count': IsInt()},
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'duration': {},
+                            'request_data': {'type': 'object'},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.request.max_tokens': {},
+                            'async': {},
+                            'response_data': {'type': 'object'},
+                        },
+                    },
+                    'logfire.tags': ('LLM',),
+                    'gen_ai.response.model': 'claude-sonnet-4-20250514',
+                },
+            },
+        ]
+    )

@@ -22,6 +22,7 @@ from .formatter import logfire_format as logfire_format, logfire_format_with_mag
 from .instrument import instrument as instrument
 from .integrations.asgi import ASGIApp as ASGIApp, ASGIInstrumentKwargs as ASGIInstrumentKwargs
 from .integrations.aws_lambda import LambdaEvent as LambdaEvent, LambdaHandler as LambdaHandler
+from .integrations.llm_providers.semconv import SemconvVersion as SemconvVersion
 from .integrations.mysql import MySQLConnection as MySQLConnection
 from .integrations.psycopg import Psycopg2Connection as Psycopg2Connection, PsycopgConnection as PsycopgConnection
 from .integrations.sqlite3 import SQLite3Connection as SQLite3Connection
@@ -493,7 +494,7 @@ class Logfire:
                 without waiting for the context manager to be opened,
                 i.e. it's not necessary to use this as a context manager.
         """
-    def instrument_openai(self, openai_client: openai.OpenAI | openai.AsyncOpenAI | type[openai.OpenAI] | type[openai.AsyncOpenAI] | None = None, *, suppress_other_instrumentation: bool = True, version: Literal[1, 'latest'] | Sequence[Literal[1, 'latest']] = 1) -> AbstractContextManager[None]:
+    def instrument_openai(self, openai_client: openai.OpenAI | openai.AsyncOpenAI | type[openai.OpenAI] | type[openai.AsyncOpenAI] | None = None, *, suppress_other_instrumentation: bool = True, version: SemconvVersion | Sequence[SemconvVersion] = 1) -> AbstractContextManager[None]:
         '''Instrument an OpenAI client so that spans are automatically created for each request.
 
         This instruments the [standard OpenAI SDK](https://pypi.org/project/openai/) package, for instrumentation
@@ -542,6 +543,17 @@ class Logfire:
                 enabled. In reality, this means the HTTPX instrumentation, which could otherwise be called since
                 OpenAI uses HTTPX to make HTTP requests.
 
+            version: The version(s) of the span attribute format to use:
+
+                - `1` (the default): Uses `request_data` and `response_data` attributes.
+                - `\'latest\'`: Uses OpenTelemetry Gen AI semantic convention attributes
+                  (`gen_ai.input.messages`, `gen_ai.output.messages`, etc.) and omits the full
+                  `response_data` attribute. A minimal `request_data` (e.g. `{"model": ...}`) is
+                  still recorded for message template compatibility. This format may change between
+                  releases.
+                - `[1, \'latest\']`: Emits both the full legacy attributes and the semantic convention
+                  attributes simultaneously, useful for migration and testing.
+
         Returns:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
@@ -552,7 +564,7 @@ class Logfire:
         For instrumentation of the standard OpenAI SDK package,
         see [`instrument_openai()`][logfire.Logfire.instrument_openai].
         """
-    def instrument_anthropic(self, anthropic_client: anthropic.Anthropic | anthropic.AsyncAnthropic | anthropic.AnthropicBedrock | anthropic.AsyncAnthropicBedrock | type[anthropic.Anthropic] | type[anthropic.AsyncAnthropic] | type[anthropic.AnthropicBedrock] | type[anthropic.AsyncAnthropicBedrock] | None = None, *, suppress_other_instrumentation: bool = True, version: Literal[1, 'latest'] | Sequence[Literal[1, 'latest']] = 1) -> AbstractContextManager[None]:
+    def instrument_anthropic(self, anthropic_client: anthropic.Anthropic | anthropic.AsyncAnthropic | anthropic.AnthropicBedrock | anthropic.AsyncAnthropicBedrock | type[anthropic.Anthropic] | type[anthropic.AsyncAnthropic] | type[anthropic.AnthropicBedrock] | type[anthropic.AsyncAnthropicBedrock] | None = None, *, suppress_other_instrumentation: bool = True, version: SemconvVersion | Sequence[SemconvVersion] = 1) -> AbstractContextManager[None]:
         '''Instrument an Anthropic client so that spans are automatically created for each request.
 
         The following methods are instrumented for both the sync and async clients:
@@ -595,6 +607,17 @@ class Logfire:
             suppress_other_instrumentation: If True, suppress any other OTEL instrumentation that may be otherwise
                 enabled. In reality, this means the HTTPX instrumentation, which could otherwise be called since
                 OpenAI uses HTTPX to make HTTP requests.
+
+            version: The version(s) of the span attribute format to use:
+
+                - `1` (the default): Uses `request_data` and `response_data` attributes.
+                - `\'latest\'`: Uses OpenTelemetry Gen AI semantic convention attributes
+                  (`gen_ai.input.messages`, `gen_ai.output.messages`, etc.) and omits the full
+                  `response_data` attribute. A minimal `request_data` (e.g. `{"model": ...}`) is
+                  still recorded for message template compatibility. This format may change between
+                  releases.
+                - `[1, \'latest\']`: Emits both the full legacy attributes and the semantic convention
+                  attributes simultaneously, useful for migration and testing.
 
         Returns:
             A context manager that will revert the instrumentation when exited.

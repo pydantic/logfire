@@ -138,7 +138,7 @@ def get_endpoint_config(
         if 'latest' in versions:
             # Convert messages to semantic convention format
             messages: list[dict[str, Any]] = json_data.get('messages', [])
-            if messages:  # pragma: no branch
+            if messages:
                 input_messages = convert_chat_completions_to_semconv(messages)
                 span_data[INPUT_MESSAGES] = input_messages
 
@@ -158,18 +158,18 @@ def get_endpoint_config(
             OPERATION_NAME: 'chat',
             REQUEST_MODEL: json_data.get('model'),
         }
-        if 1 in versions:  # pragma: no branch
+        if 1 in versions:
             span_data['events'] = inputs_to_events(json_data.get('input'), json_data.get('instructions'))
         _extract_request_parameters(json_data, span_data)
 
-        if 'latest' in versions:  # pragma: no branch
+        if 'latest' in versions:
             # Convert inputs to semantic convention format
             input_messages_resp, system_instructions = convert_responses_inputs_to_semconv(
                 json_data.get('input'), json_data.get('instructions')
             )
-            if input_messages_resp:  # pragma: no branch
+            if input_messages_resp:
                 span_data[INPUT_MESSAGES] = input_messages_resp
-            if system_instructions:  # pragma: no branch
+            if system_instructions:
                 span_data[SYSTEM_INSTRUCTIONS] = system_instructions
 
         return EndpointConfig(
@@ -264,10 +264,10 @@ def convert_chat_completions_to_semconv(
         else:
             # Regular messages: build parts from content and tool calls
             # Add content parts
-            if content is not None:  # pragma: no branch
+            if content is not None:
                 if isinstance(content, str):
                     parts.append(TextPart(type='text', content=content))
-                elif isinstance(content, list):  # pragma: no branch
+                elif isinstance(content, list):
                     for part in cast('list[dict[str, Any] | str]', content):
                         parts.append(_convert_content_part(part))
                 # else: content is neither str nor list - unreachable in practice
@@ -277,7 +277,7 @@ def convert_chat_completions_to_semconv(
                 for tc in tool_calls:
                     function = tc.get('function', {})
                     arguments = function.get('arguments')
-                    if isinstance(arguments, str):  # pragma: no branch
+                    if isinstance(arguments, str):
                         with contextlib.suppress(json.JSONDecodeError):
                             arguments = json.loads(arguments)
                     parts.append(
@@ -333,7 +333,7 @@ def convert_responses_inputs_to_semconv(
     system_instructions: SystemInstructions = []
     if instructions:
         system_instructions.append(TextPart(type='text', content=instructions))
-    if inputs:  # pragma: no branch
+    if inputs:
         if isinstance(inputs, str):
             input_messages.append(
                 cast('ChatMessage', {'role': 'user', 'parts': [TextPart(type='text', content=inputs)]})
@@ -358,7 +358,7 @@ def convert_responses_inputs_to_semconv(
                     input_messages.append(cast('ChatMessage', {'role': role, 'parts': parts}))
                 elif typ == 'function_call':
                     arguments: Any = inp.get('arguments')
-                    if isinstance(arguments, str):  # pragma: no branch
+                    if isinstance(arguments, str):
                         with contextlib.suppress(json.JSONDecodeError):
                             arguments = json.loads(arguments)
                     input_messages.append(
@@ -377,7 +377,7 @@ def convert_responses_inputs_to_semconv(
                             },
                         )
                     )
-                elif typ == 'function_call_output':  # pragma: no branch
+                elif typ == 'function_call_output':
                     msg: ChatMessage = {
                         'role': 'tool',
                         'parts': [
@@ -411,7 +411,7 @@ def convert_openai_response_to_semconv(
     """Convert an OpenAI ChatCompletionMessage to OTel Gen AI Semantic Convention format."""
     parts: list[MessagePart] = []
 
-    if message.content:  # pragma: no branch
+    if message.content:
         parts.append(TextPart(type='text', content=message.content))
 
     if message.tool_calls:  # pragma: no cover
@@ -435,7 +435,7 @@ def convert_openai_response_to_semconv(
         'role': cast('Role', message.role),
         'parts': parts,
     }
-    if finish_reason:  # pragma: no branch
+    if finish_reason:
         result['finish_reason'] = finish_reason
 
     return result
@@ -452,7 +452,7 @@ def convert_responses_outputs_to_semconv(response: Response) -> OutputMessages:
         if typ in (None, 'message') and content:
             parts: list[MessagePart] = []
             for item in cast('list[dict[str, Any]]', content):
-                if item.get('type') == 'output_text':  # pragma: no branch
+                if item.get('type') == 'output_text':
                     parts.append(TextPart(type='text', content=cast(str, item.get('text', ''))))
             output_messages.append(
                 cast(
@@ -510,11 +510,11 @@ class OpenaiCompletionStreamState(StreamState):
     def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
         versions = self._versions
         result = dict(**span_data)
-        if 1 in versions:  # pragma: no branch
+        if 1 in versions:
             result['response_data'] = self.get_response_data()
-        if 'latest' in versions:  # pragma: no branch
+        if 'latest' in versions:
             combined_content = ''.join(self._content)
-            if combined_content:  # pragma: no branch
+            if combined_content:
                 result[OUTPUT_MESSAGES] = [
                     {
                         'role': 'assistant',
@@ -542,10 +542,10 @@ class OpenaiResponsesStreamState(StreamState):
         versions = self._versions
         response = self.get_response_data()
         if response:
-            if 'latest' in versions:  # pragma: no branch
+            if 'latest' in versions:
                 output_messages = convert_responses_outputs_to_semconv(response)
                 span_data[OUTPUT_MESSAGES] = output_messages
-            if 1 in versions:  # pragma: no branch
+            if 1 in versions:
                 span_data['events'] = (span_data.get('events') or []) + responses_output_events(response)
         return span_data
 
@@ -583,9 +583,9 @@ try:
         def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
             versions = self._versions
             result = dict(**span_data)
-            if 1 in versions:  # pragma: no branch
+            if 1 in versions:
                 result['response_data'] = self.get_response_data()
-            if 'latest' in versions:  # pragma: no branch
+            if 'latest' in versions:
                 try:
                     final_completion = self._stream_state.current_completion_snapshot
                 except AssertionError:
@@ -665,12 +665,12 @@ def on_response(
             span.set_attribute(RESPONSE_FINISH_REASONS, finish_reasons)
     elif isinstance(response, Completion) and response.choices:
         first_choice = response.choices[0]
-        if 1 in versions:  # pragma: no branch
+        if 1 in versions:
             span.set_attribute(
                 'response_data',
                 {'finish_reason': first_choice.finish_reason, 'text': first_choice.text, 'usage': usage},
             )
-        if 'latest' in versions:  # pragma: no branch
+        if 'latest' in versions:
             output_messages_completion: list[dict[str, Any]] = []
             for choice in response.choices:
                 output_messages_completion.append(
@@ -688,16 +688,16 @@ def on_response(
         if finish_reasons_completion:  # pragma: no branch
             span.set_attribute(RESPONSE_FINISH_REASONS, finish_reasons_completion)
     elif isinstance(response, CreateEmbeddingResponse):
-        if 1 in versions:  # pragma: no branch
+        if 1 in versions:
             span.set_attribute('response_data', {'usage': usage})
     elif isinstance(response, ImagesResponse):
-        if 1 in versions:  # pragma: no branch
+        if 1 in versions:
             span.set_attribute('response_data', {'images': response.data})
     elif isinstance(response, Response):  # pragma: no branch
-        if 'latest' in versions:  # pragma: no branch
+        if 'latest' in versions:
             response_output_messages: OutputMessages = convert_responses_outputs_to_semconv(response)
             span.set_attribute(OUTPUT_MESSAGES, response_output_messages)
-        if 1 in versions:  # pragma: no branch
+        if 1 in versions:
             try:
                 events = json.loads(span.attributes['events'])  # type: ignore
             except Exception:
@@ -778,7 +778,7 @@ def input_to_events(inp: dict[str, Any], tool_call_id_to_name: dict[str, str]):
             else:
                 for content_item in content:
                     with contextlib.suppress(KeyError):
-                        if content_item['type'] == 'output_text':  # pragma: no branch
+                        if content_item['type'] == 'output_text':
                             events.append({'event.name': event_name, 'content': content_item['text'], 'role': role})
                             continue
                     events.append(unknown_event(content_item))  # pragma: no cover

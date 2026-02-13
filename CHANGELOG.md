@@ -1,5 +1,13 @@
 # Release Notes
 
+## [v4.23.0] (2026-02-12)
+
+* feat: Add `logfire.db_api` — PEP 249 DB API 2.0 interface by @dmontagu in [#1692](https://github.com/pydantic/logfire/pull/1692)
+* Add semantic convention message attributes to LLM integrations by @dmontagu in [#1705](https://github.com/pydantic/logfire/pull/1705)
+* Fix some attributes in langsmith and openai_agents spans @alexmojaki in [#1696](https://github.com/pydantic/logfire/pull/1696)
+* feat: support for pytest-xdist traceparent propagation by @jirikuncar in [#1701](https://github.com/pydantic/logfire/pull/1701)
+* fix: re-attach OTel span context in pytest async test functions by @jirikuncar in [#1693](https://github.com/pydantic/logfire/pull/1693)
+
 ## [v4.22.0] (2026-02-04)
 
 * feat: Add multi-token support for project migration by @adriangb in [#1672](https://github.com/pydantic/logfire/pull/1672)
@@ -1028,3 +1036,4 @@ First release from new repo!
 [v4.20.0]: https://github.com/pydantic/logfire/compare/v4.19.0...v4.20.0
 [v4.21.0]: https://github.com/pydantic/logfire/compare/v4.20.0...v4.21.0
 [v4.22.0]: https://github.com/pydantic/logfire/compare/v4.21.0...v4.22.0
+[v4.23.0]: https://github.com/pydantic/logfire/compare/v4.22.0...v4.23.0
