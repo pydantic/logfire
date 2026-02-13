@@ -363,7 +363,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
         if self._pid != os.getpid():  # pragma: no cover
             self._reset_once.do_once(self._at_fork_reinit)
 
-        if not self._has_attempted_fetch and self._block_before_first_fetch:
+        if not self._has_attempted_fetch and self._block_before_first_fetch:  # pragma: no branch
             self.refresh()
 
         return super().get_serialized_value_for_label(variable_name, label)
