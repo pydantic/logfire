@@ -853,9 +853,9 @@ def test_config_serializable():
             sampling=logfire.SamplingOptions(),
             scrubbing=logfire.ScrubbingOptions(),
             code_source=logfire.CodeSource(repository='https://github.com/pydantic/logfire', revision='main'),
+            api_key='test_api_key',
             variables=VariablesOptions(
                 block_before_first_resolve=False,
-                api_key='test_api_key',
                 include_baggage_in_context=False,
             ),
             advanced=logfire.AdvancedOptions(id_generator=SeededRandomIdGenerator(seed=42)),

@@ -322,12 +322,6 @@ class VariablesOptions:
     Polling is only a fallback — all updates are delivered instantly via SSE
     unless something goes wrong. Must be at least 10 seconds. Defaults to 60 seconds.
     """
-    api_key: str | None = None
-    """API key for accessing the variables endpoint.
-
-    If not provided, will be loaded from LOGFIRE_API_KEY environment variable.
-    This key should have at least the 'project:read_variables' scope.
-    """
     timeout: tuple[float, float] = (10, 10)
     """Timeout for HTTP requests to the variables API as (connect_timeout, read_timeout) in seconds."""
     include_resource_attributes_in_context: bool = True
@@ -378,6 +372,7 @@ def configure(
     local: bool = False,
     send_to_logfire: bool | Literal['if-token-present'] | None = None,
     token: str | list[str] | None = None,
+    api_key: str | None = None,
     service_name: str | None = None,
     service_version: str | None = None,
     environment: str | None = None,
@@ -411,6 +406,10 @@ def configure(
             to multiple projects simultaneously (useful for project migration).
 
             Defaults to the `LOGFIRE_TOKEN` environment variable (supports comma-separated tokens).
+
+        api_key: API key for the Logfire API.
+
+            If not provided, will be loaded from the `LOGFIRE_API_KEY` environment variable.
 
         service_name: Name of this service.
 
@@ -581,6 +580,7 @@ def configure(
     config.configure(
         send_to_logfire=send_to_logfire,
         token=token,
+        api_key=api_key,
         service_name=service_name,
         service_version=service_version,
         environment=environment,
@@ -632,6 +632,9 @@ class _LogfireConfigData:
 
     token: str | list[str] | None
     """The Logfire write token(s) to use. Multiple tokens enable sending to multiple projects."""
+
+    api_key: str | None
+    """API key for the Logfire API. Loaded from LOGFIRE_API_KEY if not provided."""
 
     service_name: str
     """The name of this service."""
@@ -685,6 +688,7 @@ class _LogfireConfigData:
         # forwarding parameters from `__init__` to `load_configuration`
         send_to_logfire: bool | Literal['if-token-present'] | None,
         token: str | list[str] | None,
+        api_key: str | None,
         service_name: str | None,
         service_version: str | None,
         environment: str | None,
@@ -709,6 +713,7 @@ class _LogfireConfigData:
         self.send_to_logfire = param_manager.load_param('send_to_logfire', send_to_logfire)
         # Normalize token: single token as str, multiple tokens as list[str], no tokens as None
         self.token = normalize_token(token) or normalize_token(param_manager.load_param('token', None))
+        self.api_key = api_key or param_manager.load_param('api_key')
         self.service_name = param_manager.load_param('service_name', service_name)
         self.service_version = param_manager.load_param('service_version', service_version)
         self.environment = param_manager.load_param('environment', environment)
@@ -815,6 +820,7 @@ class LogfireConfig(_LogfireConfigData):
         self,
         send_to_logfire: bool | Literal['if-token-present'] | None = None,
         token: str | list[str] | None = None,
+        api_key: str | None = None,
         service_name: str | None = None,
         service_version: str | None = None,
         environment: str | None = None,
@@ -844,6 +850,7 @@ class LogfireConfig(_LogfireConfigData):
         self._load_configuration(
             send_to_logfire=send_to_logfire,
             token=token,
+            api_key=api_key,
             service_name=service_name,
             service_version=service_version,
             environment=environment,
@@ -879,6 +886,7 @@ class LogfireConfig(_LogfireConfigData):
         self,
         send_to_logfire: bool | Literal['if-token-present'] | None,
         token: str | list[str] | None,
+        api_key: str | None,
         service_name: str | None,
         service_version: str | None,
         environment: str | None,
@@ -902,6 +910,7 @@ class LogfireConfig(_LogfireConfigData):
             self._load_configuration(
                 send_to_logfire,
                 token,
+                api_key,
                 service_name,
                 service_version,
                 environment,
@@ -1252,19 +1261,17 @@ class LogfireConfig(_LogfireConfigData):
                 # Need to move the imports here to prevent errors if pydantic is not installed
                 from logfire.variables.remote import LogfireRemoteVariableProvider
 
-                # Load api_key from config or environment variable
                 # Only API keys can be used for the variables API (not write tokens)
-                api_key = self.variables.api_key or self.param_manager.load_param('api_key')
-                if not api_key:
+                if not self.api_key:
                     raise LogfireConfigError(  # pragma: no cover
                         'Remote variables require an API key. '
-                        'Set the LOGFIRE_API_KEY environment variable or pass api_key to VariablesOptions.'
+                        'Set the LOGFIRE_API_KEY environment variable or pass api_key to logfire.configure().'
                     )
                 # Determine base URL: prefer config, then advanced settings, then infer from token
-                base_url = self.advanced.base_url or get_base_url_from_token(api_key)
+                base_url = self.advanced.base_url or get_base_url_from_token(self.api_key)
                 self._variable_provider = LogfireRemoteVariableProvider(
                     base_url=base_url,
-                    token=api_key,
+                    token=self.api_key,
                     options=self.variables,
                 )
             multi_log_processor = SynchronousMultiLogRecordProcessor()
@@ -1379,7 +1386,7 @@ class LogfireConfig(_LogfireConfigData):
             if not isinstance(self._variable_provider, NoOpVariableProvider) or self.variables is not None:
                 return self._variable_provider
 
-            api_key = self.param_manager.load_param('api_key')
+            api_key = self.api_key or self.param_manager.load_param('api_key')
             if not api_key:
                 return self._variable_provider
 

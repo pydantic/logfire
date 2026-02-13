@@ -23,7 +23,7 @@ agent_config = logfire.var(
     If `LOGFIRE_API_KEY` is set in your environment, variable APIs will **automatically** use the remote provider without needing `variables=VariablesOptions()` in `configure()`. The first time a variable is resolved, the SDK detects the API key and lazily initializes the remote provider with default options. You only need to pass `variables=VariablesOptions(...)` explicitly if you want to customize options like `polling_interval` or `block_before_first_resolve`.
 
 !!! note "API Key Required"
-    Remote variables require an API key with the `project:read_variables` scope. This is different from the write token (`LOGFIRE_TOKEN`) used to send traces and logs. Set the API key via the `LOGFIRE_API_KEY` environment variable or pass it directly to `VariablesOptions(api_key=...)`. See [External Variables and OFREP](external.md) for details on scopes and accessing variables from client-side applications.
+    Remote variables require an API key with the `project:read_variables` scope. This is different from the write token (`LOGFIRE_TOKEN`) used to send traces and logs. Set the API key via the `LOGFIRE_API_KEY` environment variable or pass it directly to `logfire.configure(api_key=...)`. See [External Variables and OFREP](external.md) for details on scopes and accessing variables from client-side applications.
 
 **How remote variables work:**
 

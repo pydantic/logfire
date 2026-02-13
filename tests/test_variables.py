@@ -1393,7 +1393,7 @@ class TestLogfireRemoteVariableProviderStart:
 @pytest.mark.filterwarnings('ignore::pytest.PytestUnhandledThreadExceptionWarning')
 class TestApiKeySupport:
     def test_api_key_in_config(self) -> None:
-        """Test that api_key can be specified in VariablesOptions."""
+        """Test that api_key can be passed to LogfireRemoteVariableProvider."""
         api_key = 'test_api_key_12345'
         request_mocker = requests_mock_module.Mocker()
         request_mocker.get(
@@ -1423,7 +1423,6 @@ class TestApiKeySupport:
                 options=VariablesOptions(
                     block_before_first_resolve=True,
                     polling_interval=timedelta(seconds=60),
-                    api_key=api_key,
                 ),
             )
             try:
