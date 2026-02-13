@@ -50,7 +50,7 @@ def mock_client() -> Iterator[AnthropicBedrock]:
             aws_session_token='test-session-token',
             http_client=http_client,
         )
-        with logfire.instrument_anthropic():
+        with logfire.instrument_anthropic(version=[1, 'latest']):
             yield client
 
 
@@ -94,6 +94,10 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.request.model': model_id,
                     'gen_ai.request.max_tokens': 1000,
+                    'gen_ai.input.messages': [
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
+                    ],
+                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'You are a helpful assistant.'}],
                     'async': False,
                     'logfire.msg_template': 'Message with {request_data[model]!r}',
                     'logfire.msg': f"Message with '{model_id}'",
@@ -120,6 +124,13 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                             }
                         )
                     ),
+                    'gen_ai.output.messages': [
+                        {
+                            'role': 'assistant',
+                            'parts': [{'type': 'text', 'content': 'Nine'}],
+                            'finish_reason': 'end_turn',
+                        }
+                    ],
                     'gen_ai.response.model': model_id,
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
@@ -134,6 +145,8 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                                 'gen_ai.operation.name': {},
                                 'gen_ai.request.model': {},
                                 'gen_ai.request.max_tokens': {},
+                                'gen_ai.input.messages': {'type': 'array'},
+                                'gen_ai.system_instructions': {'type': 'array'},
                                 'async': {},
                                 'response_data': {
                                     'type': 'object',
@@ -145,6 +158,7 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                                         },
                                     },
                                 },
+                                'gen_ai.output.messages': {'type': 'array'},
                                 'gen_ai.response.model': {},
                                 'gen_ai.response.id': {},
                                 'gen_ai.usage.input_tokens': {},

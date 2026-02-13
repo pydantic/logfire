@@ -197,6 +197,7 @@ SENSITIVE_HEADERS = [
     'x-goog-api-key',
     'openai-organization',
     'openai-project',
+    'x-api-key',
     'x-request-id',
     'cf-ray',
 ]
