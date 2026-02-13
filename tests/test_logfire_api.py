@@ -128,6 +128,23 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire_api.ConsoleOptions(colors='auto')
     logfire__all__.remove('ConsoleOptions')
 
+    # Variables APIs are intentionally not in logfire-api — users of variables should use the full SDK
+    for name in [
+        'var',
+        'variables',
+        'variables_clear',
+        'variables_get',
+        'variables_push',
+        'variables_push_types',
+        'variables_validate',
+        'variables_push_config',
+        'variables_pull_config',
+        'variables_build_config',
+        'VariablesOptions',
+        'LocalVariablesOptions',
+    ]:
+        logfire__all__.discard(name)
+
     assert hasattr(logfire_api, 'PydanticPlugin')
     logfire_api.PydanticPlugin()
     logfire__all__.remove('PydanticPlugin')

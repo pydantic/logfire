@@ -7,11 +7,21 @@ from typing import Any
 from logfire.propagate import attach_context, get_context
 from logfire.sampling import SamplingOptions
 
+from . import variables as variables
 from ._internal.auto_trace import AutoTraceModule
 from ._internal.auto_trace.rewrite_ast import no_auto_trace
 from ._internal.baggage import get_baggage, set_baggage
 from ._internal.cli import logfire_info
-from ._internal.config import AdvancedOptions, CodeSource, ConsoleOptions, MetricsOptions, PydanticPlugin, configure
+from ._internal.config import (
+    AdvancedOptions,
+    CodeSource,
+    ConsoleOptions,
+    LocalVariablesOptions,
+    MetricsOptions,
+    PydanticPlugin,
+    VariablesOptions,
+    configure,
+)
 from ._internal.constants import LevelName
 from ._internal.main import Logfire, LogfireSpan
 from ._internal.scrubbing import ScrubbingOptions, ScrubMatch
@@ -84,6 +94,17 @@ metric_gauge = DEFAULT_LOGFIRE_INSTANCE.metric_gauge
 metric_counter_callback = DEFAULT_LOGFIRE_INSTANCE.metric_counter_callback
 metric_gauge_callback = DEFAULT_LOGFIRE_INSTANCE.metric_gauge_callback
 metric_up_down_counter_callback = DEFAULT_LOGFIRE_INSTANCE.metric_up_down_counter_callback
+
+# Variables
+var = DEFAULT_LOGFIRE_INSTANCE.var
+variables_clear = DEFAULT_LOGFIRE_INSTANCE.variables_clear
+variables_get = DEFAULT_LOGFIRE_INSTANCE.variables_get
+variables_push = DEFAULT_LOGFIRE_INSTANCE.variables_push
+variables_push_types = DEFAULT_LOGFIRE_INSTANCE.variables_push_types
+variables_validate = DEFAULT_LOGFIRE_INSTANCE.variables_validate
+variables_push_config = DEFAULT_LOGFIRE_INSTANCE.variables_push_config
+variables_pull_config = DEFAULT_LOGFIRE_INSTANCE.variables_pull_config
+variables_build_config = DEFAULT_LOGFIRE_INSTANCE.variables_build_config
 
 
 def loguru_handler() -> Any:
@@ -171,6 +192,18 @@ __all__ = (
     'loguru_handler',
     'SamplingOptions',
     'MetricsOptions',
+    'VariablesOptions',
+    'LocalVariablesOptions',
+    'variables',
+    'var',
+    'variables_clear',
+    'variables_get',
+    'variables_push',
+    'variables_push_types',
+    'variables_validate',
+    'variables_push_config',
+    'variables_pull_config',
+    'variables_build_config',
     'logfire_info',
     'get_baggage',
     'set_baggage',
