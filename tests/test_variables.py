@@ -2095,23 +2095,26 @@ class TestLogfireVarIntegration:
         assert var.get().value == 'string_value'
 
     def test_exception_handling_in_get_details(self, config_kwargs: dict[str, Any]):
-        # Create a provider that raises an exception
-        class FailingProvider(VariableProvider):
-            def get_serialized_value(
-                self,
-                variable_name: str,
-                targeting_key: str | None = None,
-                attributes: Mapping[str, Any] | None = None,
-            ) -> ResolvedVariable[str | None]:
-                raise RuntimeError('Provider failed!')
+        # Use a local provider, then monkeypatch it to raise an exception
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
 
-        lf = logfire.configure(variables=FailingProvider())
+        # Monkeypatch the provider to raise during get_serialized_value
+        original = lf.config._variable_provider.get_serialized_value
+
+        def failing_get(*args: Any, **kwargs: Any) -> ResolvedVariable[str | None]:
+            raise RuntimeError('Provider failed!')
+
+        lf.config._variable_provider.get_serialized_value = failing_get
 
         var = lf.var(name='failing_var', default='fallback', type=str)
         details = var.get()
         assert details.value == 'fallback'
         assert details._reason == 'other_error'
         assert isinstance(details.exception, RuntimeError)
+
+        # Restore original
+        lf.config._variable_provider.get_serialized_value = original
 
     def test_variables_build_config(self, config_kwargs: dict[str, Any]):
         """Test that variables_build_config on a Logfire instance delegates to VariablesConfig.from_variables."""

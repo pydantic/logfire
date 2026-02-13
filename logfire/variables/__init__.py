@@ -6,13 +6,11 @@ from importlib.util import find_spec
 from typing import TYPE_CHECKING
 
 from logfire.variables.abstract import (
-    NoOpVariableProvider,
     ResolvedVariable,
     SyncMode,
     ValidationReport,
     VariableAlreadyExistsError,
     VariableNotFoundError,
-    VariableProvider,
     VariableWriteError,
 )
 
@@ -70,8 +68,6 @@ __all__ = [
     'ValueIsNotIn',
     'ValueMatchesRegex',
     'ValueDoesNotMatchRegex',
-    # Providers
-    'VariableProvider',
     # Context managers and utilities
     'targeting_context',
     # Types

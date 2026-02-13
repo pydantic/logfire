@@ -392,7 +392,7 @@ def configure(
     min_level: int | LevelName | None = None,
     add_baggage_to_attributes: bool = True,
     code_source: CodeSource | None = None,
-    variables: VariablesOptions | LocalVariablesOptions | VariableProvider | None = None,
+    variables: VariablesOptions | LocalVariablesOptions | None = None,
     distributed_tracing: bool | None = None,
     advanced: AdvancedOptions | None = None,
     **deprecated_kwargs: Unpack[DeprecatedKwargs],
@@ -610,10 +610,7 @@ def configure(
     # Only start if the user explicitly configured variables — lazy-init providers
     # are started when first accessed via get_variable_provider().
     if config.variables is not None:
-        instrument = (
-            isinstance(config.variables, (VariablesOptions, LocalVariablesOptions)) and config.variables.instrument
-        )
-        config.get_variable_provider().start(logfire_instance if instrument else None)
+        config.get_variable_provider().start(logfire_instance if config.variables.instrument else None)
 
     return logfire_instance
 
@@ -672,7 +669,7 @@ class _LogfireConfigData:
     code_source: CodeSource | None
     """Settings for the source code of the project."""
 
-    variables: VariablesOptions | LocalVariablesOptions | VariableProvider | None
+    variables: VariablesOptions | LocalVariablesOptions | None
     """Settings related to managed variables."""
 
     distributed_tracing: bool | None
@@ -702,7 +699,7 @@ class _LogfireConfigData:
         min_level: int | LevelName | None,
         add_baggage_to_attributes: bool,
         code_source: CodeSource | None,
-        variables: VariablesOptions | LocalVariablesOptions | VariableProvider | None,
+        variables: VariablesOptions | LocalVariablesOptions | None,
         distributed_tracing: bool | None,
         advanced: AdvancedOptions | None,
     ) -> None:
@@ -896,7 +893,7 @@ class LogfireConfig(_LogfireConfigData):
         min_level: int | LevelName | None,
         add_baggage_to_attributes: bool,
         code_source: CodeSource | None,
-        variables: VariablesOptions | LocalVariablesOptions | VariableProvider | None,
+        variables: VariablesOptions | LocalVariablesOptions | None,
         distributed_tracing: bool | None,
         advanced: AdvancedOptions | None,
     ) -> None:
@@ -1245,8 +1242,6 @@ class LogfireConfig(_LogfireConfigData):
             self._variable_provider.shutdown(timeout_millis=200)
             if self.variables is None:
                 self._variable_provider = NoOpVariableProvider()
-            elif isinstance(self.variables, VariableProvider):
-                self._variable_provider = self.variables
             elif isinstance(self.variables, LocalVariablesOptions):
                 # Need to move the imports here to prevent errors if pydantic is not installed
                 from logfire.variables.local import LocalVariableProvider
