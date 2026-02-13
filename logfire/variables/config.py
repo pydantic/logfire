@@ -250,7 +250,7 @@ class Rollout(BaseModel):
     @classmethod
     def _validate_label_proportions(cls, v: dict[str, float]):
         # Note: if the values sum to _less_ than 1, the remaining proportion corresponds to the probability of using
-        # the latest version / code default.
+        # the code default.
         if any(weight < 0 for weight in v.values()):
             raise ValueError('Label proportions must not be negative.')
         if sum(v.values()) > 1.0 + 1e-9:

@@ -73,7 +73,7 @@ The **Labels tab** on the variable detail page lets you:
 ![Variable detail labels](../images/variable-detail-labels.png)
 
 !!! note "No labels = code default"
-    If a variable has no labels configured in its rollout, your application serves the code default (the `default` value passed to `logfire.var()`). To serve the latest version instead, add `latest` as a label in your rollout.
+    If a variable has no labels configured in its rollout, your application serves the code default (the `default` value passed to `logfire.var()`). To serve the latest version instead, create a label that references `latest` and include it in your rollout.
 
 ## Configuring Rollouts
 
@@ -81,9 +81,9 @@ The **Targeting tab > Default Rollout** section controls what percentage of requ
 
 - Set `production` to `90` and `canary` to `10` for a 10% canary deployment
 - Set `control` to `50` and `treatment` to `50` for a 50/50 A/B test
-- You can explicitly assign a percentage to **latest** alongside labels — for example, `control` at `50` and latest at `10` sends 10% of traffic to the latest version, 50% to the control label, and the remaining 40% falls back to the code default
-- If weights sum to less than 100% and no explicit latest weight is set, the remaining percentage uses the **code default**
-- If no labels are in the rollout (empty) and no latest weight is set, all traffic uses the code default
+- To send some traffic to the latest version, create a label that references `latest` and include it in the rollout — for example, a `latest` label referencing latest at `10` and `control` at `50` sends 10% of traffic to the latest version, 50% to the control label, and the remaining 40% falls back to the code default
+- If weights sum to less than 100%, the remaining percentage uses the **code default**
+- If no labels are in the rollout (empty), all traffic uses the code default
 
 ## Targeting with Override Rules
 

@@ -40,7 +40,7 @@ And two labels pointing to those versions:
 To roll out v3 to everyone, just move the `production` label from v2 to v3. To roll back, move it back to v2. No new versions need to be created — the label is just a pointer.
 
 !!! tip "Code default fallback"
-    If no labels are configured in the rollout, or if rollout weights sum to less than 1.0, the remaining traffic uses the **code default** (the `default` value passed to `logfire.var()`). To direct remaining traffic to the latest version instead, add `latest` as a label in your rollout.
+    If no labels are configured in the rollout, or if rollout weights sum to less than 1.0, the remaining traffic uses the **code default** (the `default` value passed to `logfire.var()`). To direct remaining traffic to the latest version instead, create a label that references `latest` and include it in your rollout.
 
 !!! note "Code default as safety net"
     The `default` value you pass to `logfire.var()` serves as an always-available fallback hard-coded into your source code. If no versions have been created yet, or if the remote configuration is unreachable due to a networking issue, or if a remote value fails validation against your type, the SDK returns the code default instead of raising an error. This means your application always has a working value — the remote configuration improves it, but never breaks it.
