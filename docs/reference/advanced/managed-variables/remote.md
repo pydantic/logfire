@@ -23,7 +23,7 @@ agent_config = logfire.var(
     If `LOGFIRE_API_KEY` is set in your environment, variable APIs will **automatically** use the remote provider without needing `variables=VariablesOptions()` in `configure()`. The first time a variable is resolved, the SDK detects the API key and lazily initializes the remote provider with default options. You only need to pass `variables=VariablesOptions(...)` explicitly if you want to customize options like `polling_interval` or `block_before_first_resolve`.
 
 !!! note "API Key Required"
-    Remote variables require an API key with the `project:read_variables` scope (or `project:read_external_variables` for access to external variables only). This is different from the write token (`LOGFIRE_TOKEN`) used to send traces and logs. Set the API key via the `LOGFIRE_API_KEY` environment variable or pass it directly to `VariablesOptions(api_key=...)`. See [External and Internal Variables](#external-and-internal-variables) for details on the different scopes.
+    Remote variables require an API key with the `project:read_variables` scope. This is different from the write token (`LOGFIRE_TOKEN`) used to send traces and logs. Set the API key via the `LOGFIRE_API_KEY` environment variable or pass it directly to `VariablesOptions(api_key=...)`. See [External Variables and OFREP](external.md) for details on scopes and accessing variables from client-side applications.
 
 **How remote variables work:**
 
@@ -48,92 +48,6 @@ logfire.configure(
     ),
 )
 ```
-
-## OpenFeature (OFREP) Endpoints
-
-Logfire exposes managed variables via the OpenFeature Remote Evaluation Protocol (OFREP). These endpoints evaluate variables as feature flags using a targeting context.
-
-**Endpoints (API base URL + paths):**
-
-```text
-POST /v1/ofrep/v1/evaluate/flags/{key}
-POST /v1/ofrep/v1/evaluate/flags
-```
-
-**Request body (single or bulk):**
-
-```json
-{
-  "context": {
-    "targetingKey": "user-123",
-    "plan": "enterprise",
-    "region": "us-east"
-  }
-}
-```
-
-- `targetingKey` is required and is used for deterministic rollout selection.
-- Any additional fields in `context` become attributes for override rules.
-- The OFREP response maps labels to the `variant` field for compatibility with OpenFeature clients.
-
-**Caching (bulk endpoint):**
-
-- The bulk endpoint returns an `ETag` header.
-- If the client sends `If-None-Match` with the same value, the server returns `304 Not Modified`.
-
-These endpoints require an API key with the `project:read_variables` or `project:read_external_variables` scope (see below).
-
-For a step-by-step guide on using OFREP to evaluate feature flags in a web frontend or other client application, see [Client-Side Feature Flags with OFREP](../../../how-to-guides/client-side-feature-flags.md).
-
-## External and Internal Variables
-
-By default, variables are **internal** — they are only accessible with an API key that has the full `project:read_variables` scope. You can mark a variable as **external** to make it accessible with the more restricted `project:read_external_variables` scope.
-
-This distinction is useful when you need to read variable values from less trusted environments (e.g., client-side applications, third-party integrations, or edge services) without exposing your entire variable configuration:
-
-- **Internal variables** (default): Only accessible with `project:read_variables`. Use this for sensitive configuration like internal prompts, pricing parameters, or anything you don't want exposed to client-side code.
-- **External variables**: Accessible with either `project:read_variables` or `project:read_external_variables`. Use this for configuration that is safe to expose, like feature flags, UI theme settings, or public-facing behavior toggles.
-
-**API key scopes for variables:**
-
-| Scope | Description |
-|-------|-------------|
-| `project:read_variables` | Read all variables (both external and internal) |
-| `project:read_external_variables` | Read only variables marked as external |
-| `project:write_variables` | Create, update, and delete variables and variable types |
-
-**Setting a variable as external:**
-
-You can set a variable as external in the Logfire UI when creating a variable (via the "External" toggle on the create form) or on the variable's **Settings** tab. You can also set the `external` field when creating or updating a variable via the API. Variables default to internal (`external: false`) when created.
-
-```python skip="true"
-# When pushing variables, the 'external' field can be set in the variable definition
-# via the API. For example, using the bulk upsert endpoint:
-import httpx
-
-httpx.post(
-    'https://logfire-api.pydantic.dev/v1/variables/bulk/',
-    headers={'Authorization': 'Bearer YOUR_API_KEY'},
-    json=[
-        {
-            'name': 'feature_flag',
-            'json_schema': {'type': 'boolean'},
-            'rollout': {'labels': {}},
-            'overrides': [],
-            'external': True,  # Makes this variable accessible with read_external_variables scope
-        },
-    ],
-)
-```
-
-**Typical setup:**
-
-1. Create an API key with `project:read_variables` for your backend services (full access to all variables)
-2. Create a separate API key with only `project:read_external_variables` for client-side or less trusted environments
-3. Mark variables as external that are safe to expose to those environments
-
-!!! note "OFREP and external variables"
-    The OFREP endpoints (`/v1/ofrep/v1/evaluate/flags/...`) accept both `project:read_variables` and `project:read_external_variables` scopes. When using `project:read_external_variables`, only variables marked as external are returned in evaluations. This makes OFREP suitable for client-side feature flag evaluation with restricted API keys.
 
 ## Pushing Variables from Code
 
@@ -364,7 +278,7 @@ For more control over your variable configurations, you can work with config dat
 **Generating a config template:**
 
 ```python skip="true"
-import json
+from pathlib import Path
 
 import logfire
 from logfire.variables import VariablesConfig
@@ -377,8 +291,7 @@ feature_flag = logfire.var(name='feature_enabled', type=bool, default=False)
 config = logfire.variables_build_config()
 
 # Save to a JSON file
-with open('variables.json', 'w', encoding='utf-8') as f:
-    f.write(config.model_dump_json(indent=2))
+Path('variables.json').write_text(config.model_dump_json(indent=2))
 ```
 
 The generated file will look like:
@@ -419,11 +332,12 @@ The generated file will look like:
 **Pushing:**
 
 ```python skip="true"
+from pathlib import Path
+
 from logfire.variables import VariablesConfig
 
 # Read the edited config
-with open('variables.json', 'r', encoding='utf-8') as f:
-    config = VariablesConfig.model_validate_json(f.read())
+config = VariablesConfig.model_validate_json(Path('variables.json').read_text())
 
 # Sync to the server (metadata only — versions and labels are managed via UI)
 logfire.variables_push_config(config)
@@ -450,12 +364,13 @@ logfire.variables_push_config(config, dry_run=True)
 **Pulling existing config:**
 
 ```python skip="true"
+from pathlib import Path
+
 # Fetch current config from server
 server_config = logfire.variables_pull_config()
 
 # Save for backup or migration
-with open('backup.json', 'w', encoding='utf-8') as f:
-    f.write(server_config.model_dump_json(indent=2))
+Path('backup.json').write_text(server_config.model_dump_json(indent=2))
 
 # Merge with local changes
 merged = server_config.merge(local_config)

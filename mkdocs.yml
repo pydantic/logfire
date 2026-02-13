@@ -205,6 +205,7 @@ nav:
                   - A/B Testing: reference/advanced/managed-variables/ab-testing.md
                   - Targeting: reference/advanced/managed-variables/targeting.md
                   - Remote Variables: reference/advanced/managed-variables/remote.md
+                  - External Variables & OFREP: reference/advanced/managed-variables/external.md
                   - Local Variables: reference/advanced/managed-variables/local.md
                   - Configuration Reference: reference/advanced/managed-variables/configuration-reference.md
               - Baggage: reference/advanced/baggage.md
