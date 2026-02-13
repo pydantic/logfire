@@ -380,6 +380,8 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
         elif isinstance(span_data, SpeechSpanData):
             if 'output' in attributes:  # pragma: no branch
                 attributes['output'] = {k: v for k, v in attributes['output'].items() if k != 'data'}
+        elif isinstance(span_data, FunctionSpanData):
+            attributes['output'] = span_data.output
         return attributes
     except Exception:  # pragma: no cover
         log_internal_error()

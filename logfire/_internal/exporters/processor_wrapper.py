@@ -448,8 +448,15 @@ def _transform_langsmith_span_attributes(
                         message_events = output_message_events
                     else:
                         message_events += output_message_events
-                except Exception:  # pragma: no cover
-                    message_events += [_transform_langchain_message(output_value['output'])]
+                except Exception:
+                    try:
+                        message_events += [
+                            _transform_langchain_message(m)
+                            for o in output_value['output']
+                            for m in o['update']['messages']
+                        ]
+                    except Exception:  # pragma: no cover
+                        message_events += [_transform_langchain_message(output_value['output'])]
 
         new_attributes['all_messages_events'] = json.dumps(message_events)
 

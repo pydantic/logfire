@@ -244,8 +244,55 @@ def _build_github_job_url() -> str:
     return ''
 
 
+def _inject_traceparent_env() -> None:
+    """Inject the current OTel trace context into TRACEPARENT/TRACESTATE env vars.
+
+    This allows child processes (xdist workers, subprocess.Popen, etc.) to inherit
+    the trace context.
+    """
+    from opentelemetry import propagate
+
+    carrier: dict[str, str] = {}
+    propagate.inject(carrier)
+    if 'traceparent' in carrier:  # pragma: no branch
+        os.environ['TRACEPARENT'] = carrier['traceparent']
+    if 'tracestate' in carrier:  # pragma: no branch
+        os.environ['TRACESTATE'] = carrier['tracestate']
+
+
+@pytest.hookimpl(optionalhook=True)
+def pytest_xdist_setupnodes(config: Any, specs: Any) -> None:  # pragma: no cover
+    """Inject TRACEPARENT into env before xdist spawns workers.
+
+    Called in the controller before any ``makegateway()`` call, so all workers
+    inherit the session-level trace context via ``os.environ``.
+
+    NOTE: This relies on ``pytest_sessionstart`` (which creates the session span)
+    running at default priority, *before* xdist's ``DSession.pytest_sessionstart``
+    which uses ``trylast=True`` and calls ``setup_nodes()`` →
+    ``pytest_xdist_setupnodes``.  Do not add ``trylast=True`` to our
+    ``pytest_sessionstart`` or this ordering guarantee breaks.
+    """
+    del specs  # unused
+    if not _is_enabled(config):
+        return
+    _inject_traceparent_env()
+
+
+def _get_xdist_worker_id() -> str | None:
+    """Get the xdist worker ID if running in a worker process."""
+    return os.environ.get('PYTEST_XDIST_WORKER')
+
+
 def pytest_sessionstart(session: pytest.Session) -> None:
-    """Create a session span when the test session starts."""
+    """Create a session span when the test session starts.
+
+    IMPORTANT: This hook must run at default priority (no ``trylast=True``).
+    ``pytest_xdist_setupnodes`` depends on the session span being active when
+    it injects TRACEPARENT into ``os.environ`` for worker processes.  xdist's
+    ``DSession.pytest_sessionstart`` uses ``trylast=True``, so our default-priority
+    hook is guaranteed to run first.
+    """
     if not _is_enabled(session.config):
         return
 
@@ -276,18 +323,34 @@ def pytest_sessionstart(session: pytest.Session) -> None:
     # Create session span
     rootpath_name = session.config.rootpath.name
     args = ' '.join(session.config.invocation_params.args)
+    worker_id = _get_xdist_worker_id()
 
-    span = logfire_instance.span(
-        'pytest: {project}',
-        project=rootpath_name,
-    )
-    span.set_attributes(
-        {
-            'pytest.args': args,
-            'pytest.rootpath': str(session.config.rootpath),
-            'pytest.startpath': str(session.startpath),
-        }
-    )
+    if worker_id:
+        span = logfire_instance.span(
+            'pytest: {project} ({worker_id})',
+            project=rootpath_name,
+            worker_id=worker_id,
+        )
+    else:
+        span = logfire_instance.span(
+            'pytest: {project}',
+            project=rootpath_name,
+        )
+
+    attrs: dict[str, Any] = {
+        'pytest.args': args,
+        'pytest.rootpath': str(session.config.rootpath),
+        'pytest.startpath': str(session.startpath),
+    }
+    if worker_id:
+        attrs['pytest.xdist.worker_id'] = worker_id
+    worker_count = os.environ.get('PYTEST_XDIST_WORKER_COUNT')
+    if worker_count:
+        try:
+            attrs['pytest.xdist.worker_count'] = int(worker_count)
+        except ValueError:  # pragma: no cover
+            pass
+    span.set_attributes(attrs)
 
     # Add CI metadata if in CI
     _add_ci_metadata(span)
@@ -346,7 +409,23 @@ def pytest_runtest_protocol(
                 span.set_attribute('test.parameters', str(list(item.callspec.params.keys())))  # type: ignore[attr-defined]
 
         item.stash[_SPAN_KEY] = trace.get_current_span()
-        yield
+
+        # Propagate trace context via env vars so child processes
+        # (e.g. subprocess.Popen, subprocess.run) inherit the test's trace.
+        old_traceparent = os.environ.get('TRACEPARENT')
+        old_tracestate = os.environ.get('TRACESTATE')
+        _inject_traceparent_env()
+        try:
+            yield
+        finally:
+            if old_traceparent is not None:
+                os.environ['TRACEPARENT'] = old_traceparent
+            else:
+                os.environ.pop('TRACEPARENT', None)
+            if old_tracestate is not None:
+                os.environ['TRACESTATE'] = old_tracestate
+            else:
+                os.environ.pop('TRACESTATE', None)
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -520,3 +599,50 @@ def logfire_pytest(request: pytest.FixtureRequest) -> Logfire:
         send_to_logfire=False,
         console=False,
     )
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_pyfunc_call(pyfuncitem: pytest.Function) -> Generator[None]:
+    """Re-attach the per-test span context for async test functions.
+
+    The ``pytest_runtest_protocol`` hook creates a span per test and attaches it
+    to the OTel context via ``context_api.attach()`` in the **synchronous** hook
+    thread.  However, when tests are async (e.g. with anyio/pytest-asyncio), they
+    may run inside an event-loop task whose ``contextvars`` snapshot was taken
+    before the per-test span was attached (e.g. when ``asyncio.Runner`` reuses a
+    saved context on Python 3.11+).  As a result, ``logfire.get_context()`` inside
+    an async test can return a stale traceparent from a previous test (or no
+    context at all).
+
+    This hook wraps async test functions so that ``context_api.attach()`` is called
+    *inside* the coroutine body, making the span visible to the test and any
+    callbacks (e.g. httpx event hooks) that call ``logfire.get_context()``.
+    """
+    import inspect
+
+    if not _is_enabled(pyfuncitem.config):
+        yield
+        return
+
+    otel_span = pyfuncitem.stash.get(_SPAN_KEY, None)
+    if otel_span is None or not inspect.iscoroutinefunction(pyfuncitem.obj):
+        yield
+        return
+
+    import functools
+
+    from opentelemetry import context as context_api, trace
+
+    original = pyfuncitem.obj
+
+    @functools.wraps(original)
+    async def _wrapped(*args: Any, **kwargs: Any) -> Any:
+        ctx = trace.set_span_in_context(otel_span)
+        token = context_api.attach(ctx)
+        try:
+            return await original(*args, **kwargs)
+        finally:
+            context_api.detach(token)
+
+    pyfuncitem.obj = _wrapped
+    yield
