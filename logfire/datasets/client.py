@@ -1,0 +1,1021 @@
+"""Logfire Datasets SDK client for managing datasets and cases.
+
+This client provides typed, programmatic access to Logfire datasets that are
+compatible with pydantic-evals for AI evaluation workflows.
+
+Example usage:
+    ```python
+    from dataclasses import dataclass
+    from logfire.datasets import LogfireDatasetsClient
+    from pydantic_evals import Case, Dataset
+
+
+    @dataclass
+    class MyInput:
+        question: str
+
+
+    @dataclass
+    class MyOutput:
+        answer: str
+
+
+    with LogfireDatasetsClient(api_key='your-api-key') as client:
+        # Create a typed dataset
+        dataset_info = client.create_dataset(
+            name='my-dataset',
+            input_type=MyInput,
+            output_type=MyOutput,
+        )
+
+        # Add cases using pydantic-evals Case objects
+        client.add_cases(
+            dataset_info['id'],
+            cases=[
+                Case(name='q1', inputs=MyInput('What is 2+2?'), expected_output=MyOutput('4')),
+                Case(name='q2', inputs=MyInput('What is 3+3?'), expected_output=MyOutput('6')),
+            ],
+        )
+
+        # Export as pydantic-evals Dataset
+        dataset: Dataset[MyInput, MyOutput, None] = client.export_dataset(
+            'my-dataset',
+            input_type=MyInput,
+            output_type=MyOutput,
+        )
+    ```
+"""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+from types import TracebackType
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast, overload
+
+from pydantic import TypeAdapter
+from typing_extensions import Self
+
+from logfire._internal.config import get_base_url_from_token
+
+try:
+    from httpx import AsyncClient, Client, Response, Timeout
+    from httpx._client import BaseClient
+except ImportError as e:  # pragma: no cover
+    raise ImportError('httpx is required to use the Logfire datasets client') from e
+
+if TYPE_CHECKING:
+    from pydantic_evals import Case, Dataset
+    from pydantic_evals.evaluators import Evaluator
+else:
+    Case = Dataset = Evaluator = Any  # type: ignore[assignment]
+
+DEFAULT_TIMEOUT = Timeout(30.0)
+
+T = TypeVar('T', bound=BaseClient)
+InputsT = TypeVar('InputsT')
+OutputT = TypeVar('OutputT')
+MetadataT = TypeVar('MetadataT')
+
+
+def _import_pydantic_evals() -> tuple[type, type]:
+    """Import pydantic-evals types, raising ImportError if not available."""
+    try:
+        from pydantic_evals import Case, Dataset
+
+        return Dataset, Case
+    except ImportError:
+        raise ImportError('pydantic-evals is required for this operation. Install with: pip install pydantic-evals')
+
+
+class DatasetNotFoundError(Exception):
+    """Raised when a dataset is not found."""
+
+    pass
+
+
+class CaseNotFoundError(Exception):
+    """Raised when a case is not found."""
+
+    pass
+
+
+class DatasetApiError(Exception):
+    """Raised when the API returns an error."""
+
+    def __init__(self, status_code: int, detail: Any):
+        self.status_code = status_code
+        self.detail = detail
+        super().__init__(f'API error {status_code}: {detail}')
+
+
+def _type_to_schema(type_: type[Any] | None) -> dict[str, Any] | None:
+    """Convert a type to a JSON schema using Pydantic's TypeAdapter."""
+    if type_ is None:
+        return None
+    adapter = TypeAdapter(type_)
+    return adapter.json_schema()
+
+
+def _serialize_value(value: Any) -> Any:
+    """Serialize a value to JSON-compatible format."""
+    if value is None:
+        return None
+    value_type: type[Any] = type(value)  # pyright: ignore[reportUnknownVariableType]
+    adapter: TypeAdapter[Any] = TypeAdapter(value_type)
+    return adapter.dump_python(value, mode='json')
+
+
+def _serialize_evaluators(evaluators: Sequence[Any]) -> list[dict[str, Any]]:
+    """Serialize evaluators to EvaluatorSpec format.
+
+    Format: [{"name": "EvaluatorName", "arguments": {...}}]
+    """
+    result: list[dict[str, Any]] = []
+    for evaluator in evaluators:
+        # Get the serialization name from the evaluator class
+        evaluator_cls: type[Any] = type(evaluator)  # pyright: ignore[reportUnknownVariableType]
+        name = getattr(evaluator_cls, 'get_serialization_name', lambda: evaluator_cls.__name__)()
+
+        # Get init arguments by serializing the evaluator
+        # Most evaluators are dataclasses or Pydantic models
+        if hasattr(evaluator, 'model_dump'):
+            # Pydantic model
+            arguments = evaluator.model_dump()
+        elif hasattr(evaluator, '__dataclass_fields__'):
+            # Dataclass - get field values
+            from dataclasses import asdict
+
+            arguments = asdict(evaluator)
+        else:
+            arguments = None
+
+        # Use None if no arguments, otherwise use the dict
+        if arguments and len(arguments) == 0:
+            arguments = None
+
+        result.append({'name': name, 'arguments': arguments})
+
+    return result
+
+
+def _serialize_case(case: Case[Any, Any, Any]) -> dict[str, Any]:
+    """Serialize a pydantic-evals Case to dict format for the API."""
+    data: dict[str, Any] = {
+        'inputs': _serialize_value(case.inputs) if not isinstance(case.inputs, dict) else case.inputs,  # pyright: ignore[reportUnknownMemberType]
+    }
+
+    if case.name is not None:
+        data['name'] = case.name
+
+    if case.expected_output is not None:
+        data['expected_output'] = (
+            _serialize_value(case.expected_output)
+            if not isinstance(case.expected_output, dict)
+            else case.expected_output  # pyright: ignore[reportUnknownMemberType]
+        )
+
+    if case.metadata is not None:
+        data['metadata'] = _serialize_value(case.metadata) if not isinstance(case.metadata, dict) else case.metadata  # pyright: ignore[reportUnknownMemberType]
+
+    if case.evaluators:
+        data['evaluators'] = _serialize_evaluators(case.evaluators)
+
+    return data
+
+
+class _BaseLogfireDatasetsClient(Generic[T]):
+    """Base class for datasets clients."""
+
+    def __init__(self, base_url: str, api_key: str, timeout: Timeout, client: type[T], **client_kwargs: Any):
+        self.base_url = base_url
+        self.api_key = api_key
+        self.timeout = timeout
+        headers = client_kwargs.pop('headers', {})
+        headers['authorization'] = f'Bearer {api_key}'
+        self.client: T = client(timeout=timeout, base_url=base_url, headers=headers, **client_kwargs)
+
+    def _handle_response(self, response: Response) -> Any:
+        """Handle API response, raising appropriate errors."""
+        if response.status_code == 404:
+            detail = response.json() if response.content else 'Not found'
+            raise DatasetNotFoundError(detail)
+        if response.status_code >= 400:
+            detail = response.json() if response.content else response.text
+            raise DatasetApiError(response.status_code, detail)
+        if response.status_code == 204:
+            return None
+        return response.json()
+
+
+class LogfireDatasetsClient(_BaseLogfireDatasetsClient[Client]):
+    """Synchronous client for managing Logfire datasets.
+
+    The client supports typed datasets that integrate with pydantic-evals.
+
+    Example usage:
+        ```python
+        from dataclasses import dataclass
+        from logfire.datasets import LogfireDatasetsClient
+        from pydantic_evals import Case
+
+
+        @dataclass
+        class MyInput:
+            question: str
+
+
+        @dataclass
+        class MyOutput:
+            answer: str
+
+
+        with LogfireDatasetsClient(api_key='your-api-key') as client:
+            # Create typed dataset
+            dataset = client.create_dataset(
+                name='qa-dataset',
+                input_type=MyInput,
+                output_type=MyOutput,
+            )
+
+            # Add cases using pydantic-evals Case objects
+            client.add_cases(
+                dataset['id'],
+                cases=[
+                    Case(name='q1', inputs=MyInput('Hello?'), expected_output=MyOutput('Hi!')),
+                ],
+            )
+
+            # Export as pydantic-evals Dataset
+            dataset = client.export_dataset('qa-dataset', MyInput, MyOutput)
+        ```
+    """
+
+    def __init__(
+        self,
+        api_key: str,
+        base_url: str | None = None,
+        timeout: Timeout = DEFAULT_TIMEOUT,
+        **client_kwargs: Any,
+    ):
+        """Create a new datasets client.
+
+        Args:
+            api_key: A Logfire API key with datasets scopes (project:read_datasets, project:write_datasets).
+            base_url: The base URL of the Logfire API. If not provided, inferred from API key.
+            timeout: Request timeout configuration.
+            **client_kwargs: Additional arguments passed to httpx.Client.
+        """
+        base_url = base_url or get_base_url_from_token(api_key)
+        super().__init__(base_url, api_key, timeout, Client, **client_kwargs)
+
+    def __enter__(self) -> Self:
+        self.client.__enter__()
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None = None,
+        exc_value: BaseException | None = None,
+        traceback: TracebackType | None = None,
+    ) -> None:
+        self.client.__exit__(exc_type, exc_value, traceback)
+
+    # --- Dataset operations ---
+
+    def list_datasets(self) -> list[dict[str, Any]]:
+        """List all datasets in the project.
+
+        Returns:
+            List of dataset summaries with id, name, description, case_count, etc.
+        """
+        response = self.client.get('/v1/datasets/')
+        return self._handle_response(response)
+
+    def get_dataset(self, id_or_name: str) -> dict[str, Any]:
+        """Get a dataset by ID or name.
+
+        Args:
+            id_or_name: The dataset ID (UUID) or name.
+
+        Returns:
+            Dataset details including schemas and metadata.
+
+        Raises:
+            DatasetNotFoundError: If the dataset does not exist.
+        """
+        response = self.client.get(f'/v1/datasets/{id_or_name}/')
+        return self._handle_response(response)
+
+    def create_dataset(
+        self,
+        name: str,
+        *,
+        input_type: type[Any] | None = None,
+        output_type: type[Any] | None = None,
+        metadata_type: type[Any] | None = None,
+        description: str | None = None,
+        guidance: str | None = None,
+        ai_managed_guidance: bool = False,
+    ) -> dict[str, Any]:
+        """Create a new dataset with optional type schemas.
+
+        Args:
+            name: The dataset name (must be unique within the project).
+            input_type: Type for case inputs. JSON schema will be generated from this type.
+            output_type: Type for expected outputs. JSON schema will be generated from this type.
+            metadata_type: Type for case metadata. JSON schema will be generated from this type.
+            description: Optional description of the dataset.
+            guidance: Instructions for AI-assisted population.
+            ai_managed_guidance: Whether guidance is managed by AI.
+
+        Returns:
+            The created dataset.
+
+        Example:
+            ```python
+            from dataclasses import dataclass
+
+
+            @dataclass
+            class MyInput:
+                question: str
+
+
+            @dataclass
+            class MyOutput:
+                answer: str
+
+
+            dataset = client.create_dataset(
+                name='qa-dataset',
+                input_type=MyInput,
+                output_type=MyOutput,
+            )
+            ```
+        """
+        data: dict[str, Any] = {'name': name}
+        if description is not None:
+            data['description'] = description
+
+        # Generate schemas from types
+        if input_type is not None:
+            data['input_schema'] = _type_to_schema(input_type)
+        if output_type is not None:
+            data['output_schema'] = _type_to_schema(output_type)
+        if metadata_type is not None:
+            data['metadata_schema'] = _type_to_schema(metadata_type)
+
+        if guidance is not None:
+            data['guidance'] = guidance
+        if ai_managed_guidance:
+            data['ai_managed_guidance'] = ai_managed_guidance
+
+        response = self.client.post('/v1/datasets/', json=data)
+        return self._handle_response(response)
+
+    def update_dataset(
+        self,
+        id_or_name: str,
+        *,
+        name: str | None = None,
+        input_type: type[Any] | None = None,
+        output_type: type[Any] | None = None,
+        metadata_type: type[Any] | None = None,
+        description: str | None = None,
+        guidance: str | None = None,
+        ai_managed_guidance: bool | None = None,
+    ) -> dict[str, Any]:
+        """Update an existing dataset.
+
+        Args:
+            id_or_name: The dataset ID (UUID) or name.
+            name: New name for the dataset.
+            input_type: New input type (generates schema).
+            output_type: New output type (generates schema).
+            metadata_type: New metadata type (generates schema).
+            description: New description.
+            guidance: New guidance instructions.
+            ai_managed_guidance: Whether guidance is managed by AI.
+
+        Returns:
+            The updated dataset.
+
+        Raises:
+            DatasetNotFoundError: If the dataset does not exist.
+        """
+        data: dict[str, Any] = {}
+        if name is not None:
+            data['name'] = name
+        if description is not None:
+            data['description'] = description
+        if input_type is not None:
+            data['input_schema'] = _type_to_schema(input_type)
+        if output_type is not None:
+            data['output_schema'] = _type_to_schema(output_type)
+        if metadata_type is not None:
+            data['metadata_schema'] = _type_to_schema(metadata_type)
+        if guidance is not None:
+            data['guidance'] = guidance
+        if ai_managed_guidance is not None:
+            data['ai_managed_guidance'] = ai_managed_guidance
+
+        response = self.client.put(f'/v1/datasets/{id_or_name}/', json=data)
+        return self._handle_response(response)
+
+    def delete_dataset(self, id_or_name: str) -> None:
+        """Delete a dataset and all its cases.
+
+        Args:
+            id_or_name: The dataset ID (UUID) or name.
+
+        Raises:
+            DatasetNotFoundError: If the dataset does not exist.
+        """
+        response = self.client.delete(f'/v1/datasets/{id_or_name}/')
+        self._handle_response(response)
+
+    # --- Case operations ---
+
+    def list_cases(self, dataset_id_or_name: str) -> list[dict[str, Any]]:
+        """List all cases in a dataset.
+
+        Args:
+            dataset_id_or_name: The dataset ID (UUID) or name.
+
+        Returns:
+            List of cases with full details.
+
+        Raises:
+            DatasetNotFoundError: If the dataset does not exist.
+        """
+        response = self.client.get(f'/v1/datasets/{dataset_id_or_name}/cases/')
+        return self._handle_response(response)
+
+    def get_case(self, dataset_id_or_name: str, case_id: str) -> dict[str, Any]:
+        """Get a specific case from a dataset.
+
+        Args:
+            dataset_id_or_name: The dataset ID (UUID) or name.
+            case_id: The case ID.
+
+        Returns:
+            The case details.
+
+        Raises:
+            DatasetNotFoundError: If the dataset does not exist.
+            CaseNotFoundError: If the case does not exist.
+        """
+        response = self.client.get(f'/v1/datasets/{dataset_id_or_name}/cases/{case_id}/')
+        return self._handle_response(response)
+
+    def add_case(
+        self,
+        dataset_id_or_name: str,
+        case: Case[InputsT, OutputT, MetadataT],
+    ) -> dict[str, Any]:
+        """Add a pydantic-evals Case to a dataset.
+
+        Args:
+            dataset_id_or_name: The dataset ID (UUID) or name.
+            case: A pydantic-evals Case object.
+
+        Returns:
+            The created case.
+
+        Raises:
+            DatasetNotFoundError: If the dataset does not exist.
+
+        Example:
+            ```python
+            from pydantic_evals import Case
+
+            client.add_case(
+                'my-dataset',
+                Case(
+                    name='test-case',
+                    inputs=MyInput(question='What is 2+2?'),
+                    expected_output=MyOutput(answer='4'),
+                ),
+            )
+            ```
+        """
+        data = _serialize_case(case)
+        response = self.client.post(f'/v1/datasets/{dataset_id_or_name}/cases/', json=data)
+        return self._handle_response(response)
+
+    def add_cases(
+        self,
+        dataset_id_or_name: str,
+        cases: Sequence[Case[InputsT, OutputT, MetadataT]],
+    ) -> list[dict[str, Any]]:
+        """Add multiple pydantic-evals Cases to a dataset.
+
+        Args:
+            dataset_id_or_name: The dataset ID (UUID) or name.
+            cases: A sequence of pydantic-evals Case objects.
+
+        Returns:
+            The created cases.
+
+        Raises:
+            DatasetNotFoundError: If the dataset does not exist.
+
+        Example:
+            ```python
+            from pydantic_evals import Case
+
+            client.add_cases(
+                'my-dataset',
+                cases=[
+                    Case(name='q1', inputs=MyInput('What is 2+2?'), expected_output=MyOutput('4')),
+                    Case(name='q2', inputs=MyInput('What is 3+3?'), expected_output=MyOutput('6')),
+                ],
+            )
+            ```
+        """
+        serialized_cases = [_serialize_case(case) for case in cases]
+        response = self.client.post(
+            f'/v1/datasets/{dataset_id_or_name}/cases/bulk/',
+            json={'cases': serialized_cases},
+        )
+        return self._handle_response(response)
+
+    def create_case(
+        self,
+        dataset_id_or_name: str,
+        inputs: Any,
+        *,
+        name: str | None = None,
+        expected_output: Any | None = None,
+        metadata: Any | None = None,
+        evaluators: Sequence[Evaluator[Any, Any, Any]] | None = None,
+        source_trace_id: str | None = None,
+        source_span_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Create a new case in a dataset (lower-level API).
+
+        For most use cases, prefer `add_case()` or `add_cases()` with pydantic-evals Case objects.
+
+        Args:
+            dataset_id_or_name: The dataset ID (UUID) or name.
+            inputs: The case inputs. Can be a dict or a typed object (dataclass, Pydantic model).
+            name: Optional name for the case.
+            expected_output: Expected output. Can be a dict or a typed object.
+            metadata: Additional metadata. Can be a dict or a typed object.
+            evaluators: Case-specific evaluators.
+            source_trace_id: ID of the trace this case was derived from.
+            source_span_id: ID of the span this case was derived from.
+
+        Returns:
+            The created case.
+
+        Raises:
+            DatasetNotFoundError: If the dataset does not exist.
+        """
+        serialized_inputs = _serialize_value(inputs) if not isinstance(inputs, dict) else cast(Any, inputs)
+
+        data: dict[str, Any] = {'inputs': serialized_inputs}
+        if name is not None:
+            data['name'] = name
+        if expected_output is not None:
+            data['expected_output'] = (
+                _serialize_value(expected_output) if not isinstance(expected_output, dict) else expected_output
+            )
+        if metadata is not None:
+            data['metadata'] = _serialize_value(metadata) if not isinstance(metadata, dict) else metadata
+        if evaluators is not None:
+            data['evaluators'] = _serialize_evaluators(evaluators)
+        if source_trace_id is not None:
+            data['source_trace_id'] = source_trace_id
+        if source_span_id is not None:
+            data['source_span_id'] = source_span_id
+
+        response = self.client.post(f'/v1/datasets/{dataset_id_or_name}/cases/', json=data)
+        return self._handle_response(response)
+
+    def update_case(
+        self,
+        dataset_id_or_name: str,
+        case_id: str,
+        *,
+        name: str | None = None,
+        inputs: Any | None = None,
+        expected_output: Any | None = None,
+        metadata: Any | None = None,
+        evaluators: Sequence[Evaluator[Any, Any, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """Update an existing case.
+
+        Args:
+            dataset_id_or_name: The dataset ID (UUID) or name.
+            case_id: The case ID.
+            name: New name for the case.
+            inputs: New inputs (dict or typed object).
+            expected_output: New expected output (dict or typed object).
+            metadata: New metadata (dict or typed object).
+            evaluators: New evaluators.
+
+        Returns:
+            The updated case.
+
+        Raises:
+            DatasetNotFoundError: If the dataset does not exist.
+            CaseNotFoundError: If the case does not exist.
+        """
+        data: dict[str, Any] = {}
+        if name is not None:
+            data['name'] = name
+        if inputs is not None:
+            data['inputs'] = _serialize_value(inputs) if not isinstance(inputs, dict) else inputs
+        if expected_output is not None:
+            data['expected_output'] = (
+                _serialize_value(expected_output) if not isinstance(expected_output, dict) else expected_output
+            )
+        if metadata is not None:
+            data['metadata'] = _serialize_value(metadata) if not isinstance(metadata, dict) else metadata
+        if evaluators is not None:
+            data['evaluators'] = _serialize_evaluators(evaluators)
+
+        response = self.client.put(f'/v1/datasets/{dataset_id_or_name}/cases/{case_id}/', json=data)
+        return self._handle_response(response)
+
+    def delete_case(self, dataset_id_or_name: str, case_id: str) -> None:
+        """Delete a case from a dataset.
+
+        Args:
+            dataset_id_or_name: The dataset ID (UUID) or name.
+            case_id: The case ID.
+
+        Raises:
+            DatasetNotFoundError: If the dataset does not exist.
+            CaseNotFoundError: If the case does not exist.
+        """
+        response = self.client.delete(f'/v1/datasets/{dataset_id_or_name}/cases/{case_id}/')
+        self._handle_response(response)
+
+    # --- Export/Import operations ---
+
+    @overload
+    def export_dataset(self, id_or_name: str) -> dict[str, Any]: ...
+
+    @overload
+    def export_dataset(
+        self,
+        id_or_name: str,
+        input_type: type[InputsT],
+        output_type: type[OutputT] | None = None,
+        metadata_type: type[MetadataT] | None = None,
+        *,
+        custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = (),
+    ) -> Dataset[InputsT, OutputT, MetadataT]: ...
+
+    def export_dataset(
+        self,
+        id_or_name: str,
+        input_type: type[InputsT] | None = None,
+        output_type: type[OutputT] | None = None,
+        metadata_type: type[MetadataT] | None = None,
+        *,
+        custom_evaluator_types: Sequence[type[Evaluator[Any, Any, Any]]] = (),
+    ) -> Dataset[InputsT, OutputT, MetadataT] | dict[str, Any]:
+        """Export a dataset, optionally as a typed pydantic-evals Dataset.
+
+        When called with type arguments, returns a `pydantic_evals.Dataset` with
+        properly typed cases. Without type arguments, returns raw dict data.
+
+        Args:
+            id_or_name: The dataset ID (UUID) or name.
+            input_type: Type for case inputs.
+            output_type: Type for expected outputs.
+            metadata_type: Type for case metadata.
+            custom_evaluator_types: Custom evaluator classes for deserializing case evaluators.
+
+        Returns:
+            If types provided: `pydantic_evals.Dataset[InputsT, OutputT, MetadataT]`
+            Otherwise: Raw dict in pydantic-evals compatible format.
+
+        Raises:
+            DatasetNotFoundError: If the dataset does not exist.
+            ImportError: If pydantic-evals is not installed (when using types).
+
+        Example:
+            ```python
+            from pydantic_evals import Dataset
+            from pydantic_evals.evaluators import IsInstance
+
+            # Export with types and custom evaluators
+            dataset: Dataset[MyInput, MyOutput, None] = client.export_dataset(
+                'my-dataset',
+                input_type=MyInput,
+                output_type=MyOutput,
+                custom_evaluator_types=[MyCustomEvaluator],
+            )
+
+            # Use with evaluations
+            report = await dataset.evaluate(my_task)
+            ```
+        """
+        response = self.client.get(f'/v1/datasets/{id_or_name}/export/')
+        data = self._handle_response(response)
+
+        # If no types provided, return raw dict
+        if input_type is None:
+            return data
+
+        # Convert to typed Dataset using pydantic-evals
+        Dataset, _ = _import_pydantic_evals()
+
+        # Create a properly typed Dataset class
+        typed_dataset_cls: type[Dataset[InputsT, OutputT, MetadataT]] = Dataset[input_type, output_type, metadata_type]  # type: ignore
+        return typed_dataset_cls.from_dict(data, custom_evaluator_types=list(custom_evaluator_types))  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
+
+    def import_cases(
+        self,
+        dataset_id_or_name: str,
+        cases: Sequence[Case[InputsT, OutputT, MetadataT]] | list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Import cases into an existing dataset.
+
+        This bulk creates new cases. Cases are not deduplicated - importing
+        the same data twice will create duplicates.
+
+        Args:
+            dataset_id_or_name: The dataset ID (UUID) or name.
+            cases: Sequence of pydantic-evals Case objects or dicts.
+
+        Returns:
+            The created cases.
+
+        Raises:
+            DatasetNotFoundError: If the dataset does not exist.
+        """
+        # Serialize cases if they're Case objects
+        if cases and hasattr(cases[0], 'inputs'):
+            # These are Case objects
+            serialized_cases = [_serialize_case(case) for case in cases]  # type: ignore[arg-type]
+        else:
+            # Already dicts
+            serialized_cases: list[dict[str, Any]] = list(cases)  # type: ignore[arg-type]
+
+        response = self.client.post(
+            f'/v1/datasets/{dataset_id_or_name}/import/',
+            json={'cases': serialized_cases},
+        )
+        return self._handle_response(response)
+
+
+class AsyncLogfireDatasetsClient(_BaseLogfireDatasetsClient[AsyncClient]):
+    """Asynchronous client for managing Logfire datasets.
+
+    See `LogfireDatasetsClient` for full documentation.
+    """
+
+    def __init__(
+        self,
+        api_key: str,
+        base_url: str | None = None,
+        timeout: Timeout = DEFAULT_TIMEOUT,
+        **client_kwargs: Any,
+    ):
+        base_url = base_url or get_base_url_from_token(api_key)
+        super().__init__(base_url, api_key, timeout, AsyncClient, **client_kwargs)
+
+    async def __aenter__(self) -> Self:
+        await self.client.__aenter__()
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None = None,
+        exc_value: BaseException | None = None,
+        traceback: TracebackType | None = None,
+    ) -> None:
+        await self.client.__aexit__(exc_type, exc_value, traceback)
+
+    async def list_datasets(self) -> list[dict[str, Any]]:
+        """List all datasets."""
+        response = await self.client.get('/v1/datasets/')
+        return self._handle_response(response)
+
+    async def get_dataset(self, id_or_name: str) -> dict[str, Any]:
+        """Get a dataset by ID or name."""
+        response = await self.client.get(f'/v1/datasets/{id_or_name}/')
+        return self._handle_response(response)
+
+    async def create_dataset(
+        self,
+        name: str,
+        *,
+        input_type: type[Any] | None = None,
+        output_type: type[Any] | None = None,
+        metadata_type: type[Any] | None = None,
+        description: str | None = None,
+        guidance: str | None = None,
+        ai_managed_guidance: bool = False,
+    ) -> dict[str, Any]:
+        """Create a new dataset."""
+        data: dict[str, Any] = {'name': name}
+        if description is not None:
+            data['description'] = description
+        if input_type is not None:
+            data['input_schema'] = _type_to_schema(input_type)
+        if output_type is not None:
+            data['output_schema'] = _type_to_schema(output_type)
+        if metadata_type is not None:
+            data['metadata_schema'] = _type_to_schema(metadata_type)
+        if guidance is not None:
+            data['guidance'] = guidance
+        if ai_managed_guidance:
+            data['ai_managed_guidance'] = ai_managed_guidance
+
+        response = await self.client.post('/v1/datasets/', json=data)
+        return self._handle_response(response)
+
+    async def update_dataset(
+        self,
+        id_or_name: str,
+        *,
+        name: str | None = None,
+        input_type: type[Any] | None = None,
+        output_type: type[Any] | None = None,
+        metadata_type: type[Any] | None = None,
+        description: str | None = None,
+        guidance: str | None = None,
+        ai_managed_guidance: bool | None = None,
+    ) -> dict[str, Any]:
+        """Update an existing dataset."""
+        data: dict[str, Any] = {}
+        if name is not None:
+            data['name'] = name
+        if description is not None:
+            data['description'] = description
+        if input_type is not None:
+            data['input_schema'] = _type_to_schema(input_type)
+        if output_type is not None:
+            data['output_schema'] = _type_to_schema(output_type)
+        if metadata_type is not None:
+            data['metadata_schema'] = _type_to_schema(metadata_type)
+        if guidance is not None:
+            data['guidance'] = guidance
+        if ai_managed_guidance is not None:
+            data['ai_managed_guidance'] = ai_managed_guidance
+
+        response = await self.client.put(f'/v1/datasets/{id_or_name}/', json=data)
+        return self._handle_response(response)
+
+    async def delete_dataset(self, id_or_name: str) -> None:
+        """Delete a dataset."""
+        response = await self.client.delete(f'/v1/datasets/{id_or_name}/')
+        self._handle_response(response)
+
+    async def list_cases(self, dataset_id_or_name: str) -> list[dict[str, Any]]:
+        """List all cases in a dataset."""
+        response = await self.client.get(f'/v1/datasets/{dataset_id_or_name}/cases/')
+        return self._handle_response(response)
+
+    async def get_case(self, dataset_id_or_name: str, case_id: str) -> dict[str, Any]:
+        """Get a specific case from a dataset."""
+        response = await self.client.get(f'/v1/datasets/{dataset_id_or_name}/cases/{case_id}/')
+        return self._handle_response(response)
+
+    async def add_case(
+        self,
+        dataset_id_or_name: str,
+        case: Case[InputsT, OutputT, MetadataT],
+    ) -> dict[str, Any]:
+        """Add a pydantic-evals Case to a dataset."""
+        data = _serialize_case(case)
+        response = await self.client.post(f'/v1/datasets/{dataset_id_or_name}/cases/', json=data)
+        return self._handle_response(response)
+
+    async def add_cases(
+        self,
+        dataset_id_or_name: str,
+        cases: Sequence[Case[InputsT, OutputT, MetadataT]],
+    ) -> list[dict[str, Any]]:
+        """Add multiple pydantic-evals Cases to a dataset."""
+        serialized_cases = [_serialize_case(case) for case in cases]
+        response = await self.client.post(
+            f'/v1/datasets/{dataset_id_or_name}/cases/bulk/',
+            json={'cases': serialized_cases},
+        )
+        return self._handle_response(response)
+
+    async def create_case(
+        self,
+        dataset_id_or_name: str,
+        inputs: Any,
+        *,
+        name: str | None = None,
+        expected_output: Any | None = None,
+        metadata: Any | None = None,
+        evaluators: Sequence[Evaluator[Any, Any, Any]] | None = None,
+        source_trace_id: str | None = None,
+        source_span_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Create a case from raw values."""
+        serialized_inputs = _serialize_value(inputs) if not isinstance(inputs, dict) else cast(Any, inputs)
+
+        data: dict[str, Any] = {'inputs': serialized_inputs}
+        if name is not None:
+            data['name'] = name
+        if expected_output is not None:
+            data['expected_output'] = (
+                _serialize_value(expected_output) if not isinstance(expected_output, dict) else expected_output
+            )
+        if metadata is not None:
+            data['metadata'] = _serialize_value(metadata) if not isinstance(metadata, dict) else metadata
+        if evaluators is not None:
+            data['evaluators'] = _serialize_evaluators(evaluators)
+        if source_trace_id is not None:
+            data['source_trace_id'] = source_trace_id
+        if source_span_id is not None:
+            data['source_span_id'] = source_span_id
+
+        response = await self.client.post(f'/v1/datasets/{dataset_id_or_name}/cases/', json=data)
+        return self._handle_response(response)
+
+    async def update_case(
+        self,
+        dataset_id_or_name: str,
+        case_id: str,
+        *,
+        name: str | None = None,
+        inputs: Any | None = None,
+        expected_output: Any | None = None,
+        metadata: Any | None = None,
+        evaluators: Sequence[Evaluator[Any, Any, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """Update an existing case."""
+        data: dict[str, Any] = {}
+        if name is not None:
+            data['name'] = name
+        if inputs is not None:
+            data['inputs'] = _serialize_value(inputs) if not isinstance(inputs, dict) else inputs
+        if expected_output is not None:
+            data['expected_output'] = (
+                _serialize_value(expected_output) if not isinstance(expected_output, dict) else expected_output
+            )
+        if metadata is not None:
+            data['metadata'] = _serialize_value(metadata) if not isinstance(metadata, dict) else metadata
+        if evaluators is not None:
+            data['evaluators'] = _serialize_evaluators(evaluators)
+
+        response = await self.client.put(f'/v1/datasets/{dataset_id_or_name}/cases/{case_id}/', json=data)
+        return self._handle_response(response)
+
+    async def delete_case(self, dataset_id_or_name: str, case_id: str) -> None:
+        """Delete a case from a dataset."""
+        response = await self.client.delete(f'/v1/datasets/{dataset_id_or_name}/cases/{case_id}/')
+        self._handle_response(response)
+
+    @overload
+    async def export_dataset(self, id_or_name: str) -> dict[str, Any]: ...
+
+    @overload
+    async def export_dataset(
+        self,
+        id_or_name: str,
+        input_type: type[InputsT],
+        output_type: type[OutputT] | None = None,
+        metadata_type: type[MetadataT] | None = None,
+        *,
+        custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = (),
+    ) -> Dataset[InputsT, OutputT, MetadataT]: ...
+
+    async def export_dataset(
+        self,
+        id_or_name: str,
+        input_type: type[InputsT] | None = None,
+        output_type: type[OutputT] | None = None,
+        metadata_type: type[MetadataT] | None = None,
+        *,
+        custom_evaluator_types: Sequence[type[Evaluator[Any, Any, Any]]] = (),
+    ) -> Dataset[InputsT, OutputT, MetadataT] | dict[str, Any]:
+        """Export a dataset, optionally as a typed pydantic-evals Dataset."""
+        response = await self.client.get(f'/v1/datasets/{id_or_name}/export/')
+        data = self._handle_response(response)
+
+        if input_type is None:
+            return data
+
+        Dataset, _ = _import_pydantic_evals()
+        typed_dataset_cls: type[Dataset[InputsT, OutputT, MetadataT]] = Dataset[input_type, output_type, metadata_type]  # type: ignore
+        return typed_dataset_cls.from_dict(data, custom_evaluator_types=list(custom_evaluator_types))  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
+
+    async def import_cases(
+        self,
+        dataset_id_or_name: str,
+        cases: Sequence[Case[InputsT, OutputT, MetadataT]] | list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Import cases into a dataset."""
+        if cases and hasattr(cases[0], 'inputs'):
+            serialized_cases = [_serialize_case(case) for case in cases]  # type: ignore[arg-type]
+        else:
+            serialized_cases: list[dict[str, Any]] = list(cases)  # type: ignore[arg-type]
+
+        response = await self.client.post(
+            f'/v1/datasets/{dataset_id_or_name}/import/',
+            json={'cases': serialized_cases},
+        )
+        return self._handle_response(response)

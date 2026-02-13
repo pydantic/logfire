@@ -106,6 +106,7 @@ nav:
               - LLM Panels: guides/web-ui/llm-panels.md
               - Dashboards: guides/web-ui/dashboards.md
               - Evals: guides/web-ui/evals.md
+              - Datasets: guides/web-ui/datasets.md
               - Issues: guides/web-ui/issues.md
               - Alerts: guides/web-ui/alerts.md
               - Saved Searches: guides/web-ui/saved-searches.md
