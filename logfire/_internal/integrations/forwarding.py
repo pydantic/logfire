@@ -83,7 +83,7 @@ def forward_request(
     else:
         new_headers['User-Agent'] = f'logfire-proxy/{VERSION}'
 
-    new_headers['Authorization'] = f'Bearer {token}'
+    new_headers['Authorization'] = token
 
     try:
         response = requests.request(
