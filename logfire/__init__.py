@@ -73,6 +73,7 @@ shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
 with_tags = DEFAULT_LOGFIRE_INSTANCE.with_tags
 # with_trace_sample_rate = DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate
 with_settings = DEFAULT_LOGFIRE_INSTANCE.with_settings
+url_from_eval = DEFAULT_LOGFIRE_INSTANCE.url_from_eval
 
 # Logging
 log = DEFAULT_LOGFIRE_INSTANCE.log
@@ -209,4 +210,5 @@ __all__ = (
     'set_baggage',
     'get_context',
     'attach_context',
+    'url_from_eval',
 )

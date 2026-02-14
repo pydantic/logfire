@@ -3345,6 +3345,8 @@ dev = [
     { name = "pydantic" },
     { name = "pydantic-ai-slim", version = "0.8.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "pydantic-ai-slim", version = "1.56.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "pydantic-evals", version = "0.8.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "pydantic-evals", version = "1.56.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "pymongo" },
     { name = "pymysql" },
     { name = "pyright" },
@@ -3500,6 +3502,7 @@ dev = [
     { name = "pyarrow", marker = "python_full_version >= '3.13'", specifier = ">=18.1.0" },
     { name = "pydantic", specifier = ">=2.11.0" },
     { name = "pydantic-ai-slim", specifier = ">=0.0.39" },
+    { name = "pydantic-evals", specifier = ">=0.0.39" },
     { name = "pymongo", specifier = ">=4.10.1" },
     { name = "pymysql", specifier = ">=1.1.1" },
     { name = "pyright", specifier = "!=1.1.407" },
@@ -6701,6 +6704,60 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/1f/f2/f11dd73284122713f5f89fc940f370d035fa8e1e078d446b3313955157fe/pydantic_core-2.41.5-pp311-pypy311_pp73-musllinux_1_1_armv7l.whl", hash = "sha256:a668ce24de96165bb239160b3d854943128f4334822900534f2fe947930e5770", size = 2330317, upload-time = "2025-11-04T13:43:40.406Z" },
     { url = "https://files.pythonhosted.org/packages/88/9d/b06ca6acfe4abb296110fb1273a4d848a0bfb2ff65f3ee92127b3244e16b/pydantic_core-2.41.5-pp311-pypy311_pp73-musllinux_1_1_x86_64.whl", hash = "sha256:f14f8f046c14563f8eb3f45f499cc658ab8d10072961e07225e507adb700e93f", size = 2316992, upload-time = "2025-11-04T13:43:43.602Z" },
     { url = "https://files.pythonhosted.org/packages/36/c7/cfc8e811f061c841d7990b0201912c3556bfeb99cdcb7ed24adc8d6f8704/pydantic_core-2.41.5-pp311-pypy311_pp73-win_amd64.whl", hash = "sha256:56121965f7a4dc965bff783d70b907ddf3d57f6eba29b6d2e5dabfaf07799c51", size = 2145302, upload-time = "2025-11-04T13:43:46.64Z" },
+]
+
+[[package]]
+name = "pydantic-evals"
+version = "0.8.1"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version < '3.10' and platform_python_implementation == 'PyPy'",
+    "python_full_version < '3.10' and platform_python_implementation != 'PyPy'",
+]
+dependencies = [
+    { name = "anyio", marker = "python_full_version < '3.10'" },
+    { name = "eval-type-backport", marker = "python_full_version < '3.10'" },
+    { name = "logfire-api", marker = "python_full_version < '3.10'" },
+    { name = "pydantic", marker = "python_full_version < '3.10'" },
+    { name = "pydantic-ai-slim", version = "0.8.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "pyyaml", marker = "python_full_version < '3.10'" },
+    { name = "rich", marker = "python_full_version < '3.10'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/6c/9d/460a1f2c9f5f263e9d8e9661acbd654ccc81ad3373ea43048d914091a817/pydantic_evals-0.8.1.tar.gz", hash = "sha256:c398a623c31c19ce70e346ad75654fcb1517c3f6a821461f64fe5cbbe0813023", size = 43933, upload-time = "2025-08-29T14:46:28.903Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6f/f9/1d21c4687167c4fa76fd3b1ed47f9bc2d38fd94cbacd9aa3f19e82e59830/pydantic_evals-0.8.1-py3-none-any.whl", hash = "sha256:6c76333b1d79632f619eb58a24ac656e9f402c47c75ad750ba0230d7f5514344", size = 52602, upload-time = "2025-08-29T14:46:16.602Z" },
+]
+
+[[package]]
+name = "pydantic-evals"
+version = "1.56.0"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.14' and sys_platform == 'win32'",
+    "python_full_version >= '3.14' and sys_platform == 'emscripten'",
+    "python_full_version >= '3.14' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and sys_platform == 'win32'",
+    "python_full_version == '3.13.*' and sys_platform == 'emscripten'",
+    "python_full_version == '3.13.*' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.12.*' and sys_platform == 'win32'",
+    "python_full_version == '3.12.*' and sys_platform == 'emscripten'",
+    "python_full_version == '3.12.*' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.11.*' and sys_platform == 'win32'",
+    "python_full_version == '3.11.*' and sys_platform == 'emscripten'",
+    "python_full_version == '3.11.*' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.10.*'",
+]
+dependencies = [
+    { name = "anyio", marker = "python_full_version >= '3.10'" },
+    { name = "logfire-api", marker = "python_full_version >= '3.10'" },
+    { name = "pydantic", marker = "python_full_version >= '3.10'" },
+    { name = "pydantic-ai-slim", version = "1.56.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "pyyaml", marker = "python_full_version >= '3.10'" },
+    { name = "rich", marker = "python_full_version >= '3.10'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/98/f2/8c59284a2978af3fbda45ae3217218eaf8b071207a9290b54b7613983e5d/pydantic_evals-1.56.0.tar.gz", hash = "sha256:206635107127af6a3ee4b1fc8f77af6afb14683615a2d6b3609f79467c1c0d28", size = 47210, upload-time = "2026-02-06T01:13:25.714Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/89/51/9875d19ff6d584aaeb574aba76b49d931b822546fc60b29c4fc0da98170d/pydantic_evals-1.56.0-py3-none-any.whl", hash = "sha256:d1efb410c97135aabd2a22453b10c981b2b9851985e9354713af67ae0973b7a9", size = 56407, upload-time = "2026-02-06T01:13:17.098Z" },
 ]
 
 [[package]]

@@ -201,6 +201,8 @@ except ImportError:
 
             def instrument_mcp(self, *args, **kwargs) -> None: ...
 
+            def url_from_eval(self, *args, **kwargs) -> None: ...
+
             def shutdown(self, *args, **kwargs) -> None: ...
 
 
@@ -255,6 +257,7 @@ except ImportError:
         instrument_mcp = DEFAULT_LOGFIRE_INSTANCE.instrument_mcp
         shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
         suppress_scopes = DEFAULT_LOGFIRE_INSTANCE.suppress_scopes
+        url_from_eval = DEFAULT_LOGFIRE_INSTANCE.url_from_eval
 
         def loguru_handler() -> dict[str, Any]:
             return {}

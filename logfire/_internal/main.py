@@ -84,6 +84,7 @@ if TYPE_CHECKING:
     from flask.app import Flask
     from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
     from opentelemetry.metrics import _Gauge as Gauge
+    from pydantic_evals.reporting import EvaluationReport
     from pymongo.monitoring import CommandFailedEvent, CommandStartedEvent, CommandSucceededEvent
     from sqlalchemy import Engine
     from sqlalchemy.ext.asyncio import AsyncEngine
@@ -891,6 +892,25 @@ class Logfire:
             Whether the flush of spans was successful.
         """
         return self._config.force_flush(timeout_millis)
+
+    def url_from_eval(self, report: EvaluationReport[Any, Any, Any]) -> str | None:
+        """Generate a Logfire URL to view an evaluation report.
+
+        Args:
+            report: An evaluation report from `pydantic_evals`.
+
+        Returns:
+            The URL string, or `None` if the project URL or trace/span IDs are not available.
+        """
+        # Wait for the background token validation thread to finish,
+        # since it may populate project_url when no credentials file exists.
+        self._config.wait_for_token_validation()
+        project_url = self._config.project_url
+        trace_id = report.trace_id
+        span_id = report.span_id
+        if not project_url or not trace_id or not span_id:
+            return None
+        return f'{project_url.rstrip("/")}/evals/compare?experiment={trace_id}-{span_id}'
 
     def log_slow_async_callbacks(self, slow_duration: float = 0.1) -> AbstractContextManager[None]:
         """Log a warning whenever a function running in the asyncio event loop blocks for too long.
