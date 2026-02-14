@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from unittest import mock
 
+import pytest
 import requests
-from fastapi import FastAPI
-from starlette.testclient import TestClient
+
+if TYPE_CHECKING:
+    pass
 
 import logfire
 from logfire import ForwardRequestResponse
@@ -70,6 +73,10 @@ def test_forward_request_exception_handling() -> None:
 
 
 def test_fastapi_proxy_instrumentation() -> None:
+    fastapi = pytest.importorskip('fastapi')
+    TestClient = pytest.importorskip('starlette.testclient').TestClient
+    FastAPI = fastapi.FastAPI
+
     app = FastAPI()
     logfire.configure(token='test_token', send_to_logfire=False)
 
@@ -96,6 +103,10 @@ def test_fastapi_proxy_instrumentation() -> None:
 
 
 def test_fastapi_proxy_size_limit() -> None:
+    fastapi = pytest.importorskip('fastapi')
+    TestClient = pytest.importorskip('starlette.testclient').TestClient
+    FastAPI = fastapi.FastAPI
+
     app = FastAPI()
     logfire.configure(token='test_token', send_to_logfire=False)
 
@@ -113,6 +124,10 @@ def test_fastapi_proxy_size_limit() -> None:
 
 
 def test_fastapi_proxy_custom_prefix() -> None:
+    fastapi = pytest.importorskip('fastapi')
+    TestClient = pytest.importorskip('starlette.testclient').TestClient
+    FastAPI = fastapi.FastAPI
+
     app = FastAPI()
     logfire.configure(token='test_token', send_to_logfire=False)
 
@@ -128,3 +143,13 @@ def test_fastapi_proxy_custom_prefix() -> None:
         response = client.post('/custom-proxy/v1/logs', content=b'')
         assert response.status_code == 200
         assert mock_request.call_args[1]['url'].endswith('/v1/logs')
+
+
+def test_forward_request_percent_encoded_traversal() -> None:
+    logfire.configure(token='test_token', send_to_logfire=False)
+
+    # %2e%2e is ..
+    # /v1/traces/%2e%2e/secret -> /v1/traces/../secret -> /v1/secret (rejected)
+    response = logfire.forward_request('POST', '/v1/traces/%2e%2e/secret', {}, b'')
+    assert response.status_code == 400
+    assert b'Invalid path' in response.content

@@ -4,7 +4,7 @@ import posixpath
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
-from urllib.parse import urljoin
+from urllib.parse import unquote, urljoin
 
 from ...version import VERSION
 
@@ -32,7 +32,8 @@ def forward_request(
         path = '/' + path
 
     # Security: Normalize path to prevent directory traversal attacks (e.g. /v1/traces/../secret)
-    path = posixpath.normpath(path)
+    # We unquote first to handle percent-encoded traversals (e.g. %2e%2e) that might bypass normalization
+    path = posixpath.normpath(unquote(path))
 
     allowed_prefixes = ('/v1/traces', '/v1/logs', '/v1/metrics')
     if not any(path == prefix or path.startswith(prefix + '/') for prefix in allowed_prefixes):
@@ -44,6 +45,7 @@ def forward_request(
 
     token = config.token
     if isinstance(token, list):
+        # Proxying only supports the first configured project/token
         token = token[0] if token else None
 
     if not token:
@@ -66,7 +68,7 @@ def forward_request(
         'proxy-authenticate',
         'proxy-authorization',
         'te',
-        'trailers',
+        'trailer',
         'upgrade',
         'cookie',
     }
