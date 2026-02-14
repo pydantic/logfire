@@ -106,7 +106,12 @@ nav:
               - LLM Panels: guides/web-ui/llm-panels.md
               - Dashboards: guides/web-ui/dashboards.md
               - Evals: guides/web-ui/evals.md
-              - Datasets: guides/web-ui/datasets.md
+              - Datasets:
+                  - guides/web-ui/datasets/index.md
+                  - Web UI Guide: guides/web-ui/datasets/ui.md
+                  - SDK Guide: guides/web-ui/datasets/sdk.md
+                  - Running Evaluations: guides/web-ui/datasets/evaluations.md
+                  - SDK Reference: guides/web-ui/datasets/sdk-reference.md
               - Issues: guides/web-ui/issues.md
               - Alerts: guides/web-ui/alerts.md
               - Saved Searches: guides/web-ui/saved-searches.md
@@ -394,6 +399,7 @@ plugins:
         "why-logfire/python-centric.md": "why.md"
         "why-logfire/sql.md": "why.md"
         "get-started/traces.md": "concepts.md"
+        "guides/web-ui/datasets.md": "guides/web-ui/datasets/index.md"
         "how-to-guides/otel-collector.md": "how-to-guides/otel-collector/otel-collector-overview.md"
         "reference/organization-structure.md": "guides/web-ui/organizations-and-projects.md"
   - llmstxt:

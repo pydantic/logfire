@@ -23,7 +23,7 @@ Braintrust is an AI evaluation and observability platform focused on LLM testing
 
 ## When to Choose Braintrust
 
-- **Evaluation focus:** Your only need is UI-based AI evaluation workflows 
+- **Evaluation focus:** Your only need is UI-based AI evaluation workflows
 - **Prompt iteration:** You're heavily iterating on prompts and need that workflow
 - **UI-driven evals:** You prefer managing evaluations through a User Interface (UI)
 - **AI-only scope:** You don't need full application observability

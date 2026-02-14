@@ -6,7 +6,7 @@ with pydantic-evals for AI evaluation workflows.
 Example usage:
     ```python
     from dataclasses import dataclass
-    from logfire.datasets import LogfireDatasetsClient
+    from logfire.experimental.datasets import LogfireDatasetsClient
 
 
     @dataclass
@@ -51,7 +51,7 @@ Example usage:
     ```
 """
 
-from logfire.datasets.client import (
+from logfire.experimental.datasets.client import (
     AsyncLogfireDatasetsClient,
     CaseNotFoundError,
     DatasetApiError,
