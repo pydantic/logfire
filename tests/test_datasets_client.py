@@ -13,8 +13,10 @@ import httpx
 import pytest
 from pydantic import BaseModel
 
-pytest.importorskip('pydantic_evals', reason='pydantic_evals requires newer pydantic')
-from pydantic_evals import Case
+try:
+    from pydantic_evals import Case
+except (ImportError, AttributeError):
+    pytest.skip('pydantic_evals not compatible with this environment', allow_module_level=True)
 
 from logfire.experimental.datasets import (
     AsyncLogfireDatasetsClient,
