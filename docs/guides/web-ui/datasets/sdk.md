@@ -23,7 +23,7 @@ This installs `httpx` and `pydantic-evals` as additional dependencies.
 
 ## Creating a Client
 
-```python
+```python skip-run="true" skip-reason="external-connection"
 from logfire.experimental.datasets import LogfireDatasetsClient
 
 client = LogfireDatasetsClient(api_key='your-api-key')
@@ -31,7 +31,7 @@ client = LogfireDatasetsClient(api_key='your-api-key')
 
 The client can also be used as a context manager to ensure the underlying HTTP connection is properly closed:
 
-```python
+```python skip="true" skip-reason="external-connection"
 with LogfireDatasetsClient(api_key='your-api-key') as client:
     ...
 ```
@@ -41,7 +41,7 @@ with LogfireDatasetsClient(api_key='your-api-key') as client:
 
 The `base_url` is automatically inferred from the API key. You can override it if needed (e.g., for local development):
 
-```python
+```python skip="true" skip-reason="external-connection"
 client = LogfireDatasetsClient(
     api_key='your-api-key',
     base_url='http://localhost:8000',
@@ -50,7 +50,7 @@ client = LogfireDatasetsClient(
 
 An async client is also available:
 
-```python
+```python skip="true" skip-reason="external-connection"
 from logfire.experimental.datasets import AsyncLogfireDatasetsClient
 
 async with AsyncLogfireDatasetsClient(api_key='your-api-key') as client:
@@ -61,7 +61,7 @@ async with AsyncLogfireDatasetsClient(api_key='your-api-key') as client:
 
 Define your input, output, and metadata types as dataclasses or Pydantic models, then pass them to `create_dataset`. The SDK automatically generates JSON schemas from the types:
 
-```python
+```python skip-run="true" skip-reason="external-connection"
 from dataclasses import dataclass
 
 from logfire.experimental.datasets import LogfireDatasetsClient
@@ -106,7 +106,7 @@ The `guidance` parameter lets you provide free-text instructions describing how 
 
 The SDK integrates directly with pydantic-evals `Case` objects. You can add a single case or multiple cases in bulk:
 
-```python
+```python skip="true" skip-reason="external-connection"
 from pydantic_evals import Case
 
 
@@ -148,7 +148,7 @@ client.add_cases(
 
 You can also create cases using the lower-level `create_case` method, which accepts raw values instead of `Case` objects:
 
-```python
+```python skip="true" skip-reason="external-connection"
 client.create_case(
     'qa-golden-set',
     inputs=QuestionInput(question='What color is the sky?'),
@@ -163,7 +163,7 @@ The `create_case` method also accepts `source_trace_id` and `source_span_id` par
 
 ## Listing Cases
 
-```python
+```python skip="true" skip-reason="external-connection"
 # List all cases in a dataset
 cases = client.list_cases('qa-golden-set')
 for case in cases:
@@ -180,7 +180,7 @@ case = client.get_case('qa-golden-set', case_id='some-case-uuid')
 
 ## Listing and Retrieving Datasets
 
-```python
+```python skip="true" skip-reason="external-connection"
 # List all datasets in the project
 datasets = client.list_datasets()
 for ds in datasets:
@@ -192,7 +192,7 @@ dataset_info = client.get_dataset('qa-golden-set')
 
 ## Updating and Deleting
 
-```python
+```python skip="true" skip-reason="external-connection"
 # Update a dataset's metadata
 client.update_dataset('qa-golden-set', description='Updated description')
 

@@ -32,7 +32,7 @@ Click **New Dataset** and fill in:
 
 ??? example "SDK equivalent"
 
-    ```python
+    ```python skip-run="true" skip-reason="external-connection"
     from dataclasses import dataclass
 
     from logfire.experimental.datasets import LogfireDatasetsClient
@@ -74,7 +74,7 @@ Once a dataset exists, you can add cases through the UI by clicking **Add Case**
 
 ??? example "SDK equivalent"
 
-    ```python
+    ```python skip="true" skip-reason="external-connection"
     from pydantic_evals import Case
 
     # Add a single case with tags
@@ -116,7 +116,7 @@ This preserves a link back to the source trace, so you always know where a test 
 
     The SDK's `create_case` method accepts `source_trace_id` and `source_span_id` parameters to create the same trace linkage programmatically:
 
-    ```python
+    ```python skip="true" skip-reason="external-connection"
     client.create_case(
         'qa-golden-set',
         inputs={'question': 'What color is the sky?'},
@@ -149,7 +149,7 @@ Use the tag filter on the dataset view to narrow the case list to only those mat
 
     You can filter cases by tags and manage tags via the SDK as well:
 
-    ```python
+    ```python skip="true" skip-reason="external-connection"
     # List only cases with a specific tag
     regression_cases = client.list_cases('qa-golden-set', tags=['regression'])
 

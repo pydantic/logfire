@@ -4,7 +4,7 @@ This client provides typed, programmatic access to Logfire datasets that are
 compatible with pydantic-evals for AI evaluation workflows.
 
 Example usage:
-    ```python
+    ```python skip-run="true" skip-reason="external-connection"
     from dataclasses import dataclass
     from logfire.experimental.datasets import LogfireDatasetsClient
     from pydantic_evals import Case, Dataset
@@ -213,7 +213,7 @@ class LogfireDatasetsClient(_BaseLogfireDatasetsClient[Client]):
     The client supports typed datasets that integrate with pydantic-evals.
 
     Example usage:
-        ```python
+        ```python skip-run="true" skip-reason="external-connection"
         from dataclasses import dataclass
         from logfire.experimental.datasets import LogfireDatasetsClient
         from pydantic_evals import Case
@@ -332,7 +332,7 @@ class LogfireDatasetsClient(_BaseLogfireDatasetsClient[Client]):
             The created dataset.
 
         Example:
-            ```python
+            ```python skip-run="true" skip-reason="external-connection"
             from dataclasses import dataclass
 
 
@@ -493,7 +493,7 @@ class LogfireDatasetsClient(_BaseLogfireDatasetsClient[Client]):
             DatasetNotFoundError: If the dataset does not exist.
 
         Example:
-            ```python
+            ```python skip-run="true" skip-reason="external-connection"
             from pydantic_evals import Case
 
             client.add_case(
@@ -533,7 +533,7 @@ class LogfireDatasetsClient(_BaseLogfireDatasetsClient[Client]):
             DatasetNotFoundError: If the dataset does not exist.
 
         Example:
-            ```python
+            ```python skip-run="true" skip-reason="external-connection"
             from pydantic_evals import Case
 
             client.add_cases(
@@ -722,7 +722,7 @@ class LogfireDatasetsClient(_BaseLogfireDatasetsClient[Client]):
             ImportError: If pydantic-evals is not installed (when using types).
 
         Example:
-            ```python
+            ```python skip-run="true" skip-reason="external-connection"
             from pydantic_evals import Dataset
             from pydantic_evals.evaluators import IsInstance
 

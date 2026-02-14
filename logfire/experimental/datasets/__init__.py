@@ -4,7 +4,7 @@ This module provides sync and async clients for managing datasets that integrate
 with pydantic-evals for AI evaluation workflows.
 
 Example usage:
-    ```python
+    ```python skip-run="true" skip-reason="external-connection"
     from dataclasses import dataclass
     from logfire.experimental.datasets import LogfireDatasetsClient
 
