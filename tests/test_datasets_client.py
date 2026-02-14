@@ -373,6 +373,28 @@ class TestHandleResponse:
             client._handle_response(response)
         assert exc_info.value.status_code == 500
 
+    def test_404_non_json_body(self):
+        """Non-JSON 404 bodies should fall back to response text instead of raising JSONDecodeError."""
+        client = self._make_base_client()
+        response = httpx.Response(404, text='<html>Not Found</html>')
+        with pytest.raises(DatasetNotFoundError, match='Not Found'):
+            client._handle_response(response)
+
+    def test_400_non_json_body(self):
+        """Non-JSON error bodies should fall back to response text instead of raising JSONDecodeError."""
+        client = self._make_base_client()
+        response = httpx.Response(502, text='<html>Bad Gateway</html>')
+        with pytest.raises(DatasetApiError) as exc_info:
+            client._handle_response(response)
+        assert exc_info.value.status_code == 502
+
+    def test_404_case_endpoint_non_dict_response(self):
+        """When is_case_endpoint=True but the 404 response is a non-dict (e.g. string), raise DatasetNotFoundError."""
+        client = self._make_base_client()
+        response = httpx.Response(404, text='<html>Not Found</html>')
+        with pytest.raises(DatasetNotFoundError):
+            client._handle_response(response, is_case_endpoint=True)
+
 
 # =============================================================================
 # Sync client tests
