@@ -211,13 +211,8 @@ def _is_case_error(detail: Any) -> bool:
 class _BaseLogfireDatasetsClient(Generic[T]):
     """Base class for datasets clients."""
 
-    def __init__(self, base_url: str, api_key: str, timeout: Timeout, client: type[T], **client_kwargs: Any):
-        self.base_url = base_url
-        self.api_key = api_key
-        self.timeout = timeout
-        headers = client_kwargs.pop('headers', {})
-        headers['authorization'] = f'Bearer {api_key}'
-        self.client: T = client(timeout=timeout, base_url=base_url, headers=headers, **client_kwargs)
+    def __init__(self, client: T):
+        self.client: T = client
 
     def _handle_response(self, response: Response, *, is_case_endpoint: bool = False) -> Any:
         """Handle API response, raising appropriate errors."""
@@ -279,10 +274,11 @@ class LogfireDatasetsClient(_BaseLogfireDatasetsClient[Client]):
 
     def __init__(
         self,
-        api_key: str,
+        api_key: str | None = None,
         base_url: str | None = None,
         timeout: Timeout = DEFAULT_TIMEOUT,
-        **client_kwargs: Any,
+        *,
+        client: Client | None = None,
     ):
         """Create a new datasets client.
 
@@ -290,10 +286,21 @@ class LogfireDatasetsClient(_BaseLogfireDatasetsClient[Client]):
             api_key: A Logfire API key with datasets scopes (project:read_datasets, project:write_datasets).
             base_url: The base URL of the Logfire API. If not provided, inferred from API key.
             timeout: Request timeout configuration.
-            **client_kwargs: Additional arguments passed to httpx.Client.
+            client: A pre-configured httpx.Client. If provided, api_key/base_url/timeout are ignored.
         """
-        base_url = base_url or get_base_url_from_token(api_key)
-        super().__init__(base_url, api_key, timeout, Client, **client_kwargs)
+        if client is not None:
+            super().__init__(client)
+        elif api_key is not None:
+            base_url = base_url or get_base_url_from_token(api_key)
+            super().__init__(
+                Client(
+                    timeout=timeout,
+                    base_url=base_url,
+                    headers={'authorization': f'Bearer {api_key}'},
+                )
+            )
+        else:
+            raise ValueError('Either client or api_key must be provided')
 
     def __enter__(self) -> Self:
         self.client.__enter__()
@@ -767,8 +774,10 @@ class LogfireDatasetsClient(_BaseLogfireDatasetsClient[Client]):
                 custom_evaluator_types=[MyCustomEvaluator],
             )
 
+
             # Use with evaluations
-            report = await dataset.evaluate(my_task)
+            async def run_eval() -> None:
+                report = await dataset.evaluate(my_task)
             ```
         """
         response = self.client.get(f'/v1/datasets/{_quote(id_or_name)}/export/')
@@ -835,13 +844,25 @@ class AsyncLogfireDatasetsClient(_BaseLogfireDatasetsClient[AsyncClient]):
 
     def __init__(
         self,
-        api_key: str,
+        api_key: str | None = None,
         base_url: str | None = None,
         timeout: Timeout = DEFAULT_TIMEOUT,
-        **client_kwargs: Any,
+        *,
+        client: AsyncClient | None = None,
     ):
-        base_url = base_url or get_base_url_from_token(api_key)
-        super().__init__(base_url, api_key, timeout, AsyncClient, **client_kwargs)
+        if client is not None:
+            super().__init__(client)
+        elif api_key is not None:
+            base_url = base_url or get_base_url_from_token(api_key)
+            super().__init__(
+                AsyncClient(
+                    timeout=timeout,
+                    base_url=base_url,
+                    headers={'authorization': f'Bearer {api_key}'},
+                )
+            )
+        else:
+            raise ValueError('Either client or api_key must be provided')
 
     async def __aenter__(self) -> Self:
         await self.client.__aenter__()

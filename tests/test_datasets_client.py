@@ -120,18 +120,18 @@ def make_client(
     responses: dict[tuple[str, str], httpx.Response | None] | None = None,
 ) -> LogfireDatasetsClient:
     transport = make_mock_transport(responses)
-    client = LogfireDatasetsClient(api_key='test-key', base_url='https://test.logfire.dev')
-    client.client = httpx.Client(transport=transport, base_url='https://test.logfire.dev')
-    return client
+    return LogfireDatasetsClient(
+        client=httpx.Client(transport=transport, base_url='https://test.logfire.dev'),
+    )
 
 
 def make_async_client(
     responses: dict[tuple[str, str], httpx.Response | None] | None = None,
 ) -> AsyncLogfireDatasetsClient:
     transport = make_mock_transport(responses)
-    client = AsyncLogfireDatasetsClient(api_key='test-key', base_url='https://test.logfire.dev')
-    client.client = httpx.AsyncClient(transport=transport, base_url='https://test.logfire.dev')
-    return client
+    return AsyncLogfireDatasetsClient(
+        client=httpx.AsyncClient(transport=transport, base_url='https://test.logfire.dev'),
+    )
 
 
 # =============================================================================
@@ -404,13 +404,24 @@ class TestHandleResponse:
 class TestLogfireDatasetsClient:
     def test_init_with_base_url(self):
         client = LogfireDatasetsClient(api_key='test-key', base_url='https://custom.url')
-        assert client.base_url == 'https://custom.url'
+        assert str(client.client.base_url) == 'https://custom.url'
         client.client.close()
 
     def test_init_infers_base_url(self):
         client = LogfireDatasetsClient(api_key='pylf_v1_us_test1234567890')
-        assert 'logfire' in client.base_url or 'pydantic' in client.base_url
+        base_url = str(client.client.base_url)
+        assert 'logfire' in base_url or 'pydantic' in base_url
         client.client.close()
+
+    def test_init_with_client(self):
+        httpx_client = httpx.Client(base_url='https://custom.url')
+        client = LogfireDatasetsClient(client=httpx_client)
+        assert client.client is httpx_client
+        client.client.close()
+
+    def test_init_requires_client_or_api_key(self):
+        with pytest.raises(ValueError, match='Either client or api_key must be provided'):
+            LogfireDatasetsClient()
 
     def test_context_manager(self):
         client = make_client()
@@ -848,22 +859,9 @@ class TestLogfireDatasetsClient:
 
     def test_auth_header(self):
         """Client should set Authorization header."""
-        requests_seen: list[httpx.Request] = []
-
-        def handler(request: httpx.Request) -> httpx.Response:
-            requests_seen.append(request)
-            return httpx.Response(200, json=[])
-
-        transport = httpx.MockTransport(handler)
         client = LogfireDatasetsClient(api_key='my-secret-key', base_url='https://test.logfire.dev')
-        client.client = httpx.Client(
-            transport=transport,
-            base_url='https://test.logfire.dev',
-            headers={'authorization': 'Bearer my-secret-key'},
-        )
-
-        client.list_datasets()
-        assert requests_seen[0].headers['authorization'] == 'Bearer my-secret-key'
+        assert client.client.headers['authorization'] == 'Bearer my-secret-key'
+        client.client.close()
 
 
 # =============================================================================
@@ -874,7 +872,16 @@ class TestLogfireDatasetsClient:
 class TestAsyncLogfireDatasetsClient:
     def test_init_with_base_url(self):
         client = AsyncLogfireDatasetsClient(api_key='test-key', base_url='https://custom.url')
-        assert client.base_url == 'https://custom.url'
+        assert str(client.client.base_url) == 'https://custom.url'
+
+    def test_init_with_client(self):
+        httpx_client = httpx.AsyncClient(base_url='https://custom.url')
+        client = AsyncLogfireDatasetsClient(client=httpx_client)
+        assert client.client is httpx_client
+
+    def test_init_requires_client_or_api_key(self):
+        with pytest.raises(ValueError, match='Either client or api_key must be provided'):
+            AsyncLogfireDatasetsClient()
 
     @pytest.mark.anyio
     async def test_context_manager(self):

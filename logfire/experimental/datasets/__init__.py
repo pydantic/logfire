@@ -47,7 +47,8 @@ Example usage:
         )
 
         # Run evaluations
-        report = await dataset.evaluate(my_task)
+        async def run_eval() -> None:
+            report = await dataset.evaluate(my_task)
     ```
 """
 
