@@ -21,6 +21,10 @@ pip install 'logfire[datasets]'
 
 This installs `httpx` and `pydantic-evals` as additional dependencies.
 
+!!! note "Python 3.10+ Required"
+
+    The datasets SDK requires Python 3.10 or later due to the `pydantic-evals` dependency.
+
 ## Creating a Client
 
 ```python skip-run="true" skip-reason="external-connection"
