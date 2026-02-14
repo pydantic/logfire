@@ -73,7 +73,7 @@ def test_forward_request_exception_handling() -> None:
 
 
 def test_fastapi_proxy_instrumentation() -> None:
-    fastapi = pytest.importorskip('fastapi')
+    fastapi = pytest.importorskip('fastapi', exc_type=ImportError)
     TestClient = pytest.importorskip('starlette.testclient').TestClient
     FastAPI = fastapi.FastAPI
 
@@ -103,7 +103,7 @@ def test_fastapi_proxy_instrumentation() -> None:
 
 
 def test_fastapi_proxy_size_limit() -> None:
-    fastapi = pytest.importorskip('fastapi')
+    fastapi = pytest.importorskip('fastapi', exc_type=ImportError)
     TestClient = pytest.importorskip('starlette.testclient').TestClient
     FastAPI = fastapi.FastAPI
 
@@ -124,7 +124,7 @@ def test_fastapi_proxy_size_limit() -> None:
 
 
 def test_fastapi_proxy_custom_prefix() -> None:
-    fastapi = pytest.importorskip('fastapi')
+    fastapi = pytest.importorskip('fastapi', exc_type=ImportError)
     TestClient = pytest.importorskip('starlette.testclient').TestClient
     FastAPI = fastapi.FastAPI
 
