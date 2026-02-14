@@ -12,6 +12,8 @@ from unittest.mock import patch
 import httpx
 import pytest
 from pydantic import BaseModel
+
+pytest.importorskip('pydantic_evals', reason='pydantic_evals requires newer pydantic')
 from pydantic_evals import Case
 
 from logfire.experimental.datasets import (
