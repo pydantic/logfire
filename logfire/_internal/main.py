@@ -1170,9 +1170,7 @@ class Logfire:
             return Response(content=response.content, status_code=response.status_code, headers=dict(response.headers))
 
         # fmt: off
-        app.add_route(
-            f'{prefix}/{{path:path}}', logfire_proxy, methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'], include_in_schema=False
-        )
+        app.add_route(f'{prefix}/{{path:path}}', logfire_proxy, methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'], include_in_schema=False)
         # fmt: on
 
     def instrument_fastapi(
