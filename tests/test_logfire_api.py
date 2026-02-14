@@ -5,7 +5,7 @@ import sys
 import warnings
 from pathlib import Path
 from types import ModuleType
-from typing import Callable
+from typing import Any, Callable
 from unittest.mock import MagicMock
 
 import pytest
@@ -358,3 +358,40 @@ def test_override_init_pyi() -> None:  # pragma: no cover
         pytest.skip('No changes were made to the __init__.pyi file.')
     (Path(__file__).parent.parent / 'logfire-api' / 'logfire_api' / '__init__.pyi').write_text(new_init_pyi)
     pytest.fail('The __init__.pyi file was updated.')
+
+
+def test_shim_coverage() -> None:
+    """Force load the shim and test its methods for coverage."""
+    import importlib
+    import sys
+    from unittest import mock
+
+    with mock.patch.dict(sys.modules):
+        # Unload
+        sys.modules.pop('logfire', None)
+        sys.modules.pop('logfire_api', None)
+
+        # Mock import failure
+        orig_import = importlib.import_module
+
+        def fail_logfire(name: str, *args: Any, **kwargs: Any) -> Any:
+            if name == 'logfire':
+                raise ImportError
+            return orig_import(name, *args, **kwargs)
+
+        with mock.patch('importlib.import_module', side_effect=fail_logfire):
+            import logfire_api
+
+            api: Any = logfire_api
+
+            # Test ForwardRequestResponse dataclass
+            obj = api.ForwardRequestResponse(200, {}, b'abc')
+            assert obj.status_code == 200
+            assert obj.content == b'abc'
+
+            # Test forward_request shim
+            resp = api.forward_request(None, 'GET', '/', {}, None)
+            assert resp.status_code == 501
+
+            # Test instrument_fastapi_proxy shim
+            api.instrument_fastapi_proxy(None)

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import asyncio
+import inspect
+import sys
+from typing import TYPE_CHECKING, Any
 from unittest import mock
 
 import pytest
@@ -153,3 +156,88 @@ def test_forward_request_percent_encoded_traversal() -> None:
     response = logfire.forward_request('POST', '/v1/traces/%2e%2e/secret', {}, b'')
     assert response.status_code == 400
     assert b'Invalid path' in response.content
+
+
+def test_forward_request_multi_token() -> None:
+    # Test handling of list of tokens
+    logfire.configure(token=['tok1', 'tok2'], send_to_logfire=False)
+
+    with mock.patch('requests.request') as mock_req:
+        mock_req.return_value.status_code = 200
+        mock_req.return_value.headers = {}
+        mock_req.return_value.content = b''
+
+        logfire.forward_request('POST', '/v1/traces', {}, b'')
+
+        # Should use first token
+        headers = mock_req.call_args[1]['headers']
+        assert headers['Authorization'] == 'Bearer tok1'
+
+
+def test_forward_request_missing_token() -> None:
+    # Test handling of missing token
+    logfire.configure(token='tok', send_to_logfire=False)
+
+    instance = logfire.forward_request.__self__
+
+    # Patch the token on the instance's config object
+    with mock.patch.object(instance.config, 'token', None):
+        response = logfire.forward_request('POST', '/v1/traces', {}, b'')
+        assert response.status_code == 500
+        assert b'not configured' in response.content
+
+
+def test_fastapi_proxy_instrumentation_coverage_mock() -> None:
+
+    # Create mocks
+    mock_concurrency = mock.Mock()
+
+    async def mock_run_in_threadpool(func: Any, *args: Any, **kwargs: Any) -> Any:
+        if inspect.iscoroutinefunction(func):
+            return await func(*args, **kwargs)
+        return func(*args, **kwargs)
+
+    mock_concurrency.run_in_threadpool = mock_run_in_threadpool
+
+    mock_responses = mock.Mock()
+
+    class MockResponse:
+        def __init__(self, content: Any, status_code: int, headers: dict[str, str] | None = None) -> None:
+            self.content = content
+            self.status_code = status_code
+            self.headers = headers or {}
+
+    mock_responses.Response = MockResponse
+
+    with mock.patch.dict(
+        sys.modules, {'starlette.concurrency': mock_concurrency, 'starlette.responses': mock_responses}
+    ):
+        app = mock.Mock()
+
+        # Call instrumentation
+        logfire.instrument_fastapi_proxy(app)
+
+        # Extract the handler
+        assert app.add_route.called
+        handler = app.add_route.call_args[0][1]
+
+        # Prepare request mock
+        request = mock.Mock()
+        request.headers = {'content-length': '10'}
+        request.body = mock.AsyncMock(return_value=b'1234567890')
+        request.path_params = {'path': 'v1/traces'}
+        request.method = 'POST'
+
+        # Mock forward_request to return success
+        with mock.patch('logfire.Logfire.forward_request') as mock_fwd:
+            mock_fwd.return_value = logfire.ForwardRequestResponse(
+                200, {'Content-Type': 'application/json'}, b'{"ok": true}'
+            )
+
+            # Execute handler
+            response = asyncio.run(handler(request))
+
+            # Verify response
+            assert response.status_code == 200
+            assert response.content == b'{"ok": true}'
+            assert response.headers == {'Content-Type': 'application/json'}
