@@ -797,8 +797,8 @@ class LogfireDatasetsClient(_BaseLogfireDatasetsClient[Client]):
             # These are Case objects
             serialized_cases = [_serialize_case(case) for case in cases]  # type: ignore[arg-type]
         else:
-            # Already dicts
-            serialized_cases: list[dict[str, Any]] = list(cases)  # type: ignore[arg-type]
+            # Already dicts — shallow copy to avoid mutating caller's data
+            serialized_cases: list[dict[str, Any]] = [dict(c) for c in cases]  # type: ignore[arg-type]
 
         if tags is not None:
             for case_data in serialized_cases:
@@ -1087,7 +1087,8 @@ class AsyncLogfireDatasetsClient(_BaseLogfireDatasetsClient[AsyncClient]):
         if cases and hasattr(cases[0], 'inputs'):
             serialized_cases = [_serialize_case(case) for case in cases]  # type: ignore[arg-type]
         else:
-            serialized_cases: list[dict[str, Any]] = list(cases)  # type: ignore[arg-type]
+            # Already dicts — shallow copy to avoid mutating caller's data
+            serialized_cases: list[dict[str, Any]] = [dict(c) for c in cases]  # type: ignore[arg-type]
 
         if tags is not None:
             for case_data in serialized_cases:
