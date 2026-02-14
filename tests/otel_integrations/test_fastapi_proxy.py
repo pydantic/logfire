@@ -21,7 +21,11 @@ def test_forward_request_logic() -> None:
 
     with mock.patch('requests.request') as mock_request:
         mock_request.return_value.status_code = 200
-        mock_request.return_value.headers = {'Content-Type': 'application/json', 'Content-Length': '123'}
+        mock_request.return_value.headers = {
+            'Content-Type': 'application/json',
+            'Content-Length': '123',
+            'Set-Cookie': 'secret=value',
+        }
         mock_request.return_value.content = b'{"status": "ok"}'
 
         # Test valid request
@@ -33,8 +37,8 @@ def test_forward_request_logic() -> None:
         assert response.status_code == 200
         assert response.content == b'{"status": "ok"}'
         assert response.headers['Content-Type'] == 'application/json'
-        # Content-Length should be removed from response headers by our logic
         assert 'Content-Length' not in response.headers
+        assert 'Set-Cookie' not in response.headers
 
         mock_request.assert_called_once()
         _, kwargs = mock_request.call_args

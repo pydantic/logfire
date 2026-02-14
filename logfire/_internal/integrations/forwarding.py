@@ -105,7 +105,7 @@ def forward_request(
     response_headers = {
         k: v
         for k, v in response.headers.items()
-        if k.lower() not in ('content-encoding', 'content-length', 'transfer-encoding', 'connection')
+        if k.lower() not in ('content-encoding', 'content-length', 'transfer-encoding', 'connection', 'set-cookie')
     }
 
     return ForwardRequestResponse(
