@@ -1152,7 +1152,6 @@ class Logfire:
                         return Response(status_code=413, content='Payload too large')
                 except ValueError:
                     return Response(status_code=400, content='Invalid Content-Length header')
-                return Response(status_code=413, content='Payload too large')
 
             body = await request.body()
             if len(body) > max_body_size:

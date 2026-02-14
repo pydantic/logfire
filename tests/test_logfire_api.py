@@ -224,10 +224,17 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
             logfire_api.instrument_dspy()
     logfire__all__.remove('instrument_dspy')
 
+    # Manually check and remove new members that don't start with 'instrument_'
+    for member in ('forward_request', 'ForwardRequestResponse'):
+        if member in logfire__all__:
+            assert hasattr(logfire_api, member), member
+            logfire__all__.remove(member)
+
     for member in [m for m in logfire__all__ if m.startswith('instrument_')]:
         assert hasattr(logfire_api, member), member
-        if not (pydantic_pre_2_5 and member == 'instrument_pydantic'):
-            # skip pydantic instrumentation (which uses the plugin) for versions prior to v2.5
+        # skip pydantic instrumentation (which uses the plugin) for versions prior to v2.5
+        # skip fastapi proxy which requires arguments
+        if not (pydantic_pre_2_5 and member == 'instrument_pydantic') and member != 'instrument_fastapi_proxy':
             getattr(logfire_api, member)()
         # just remove the member unconditionally to pass future asserts
         logfire__all__.remove(member)
