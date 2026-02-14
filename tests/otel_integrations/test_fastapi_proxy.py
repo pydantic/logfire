@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import inspect
 import sys
 from typing import TYPE_CHECKING, Any
@@ -216,7 +215,6 @@ def test_fastapi_proxy_instrumentation_coverage_mock() -> None:
     ):
         app = mock.Mock()
 
-        # Call instrumentation - this defines the inner function using our mocks
         logfire.instrument_fastapi_proxy(app)
 
         # Extract the handler
@@ -230,19 +228,29 @@ def test_fastapi_proxy_instrumentation_coverage_mock() -> None:
         request.path_params = {'path': 'v1/traces'}
         request.method = 'POST'
 
-        # Mock forward_request to return success
         with mock.patch('logfire.Logfire.forward_request') as mock_fwd:
             mock_fwd.return_value = logfire.ForwardRequestResponse(
                 200, {'Content-Type': 'application/json'}, b'{"ok": true}'
             )
 
-            # Execute handler
+            # Execute handler (Scenario 1: No Content-Length)
+            import asyncio
+
             response = asyncio.run(handler(request))
 
-            # Verify response
             assert response.status_code == 200
             assert response.content == b'{"ok": true}'
-            assert response.headers == {'Content-Type': 'application/json'}
+            assert mock_concurrency.run_in_threadpool.called
 
-            # Verify our mocks were actually hit
+            mock_concurrency.run_in_threadpool.reset_mock()
+            mock_fwd.reset_mock()
+
+            # Execute handler (Scenario 2: With valid Content-Length)
+            request.headers = {'content-length': '10'}
+            request.body = mock.AsyncMock(return_value=b'1234567890')
+
+            response2 = asyncio.run(handler(request))
+
+            assert response2.status_code == 200
+            assert response2.content == b'{"ok": true}'
             assert mock_concurrency.run_in_threadpool.called

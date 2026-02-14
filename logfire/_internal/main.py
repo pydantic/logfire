@@ -1161,17 +1161,9 @@ class Logfire:
 
             # Performance: Run synchronous requests call in a thread pool to avoid blocking the event loop
             response = await run_in_threadpool(
-                self.forward_request,
-                method=request.method,
-                path=path,
-                headers=request.headers,
-                body=body,
+                self.forward_request, method=request.method, path=path, headers=request.headers, body=body
             )
-            return Response(
-                content=response.content,
-                status_code=response.status_code,
-                headers=dict(response.headers),
-            )
+            return Response(content=response.content, status_code=response.status_code, headers=dict(response.headers))
 
         app.add_route(
             f'{prefix}/{{path:path}}',
