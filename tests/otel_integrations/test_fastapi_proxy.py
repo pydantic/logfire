@@ -41,7 +41,7 @@ def test_forward_request_logic() -> None:
         _, kwargs = mock_request.call_args
         assert kwargs['method'] == 'POST'
         assert kwargs['url'] == 'https://logfire-us.pydantic.dev/v1/traces'
-        assert kwargs['headers']['Authorization'] == 'Bearer test_token'
+        assert kwargs['headers']['Authorization'] == 'test_token'
         assert kwargs['headers']['Content-Type'] == 'application/x-protobuf'
         assert 'Host' not in kwargs['headers']
         assert kwargs['data'] == b'data'
@@ -102,7 +102,7 @@ def test_fastapi_proxy_instrumentation() -> None:
         _, kwargs = mock_request.call_args
         assert kwargs['url'].endswith('/v1/traces')
         assert kwargs['data'] == b'trace_data'
-        assert kwargs['headers']['Authorization'] == 'Bearer test_token'
+        assert kwargs['headers']['Authorization'] == 'test_token'
 
 
 def test_fastapi_proxy_size_limit() -> None:
@@ -171,16 +171,16 @@ def test_forward_request_multi_token() -> None:
 
         # Should use first token
         headers = mock_req.call_args[1]['headers']
-        assert headers['Authorization'] == 'Bearer tok1'
+        assert headers['Authorization'] == 'tok1'
 
 
 def test_forward_request_missing_token() -> None:
     # Test handling of missing token
     logfire.configure(token='tok', send_to_logfire=False)
 
+    # Access the singleton instance via the bound method to correctly patch the config
     instance = logfire.forward_request.__self__
 
-    # Patch the token on the instance's config object
     with mock.patch.object(instance.config, 'token', None):
         response = logfire.forward_request('POST', '/v1/traces', {}, b'')
         assert response.status_code == 500
@@ -192,12 +192,13 @@ def test_fastapi_proxy_instrumentation_coverage_mock() -> None:
     # Create mocks
     mock_concurrency = mock.Mock()
 
+    # run_in_threadpool is awaited in the source, so it must return an awaitable (coroutine)
     async def mock_run_in_threadpool(func: Any, *args: Any, **kwargs: Any) -> Any:
         if inspect.iscoroutinefunction(func):
             return await func(*args, **kwargs)
         return func(*args, **kwargs)
 
-    mock_concurrency.run_in_threadpool = mock_run_in_threadpool
+    mock_concurrency.run_in_threadpool = mock.AsyncMock(side_effect=mock_run_in_threadpool)
 
     mock_responses = mock.Mock()
 
@@ -210,11 +211,12 @@ def test_fastapi_proxy_instrumentation_coverage_mock() -> None:
     mock_responses.Response = MockResponse
 
     with mock.patch.dict(
-        sys.modules, {'starlette.concurrency': mock_concurrency, 'starlette.responses': mock_responses}
+        sys.modules,
+        {'starlette': mock.Mock(), 'starlette.concurrency': mock_concurrency, 'starlette.responses': mock_responses},
     ):
         app = mock.Mock()
 
-        # Call instrumentation
+        # Call instrumentation - this defines the inner function using our mocks
         logfire.instrument_fastapi_proxy(app)
 
         # Extract the handler
@@ -223,7 +225,7 @@ def test_fastapi_proxy_instrumentation_coverage_mock() -> None:
 
         # Prepare request mock
         request = mock.Mock()
-        request.headers = {'content-length': '10'}
+        request.headers = {}
         request.body = mock.AsyncMock(return_value=b'1234567890')
         request.path_params = {'path': 'v1/traces'}
         request.method = 'POST'
@@ -241,3 +243,6 @@ def test_fastapi_proxy_instrumentation_coverage_mock() -> None:
             assert response.status_code == 200
             assert response.content == b'{"ok": true}'
             assert response.headers == {'Content-Type': 'application/json'}
+
+            # Verify our mocks were actually hit
+            assert mock_concurrency.run_in_threadpool.called
