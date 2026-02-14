@@ -192,6 +192,22 @@ def _serialize_case(case: Case[Any, Any, Any]) -> dict[str, Any]:
     return data
 
 
+def _parse_response_detail(response: Response, *, default: Any) -> Any:
+    """Parse the response body as JSON, falling back to a default on failure."""
+    try:
+        return response.json() if response.content else default
+    except Exception:
+        return response.text or default
+
+
+def _is_case_error(detail: Any) -> bool:
+    """Check if a parsed error detail indicates a case-not-found error."""
+    if isinstance(detail, dict):
+        message: Any = cast(dict[str, Any], detail).get('detail', '')
+        return isinstance(message, str) and 'case' in message.lower()
+    return False
+
+
 class _BaseLogfireDatasetsClient(Generic[T]):
     """Base class for datasets clients."""
 
@@ -206,12 +222,12 @@ class _BaseLogfireDatasetsClient(Generic[T]):
     def _handle_response(self, response: Response, *, is_case_endpoint: bool = False) -> Any:
         """Handle API response, raising appropriate errors."""
         if response.status_code == 404:
-            detail = response.json() if response.content else 'Not found'
-            if is_case_endpoint and 'case' in response.text.lower():
+            detail = _parse_response_detail(response, default='Not found')
+            if is_case_endpoint and _is_case_error(detail):
                 raise CaseNotFoundError(detail)
             raise DatasetNotFoundError(detail)
         if response.status_code >= 400:
-            detail = response.json() if response.content else response.text
+            detail = _parse_response_detail(response, default=response.text)
             raise DatasetApiError(response.status_code, detail)
         if response.status_code == 204:
             return None
