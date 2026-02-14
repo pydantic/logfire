@@ -1135,6 +1135,10 @@ class Logfire:
         This is useful for proxying requests from a browser to Logfire,
         to avoid exposing your write token in the browser.
 
+        **Security Note**: This endpoint is unauthenticated. Any client capable of reaching this
+        endpoint can send telemetry data to your Logfire project. In production, ensure you
+        have appropriate protections in place (e.g. CORS policies, rate limiting, or upstream authentication).
+
         Args:
             app: The FastAPI app to instrument.
             prefix: The path prefix to use for the proxy.
