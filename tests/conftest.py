@@ -10,6 +10,7 @@ from typing import Any
 import anyio._backends._asyncio  # noqa  # type: ignore
 import pytest
 from agents.tracing import get_trace_provider
+from inline_snapshot.plugin import Builder, Import, customize
 from opentelemetry import trace
 from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
@@ -224,3 +225,21 @@ def vcr_config() -> dict[str, Any]:
         'filter_headers': SENSITIVE_HEADERS,
         'before_record_response': scrub_headers,
     }
+
+
+@customize
+def logfire_handler(value: Any, builder: Builder, local_vars: dict[str, Any], global_vars: dict[str, Any]) -> Any:
+    all_vars = {**global_vars, **local_vars}
+    for var in ['redis_port', 'HANDLER_NAME', 'code_function']:
+        if var in all_vars and all_vars[var] == value:
+            return builder.create_code(var)
+
+    for attr in ['started_at', 'ended_at']:
+        if 's' in local_vars and hasattr(var := local_vars['s'], attr) and getattr(var, attr) == value:
+            return builder.create_code(f's.{attr}')
+
+    if value == os.getcwd():
+        return builder.create_code('os.getcwd()', imports=[Import('os')])
+
+    if value == sys.version:
+        return builder.create_code('sys.version', imports=[Import('sys')])
