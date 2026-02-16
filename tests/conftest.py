@@ -34,8 +34,13 @@ os.environ.pop('ANTHROPIC_BASE_URL', None)
 # https://github.com/openai/openai-python/issues/2644
 sys.modules['openai.resources.evals'] = unittest.mock.MagicMock()
 
-get_trace_provider().shutdown()
-get_trace_provider().set_processors([])
+try:
+    from agents.tracing import get_trace_provider
+
+    get_trace_provider().shutdown()
+    get_trace_provider().set_processors([])
+except ImportError:
+    pass
 
 logfire.configure(send_to_logfire=False)
 
