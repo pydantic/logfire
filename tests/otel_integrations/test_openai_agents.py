@@ -48,7 +48,6 @@ from agents.voice import AudioInput, SingleAgentVoiceWorkflow, VoicePipeline
 
 from logfire._internal.integrations.openai_agents import LogfireSpanWrapper, LogfireTraceWrapper
 
-os.environ.setdefault('OPENAI_API_KEY', 'foo')
 os.environ['OPENAI_DEFAULT_MODEL'] = 'gpt-4o'
 
 
