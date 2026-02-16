@@ -3,6 +3,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import os
+import pickle
 import sys
 import threading
 from collections.abc import Iterable, Sequence
@@ -52,6 +53,7 @@ from logfire._internal.config import (
     ConsoleOptions,
     LogfireConfig,
     LogfireCredentials,
+    VariablesOptions,
     get_base_url_from_token,
     sanitize_project_name,
 )
@@ -841,42 +843,55 @@ def test_config_serializable():
     they get serialized to dicts (which dataclasses.asdict does automatically),
     and deserialized back to dataclasses (which we have to do manually).
     """
-    logfire.configure(
-        send_to_logfire=False,
-        console=logfire.ConsoleOptions(verbose=True),
-        sampling=logfire.SamplingOptions(),
-        scrubbing=logfire.ScrubbingOptions(),
-        code_source=logfire.CodeSource(repository='https://github.com/pydantic/logfire', revision='main'),
-        advanced=logfire.AdvancedOptions(id_generator=SeededRandomIdGenerator(seed=42)),
-    )
+    # Mock the remote variables endpoint to prevent real network requests
+    with requests_mock.Mocker() as m:
+        m.get(requests_mock.ANY, json={'variables': {}, 'aliases': None})
 
-    for field in dataclasses.fields(GLOBAL_CONFIG):
-        # Check that the full set of dataclass fields is known.
-        # If a new field appears here, make sure it gets deserialized properly in configure, and tested here.
-        assert dataclasses.is_dataclass(getattr(GLOBAL_CONFIG, field.name)) == (
-            field.name in ['console', 'sampling', 'scrubbing', 'advanced', 'code_source']
+        logfire.configure(
+            send_to_logfire=False,
+            console=logfire.ConsoleOptions(verbose=True),
+            sampling=logfire.SamplingOptions(),
+            scrubbing=logfire.ScrubbingOptions(),
+            code_source=logfire.CodeSource(repository='https://github.com/pydantic/logfire', revision='main'),
+            api_key='test_api_key',
+            variables=VariablesOptions(
+                block_before_first_resolve=False,
+                include_baggage_in_context=False,
+            ),
+            advanced=logfire.AdvancedOptions(id_generator=SeededRandomIdGenerator(seed=42)),
         )
 
-    serialized = serialize_config()
-    assert serialized is not None  # Config should be picklable in this test
-    GLOBAL_CONFIG._initialized = False  # type: ignore  # ensure deserialize_config actually configures
-    deserialize_config(serialized)
-    serialized2 = serialize_config()
-    assert serialized2 is not None  # Config should be picklable in this test
+        for field in dataclasses.fields(GLOBAL_CONFIG):
+            # Check that the full set of dataclass fields is known.
+            # If a new field appears here, make sure it gets deserialized properly in configure, and tested here.
+            assert dataclasses.is_dataclass(getattr(GLOBAL_CONFIG, field.name)) == (
+                field.name in ['console', 'sampling', 'scrubbing', 'advanced', 'code_source', 'variables']
+            )
 
-    def normalize(s: dict[str, Any]) -> dict[str, Any]:
-        for value in s.values():
-            assert not dataclasses.is_dataclass(value)
-        return s
+        serialized = serialize_config()
+        assert serialized is not None  # Config should be picklable in this test
+        GLOBAL_CONFIG._initialized = False  # type: ignore  # ensure deserialize_config actually configures
+        deserialize_config(pickle.loads(pickle.dumps(serialized)))
+        serialized2 = pickle.loads(pickle.dumps(serialize_config()))
+        assert serialized2 is not None  # Config should be picklable in this test
 
-    assert normalize(serialized) == normalize(serialized2)
+        def normalize(s: dict[str, Any]) -> dict[str, Any]:
+            for value in s.values():
+                assert not dataclasses.is_dataclass(value)
+            return s
 
-    assert isinstance(GLOBAL_CONFIG.console, logfire.ConsoleOptions)
-    assert isinstance(GLOBAL_CONFIG.sampling, logfire.SamplingOptions)
-    assert isinstance(GLOBAL_CONFIG.scrubbing, logfire.ScrubbingOptions)
-    assert isinstance(GLOBAL_CONFIG.advanced, logfire.AdvancedOptions)
-    assert isinstance(GLOBAL_CONFIG.advanced.id_generator, SeededRandomIdGenerator)
-    assert GLOBAL_CONFIG.advanced.id_generator.seed == 42
+        assert normalize(serialized) == normalize(serialized2)
+
+        assert isinstance(GLOBAL_CONFIG.console, logfire.ConsoleOptions)
+        assert isinstance(GLOBAL_CONFIG.sampling, logfire.SamplingOptions)
+        assert isinstance(GLOBAL_CONFIG.scrubbing, logfire.ScrubbingOptions)
+        assert isinstance(GLOBAL_CONFIG.advanced, logfire.AdvancedOptions)
+        assert isinstance(GLOBAL_CONFIG.advanced.id_generator, SeededRandomIdGenerator)
+        assert isinstance(GLOBAL_CONFIG.variables, logfire.VariablesOptions)
+        assert GLOBAL_CONFIG.advanced.id_generator.seed == 42
+
+        # Clean up the remote variable provider to stop the background thread
+        logfire.configure(send_to_logfire=False)
 
 
 def test_config_serializable_console_false():
