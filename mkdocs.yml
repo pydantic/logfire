@@ -107,7 +107,7 @@ nav:
               - Dashboards: guides/web-ui/dashboards.md
               - Evals: guides/web-ui/evals.md
               - Datasets:
-                  - guides/web-ui/datasets/index.md
+                  - Datasets: guides/web-ui/datasets/index.md
                   - Web UI Guide: guides/web-ui/datasets/ui.md
                   - SDK Guide: guides/web-ui/datasets/sdk.md
                   - Running Evaluations: guides/web-ui/datasets/evaluations.md
