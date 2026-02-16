@@ -9,7 +9,6 @@ from typing import Any
 
 import anyio._backends._asyncio  # noqa  # type: ignore
 import pytest
-from agents.tracing import get_trace_provider
 from opentelemetry import trace
 from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
