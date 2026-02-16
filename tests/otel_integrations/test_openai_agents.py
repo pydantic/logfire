@@ -6,6 +6,16 @@ from typing import Any
 
 import numpy as np
 import pytest
+from dirty_equals import IsPartialDict, IsStr
+from inline_snapshot import snapshot
+from openai import AsyncOpenAI
+
+import logfire
+from logfire._internal.exporters.test import TestExporter
+from logfire._internal.integrations.openai_agents import LogfireSpanWrapper, LogfireTraceWrapper
+
+pytest.importorskip('agents', reason='openai-agents requires python 3.10', exc_type=ImportError)
+
 from agents import (
     Agent,
     AgentSpanData,
@@ -36,13 +46,6 @@ from agents.tracing.span_data import MCPListToolsSpanData, ResponseSpanData
 from agents.tracing.spans import NoOpSpan
 from agents.tracing.traces import NoOpTrace
 from agents.voice import AudioInput, SingleAgentVoiceWorkflow, VoicePipeline
-from dirty_equals import IsPartialDict, IsStr
-from inline_snapshot import snapshot
-from openai import AsyncOpenAI
-
-import logfire
-from logfire._internal.exporters.test import TestExporter
-from logfire._internal.integrations.openai_agents import LogfireSpanWrapper, LogfireTraceWrapper
 
 os.environ.setdefault('OPENAI_API_KEY', 'foo')
 os.environ['OPENAI_DEFAULT_MODEL'] = 'gpt-4o'

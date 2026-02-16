@@ -3370,8 +3370,7 @@ dev = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
     { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
     { name = "openai" },
-    { name = "openai-agents", version = "0.8.4", source = { registry = "https://pypi.org/simple" }, extra = ["voice"], marker = "python_full_version < '3.10'" },
-    { name = "openai-agents", version = "0.9.0", source = { registry = "https://pypi.org/simple" }, extra = ["voice"], marker = "python_full_version >= '3.10'" },
+    { name = "openai-agents", extra = ["voice"], marker = "python_full_version >= '3.10'" },
     { name = "openinference-instrumentation-dspy", version = "0.1.33", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "openinference-instrumentation-litellm", version = "0.1.28", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "openinference-instrumentation-litellm", version = "0.1.29", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
@@ -3532,7 +3531,7 @@ dev = [
     { name = "mysql-connector-python", specifier = "~=8.0" },
     { name = "numpy", marker = "python_full_version < '3.12'", specifier = ">=2.0" },
     { name = "openai", specifier = ">=1.108.1" },
-    { name = "openai-agents", extras = ["voice"], specifier = ">=0.0.7" },
+    { name = "openai-agents", extras = ["voice"], marker = "python_full_version >= '3.10'", specifier = ">=0.9.0" },
     { name = "openinference-instrumentation-dspy", marker = "python_full_version >= '3.10'", specifier = ">=0" },
     { name = "openinference-instrumentation-litellm", specifier = ">=0" },
     { name = "opentelemetry-instrumentation-aiohttp-client", specifier = ">=0.42b0" },
@@ -4625,56 +4624,15 @@ wheels = [
 
 [[package]]
 name = "openai-agents"
-version = "0.8.4"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version < '3.10' and platform_python_implementation == 'PyPy'",
-    "python_full_version < '3.10' and platform_python_implementation != 'PyPy'",
-]
-dependencies = [
-    { name = "griffe", version = "1.14.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "openai", marker = "python_full_version < '3.10'" },
-    { name = "pydantic", marker = "python_full_version < '3.10'" },
-    { name = "requests", marker = "python_full_version < '3.10'" },
-    { name = "types-requests", version = "2.31.0.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "typing-extensions", marker = "python_full_version < '3.10'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/ed/e0/9fa9eac9baf2816bc63cee28967d35a7ed9dc2f25e9fd2004f48ed6c8820/openai_agents-0.8.4.tar.gz", hash = "sha256:5d4c4861aedd56a82b15c6ddf6c53031a39859a222f08bbd5645d5967efa05e8", size = 2389744, upload-time = "2026-02-11T19:14:30.75Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/55/dc/10df015aebb0797a8367aab65200ac4f5221df20bbae76930f5b6ac8e001/openai_agents-0.8.4-py3-none-any.whl", hash = "sha256:2383c6e8e59ed4146b89d1b6f53e34e55caf94bc14ae3fd704e7aad5021f4ff1", size = 380662, upload-time = "2026-02-11T19:14:28.864Z" },
-]
-
-[package.optional-dependencies]
-voice = [
-    { name = "websockets", marker = "python_full_version < '3.10'" },
-]
-
-[[package]]
-name = "openai-agents"
 version = "0.9.0"
 source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.14' and sys_platform == 'win32'",
-    "python_full_version >= '3.14' and sys_platform == 'emscripten'",
-    "python_full_version >= '3.14' and sys_platform != 'emscripten' and sys_platform != 'win32'",
-    "python_full_version == '3.13.*' and sys_platform == 'win32'",
-    "python_full_version == '3.13.*' and sys_platform == 'emscripten'",
-    "python_full_version == '3.13.*' and sys_platform != 'emscripten' and sys_platform != 'win32'",
-    "python_full_version == '3.12.*' and sys_platform == 'win32'",
-    "python_full_version == '3.12.*' and sys_platform == 'emscripten'",
-    "python_full_version == '3.12.*' and sys_platform != 'emscripten' and sys_platform != 'win32'",
-    "python_full_version == '3.11.*' and sys_platform == 'win32'",
-    "python_full_version == '3.11.*' and sys_platform == 'emscripten'",
-    "python_full_version == '3.11.*' and sys_platform != 'emscripten' and sys_platform != 'win32'",
-    "python_full_version == '3.10.*'",
-]
 dependencies = [
     { name = "griffe", version = "1.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "mcp", marker = "python_full_version >= '3.10'" },
     { name = "openai", marker = "python_full_version >= '3.10'" },
     { name = "pydantic", marker = "python_full_version >= '3.10'" },
     { name = "requests", marker = "python_full_version >= '3.10'" },
-    { name = "types-requests", version = "2.32.4.20260107", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "types-requests", marker = "python_full_version >= '3.10'" },
     { name = "typing-extensions", marker = "python_full_version >= '3.10'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/0f/fa/4ab721832ae2826d53eeae8c4bd02533ab60fc6b91eb311e6679cd95af0f/openai_agents-0.9.0.tar.gz", hash = "sha256:b68372bc74cd52d7d6799d06114c9f176734d4b2df56f636eb199b0baf2ec602", size = 2363166, upload-time = "2026-02-13T22:12:11.463Z" }
@@ -8599,54 +8557,14 @@ wheels = [
 
 [[package]]
 name = "types-requests"
-version = "2.31.0.6"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version < '3.10' and platform_python_implementation == 'PyPy'",
-    "python_full_version < '3.10' and platform_python_implementation != 'PyPy'",
-]
-dependencies = [
-    { name = "types-urllib3", marker = "python_full_version < '3.10'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/f9/b8/c1e8d39996b4929b918aba10dba5de07a8b3f4c8487bb61bb79882544e69/types-requests-2.31.0.6.tar.gz", hash = "sha256:cd74ce3b53c461f1228a9b783929ac73a666658f223e28ed29753771477b3bd0", size = 15535, upload-time = "2023-09-27T06:19:38.443Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/5c/a1/6f8dc74d9069e790d604ddae70cb46dcbac668f1bb08136e7b0f2f5cd3bf/types_requests-2.31.0.6-py3-none-any.whl", hash = "sha256:a2db9cb228a81da8348b49ad6db3f5519452dd20a9c1e1a868c83c5fe88fd1a9", size = 14516, upload-time = "2023-09-27T06:19:36.373Z" },
-]
-
-[[package]]
-name = "types-requests"
 version = "2.32.4.20260107"
 source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.14' and sys_platform == 'win32'",
-    "python_full_version >= '3.14' and sys_platform == 'emscripten'",
-    "python_full_version >= '3.14' and sys_platform != 'emscripten' and sys_platform != 'win32'",
-    "python_full_version == '3.13.*' and sys_platform == 'win32'",
-    "python_full_version == '3.13.*' and sys_platform == 'emscripten'",
-    "python_full_version == '3.13.*' and sys_platform != 'emscripten' and sys_platform != 'win32'",
-    "python_full_version == '3.12.*' and sys_platform == 'win32'",
-    "python_full_version == '3.12.*' and sys_platform == 'emscripten'",
-    "python_full_version == '3.12.*' and sys_platform != 'emscripten' and sys_platform != 'win32'",
-    "python_full_version == '3.11.*' and sys_platform == 'win32'",
-    "python_full_version == '3.11.*' and sys_platform == 'emscripten'",
-    "python_full_version == '3.11.*' and sys_platform != 'emscripten' and sys_platform != 'win32'",
-    "python_full_version == '3.10.*'",
-]
 dependencies = [
     { name = "urllib3", version = "2.6.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/0f/f3/a0663907082280664d745929205a89d41dffb29e89a50f753af7d57d0a96/types_requests-2.32.4.20260107.tar.gz", hash = "sha256:018a11ac158f801bfa84857ddec1650750e393df8a004a8a9ae2a9bec6fcb24f", size = 23165, upload-time = "2026-01-07T03:20:54.091Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/1c/12/709ea261f2bf91ef0a26a9eed20f2623227a8ed85610c1e54c5805692ecb/types_requests-2.32.4.20260107-py3-none-any.whl", hash = "sha256:b703fe72f8ce5b31ef031264fe9395cac8f46a04661a79f7ed31a80fb308730d", size = 20676, upload-time = "2026-01-07T03:20:52.929Z" },
-]
-
-[[package]]
-name = "types-urllib3"
-version = "1.26.25.14"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/73/de/b9d7a68ad39092368fb21dd6194b362b98a1daeea5dcfef5e1adb5031c7e/types-urllib3-1.26.25.14.tar.gz", hash = "sha256:229b7f577c951b8c1b92c1bc2b2fdb0b49847bd2af6d1cc2a2e3dd340f3bda8f", size = 11239, upload-time = "2023-07-20T15:19:31.307Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/11/7b/3fc711b2efea5e85a7a0bbfe269ea944aa767bbba5ec52f9ee45d362ccf3/types_urllib3-1.26.25.14-py3-none-any.whl", hash = "sha256:9683bbb7fb72e32bfe9d2be6e04875fbe1b3eeec3cbb4ea231435aa7fd6b4f0e", size = 15377, upload-time = "2023-07-20T15:19:30.379Z" },
 ]
 
 [[package]]
