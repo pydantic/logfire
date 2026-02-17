@@ -52,9 +52,8 @@ Example usage:
             output_type=MyOutput,
         )
 
-        # Run evaluations
-        async def run_eval() -> None:
-            report = await dataset.evaluate(my_task)
+        # Run evaluations (in an async context)
+        # report = await dataset.evaluate(my_task)
     ```
 """
 

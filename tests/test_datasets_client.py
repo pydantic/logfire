@@ -94,6 +94,7 @@ def make_mock_transport(responses: dict[tuple[str, str], httpx.Response | None] 
         ('GET', '/v1/datasets/test-dataset/cases/'): httpx.Response(200, json=[FAKE_CASE]),
         ('GET', '/v1/datasets/test-dataset/cases/case-456/'): httpx.Response(200, json=FAKE_CASE),
         ('POST', '/v1/datasets/test-dataset/cases/bulk/'): httpx.Response(200, json=[FAKE_CASE]),
+        ('POST', '/v1/datasets/test-dataset/import/'): httpx.Response(200, json=[FAKE_CASE]),
         ('PUT', '/v1/datasets/test-dataset/cases/case-456/'): httpx.Response(200, json=FAKE_CASE),
         ('DELETE', '/v1/datasets/test-dataset/cases/case-456/'): httpx.Response(204),
         ('GET', '/v1/datasets/test-dataset/export/'): httpx.Response(200, json=FAKE_EXPORT),
@@ -105,7 +106,8 @@ def make_mock_transport(responses: dict[tuple[str, str], httpx.Response | None] 
     all_responses = default_responses
 
     def handler(request: httpx.Request) -> httpx.Response:
-        key = (request.method, request.url.raw_path.decode())
+        # Match on method and path (without query string)
+        key = (request.method, request.url.path)
         if key in all_responses:
             return all_responses[key]
         return httpx.Response(404, json={'detail': 'Not found'})

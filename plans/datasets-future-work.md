@@ -30,6 +30,7 @@ Migrate from `httpx.MockTransport` to `pytest-recording` (VCR cassettes) for mor
 
 - **Schema validation on save**: The UI allows saving cases that don't match the dataset's JSON schema — validation should happen server-side.
 - **Deleted cases not disappearing**: Occasionally deleted cases remain visible in the UI until a page refresh.
-- **Export/import asymmetry**: The export format and the import endpoint use slightly different structures; should be unified.
+- **Export/import asymmetry**: The export format and the import endpoint use slightly different structures; should be unified. [Meta-note: I'm not sure this is correctly capturing the issue; see Alex's feedback]
+- **JSON and Python (pydantic-evals) should be different**: Right now, the files created from these have the same contents. Seems like a bug
 - **Metadata not in case list**: The list-cases endpoint omits metadata from the response; requires a separate get-case call per case.
 - **Error message formatting**: Some API error responses return raw internal messages; should be user-friendly.

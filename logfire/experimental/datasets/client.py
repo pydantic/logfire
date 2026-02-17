@@ -521,18 +521,25 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         cases: Sequence[Case[InputsT, OutputT, MetadataT]] | Sequence[dict[str, Any]],
         *,
         tags: list[str] | None = None,
+        on_conflict: str = 'update',
     ) -> list[dict[str, Any]]:
         """Add cases to a dataset.
 
         Accepts either pydantic-evals Case objects or plain dicts.
 
+        By default, uses upsert behavior: cases with a name matching an existing
+        case in the dataset are updated; cases without a name or with a new name
+        are created. Set `on_conflict='error'` to fail on name conflicts instead.
+
         Args:
             dataset_id_or_name: The dataset ID (UUID) or name.
             cases: A sequence of pydantic-evals Case objects or dicts.
             tags: Optional list of tags to associate with all cases.
+            on_conflict: Conflict resolution strategy: `'update'` (default) to
+                upsert cases with matching names, or `'error'` to fail on conflicts.
 
         Returns:
-            The created cases.
+            The created/updated cases.
 
         Raises:
             DatasetNotFoundError: If the dataset does not exist.
@@ -560,8 +567,9 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             for case_data in serialized_cases:
                 case_data['tags'] = tags
         response = self.client.post(
-            f'/v1/datasets/{dataset_id_or_name}/cases/bulk/',
+            f'/v1/datasets/{dataset_id_or_name}/import/',
             json={'cases': serialized_cases},
+            params={'on_conflict': on_conflict},
         )
         return self._handle_response(response)
 
@@ -694,9 +702,8 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             )
 
 
-            # Use with evaluations
-            async def run_eval() -> None:
-                report = await dataset.evaluate(my_task)
+            # Use with evaluations (in an async context)
+            # report = await dataset.evaluate(my_task)
             ```
         """
         response = self.client.get(f'/v1/datasets/{id_or_name}/export/')
@@ -851,10 +858,15 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         cases: Sequence[Case[InputsT, OutputT, MetadataT]] | Sequence[dict[str, Any]],
         *,
         tags: list[str] | None = None,
+        on_conflict: str = 'update',
     ) -> list[dict[str, Any]]:
         """Add cases to a dataset.
 
         Accepts either pydantic-evals Case objects or plain dicts.
+
+        By default, uses upsert behavior: cases with a name matching an existing
+        case in the dataset are updated; cases without a name or with a new name
+        are created. Set `on_conflict='error'` to fail on name conflicts instead.
         """
         if cases and hasattr(cases[0], 'inputs') and not isinstance(cases[0], dict):
             serialized_cases = [_serialize_case(case) for case in cases]  # type: ignore[arg-type]
@@ -866,8 +878,9 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
             for case_data in serialized_cases:
                 case_data['tags'] = tags
         response = await self.client.post(
-            f'/v1/datasets/{dataset_id_or_name}/cases/bulk/',
+            f'/v1/datasets/{dataset_id_or_name}/import/',
             json={'cases': serialized_cases},
+            params={'on_conflict': on_conflict},
         )
         return self._handle_response(response)
 

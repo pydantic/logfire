@@ -7,7 +7,7 @@ description: "Create, manage, and export typed evaluation datasets in Pydantic L
 
 !!! warning "Experimental Feature"
 
-    Managed datasets is an experimental feature currently gated behind a feature flag. Reach out to us on [Slack](https://logfire.pydantic.dev/docs/join-slack/) or [contact us](../../../help.md) to learn how to enable it for your project.
+    Managed datasets are an experimental feature currently gated behind a feature flag. Reach out to us on [Slack](https://logfire.pydantic.dev/docs/join-slack/) or [contact us](../../../help.md) to learn how to enable it for your project.
 
 Managed datasets let you build and maintain collections of test cases for evaluating your AI systems. You can create datasets through the Logfire web UI or programmatically via the SDK, then export them as [pydantic-evals](https://ai.pydantic.dev/evals/) `Dataset` objects to run evaluations.
 

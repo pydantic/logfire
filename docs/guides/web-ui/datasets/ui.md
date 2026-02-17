@@ -7,7 +7,7 @@ description: "Create and manage evaluation datasets through the Logfire web inte
 
 !!! warning "Experimental Feature"
 
-    Managed datasets is an experimental feature currently gated behind a feature flag. Reach out to us on [Slack](https://logfire.pydantic.dev/docs/join-slack/) or [contact us](../../../help.md) to learn how to enable it for your project.
+    Managed datasets are an experimental feature currently gated behind a feature flag. Reach out to us on [Slack](https://logfire.pydantic.dev/docs/join-slack/) or [contact us](../../../help.md) to learn how to enable it for your project.
 
 This guide covers creating and managing datasets through the Logfire web interface. For programmatic access, see the [SDK Guide](sdk.md).
 
