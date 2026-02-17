@@ -6,6 +6,15 @@ from typing import Any
 
 import numpy as np
 import pytest
+from dirty_equals import IsPartialDict, IsStr
+from inline_snapshot import snapshot
+from openai import AsyncOpenAI
+
+import logfire
+from logfire._internal.exporters.test import TestExporter
+
+pytest.importorskip('agents', reason='openai-agents requires python 3.10', exc_type=ImportError)
+
 from agents import (
     Agent,
     AgentSpanData,
@@ -36,15 +45,9 @@ from agents.tracing.span_data import MCPListToolsSpanData, ResponseSpanData
 from agents.tracing.spans import NoOpSpan
 from agents.tracing.traces import NoOpTrace
 from agents.voice import AudioInput, SingleAgentVoiceWorkflow, VoicePipeline
-from dirty_equals import IsPartialDict, IsStr
-from inline_snapshot import snapshot
-from openai import AsyncOpenAI
 
-import logfire
-from logfire._internal.exporters.test import TestExporter
 from logfire._internal.integrations.openai_agents import LogfireSpanWrapper, LogfireTraceWrapper
 
-os.environ.setdefault('OPENAI_API_KEY', 'foo')
 os.environ['OPENAI_DEFAULT_MODEL'] = 'gpt-4o'
 
 
@@ -1268,7 +1271,7 @@ async def test_responses_simple(exporter: TestExporter):
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.span_type': 'span',
                     'logfire.msg': "Responses API with 'gpt-4o'",
-                    'response_id': 'resp_67ceee053cdc81919f39173ee02cb88e',
+                    'response_id': 'resp_01544eeb9f4d9c9100699336d86b9481a1aeace2b855734b8a',
                     'gen_ai.request.model': 'gpt-4o',
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
@@ -1276,10 +1279,10 @@ async def test_responses_simple(exporter: TestExporter):
                     'raw_input': [{'content': '2+2?', 'role': 'user'}],
                     'events': [
                         {'event.name': 'gen_ai.user.message', 'content': '2+2?', 'role': 'user'},
-                        {'event.name': 'gen_ai.assistant.message', 'content': '2 + 2 equals 4.', 'role': 'assistant'},
+                        {'event.name': 'gen_ai.assistant.message', 'content': '2 + 2 = 4', 'role': 'assistant'},
                     ],
-                    'gen_ai.usage.input_tokens': 29,
-                    'gen_ai.usage.output_tokens': 9,
+                    'gen_ai.usage.input_tokens': 11,
+                    'gen_ai.usage.output_tokens': 8,
                 },
             },
             {
@@ -1312,7 +1315,7 @@ async def test_responses_simple(exporter: TestExporter):
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.span_type': 'span',
                     'logfire.msg': "Responses API with 'gpt-4o'",
-                    'response_id': 'resp_67ceee0623ac819190454bc7af968938',
+                    'response_id': 'resp_01544eeb9f4d9c9100699336da82d081a1a2b74cadabbd9a07',
                     'gen_ai.request.model': 'gpt-4o',
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
@@ -1320,8 +1323,10 @@ async def test_responses_simple(exporter: TestExporter):
                     'raw_input': [
                         {'content': '2+2?', 'role': 'user'},
                         {
-                            'id': 'msg_67ceee05a83c8191a2e1e19ceb63495e',
-                            'content': [{'annotations': [], 'text': '2 + 2 equals 4.', 'type': 'output_text'}],
+                            'id': 'msg_01544eeb9f4d9c9100699336d96a4081a1ab96132d47d6fabe',
+                            'content': [
+                                {'annotations': [], 'text': '2 + 2 = 4', 'type': 'output_text', 'logprobs': []}
+                            ],
                             'role': 'assistant',
                             'status': 'completed',
                             'type': 'message',
@@ -1330,16 +1335,16 @@ async def test_responses_simple(exporter: TestExporter):
                     ],
                     'events': [
                         {'event.name': 'gen_ai.user.message', 'content': '2+2?', 'role': 'user'},
-                        {'event.name': 'gen_ai.assistant.message', 'content': '2 + 2 equals 4.', 'role': 'assistant'},
+                        {'event.name': 'gen_ai.assistant.message', 'content': '2 + 2 = 4', 'role': 'assistant'},
                         {'event.name': 'gen_ai.user.message', 'content': '4?', 'role': 'user'},
                         {
                             'event.name': 'gen_ai.assistant.message',
-                            'content': 'Yes, 2 + 2 equals 4.',
+                            'content': "Yes, that's correct!",
                             'role': 'assistant',
                         },
                     ],
-                    'gen_ai.usage.input_tokens': 47,
-                    'gen_ai.usage.output_tokens': 12,
+                    'gen_ai.usage.input_tokens': 28,
+                    'gen_ai.usage.output_tokens': 6,
                 },
             },
             {
@@ -1412,7 +1417,7 @@ async def test_file_search(exporter: TestExporter):
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.span_type': 'span',
                     'logfire.msg': "Responses API with 'gpt-4o'",
-                    'response_id': 'resp_67ceff39d5e88191885004de76d26e43',
+                    'response_id': 'resp_05cdfcc11457b63e0069933708a22881a08d070f84c840a8c8',
                     'gen_ai.request.model': 'gpt-4o',
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
@@ -1429,7 +1434,7 @@ file_search_call
 See JSON for details\
 """,
                             'data': {
-                                'id': 'fs_67ceff3ab5b081919945a1b5a1185949',
+                                'id': 'fs_05cdfcc11457b63e0069933709b8ec81a0b339e16bec80b213',
                                 'queries': ['Who made Logfire?'],
                                 'status': 'completed',
                                 'type': 'file_search_call',
@@ -1442,7 +1447,7 @@ See JSON for details\
                             'role': 'assistant',
                         },
                     ],
-                    'gen_ai.usage.input_tokens': 1974,
+                    'gen_ai.usage.input_tokens': 1144,
                     'gen_ai.usage.output_tokens': 38,
                 },
             },
@@ -1476,7 +1481,7 @@ See JSON for details\
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.span_type': 'span',
                     'logfire.msg': "Responses API with 'gpt-4o'",
-                    'response_id': 'resp_67ceff3c84548191b620a2cf4c2e37f2',
+                    'response_id': 'resp_05cdfcc11457b63e006993370c20d881a0ac8a9082d4d1b977',
                     'gen_ai.request.model': 'gpt-4o',
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
@@ -1484,14 +1489,14 @@ See JSON for details\
                     'raw_input': [
                         {'content': 'Who made Logfire?', 'role': 'user'},
                         {
-                            'id': 'fs_67ceff3ab5b081919945a1b5a1185949',
+                            'id': 'fs_05cdfcc11457b63e0069933709b8ec81a0b339e16bec80b213',
                             'queries': ['Who made Logfire?'],
                             'status': 'completed',
                             'type': 'file_search_call',
                             'results': None,
                         },
                         {
-                            'id': 'msg_67ceff3bede881918dd73f17abeefdf4',
+                            'id': 'msg_05cdfcc11457b63e006993370ae66881a0bddd68b7a653056f',
                             'content': [
                                 {
                                     'annotations': [
@@ -1504,6 +1509,7 @@ See JSON for details\
                                     ],
                                     'text': 'Logfire is made by Pydantic.',
                                     'type': 'output_text',
+                                    'logprobs': [],
                                 }
                             ],
                             'role': 'assistant',
@@ -1523,7 +1529,7 @@ file_search_call
 See JSON for details\
 """,
                             'data': {
-                                'id': 'fs_67ceff3ab5b081919945a1b5a1185949',
+                                'id': 'fs_05cdfcc11457b63e0069933709b8ec81a0b339e16bec80b213',
                                 'queries': ['Who made Logfire?'],
                                 'status': 'completed',
                                 'type': 'file_search_call',
@@ -1536,10 +1542,10 @@ See JSON for details\
                             'role': 'assistant',
                         },
                         {'event.name': 'gen_ai.user.message', 'content': '2+2?', 'role': 'user'},
-                        {'event.name': 'gen_ai.assistant.message', 'content': 'The answer is 4.', 'role': 'assistant'},
+                        {'event.name': 'gen_ai.assistant.message', 'content': '2 + 2 equals 4.', 'role': 'assistant'},
                     ],
-                    'gen_ai.usage.input_tokens': 923,
-                    'gen_ai.usage.output_tokens': 8,
+                    'gen_ai.usage.input_tokens': 862,
+                    'gen_ai.usage.output_tokens': 10,
                 },
             },
             {
@@ -1816,6 +1822,9 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
             {'event': 'turn_started', 'type': 'voice_stream_event_lifecycle'},
             {'type': 'voice_stream_event_audio'},
             {'type': 'voice_stream_event_audio'},
+            {'type': 'voice_stream_event_audio'},
+            {'type': 'voice_stream_event_audio'},
+            {'type': 'voice_stream_event_audio'},
             {'event': 'turn_ended', 'type': 'voice_stream_event_lifecycle'},
             {'event': 'session_ended', 'type': 'voice_stream_event_lifecycle'},
         ]
@@ -1836,12 +1845,12 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
                     'logfire.msg_template': 'Speech → Text with {gen_ai.request.model!r}',
                     'logfire.span_type': 'span',
                     'input': {'format': 'pcm'},
-                    'output': 'Können Sie mir bitte helfen?',
+                    'output': 'あたし',
                     'gen_ai.request.model': 'gpt-4o-transcribe',
                     'gen_ai.system': 'openai',
                     'model_config': {'temperature': None, 'language': None, 'prompt': None},
                     'gen_ai.response.model': 'gpt-4o-transcribe',
-                    'logfire.msg': "Speech → Text with 'gpt-4o-transcribe': Können Sie mir bitte helfen?",
+                    'logfire.msg': "Speech → Text with 'gpt-4o-transcribe': あたし",
                 },
             },
             {
@@ -1874,25 +1883,25 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
                     'gen_ai.request.model': 'gpt-4o',
                     'logfire.msg_template': 'Responses API with {gen_ai.request.model!r}',
                     'logfire.span_type': 'span',
-                    'response_id': 'resp_67dd5addb0008191b0d059952c4623eb0f38ae46f61d8b89',
+                    'response_id': 'resp_0f4c5a783ebc79bc00699336f0df488194bddca1fa9a623a2e',
                     'gen_ai.response.model': 'gpt-4o-2024-08-06',
                     'gen_ai.system': 'openai',
                     'gen_ai.operation.name': 'chat',
-                    'raw_input': [{'role': 'user', 'content': 'Können Sie mir bitte helfen?'}],
+                    'raw_input': [{'role': 'user', 'content': 'あたし'}],
                     'events': [
                         {
                             'event.name': 'gen_ai.user.message',
-                            'content': 'Können Sie mir bitte helfen?',
+                            'content': 'あたし',
                             'role': 'user',
                         },
                         {
                             'event.name': 'gen_ai.assistant.message',
-                            'content': 'Natürlich! Wobei genau benötigen Sie Hilfe?',
+                            'content': '「"あたし"」は日本語で「私」を意味する女性が多く使う一人称です。何か特定のことについてお話ししますか？',
                             'role': 'assistant',
                         },
                     ],
-                    'gen_ai.usage.input_tokens': 33,
-                    'gen_ai.usage.output_tokens': 10,
+                    'gen_ai.usage.input_tokens': 10,
+                    'gen_ai.usage.output_tokens': 41,
                     'logfire.msg': "Responses API with 'gpt-4o'",
                 },
             },
@@ -1922,7 +1931,7 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
                 'attributes': {
                     'logfire.msg_template': 'Text → Speech',
                     'logfire.span_type': 'span',
-                    'input': 'Natürlich! Wobei genau benötigen Sie Hilfe?',
+                    'input': '「"あたし"」は日本語で「私」を意味する女性が多く使う一人称です。何か特定のことについてお話ししますか？',
                     'output': {'format': 'pcm'},
                     'model_config': {
                         'voice': None,
@@ -1933,7 +1942,7 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
                     'gen_ai.system': 'openai',
                     'gen_ai.response.model': 'gpt-4o-mini-tts',
                     'first_content_at': IsStr(),
-                    'logfire.msg': 'Text → Speech: Natürlich! Wobei genau benötigen Sie Hilfe?',
+                    'logfire.msg': 'Text → Speech: 「"あたし"」は日本語で「私」を意味する女性が多く使う一人称です。何か特定のことについてお話ししますか？',
                 },
             },
             {
@@ -1945,9 +1954,9 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
                 'attributes': {
                     'logfire.msg_template': 'Text → Speech group',
                     'logfire.span_type': 'span',
-                    'input': 'Natürlich! Wobei genau benötigen Sie Hilfe?',
+                    'input': '「"あたし"」は日本語で「私」を意味する女性が多く使う一人称です。何か特定のことについてお話ししますか？',
                     'gen_ai.system': 'openai',
-                    'logfire.msg': 'Text → Speech group: Natürlich! Wobei genau benötigen Sie Hilfe?',
+                    'logfire.msg': 'Text → Speech group: 「"あたし"」は日本語で「私」を意味する女性が多く使う一人称です。何か特定のことについてお話ししますか？',
                 },
             },
         ]
