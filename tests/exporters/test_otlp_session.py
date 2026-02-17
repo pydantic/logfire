@@ -4,7 +4,6 @@ from unittest.mock import Mock
 import pytest
 import requests
 import requests.exceptions
-from inline_snapshot import snapshot
 from opentelemetry.sdk.trace.export import SpanExportResult
 from requests.models import PreparedRequest, Response as Response
 from requests.sessions import HTTPAdapter
@@ -14,6 +13,7 @@ from logfire._internal.exporters.otlp import (
     BodyTooLargeError,
     OTLPExporterHttpSession,
 )
+from tests._inline_snapshot import snapshot
 from tests.exporters.test_retry_fewer_spans import TEST_SPANS
 
 

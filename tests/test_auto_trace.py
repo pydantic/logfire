@@ -8,7 +8,6 @@ from importlib.machinery import SourceFileLoader
 from typing import Any, Callable
 
 import pytest
-from inline_snapshot import snapshot
 
 import logfire
 from logfire import DEFAULT_LOGFIRE_INSTANCE, AutoTraceModule
@@ -20,6 +19,7 @@ from logfire._internal.auto_trace import (
 from logfire._internal.auto_trace.import_hook import LogfireLoader
 from logfire._internal.auto_trace.rewrite_ast import rewrite_ast
 from logfire.testing import TestExporter
+from tests._inline_snapshot import snapshot
 
 
 def test_auto_trace_sample(exporter: TestExporter) -> None:

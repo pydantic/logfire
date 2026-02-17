@@ -21,7 +21,6 @@ import pydantic
 import pytest
 from attrs import define
 from dirty_equals import IsJson, IsStr
-from inline_snapshot import snapshot
 from pydantic import AnyUrl, BaseModel, ConfigDict, FilePath, NameEmail, RootModel, SecretBytes, SecretStr
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 from sqlalchemy import String, create_engine
@@ -33,6 +32,7 @@ from sqlmodel import SQLModel
 import logfire
 from logfire._internal.utils import get_version
 from logfire.testing import TestExporter
+from tests._inline_snapshot import snapshot
 
 if sys.version_info >= (3, 11):  # pragma: no branch
     from enum import IntEnum, StrEnum

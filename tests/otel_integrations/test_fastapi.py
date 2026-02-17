@@ -7,11 +7,12 @@ from unittest import mock
 
 import pytest
 from dirty_equals import IsFloat, IsInt
-from inline_snapshot import snapshot
 from opentelemetry.propagate import inject
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
 from starlette.testclient import TestClient
+
+from tests._inline_snapshot import snapshot
 
 # FastAPI 0.128.5+ requires pydantic>=2.7
 pytest.importorskip('fastapi', reason='FastAPI requires pydantic>=2.7', exc_type=ImportError)

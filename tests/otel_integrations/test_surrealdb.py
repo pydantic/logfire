@@ -1,12 +1,12 @@
 import inspect
 
 import pytest
-from inline_snapshot import snapshot
 from surrealdb import AsyncSurreal, Surreal
 
 import logfire
 from logfire._internal.exporters.test import TestExporter
 from logfire._internal.integrations.surrealdb import get_all_surrealdb_classes
+from tests._inline_snapshot import snapshot
 
 
 def test_get_all_surrealdb_classes():

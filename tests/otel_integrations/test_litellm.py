@@ -7,12 +7,12 @@ from unittest import mock
 import pydantic
 import pytest
 from dirty_equals import IsPartialDict
-from inline_snapshot import snapshot
 
 import logfire
 from logfire._internal.exporters.processor_wrapper import guess_system
 from logfire._internal.utils import get_version
 from logfire.testing import TestExporter
+from tests._inline_snapshot import snapshot
 
 
 def test_missing_opentelemetry_dependency() -> None:

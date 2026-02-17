@@ -17,12 +17,13 @@ from logfire._internal.utils import get_version
 from tests.otel_integrations.test_openai_agents import simplify_spans
 
 try:
-    from inline_snapshot import snapshot
     from mcp.server.fastmcp import Context, FastMCP
     from mcp.shared.memory import create_client_server_memory_streams
     from pydantic_ai import Agent
     from pydantic_ai.mcp import MCPServer
     from pydantic_ai.models.mcp_sampling import MCPSamplingModel
+
+    from tests._inline_snapshot import snapshot
 except Exception:
     assert not TYPE_CHECKING
 

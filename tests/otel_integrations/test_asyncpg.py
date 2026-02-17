@@ -3,11 +3,11 @@ from unittest import mock
 
 import asyncpg
 import pytest
-from inline_snapshot import snapshot
 from opentelemetry.instrumentation.asyncpg import AsyncPGInstrumentor
 
 import logfire
 import logfire._internal.integrations.asyncpg
+from tests._inline_snapshot import snapshot
 
 
 def test_asyncpg() -> None:

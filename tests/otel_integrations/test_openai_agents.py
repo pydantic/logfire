@@ -7,11 +7,11 @@ from typing import Any
 import numpy as np
 import pytest
 from dirty_equals import IsPartialDict, IsStr
-from inline_snapshot import snapshot
 from openai import AsyncOpenAI
 
 import logfire
 from logfire._internal.exporters.test import TestExporter
+from tests._inline_snapshot import snapshot
 
 pytest.importorskip('agents', reason='openai-agents requires python 3.10', exc_type=ImportError)
 

@@ -6,13 +6,13 @@ from unittest import mock
 import pytest
 from dirty_equals import IsFloat, IsInt
 from flask import Flask
-from inline_snapshot import snapshot
 from opentelemetry.propagate import inject
 from werkzeug.test import Client
 
 import logfire
 import logfire._internal.integrations.wsgi
 from logfire.testing import TestExporter
+from tests._inline_snapshot import snapshot
 
 
 def test_wsgi_middleware(exporter: TestExporter) -> None:

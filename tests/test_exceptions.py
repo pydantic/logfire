@@ -1,13 +1,13 @@
 from typing import Any
 
 import pytest
-from inline_snapshot import snapshot
 
 import logfire
 from logfire._internal.constants import ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY
 from logfire._internal.exporters.test import TestExporter
 from logfire._internal.utils import canonicalize_exception_traceback
 from logfire.types import ExceptionCallbackHelper
+from tests._inline_snapshot import snapshot
 
 
 def test_exception_callback_set_level(exporter: TestExporter, config_kwargs: dict[str, Any]):

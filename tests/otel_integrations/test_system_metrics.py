@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import pytest
-from inline_snapshot import snapshot
 from opentelemetry.instrumentation.system_metrics import SystemMetricsInstrumentor
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 
 import logfire
 from logfire._internal.integrations.system_metrics import get_base_config
+from tests._inline_snapshot import snapshot
 from tests.test_metrics import get_collected_metrics
 
 

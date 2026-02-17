@@ -6,11 +6,11 @@ from unittest import mock
 import pydantic
 import pytest
 from dirty_equals import IsStr
-from inline_snapshot import snapshot
 
 import logfire
 from logfire._internal.utils import get_version
 from logfire.testing import TestExporter
+from tests._inline_snapshot import snapshot
 
 # Skip entire module if requirements not met
 if sys.version_info < (3, 10):

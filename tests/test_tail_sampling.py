@@ -2,9 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-import inline_snapshot.extra
 import pytest
-from inline_snapshot import snapshot
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace.sampling import ALWAYS_OFF, ALWAYS_ON, Sampler, SamplingResult
 
@@ -12,6 +10,7 @@ import logfire
 from logfire._internal.constants import LEVEL_NUMBERS
 from logfire.sampling import SpanLevel, TailSamplingSpanInfo
 from logfire.testing import SeededRandomIdGenerator, TestExporter, TimeGenerator
+from tests._inline_snapshot import raises, snapshot
 
 
 def test_level_threshold(config_kwargs: dict[str, Any], exporter: TestExporter):
@@ -486,9 +485,7 @@ def test_span_levels():
 
 
 def test_invalid_rates():
-    with inline_snapshot.extra.raises(
-        snapshot('ValueError: Invalid sampling rates, must be 0.0 <= background_rate <= head <= 1.0')
-    ):
+    with raises(snapshot('ValueError: Invalid sampling rates, must be 0.0 <= background_rate <= head <= 1.0')):
         logfire.SamplingOptions.level_or_duration(background_rate=-1)
     with pytest.raises(ValueError):
         logfire.SamplingOptions.level_or_duration(background_rate=0.5, head=0.3)
@@ -507,7 +504,7 @@ def test_trace_sample_rate(config_kwargs: dict[str, Any]):
 
 
 def test_both_trace_and_head():
-    with inline_snapshot.extra.raises(
+    with raises(
         snapshot(
             'ValueError: Cannot specify both `trace_sample_rate` and `sampling`. '
             'Use `sampling.head` instead of `trace_sample_rate`.'

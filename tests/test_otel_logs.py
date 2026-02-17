@@ -6,7 +6,6 @@ from typing import Any
 import pytest
 import requests.exceptions
 from dirty_equals import IsPartialDict, IsStr
-from inline_snapshot import snapshot
 from opentelemetry._logs import LogRecord, SeverityNumber, get_logger, get_logger_provider
 from opentelemetry.sdk._logs import ReadableLogRecord
 from opentelemetry.sdk._logs.export import (
@@ -21,6 +20,7 @@ import logfire
 from logfire import suppress_instrumentation
 from logfire._internal.exporters.otlp import QuietLogExporter
 from logfire.testing import TestLogExporter
+from tests._inline_snapshot import snapshot
 
 
 def test_otel_logs_supress_scopes(logs_exporter: InMemoryLogRecordExporter, config_kwargs: dict[str, Any]) -> None:

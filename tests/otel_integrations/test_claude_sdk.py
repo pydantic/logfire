@@ -1,6 +1,5 @@
-from inline_snapshot import snapshot
-
 from logfire._internal.exporters.processor_wrapper import _transform_langsmith_span_attributes  # type: ignore
+from tests._inline_snapshot import snapshot
 
 
 # Testing this properly is too much of a pain, we'd need to create a clever mock transport or something.

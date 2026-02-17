@@ -5,12 +5,12 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import pytest
-from inline_snapshot import snapshot
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 
 import logfire
 from logfire.testing import SeededRandomIdGenerator, TestExporter
+from tests._inline_snapshot import snapshot
 
 
 @dataclass

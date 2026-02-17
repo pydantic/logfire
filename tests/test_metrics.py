@@ -5,7 +5,6 @@ from typing import Any
 import pytest
 import requests
 from dirty_equals import IsInt
-from inline_snapshot import Is, snapshot
 from opentelemetry import metrics
 from opentelemetry.metrics import CallbackOptions, Observation
 from opentelemetry.sdk.metrics import Counter, Histogram
@@ -23,6 +22,7 @@ from logfire._internal.config import METRICS_PREFERRED_TEMPORALITY
 from logfire._internal.exporters.quiet_metrics import QuietMetricExporter
 from logfire._internal.exporters.test import TestExporter
 from logfire.testing import get_collected_metrics
+from tests._inline_snapshot import Is, snapshot
 
 meter = metrics.get_meter('global_test_meter')
 

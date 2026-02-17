@@ -7,12 +7,12 @@ from unittest import mock
 import pytest
 import requests
 from dirty_equals import IsFloat, IsNumeric, IsStr
-from inline_snapshot import snapshot
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
 
 import logfire
 import logfire._internal.integrations.requests
 from logfire.testing import TestExporter
+from tests._inline_snapshot import snapshot
 
 
 @pytest.fixture(autouse=True)  # only applies within this module

@@ -4,11 +4,11 @@ import importlib
 from unittest import mock
 
 import pytest
-from inline_snapshot import snapshot
 from pymongo import monitoring
 
 import logfire
 import logfire._internal.integrations.pymongo
+from tests._inline_snapshot import snapshot
 
 
 # TODO real test

@@ -6,13 +6,13 @@ from unittest import mock
 import mysql.connector
 import pytest
 from dirty_equals import IsInt
-from inline_snapshot import snapshot
 from opentelemetry.instrumentation.mysql import MySQLInstrumentor
 from testcontainers.mysql import MySqlContainer
 
 import logfire
 import logfire._internal.integrations.mysql
 from logfire.testing import TestExporter
+from tests._inline_snapshot import snapshot
 
 
 @pytest.fixture(scope='module')

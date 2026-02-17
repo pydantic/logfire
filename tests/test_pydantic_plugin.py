@@ -10,7 +10,6 @@ import pydantic
 import pytest
 import sqlmodel
 from dirty_equals import IsInt
-from inline_snapshot import snapshot
 from opentelemetry.sdk.metrics.export import AggregationTemporality, InMemoryMetricReader
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from pydantic import (
@@ -33,6 +32,7 @@ from logfire.integrations.pydantic import (
     get_schema_name,
 )
 from logfire.testing import SeededRandomIdGenerator, TestExporter
+from tests._inline_snapshot import snapshot
 from tests.test_metrics import get_collected_metrics
 
 pytestmark = pytest.mark.skipif(

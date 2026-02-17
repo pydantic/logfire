@@ -15,12 +15,10 @@ from typing import Any
 from unittest import mock
 from unittest.mock import call, patch
 
-import inline_snapshot.extra
 import pytest
 import requests.exceptions
 import requests_mock
 from dirty_equals import IsStr
-from inline_snapshot import snapshot
 from opentelemetry._logs import get_logger_provider
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
@@ -75,6 +73,7 @@ from logfire.exceptions import LogfireConfigError
 from logfire.integrations.pydantic import get_pydantic_plugin_config
 from logfire.propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
 from logfire.testing import TestExporter
+from tests._inline_snapshot import raises, snapshot, warns
 
 PROCESS_RUNTIME_VERSION_REGEX = r'(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)'
 
@@ -486,7 +485,7 @@ def test_read_config_from_environment_variables() -> None:
             fresh_pydantic_plugin()
 
     with patch.dict(os.environ, {'LOGFIRE_SEND_TO_LOGFIRE': 'not-valid'}):
-        with inline_snapshot.extra.raises(
+        with raises(
             snapshot(
                 "LogfireConfigError: Expected send_to_logfire to be an instance of one of (<class 'bool'>, typing.Literal['if-token-present']), got 'not-valid'"
             )
@@ -1818,7 +1817,7 @@ def test_dynamic_module_ignored_in_ensure_flush_after_aws_lambda(
 
 
 def test_collect_system_metrics_false():
-    with inline_snapshot.extra.raises(
+    with raises(
         snapshot(
             'ValueError: The `collect_system_metrics` argument has been removed. '
             'System metrics are no longer collected by default.'
@@ -1828,7 +1827,7 @@ def test_collect_system_metrics_false():
 
 
 def test_collect_system_metrics_true():
-    with inline_snapshot.extra.raises(
+    with raises(
         snapshot(
             'ValueError: The `collect_system_metrics` argument has been removed. '
             'Use `logfire.instrument_system_metrics()` instead.'
@@ -1838,14 +1837,12 @@ def test_collect_system_metrics_true():
 
 
 def test_unknown_kwargs():
-    with inline_snapshot.extra.raises(snapshot('TypeError: configure() got unexpected keyword arguments: foo, bar')):
+    with raises(snapshot('TypeError: configure() got unexpected keyword arguments: foo, bar')):
         logfire.configure(foo=1, bar=2)  # type: ignore
 
 
 def test_project_name_deprecated():
-    with inline_snapshot.extra.raises(
-        snapshot('UserWarning: The `project_name` argument is deprecated and not needed.')
-    ):
+    with raises(snapshot('UserWarning: The `project_name` argument is deprecated and not needed.')):
         logfire.configure(project_name='foo')  # type: ignore
 
 
@@ -1860,9 +1857,7 @@ def test_base_url_deprecated():
 
 
 def test_combine_deprecated_and_new_advanced():
-    with inline_snapshot.extra.raises(
-        snapshot('ValueError: Cannot specify `base_url` and `advanced`. Use only `advanced`.')
-    ):
+    with raises(snapshot('ValueError: Cannot specify `base_url` and `advanced`. Use only `advanced`.')):
         logfire.configure(base_url='foo', advanced=logfire.AdvancedOptions(base_url='bar'))  # type: ignore
 
 
@@ -1880,7 +1875,7 @@ def test_additional_metric_readers_deprecated():
 
 def test_additional_metric_readers_combined_with_metrics():
     readers = [InMemoryMetricReader()]
-    with inline_snapshot.extra.raises(
+    with raises(
         snapshot(
             'ValueError: Cannot specify both `additional_metric_readers` and `metrics`. '
             'Use `metrics=logfire.MetricsOptions(additional_readers=[...])` instead.'
@@ -2105,7 +2100,7 @@ def test_distributed_tracing_default(exporter: TestExporter, config_kwargs: dict
     with propagate.attach_context(ctx):
         logfire.info('test1')
 
-    with inline_snapshot.extra.warns(
+    with warns(
         snapshot(
             [
                 'RuntimeWarning: Found propagated trace context. See https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing.'

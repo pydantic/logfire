@@ -14,7 +14,6 @@ from unittest import mock
 
 import pytest
 from dirty_equals import IsStr
-from inline_snapshot import snapshot
 from opentelemetry import trace
 from opentelemetry._logs import LogRecord, SeverityNumber, get_logger
 from opentelemetry.sdk.trace import ReadableSpan
@@ -29,6 +28,7 @@ from logfire._internal.exporters.console import (
     SimpleConsoleSpanExporter,
 )
 from logfire.testing import TestExporter
+from tests._inline_snapshot import snapshot
 from tests.utils import ReadableSpanModel, SpanContextModel, exported_spans_as_models
 
 if sys.version_info >= (3, 11):  # pragma: no branch

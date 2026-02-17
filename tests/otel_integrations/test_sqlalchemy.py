@@ -9,7 +9,6 @@ from unittest import mock
 
 import pytest
 from dirty_equals import IsStr
-from inline_snapshot import snapshot
 from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 from opentelemetry.instrumentation.sqlite3 import SQLite3Instrumentor
 from sqlalchemy.engine import Engine, create_engine
@@ -21,6 +20,7 @@ from sqlalchemy.types import Integer, String
 import logfire
 import logfire._internal.integrations.sqlalchemy
 from logfire.testing import TestExporter
+from tests._inline_snapshot import snapshot
 
 
 class Base(DeclarativeBase):

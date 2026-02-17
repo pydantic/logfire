@@ -6,11 +6,11 @@ from anthropic import Anthropic, AnthropicBedrock, AsyncAnthropic, AsyncAnthropi
 from anthropic.types import Message, TextBlock, Usage
 from dirty_equals import IsPartialDict
 from httpx._transports.mock import MockTransport
-from inline_snapshot import snapshot
 
 import logfire
 from logfire._internal.integrations.llm_providers.anthropic import is_async_client
 from logfire.testing import TestExporter
+from tests._inline_snapshot import snapshot
 
 
 def request_handler(request: httpx.Request) -> httpx.Response:

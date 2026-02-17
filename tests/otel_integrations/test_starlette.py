@@ -6,7 +6,6 @@ from unittest import mock
 
 import pytest
 from dirty_equals import IsAnyStr
-from inline_snapshot import snapshot
 from opentelemetry.instrumentation.starlette import StarletteInstrumentor
 from starlette.applications import Starlette
 from starlette.routing import Route, WebSocketRoute
@@ -16,6 +15,7 @@ from starlette.websockets import WebSocket
 import logfire
 import logfire._internal.integrations.starlette
 from logfire.testing import TestExporter
+from tests._inline_snapshot import snapshot
 
 
 async def secret(path_param: str):

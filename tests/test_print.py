@@ -3,11 +3,11 @@ import sys
 from typing import Any
 
 import pytest
-from inline_snapshot import snapshot
 
 import logfire
 from logfire._internal.ast_utils import InspectArgumentsFailedWarning
 from logfire._internal.exporters.test import TestExporter
+from tests._inline_snapshot import snapshot
 
 
 def test_instrument_print(exporter: TestExporter, capsys: pytest.CaptureFixture[str]) -> None:

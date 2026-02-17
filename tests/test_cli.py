@@ -20,7 +20,6 @@ import pytest
 import requests
 import requests_mock
 from dirty_equals import IsStr
-from inline_snapshot import snapshot
 
 import logfire._internal.cli
 from logfire import VERSION
@@ -34,6 +33,7 @@ from logfire._internal.cli.run import (
 )
 from logfire._internal.config import LogfireCredentials, sanitize_project_name
 from logfire.exceptions import LogfireConfigError
+from tests._inline_snapshot import snapshot
 from tests.import_used_for_tests import run_script_test
 
 

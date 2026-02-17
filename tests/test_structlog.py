@@ -1,9 +1,9 @@
 import pytest
 import structlog
-from inline_snapshot import snapshot
 
 from logfire.integrations.structlog import LogfireProcessor
 from logfire.testing import TestExporter
+from tests._inline_snapshot import snapshot
 
 
 @pytest.fixture(autouse=True, scope='module')

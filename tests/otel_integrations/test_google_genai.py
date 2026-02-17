@@ -7,12 +7,12 @@ from unittest.mock import patch
 import pydantic
 import pytest
 from dirty_equals import IsInt, IsPartialDict, IsStr
-from inline_snapshot import snapshot
 from opentelemetry._logs import LogRecord, SeverityNumber
 
 import logfire
 from logfire._internal.utils import get_version
 from logfire.testing import TestExporter
+from tests._inline_snapshot import snapshot
 
 os.environ['OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT'] = 'true'
 os.environ.setdefault('GOOGLE_API_KEY', 'foo')

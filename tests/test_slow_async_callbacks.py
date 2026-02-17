@@ -3,10 +3,10 @@ from asyncio.events import Handle
 
 import pytest
 from dirty_equals import IsInt, IsJson
-from inline_snapshot import snapshot
 
 import logfire
 from logfire.testing import TestExporter
+from tests._inline_snapshot import snapshot
 from tests.import_used_for_tests.slow_async_callbacks_example import main
 
 

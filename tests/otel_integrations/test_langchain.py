@@ -5,10 +5,10 @@ from typing import Any
 import pydantic
 import pytest
 from dirty_equals import IsPartialDict
-from inline_snapshot import snapshot
 
 from logfire._internal.exporters.test import TestExporter
 from logfire._internal.utils import get_version
+from tests._inline_snapshot import snapshot
 
 os.environ['LANGSMITH_OTEL_ENABLED'] = 'true'
 os.environ['LANGSMITH_TRACING'] = 'true'

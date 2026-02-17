@@ -6,7 +6,6 @@ from typing import Any
 from unittest import mock
 
 import pytest
-from inline_snapshot import snapshot
 from opentelemetry.instrumentation.redis import RedisInstrumentor
 from opentelemetry.trace import Span
 from redis import Connection, Redis
@@ -15,6 +14,7 @@ from testcontainers.redis import RedisContainer
 import logfire
 import logfire._internal.integrations.redis
 from logfire.testing import TestExporter
+from tests._inline_snapshot import snapshot
 
 
 @pytest.fixture(scope='module', autouse=True)

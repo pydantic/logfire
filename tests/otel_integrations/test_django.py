@@ -5,13 +5,13 @@ import pytest
 from dirty_equals import IsInt, IsNumeric
 from django.http import HttpResponse
 from django.test import Client
-from inline_snapshot import snapshot
 
 import logfire
 import logfire._internal
 import logfire._internal.integrations
 import logfire._internal.integrations.django
 from logfire.testing import CaptureLogfire, TestExporter
+from tests._inline_snapshot import snapshot
 
 
 def test_django_test_project_modules() -> None:

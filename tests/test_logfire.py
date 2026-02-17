@@ -16,7 +16,6 @@ from unittest.mock import patch
 import cloudpickle
 import pytest
 from dirty_equals import IsInt, IsJson, IsStr
-from inline_snapshot import Is, snapshot
 from opentelemetry.metrics import get_meter
 from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
@@ -45,6 +44,7 @@ from logfire._internal.tracer import record_exception
 from logfire._internal.utils import SeededRandomIdGenerator, is_instrumentation_suppressed
 from logfire.integrations.logging import LogfireLoggingHandler
 from logfire.testing import TestExporter
+from tests._inline_snapshot import Is, snapshot
 from tests.test_metrics import get_collected_metrics
 
 

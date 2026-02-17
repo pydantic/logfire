@@ -4,11 +4,11 @@ from typing import Any
 
 import loguru
 import pytest
-from inline_snapshot import snapshot
 from loguru import logger
 
 from logfire import loguru_handler
 from logfire.testing import TestExporter
+from tests._inline_snapshot import snapshot
 
 
 @pytest.fixture(scope='module', autouse=True)

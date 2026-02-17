@@ -5,7 +5,6 @@ from typing import Any
 
 import pytest
 from dirty_equals import IsJson, IsPartialDict
-from inline_snapshot import snapshot
 from opentelemetry._logs import LogRecord, get_logger
 from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 from opentelemetry.sdk.environment_variables import OTEL_RESOURCE_ATTRIBUTES
@@ -14,6 +13,7 @@ from opentelemetry.trace.propagation import get_current_span
 import logfire
 from logfire._internal.scrubbing import NoopScrubber
 from logfire.testing import TestExporter, TestLogExporter
+from tests._inline_snapshot import snapshot
 
 
 def test_scrub_attribute(exporter: TestExporter):

@@ -1,12 +1,11 @@
 from typing import Any
 
 import pytest
-from inline_snapshot import snapshot
-from inline_snapshot.extra import warns
 from opentelemetry import baggage as otel_baggage, context
 
 import logfire
 from logfire.testing import TestExporter
+from tests._inline_snapshot import snapshot, warns
 
 
 def test_baggage_sets_and_restores():

@@ -1,8 +1,8 @@
 import pytest
-from inline_snapshot import snapshot
 
 import logfire
 from logfire.testing import CaptureLogfire, TestExporter, TimeGenerator
+from tests._inline_snapshot import snapshot
 
 
 def test_reset_exported_spans(exporter: TestExporter) -> None:

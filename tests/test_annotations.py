@@ -1,9 +1,9 @@
-from inline_snapshot import snapshot
 from opentelemetry.trace import get_current_span
 
 import logfire
 from logfire._internal.exporters.test import TestExporter
 from logfire.experimental.annotations import get_traceparent, raw_annotate_span, record_feedback
+from tests._inline_snapshot import snapshot
 
 
 def test_get_traceparent(exporter: TestExporter):

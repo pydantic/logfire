@@ -8,13 +8,13 @@ from celery import Celery
 from celery.contrib.testing.worker import start_worker
 from celery.result import AsyncResult
 from dirty_equals import IsInt, IsStr
-from inline_snapshot import snapshot
 from opentelemetry.instrumentation.celery import CeleryInstrumentor
 from testcontainers.redis import RedisContainer
 
 import logfire
 import logfire._internal.integrations.celery
 from logfire.testing import TestExporter
+from tests._inline_snapshot import snapshot
 
 
 def test_missing_opentelemetry_dependency() -> None:

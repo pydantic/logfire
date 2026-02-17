@@ -12,13 +12,13 @@ import aiohttp.web
 import pytest
 from aiohttp.tracing import TraceRequestEndParams, TraceRequestExceptionParams, TraceRequestStartParams
 from dirty_equals import IsInt, IsStr, IsTuple
-from inline_snapshot import snapshot
 from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
 from opentelemetry.trace import Span
 
 import logfire
 import logfire._internal.integrations.aiohttp_client
 from logfire.testing import TestExporter
+from tests._inline_snapshot import snapshot
 
 
 async def mock_handler(request: aiohttp.web.Request) -> aiohttp.web.Response:

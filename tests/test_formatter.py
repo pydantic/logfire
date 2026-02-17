@@ -5,12 +5,12 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from inline_snapshot import snapshot
 
 import logfire
 from logfire._internal.formatter import FormattingFailedWarning, chunks_formatter, logfire_format
 from logfire._internal.scrubbing import NOOP_SCRUBBER, JsonPath, Scrubber
 from logfire.testing import TestExporter
+from tests._inline_snapshot import snapshot
 
 
 def chunks(format_string: str, kwargs: Mapping[str, Any]):

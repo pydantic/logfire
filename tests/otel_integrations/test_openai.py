@@ -11,7 +11,6 @@ import pydantic
 import pytest
 from dirty_equals import IsInt, IsNumeric, IsStr
 from httpx._transports.mock import MockTransport
-from inline_snapshot import snapshot
 from openai.types import (
     completion,
     completion_choice,
@@ -28,6 +27,7 @@ from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 import logfire
 from logfire._internal.utils import get_version, suppress_instrumentation
 from logfire.testing import TestExporter
+from tests._inline_snapshot import snapshot
 
 pytestmark = [
     pytest.mark.skipif(

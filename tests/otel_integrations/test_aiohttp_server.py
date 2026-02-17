@@ -4,10 +4,10 @@ from unittest import mock
 import aiohttp
 import aiohttp.web
 import pytest
-from inline_snapshot import snapshot
 
 import logfire
 import logfire._internal.integrations.aiohttp_server
+from tests._inline_snapshot import snapshot
 
 
 # TODO real test

@@ -10,7 +10,6 @@ import httpx
 import pytest
 from dirty_equals import IsAnyStr, IsStr
 from httpx import Request
-from inline_snapshot import snapshot
 from opentelemetry.instrumentation._semconv import _OpenTelemetrySemanticConventionStability  # type: ignore
 from opentelemetry.instrumentation.httpx import RequestInfo, ResponseInfo
 from opentelemetry.trace.span import Span
@@ -19,6 +18,7 @@ import logfire
 import logfire._internal.integrations.httpx
 from logfire._internal.integrations.httpx import CODES_FOR_METHODS_WITH_DATA_PARAM, is_json_type
 from logfire.testing import TestExporter
+from tests._inline_snapshot import snapshot
 
 pytestmark = pytest.mark.anyio
 

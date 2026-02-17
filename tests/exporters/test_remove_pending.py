@@ -1,8 +1,7 @@
-from inline_snapshot import snapshot
-
 import logfire
 from logfire._internal.exporters.remove_pending import RemovePendingSpansExporter
 from logfire.testing import TestExporter
+from tests._inline_snapshot import snapshot
 
 
 def test_remove_pending_spans(exporter: TestExporter):

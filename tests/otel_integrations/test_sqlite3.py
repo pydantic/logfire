@@ -3,12 +3,12 @@ import sqlite3
 from unittest import mock
 
 import pytest
-from inline_snapshot import snapshot
 from opentelemetry.instrumentation.sqlite3 import SQLite3Instrumentor
 
 import logfire
 import logfire._internal.integrations.sqlite3
 from logfire.testing import TestExporter
+from tests._inline_snapshot import snapshot
 
 
 def test_sqlite3_instrumentation(exporter: TestExporter):

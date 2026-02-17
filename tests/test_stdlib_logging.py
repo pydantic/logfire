@@ -8,7 +8,6 @@ from typing import Any
 
 import pytest
 from dirty_equals import IsPositiveInt
-from inline_snapshot import snapshot
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor, SpanExporter
 from opentelemetry.trace import Status
@@ -16,6 +15,7 @@ from opentelemetry.trace import Status
 import logfire
 from logfire.integrations.logging import LogfireLoggingHandler
 from logfire.testing import TestExporter
+from tests._inline_snapshot import snapshot
 
 
 @pytest.fixture(scope='module')

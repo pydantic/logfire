@@ -20,10 +20,10 @@ from anthropic.types import (
 )
 from dirty_equals import IsInt, IsPartialDict, IsStr
 from httpx._transports.mock import MockTransport
-from inline_snapshot import snapshot
 
 import logfire
 from logfire.testing import TestExporter
+from tests._inline_snapshot import snapshot
 
 ANY_ADAPTER = pydantic.TypeAdapter(Any)  # type: ignore
 

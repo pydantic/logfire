@@ -6,7 +6,6 @@ from typing import Any
 from unittest import mock
 
 import pytest
-from inline_snapshot import snapshot
 from opentelemetry.context import Context
 from opentelemetry.instrumentation.aws_lambda import _HANDLER  # type: ignore[import]
 from opentelemetry.propagate import extract
@@ -16,6 +15,7 @@ import logfire._internal.integrations.aws_lambda
 from logfire._internal.integrations.aws_lambda import LambdaEvent
 from logfire.propagate import get_context
 from logfire.testing import TestExporter
+from tests._inline_snapshot import snapshot
 
 
 def lambda_handler(event: Any, context: MockLambdaContext):

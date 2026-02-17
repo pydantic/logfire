@@ -3,7 +3,6 @@ from __future__ import annotations
 import contextlib
 
 from dirty_equals import IsFloat, IsInt
-from inline_snapshot import snapshot
 from opentelemetry.propagate import inject
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
@@ -15,6 +14,7 @@ from starlette.types import ASGIApp
 
 import logfire
 from logfire.testing import TestExporter
+from tests._inline_snapshot import snapshot
 
 
 def test_asgi_middleware(exporter: TestExporter) -> None:

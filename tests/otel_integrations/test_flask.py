@@ -5,13 +5,13 @@ import opentelemetry.instrumentation.flask
 import pytest
 from dirty_equals import IsFloat, IsInt
 from flask import Flask
-from inline_snapshot import snapshot
 from opentelemetry.propagate import inject
 from werkzeug.test import Client
 
 import logfire
 import logfire._internal.integrations.flask
 from logfire.testing import TestExporter, TimeGenerator
+from tests._inline_snapshot import snapshot
 
 
 def test_flask_instrumentation(exporter: TestExporter, time_generator: TimeGenerator) -> None:
