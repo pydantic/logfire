@@ -9,7 +9,6 @@ from typing import Any
 
 import anyio._backends._asyncio  # noqa  # type: ignore
 import pytest
-from agents.tracing import get_trace_provider
 from opentelemetry import trace
 from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
@@ -28,14 +27,20 @@ os.environ['OTEL_SEMCONV_STABILITY_OPT_IN'] = 'http/dup'
 
 # Ensure that these variables in the environment don't interfere
 os.environ['LOGFIRE_TOKEN'] = ''
+os.environ.setdefault('OPENAI_API_KEY', 'foo')
 os.environ.pop('OPENAI_BASE_URL', None)
 os.environ.pop('ANTHROPIC_BASE_URL', None)
 
 # https://github.com/openai/openai-python/issues/2644
 sys.modules['openai.resources.evals'] = unittest.mock.MagicMock()
 
-get_trace_provider().shutdown()
-get_trace_provider().set_processors([])
+try:
+    from agents.tracing import get_trace_provider
+
+    get_trace_provider().shutdown()
+    get_trace_provider().set_processors([])
+except ImportError:
+    pass
 
 logfire.configure(send_to_logfire=False)
 
@@ -112,6 +117,7 @@ def config_kwargs(
 
 @pytest.fixture(autouse=True)
 def config(config_kwargs: dict[str, Any], metrics_reader: InMemoryMetricReader) -> None:
+    logfire.variables_clear()
     configure(
         **config_kwargs,
         metrics=logfire.MetricsOptions(

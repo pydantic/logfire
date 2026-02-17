@@ -13,6 +13,7 @@ import weakref
 from collections.abc import Sequence
 from contextlib import suppress
 from dataclasses import dataclass, field
+from datetime import timedelta
 from pathlib import Path
 from threading import RLock, Thread
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Literal, TypedDict
@@ -57,13 +58,14 @@ from opentelemetry.sdk.trace.id_generator import IdGenerator
 from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio, Sampler
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
-from typing_extensions import Self, Unpack
+from typing_extensions import Self, Unpack, assert_type
 
 from logfire._internal.auth import PYDANTIC_LOGFIRE_TOKEN_PATTERN, REGIONS
 from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
 from logfire.exceptions import LogfireConfigError
 from logfire.sampling import SamplingOptions
 from logfire.sampling._tail_sampling import TailSamplingProcessor
+from logfire.variables.abstract import NoOpVariableProvider, VariableProvider
 from logfire.version import VERSION
 
 from ..propagate import NoExtractTraceContextPropagator, WarnOnExtractTraceContextPropagator
@@ -115,6 +117,8 @@ from .utils import (
 
 if TYPE_CHECKING:
     from typing import TextIO
+
+    from logfire.variables import VariablesConfig
 
     from .main import Logfire
 
@@ -302,6 +306,62 @@ class CodeSource:
     """
 
 
+@dataclass
+class VariablesOptions:
+    """Configuration for managed variables using the Logfire remote API.
+
+    This is the recommended configuration for production use. Variables are managed
+    through the Logfire UI and fetched via the Logfire API.
+    """
+
+    block_before_first_resolve: bool = True
+    """Whether the remote variables should be fetched before first resolving a value."""
+    polling_interval: timedelta | float = timedelta(seconds=60)
+    """The time interval for polling for updates to the variables config.
+
+    Polling is only a fallback — all updates are delivered instantly via SSE
+    unless something goes wrong. Must be at least 10 seconds. Defaults to 60 seconds.
+    """
+    timeout: tuple[float, float] = (10, 10)
+    """Timeout for HTTP requests to the variables API as (connect_timeout, read_timeout) in seconds."""
+    include_resource_attributes_in_context: bool = True
+    """Whether to include OpenTelemetry resource attributes when resolving variables."""
+    include_baggage_in_context: bool = True
+    """Whether to include OpenTelemetry baggage when resolving variables."""
+    instrument: bool = True
+    """Whether to create spans when resolving variables."""
+
+    def __post_init__(self):
+        interval_seconds = (
+            self.polling_interval.total_seconds()
+            if isinstance(self.polling_interval, timedelta)
+            else self.polling_interval
+        )
+        if interval_seconds < 10:
+            raise ValueError(
+                f'polling_interval must be at least 10 seconds, got {interval_seconds}s. '
+                'Polling is only a fallback — updates are delivered instantly via SSE.'
+            )
+
+
+@dataclass
+class LocalVariablesOptions:
+    """Configuration for managed variables using a local in-memory configuration.
+
+    Use this for development, testing, or self-hosted setups where you don't
+    want to connect to the Logfire API.
+    """
+
+    config: VariablesConfig
+    """A local variables config containing variable definitions."""
+    include_resource_attributes_in_context: bool = True
+    """Whether to include OpenTelemetry resource attributes when resolving variables."""
+    include_baggage_in_context: bool = True
+    """Whether to include OpenTelemetry baggage when resolving variables."""
+    instrument: bool = True
+    """Whether to create spans when resolving variables."""
+
+
 class DeprecatedKwargs(TypedDict):
     # Empty so that passing any additional kwargs makes static type checkers complain.
     pass
@@ -312,6 +372,7 @@ def configure(
     local: bool = False,
     send_to_logfire: bool | Literal['if-token-present'] | None = None,
     token: str | list[str] | None = None,
+    api_key: str | None = None,
     service_name: str | None = None,
     service_version: str | None = None,
     environment: str | None = None,
@@ -326,6 +387,7 @@ def configure(
     min_level: int | LevelName | None = None,
     add_baggage_to_attributes: bool = True,
     code_source: CodeSource | None = None,
+    variables: VariablesOptions | LocalVariablesOptions | None = None,
     distributed_tracing: bool | None = None,
     advanced: AdvancedOptions | None = None,
     **deprecated_kwargs: Unpack[DeprecatedKwargs],
@@ -344,6 +406,10 @@ def configure(
             to multiple projects simultaneously (useful for project migration).
 
             Defaults to the `LOGFIRE_TOKEN` environment variable (supports comma-separated tokens).
+
+        api_key: API key for the Logfire API.
+
+            If not provided, will be loaded from the `LOGFIRE_API_KEY` environment variable.
 
         service_name: Name of this service.
 
@@ -391,6 +457,7 @@ def configure(
         add_baggage_to_attributes: Set to `False` to prevent OpenTelemetry Baggage from being added to spans as attributes.
             See the [Baggage documentation](https://logfire.pydantic.dev/docs/reference/advanced/baggage/) for more details.
         code_source: Settings for the source code of the project.
+        variables: Options related to managed variables.
         distributed_tracing: By default, incoming trace context is extracted, but generates a warning.
             Set to `True` to disable the warning.
             Set to `False` to suppress extraction of incoming trace context.
@@ -513,6 +580,7 @@ def configure(
     config.configure(
         send_to_logfire=send_to_logfire,
         token=token,
+        api_key=api_key,
         service_name=service_name,
         service_version=service_version,
         environment=environment,
@@ -527,14 +595,24 @@ def configure(
         sampling=sampling,
         add_baggage_to_attributes=add_baggage_to_attributes,
         code_source=code_source,
+        variables=variables,
         distributed_tracing=distributed_tracing,
         advanced=advanced,
     )
 
     if local:
-        return Logfire(config=config)
+        logfire_instance = Logfire(config=config)
     else:
-        return DEFAULT_LOGFIRE_INSTANCE
+        logfire_instance = DEFAULT_LOGFIRE_INSTANCE
+
+    # Start the variable provider now that we have the logfire instance
+    # Pass None if instrumentation is disabled to avoid logging errors via logfire
+    # Only start if the user explicitly configured variables — lazy-init providers
+    # are started when first accessed via get_variable_provider().
+    if config.variables is not None:
+        config.get_variable_provider().start(logfire_instance if config.variables.instrument else None)
+
+    return logfire_instance
 
 
 @dataclasses.dataclass
@@ -554,6 +632,9 @@ class _LogfireConfigData:
 
     token: str | list[str] | None
     """The Logfire write token(s) to use. Multiple tokens enable sending to multiple projects."""
+
+    api_key: str | None
+    """API key for the Logfire API. Loaded from LOGFIRE_API_KEY if not provided."""
 
     service_name: str
     """The name of this service."""
@@ -591,6 +672,9 @@ class _LogfireConfigData:
     code_source: CodeSource | None
     """Settings for the source code of the project."""
 
+    variables: VariablesOptions | LocalVariablesOptions | None
+    """Settings related to managed variables."""
+
     distributed_tracing: bool | None
     """Whether to extract incoming trace context."""
 
@@ -604,6 +688,7 @@ class _LogfireConfigData:
         # forwarding parameters from `__init__` to `load_configuration`
         send_to_logfire: bool | Literal['if-token-present'] | None,
         token: str | list[str] | None,
+        api_key: str | None,
         service_name: str | None,
         service_version: str | None,
         environment: str | None,
@@ -618,6 +703,7 @@ class _LogfireConfigData:
         min_level: int | LevelName | None,
         add_baggage_to_attributes: bool,
         code_source: CodeSource | None,
+        variables: VariablesOptions | LocalVariablesOptions | None,
         distributed_tracing: bool | None,
         advanced: AdvancedOptions | None,
     ) -> None:
@@ -627,6 +713,7 @@ class _LogfireConfigData:
         self.send_to_logfire = param_manager.load_param('send_to_logfire', send_to_logfire)
         # Normalize token: single token as str, multiple tokens as list[str], no tokens as None
         self.token = normalize_token(token) or normalize_token(param_manager.load_param('token', None))
+        self.api_key = api_key or param_manager.load_param('api_key')
         self.service_name = param_manager.load_param('service_name', service_name)
         self.service_version = param_manager.load_param('service_version', service_version)
         self.environment = param_manager.load_param('environment', environment)
@@ -685,6 +772,24 @@ class _LogfireConfigData:
             code_source = CodeSource(**code_source)  # type: ignore
         self.code_source = code_source
 
+        if isinstance(variables, dict):
+            # This is particularly for deserializing from a dict as in executors.py
+            config = variables.pop('config', None)  # type: ignore
+            if isinstance(config, dict):
+                if 'variables' in config:
+                    from logfire.variables import VariablesConfig as _VariablesConfig  # pragma: no cover
+
+                    config = _VariablesConfig(**config)  # type: ignore  # pragma: no cover
+                    variables = LocalVariablesOptions(config=config, **variables)  # type: ignore  # pragma: no cover
+                else:
+                    variables = VariablesOptions(**config, **variables)  # type: ignore
+            elif config is not None:
+                # config is a VariablesConfig Pydantic model (from asdict() of LocalVariablesOptions)
+                variables = LocalVariablesOptions(config=config, **variables)  # type: ignore
+            else:
+                variables = VariablesOptions(**variables)  # type: ignore  # pragma: no cover
+        self.variables = variables
+
         if isinstance(advanced, dict):
             # This is particularly for deserializing from a dict as in executors.py
             advanced = AdvancedOptions(**advanced)  # type: ignore
@@ -715,6 +820,7 @@ class LogfireConfig(_LogfireConfigData):
         self,
         send_to_logfire: bool | Literal['if-token-present'] | None = None,
         token: str | list[str] | None = None,
+        api_key: str | None = None,
         service_name: str | None = None,
         service_version: str | None = None,
         environment: str | None = None,
@@ -728,6 +834,7 @@ class LogfireConfig(_LogfireConfigData):
         sampling: SamplingOptions | None = None,
         min_level: int | LevelName | None = None,
         add_baggage_to_attributes: bool = True,
+        variables: VariablesOptions | None = None,
         code_source: CodeSource | None = None,
         distributed_tracing: bool | None = None,
         advanced: AdvancedOptions | None = None,
@@ -743,6 +850,7 @@ class LogfireConfig(_LogfireConfigData):
         self._load_configuration(
             send_to_logfire=send_to_logfire,
             token=token,
+            api_key=api_key,
             service_name=service_name,
             service_version=service_version,
             environment=environment,
@@ -757,6 +865,7 @@ class LogfireConfig(_LogfireConfigData):
             min_level=min_level,
             add_baggage_to_attributes=add_baggage_to_attributes,
             code_source=code_source,
+            variables=variables,
             distributed_tracing=distributed_tracing,
             advanced=advanced,
         )
@@ -766,6 +875,7 @@ class LogfireConfig(_LogfireConfigData):
         # note: this reference is important because the MeterProvider runs things in background threads
         # thus it "shuts down" when it's gc'ed
         self._meter_provider = ProxyMeterProvider(NoOpMeterProvider())
+        self._variable_provider: VariableProvider = NoOpVariableProvider()
         self._logger_provider = ProxyLoggerProvider(NoOpLoggerProvider())
         # This ensures that we only call OTEL's global set_tracer_provider once to avoid warnings.
         self._has_set_providers = False
@@ -776,6 +886,7 @@ class LogfireConfig(_LogfireConfigData):
         self,
         send_to_logfire: bool | Literal['if-token-present'] | None,
         token: str | list[str] | None,
+        api_key: str | None,
         service_name: str | None,
         service_version: str | None,
         environment: str | None,
@@ -790,6 +901,7 @@ class LogfireConfig(_LogfireConfigData):
         min_level: int | LevelName | None,
         add_baggage_to_attributes: bool,
         code_source: CodeSource | None,
+        variables: VariablesOptions | LocalVariablesOptions | None,
         distributed_tracing: bool | None,
         advanced: AdvancedOptions | None,
     ) -> None:
@@ -798,6 +910,7 @@ class LogfireConfig(_LogfireConfigData):
             self._load_configuration(
                 send_to_logfire,
                 token,
+                api_key,
                 service_name,
                 service_version,
                 environment,
@@ -812,6 +925,7 @@ class LogfireConfig(_LogfireConfigData):
                 min_level,
                 add_baggage_to_attributes,
                 code_source,
+                variables,
                 distributed_tracing,
                 advanced,
             )
@@ -1134,6 +1248,32 @@ class LogfireConfig(_LogfireConfigData):
             )  # note: this may raise an Exception if it times out, call `logfire.shutdown` first
             self._meter_provider.set_meter_provider(meter_provider)
 
+            self._variable_provider.shutdown(timeout_millis=200)
+            if self.variables is None:
+                self._variable_provider = NoOpVariableProvider()
+            elif isinstance(self.variables, LocalVariablesOptions):
+                # Need to move the imports here to prevent errors if pydantic is not installed
+                from logfire.variables.local import LocalVariableProvider
+
+                self._variable_provider = LocalVariableProvider(self.variables.config)
+            else:
+                assert_type(self.variables, VariablesOptions)
+                # Need to move the imports here to prevent errors if pydantic is not installed
+                from logfire.variables.remote import LogfireRemoteVariableProvider
+
+                # Only API keys can be used for the variables API (not write tokens)
+                if not self.api_key:
+                    raise LogfireConfigError(  # pragma: no cover
+                        'Remote variables require an API key. '
+                        'Set the LOGFIRE_API_KEY environment variable or pass api_key to logfire.configure().'
+                    )
+                # Determine base URL: prefer config, then advanced settings, then infer from token
+                base_url = self.advanced.base_url or get_base_url_from_token(self.api_key)
+                self._variable_provider = LogfireRemoteVariableProvider(
+                    base_url=base_url,
+                    token=self.api_key,
+                    options=self.variables,
+                )
             multi_log_processor = SynchronousMultiLogRecordProcessor()
             for processor in log_record_processors:
                 multi_log_processor.add_log_record_processor(processor)
@@ -1216,6 +1356,53 @@ class LogfireConfig(_LogfireConfigData):
             The logger provider.
         """
         return self._logger_provider
+
+    def get_variable_provider(self) -> VariableProvider:
+        """Get a variable provider from this `LogfireConfig`.
+
+        This is used internally and should not be called by users of the SDK.
+
+        If no provider has been explicitly configured (i.e. `variables=` was not passed to
+        `configure()`), but a `LOGFIRE_API_KEY` is available, a `LogfireRemoteVariableProvider`
+        will be lazily created on the first call.
+
+        Returns:
+            The variable provider.
+        """
+        provider = self._variable_provider
+        if isinstance(provider, NoOpVariableProvider) and self.variables is None:
+            provider = self._lazy_init_variable_provider()
+        return provider
+
+    def _lazy_init_variable_provider(self) -> VariableProvider:
+        """Attempt to lazily initialize a remote variable provider.
+
+        This is called when no explicit `variables=` option was passed to `configure()`,
+        but the user may have a `LOGFIRE_API_KEY` set in the environment. If so, we
+        create a `LogfireRemoteVariableProvider` with default options.
+        """
+        with self._lock:
+            # Double-check after acquiring lock
+            if not isinstance(self._variable_provider, NoOpVariableProvider) or self.variables is not None:
+                return self._variable_provider
+
+            api_key = self.api_key or self.param_manager.load_param('api_key')
+            if not api_key:
+                return self._variable_provider
+
+            from logfire._internal.main import Logfire
+            from logfire.variables.remote import LogfireRemoteVariableProvider
+
+            options = VariablesOptions()
+            base_url = self.advanced.base_url or get_base_url_from_token(api_key)
+            provider = LogfireRemoteVariableProvider(
+                base_url=base_url,
+                token=api_key,
+                options=options,
+            )
+            self._variable_provider = provider
+            provider.start(Logfire(config=self))
+            return provider
 
     def warn_if_not_initialized(self, message: str):
         ignore_no_config_env = os.getenv('LOGFIRE_IGNORE_NO_CONFIG', '')
@@ -1340,7 +1527,7 @@ class LogfireCredentials:
     """Credentials for logfire.dev."""
 
     token: str
-    """The Logfire API token to use."""
+    """The Logfire write token to use."""
     project_name: str
     """The name of the project."""
     project_url: str

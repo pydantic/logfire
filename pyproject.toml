@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "4.23.0"
+version = "4.24.0"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.9"
 authors = [
@@ -83,6 +83,7 @@ aws-lambda = ["opentelemetry-instrumentation-aws-lambda >= 0.42b0"]
 google-genai = ["opentelemetry-instrumentation-google-genai >= 0.4b0"]
 litellm = ["openinference-instrumentation-litellm >= 0"]
 dspy = ["openinference-instrumentation-dspy >= 0"]
+variables = ["pydantic>=2"]
 
 [project.urls]
 Homepage = "https://logfire.pydantic.dev/"
@@ -178,7 +179,7 @@ dev = [
     "botocore >= 1.31.57",
     "greenlet >= 3.1.1",
     "pytest-xdist>=3.6.1",
-    "openai-agents[voice]>=0.0.7",
+    "openai-agents[voice]>=0.9.0; python_version >= '3.10'",
     "pydantic-ai-slim>=0.0.39",
     "langchain>=0.0.27",
     "langchain-openai>=0.3.17",

@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v4.24.0] (2026-02-13)
+
+* Add managed variables by @dmontagu in [#1691](https://github.com/pydantic/logfire/pull/1691)
+
 ## [v4.23.0] (2026-02-12)
 
 * feat: Add `logfire.db_api` — PEP 249 DB API 2.0 interface by @dmontagu in [#1692](https://github.com/pydantic/logfire/pull/1692)
@@ -1037,3 +1041,4 @@ First release from new repo!
 [v4.21.0]: https://github.com/pydantic/logfire/compare/v4.20.0...v4.21.0
 [v4.22.0]: https://github.com/pydantic/logfire/compare/v4.21.0...v4.22.0
 [v4.23.0]: https://github.com/pydantic/logfire/compare/v4.22.0...v4.23.0
+[v4.24.0]: https://github.com/pydantic/logfire/compare/v4.23.0...v4.24.0
