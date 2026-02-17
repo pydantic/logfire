@@ -13,7 +13,7 @@ This guide covers creating and managing datasets through the Logfire web interfa
 
 ## Navigate to Datasets
 
-Open the **Datasets** page from the left-hand navigation in your project. This shows all datasets in the project along with their case counts and descriptions.
+Open the **Datasets** page in your project. This shows all datasets in the project along with their case counts and descriptions.
 
 ## Creating a New Dataset
 
@@ -35,7 +35,7 @@ Click **New Dataset** and fill in:
     ```python skip-run="true" skip-reason="external-connection"
     from dataclasses import dataclass
 
-    from logfire.experimental.datasets import LogfireDatasetsClient
+    from logfire.experimental.datasets import LogfireAPIClient
 
 
     @dataclass
@@ -50,7 +50,7 @@ Click **New Dataset** and fill in:
         confidence: float
 
 
-    with LogfireDatasetsClient(api_key='your-api-key') as client:
+    with LogfireAPIClient(api_key='your-api-key') as client:
         dataset = client.create_dataset(
             name='qa-golden-set',
             description='Golden test cases for the Q&A system',
@@ -77,25 +77,16 @@ Once a dataset exists, you can add cases through the UI by clicking **Add Case**
     ```python skip="true" skip-reason="external-connection"
     from pydantic_evals import Case
 
-    # Add a single case with tags
-    client.add_case(
-        'qa-golden-set',
-        Case(
-            name='capital-question',
-            inputs=QuestionInput(question='What is the capital of France?'),
-            expected_output=AnswerOutput(answer='Paris', confidence=0.99),
-        ),
-        tags=['geography', 'easy'],
-    )
-
-    # Or add multiple cases in bulk
     client.add_cases(
         'qa-golden-set',
         cases=[
-            Case(name='q1', inputs=QuestionInput(question='What is 2+2?'), expected_output=AnswerOutput(answer='4', confidence=1.0)),
-            Case(name='q2', inputs=QuestionInput(question='What is 3+3?'), expected_output=AnswerOutput(answer='6', confidence=1.0)),
+            Case(
+                name='capital-question',
+                inputs=QuestionInput(question='What is the capital of France?'),
+                expected_output=AnswerOutput(answer='Paris', confidence=0.99),
+            ),
         ],
-        tags=['math'],
+        tags=['geography', 'easy'],
     )
     ```
 
@@ -114,16 +105,20 @@ This preserves a link back to the source trace, so you always know where a test 
 
 ??? example "SDK equivalent"
 
-    The SDK's `create_case` method accepts `source_trace_id` and `source_span_id` parameters to create the same trace linkage programmatically:
+    You can use `add_cases` with plain dicts to programmatically create the same trace linkage:
 
     ```python skip="true" skip-reason="external-connection"
-    client.create_case(
+    client.add_cases(
         'qa-golden-set',
-        inputs={'question': 'What color is the sky?'},
-        name='sky-color',
-        expected_output={'answer': 'Blue'},
-        source_trace_id='trace-uuid-from-live-view',
-        source_span_id='span-uuid-from-live-view',
+        cases=[
+            {
+                'inputs': {'question': 'What color is the sky?'},
+                'name': 'sky-color',
+                'expected_output': {'answer': 'Blue'},
+                'source_trace_id': 'trace-uuid-from-live-view',
+                'source_span_id': 'span-uuid-from-live-view',
+            },
+        ],
     )
     ```
 

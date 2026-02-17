@@ -28,25 +28,25 @@ This installs `httpx` and `pydantic-evals` as additional dependencies.
 ## Creating a Client
 
 ```python skip-run="true" skip-reason="external-connection"
-from logfire.experimental.datasets import LogfireDatasetsClient
+from logfire.experimental.datasets import LogfireAPIClient
 
-client = LogfireDatasetsClient(api_key='your-api-key')
+client = LogfireAPIClient(api_key='your-api-key')
 ```
 
 The client can also be used as a context manager to ensure the underlying HTTP connection is properly closed:
 
 ```python skip="true" skip-reason="external-connection"
-with LogfireDatasetsClient(api_key='your-api-key') as client:
+with LogfireAPIClient(api_key='your-api-key') as client:
     ...
 ```
 
 !!! note "API key scopes"
     The API key must have the `project:read_datasets` scope to read datasets, and `project:write_datasets` to create, update, or delete datasets and cases. You can create API keys with these scopes under **Settings > API Keys** in the Logfire UI.
 
-The `base_url` is automatically inferred from the API key. You can override it if needed (e.g., for local development):
+The `base_url` is automatically inferred from the API key. You can override it if needed (e.g., for self-hosters):
 
 ```python skip="true" skip-reason="external-connection"
-client = LogfireDatasetsClient(
+client = LogfireAPIClient(
     api_key='your-api-key',
     base_url='http://localhost:8000',
 )
@@ -55,9 +55,9 @@ client = LogfireDatasetsClient(
 An async client is also available:
 
 ```python skip="true" skip-reason="external-connection"
-from logfire.experimental.datasets import AsyncLogfireDatasetsClient
+from logfire.experimental.datasets import AsyncLogfireAPIClient
 
-async with AsyncLogfireDatasetsClient(api_key='your-api-key') as client:
+async with AsyncLogfireAPIClient(api_key='your-api-key') as client:
     datasets = await client.list_datasets()
 ```
 
@@ -68,7 +68,7 @@ Define your input, output, and metadata types as dataclasses or Pydantic models,
 ```python skip-run="true" skip-reason="external-connection"
 from dataclasses import dataclass
 
-from logfire.experimental.datasets import LogfireDatasetsClient
+from logfire.experimental.datasets import LogfireAPIClient
 
 
 @dataclass
@@ -90,7 +90,7 @@ class CaseMetadata:
     reviewed: bool = False
 
 
-with LogfireDatasetsClient(api_key='your-api-key') as client:
+with LogfireAPIClient(api_key='your-api-key') as client:
     dataset = client.create_dataset(
         name='qa-golden-set',
         description='Golden test cases for the Q&A system',
@@ -108,62 +108,44 @@ The `guidance` parameter lets you provide free-text instructions describing how 
 
 ## Adding Cases
 
-The SDK integrates directly with pydantic-evals `Case` objects. You can add a single case or multiple cases in bulk:
+The SDK integrates directly with pydantic-evals `Case` objects. Use `add_cases` to add one or more cases:
 
 ```python skip="true" skip-reason="external-connection"
 from pydantic_evals import Case
 
-
-# Add a single case
-client.add_case(
-    'qa-golden-set',
-    Case(
-        name='capital-question',
-        inputs=QuestionInput(question='What is the capital of France?'),
-        expected_output=AnswerOutput(answer='Paris', confidence=0.99),
-        metadata=CaseMetadata(category='geography', difficulty='easy'),
-    ),
-    tags=['geography', 'easy'],
-)
-
-# Add multiple cases in bulk
 client.add_cases(
     'qa-golden-set',
     cases=[
+        Case(
+            name='capital-question',
+            inputs=QuestionInput(question='What is the capital of France?'),
+            expected_output=AnswerOutput(answer='Paris', confidence=0.99),
+            metadata=CaseMetadata(category='geography', difficulty='easy'),
+        ),
         Case(
             name='math-question',
             inputs=QuestionInput(question='What is 15 * 23?'),
             expected_output=AnswerOutput(answer='345', confidence=1.0),
             metadata=CaseMetadata(category='math', difficulty='easy'),
         ),
-        Case(
-            name='science-question',
-            inputs=QuestionInput(question='What is the chemical symbol for gold?'),
-            expected_output=AnswerOutput(answer='Au', confidence=0.98),
-            metadata=CaseMetadata(category='science', difficulty='medium'),
-        ),
     ],
     tags=['batch-import'],
 )
 ```
 
-!!! tip "Referencing datasets by name or ID"
-    All dataset operations accept either the dataset's UUID or its name. Using the name (e.g., `'qa-golden-set'`) is more readable, while the UUID is guaranteed to be unique across renames.
-
-You can also create cases using the lower-level `create_case` method, which accepts raw values instead of `Case` objects:
+You can also pass plain dicts instead of `Case` objects:
 
 ```python skip="true" skip-reason="external-connection"
-client.create_case(
+client.add_cases(
     'qa-golden-set',
-    inputs=QuestionInput(question='What color is the sky?'),
-    name='sky-color',
-    expected_output=AnswerOutput(answer='Blue', confidence=0.95),
-    metadata=CaseMetadata(category='science', difficulty='easy'),
-    tags=['science', 'easy'],
+    cases=[
+        {'inputs': {'question': 'What color is the sky?'}, 'expected_output': {'answer': 'Blue'}},
+    ],
 )
 ```
 
-The `create_case` method also accepts `source_trace_id` and `source_span_id` parameters to link a case back to the production trace it was created from --- the same linkage that the [Add to Dataset button](ui.md#adding-cases-from-traces) creates in the UI.
+!!! tip "Referencing datasets by name or ID"
+    All dataset operations accept either the dataset's UUID or its name. Names are recommended for readability. If you need the UUID, it's returned in the `create_dataset()` response as `dataset['id']`.
 
 ## Listing Cases
 

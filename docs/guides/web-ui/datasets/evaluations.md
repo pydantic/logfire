@@ -20,7 +20,7 @@ from dataclasses import dataclass
 
 from pydantic_evals import Dataset
 
-from logfire.experimental.datasets import LogfireDatasetsClient
+from logfire.experimental.datasets import LogfireAPIClient
 
 
 @dataclass
@@ -42,7 +42,7 @@ class CaseMetadata:
     reviewed: bool = False
 
 
-with LogfireDatasetsClient(api_key='your-api-key') as client:
+with LogfireAPIClient(api_key='your-api-key') as client:
     dataset: Dataset[QuestionInput, AnswerOutput, CaseMetadata] = client.export_dataset(
         'qa-golden-set',
         input_type=QuestionInput,
@@ -79,7 +79,7 @@ Use the exported dataset with pydantic-evals to evaluate your AI system:
 ```python skip="true" skip-reason="external-connection"
 from pydantic_evals import Dataset
 
-from logfire.experimental.datasets import LogfireDatasetsClient
+from logfire.experimental.datasets import LogfireAPIClient
 
 
 async def my_qa_task(inputs: QuestionInput) -> AnswerOutput:
@@ -89,7 +89,7 @@ async def my_qa_task(inputs: QuestionInput) -> AnswerOutput:
 
 
 async def run_evaluation():
-    with LogfireDatasetsClient(api_key='your-api-key') as client:
+    with LogfireAPIClient(api_key='your-api-key') as client:
         # Export the dataset
         dataset: Dataset[QuestionInput, AnswerOutput, CaseMetadata] = client.export_dataset(
             'qa-golden-set',

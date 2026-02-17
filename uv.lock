@@ -3200,6 +3200,7 @@ celery = [
 ]
 datasets = [
     { name = "httpx" },
+    { name = "pydantic" },
     { name = "pydantic-evals", marker = "python_full_version >= '3.10'" },
 ]
 django = [
@@ -3431,6 +3432,7 @@ requires-dist = [
     { name = "packaging", marker = "extra == 'psycopg'" },
     { name = "packaging", marker = "extra == 'psycopg2'" },
     { name = "protobuf", specifier = ">=4.23.4" },
+    { name = "pydantic", marker = "extra == 'datasets'", specifier = ">=2" },
     { name = "pydantic", marker = "extra == 'variables'", specifier = ">=2" },
     { name = "pydantic-evals", marker = "python_full_version >= '3.10' and extra == 'datasets'", specifier = ">=1.0.0" },
     { name = "rich", specifier = ">=13.4.2" },

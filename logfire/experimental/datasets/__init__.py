@@ -6,7 +6,7 @@ with pydantic-evals for AI evaluation workflows.
 Example usage:
     ```python skip-run="true" skip-reason="external-connection"
     from dataclasses import dataclass
-    from logfire.experimental.datasets import LogfireDatasetsClient
+    from logfire.experimental.datasets import LogfireAPIClient
 
 
     @dataclass
@@ -21,7 +21,7 @@ Example usage:
         confidence: float
 
 
-    with LogfireDatasetsClient(api_key='your-api-key') as client:
+    with LogfireAPIClient(api_key='your-api-key') as client:
         # Create a typed dataset (generates JSON schemas from types)
         dataset_info = client.create_dataset(
             name='my-evaluation-dataset',
@@ -31,10 +31,16 @@ Example usage:
         )
 
         # Add typed cases
-        client.create_case(
+        from pydantic_evals import Case
+
+        client.add_cases(
             dataset_info['id'],
-            inputs=MyInput(question='What is 2+2?'),
-            expected_output=MyOutput(answer='4', confidence=1.0),
+            cases=[
+                Case(
+                    inputs=MyInput(question='What is 2+2?'),
+                    expected_output=MyOutput(answer='4', confidence=1.0),
+                ),
+            ],
         )
 
         # Export as pydantic-evals Dataset for evaluation
@@ -53,17 +59,17 @@ Example usage:
 """
 
 from logfire.experimental.datasets.client import (
-    AsyncLogfireDatasetsClient,
+    AsyncLogfireAPIClient,
     CaseNotFoundError,
     DatasetApiError,
     DatasetNotFoundError,
-    LogfireDatasetsClient,
+    LogfireAPIClient,
 )
 
 __all__ = [
     # Clients
-    'LogfireDatasetsClient',
-    'AsyncLogfireDatasetsClient',
+    'LogfireAPIClient',
+    'AsyncLogfireAPIClient',
     # Errors
     'DatasetNotFoundError',
     'CaseNotFoundError',

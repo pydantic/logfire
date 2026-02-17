@@ -6,7 +6,7 @@ compatible with pydantic-evals for AI evaluation workflows.
 Example usage:
     ```python skip-run="true" skip-reason="external-connection"
     from dataclasses import dataclass
-    from logfire.experimental.datasets import LogfireDatasetsClient
+    from logfire.experimental.datasets import LogfireAPIClient
     from pydantic_evals import Case, Dataset
 
 
@@ -20,7 +20,7 @@ Example usage:
         answer: str
 
 
-    with LogfireDatasetsClient(api_key='your-api-key') as client:
+    with LogfireAPIClient(api_key='your-api-key') as client:
         # Create a typed dataset
         dataset_info = client.create_dataset(
             name='my-dataset',
@@ -48,10 +48,10 @@ Example usage:
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast, overload
-from urllib.parse import quote as _url_quote
 
 from pydantic import TypeAdapter
 from typing_extensions import Self
@@ -81,9 +81,16 @@ _UNSET: Any = object()
 """Sentinel to distinguish 'not provided' from explicit None."""
 
 
-def _quote(value: str) -> str:
-    """URL-encode a path segment to prevent path traversal with special characters."""
-    return _url_quote(value, safe='')
+_DATASET_NAME_RE = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9._-]*$')
+
+
+def _validate_dataset_name(name: str) -> None:
+    """Validate that a dataset name is URL-safe."""
+    if not _DATASET_NAME_RE.match(name):
+        raise ValueError(
+            f'Invalid dataset name {name!r}. '
+            'Names must start with a letter or digit and contain only letters, digits, dots, hyphens, and underscores.'
+        )
 
 
 def _import_pydantic_evals() -> tuple[type, type]:
@@ -208,7 +215,7 @@ def _is_case_error(detail: Any) -> bool:
     return False
 
 
-class _BaseLogfireDatasetsClient(Generic[T]):
+class _BaseLogfireAPIClient(Generic[T]):
     """Base class for datasets clients."""
 
     def __init__(self, client: T):
@@ -229,7 +236,7 @@ class _BaseLogfireDatasetsClient(Generic[T]):
         return response.json()
 
 
-class LogfireDatasetsClient(_BaseLogfireDatasetsClient[Client]):
+class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
     """Synchronous client for managing Logfire datasets.
 
     The client supports typed datasets that integrate with pydantic-evals.
@@ -237,7 +244,7 @@ class LogfireDatasetsClient(_BaseLogfireDatasetsClient[Client]):
     Example usage:
         ```python skip-run="true" skip-reason="external-connection"
         from dataclasses import dataclass
-        from logfire.experimental.datasets import LogfireDatasetsClient
+        from logfire.experimental.datasets import LogfireAPIClient
         from pydantic_evals import Case
 
 
@@ -251,7 +258,7 @@ class LogfireDatasetsClient(_BaseLogfireDatasetsClient[Client]):
             answer: str
 
 
-        with LogfireDatasetsClient(api_key='your-api-key') as client:
+        with LogfireAPIClient(api_key='your-api-key') as client:
             # Create typed dataset
             dataset = client.create_dataset(
                 name='qa-dataset',
@@ -337,7 +344,7 @@ class LogfireDatasetsClient(_BaseLogfireDatasetsClient[Client]):
         Raises:
             DatasetNotFoundError: If the dataset does not exist.
         """
-        response = self.client.get(f'/v1/datasets/{_quote(id_or_name)}/')
+        response = self.client.get(f'/v1/datasets/{id_or_name}/')
         return self._handle_response(response)
 
     def create_dataset(
@@ -387,6 +394,7 @@ class LogfireDatasetsClient(_BaseLogfireDatasetsClient[Client]):
             )
             ```
         """
+        _validate_dataset_name(name)
         data: dict[str, Any] = {'name': name}
         if description is not None:
             data['description'] = description
@@ -411,7 +419,7 @@ class LogfireDatasetsClient(_BaseLogfireDatasetsClient[Client]):
         self,
         id_or_name: str,
         *,
-        name: str | None = _UNSET,
+        name: str = _UNSET,
         input_type: type[Any] | None = None,
         output_type: type[Any] | None = None,
         metadata_type: type[Any] | None = None,
@@ -439,6 +447,7 @@ class LogfireDatasetsClient(_BaseLogfireDatasetsClient[Client]):
         """
         data: dict[str, Any] = {}
         if name is not _UNSET:
+            _validate_dataset_name(name)
             data['name'] = name
         if description is not _UNSET:
             data['description'] = description
@@ -453,7 +462,7 @@ class LogfireDatasetsClient(_BaseLogfireDatasetsClient[Client]):
         if ai_managed_guidance is not None:
             data['ai_managed_guidance'] = ai_managed_guidance
 
-        response = self.client.put(f'/v1/datasets/{_quote(id_or_name)}/', json=data)
+        response = self.client.put(f'/v1/datasets/{id_or_name}/', json=data)
         return self._handle_response(response)
 
     def delete_dataset(self, id_or_name: str) -> None:
@@ -465,7 +474,7 @@ class LogfireDatasetsClient(_BaseLogfireDatasetsClient[Client]):
         Raises:
             DatasetNotFoundError: If the dataset does not exist.
         """
-        response = self.client.delete(f'/v1/datasets/{_quote(id_or_name)}/')
+        response = self.client.delete(f'/v1/datasets/{id_or_name}/')
         self._handle_response(response)
 
     # --- Case operations ---
@@ -486,7 +495,7 @@ class LogfireDatasetsClient(_BaseLogfireDatasetsClient[Client]):
         params: dict[str, Any] = {}
         if tags is not None:
             params['tags'] = tags
-        response = self.client.get(f'/v1/datasets/{_quote(dataset_id_or_name)}/cases/', params=params)
+        response = self.client.get(f'/v1/datasets/{dataset_id_or_name}/cases/', params=params)
         return self._handle_response(response)
 
     def get_case(self, dataset_id_or_name: str, case_id: str) -> dict[str, Any]:
@@ -503,61 +512,23 @@ class LogfireDatasetsClient(_BaseLogfireDatasetsClient[Client]):
             DatasetNotFoundError: If the dataset does not exist.
             CaseNotFoundError: If the case does not exist.
         """
-        response = self.client.get(f'/v1/datasets/{_quote(dataset_id_or_name)}/cases/{_quote(case_id)}/')
+        response = self.client.get(f'/v1/datasets/{dataset_id_or_name}/cases/{case_id}/')
         return self._handle_response(response, is_case_endpoint=True)
-
-    def add_case(
-        self,
-        dataset_id_or_name: str,
-        case: Case[InputsT, OutputT, MetadataT],
-        *,
-        tags: list[str] | None = None,
-    ) -> dict[str, Any]:
-        """Add a pydantic-evals Case to a dataset.
-
-        Args:
-            dataset_id_or_name: The dataset ID (UUID) or name.
-            case: A pydantic-evals Case object.
-            tags: Optional list of tags to associate with the case.
-
-        Returns:
-            The created case.
-
-        Raises:
-            DatasetNotFoundError: If the dataset does not exist.
-
-        Example:
-            ```python skip-run="true" skip-reason="external-connection"
-            from pydantic_evals import Case
-
-            client.add_case(
-                'my-dataset',
-                Case(
-                    name='test-case',
-                    inputs=MyInput(question='What is 2+2?'),
-                    expected_output=MyOutput(answer='4'),
-                ),
-            )
-            ```
-        """
-        data = _serialize_case(case)
-        if tags is not None:
-            data['tags'] = tags
-        response = self.client.post(f'/v1/datasets/{_quote(dataset_id_or_name)}/cases/', json=data)
-        return self._handle_response(response)
 
     def add_cases(
         self,
         dataset_id_or_name: str,
-        cases: Sequence[Case[InputsT, OutputT, MetadataT]],
+        cases: Sequence[Case[InputsT, OutputT, MetadataT]] | Sequence[dict[str, Any]],
         *,
         tags: list[str] | None = None,
     ) -> list[dict[str, Any]]:
-        """Add multiple pydantic-evals Cases to a dataset.
+        """Add cases to a dataset.
+
+        Accepts either pydantic-evals Case objects or plain dicts.
 
         Args:
             dataset_id_or_name: The dataset ID (UUID) or name.
-            cases: A sequence of pydantic-evals Case objects.
+            cases: A sequence of pydantic-evals Case objects or dicts.
             tags: Optional list of tags to associate with all cases.
 
         Returns:
@@ -579,71 +550,19 @@ class LogfireDatasetsClient(_BaseLogfireDatasetsClient[Client]):
             )
             ```
         """
-        serialized_cases = [_serialize_case(case) for case in cases]
+        if cases and hasattr(cases[0], 'inputs') and not isinstance(cases[0], dict):
+            serialized_cases = [_serialize_case(case) for case in cases]  # type: ignore[arg-type]
+        else:
+            # Already dicts — shallow copy to avoid mutating caller's data
+            serialized_cases: list[dict[str, Any]] = [dict(c) for c in cases]  # type: ignore[arg-type]
+
         if tags is not None:
             for case_data in serialized_cases:
                 case_data['tags'] = tags
         response = self.client.post(
-            f'/v1/datasets/{_quote(dataset_id_or_name)}/cases/bulk/',
+            f'/v1/datasets/{dataset_id_or_name}/cases/bulk/',
             json={'cases': serialized_cases},
         )
-        return self._handle_response(response)
-
-    def create_case(
-        self,
-        dataset_id_or_name: str,
-        inputs: Any,
-        *,
-        name: str | None = None,
-        expected_output: Any | None = None,
-        metadata: Any | None = None,
-        evaluators: Sequence[Evaluator[Any, Any, Any]] | None = None,
-        source_trace_id: str | None = None,
-        source_span_id: str | None = None,
-        tags: list[str] | None = None,
-    ) -> dict[str, Any]:
-        """Create a new case in a dataset (lower-level API).
-
-        For most use cases, prefer `add_case()` or `add_cases()` with pydantic-evals Case objects.
-
-        Args:
-            dataset_id_or_name: The dataset ID (UUID) or name.
-            inputs: The case inputs. Can be a dict or a typed object (dataclass, Pydantic model).
-            name: Optional name for the case.
-            expected_output: Expected output. Can be a dict or a typed object.
-            metadata: Additional metadata. Can be a dict or a typed object.
-            evaluators: Case-specific evaluators.
-            source_trace_id: ID of the trace this case was derived from.
-            source_span_id: ID of the span this case was derived from.
-            tags: Optional list of tags to associate with the case.
-
-        Returns:
-            The created case.
-
-        Raises:
-            DatasetNotFoundError: If the dataset does not exist.
-        """
-        serialized_inputs = _serialize_value(inputs) if not isinstance(inputs, dict) else cast(Any, inputs)
-
-        data: dict[str, Any] = {'inputs': serialized_inputs}
-        if name is not None:
-            data['name'] = name
-        if expected_output is not None:
-            data['expected_output'] = (
-                _serialize_value(expected_output) if not isinstance(expected_output, dict) else expected_output
-            )
-        if metadata is not None:
-            data['metadata'] = _serialize_value(metadata) if not isinstance(metadata, dict) else metadata
-        if evaluators is not None:
-            data['evaluators'] = _serialize_evaluators(evaluators)
-        if source_trace_id is not None:
-            data['source_trace_id'] = source_trace_id
-        if source_span_id is not None:
-            data['source_span_id'] = source_span_id
-        if tags is not None:
-            data['tags'] = tags
-
-        response = self.client.post(f'/v1/datasets/{_quote(dataset_id_or_name)}/cases/', json=data)
         return self._handle_response(response)
 
     def update_case(
@@ -699,7 +618,7 @@ class LogfireDatasetsClient(_BaseLogfireDatasetsClient[Client]):
         if tags is not _UNSET:
             data['tags'] = tags
 
-        response = self.client.put(f'/v1/datasets/{_quote(dataset_id_or_name)}/cases/{_quote(case_id)}/', json=data)
+        response = self.client.put(f'/v1/datasets/{dataset_id_or_name}/cases/{case_id}/', json=data)
         return self._handle_response(response, is_case_endpoint=True)
 
     def delete_case(self, dataset_id_or_name: str, case_id: str) -> None:
@@ -713,7 +632,7 @@ class LogfireDatasetsClient(_BaseLogfireDatasetsClient[Client]):
             DatasetNotFoundError: If the dataset does not exist.
             CaseNotFoundError: If the case does not exist.
         """
-        response = self.client.delete(f'/v1/datasets/{_quote(dataset_id_or_name)}/cases/{_quote(case_id)}/')
+        response = self.client.delete(f'/v1/datasets/{dataset_id_or_name}/cases/{case_id}/')
         self._handle_response(response, is_case_endpoint=True)
 
     # --- Export/Import operations ---
@@ -780,7 +699,7 @@ class LogfireDatasetsClient(_BaseLogfireDatasetsClient[Client]):
                 report = await dataset.evaluate(my_task)
             ```
         """
-        response = self.client.get(f'/v1/datasets/{_quote(id_or_name)}/export/')
+        response = self.client.get(f'/v1/datasets/{id_or_name}/export/')
         data = self._handle_response(response)
 
         # If no types provided, return raw dict
@@ -794,52 +713,11 @@ class LogfireDatasetsClient(_BaseLogfireDatasetsClient[Client]):
         typed_dataset_cls: type[Dataset[InputsT, OutputT, MetadataT]] = Dataset[input_type, output_type, metadata_type]  # type: ignore
         return typed_dataset_cls.from_dict(data, custom_evaluator_types=list(custom_evaluator_types))  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
 
-    def import_cases(
-        self,
-        dataset_id_or_name: str,
-        cases: Sequence[Case[InputsT, OutputT, MetadataT]] | list[dict[str, Any]],
-        *,
-        tags: list[str] | None = None,
-    ) -> list[dict[str, Any]]:
-        """Import cases into an existing dataset.
 
-        This bulk creates new cases. Cases are not deduplicated - importing
-        the same data twice will create duplicates.
-
-        Args:
-            dataset_id_or_name: The dataset ID (UUID) or name.
-            cases: Sequence of pydantic-evals Case objects or dicts.
-            tags: Optional list of tags to associate with all imported cases.
-
-        Returns:
-            The created cases.
-
-        Raises:
-            DatasetNotFoundError: If the dataset does not exist.
-        """
-        # Serialize cases if they're Case objects
-        if cases and hasattr(cases[0], 'inputs'):
-            # These are Case objects
-            serialized_cases = [_serialize_case(case) for case in cases]  # type: ignore[arg-type]
-        else:
-            # Already dicts — shallow copy to avoid mutating caller's data
-            serialized_cases: list[dict[str, Any]] = [dict(c) for c in cases]  # type: ignore[arg-type]
-
-        if tags is not None:
-            for case_data in serialized_cases:
-                case_data['tags'] = tags
-
-        response = self.client.post(
-            f'/v1/datasets/{_quote(dataset_id_or_name)}/import/',
-            json={'cases': serialized_cases},
-        )
-        return self._handle_response(response)
-
-
-class AsyncLogfireDatasetsClient(_BaseLogfireDatasetsClient[AsyncClient]):
+class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
     """Asynchronous client for managing Logfire datasets.
 
-    See `LogfireDatasetsClient` for full documentation.
+    See `LogfireAPIClient` for full documentation.
     """
 
     def __init__(
@@ -883,7 +761,7 @@ class AsyncLogfireDatasetsClient(_BaseLogfireDatasetsClient[AsyncClient]):
 
     async def get_dataset(self, id_or_name: str) -> dict[str, Any]:
         """Get a dataset by ID or name."""
-        response = await self.client.get(f'/v1/datasets/{_quote(id_or_name)}/')
+        response = await self.client.get(f'/v1/datasets/{id_or_name}/')
         return self._handle_response(response)
 
     async def create_dataset(
@@ -898,6 +776,7 @@ class AsyncLogfireDatasetsClient(_BaseLogfireDatasetsClient[AsyncClient]):
         ai_managed_guidance: bool = False,
     ) -> dict[str, Any]:
         """Create a new dataset."""
+        _validate_dataset_name(name)
         data: dict[str, Any] = {'name': name}
         if description is not None:
             data['description'] = description
@@ -919,7 +798,7 @@ class AsyncLogfireDatasetsClient(_BaseLogfireDatasetsClient[AsyncClient]):
         self,
         id_or_name: str,
         *,
-        name: str | None = _UNSET,
+        name: str = _UNSET,
         input_type: type[Any] | None = None,
         output_type: type[Any] | None = None,
         metadata_type: type[Any] | None = None,
@@ -930,6 +809,7 @@ class AsyncLogfireDatasetsClient(_BaseLogfireDatasetsClient[AsyncClient]):
         """Update an existing dataset."""
         data: dict[str, Any] = {}
         if name is not _UNSET:
+            _validate_dataset_name(name)
             data['name'] = name
         if description is not _UNSET:
             data['description'] = description
@@ -944,12 +824,12 @@ class AsyncLogfireDatasetsClient(_BaseLogfireDatasetsClient[AsyncClient]):
         if ai_managed_guidance is not None:
             data['ai_managed_guidance'] = ai_managed_guidance
 
-        response = await self.client.put(f'/v1/datasets/{_quote(id_or_name)}/', json=data)
+        response = await self.client.put(f'/v1/datasets/{id_or_name}/', json=data)
         return self._handle_response(response)
 
     async def delete_dataset(self, id_or_name: str) -> None:
         """Delete a dataset."""
-        response = await self.client.delete(f'/v1/datasets/{_quote(id_or_name)}/')
+        response = await self.client.delete(f'/v1/datasets/{id_or_name}/')
         self._handle_response(response)
 
     async def list_cases(self, dataset_id_or_name: str, *, tags: list[str] | None = None) -> list[dict[str, Any]]:
@@ -957,81 +837,38 @@ class AsyncLogfireDatasetsClient(_BaseLogfireDatasetsClient[AsyncClient]):
         params: dict[str, Any] = {}
         if tags is not None:
             params['tags'] = tags
-        response = await self.client.get(f'/v1/datasets/{_quote(dataset_id_or_name)}/cases/', params=params)
+        response = await self.client.get(f'/v1/datasets/{dataset_id_or_name}/cases/', params=params)
         return self._handle_response(response)
 
     async def get_case(self, dataset_id_or_name: str, case_id: str) -> dict[str, Any]:
         """Get a specific case from a dataset."""
-        response = await self.client.get(f'/v1/datasets/{_quote(dataset_id_or_name)}/cases/{_quote(case_id)}/')
+        response = await self.client.get(f'/v1/datasets/{dataset_id_or_name}/cases/{case_id}/')
         return self._handle_response(response, is_case_endpoint=True)
-
-    async def add_case(
-        self,
-        dataset_id_or_name: str,
-        case: Case[InputsT, OutputT, MetadataT],
-        *,
-        tags: list[str] | None = None,
-    ) -> dict[str, Any]:
-        """Add a pydantic-evals Case to a dataset."""
-        data = _serialize_case(case)
-        if tags is not None:
-            data['tags'] = tags
-        response = await self.client.post(f'/v1/datasets/{_quote(dataset_id_or_name)}/cases/', json=data)
-        return self._handle_response(response)
 
     async def add_cases(
         self,
         dataset_id_or_name: str,
-        cases: Sequence[Case[InputsT, OutputT, MetadataT]],
+        cases: Sequence[Case[InputsT, OutputT, MetadataT]] | Sequence[dict[str, Any]],
         *,
         tags: list[str] | None = None,
     ) -> list[dict[str, Any]]:
-        """Add multiple pydantic-evals Cases to a dataset."""
-        serialized_cases = [_serialize_case(case) for case in cases]
+        """Add cases to a dataset.
+
+        Accepts either pydantic-evals Case objects or plain dicts.
+        """
+        if cases and hasattr(cases[0], 'inputs') and not isinstance(cases[0], dict):
+            serialized_cases = [_serialize_case(case) for case in cases]  # type: ignore[arg-type]
+        else:
+            # Already dicts — shallow copy to avoid mutating caller's data
+            serialized_cases: list[dict[str, Any]] = [dict(c) for c in cases]  # type: ignore[arg-type]
+
         if tags is not None:
             for case_data in serialized_cases:
                 case_data['tags'] = tags
         response = await self.client.post(
-            f'/v1/datasets/{_quote(dataset_id_or_name)}/cases/bulk/',
+            f'/v1/datasets/{dataset_id_or_name}/cases/bulk/',
             json={'cases': serialized_cases},
         )
-        return self._handle_response(response)
-
-    async def create_case(
-        self,
-        dataset_id_or_name: str,
-        inputs: Any,
-        *,
-        name: str | None = None,
-        expected_output: Any | None = None,
-        metadata: Any | None = None,
-        evaluators: Sequence[Evaluator[Any, Any, Any]] | None = None,
-        source_trace_id: str | None = None,
-        source_span_id: str | None = None,
-        tags: list[str] | None = None,
-    ) -> dict[str, Any]:
-        """Create a case from raw values."""
-        serialized_inputs = _serialize_value(inputs) if not isinstance(inputs, dict) else cast(Any, inputs)
-
-        data: dict[str, Any] = {'inputs': serialized_inputs}
-        if name is not None:
-            data['name'] = name
-        if expected_output is not None:
-            data['expected_output'] = (
-                _serialize_value(expected_output) if not isinstance(expected_output, dict) else expected_output
-            )
-        if metadata is not None:
-            data['metadata'] = _serialize_value(metadata) if not isinstance(metadata, dict) else metadata
-        if evaluators is not None:
-            data['evaluators'] = _serialize_evaluators(evaluators)
-        if source_trace_id is not None:
-            data['source_trace_id'] = source_trace_id
-        if source_span_id is not None:
-            data['source_span_id'] = source_span_id
-        if tags is not None:
-            data['tags'] = tags
-
-        response = await self.client.post(f'/v1/datasets/{_quote(dataset_id_or_name)}/cases/', json=data)
         return self._handle_response(response)
 
     async def update_case(
@@ -1069,14 +906,12 @@ class AsyncLogfireDatasetsClient(_BaseLogfireDatasetsClient[AsyncClient]):
         if tags is not _UNSET:
             data['tags'] = tags
 
-        response = await self.client.put(
-            f'/v1/datasets/{_quote(dataset_id_or_name)}/cases/{_quote(case_id)}/', json=data
-        )
+        response = await self.client.put(f'/v1/datasets/{dataset_id_or_name}/cases/{case_id}/', json=data)
         return self._handle_response(response, is_case_endpoint=True)
 
     async def delete_case(self, dataset_id_or_name: str, case_id: str) -> None:
         """Delete a case from a dataset."""
-        response = await self.client.delete(f'/v1/datasets/{_quote(dataset_id_or_name)}/cases/{_quote(case_id)}/')
+        response = await self.client.delete(f'/v1/datasets/{dataset_id_or_name}/cases/{case_id}/')
         self._handle_response(response, is_case_endpoint=True)
 
     @overload
@@ -1103,7 +938,7 @@ class AsyncLogfireDatasetsClient(_BaseLogfireDatasetsClient[AsyncClient]):
         custom_evaluator_types: Sequence[type[Evaluator[Any, Any, Any]]] = (),
     ) -> Dataset[InputsT, OutputT, MetadataT] | dict[str, Any]:
         """Export a dataset, optionally as a typed pydantic-evals Dataset."""
-        response = await self.client.get(f'/v1/datasets/{_quote(id_or_name)}/export/')
+        response = await self.client.get(f'/v1/datasets/{id_or_name}/export/')
         data = self._handle_response(response)
 
         if input_type is None:
@@ -1112,27 +947,3 @@ class AsyncLogfireDatasetsClient(_BaseLogfireDatasetsClient[AsyncClient]):
         Dataset, _ = _import_pydantic_evals()
         typed_dataset_cls: type[Dataset[InputsT, OutputT, MetadataT]] = Dataset[input_type, output_type, metadata_type]  # type: ignore
         return typed_dataset_cls.from_dict(data, custom_evaluator_types=list(custom_evaluator_types))  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
-
-    async def import_cases(
-        self,
-        dataset_id_or_name: str,
-        cases: Sequence[Case[InputsT, OutputT, MetadataT]] | list[dict[str, Any]],
-        *,
-        tags: list[str] | None = None,
-    ) -> list[dict[str, Any]]:
-        """Import cases into a dataset."""
-        if cases and hasattr(cases[0], 'inputs'):
-            serialized_cases = [_serialize_case(case) for case in cases]  # type: ignore[arg-type]
-        else:
-            # Already dicts — shallow copy to avoid mutating caller's data
-            serialized_cases: list[dict[str, Any]] = [dict(c) for c in cases]  # type: ignore[arg-type]
-
-        if tags is not None:
-            for case_data in serialized_cases:
-                case_data['tags'] = tags
-
-        response = await self.client.post(
-            f'/v1/datasets/{_quote(dataset_id_or_name)}/import/',
-            json={'cases': serialized_cases},
-        )
-        return self._handle_response(response)

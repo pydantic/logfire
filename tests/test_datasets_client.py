@@ -19,15 +19,14 @@ except (ImportError, AttributeError):
     pytest.skip('pydantic_evals not compatible with this environment', allow_module_level=True)
 
 from logfire.experimental.datasets import (
-    AsyncLogfireDatasetsClient,
+    AsyncLogfireAPIClient,
     CaseNotFoundError,
     DatasetApiError,
     DatasetNotFoundError,
-    LogfireDatasetsClient,
+    LogfireAPIClient,
 )
 from logfire.experimental.datasets.client import (
     _import_pydantic_evals,
-    _quote,
     _serialize_case,
     _serialize_evaluators,
     _serialize_value,
@@ -94,12 +93,10 @@ def make_mock_transport(responses: dict[tuple[str, str], httpx.Response | None] 
         ('DELETE', '/v1/datasets/test-dataset/'): httpx.Response(204),
         ('GET', '/v1/datasets/test-dataset/cases/'): httpx.Response(200, json=[FAKE_CASE]),
         ('GET', '/v1/datasets/test-dataset/cases/case-456/'): httpx.Response(200, json=FAKE_CASE),
-        ('POST', '/v1/datasets/test-dataset/cases/'): httpx.Response(200, json=FAKE_CASE),
         ('POST', '/v1/datasets/test-dataset/cases/bulk/'): httpx.Response(200, json=[FAKE_CASE]),
         ('PUT', '/v1/datasets/test-dataset/cases/case-456/'): httpx.Response(200, json=FAKE_CASE),
         ('DELETE', '/v1/datasets/test-dataset/cases/case-456/'): httpx.Response(204),
         ('GET', '/v1/datasets/test-dataset/export/'): httpx.Response(200, json=FAKE_EXPORT),
-        ('POST', '/v1/datasets/test-dataset/import/'): httpx.Response(200, json=[FAKE_CASE]),
     }
 
     if responses:
@@ -118,18 +115,18 @@ def make_mock_transport(responses: dict[tuple[str, str], httpx.Response | None] 
 
 def make_client(
     responses: dict[tuple[str, str], httpx.Response | None] | None = None,
-) -> LogfireDatasetsClient:
+) -> LogfireAPIClient:
     transport = make_mock_transport(responses)
-    return LogfireDatasetsClient(
+    return LogfireAPIClient(
         client=httpx.Client(transport=transport, base_url='https://test.logfire.dev'),
     )
 
 
 def make_async_client(
     responses: dict[tuple[str, str], httpx.Response | None] | None = None,
-) -> AsyncLogfireDatasetsClient:
+) -> AsyncLogfireAPIClient:
     transport = make_mock_transport(responses)
-    return AsyncLogfireDatasetsClient(
+    return AsyncLogfireAPIClient(
         client=httpx.AsyncClient(transport=transport, base_url='https://test.logfire.dev'),
     )
 
@@ -137,17 +134,6 @@ def make_async_client(
 # =============================================================================
 # Helper function tests
 # =============================================================================
-
-
-class TestQuote:
-    def test_simple_string(self):
-        assert _quote('hello') == 'hello'
-
-    def test_slash(self):
-        assert _quote('my/dataset') == 'my%2Fdataset'
-
-    def test_special_chars(self):
-        assert _quote('name with spaces?#') == 'name%20with%20spaces%3F%23'
 
 
 class TestTypeToSchema:
@@ -401,27 +387,27 @@ class TestHandleResponse:
 # =============================================================================
 
 
-class TestLogfireDatasetsClient:
+class TestLogfireAPIClient:
     def test_init_with_base_url(self):
-        client = LogfireDatasetsClient(api_key='test-key', base_url='https://custom.url')
+        client = LogfireAPIClient(api_key='test-key', base_url='https://custom.url')
         assert str(client.client.base_url) == 'https://custom.url'
         client.client.close()
 
     def test_init_infers_base_url(self):
-        client = LogfireDatasetsClient(api_key='pylf_v1_us_test1234567890')
+        client = LogfireAPIClient(api_key='pylf_v1_us_test1234567890')
         base_url = str(client.client.base_url)
         assert 'logfire' in base_url or 'pydantic' in base_url
         client.client.close()
 
     def test_init_with_client(self):
         httpx_client = httpx.Client(base_url='https://custom.url')
-        client = LogfireDatasetsClient(client=httpx_client)
+        client = LogfireAPIClient(client=httpx_client)
         assert client.client is httpx_client
         client.client.close()
 
     def test_init_requires_client_or_api_key(self):
         with pytest.raises(ValueError, match='Either client or api_key must be provided'):
-            LogfireDatasetsClient()
+            LogfireAPIClient()
 
     def test_context_manager(self):
         client = make_client()
@@ -453,7 +439,7 @@ class TestLogfireDatasetsClient:
             return httpx.Response(200, json=FAKE_DATASET)
 
         transport = httpx.MockTransport(handler)
-        client = LogfireDatasetsClient(api_key='test-key', base_url='https://test.logfire.dev')
+        client = LogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
         client.client = httpx.Client(transport=transport, base_url='https://test.logfire.dev')
 
         result = client.create_dataset(
@@ -490,7 +476,7 @@ class TestLogfireDatasetsClient:
             return httpx.Response(200, json=FAKE_DATASET)
 
         transport = httpx.MockTransport(handler)
-        client = LogfireDatasetsClient(api_key='test-key', base_url='https://test.logfire.dev')
+        client = LogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
         client.client = httpx.Client(transport=transport, base_url='https://test.logfire.dev')
 
         client.update_dataset(
@@ -522,13 +508,12 @@ class TestLogfireDatasetsClient:
             return httpx.Response(200, json=FAKE_DATASET)
 
         transport = httpx.MockTransport(handler)
-        client = LogfireDatasetsClient(api_key='test-key', base_url='https://test.logfire.dev')
+        client = LogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
         client.client = httpx.Client(transport=transport, base_url='https://test.logfire.dev')
 
-        client.update_dataset('test-dataset', name=None, description=None, guidance=None)
+        client.update_dataset('test-dataset', description=None, guidance=None)
 
         body = json.loads(requests_seen[0].content)
-        assert body['name'] is None
         assert body['description'] is None
         assert body['guidance'] is None
 
@@ -550,7 +535,7 @@ class TestLogfireDatasetsClient:
             return httpx.Response(200, json=[FAKE_CASE])
 
         transport = httpx.MockTransport(handler)
-        client = LogfireDatasetsClient(api_key='test-key', base_url='https://test.logfire.dev')
+        client = LogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
         client.client = httpx.Client(transport=transport, base_url='https://test.logfire.dev')
 
         client.list_cases('test-dataset', tags=['tag1', 'tag2'])
@@ -560,31 +545,6 @@ class TestLogfireDatasetsClient:
         client = make_client()
         result = client.get_case('test-dataset', 'case-456')
         assert result == FAKE_CASE
-
-    def test_add_case(self):
-        client = make_client()
-        case: Case[MyInput, MyOutput, Any] = Case(
-            name='test', inputs=MyInput(question='hi'), expected_output=MyOutput(answer='hello')
-        )
-        result = client.add_case('test-dataset', case)
-        assert result == FAKE_CASE
-
-    def test_add_case_with_tags(self):
-        requests_seen: list[httpx.Request] = []
-
-        def handler(request: httpx.Request) -> httpx.Response:
-            requests_seen.append(request)
-            return httpx.Response(200, json=FAKE_CASE)
-
-        transport = httpx.MockTransport(handler)
-        client = LogfireDatasetsClient(api_key='test-key', base_url='https://test.logfire.dev')
-        client.client = httpx.Client(transport=transport, base_url='https://test.logfire.dev')
-
-        case: Case[MyInput, MyOutput, Any] = Case(inputs=MyInput(question='hi'))
-        client.add_case('test-dataset', case, tags=['important'])
-
-        body = json.loads(requests_seen[0].content)
-        assert body['tags'] == ['important']
 
     def test_add_cases(self):
         client = make_client()
@@ -603,7 +563,7 @@ class TestLogfireDatasetsClient:
             return httpx.Response(200, json=[FAKE_CASE])
 
         transport = httpx.MockTransport(handler)
-        client = LogfireDatasetsClient(api_key='test-key', base_url='https://test.logfire.dev')
+        client = LogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
         client.client = httpx.Client(transport=transport, base_url='https://test.logfire.dev')
 
         cases: list[Case[MyInput, MyOutput, Any]] = [Case(inputs=MyInput(question='q1'))]
@@ -611,73 +571,6 @@ class TestLogfireDatasetsClient:
 
         body = json.loads(requests_seen[0].content)
         assert body['cases'][0]['tags'] == ['bulk']
-
-    def test_create_case_minimal(self):
-        client = make_client()
-        result = client.create_case('test-dataset', inputs={'question': 'hi'})
-        assert result == FAKE_CASE
-
-    def test_create_case_full(self):
-        """Test create_case with all optional parameters."""
-        requests_seen: list[httpx.Request] = []
-
-        def handler(request: httpx.Request) -> httpx.Response:
-            requests_seen.append(request)
-            return httpx.Response(200, json=FAKE_CASE)
-
-        transport = httpx.MockTransport(handler)
-        client = LogfireDatasetsClient(api_key='test-key', base_url='https://test.logfire.dev')
-        client.client = httpx.Client(transport=transport, base_url='https://test.logfire.dev')
-
-        @dataclass
-        class MyEval:
-            pass
-
-        client.create_case(
-            'test-dataset',
-            inputs=MyInput(question='hi'),
-            name='test-case',
-            expected_output=MyOutput(answer='hello'),
-            metadata=MyMetadata(source='manual'),
-            evaluators=[MyEval()],
-            source_trace_id='trace-123',
-            source_span_id='span-456',
-            tags=['v1'],
-        )
-
-        body = json.loads(requests_seen[0].content)
-        assert body['inputs'] == {'question': 'hi'}
-        assert body['name'] == 'test-case'
-        assert body['expected_output'] == {'answer': 'hello'}
-        assert body['metadata'] == {'source': 'manual'}
-        assert body['evaluators'] == [{'name': 'MyEval', 'arguments': None}]
-        assert body['source_trace_id'] == 'trace-123'
-        assert body['source_span_id'] == 'span-456'
-        assert body['tags'] == ['v1']
-
-    def test_create_case_dict_inputs(self):
-        """Dict inputs should be passed through without serialization."""
-        requests_seen: list[httpx.Request] = []
-
-        def handler(request: httpx.Request) -> httpx.Response:
-            requests_seen.append(request)
-            return httpx.Response(200, json=FAKE_CASE)
-
-        transport = httpx.MockTransport(handler)
-        client = LogfireDatasetsClient(api_key='test-key', base_url='https://test.logfire.dev')
-        client.client = httpx.Client(transport=transport, base_url='https://test.logfire.dev')
-
-        client.create_case(
-            'test-dataset',
-            inputs={'question': 'hi'},
-            expected_output={'answer': 'hello'},
-            metadata={'source': 'test'},
-        )
-
-        body = json.loads(requests_seen[0].content)
-        assert body['inputs'] == {'question': 'hi'}
-        assert body['expected_output'] == {'answer': 'hello'}
-        assert body['metadata'] == {'source': 'test'}
 
     def test_update_case_minimal(self):
         """When no params are set, sends empty body."""
@@ -693,7 +586,7 @@ class TestLogfireDatasetsClient:
             return httpx.Response(200, json=FAKE_CASE)
 
         transport = httpx.MockTransport(handler)
-        client = LogfireDatasetsClient(api_key='test-key', base_url='https://test.logfire.dev')
+        client = LogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
         client.client = httpx.Client(transport=transport, base_url='https://test.logfire.dev')
 
         @dataclass
@@ -728,7 +621,7 @@ class TestLogfireDatasetsClient:
             return httpx.Response(200, json=FAKE_CASE)
 
         transport = httpx.MockTransport(handler)
-        client = LogfireDatasetsClient(api_key='test-key', base_url='https://test.logfire.dev')
+        client = LogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
         client.client = httpx.Client(transport=transport, base_url='https://test.logfire.dev')
 
         client.update_case(
@@ -756,7 +649,7 @@ class TestLogfireDatasetsClient:
             return httpx.Response(200, json=FAKE_CASE)
 
         transport = httpx.MockTransport(handler)
-        client = LogfireDatasetsClient(api_key='test-key', base_url='https://test.logfire.dev')
+        client = LogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
         client.client = httpx.Client(transport=transport, base_url='https://test.logfire.dev')
 
         client.update_case(
@@ -791,21 +684,13 @@ class TestLogfireDatasetsClient:
 
         assert isinstance(result, Dataset)
 
-    def test_import_cases_with_case_objects(self):
+    def test_add_cases_with_dicts(self):
         client = make_client()
-        cases: list[Case[MyInput, MyOutput, Any]] = [
-            Case(inputs=MyInput(question='q1'), expected_output=MyOutput(answer='a1')),
-        ]
-        result = client.import_cases('test-dataset', cases)
+        cases: list[dict[str, Any]] = [{'inputs': {'question': 'q1'}}]
+        result = client.add_cases('test-dataset', cases)
         assert result == [FAKE_CASE]
 
-    def test_import_cases_with_dicts(self):
-        client = make_client()
-        cases = [{'inputs': {'question': 'q1'}}]
-        result = client.import_cases('test-dataset', cases)
-        assert result == [FAKE_CASE]
-
-    def test_import_cases_with_tags(self):
+    def test_add_cases_dicts_with_tags(self):
         requests_seen: list[httpx.Request] = []
 
         def handler(request: httpx.Request) -> httpx.Response:
@@ -813,17 +698,17 @@ class TestLogfireDatasetsClient:
             return httpx.Response(200, json=[FAKE_CASE])
 
         transport = httpx.MockTransport(handler)
-        client = LogfireDatasetsClient(api_key='test-key', base_url='https://test.logfire.dev')
+        client = LogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
         client.client = httpx.Client(transport=transport, base_url='https://test.logfire.dev')
 
-        cases = [{'inputs': {'question': 'q1'}}]
-        client.import_cases('test-dataset', cases, tags=['imported'])
+        cases: list[dict[str, Any]] = [{'inputs': {'question': 'q1'}}]
+        client.add_cases('test-dataset', cases, tags=['imported'])
 
         body = json.loads(requests_seen[0].content)
         assert body['cases'][0]['tags'] == ['imported']
 
-    def test_import_cases_dicts_not_mutated(self):
-        """Ensure import_cases doesn't mutate caller's dicts when adding tags."""
+    def test_add_cases_dicts_not_mutated(self):
+        """Ensure add_cases doesn't mutate caller's dicts when adding tags."""
         requests_seen: list[httpx.Request] = []
 
         def handler(request: httpx.Request) -> httpx.Response:
@@ -831,35 +716,19 @@ class TestLogfireDatasetsClient:
             return httpx.Response(200, json=[FAKE_CASE])
 
         transport = httpx.MockTransport(handler)
-        client = LogfireDatasetsClient(api_key='test-key', base_url='https://test.logfire.dev')
+        client = LogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
         client.client = httpx.Client(transport=transport, base_url='https://test.logfire.dev')
 
-        original_case = {'inputs': {'question': 'q1'}}
+        original_case: dict[str, Any] = {'inputs': {'question': 'q1'}}
         cases = [original_case]
-        client.import_cases('test-dataset', cases, tags=['tagged'])
+        client.add_cases('test-dataset', cases, tags=['tagged'])
 
         # Original dict should NOT have been mutated
         assert 'tags' not in original_case
 
-    def test_url_encoding(self):
-        """Dataset names with special characters should be URL-encoded."""
-        requests_seen: list[httpx.Request] = []
-
-        def handler(request: httpx.Request) -> httpx.Response:
-            requests_seen.append(request)
-            return httpx.Response(200, json=FAKE_DATASET)
-
-        transport = httpx.MockTransport(handler)
-        client = LogfireDatasetsClient(api_key='test-key', base_url='https://test.logfire.dev')
-        client.client = httpx.Client(transport=transport, base_url='https://test.logfire.dev')
-
-        client.get_dataset('my/dataset')
-        path = requests_seen[0].url.raw_path.decode()
-        assert 'my%2Fdataset' in path
-
     def test_auth_header(self):
         """Client should set Authorization header."""
-        client = LogfireDatasetsClient(api_key='my-secret-key', base_url='https://test.logfire.dev')
+        client = LogfireAPIClient(api_key='my-secret-key', base_url='https://test.logfire.dev')
         assert client.client.headers['authorization'] == 'Bearer my-secret-key'
         client.client.close()
 
@@ -869,19 +738,19 @@ class TestLogfireDatasetsClient:
 # =============================================================================
 
 
-class TestAsyncLogfireDatasetsClient:
+class TestAsyncLogfireAPIClient:
     def test_init_with_base_url(self):
-        client = AsyncLogfireDatasetsClient(api_key='test-key', base_url='https://custom.url')
+        client = AsyncLogfireAPIClient(api_key='test-key', base_url='https://custom.url')
         assert str(client.client.base_url) == 'https://custom.url'
 
     def test_init_with_client(self):
         httpx_client = httpx.AsyncClient(base_url='https://custom.url')
-        client = AsyncLogfireDatasetsClient(client=httpx_client)
+        client = AsyncLogfireAPIClient(client=httpx_client)
         assert client.client is httpx_client
 
     def test_init_requires_client_or_api_key(self):
         with pytest.raises(ValueError, match='Either client or api_key must be provided'):
-            AsyncLogfireDatasetsClient()
+            AsyncLogfireAPIClient()
 
     @pytest.mark.anyio
     async def test_context_manager(self):
@@ -916,7 +785,7 @@ class TestAsyncLogfireDatasetsClient:
             return httpx.Response(200, json=FAKE_DATASET)
 
         transport = httpx.MockTransport(handler)
-        client = AsyncLogfireDatasetsClient(api_key='test-key', base_url='https://test.logfire.dev')
+        client = AsyncLogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
         client.client = httpx.AsyncClient(transport=transport, base_url='https://test.logfire.dev')
 
         await client.create_dataset(
@@ -953,7 +822,7 @@ class TestAsyncLogfireDatasetsClient:
             return httpx.Response(200, json=FAKE_DATASET)
 
         transport = httpx.MockTransport(handler)
-        client = AsyncLogfireDatasetsClient(api_key='test-key', base_url='https://test.logfire.dev')
+        client = AsyncLogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
         client.client = httpx.AsyncClient(transport=transport, base_url='https://test.logfire.dev')
 
         await client.update_dataset(
@@ -983,13 +852,12 @@ class TestAsyncLogfireDatasetsClient:
             return httpx.Response(200, json=FAKE_DATASET)
 
         transport = httpx.MockTransport(handler)
-        client = AsyncLogfireDatasetsClient(api_key='test-key', base_url='https://test.logfire.dev')
+        client = AsyncLogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
         client.client = httpx.AsyncClient(transport=transport, base_url='https://test.logfire.dev')
 
-        await client.update_dataset('test-dataset', name=None, description=None, guidance=None)
+        await client.update_dataset('test-dataset', description=None, guidance=None)
 
         body = json.loads(requests_seen[0].content)
-        assert body['name'] is None
         assert body['description'] is None
         assert body['guidance'] is None
 
@@ -1014,7 +882,7 @@ class TestAsyncLogfireDatasetsClient:
             return httpx.Response(200, json=[FAKE_CASE])
 
         transport = httpx.MockTransport(handler)
-        client = AsyncLogfireDatasetsClient(api_key='test-key', base_url='https://test.logfire.dev')
+        client = AsyncLogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
         client.client = httpx.AsyncClient(transport=transport, base_url='https://test.logfire.dev')
 
         await client.list_cases('test-dataset', tags=['tag1'])
@@ -1025,31 +893,6 @@ class TestAsyncLogfireDatasetsClient:
         client = make_async_client()
         result = await client.get_case('test-dataset', 'case-456')
         assert result == FAKE_CASE
-
-    @pytest.mark.anyio
-    async def test_add_case(self):
-        client = make_async_client()
-        case: Case[MyInput, MyOutput, Any] = Case(inputs=MyInput(question='hi'))
-        result = await client.add_case('test-dataset', case)
-        assert result == FAKE_CASE
-
-    @pytest.mark.anyio
-    async def test_add_case_with_tags(self):
-        requests_seen: list[httpx.Request] = []
-
-        def handler(request: httpx.Request) -> httpx.Response:
-            requests_seen.append(request)
-            return httpx.Response(200, json=FAKE_CASE)
-
-        transport = httpx.MockTransport(handler)
-        client = AsyncLogfireDatasetsClient(api_key='test-key', base_url='https://test.logfire.dev')
-        client.client = httpx.AsyncClient(transport=transport, base_url='https://test.logfire.dev')
-
-        case: Case[MyInput, MyOutput, Any] = Case(inputs=MyInput(question='hi'))
-        await client.add_case('test-dataset', case, tags=['important'])
-
-        body = json.loads(requests_seen[0].content)
-        assert body['tags'] == ['important']
 
     @pytest.mark.anyio
     async def test_add_cases(self):
@@ -1067,7 +910,7 @@ class TestAsyncLogfireDatasetsClient:
             return httpx.Response(200, json=[FAKE_CASE])
 
         transport = httpx.MockTransport(handler)
-        client = AsyncLogfireDatasetsClient(api_key='test-key', base_url='https://test.logfire.dev')
+        client = AsyncLogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
         client.client = httpx.AsyncClient(transport=transport, base_url='https://test.logfire.dev')
 
         cases: list[Case[MyInput, MyOutput, Any]] = [Case(inputs=MyInput(question='q1'))]
@@ -1075,73 +918,6 @@ class TestAsyncLogfireDatasetsClient:
 
         body = json.loads(requests_seen[0].content)
         assert body['cases'][0]['tags'] == ['bulk']
-
-    @pytest.mark.anyio
-    async def test_create_case_minimal(self):
-        client = make_async_client()
-        result = await client.create_case('test-dataset', inputs={'question': 'hi'})
-        assert result == FAKE_CASE
-
-    @pytest.mark.anyio
-    async def test_create_case_full(self):
-        requests_seen: list[httpx.Request] = []
-
-        def handler(request: httpx.Request) -> httpx.Response:
-            requests_seen.append(request)
-            return httpx.Response(200, json=FAKE_CASE)
-
-        transport = httpx.MockTransport(handler)
-        client = AsyncLogfireDatasetsClient(api_key='test-key', base_url='https://test.logfire.dev')
-        client.client = httpx.AsyncClient(transport=transport, base_url='https://test.logfire.dev')
-
-        @dataclass
-        class MyEval:
-            pass
-
-        await client.create_case(
-            'test-dataset',
-            inputs=MyInput(question='hi'),
-            name='test-case',
-            expected_output=MyOutput(answer='hello'),
-            metadata=MyMetadata(source='manual'),
-            evaluators=[MyEval()],
-            source_trace_id='trace-123',
-            source_span_id='span-456',
-            tags=['v1'],
-        )
-
-        body = json.loads(requests_seen[0].content)
-        assert body['inputs'] == {'question': 'hi'}
-        assert body['name'] == 'test-case'
-        assert body['expected_output'] == {'answer': 'hello'}
-        assert body['metadata'] == {'source': 'manual'}
-        assert body['source_trace_id'] == 'trace-123'
-        assert body['source_span_id'] == 'span-456'
-        assert body['tags'] == ['v1']
-
-    @pytest.mark.anyio
-    async def test_create_case_dict_inputs(self):
-        requests_seen: list[httpx.Request] = []
-
-        def handler(request: httpx.Request) -> httpx.Response:
-            requests_seen.append(request)
-            return httpx.Response(200, json=FAKE_CASE)
-
-        transport = httpx.MockTransport(handler)
-        client = AsyncLogfireDatasetsClient(api_key='test-key', base_url='https://test.logfire.dev')
-        client.client = httpx.AsyncClient(transport=transport, base_url='https://test.logfire.dev')
-
-        await client.create_case(
-            'test-dataset',
-            inputs={'question': 'hi'},
-            expected_output={'answer': 'hello'},
-            metadata={'source': 'test'},
-        )
-
-        body = json.loads(requests_seen[0].content)
-        assert body['inputs'] == {'question': 'hi'}
-        assert body['expected_output'] == {'answer': 'hello'}
-        assert body['metadata'] == {'source': 'test'}
 
     @pytest.mark.anyio
     async def test_update_case_minimal(self):
@@ -1158,7 +934,7 @@ class TestAsyncLogfireDatasetsClient:
             return httpx.Response(200, json=FAKE_CASE)
 
         transport = httpx.MockTransport(handler)
-        client = AsyncLogfireDatasetsClient(api_key='test-key', base_url='https://test.logfire.dev')
+        client = AsyncLogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
         client.client = httpx.AsyncClient(transport=transport, base_url='https://test.logfire.dev')
 
         @dataclass
@@ -1192,7 +968,7 @@ class TestAsyncLogfireDatasetsClient:
             return httpx.Response(200, json=FAKE_CASE)
 
         transport = httpx.MockTransport(handler)
-        client = AsyncLogfireDatasetsClient(api_key='test-key', base_url='https://test.logfire.dev')
+        client = AsyncLogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
         client.client = httpx.AsyncClient(transport=transport, base_url='https://test.logfire.dev')
 
         await client.update_case(
@@ -1221,7 +997,7 @@ class TestAsyncLogfireDatasetsClient:
             return httpx.Response(200, json=FAKE_CASE)
 
         transport = httpx.MockTransport(handler)
-        client = AsyncLogfireDatasetsClient(api_key='test-key', base_url='https://test.logfire.dev')
+        client = AsyncLogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
         client.client = httpx.AsyncClient(transport=transport, base_url='https://test.logfire.dev')
 
         await client.update_case(
@@ -1258,23 +1034,14 @@ class TestAsyncLogfireDatasetsClient:
         assert isinstance(result, Dataset)
 
     @pytest.mark.anyio
-    async def test_import_cases_with_case_objects(self):
+    async def test_add_cases_with_dicts(self):
         client = make_async_client()
-        cases: list[Case[MyInput, MyOutput, Any]] = [
-            Case(inputs=MyInput(question='q1'), expected_output=MyOutput(answer='a1')),
-        ]
-        result = await client.import_cases('test-dataset', cases)
+        cases: list[dict[str, Any]] = [{'inputs': {'question': 'q1'}}]
+        result = await client.add_cases('test-dataset', cases)
         assert result == [FAKE_CASE]
 
     @pytest.mark.anyio
-    async def test_import_cases_with_dicts(self):
-        client = make_async_client()
-        cases = [{'inputs': {'question': 'q1'}}]
-        result = await client.import_cases('test-dataset', cases)
-        assert result == [FAKE_CASE]
-
-    @pytest.mark.anyio
-    async def test_import_cases_with_tags(self):
+    async def test_add_cases_dicts_with_tags(self):
         requests_seen: list[httpx.Request] = []
 
         def handler(request: httpx.Request) -> httpx.Response:
@@ -1282,18 +1049,18 @@ class TestAsyncLogfireDatasetsClient:
             return httpx.Response(200, json=[FAKE_CASE])
 
         transport = httpx.MockTransport(handler)
-        client = AsyncLogfireDatasetsClient(api_key='test-key', base_url='https://test.logfire.dev')
+        client = AsyncLogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
         client.client = httpx.AsyncClient(transport=transport, base_url='https://test.logfire.dev')
 
-        cases = [{'inputs': {'question': 'q1'}}]
-        await client.import_cases('test-dataset', cases, tags=['imported'])
+        cases: list[dict[str, Any]] = [{'inputs': {'question': 'q1'}}]
+        await client.add_cases('test-dataset', cases, tags=['imported'])
 
         body = json.loads(requests_seen[0].content)
         assert body['cases'][0]['tags'] == ['imported']
 
     @pytest.mark.anyio
-    async def test_import_cases_dicts_not_mutated(self):
-        """Ensure async import_cases doesn't mutate caller's dicts."""
+    async def test_add_cases_dicts_not_mutated(self):
+        """Ensure async add_cases doesn't mutate caller's dicts."""
         requests_seen: list[httpx.Request] = []
 
         def handler(request: httpx.Request) -> httpx.Response:
@@ -1301,11 +1068,11 @@ class TestAsyncLogfireDatasetsClient:
             return httpx.Response(200, json=[FAKE_CASE])
 
         transport = httpx.MockTransport(handler)
-        client = AsyncLogfireDatasetsClient(api_key='test-key', base_url='https://test.logfire.dev')
+        client = AsyncLogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
         client.client = httpx.AsyncClient(transport=transport, base_url='https://test.logfire.dev')
 
-        original_case = {'inputs': {'question': 'q1'}}
+        original_case: dict[str, Any] = {'inputs': {'question': 'q1'}}
         cases = [original_case]
-        await client.import_cases('test-dataset', cases, tags=['tagged'])
+        await client.add_cases('test-dataset', cases, tags=['tagged'])
 
         assert 'tags' not in original_case
