@@ -57,7 +57,19 @@ jobs:
 
   test:
     name: test on Python ${{ matrix.python-version }}, pydantic ${{ matrix.pydantic-version }}, otel ${{ matrix.otel-version }}
-    runs-on: ubuntu-latest
+    # Use Depot 4-core runners for maintainer PRs (faster CPUs/more cores)
+    # Use 'ci:slow' label to force standard GitHub runners (e.g. during Depot outages)
+    # Use 'ci:fast' label to opt-in fork PRs to Depot runners
+    runs-on: >-
+      ${{
+        !contains(github.event.pull_request.labels.*.name, 'ci:slow')
+        && (
+          github.event.pull_request.head.repo.full_name == github.repository
+          || contains(github.event.pull_request.labels.*.name, 'ci:fast')
+        )
+        && 'depot-ubuntu-24.04-4'
+        || 'ubuntu-latest'
+      }}
     strategy:
       fail-fast: false
       matrix:
