@@ -121,10 +121,43 @@ def test_fastapi_proxy_size_limit() -> None:
 
     client = TestClient(app)
 
-    # Content-Length check
     response = client.post(
         '/logfire-proxy/v1/traces', content=b'12345678901', headers={'Content-Type': 'application/json'}
     )
+    assert response.status_code == 413
+    assert response.content == b'Payload too large'
+
+
+def test_fastapi_proxy_invalid_content_length() -> None:
+    fastapi = pytest.importorskip('fastapi', exc_type=ImportError)
+    TestClient = pytest.importorskip('starlette.testclient').TestClient
+    FastAPI = fastapi.FastAPI
+
+    app = FastAPI()
+    logfire.configure(token='test_token', send_to_logfire=False)
+    logfire.instrument_fastapi_proxy(app)
+
+    client = TestClient(app)
+
+    response = client.post('/logfire-proxy/v1/traces', content=b'', headers={'Content-Length': 'invalid'})
+    assert response.status_code == 400
+    assert response.content == b'Invalid Content-Length header'
+
+
+def test_fastapi_proxy_body_limit_late_check() -> None:
+    """Test that the size limit is enforced after reading the body if Content-Length header is bypassed."""
+    fastapi = pytest.importorskip('fastapi', exc_type=ImportError)
+    TestClient = pytest.importorskip('starlette.testclient').TestClient
+    FastAPI = fastapi.FastAPI
+
+    app = FastAPI()
+    logfire.configure(token='test_token', send_to_logfire=False)
+
+    logfire.instrument_fastapi_proxy(app, max_body_size=10)
+
+    client = TestClient(app)
+
+    response = client.post('/logfire-proxy/v1/traces', content=b'12345678901', headers={'Content-Length': '5'})
     assert response.status_code == 413
     assert response.content == b'Payload too large'
 
