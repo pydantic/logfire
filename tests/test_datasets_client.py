@@ -31,6 +31,7 @@ from logfire.experimental.datasets.client import (
     _serialize_evaluators,
     _serialize_value,
     _type_to_schema,
+    _validate_dataset_name,
 )
 
 # --- Test types ---
@@ -288,6 +289,26 @@ class TestImportPydanticEvals:
         with patch.dict('sys.modules', {'pydantic_evals': None}):
             with pytest.raises(ImportError, match='pydantic-evals is required'):
                 _import_pydantic_evals()
+
+
+class TestValidateDatasetName:
+    def test_valid_names(self):
+        # Should not raise
+        _validate_dataset_name('my-dataset')
+        _validate_dataset_name('dataset.v2')
+        _validate_dataset_name('a')
+        _validate_dataset_name('123')
+        _validate_dataset_name('test_dataset-1.0')
+
+    def test_invalid_names(self):
+        with pytest.raises(ValueError, match='Invalid dataset name'):
+            _validate_dataset_name('')
+        with pytest.raises(ValueError, match='Invalid dataset name'):
+            _validate_dataset_name('-starts-with-dash')
+        with pytest.raises(ValueError, match='Invalid dataset name'):
+            _validate_dataset_name('has spaces')
+        with pytest.raises(ValueError, match='Invalid dataset name'):
+            _validate_dataset_name('special/chars')
 
 
 # =============================================================================
