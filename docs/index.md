@@ -18,12 +18,11 @@ description: "Step by Step Guide to Getting Started with Pydantic Logfire: How t
 From the team behind **Pydantic Validation**, **Pydantic Logfire** is a new type of observability platform built on
 the same belief as our open source library — that the most powerful tools can be easy to use.
 
-**Logfire** is built on OpenTelemetry, and supports monitoring your application from **any language**,
-with particularly great support for Python! [Read more](why.md).
+**Logfire** is built on OpenTelemetry, with native SDKs for **Python**, **JavaScript/TypeScript**, and **Rust** — plus support for **any language** via OpenTelemetry. [Read more](why.md).
 
 ## Overview
 
-This page is a quick walk-through for setting up a Python app:
+This page walks through setting up a Python app. For other languages, see the [JavaScript/TypeScript](integrations/javascript/index.md) integration or our [language support](languages.md) page.
 
 1. [Set up Logfire](#logfire)
 2. [Install the SDK](#sdk)
@@ -157,5 +156,5 @@ More topics to explore...
 
 - Logfire's real power comes from [integrations with many popular libraries](integrations/index.md)
 - As well as spans, you can [use Logfire to record metrics](guides/onboarding-checklist/add-metrics.md)
-- Logfire doesn't just work with Python, [read more about Language support](https://opentelemetry.io/docs/languages/){:target="\_blank"}
+- Using another language? See [Language support](languages.md) for Python, JavaScript/TypeScript, Rust, and more
 - Compliance requirements (e.g. SOC2)? [See Logfire's certifications](compliance.md)
