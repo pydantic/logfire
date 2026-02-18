@@ -462,7 +462,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         if ai_managed_guidance is not None:
             data['ai_managed_guidance'] = ai_managed_guidance
 
-        response = self.client.put(f'/v1/datasets/{id_or_name}/', json=data)
+        response = self.client.patch(f'/v1/datasets/{id_or_name}/', json=data)
         return self._handle_response(response)
 
     def delete_dataset(self, id_or_name: str) -> None:
@@ -626,7 +626,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         if tags is not _UNSET:
             data['tags'] = tags
 
-        response = self.client.put(f'/v1/datasets/{dataset_id_or_name}/cases/{case_id}/', json=data)
+        response = self.client.patch(f'/v1/datasets/{dataset_id_or_name}/cases/{case_id}/', json=data)
         return self._handle_response(response, is_case_endpoint=True)
 
     def delete_case(self, dataset_id_or_name: str, case_id: str) -> None:
@@ -831,7 +831,7 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         if ai_managed_guidance is not None:
             data['ai_managed_guidance'] = ai_managed_guidance
 
-        response = await self.client.put(f'/v1/datasets/{id_or_name}/', json=data)
+        response = await self.client.patch(f'/v1/datasets/{id_or_name}/', json=data)
         return self._handle_response(response)
 
     async def delete_dataset(self, id_or_name: str) -> None:
@@ -919,7 +919,7 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         if tags is not _UNSET:
             data['tags'] = tags
 
-        response = await self.client.put(f'/v1/datasets/{dataset_id_or_name}/cases/{case_id}/', json=data)
+        response = await self.client.patch(f'/v1/datasets/{dataset_id_or_name}/cases/{case_id}/', json=data)
         return self._handle_response(response, is_case_endpoint=True)
 
     async def delete_case(self, dataset_id_or_name: str, case_id: str) -> None:
