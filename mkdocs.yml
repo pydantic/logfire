@@ -422,11 +422,21 @@ plugins:
           - integrations/*.md
           - integrations/*/*.md
         Observe & Investigate:
-          - guides/web-ui/*.md
+          - guides/web-ui/live.md
+          - guides/web-ui/llm-panels.md
+          - guides/web-ui/dashboards.md
+          - guides/web-ui/explore.md
+          - guides/web-ui/issues.md
+          - guides/web-ui/alerts.md
+          - guides/web-ui/saved-searches.md
+          - guides/web-ui/public-traces.md
           - how-to-guides/write-dashboard-queries.md
           - how-to-guides/setup-slack-alerts.md
           - how-to-guides/detect-service-is-down.md
+        Evaluate:
+          - guides/web-ui/evals.md
         Manage & Configure:
+          - guides/web-ui/organizations-and-projects.md
           - reference/configuration.md
           - reference/advanced/managed-variables/*.md
           - reference/advanced/use-api-keys.md
