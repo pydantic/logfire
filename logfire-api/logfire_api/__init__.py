@@ -187,6 +187,9 @@ except ImportError:
 
             def instrument_openai_agents(self, *args, **kwargs) -> None: ...
 
+            def instrument_azure_ai_inference(self, *args, **kwargs) -> ContextManager[None]:
+                return nullcontext()
+
             def instrument_google_genai(self, *args, **kwargs) -> None: ...
 
             def instrument_litellm(self, *args, **kwargs) -> None: ...
@@ -230,6 +233,7 @@ except ImportError:
         instrument_openai = DEFAULT_LOGFIRE_INSTANCE.instrument_openai
         instrument_openai_agents = DEFAULT_LOGFIRE_INSTANCE.instrument_openai_agents
         instrument_anthropic = DEFAULT_LOGFIRE_INSTANCE.instrument_anthropic
+        instrument_azure_ai_inference = DEFAULT_LOGFIRE_INSTANCE.instrument_azure_ai_inference
         instrument_google_genai = DEFAULT_LOGFIRE_INSTANCE.instrument_google_genai
         instrument_litellm = DEFAULT_LOGFIRE_INSTANCE.instrument_litellm
         instrument_dspy = DEFAULT_LOGFIRE_INSTANCE.instrument_dspy

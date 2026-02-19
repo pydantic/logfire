@@ -114,6 +114,7 @@ nav:
               - OpenAI: integrations/llms/openai.md
               - Google Gen AI: integrations/llms/google-genai.md
               - Anthropic: integrations/llms/anthropic.md
+              - Azure AI Inference: integrations/llms/azure-ai-inference.md
               - LangChain: integrations/llms/langchain.md
               - LiteLLM: integrations/llms/litellm.md
               - DSPy: integrations/llms/dspy.md
