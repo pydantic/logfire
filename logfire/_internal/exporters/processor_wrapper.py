@@ -25,6 +25,7 @@ from ..constants import (
     log_level_attributes,
 )
 from ..db_statement_summary import message_from_db_statement
+from ..integrations.llm_providers.semconv import PROVIDER_NAME
 from ..json_schema import JsonSchemaProperties, attributes_json_schema
 from ..scrubbing import BaseScrubber
 from ..utils import (
@@ -397,12 +398,12 @@ def _transform_langsmith_span_attributes(
         # This applies to older langsmith versions
         attributes = {k: v for k, v in attributes.items() if not k.startswith('gen_ai.usage.')}
 
-    guessed_system = guess_system(request_model)
-    actual_system = attributes.get('gen_ai.system')
-    if guessed_system:
-        if actual_system in (None, 'langchain'):  # pragma: no cover
-            new_attributes['gen_ai.system'] = guessed_system
-    elif actual_system == 'langchain':
+    system = attributes.get('gen_ai.system')
+    if system in (None, 'langchain'):
+        system = attributes.get('langsmith.metadata.ls_provider') or guess_system(request_model)
+    if system:
+        new_attributes['gen_ai.system'] = new_attributes[PROVIDER_NAME] = system
+    else:
         # Remove gen_ai.system=langchain as this also interferes with costs in the UI.
         attributes = {k: v for k, v in attributes.items() if k != 'gen_ai.system'}
 

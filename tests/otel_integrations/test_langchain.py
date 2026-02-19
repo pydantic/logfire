@@ -112,11 +112,13 @@ def test_instrument_langchain(exporter: TestExporter) -> None:
             assert span['attributes']['gen_ai.request.model'] == snapshot('gpt-5')
             assert span['attributes']['gen_ai.response.model'] == snapshot('gpt-5')
             assert span['attributes']['gen_ai.system'] == 'openai'
+            assert span['attributes']['gen_ai.provider.name'] == 'openai'
         else:
             assert 'gen_ai.usage.input_tokens' not in span['attributes']
             assert 'gen_ai.request.model' not in span['attributes']
             assert 'gen_ai.response.model' not in span['attributes']
             assert 'gen_ai.system' not in span['attributes']
+            assert 'gen_ai.provider.name' not in span['attributes']
 
     assert [
         (span['name'], len(span['attributes'].get('all_messages_events', [])))
