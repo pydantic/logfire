@@ -193,7 +193,7 @@ def _serialize_case(case: Case[Any, Any, Any]) -> dict[str, Any]:
     if case.metadata is not None:
         data['metadata'] = _serialize_value(case.metadata) if not isinstance(case.metadata, dict) else case.metadata  # pyright: ignore[reportUnknownMemberType]
 
-    if case.evaluators:
+    if case.evaluators is not None:  # pyright: ignore[reportUnnecessaryComparison]
         data['evaluators'] = _serialize_evaluators(case.evaluators)
 
     return data

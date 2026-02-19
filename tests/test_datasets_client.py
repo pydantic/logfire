@@ -230,7 +230,7 @@ class TestSerializeCase:
     def test_minimal_case(self):
         case: Case[MyInput, MyOutput, Any] = Case(inputs=MyInput(question='hi'))
         result = _serialize_case(case)
-        assert result == {'inputs': {'question': 'hi'}}
+        assert result == {'inputs': {'question': 'hi'}, 'evaluators': []}
 
     def test_full_case(self):
         @dataclass
@@ -256,7 +256,7 @@ class TestSerializeCase:
     def test_dict_inputs(self):
         case: Case[dict[str, str], dict[str, str], Any] = Case(inputs={'question': 'hi'})
         result = _serialize_case(case)
-        assert result == {'inputs': {'question': 'hi'}}
+        assert result == {'inputs': {'question': 'hi'}, 'evaluators': []}
 
     def test_dict_expected_output(self):
         case: Case[dict[str, str], dict[str, str], Any] = Case(
@@ -264,7 +264,7 @@ class TestSerializeCase:
             expected_output={'a': 'hello'},
         )
         result = _serialize_case(case)
-        assert result == {'inputs': {'q': 'hi'}, 'expected_output': {'a': 'hello'}}
+        assert result == {'inputs': {'q': 'hi'}, 'expected_output': {'a': 'hello'}, 'evaluators': []}
 
     def test_dict_metadata(self):
         case: Case[dict[str, str], Any, dict[str, str]] = Case(
@@ -272,7 +272,7 @@ class TestSerializeCase:
             metadata={'source': 'test'},
         )
         result = _serialize_case(case)
-        assert result == {'inputs': {'q': 'hi'}, 'metadata': {'source': 'test'}}
+        assert result == {'inputs': {'q': 'hi'}, 'metadata': {'source': 'test'}, 'evaluators': []}
 
 
 class TestImportPydanticEvals:
