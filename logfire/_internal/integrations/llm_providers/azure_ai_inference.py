@@ -70,6 +70,29 @@ def instrument_azure_ai_inference(
     suppress_other_instrumentation: bool,
 ) -> AbstractContextManager[None]:
     """Instrument Azure AI Inference clients."""
+    if client is None:
+        try:
+            from azure.ai.inference import ChatCompletionsClient, EmbeddingsClient
+        except ImportError:  # pragma: no cover
+            raise RuntimeError(
+                'The `logfire.instrument_azure_ai_inference()` method '
+                'requires the `azure-ai-inference` package.\n'
+                'You can install this with:\n'
+                "    pip install 'logfire[azure-ai-inference]'"
+            )
+
+        clients: list[Any] = [ChatCompletionsClient, EmbeddingsClient]
+        try:
+            from azure.ai.inference.aio import (
+                ChatCompletionsClient as AsyncChatCompletionsClient,
+                EmbeddingsClient as AsyncEmbeddingsClient,
+            )
+
+            clients.extend([AsyncChatCompletionsClient, AsyncEmbeddingsClient])
+        except ImportError:  # pragma: no cover
+            pass
+        client = clients
+
     if isinstance(client, (tuple, list)):
         context_managers = [
             instrument_azure_ai_inference(logfire_instance, c, suppress_other_instrumentation) for c in client

@@ -1184,3 +1184,14 @@ def test_message_conversion_with_tool_messages() -> None:
     assert tool_resp['type'] == 'tool_call_response'
     assert tool_resp['id'] == 'call_1'
     assert tool_resp['response'] == '72F'
+
+
+def test_global_instrumentation() -> None:
+    """Test passing None instruments all client classes via the integration module."""
+    from logfire._internal.integrations.llm_providers.azure_ai_inference import instrument_azure_ai_inference
+
+    # Call with client=None so the integration module resolves client classes itself
+    cm = instrument_azure_ai_inference(logfire.DEFAULT_LOGFIRE_INSTANCE, None, True)
+    # Just verify it returns a context manager without error
+    with cm:
+        pass

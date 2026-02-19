@@ -79,6 +79,14 @@ if TYPE_CHECKING:
     import openai
     import pydantic_ai.models
     import requests
+    from azure.ai.inference import (
+        ChatCompletionsClient as AzureChatCompletionsClient,
+        EmbeddingsClient as AzureEmbeddingsClient,
+    )
+    from azure.ai.inference.aio import (
+        ChatCompletionsClient as AsyncAzureChatCompletionsClient,
+        EmbeddingsClient as AsyncAzureEmbeddingsClient,
+    )
     from django.http import HttpRequest, HttpResponse
     from fastapi import FastAPI
     from flask.app import Flask
@@ -1391,7 +1399,17 @@ class Logfire:
 
     def instrument_azure_ai_inference(
         self,
-        azure_ai_inference_client: Any = None,
+        azure_ai_inference_client: (
+            AzureChatCompletionsClient
+            | AzureEmbeddingsClient
+            | AsyncAzureChatCompletionsClient
+            | AsyncAzureEmbeddingsClient
+            | type[AzureChatCompletionsClient]
+            | type[AzureEmbeddingsClient]
+            | type[AsyncAzureChatCompletionsClient]
+            | type[AsyncAzureEmbeddingsClient]
+            | None
+        ) = None,
         *,
         suppress_other_instrumentation: bool = True,
     ) -> AbstractContextManager[None]:
@@ -1440,33 +1458,9 @@ class Logfire:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
         """
-        try:
-            from azure.ai.inference import ChatCompletionsClient, EmbeddingsClient
-        except ImportError:  # pragma: no cover
-            raise RuntimeError(
-                'The `logfire.instrument_azure_ai_inference()` method '
-                'requires the `azure-ai-inference` package.\n'
-                'You can install this with:\n'
-                "    pip install 'logfire[azure-ai-inference]'"
-            )
-
         from .integrations.llm_providers.azure_ai_inference import instrument_azure_ai_inference
 
         self._warn_if_not_initialized_for_instrumentation()
-
-        if azure_ai_inference_client is None:
-            clients_to_instrument: list[Any] = [ChatCompletionsClient, EmbeddingsClient]
-            try:
-                from azure.ai.inference.aio import (
-                    ChatCompletionsClient as AsyncChatCompletionsClient,
-                    EmbeddingsClient as AsyncEmbeddingsClient,
-                )
-
-                clients_to_instrument.extend([AsyncChatCompletionsClient, AsyncEmbeddingsClient])
-            except ImportError:  # pragma: no cover
-                pass
-            azure_ai_inference_client = clients_to_instrument
-
         return instrument_azure_ai_inference(
             self,
             azure_ai_inference_client,
