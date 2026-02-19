@@ -7,7 +7,7 @@ description: "Export managed datasets and run evaluations with pydantic-evals."
 
 !!! warning "Experimental Feature"
 
-    Managed datasets are an experimental feature currently gated behind a feature flag. Reach out to us on [Slack](https://logfire.pydantic.dev/docs/join-slack/) or [contact us](../../../help.md) to learn how to enable it for your project.
+    Managed datasets are an experimental feature currently gated behind a feature flag. Reach out to us on [Slack](https://logfire.pydantic.dev/docs/join-slack/) or [contact us](../../help.md) to learn how to enable it for your project.
 
 Once you have a managed dataset (created via the [Web UI](ui.md) or [SDK](sdk.md)), you can export it as a typed `pydantic_evals.Dataset` and use it to evaluate your AI system.
 
@@ -105,7 +105,7 @@ async def run_evaluation():
 
 ## Viewing Results in the Evals Tab
 
-With Logfire tracing enabled, the evaluation results appear automatically in the [Evals](../evals.md) tab, where you can compare experiments and analyze performance over time.
+With Logfire tracing enabled, the evaluation results appear automatically in the [Evals](../../guides/web-ui/evals.md) tab, where you can compare experiments and analyze performance over time.
 
 ## The Evaluation Workflow
 
