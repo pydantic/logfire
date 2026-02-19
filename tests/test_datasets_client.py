@@ -18,6 +18,7 @@ try:
 except (ImportError, AttributeError):
     pytest.skip('pydantic_evals not compatible with this environment', allow_module_level=True)
 
+import logfire.experimental.datasets as datasets_module
 from logfire.experimental.api_client import (
     AsyncLogfireAPIClient,
     CaseNotFoundError,
@@ -232,6 +233,12 @@ class TestSerializeCase:
         result = _serialize_case(case)
         assert result == {'inputs': {'question': 'hi'}, 'evaluators': []}
 
+    def test_none_evaluators(self):
+        case: Case[MyInput, MyOutput, Any] = Case(inputs=MyInput(question='hi'))
+        case.evaluators = None  # type: ignore[assignment]
+        result = _serialize_case(case)
+        assert result == {'inputs': {'question': 'hi'}}
+
     def test_full_case(self):
         @dataclass
         class MyEval:
@@ -287,6 +294,16 @@ class TestImportPydanticEvals:
         with patch.dict('sys.modules', {'pydantic_evals': None}):
             with pytest.raises(ImportError, match='pydantic-evals is required'):
                 _import_pydantic_evals()
+
+
+class TestDatasetsModuleReexports:
+    def test_reexports(self):
+        """Verify that logfire.experimental.datasets re-exports from api_client."""
+        assert datasets_module.LogfireAPIClient is LogfireAPIClient
+        assert datasets_module.AsyncLogfireAPIClient is AsyncLogfireAPIClient
+        assert datasets_module.DatasetNotFoundError is DatasetNotFoundError
+        assert datasets_module.CaseNotFoundError is CaseNotFoundError
+        assert datasets_module.DatasetApiError is DatasetApiError
 
 
 class TestValidateDatasetName:
