@@ -183,6 +183,12 @@ nav:
           - Detect Service is Down: how-to-guides/detect-service-is-down.md
       - Evaluate:
           - Evals: guides/web-ui/evals.md
+          - Datasets:
+              - Datasets: evaluate/datasets/index.md
+              - Web UI Guide: evaluate/datasets/ui.md
+              - SDK Guide: evaluate/datasets/sdk.md
+              - Running Evaluations: evaluate/datasets/evaluations.md
+              - SDK Reference: evaluate/datasets/sdk-reference.md
       - Manage & Configure:
           - Organizations & Projects: guides/web-ui/organizations-and-projects.md
           - Configuration: reference/configuration.md
@@ -435,6 +441,7 @@ plugins:
           - how-to-guides/detect-service-is-down.md
         Evaluate:
           - guides/web-ui/evals.md
+          - evaluate/datasets/*.md
         Manage & Configure:
           - guides/web-ui/organizations-and-projects.md
           - reference/configuration.md

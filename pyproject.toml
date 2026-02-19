@@ -83,6 +83,7 @@ aws-lambda = ["opentelemetry-instrumentation-aws-lambda >= 0.42b0"]
 google-genai = ["opentelemetry-instrumentation-google-genai >= 0.4b0"]
 litellm = ["openinference-instrumentation-litellm >= 0"]
 dspy = ["openinference-instrumentation-dspy >= 0"]
+datasets = ["httpx>=0.27.2", "pydantic>=2", "pydantic-evals>=1.0.0; python_version >= '3.10'"]
 variables = ["pydantic>=2"]
 
 [project.urls]
@@ -181,6 +182,7 @@ dev = [
     "pytest-xdist>=3.6.1",
     "openai-agents[voice]>=0.9.0; python_version >= '3.10'",
     "pydantic-ai-slim>=0.0.39",
+    "pydantic-evals>=1.0.0; python_version >= '3.10'",
     "langchain>=0.0.27",
     "langchain-openai>=0.3.17",
     "langgraph >= 0",
