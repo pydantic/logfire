@@ -79,7 +79,9 @@ def test_instrument_claude_agent_sdk():
                 'gen_ai.completion': '{"content":[{"type":"text","text":"The weather in Berlin is currently **cloudy** with a temperature of **59°F** (about 15°C). It\'s a fairly mild day! If you\'re planning to go out, you might want to bring a light jacket. Is there anything else you\'d like to know about Berlin or any other destination?"}],"role":"assistant"}',
             },
             {
-                'all_messages_events': '[{"content": "What\'s the weather like in Berlin?", "role": "user"}, {"content": [{"type": "tool_use", "id": "toolu_012C5v8vaaTnK3WqX9FHhvmE", "name": "mcp__weather__get_weather", "input": {"city": "Berlin"}}], "role": "assistant"}, {"role": "tool", "content": "Weather in Berlin: Cloudy, 59\\u00b0F", "id": "toolu_012C5v8vaaTnK3WqX9FHhvmE", "name": ""}, {"content": [{"type": "text", "text": "The weather in Berlin is currently **cloudy** with a temperature of **59\\u00b0F** (about 15\\u00b0C). It\'s a fairly mild day! If you\'re planning to go out, you might want to bring a light jacket. Is there anything else you\'d like to know about Berlin or any other destination?"}], "role": "assistant"}]'
+                'gen_ai.system': 'anthropic',
+                'gen_ai.provider.name': 'anthropic',
+                'all_messages_events': '[{"content": "What\'s the weather like in Berlin?", "role": "user"}, {"content": [{"type": "tool_use", "id": "toolu_012C5v8vaaTnK3WqX9FHhvmE", "name": "mcp__weather__get_weather", "input": {"city": "Berlin"}}], "role": "assistant"}, {"role": "tool", "content": "Weather in Berlin: Cloudy, 59\\u00b0F", "id": "toolu_012C5v8vaaTnK3WqX9FHhvmE", "name": ""}, {"content": [{"type": "text", "text": "The weather in Berlin is currently **cloudy** with a temperature of **59\\u00b0F** (about 15\\u00b0C). It\'s a fairly mild day! If you\'re planning to go out, you might want to bring a light jacket. Is there anything else you\'d like to know about Berlin or any other destination?"}], "role": "assistant"}]',
             },
         )
     )
@@ -137,7 +139,9 @@ def test_instrument_claude_agent_sdk():
                 'gen_ai.completion': '{"content":[{"type":"tool_use","id":"toolu_012C5v8vaaTnK3WqX9FHhvmE","name":"mcp__weather__get_weather","input":{"city":"Berlin"}}],"role":"assistant"}',
             },
             {
-                'all_messages_events': '[{"content": "What\'s the weather like in Berlin?", "role": "user"}, {"content": [{"type": "tool_use", "id": "toolu_012C5v8vaaTnK3WqX9FHhvmE", "name": "mcp__weather__get_weather", "input": {"city": "Berlin"}}], "role": "assistant"}]'
+                'gen_ai.system': 'anthropic',
+                'gen_ai.provider.name': 'anthropic',
+                'all_messages_events': '[{"content": "What\'s the weather like in Berlin?", "role": "user"}, {"content": [{"type": "tool_use", "id": "toolu_012C5v8vaaTnK3WqX9FHhvmE", "name": "mcp__weather__get_weather", "input": {"city": "Berlin"}}], "role": "assistant"}]',
             },
         )
     )
