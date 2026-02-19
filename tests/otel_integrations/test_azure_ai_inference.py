@@ -171,7 +171,7 @@ async def _async_iter(items: list[Any]) -> Any:
 
 def test_sync_chat(exporter: TestExporter) -> None:
     client = MockChatCompletionsClient()
-    with logfire.instrument_azure_ai_inference(client, version=[1, 'latest']):
+    with logfire.instrument_azure_ai_inference(client):
         response = client.complete(
             model='gpt-4',
             messages=[
@@ -193,14 +193,7 @@ def test_sync_chat(exporter: TestExporter) -> None:
                     'code.filepath': 'test_azure_ai_inference.py',
                     'code.function': 'test_sync_chat',
                     'code.lineno': 123,
-                    'request_data': {
-                        'model': 'gpt-4',
-                        'messages': [
-                            {'role': 'system', 'content': 'You are helpful.'},
-                            {'role': 'user', 'content': 'What is four plus five?'},
-                        ],
-                        'temperature': 0.5,
-                    },
+                    'request_data': {'model': 'gpt-4'},
                     'gen_ai.provider.name': 'azure.ai.inference',
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.request.model': 'gpt-4',
@@ -213,10 +206,6 @@ def test_sync_chat(exporter: TestExporter) -> None:
                     'logfire.msg': "Chat completion with 'gpt-4'",
                     'logfire.tags': ('LLM',),
                     'logfire.span_type': 'span',
-                    'response_data': {
-                        'message': {'role': 'assistant', 'content': 'Nine'},
-                        'usage': {'prompt_tokens': 10, 'completion_tokens': 5, 'total_tokens': 15},
-                    },
                     'gen_ai.output.messages': [
                         {
                             'role': 'assistant',
@@ -239,22 +228,6 @@ def test_sync_chat(exporter: TestExporter) -> None:
                             'gen_ai.request.temperature': {},
                             'gen_ai.input.messages': {'type': 'array'},
                             'gen_ai.system_instructions': {'type': 'array'},
-                            'response_data': {
-                                'type': 'object',
-                                'properties': {
-                                    'message': {
-                                        'type': 'object',
-                                        'properties': {
-                                            'role': {
-                                                'type': 'string',
-                                                'title': 'ChatRole',
-                                                'x-python-datatype': 'Enum',
-                                                'enum': ['system', 'user', 'assistant', 'tool', 'developer'],
-                                            }
-                                        },
-                                    }
-                                },
-                            },
                             'gen_ai.output.messages': {
                                 'type': 'array',
                                 'items': {
@@ -284,7 +257,7 @@ def test_sync_chat(exporter: TestExporter) -> None:
 
 def test_sync_chat_streaming(exporter: TestExporter) -> None:
     client = MockChatCompletionsClient()
-    with logfire.instrument_azure_ai_inference(client, version=[1, 'latest']):
+    with logfire.instrument_azure_ai_inference(client):
         response = client.complete(
             model='gpt-4',
             messages=[{'role': 'user', 'content': 'Tell me a secret'}],
@@ -304,10 +277,7 @@ def test_sync_chat_streaming(exporter: TestExporter) -> None:
                     'code.filepath': 'test_azure_ai_inference.py',
                     'code.function': 'test_sync_chat_streaming',
                     'code.lineno': 123,
-                    'request_data': {
-                        'model': 'gpt-4',
-                        'messages': [{'role': 'user', 'content': "[Scrubbed due to 'secret']"}],
-                    },
+                    'request_data': {'model': 'gpt-4'},
                     'gen_ai.provider.name': 'azure.ai.inference',
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.request.model': 'gpt-4',
@@ -329,12 +299,6 @@ def test_sync_chat_streaming(exporter: TestExporter) -> None:
                     'logfire.tags': ('LLM',),
                     'logfire.span_type': 'span',
                     'gen_ai.response.model': 'gpt-4',
-                    'logfire.scrubbed': [
-                        {
-                            'path': ['attributes', 'request_data', 'messages', 0, 'content'],
-                            'matched_substring': 'secret',
-                        }
-                    ],
                 },
             },
             {
@@ -352,17 +316,13 @@ def test_sync_chat_streaming(exporter: TestExporter) -> None:
                     'code.function': 'test_sync_chat_streaming',
                     'code.lineno': 123,
                     'duration': 1.0,
-                    'request_data': {
-                        'model': 'gpt-4',
-                        'messages': [{'role': 'user', 'content': "[Scrubbed due to 'secret']"}],
-                    },
+                    'request_data': {'model': 'gpt-4'},
                     'gen_ai.provider.name': 'azure.ai.inference',
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.input.messages': [
                         {'role': 'user', 'parts': [{'type': 'text', 'content': 'Tell me a secret'}]}
                     ],
-                    'response_data': {'combined_chunk_content': "[Scrubbed due to 'secret']", 'chunk_count': 2},
                     'gen_ai.output.messages': [
                         {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'The answer is secret'}]}
                     ],
@@ -375,22 +335,11 @@ def test_sync_chat_streaming(exporter: TestExporter) -> None:
                             'gen_ai.operation.name': {},
                             'gen_ai.request.model': {},
                             'gen_ai.input.messages': {'type': 'array'},
-                            'response_data': {'type': 'object'},
                             'gen_ai.output.messages': {'type': 'array'},
                         },
                     },
                     'logfire.tags': ('LLM',),
                     'gen_ai.response.model': 'gpt-4',
-                    'logfire.scrubbed': [
-                        {
-                            'path': ['attributes', 'request_data', 'messages', 0, 'content'],
-                            'matched_substring': 'secret',
-                        },
-                        {
-                            'path': ['attributes', 'response_data', 'combined_chunk_content'],
-                            'matched_substring': 'secret',
-                        },
-                    ],
                 },
             },
         ]
@@ -399,7 +348,7 @@ def test_sync_chat_streaming(exporter: TestExporter) -> None:
 
 def test_sync_chat_tool_calls(exporter: TestExporter) -> None:
     client = MockChatCompletionsClient(response=_make_tool_response())
-    with logfire.instrument_azure_ai_inference(client, version=[1, 'latest']):
+    with logfire.instrument_azure_ai_inference(client):
         client.complete(
             model='gpt-4',
             messages=[{'role': 'user', 'content': 'What is the weather?'}],
@@ -407,13 +356,6 @@ def test_sync_chat_tool_calls(exporter: TestExporter) -> None:
     spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
     assert len(spans) == 1
     attrs = spans[0]['attributes']
-    # Check tool calls in response_data
-    assert attrs['response_data']['message']['tool_calls'] == [
-        {
-            'id': 'call_1',
-            'function': {'name': 'get_weather', 'arguments': '{"city": "London"}'},
-        }
-    ]
     # Check tool calls in semconv output
     output_msgs = attrs['gen_ai.output.messages']
     assert len(output_msgs) == 1
@@ -425,7 +367,7 @@ def test_sync_chat_tool_calls(exporter: TestExporter) -> None:
 @pytest.mark.anyio
 async def test_async_chat(exporter: TestExporter) -> None:
     client = MockAsyncChatCompletionsClient()
-    with logfire.instrument_azure_ai_inference(client, version=[1, 'latest']):
+    with logfire.instrument_azure_ai_inference(client):
         response = await client.complete(
             model='gpt-4',
             messages=[{'role': 'user', 'content': 'What is four plus five?'}],
@@ -440,7 +382,7 @@ async def test_async_chat(exporter: TestExporter) -> None:
 @pytest.mark.anyio
 async def test_async_chat_streaming(exporter: TestExporter) -> None:
     client = MockAsyncChatCompletionsClient()
-    with logfire.instrument_azure_ai_inference(client, version=[1, 'latest']):
+    with logfire.instrument_azure_ai_inference(client):
         response = await client.complete(
             model='gpt-4',
             messages=[{'role': 'user', 'content': 'Tell me a secret'}],
@@ -454,12 +396,11 @@ async def test_async_chat_streaming(exporter: TestExporter) -> None:
     assert spans[0]['attributes']['logfire.msg'] == "Chat completion with 'gpt-4'"
     # Second span: streaming info
     assert 'streaming response from' in spans[1]['attributes']['logfire.msg']
-    assert spans[1]['attributes']['response_data']['combined_chunk_content'] == "[Scrubbed due to 'secret']"
 
 
 def test_sync_embeddings(exporter: TestExporter) -> None:
     client = MockEmbeddingsClient()
-    with logfire.instrument_azure_ai_inference(client, version=[1, 'latest']):
+    with logfire.instrument_azure_ai_inference(client):
         response = client.embed(
             model='text-embedding-ada-002',
             input=['Hello world'],
@@ -473,16 +414,12 @@ def test_sync_embeddings(exporter: TestExporter) -> None:
     assert attrs['gen_ai.request.model'] == 'text-embedding-ada-002'
     assert attrs['gen_ai.response.model'] == 'text-embedding-ada-002'
     assert attrs['gen_ai.usage.input_tokens'] == 5
-    assert attrs['response_data'] == {
-        'usage': {'prompt_tokens': 5, 'total_tokens': 5},
-        'data_count': 1,
-    }
 
 
 @pytest.mark.anyio
 async def test_async_embeddings(exporter: TestExporter) -> None:
     client = MockAsyncEmbeddingsClient()
-    with logfire.instrument_azure_ai_inference(client, version=[1, 'latest']):
+    with logfire.instrument_azure_ai_inference(client):
         response = await client.embed(
             model='text-embedding-ada-002',
             input=['Hello world'],
@@ -495,7 +432,7 @@ async def test_async_embeddings(exporter: TestExporter) -> None:
 
 def test_uninstrumentation(exporter: TestExporter) -> None:
     client = MockChatCompletionsClient()
-    with logfire.instrument_azure_ai_inference(client, version=1):
+    with logfire.instrument_azure_ai_inference(client):
         client.complete(model='gpt-4', messages=[{'role': 'user', 'content': 'Hi'}])
         assert len(exporter.exported_spans_as_dict()) == 1
 
@@ -507,8 +444,8 @@ def test_uninstrumentation(exporter: TestExporter) -> None:
 
 def test_double_instrumentation(exporter: TestExporter) -> None:
     client = MockChatCompletionsClient()
-    with logfire.instrument_azure_ai_inference(client, version=1):
-        with logfire.instrument_azure_ai_inference(client, version=1):
+    with logfire.instrument_azure_ai_inference(client):
+        with logfire.instrument_azure_ai_inference(client):
             client.complete(model='gpt-4', messages=[{'role': 'user', 'content': 'Hi'}])
     # Should only produce one span (not double-instrumented)
     assert len(exporter.exported_spans_as_dict()) == 1

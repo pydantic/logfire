@@ -39,7 +39,6 @@ from .semconv import (
     OutputMessage,
     OutputMessages,
     Role,
-    SemconvVersion,
     SystemInstructions,
     TextPart,
     ToolCallPart,
@@ -62,12 +61,11 @@ def instrument_azure_ai_inference(
     logfire_instance: Logfire,
     client: Any,
     suppress_other_instrumentation: bool,
-    versions: frozenset[SemconvVersion],
 ) -> AbstractContextManager[None]:
     """Instrument Azure AI Inference clients."""
     if isinstance(client, (tuple, list)):
         context_managers = [
-            instrument_azure_ai_inference(logfire_instance, c, suppress_other_instrumentation, versions) for c in client
+            instrument_azure_ai_inference(logfire_instance, c, suppress_other_instrumentation) for c in client
         ]
 
         @contextmanager
@@ -96,16 +94,12 @@ def instrument_azure_ai_inference(
         method_name = 'complete'
         original = client.complete
         client._original_logfire_method = original
-        client.complete = _make_instrumented_complete(
-            original, logfire_llm, suppress_other_instrumentation, versions, is_async
-        )
+        client.complete = _make_instrumented_complete(original, logfire_llm, suppress_other_instrumentation, is_async)
     else:
         method_name = 'embed'
         original = client.embed
         client._original_logfire_method = original
-        client.embed = _make_instrumented_embed(
-            original, logfire_llm, suppress_other_instrumentation, versions, is_async
-        )
+        client.embed = _make_instrumented_embed(original, logfire_llm, suppress_other_instrumentation, is_async)
 
     @contextmanager
     def uninstrument() -> Iterator[None]:
@@ -142,7 +136,6 @@ def _make_instrumented_complete(
     original: Any,
     logfire_llm: Logfire,
     suppress: bool,
-    versions: frozenset[SemconvVersion],
     is_async: bool,
 ) -> Any:
     if is_async:
@@ -151,7 +144,7 @@ def _make_instrumented_complete(
             if is_instrumentation_suppressed():
                 return await original(*args, **kwargs)
             try:
-                span_data = _build_chat_span_data(args, kwargs, versions)
+                span_data = _build_chat_span_data(args, kwargs)
             except Exception:
                 log_internal_error()
                 return await original(*args, **kwargs)
@@ -171,8 +164,8 @@ def _make_instrumented_complete(
                     response = await original(*args, **kwargs)
 
                 if is_streaming:
-                    return _AsyncStreamWrapper(response, logfire_llm, span_data, versions, original_context)
-                _on_chat_response(response, span, versions)
+                    return _AsyncStreamWrapper(response, logfire_llm, span_data, original_context)
+                _on_chat_response(response, span, span_data)
                 return response
 
         return instrumented_complete
@@ -182,7 +175,7 @@ def _make_instrumented_complete(
             if is_instrumentation_suppressed():
                 return original(*args, **kwargs)
             try:
-                span_data = _build_chat_span_data(args, kwargs, versions)
+                span_data = _build_chat_span_data(args, kwargs)
             except Exception:
                 log_internal_error()
                 return original(*args, **kwargs)
@@ -202,8 +195,8 @@ def _make_instrumented_complete(
                     response = original(*args, **kwargs)
 
                 if is_streaming:
-                    return _SyncStreamWrapper(response, logfire_llm, span_data, versions, original_context)
-                _on_chat_response(response, span, versions)
+                    return _SyncStreamWrapper(response, logfire_llm, span_data, original_context)
+                _on_chat_response(response, span, span_data)
                 return response
 
         return instrumented_complete_sync
@@ -213,7 +206,6 @@ def _make_instrumented_embed(
     original: Any,
     logfire_llm: Logfire,
     suppress: bool,
-    versions: frozenset[SemconvVersion],
     is_async: bool,
 ) -> Any:
     if is_async:
@@ -222,7 +214,7 @@ def _make_instrumented_embed(
             if is_instrumentation_suppressed():
                 return await original(*args, **kwargs)
             try:
-                span_data = _build_embed_span_data(args, kwargs, versions)
+                span_data = _build_embed_span_data(args, kwargs)
             except Exception:
                 log_internal_error()
                 return await original(*args, **kwargs)
@@ -237,7 +229,7 @@ def _make_instrumented_embed(
                         response = await original(*args, **kwargs)
                 else:
                     response = await original(*args, **kwargs)
-                _on_embed_response(response, span, versions)
+                _on_embed_response(response, span, span_data)
                 return response
 
         return instrumented_embed
@@ -247,7 +239,7 @@ def _make_instrumented_embed(
             if is_instrumentation_suppressed():
                 return original(*args, **kwargs)
             try:
-                span_data = _build_embed_span_data(args, kwargs, versions)
+                span_data = _build_embed_span_data(args, kwargs)
             except Exception:
                 log_internal_error()
                 return original(*args, **kwargs)
@@ -262,7 +254,7 @@ def _make_instrumented_embed(
                         response = original(*args, **kwargs)
                 else:
                     response = original(*args, **kwargs)
-                _on_embed_response(response, span, versions)
+                _on_embed_response(response, span, span_data)
                 return response
 
         return instrumented_embed_sync
@@ -274,25 +266,13 @@ def _make_instrumented_embed(
 def _build_chat_span_data(
     args: tuple[Any, ...],
     kwargs: dict[str, Any],
-    versions: frozenset[SemconvVersion],
 ) -> dict[str, Any]:
     params = _extract_params(args, kwargs)
     messages = params.get('messages', [])
     model = params.get('model')
 
-    request_data: dict[str, Any] = {'model': model}
-    if 1 in versions:
-        if messages:
-            request_data['messages'] = [_msg_to_dict(m) for m in messages]
-        for key in ('temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty', 'seed', 'stop'):
-            val = params.get(key)
-            if val is not None:
-                request_data[key] = val
-        if (tools := params.get('tools')) is not None:
-            request_data['tools'] = [t if isinstance(t, dict) else t.as_dict() for t in tools]
-
     span_data: dict[str, Any] = {
-        'request_data': request_data,
+        'request_data': {'model': model},
         PROVIDER_NAME: AZURE_PROVIDER,
         OPERATION_NAME: 'chat',
     }
@@ -301,7 +281,7 @@ def _build_chat_span_data(
 
     _extract_request_parameters(params, span_data)
 
-    if 'latest' in versions and messages:
+    if messages:
         input_messages, system_instructions = convert_messages_to_semconv(messages)
         span_data[INPUT_MESSAGES] = input_messages
         if system_instructions:
@@ -313,19 +293,12 @@ def _build_chat_span_data(
 def _build_embed_span_data(
     args: tuple[Any, ...],
     kwargs: dict[str, Any],
-    versions: frozenset[SemconvVersion],
 ) -> dict[str, Any]:
     params = _extract_params(args, kwargs)
     model = params.get('model')
 
-    request_data: dict[str, Any] = {'model': model}
-    if 1 in versions:
-        input_val = params.get('input')
-        if input_val is not None:
-            request_data['input'] = input_val
-
     span_data: dict[str, Any] = {
-        'request_data': request_data,
+        'request_data': {'model': model},
         PROVIDER_NAME: AZURE_PROVIDER,
         OPERATION_NAME: 'embeddings',
     }
@@ -367,45 +340,29 @@ def _extract_request_parameters(params: dict[str, Any], span_data: dict[str, Any
 # --- Response processors ---
 
 
+def _backfill_model(response: Any, span: LogfireSpan, span_data: dict[str, Any]) -> None:
+    """If the request model was None, backfill it from the response model."""
+    model = getattr(response, 'model', None)
+    if not model:
+        return
+    request_data = span_data.get('request_data')
+    if not isinstance(request_data, dict) or request_data.get('model') is not None:
+        return
+    request_data['model'] = model
+    span.set_attribute('request_data', request_data)
+    span.set_attribute(REQUEST_MODEL, model)
+    span.message = span.message.replace('None', repr(model))
+
+
 @handle_internal_errors
-def _on_chat_response(response: Any, span: LogfireSpan, versions: frozenset[SemconvVersion]) -> None:
+def _on_chat_response(response: Any, span: LogfireSpan, span_data: dict[str, Any]) -> None:
+    _backfill_model(response, span, span_data)
     choices = getattr(response, 'choices', [])
     usage = getattr(response, 'usage', None)
 
-    if 1 in versions:
-        response_data: dict[str, Any] = {}
-        if choices:
-            message = getattr(choices[0], 'message', None)
-            if message:
-                msg_data: dict[str, Any] = {'role': getattr(message, 'role', 'assistant')}
-                content = getattr(message, 'content', None)
-                if content:
-                    msg_data['content'] = content
-                tool_calls = getattr(message, 'tool_calls', None)
-                if tool_calls:
-                    msg_data['tool_calls'] = [
-                        {
-                            'id': getattr(tc, 'id', ''),
-                            'function': {
-                                'name': getattr(getattr(tc, 'function', None), 'name', ''),
-                                'arguments': getattr(getattr(tc, 'function', None), 'arguments', ''),
-                            },
-                        }
-                        for tc in tool_calls
-                    ]
-                response_data['message'] = msg_data
-        if usage:
-            response_data['usage'] = {
-                'prompt_tokens': getattr(usage, 'prompt_tokens', 0),
-                'completion_tokens': getattr(usage, 'completion_tokens', 0),
-                'total_tokens': getattr(usage, 'total_tokens', 0),
-            }
-        span.set_attribute('response_data', response_data)
-
-    if 'latest' in versions:
-        output_messages = convert_response_to_semconv(response)
-        if output_messages:
-            span.set_attribute(OUTPUT_MESSAGES, output_messages)
+    output_messages = convert_response_to_semconv(response)
+    if output_messages:
+        span.set_attribute(OUTPUT_MESSAGES, output_messages)
 
     model = getattr(response, 'model', None)
     if model:
@@ -429,20 +386,9 @@ def _on_chat_response(response: Any, span: LogfireSpan, versions: frozenset[Semc
 
 
 @handle_internal_errors
-def _on_embed_response(response: Any, span: LogfireSpan, versions: frozenset[SemconvVersion]) -> None:
+def _on_embed_response(response: Any, span: LogfireSpan, span_data: dict[str, Any]) -> None:
+    _backfill_model(response, span, span_data)
     usage = getattr(response, 'usage', None)
-
-    if 1 in versions:
-        response_data: dict[str, Any] = {}
-        if usage:
-            response_data['usage'] = {
-                'prompt_tokens': getattr(usage, 'prompt_tokens', 0),
-                'total_tokens': getattr(usage, 'total_tokens', 0),
-            }
-        data = getattr(response, 'data', None)
-        if data:
-            response_data['data_count'] = len(data)
-        span.set_attribute('response_data', response_data)
 
     model = getattr(response, 'model', None)
     if model:
@@ -459,15 +405,6 @@ def _on_embed_response(response: Any, span: LogfireSpan, versions: frozenset[Sem
 
 
 # --- Message conversion ---
-
-
-def _msg_to_dict(msg: Any) -> dict[str, Any]:
-    """Convert an Azure message object or dict to a plain dict."""
-    if isinstance(msg, dict):
-        return msg
-    if hasattr(msg, 'as_dict'):
-        return msg.as_dict()
-    return {}  # pragma: no cover
 
 
 def convert_messages_to_semconv(messages: list[Any]) -> tuple[InputMessages, SystemInstructions]:
@@ -526,6 +463,15 @@ def convert_messages_to_semconv(messages: list[Any]) -> tuple[InputMessages, Sys
         input_messages.append(ChatMessage(role=chat_role, parts=parts))
 
     return input_messages, system_instructions
+
+
+def _msg_to_dict(msg: Any) -> dict[str, Any]:
+    """Convert an Azure message object or dict to a plain dict."""
+    if isinstance(msg, dict):
+        return msg
+    if hasattr(msg, 'as_dict'):
+        return msg.as_dict()
+    return {}  # pragma: no cover
 
 
 def _convert_content_item(item: Any) -> MessagePart:
@@ -604,13 +550,11 @@ class _SyncStreamWrapper:
         wrapped: Any,
         logfire_llm: Logfire,
         span_data: dict[str, Any],
-        versions: frozenset[SemconvVersion],
         original_context: Any,
     ) -> None:
         self._wrapped = wrapped
         self._logfire_llm = logfire_llm
         self._span_data = span_data
-        self._versions = versions
         self._original_context = original_context
         self._chunks: list[str] = []
 
@@ -640,6 +584,11 @@ class _SyncStreamWrapper:
                 )
 
     def _record_chunk(self, chunk: Any) -> None:
+        if self._span_data.get('request_data', {}).get('model') is None:
+            model = getattr(chunk, 'model', None)
+            if model:
+                self._span_data['request_data']['model'] = model
+                self._span_data[REQUEST_MODEL] = model
         for choice in getattr(chunk, 'choices', []):
             delta = getattr(choice, 'delta', None)
             if delta:
@@ -650,12 +599,7 @@ class _SyncStreamWrapper:
     def _get_stream_attributes(self) -> dict[str, Any]:
         result = dict(**self._span_data)
         combined = ''.join(self._chunks)
-        if 1 in self._versions:
-            result['response_data'] = {
-                'combined_chunk_content': combined,
-                'chunk_count': len(self._chunks),
-            }
-        if 'latest' in self._versions and self._chunks:
+        if self._chunks:
             result[OUTPUT_MESSAGES] = [
                 OutputMessage(
                     role='assistant',
@@ -673,13 +617,11 @@ class _AsyncStreamWrapper:
         wrapped: Any,
         logfire_llm: Logfire,
         span_data: dict[str, Any],
-        versions: frozenset[SemconvVersion],
         original_context: Any,
     ) -> None:
         self._wrapped = wrapped
         self._logfire_llm = logfire_llm
         self._span_data = span_data
-        self._versions = versions
         self._original_context = original_context
         self._chunks: list[str] = []
 
@@ -709,6 +651,11 @@ class _AsyncStreamWrapper:
                 )
 
     def _record_chunk(self, chunk: Any) -> None:
+        if self._span_data.get('request_data', {}).get('model') is None:
+            model = getattr(chunk, 'model', None)
+            if model:
+                self._span_data['request_data']['model'] = model
+                self._span_data[REQUEST_MODEL] = model
         for choice in getattr(chunk, 'choices', []):
             delta = getattr(choice, 'delta', None)
             if delta:
@@ -719,12 +666,7 @@ class _AsyncStreamWrapper:
     def _get_stream_attributes(self) -> dict[str, Any]:
         result = dict(**self._span_data)
         combined = ''.join(self._chunks)
-        if 1 in self._versions:
-            result['response_data'] = {
-                'combined_chunk_content': combined,
-                'chunk_count': len(self._chunks),
-            }
-        if 'latest' in self._versions and self._chunks:
+        if self._chunks:
             result[OUTPUT_MESSAGES] = [
                 OutputMessage(
                     role='assistant',
