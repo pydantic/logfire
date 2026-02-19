@@ -451,6 +451,221 @@ def test_double_instrumentation(exporter: TestExporter) -> None:
     assert len(exporter.exported_spans_as_dict()) == 1
 
 
+def test_no_model_backfill(exporter: TestExporter) -> None:
+    """When request has no model, backfill from response."""
+    client = MockChatCompletionsClient()
+    with logfire.instrument_azure_ai_inference(client):
+        client.complete(
+            messages=[{'role': 'user', 'content': 'Hi'}],
+        )
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) == 1
+    attrs = spans[0]['attributes']
+    # Model backfilled from response
+    assert attrs['logfire.msg'] == "Chat completion with 'gpt-4'"
+    assert attrs['gen_ai.request.model'] == 'gpt-4'
+    assert attrs['gen_ai.response.model'] == 'gpt-4'
+
+
+def test_no_model_streaming_backfill(exporter: TestExporter) -> None:
+    """When streaming request has no model, backfill from first chunk."""
+    client = MockChatCompletionsClient()
+    with logfire.instrument_azure_ai_inference(client):
+        response = client.complete(
+            messages=[{'role': 'user', 'content': 'Hi'}],
+            stream=True,
+        )
+        list(response)
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) == 2
+    # Streaming info span should have model from chunks
+    assert spans[1]['attributes']['request_data']['model'] == 'gpt-4'
+    assert spans[1]['attributes']['gen_ai.request.model'] == 'gpt-4'
+
+
+@pytest.mark.anyio
+async def test_no_model_async_streaming_backfill(exporter: TestExporter) -> None:
+    """When async streaming request has no model, backfill from first chunk."""
+    client = MockAsyncChatCompletionsClient()
+    with logfire.instrument_azure_ai_inference(client):
+        response = await client.complete(
+            messages=[{'role': 'user', 'content': 'Hi'}],
+            stream=True,
+        )
+        async for _ in response:
+            pass
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) == 2
+    assert spans[1]['attributes']['request_data']['model'] == 'gpt-4'
+
+
+def test_no_model_embed_backfill(exporter: TestExporter) -> None:
+    """When embed request has no model, backfill from response."""
+    client = MockEmbeddingsClient()
+    with logfire.instrument_azure_ai_inference(client):
+        client.embed(input=['Hello'])
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) == 1
+    attrs = spans[0]['attributes']
+    assert attrs['logfire.msg'] == "Embeddings with 'text-embedding-ada-002'"
+    assert attrs['gen_ai.request.model'] == 'text-embedding-ada-002'
+
+
+@pytest.mark.anyio
+async def test_no_model_async_embed_backfill(exporter: TestExporter) -> None:
+    """When async embed request has no model, backfill from response."""
+    client = MockAsyncEmbeddingsClient()
+    with logfire.instrument_azure_ai_inference(client):
+        await client.embed(input=['Hello'])
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) == 1
+    assert attrs_msg(spans[0]) == "Embeddings with 'text-embedding-ada-002'"
+
+
+def attrs_msg(span: dict[str, Any]) -> str:
+    return span['attributes']['logfire.msg']
+
+
+def test_suppress_false(exporter: TestExporter) -> None:
+    """Test with suppress_other_instrumentation=False."""
+    client = MockChatCompletionsClient()
+    with logfire.instrument_azure_ai_inference(client, suppress_other_instrumentation=False):
+        client.complete(model='gpt-4', messages=[{'role': 'user', 'content': 'Hi'}])
+    assert len(exporter.exported_spans_as_dict()) == 1
+
+
+@pytest.mark.anyio
+async def test_suppress_false_async(exporter: TestExporter) -> None:
+    """Test with suppress_other_instrumentation=False for async."""
+    client = MockAsyncChatCompletionsClient()
+    with logfire.instrument_azure_ai_inference(client, suppress_other_instrumentation=False):
+        await client.complete(model='gpt-4', messages=[{'role': 'user', 'content': 'Hi'}])
+    assert len(exporter.exported_spans_as_dict()) == 1
+
+
+def test_suppress_false_embed(exporter: TestExporter) -> None:
+    """Test embed with suppress=False."""
+    client = MockEmbeddingsClient()
+    with logfire.instrument_azure_ai_inference(client, suppress_other_instrumentation=False):
+        client.embed(model='text-embedding-ada-002', input=['Hi'])
+    assert len(exporter.exported_spans_as_dict()) == 1
+
+
+@pytest.mark.anyio
+async def test_suppress_false_async_embed(exporter: TestExporter) -> None:
+    """Test async embed with suppress=False."""
+    client = MockAsyncEmbeddingsClient()
+    with logfire.instrument_azure_ai_inference(client, suppress_other_instrumentation=False):
+        await client.embed(model='text-embedding-ada-002', input=['Hi'])
+    assert len(exporter.exported_spans_as_dict()) == 1
+
+
+def test_list_instrumentation(exporter: TestExporter) -> None:
+    """Test instrumenting a list of clients."""
+    chat_client = MockChatCompletionsClient()
+    embed_client = MockEmbeddingsClient()
+    with logfire.instrument_azure_ai_inference([chat_client, embed_client]):
+        chat_client.complete(model='gpt-4', messages=[{'role': 'user', 'content': 'Hi'}])
+        embed_client.embed(model='text-embedding-ada-002', input=['Hello'])
+    assert len(exporter.exported_spans_as_dict()) == 2
+
+    # After exiting, both should be uninstrumented
+    exporter.clear()
+    chat_client.complete(model='gpt-4', messages=[{'role': 'user', 'content': 'Hi'}])
+    embed_client.embed(model='text-embedding-ada-002', input=['Hello'])
+    assert len(exporter.exported_spans_as_dict()) == 0
+
+
+def test_request_parameters(exporter: TestExporter) -> None:
+    """Test that all request parameters are captured."""
+    client = MockChatCompletionsClient()
+    with logfire.instrument_azure_ai_inference(client):
+        client.complete(
+            model='gpt-4',
+            messages=[{'role': 'user', 'content': 'Hi'}],
+            temperature=0.7,
+            max_tokens=100,
+            top_p=0.9,
+            frequency_penalty=0.5,
+            presence_penalty=0.3,
+            seed=42,
+            stop=['\n', 'END'],
+        )
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    attrs = spans[0]['attributes']
+    assert attrs['gen_ai.request.temperature'] == 0.7
+    assert attrs['gen_ai.request.max_tokens'] == 100
+    assert attrs['gen_ai.request.top_p'] == 0.9
+    assert attrs['gen_ai.request.frequency_penalty'] == 0.5
+    assert attrs['gen_ai.request.presence_penalty'] == 0.3
+    assert attrs['gen_ai.request.seed'] == 42
+    assert attrs['gen_ai.request.stop_sequences'] == ['\n', 'END']
+
+
+def test_extract_params_body_style(exporter: TestExporter) -> None:
+    """Test that body-style parameters are extracted."""
+    client = MockChatCompletionsClient()
+    with logfire.instrument_azure_ai_inference(client):
+        client.complete(body={'model': 'gpt-4', 'messages': [{'role': 'user', 'content': 'Hi'}]})
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert spans[0]['attributes']['gen_ai.request.model'] == 'gpt-4'
+
+
+def test_content_item_conversion() -> None:
+    """Test conversion of multimodal content items."""
+    from logfire._internal.integrations.llm_providers.azure_ai_inference import convert_messages_to_semconv
+
+    messages = [
+        {
+            'role': 'user',
+            'content': [
+                'plain string item',
+                {'type': 'text', 'text': 'text item'},
+                {'type': 'image_url', 'image_url': {'url': 'https://example.com/img.png'}},
+                {'type': 'input_audio', 'input_audio': {'data': 'base64data', 'format': 'mp3'}},
+            ],
+        },
+    ]
+    input_msgs, _ = convert_messages_to_semconv(messages)
+    parts = input_msgs[0]['parts']
+    assert parts[0] == {'type': 'text', 'content': 'plain string item'}
+    assert parts[1] == {'type': 'text', 'content': 'text item'}
+    assert parts[2] == {'type': 'uri', 'uri': 'https://example.com/img.png', 'modality': 'image'}
+    assert parts[3] == {'type': 'blob', 'content': 'base64data', 'media_type': 'audio/mp3', 'modality': 'audio'}
+
+
+def test_stream_context_manager(exporter: TestExporter) -> None:
+    """Test that sync stream wrapper supports context manager protocol."""
+    client = MockChatCompletionsClient()
+    with logfire.instrument_azure_ai_inference(client):
+        response = client.complete(
+            model='gpt-4',
+            messages=[{'role': 'user', 'content': 'Hi'}],
+            stream=True,
+        )
+        # Use as context manager
+        with response:
+            for _ in response:
+                pass
+    assert len(exporter.exported_spans_as_dict()) == 2
+
+
+@pytest.mark.anyio
+async def test_async_stream_context_manager(exporter: TestExporter) -> None:
+    """Test that async stream wrapper supports async context manager protocol."""
+    client = MockAsyncChatCompletionsClient()
+    with logfire.instrument_azure_ai_inference(client):
+        response = await client.complete(
+            model='gpt-4',
+            messages=[{'role': 'user', 'content': 'Hi'}],
+            stream=True,
+        )
+        async with response:
+            async for _ in response:
+                pass
+    assert len(exporter.exported_spans_as_dict()) == 2
+
+
 def test_message_conversion_with_typed_objects() -> None:
     """Test that Azure SDK typed message objects are converted correctly."""
     from azure.ai.inference.models import SystemMessage, UserMessage

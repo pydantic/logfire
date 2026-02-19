@@ -53,6 +53,13 @@ __all__ = ('instrument_azure_ai_inference',)
 
 AZURE_PROVIDER = 'azure.ai.inference'
 
+CHAT_MSG_TEMPLATE = 'Chat completion with {request_data[model]!r}'
+CHAT_MSG_TEMPLATE_NO_MODEL = 'Chat completion'
+EMBED_MSG_TEMPLATE = 'Embeddings with {request_data[model]!r}'
+EMBED_MSG_TEMPLATE_NO_MODEL = 'Embeddings'
+STREAM_MSG_TEMPLATE = 'streaming response from {request_data[model]!r} took {duration:.2f}s'
+STREAM_MSG_TEMPLATE_NO_MODEL = 'streaming response took {duration:.2f}s'
+
 
 # --- Main instrumentation entry point ---
 
@@ -151,12 +158,9 @@ def _make_instrumented_complete(
 
             is_streaming = kwargs.get('stream', False)
             original_context = get_context()
+            msg = CHAT_MSG_TEMPLATE if span_data['request_data']['model'] else CHAT_MSG_TEMPLATE_NO_MODEL
 
-            with logfire_llm.span(
-                'Chat completion with {request_data[model]!r}',
-                _span_kind=SpanKind.CLIENT,
-                **span_data,
-            ) as span:
+            with logfire_llm.span(msg, _span_kind=SpanKind.CLIENT, **span_data) as span:
                 if suppress:
                     with suppress_instrumentation():
                         response = await original(*args, **kwargs)
@@ -182,12 +186,9 @@ def _make_instrumented_complete(
 
             is_streaming = kwargs.get('stream', False)
             original_context = get_context()
+            msg = CHAT_MSG_TEMPLATE if span_data['request_data']['model'] else CHAT_MSG_TEMPLATE_NO_MODEL
 
-            with logfire_llm.span(
-                'Chat completion with {request_data[model]!r}',
-                _span_kind=SpanKind.CLIENT,
-                **span_data,
-            ) as span:
+            with logfire_llm.span(msg, _span_kind=SpanKind.CLIENT, **span_data) as span:
                 if suppress:
                     with suppress_instrumentation():
                         response = original(*args, **kwargs)
@@ -219,11 +220,9 @@ def _make_instrumented_embed(
                 log_internal_error()
                 return await original(*args, **kwargs)
 
-            with logfire_llm.span(
-                'Embeddings with {request_data[model]!r}',
-                _span_kind=SpanKind.CLIENT,
-                **span_data,
-            ) as span:
+            msg = EMBED_MSG_TEMPLATE if span_data['request_data']['model'] else EMBED_MSG_TEMPLATE_NO_MODEL
+
+            with logfire_llm.span(msg, _span_kind=SpanKind.CLIENT, **span_data) as span:
                 if suppress:
                     with suppress_instrumentation():
                         response = await original(*args, **kwargs)
@@ -244,11 +243,9 @@ def _make_instrumented_embed(
                 log_internal_error()
                 return original(*args, **kwargs)
 
-            with logfire_llm.span(
-                'Embeddings with {request_data[model]!r}',
-                _span_kind=SpanKind.CLIENT,
-                **span_data,
-            ) as span:
+            msg = EMBED_MSG_TEMPLATE if span_data['request_data']['model'] else EMBED_MSG_TEMPLATE_NO_MODEL
+
+            with logfire_llm.span(msg, _span_kind=SpanKind.CLIENT, **span_data) as span:
                 if suppress:
                     with suppress_instrumentation():
                         response = original(*args, **kwargs)
@@ -340,7 +337,7 @@ def _extract_request_parameters(params: dict[str, Any], span_data: dict[str, Any
 # --- Response processors ---
 
 
-def _backfill_model(response: Any, span: LogfireSpan, span_data: dict[str, Any]) -> None:
+def _backfill_model(response: Any, span: LogfireSpan, span_data: dict[str, Any], operation: str = 'chat') -> None:
     """If the request model was None, backfill it from the response model."""
     model = getattr(response, 'model', None)
     if not model:
@@ -351,7 +348,10 @@ def _backfill_model(response: Any, span: LogfireSpan, span_data: dict[str, Any])
     request_data['model'] = model
     span.set_attribute('request_data', request_data)
     span.set_attribute(REQUEST_MODEL, model)
-    span.message = span.message.replace('None', repr(model))
+    if operation == 'chat':
+        span.message = f'Chat completion with {model!r}'
+    else:
+        span.message = f'Embeddings with {model!r}'
 
 
 @handle_internal_errors
@@ -387,7 +387,7 @@ def _on_chat_response(response: Any, span: LogfireSpan, span_data: dict[str, Any
 
 @handle_internal_errors
 def _on_embed_response(response: Any, span: LogfireSpan, span_data: dict[str, Any]) -> None:
-    _backfill_model(response, span, span_data)
+    _backfill_model(response, span, span_data, operation='embeddings')
     usage = getattr(response, 'usage', None)
 
     model = getattr(response, 'model', None)
@@ -576,12 +576,10 @@ class _SyncStreamWrapper:
                 yield chunk
         finally:
             duration = (timer() - start) / ONE_SECOND_IN_NANOSECONDS
+            has_model = self._span_data.get('request_data', {}).get('model') is not None
+            msg = STREAM_MSG_TEMPLATE if has_model else STREAM_MSG_TEMPLATE_NO_MODEL
             with attach_context(self._original_context):
-                self._logfire_llm.info(
-                    'streaming response from {request_data[model]!r} took {duration:.2f}s',
-                    duration=duration,
-                    **self._get_stream_attributes(),
-                )
+                self._logfire_llm.info(msg, duration=duration, **self._get_stream_attributes())
 
     def _record_chunk(self, chunk: Any) -> None:
         if self._span_data.get('request_data', {}).get('model') is None:
@@ -643,12 +641,10 @@ class _AsyncStreamWrapper:
                 yield chunk
         finally:
             duration = (timer() - start) / ONE_SECOND_IN_NANOSECONDS
+            has_model = self._span_data.get('request_data', {}).get('model') is not None
+            msg = STREAM_MSG_TEMPLATE if has_model else STREAM_MSG_TEMPLATE_NO_MODEL
             with attach_context(self._original_context):
-                self._logfire_llm.info(
-                    'streaming response from {request_data[model]!r} took {duration:.2f}s',
-                    duration=duration,
-                    **self._get_stream_attributes(),
-                )
+                self._logfire_llm.info(msg, duration=duration, **self._get_stream_attributes())
 
     def _record_chunk(self, chunk: Any) -> None:
         if self._span_data.get('request_data', {}).get('model') is None:
