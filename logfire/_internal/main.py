@@ -1442,7 +1442,7 @@ class Logfire:
         """
         try:
             from azure.ai.inference import ChatCompletionsClient, EmbeddingsClient
-        except ImportError:
+        except ImportError:  # pragma: no cover
             raise RuntimeError(
                 'The `logfire.instrument_azure_ai_inference()` method '
                 'requires the `azure-ai-inference` package.\n'

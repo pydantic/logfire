@@ -1,6 +1,7 @@
-# pyright: reportCallIssue=false, reportArgumentType=false
+# pyright: reportCallIssue=false, reportArgumentType=false, reportPrivateUsage=false
 from __future__ import annotations as _annotations
 
+from collections.abc import AsyncIterator, Iterator
 from datetime import datetime
 from typing import Any
 
@@ -119,7 +120,7 @@ class MockChatCompletionsClient:
         self._response = response or _make_chat_response()
         self._stream_chunks = stream_chunks
 
-    def complete(self, **kwargs: Any) -> Any:
+    def complete(self, *args: Any, **kwargs: Any) -> Any:
         if kwargs.get('stream'):
             return iter(self._stream_chunks or _make_streaming_chunks())
         return self._response
@@ -134,7 +135,7 @@ class MockAsyncChatCompletionsClient:
         self._response = response or _make_chat_response()
         self._stream_chunks = stream_chunks
 
-    async def complete(self, **kwargs: Any) -> Any:
+    async def complete(self, *args: Any, **kwargs: Any) -> Any:
         if kwargs.get('stream'):
             return _async_iter(self._stream_chunks or _make_streaming_chunks())
         return self._response
@@ -664,6 +665,473 @@ async def test_async_stream_context_manager(exporter: TestExporter) -> None:
             async for _ in response:
                 pass
     assert len(exporter.exported_spans_as_dict()) == 2
+
+
+def test_positional_arg_extraction() -> None:
+    """Test that _extract_params handles positional args correctly."""
+    from logfire._internal.integrations.llm_providers.azure_ai_inference import _extract_params
+
+    # Single positional arg with 'messages' key
+    result = _extract_params(({'model': 'gpt-4', 'messages': [{'role': 'user', 'content': 'Hi'}]},), {})
+    assert result['model'] == 'gpt-4'
+
+    # Multiple args, first doesn't match, second does (covers loop iteration)
+    result = _extract_params(('not-a-dict', {'messages': [{'role': 'user', 'content': 'Hi'}]}), {})
+    assert 'messages' in result
+
+    # No matching arg, falls back to kwargs
+    result = _extract_params(('not-a-dict',), {'model': 'gpt-4'})
+    assert result == {'model': 'gpt-4'}
+
+
+def test_tools_with_as_dict(exporter: TestExporter) -> None:
+    """Test that tool objects with as_dict() are handled."""
+
+    class MockTool:
+        def as_dict(self) -> dict[str, Any]:
+            return {'type': 'function', 'function': {'name': 'my_tool', 'parameters': {}}}
+
+    client = MockChatCompletionsClient()
+    with logfire.instrument_azure_ai_inference(client):
+        client.complete(
+            model='gpt-4',
+            messages=[{'role': 'user', 'content': 'Hi'}],
+            tools=[MockTool()],
+        )
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    tool_defs = spans[0]['attributes']['gen_ai.tool.definitions']
+    assert tool_defs == [{'type': 'function', 'function': {'name': 'my_tool', 'parameters': {}}}]
+
+
+def test_backfill_no_model_in_response(exporter: TestExporter) -> None:
+    """Test backfill when response also has no model."""
+    response = ChatCompletions(
+        id='test-id',
+        model=None,
+        created=datetime(2024, 1, 1),
+        choices=[
+            ChatChoice(
+                index=0,
+                finish_reason='stop',
+                message=ChatResponseMessage(role='assistant', content='Hello'),
+            )
+        ],
+        usage=CompletionsUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
+    )
+    client = MockChatCompletionsClient(response=response)
+    with logfire.instrument_azure_ai_inference(client):
+        client.complete(messages=[{'role': 'user', 'content': 'Hi'}])
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    # Model stays None - no backfill
+    assert spans[0]['attributes']['logfire.msg'] == 'Chat completion'
+
+
+def test_minimal_chat_response(exporter: TestExporter) -> None:
+    """Test response with no model, no id, no usage, no finish_reason.
+
+    Exercises the false branches in _on_chat_response.
+    """
+    response = ChatCompletions(
+        id=None,
+        model=None,
+        created=datetime(2024, 1, 1),
+        choices=[
+            ChatChoice(
+                index=0,
+                finish_reason=None,
+                message=ChatResponseMessage(role='assistant', content='Hi'),
+            )
+        ],
+        usage=None,
+    )
+    client = MockChatCompletionsClient(response=response)
+    with logfire.instrument_azure_ai_inference(client):
+        client.complete(model='gpt-4', messages=[{'role': 'user', 'content': 'Hi'}])
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) == 1
+
+
+def test_choice_without_message() -> None:
+    """Test response with a choice that has no message.
+
+    Exercises the `if not message: continue` path in convert_response_to_semconv.
+    """
+    from logfire._internal.integrations.llm_providers.azure_ai_inference import convert_response_to_semconv
+
+    class FakeChoice:
+        message = None
+        finish_reason = 'stop'
+
+    class FakeResponse:
+        choices = [FakeChoice()]
+
+    output = convert_response_to_semconv(FakeResponse())
+    assert output == []
+
+
+def test_minimal_embed_response(exporter: TestExporter) -> None:
+    """Test embed response with no model, no id, no usage.
+
+    Exercises the false branches in _on_embed_response.
+    """
+    response = EmbeddingsResult(
+        id=None,
+        model=None,
+        data=[EmbeddingItem(embedding=[0.1], index=0)],
+        usage=None,
+    )
+    client = MockEmbeddingsClient(response=response)
+    with logfire.instrument_azure_ai_inference(client):
+        client.embed(model='text-embedding-ada-002', input=['Hi'])
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) == 1
+
+
+def test_response_empty_choices(exporter: TestExporter) -> None:
+    """Test response with empty choices list.
+
+    Exercises the false branch of `if output_messages:` in _on_chat_response.
+    """
+
+    class FakeResponse:
+        id = 'test-id'
+        model = 'gpt-4'
+        choices: list[Any] = []
+        usage = None
+
+    client = MockChatCompletionsClient(response=FakeResponse())
+    with logfire.instrument_azure_ai_inference(client):
+        client.complete(model='gpt-4', messages=[{'role': 'user', 'content': 'Hi'}])
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) == 1
+
+
+def test_usage_with_none_tokens(exporter: TestExporter) -> None:
+    """Test response with usage but None prompt/completion tokens.
+
+    Exercises false branches of prompt_tokens/completion_tokens checks.
+    """
+
+    class FakeUsage:
+        prompt_tokens = None
+        completion_tokens = None
+
+    class FakeMessage:
+        role = 'assistant'
+        content = 'Hi'
+        tool_calls = None
+
+    class FakeChoice:
+        index = 0
+        finish_reason = None
+        message = FakeMessage()
+
+    class FakeResponse:
+        id = None
+        model = None
+        choices = [FakeChoice()]
+        usage = FakeUsage()
+
+    client = MockChatCompletionsClient(response=FakeResponse())
+    with logfire.instrument_azure_ai_inference(client):
+        client.complete(model='gpt-4', messages=[{'role': 'user', 'content': 'Hi'}])
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) == 1
+
+
+def test_embed_usage_with_none_tokens(exporter: TestExporter) -> None:
+    """Test embed response with usage but None prompt_tokens.
+
+    Exercises false branch of prompt_tokens check in _on_embed_response.
+    """
+
+    class FakeUsage:
+        prompt_tokens = None
+
+    class FakeResponse:
+        id = None
+        model = None
+        data = []
+        usage = FakeUsage()
+
+    client = MockEmbeddingsClient(response=FakeResponse())
+    with logfire.instrument_azure_ai_inference(client):
+        client.embed(model='text-embedding-ada-002', input=['Hi'])
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) == 1
+
+
+def test_no_messages_in_request(exporter: TestExporter) -> None:
+    """Test chat completion with no messages."""
+    client = MockChatCompletionsClient()
+    with logfire.instrument_azure_ai_inference(client):
+        client.complete(model='gpt-4', messages=[])
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert 'gen_ai.input.messages' not in spans[0]['attributes']
+
+
+def test_system_message_non_string_content() -> None:
+    """Test system message with non-string content.
+
+    Exercises the false branch of isinstance(content, str) for system messages.
+    """
+    from logfire._internal.integrations.llm_providers.azure_ai_inference import convert_messages_to_semconv
+
+    messages = [
+        {'role': 'system', 'content': None},
+        {'role': 'user', 'content': 'Hi'},
+    ]
+    input_msgs, system_instructions = convert_messages_to_semconv(messages)
+    assert system_instructions == []
+    assert len(input_msgs) == 1
+
+
+def test_response_no_output_messages() -> None:
+    """Test convert_response_to_semconv with empty choices.
+
+    Exercises the false branch of `if output_messages:` in _on_chat_response.
+    """
+    from logfire._internal.integrations.llm_providers.azure_ai_inference import convert_response_to_semconv
+
+    class EmptyResponse:
+        choices = []
+
+    output = convert_response_to_semconv(EmptyResponse())
+    assert output == []
+
+
+def test_response_tool_call_no_function() -> None:
+    """Test response tool call without function attribute.
+
+    Exercises the false branch of `if func:` in convert_response_to_semconv.
+    """
+    from logfire._internal.integrations.llm_providers.azure_ai_inference import convert_response_to_semconv
+
+    class FakeToolCall:
+        id = 'tc1'
+        function = None
+
+    class FakeMessage:
+        role = 'assistant'
+        content = None
+        tool_calls = [FakeToolCall()]
+
+    class FakeChoice:
+        message = FakeMessage()
+        finish_reason = None
+
+    class FakeResponse:
+        choices = [FakeChoice()]
+
+    output = convert_response_to_semconv(FakeResponse())
+    assert len(output) == 1
+    assert output[0]['parts'] == []
+
+
+def test_stream_wrapped_with_context_manager(exporter: TestExporter) -> None:
+    """Test sync stream where wrapped object has __enter__/__exit__."""
+
+    class ContextManagerIterator:
+        def __init__(self, items: list[Any]) -> None:
+            self.items = items
+            self.entered = False
+            self.exited = False
+
+        def __enter__(self) -> ContextManagerIterator:
+            self.entered = True
+            return self
+
+        def __exit__(self, *args: Any) -> None:
+            self.exited = True
+
+        def __iter__(self) -> Iterator[Any]:
+            return iter(self.items)
+
+    chunks = _make_streaming_chunks()
+    wrapped = ContextManagerIterator(chunks)
+
+    class MockChatCompletionsClientWithCM:
+        __module__ = 'azure.ai.inference'
+
+        def complete(self, **kwargs: Any) -> Any:
+            if kwargs.get('stream'):
+                return wrapped
+            return _make_chat_response()
+
+    client = MockChatCompletionsClientWithCM()
+    with logfire.instrument_azure_ai_inference(client):
+        response = client.complete(
+            model='gpt-4',
+            messages=[{'role': 'user', 'content': 'Hi'}],
+            stream=True,
+        )
+        with response:
+            for _ in response:
+                pass
+    assert wrapped.entered
+    assert wrapped.exited
+    assert len(exporter.exported_spans_as_dict()) == 2
+
+
+@pytest.mark.anyio
+async def test_async_stream_wrapped_with_context_manager(exporter: TestExporter) -> None:
+    """Test async stream where wrapped object has __aenter__/__aexit__."""
+
+    class AsyncContextManagerIterator:
+        def __init__(self, items: list[Any]) -> None:
+            self.items = items
+            self.entered = False
+            self.exited = False
+
+        async def __aenter__(self) -> AsyncContextManagerIterator:
+            self.entered = True
+            return self
+
+        async def __aexit__(self, *args: Any) -> None:
+            self.exited = True
+
+        async def __aiter__(self) -> AsyncIterator[Any]:
+            for item in self.items:
+                yield item
+
+    chunks = _make_streaming_chunks()
+    wrapped = AsyncContextManagerIterator(chunks)
+
+    class MockAsyncChatCompletionsClientWithCM:
+        __module__ = 'azure.ai.inference.aio'
+
+        async def complete(self, **kwargs: Any) -> Any:
+            if kwargs.get('stream'):
+                return wrapped
+            return _make_chat_response()
+
+    client = MockAsyncChatCompletionsClientWithCM()
+    with logfire.instrument_azure_ai_inference(client):
+        response = await client.complete(
+            model='gpt-4',
+            messages=[{'role': 'user', 'content': 'Hi'}],
+            stream=True,
+        )
+        async with response:
+            async for _ in response:
+                pass
+    assert wrapped.entered
+    assert wrapped.exited
+    assert len(exporter.exported_spans_as_dict()) == 2
+
+
+def test_streaming_empty_chunks(exporter: TestExporter) -> None:
+    """Test streaming with chunks that have no choices or no content."""
+    empty_chunks = [
+        StreamingChatCompletionsUpdate(
+            id='test-id',
+            model='gpt-4',
+            created=datetime(2024, 1, 1),
+            choices=[],
+        ),
+        StreamingChatCompletionsUpdate(
+            id='test-id',
+            model='gpt-4',
+            created=datetime(2024, 1, 1),
+            choices=[StreamingChatChoiceUpdate(index=0, delta=None)],
+        ),
+        StreamingChatCompletionsUpdate(
+            id='test-id',
+            model='gpt-4',
+            created=datetime(2024, 1, 1),
+            choices=[StreamingChatChoiceUpdate(index=0, delta=StreamingChatResponseMessageUpdate(content=None))],
+        ),
+    ]
+    client = MockChatCompletionsClient(stream_chunks=empty_chunks)
+    with logfire.instrument_azure_ai_inference(client):
+        response = client.complete(
+            model='gpt-4',
+            messages=[{'role': 'user', 'content': 'Hi'}],
+            stream=True,
+        )
+        list(response)
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    # Streaming info span should NOT have output messages (no actual content)
+    assert 'gen_ai.output.messages' not in spans[1]['attributes']
+
+
+@pytest.mark.anyio
+async def test_async_streaming_empty_chunks(exporter: TestExporter) -> None:
+    """Test async streaming with chunks that have no choices or no content."""
+    empty_chunks = [
+        StreamingChatCompletionsUpdate(
+            id='test-id',
+            model='gpt-4',
+            created=datetime(2024, 1, 1),
+            choices=[],
+        ),
+        StreamingChatCompletionsUpdate(
+            id='test-id',
+            model='gpt-4',
+            created=datetime(2024, 1, 1),
+            choices=[StreamingChatChoiceUpdate(index=0, delta=None)],
+        ),
+    ]
+    client = MockAsyncChatCompletionsClient(stream_chunks=empty_chunks)
+    with logfire.instrument_azure_ai_inference(client):
+        response = await client.complete(
+            messages=[{'role': 'user', 'content': 'Hi'}],
+            stream=True,
+        )
+        async for _ in response:
+            pass
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert 'gen_ai.output.messages' not in spans[1]['attributes']
+
+
+def test_streaming_no_model_chunks(exporter: TestExporter) -> None:
+    """Test streaming where both request and chunk have no model.
+
+    Exercises false branch of `if model:` in _record_chunk (sync).
+    """
+    no_model_chunks = [
+        StreamingChatCompletionsUpdate(
+            id='test-id',
+            model=None,
+            created=datetime(2024, 1, 1),
+            choices=[StreamingChatChoiceUpdate(index=0, delta=StreamingChatResponseMessageUpdate(content='Hi'))],
+        ),
+    ]
+    client = MockChatCompletionsClient(stream_chunks=no_model_chunks)
+    with logfire.instrument_azure_ai_inference(client):
+        response = client.complete(
+            messages=[{'role': 'user', 'content': 'Hi'}],
+            stream=True,
+        )
+        list(response)
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) == 2
+
+
+@pytest.mark.anyio
+async def test_async_streaming_no_model_chunks(exporter: TestExporter) -> None:
+    """Test async streaming where both request and chunk have no model.
+
+    Exercises false branch of `if model:` in _record_chunk (async).
+    """
+    no_model_chunks = [
+        StreamingChatCompletionsUpdate(
+            id='test-id',
+            model=None,
+            created=datetime(2024, 1, 1),
+            choices=[StreamingChatChoiceUpdate(index=0, delta=StreamingChatResponseMessageUpdate(content='Hi'))],
+        ),
+    ]
+    client = MockAsyncChatCompletionsClient(stream_chunks=no_model_chunks)
+    with logfire.instrument_azure_ai_inference(client):
+        response = await client.complete(
+            messages=[{'role': 'user', 'content': 'Hi'}],
+            stream=True,
+        )
+        async for _ in response:
+            pass
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) == 2
 
 
 def test_message_conversion_with_typed_objects() -> None:

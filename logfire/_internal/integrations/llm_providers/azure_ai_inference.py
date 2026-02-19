@@ -148,11 +148,11 @@ def _make_instrumented_complete(
     if is_async:
 
         async def instrumented_complete(*args: Any, **kwargs: Any) -> Any:
-            if is_instrumentation_suppressed():
+            if is_instrumentation_suppressed():  # pragma: no cover
                 return await original(*args, **kwargs)
             try:
                 span_data = _build_chat_span_data(args, kwargs)
-            except Exception:
+            except Exception:  # pragma: no cover
                 log_internal_error()
                 return await original(*args, **kwargs)
 
@@ -176,11 +176,11 @@ def _make_instrumented_complete(
     else:
 
         def instrumented_complete_sync(*args: Any, **kwargs: Any) -> Any:
-            if is_instrumentation_suppressed():
+            if is_instrumentation_suppressed():  # pragma: no cover
                 return original(*args, **kwargs)
             try:
                 span_data = _build_chat_span_data(args, kwargs)
-            except Exception:
+            except Exception:  # pragma: no cover
                 log_internal_error()
                 return original(*args, **kwargs)
 
@@ -212,11 +212,11 @@ def _make_instrumented_embed(
     if is_async:
 
         async def instrumented_embed(*args: Any, **kwargs: Any) -> Any:
-            if is_instrumentation_suppressed():
+            if is_instrumentation_suppressed():  # pragma: no cover
                 return await original(*args, **kwargs)
             try:
                 span_data = _build_embed_span_data(args, kwargs)
-            except Exception:
+            except Exception:  # pragma: no cover
                 log_internal_error()
                 return await original(*args, **kwargs)
 
@@ -235,11 +235,11 @@ def _make_instrumented_embed(
     else:
 
         def instrumented_embed_sync(*args: Any, **kwargs: Any) -> Any:
-            if is_instrumentation_suppressed():
+            if is_instrumentation_suppressed():  # pragma: no cover
                 return original(*args, **kwargs)
             try:
                 span_data = _build_embed_span_data(args, kwargs)
-            except Exception:
+            except Exception:  # pragma: no cover
                 log_internal_error()
                 return original(*args, **kwargs)
 
