@@ -18,14 +18,12 @@ try:
 except (ImportError, AttributeError):
     pytest.skip('pydantic_evals not compatible with this environment', allow_module_level=True)
 
-from logfire.experimental.datasets import (
+from logfire.experimental.api_client import (
     AsyncLogfireAPIClient,
     CaseNotFoundError,
     DatasetApiError,
     DatasetNotFoundError,
     LogfireAPIClient,
-)
-from logfire.experimental.datasets.client import (
     _import_pydantic_evals,
     _serialize_case,
     _serialize_evaluators,

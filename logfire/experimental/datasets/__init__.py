@@ -6,7 +6,7 @@ with pydantic-evals for AI evaluation workflows.
 Example usage:
     ```python skip-run="true" skip-reason="external-connection"
     from dataclasses import dataclass
-    from logfire.experimental.datasets import LogfireAPIClient
+    from logfire.experimental.api_client import LogfireAPIClient
 
 
     @dataclass
@@ -57,7 +57,7 @@ Example usage:
     ```
 """
 
-from logfire.experimental.datasets.client import (
+from logfire.experimental.api_client import (
     AsyncLogfireAPIClient,
     CaseNotFoundError,
     DatasetApiError,

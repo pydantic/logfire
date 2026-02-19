@@ -28,7 +28,7 @@ This installs `httpx` and `pydantic-evals` as additional dependencies.
 ## Creating a Client
 
 ```python skip-run="true" skip-reason="external-connection"
-from logfire.experimental.datasets import LogfireAPIClient
+from logfire.experimental.api_client import LogfireAPIClient
 
 client = LogfireAPIClient(api_key='your-api-key')
 ```
@@ -55,7 +55,7 @@ client = LogfireAPIClient(
 An async client is also available:
 
 ```python skip="true" skip-reason="external-connection"
-from logfire.experimental.datasets import AsyncLogfireAPIClient
+from logfire.experimental.api_client import AsyncLogfireAPIClient
 
 async with AsyncLogfireAPIClient(api_key='your-api-key') as client:
     datasets = await client.list_datasets()
@@ -68,7 +68,7 @@ Define your input, output, and metadata types as dataclasses or Pydantic models,
 ```python skip-run="true" skip-reason="external-connection"
 from dataclasses import dataclass
 
-from logfire.experimental.datasets import LogfireAPIClient
+from logfire.experimental.api_client import LogfireAPIClient
 
 
 @dataclass

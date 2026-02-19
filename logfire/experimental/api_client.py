@@ -1,4 +1,4 @@
-"""Logfire Datasets SDK client for managing datasets and cases.
+"""Logfire API client for managing datasets and cases.
 
 This client provides typed, programmatic access to Logfire datasets that are
 compatible with pydantic-evals for AI evaluation workflows.
@@ -6,7 +6,7 @@ compatible with pydantic-evals for AI evaluation workflows.
 Example usage:
     ```python skip-run="true" skip-reason="external-connection"
     from dataclasses import dataclass
-    from logfire.experimental.datasets import LogfireAPIClient
+    from logfire.experimental.api_client import LogfireAPIClient
     from pydantic_evals import Case, Dataset
 
 
@@ -244,7 +244,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
     Example usage:
         ```python skip-run="true" skip-reason="external-connection"
         from dataclasses import dataclass
-        from logfire.experimental.datasets import LogfireAPIClient
+        from logfire.experimental.api_client import LogfireAPIClient
         from pydantic_evals import Case
 
 
