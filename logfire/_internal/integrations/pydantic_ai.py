@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from typing import overload
 import inspect
-from typing import Any, Literal
+from typing import Any, Literal, TYPE_CHECKING
 
 from pydantic_ai import Agent
 from pydantic_ai.agent import InstrumentationSettings
@@ -10,16 +11,59 @@ from pydantic_ai.models.instrumented import InstrumentedModel
 
 from logfire import Logfire
 
+if TYPE_CHECKING:
+    from pydantic_ai.embeddings import Embedder, EmbeddingModel, InstrumentedEmbeddingModel
+else:
+    try:
+        from pydantic_ai.embeddings import Embedder, EmbeddingModel, InstrumentedEmbeddingModel
+    except ImportError:
+        Embedder = None
+        EmbeddingModel = None
+        InstrumentedEmbeddingModel = None
 
+
+@overload
 def instrument_pydantic_ai(
     logfire_instance: Logfire,
-    obj: Agent | Model | None,
+    obj: Agent | Embedder | None,
     include_binary_content: bool | None,
     include_content: bool | None,
     version: Literal[1, 2, 3] | None,
     event_mode: Literal['attributes', 'logs'] | None,
     **kwargs: Any,
-) -> None | InstrumentedModel:
+) -> None: ...
+
+@overload
+def instrument_pydantic_ai(
+    logfire_instance: Logfire,
+    obj: Model,
+    include_binary_content: bool | None,
+    include_content: bool | None,
+    version: Literal[1, 2, 3] | None,
+    event_mode: Literal['attributes', 'logs'] | None,
+    **kwargs: Any,
+) -> InstrumentedModel: ...
+
+@overload
+def instrument_pydantic_ai(
+    logfire_instance: Logfire,
+    obj: EmbeddingModel,
+    include_binary_content: bool | None,
+    include_content: bool | None,
+    version: Literal[1, 2, 3] | None,
+    event_mode: Literal['attributes', 'logs'] | None,
+    **kwargs: Any,
+) -> InstrumentedEmbeddingModel: ...
+
+def instrument_pydantic_ai(
+    logfire_instance: Logfire,
+    obj: Agent | Model | Embedder | EmbeddingModel | None,
+    include_binary_content: bool | None,
+    include_content: bool | None,
+    version: Literal[1, 2, 3] | None,
+    event_mode: Literal['attributes', 'logs'] | None,
+    **kwargs: Any,
+) -> None | InstrumentedModel | InstrumentedEmbeddingModel:
     # Correctly handling all past and future versions is tricky.
     # Since we provide these rather than the user, only include them if
     # InstrumentationSettings has such parameters to prevent errors/warnings.
@@ -59,7 +103,13 @@ def instrument_pydantic_ai(
         obj.instrument = settings
     elif isinstance(obj, Model):
         return InstrumentedModel(obj, settings)
+    elif Embedder and isinstance(obj, Embedder):
+        obj.instrument = settings
+    elif EmbeddingModel and InstrumentedEmbeddingModel and isinstance(obj, EmbeddingModel):
+        return InstrumentedEmbeddingModel(obj, settings)
     elif obj is None:
         Agent.instrument_all(settings)
+        if Embedder:
+            Embedder.instrument_all(settings)
     else:
         raise TypeError(f'Cannot instrument object of type {type(obj)}')
