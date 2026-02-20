@@ -75,6 +75,7 @@ class _ValidateWrapper:
         'schema_name',
         '_record',
         '_logfire',
+        '_schema_kind',
     )
 
     def __init__(
@@ -85,6 +86,7 @@ class _ValidateWrapper:
         _plugin_settings: PluginSettings | dict[str, Any],
         schema_type_path: SchemaTypePath,
         record: Literal['all', 'failure', 'metrics'],
+        schema_kind: SchemaKind,
     ) -> None:
         self.validation_method = validation_method
 
@@ -92,6 +94,7 @@ class _ValidateWrapper:
         # that are currently exposed by the plugin to potentially configure the validation handlers.
         self.schema_name = get_schema_name(schema)
         self._record = record
+        self._schema_kind = schema_kind
 
         self._logfire = logfire.DEFAULT_LOGFIRE_INSTANCE
         # trace_sample_rate = _plugin_settings.get('logfire', {}).get('trace_sample_rate')
@@ -132,6 +135,15 @@ class _ValidateWrapper:
                     self._count_validation(success=False)
                     raise
                 except Exception as exception:
+                    # For validate_call, non-ValidationError exceptions are likely from the decorated
+                    # function's execution, not from validation itself. We should not record these
+                    # as validation errors since the arguments validated successfully.
+                    # See https://github.com/pydantic/logfire/issues/1516
+                    if self._schema_kind == 'validate_call':
+                        # End the span successfully since validation passed
+                        self._on_success(span, None)
+                        self._count_validation(success=True)
+                        raise
                     self._on_exception_span(span, exception)
                     self._count_validation(success=False)
                     raise
@@ -156,6 +168,13 @@ class _ValidateWrapper:
                     self._on_error_log(error)
                     raise
                 except Exception as exception:
+                    # For validate_call, non-ValidationError exceptions are likely from the decorated
+                    # function's execution, not from validation itself. We should not record these
+                    # as validation errors since the arguments validated successfully.
+                    # See https://github.com/pydantic/logfire/issues/1516
+                    if self._schema_kind == 'validate_call':
+                        self._count_validation(success=True)
+                        raise
                     self._count_validation(success=False)
                     self._on_exception_log(exception)
                     raise
@@ -173,7 +192,17 @@ class _ValidateWrapper:
 
                 try:
                     result = validator(input_data, *args, **kwargs)
+                except ValidationError:
+                    self._count_validation(success=False)
+                    raise
                 except Exception:
+                    # For validate_call, non-ValidationError exceptions are likely from the decorated
+                    # function's execution, not from validation itself. We should count this as
+                    # successful validation since the arguments validated successfully.
+                    # See https://github.com/pydantic/logfire/issues/1516
+                    if self._schema_kind == 'validate_call':
+                        self._count_validation(success=True)
+                        raise
                     self._count_validation(success=False)
                     raise
                 else:
@@ -348,9 +377,9 @@ class LogfirePydanticPlugin:
             if _include_model(schema_type_path):
                 _patch_build_wrapper()
                 return (
-                    _ValidateWrapper('validate_python', schema, config, plugin_settings, schema_type_path, record),
-                    _ValidateWrapper('validate_json', schema, config, plugin_settings, schema_type_path, record),
-                    _ValidateWrapper('validate_strings', schema, config, plugin_settings, schema_type_path, record),
+                    _ValidateWrapper('validate_python', schema, config, plugin_settings, schema_type_path, record, schema_kind),
+                    _ValidateWrapper('validate_json', schema, config, plugin_settings, schema_type_path, record, schema_kind),
+                    _ValidateWrapper('validate_strings', schema, config, plugin_settings, schema_type_path, record, schema_kind),
                 )
 
             return None, None, None
