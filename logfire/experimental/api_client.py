@@ -117,8 +117,8 @@ class DatasetSummary(TypedDict):
 class DatasetDetail(TypedDict):
     """Full dataset details.
 
-    Returned by :meth:`LogfireAPIClient.get_dataset`,
-    :meth:`LogfireAPIClient.create_dataset`, and :meth:`LogfireAPIClient.update_dataset`.
+    Returned by `LogfireAPIClient.get_dataset`,
+    `LogfireAPIClient.create_dataset`, and `LogfireAPIClient.update_dataset`.
     """
 
     id: UUID
@@ -137,7 +137,7 @@ class DatasetDetail(TypedDict):
 
 
 class CaseDetail(TypedDict):
-    """Full case details, returned by case operations like :meth:`LogfireAPIClient.get_case`."""
+    """Full case details, returned by case operations like `LogfireAPIClient.get_case`."""
 
     id: UUID
     dataset_id: UUID
@@ -157,7 +157,7 @@ class CaseDetail(TypedDict):
 
 
 class CaseData(TypedDict):
-    """Data for creating a case via :meth:`LogfireAPIClient.add_cases`.
+    """Data for creating a case via `LogfireAPIClient.add_cases`.
 
     Only ``inputs`` is required; all other fields are optional.
     """
@@ -183,7 +183,7 @@ class ExportedCase(TypedDict):
 class ExportedDataset(TypedDict):
     """Dataset export in pydantic-evals compatible format.
 
-    Returned by :meth:`LogfireAPIClient.export_dataset` when called without type arguments.
+    Returned by `LogfireAPIClient.export_dataset` when called without type arguments.
     Compatible with ``pydantic_evals.Dataset.from_dict()``.
     """
 
