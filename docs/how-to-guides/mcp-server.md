@@ -61,7 +61,7 @@ For more detailed information, you can check the
 Run the following command:
 
 ```bash
-claude mcp add logfire --type http --url https://logfire-us.pydantic.dev/mcp
+claude mcp add logfire --transport http https://logfire-us.pydantic.dev/mcp
 ```
 
 ### Claude Desktop
