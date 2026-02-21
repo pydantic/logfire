@@ -5,7 +5,7 @@ The Logfire web UI provides a complete interface for managing your variables wit
 - **Variables**: browse, create, and manage your managed variables
 - **Types**: define reusable JSON schemas for custom variable types
 
-Clicking a variable opens its **detail page**, which has five tabs: **Versions**, **Editor**, **Labels**, **Targeting**, and **Settings**.
+Clicking a variable opens its **detail page**, which has four tabs: **Values**, **Targeting**, **History**, and **Settings**.
 
 ![Variables list](../images/variables-list.png)
 
@@ -27,33 +27,19 @@ For **Custom Types**, the schema is derived from the type and shown read-only; e
 
 ![Create variable form](../images/variable-create-form.png)
 
-## Working with Versions
+## Working with Values and Labels
 
-Each variable has a **linear version history** — an append-only sequence of immutable value snapshots. Versions are numbered sequentially (1, 2, 3, ...) and once created, a version's value never changes.
+The **Values tab** is the primary interface for viewing and editing your variable's content. It combines label management with value editing in a single view.
 
-The variable detail page provides two tabs for working with versions:
+The left sidebar shows all labels (both active and inactive), while the right panel displays the value for the selected label. Each label in the sidebar shows its name and what it points to (e.g., a version number, another label, or "latest").
 
-**Editor tab** — where you create new versions:
+- Select a label in the sidebar to view its current value
+- Click the **copy** button to copy the displayed value to your clipboard
+- Click the **compare** button to diff the selected label's value against another label — useful for reviewing differences between production and staging prompts, for example
+- Click **Edit** to modify the value, then **Save new version** to create a new version and assign it to the selected label
+- Click **Add label** to create new labels pointing to a specific version, another label, the latest version, or the code default
 
-1. Edit the value in the editor (the format depends on your value type)
-2. Use the **Edit/Diff** toggle to switch between editing and viewing changes against a reference version
-3. Select a different reference version from the **Comparing against** dropdown to compare against older versions
-4. Click **Revert** to discard your edits and restore the reference version's value
-5. Click **Save new version** and optionally add a description (like a commit message explaining what changed)
-
-![Variable detail editor](../images/variable-detail-editor.png)
-
-**Versions tab** — where you browse version history:
-
-- Each version card shows its number, creation time, author, assigned labels, and description
-- Expand a version to see its full value
-- Use the action buttons on each version to **edit from that version** (loads its value into the Editor tab) or **assign a label** directly
-- Filter versions by label using the dropdown at the top
-
-!!! tip "Using the example value"
-    When you push a variable from code using `logfire.variables_push()`, the code's default value is stored as an "example". This example appears pre-filled when you create a new version in the UI, making it easy to start from a working configuration and modify it.
-
-## Working with Labels
+![Variable detail values](../images/variable-detail-values.png)
 
 **Labels** are mutable pointers to specific versions. They work like Docker tags or git branch names — you can move them to point at any version at any time.
 
@@ -63,21 +49,28 @@ Common label patterns:
 - **`control`** / **`treatment`**: A/B testing labels
 - **`stable`** / **`experimental`**: Risk-based labels
 
-The **Labels tab** on the variable detail page lets you:
-
-1. **Create** new labels with a name, target version, and optional description
-2. **Move** labels to different versions using the edit button
-3. **Delete** labels that are no longer needed
-4. **View label history** (toggle the history icon) to see when labels were moved between versions and by whom
-
-![Variable detail labels](../images/variable-detail-labels.png)
-
 !!! note "No labels = code default"
     If a variable has no labels configured in its rollout, your application serves the code default (the `default` value passed to `logfire.var()`). To serve the latest version instead, create a label that references `latest` and include it in your rollout.
 
-## Configuring Rollouts
+## Browsing Version History
 
-The **Targeting tab > Default Rollout** section controls what percentage of requests receive each labeled version. The weights are entered as percentages (0–100%) and must sum to 100% or less:
+Each variable has a **linear version history** — an append-only sequence of immutable value snapshots. Versions are numbered sequentially (1, 2, 3, ...) and once created, a version's value never changes.
+
+The **History tab** lets you browse all saved versions:
+
+- Each version card shows its number, creation time, author, assigned labels, and description
+- Expand a version to see its full value
+- Use the action buttons on each version to **edit from that version** (loads its value into the Values tab), **assign a label**, **copy the value**, **compare** against another version, or **delete** the version
+- Filter versions by label using the dropdown at the top
+
+![Variable detail history](../images/variable-detail-history.png)
+
+!!! tip "Using the example value"
+    When you push a variable from code using `logfire.variables_push()`, the code's default value is stored as an "example". This example appears pre-filled when you create a new version in the UI, making it easy to start from a working configuration and modify it.
+
+## Configuring Label Routing
+
+The **Targeting tab > Default** section controls what percentage of requests receive each labeled version. The weights are entered as percentages (0–100%) and must sum to 100% or less:
 
 - Set `production` to `90` and `canary` to `10` for a 10% canary deployment
 - Set `control` to `50` and `treatment` to `50` for a 50/50 A/B test
@@ -85,13 +78,13 @@ The **Targeting tab > Default Rollout** section controls what percentage of requ
 - If weights sum to less than 100%, the remaining percentage uses the **code default**
 - If no labels are in the rollout (empty), all traffic uses the code default
 
-## Targeting with Override Rules
+## Targeting with Conditional Rules
 
-The **Targeting tab > Override Rules** section lets you route specific users or segments to specific labels based on attributes. Rules are evaluated in order, and the first matching rule determines the rollout.
+The **Targeting tab > Conditional Rules** section lets you route specific users or segments to specific labels based on attributes. Rules are evaluated in order, and the first matching rule determines the rollout.
 
 To add a targeting rule:
 
-1. Click **Add Rule** in the Override Rules section
+1. Click **Add Rule** in the Conditional Rules section
 2. Give the rule a name and optional description
 3. Add one or more conditions (all conditions must match):
     - Choose an attribute name (e.g., `plan`, `region`, `is_beta_user`)
