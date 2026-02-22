@@ -50,7 +50,7 @@ Common label patterns:
 - **`stable`** / **`experimental`**: Risk-based labels
 
 !!! note "No labels = code default"
-    If a variable has no labels configured in its rollout, your application serves the code default (the `default` value passed to `logfire.var()`). To serve the latest version instead, create a label that references `latest` and include it in your rollout.
+    If a variable has no labels configured in its routing, your application serves the code default (the `default` value passed to `logfire.var()`). To serve the latest version instead, create a label that references `latest` and include it in your routing.
 
 ## Browsing Version History
 
@@ -74,13 +74,13 @@ The **Targeting tab > Default** section controls what percentage of requests rec
 
 - Set `production` to `90` and `canary` to `10` for a 10% canary deployment
 - Set `control` to `50` and `treatment` to `50` for a 50/50 A/B test
-- To send some traffic to the latest version, create a label that references `latest` and include it in the rollout — for example, a `latest` label referencing latest at `10` and `control` at `50` sends 10% of traffic to the latest version, 50% to the control label, and the remaining 40% falls back to the code default
+- To send some traffic to the latest version, create a label that references `latest` and include it in the routing — for example, a `latest` label referencing latest at `10` and `control` at `50` sends 10% of traffic to the latest version, 50% to the control label, and the remaining 40% falls back to the code default
 - If weights sum to less than 100%, the remaining percentage uses the **code default**
-- If no labels are in the rollout (empty), all traffic uses the code default
+- If no labels are in the routing (empty), all traffic uses the code default
 
 ## Targeting with Conditional Rules
 
-The **Targeting tab > Conditional Rules** section lets you route specific users or segments to specific labels based on attributes. Rules are evaluated in order, and the first matching rule determines the rollout.
+The **Targeting tab > Conditional Rules** section lets you route specific users or segments to specific labels based on attributes. Rules are evaluated in order, and the first matching rule determines the routing.
 
 To add a targeting rule:
 
@@ -90,12 +90,12 @@ To add a targeting rule:
     - Choose an attribute name (e.g., `plan`, `region`, `is_beta_user`)
     - Select an operator (`equals`, `does not equal`, `is in`, `is not in`, `matches regex`, etc.)
     - Enter the value to match and its type (`str`, `int`, `float`, `bool`)
-4. Configure the rollout percentages (by label) when this rule matches
+4. Configure the routing percentages (by label) when this rule matches
 
 For example, to give enterprise customers the production experience:
 
 - Condition: `plan` equals `enterprise`
-- Rollout: `production` = 100%
+- Routing: `production` = 100%
 
 ![Variable detail targeting](../images/variable-detail-routing.png)
 
