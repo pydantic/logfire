@@ -80,8 +80,10 @@ nav:
       - Getting Started:
           - Logfire: index.md
           - Why Logfire?: why.md
-          - FAQ: faq.md
           - AI & LLM Observability: ai-observability.md
+          - Core Concepts: concepts.md
+          - FAQ: faq.md
+          - Get Help: help.md
           - Comparisons:
               - Overview: comparisons/index.md
               - vs Langfuse: comparisons/langfuse.md
@@ -92,51 +94,22 @@ nav:
               - vs Sentry: comparisons/sentry.md
               - vs SigNoz: comparisons/signoz.md
               - vs Grafana: comparisons/grafana.md
-          - Concepts: concepts.md
-          - Get Help: help.md
-          - Onboarding Checklist:
-              - Onboarding Checklist: guides/onboarding-checklist/index.md
-              - Integrate Logfire: guides/onboarding-checklist/integrate.md
-              - Add Logfire Manual Tracing: guides/onboarding-checklist/add-manual-tracing.md
-              - Add Logfire Auto-Tracing: guides/onboarding-checklist/add-auto-tracing.md
-              - Add Logfire Metrics: guides/onboarding-checklist/add-metrics.md
-          - Web UI:
-              - Organizations and projects: guides/web-ui/organizations-and-projects.md
-              - Live View: guides/web-ui/live.md
-              - LLM Panels: guides/web-ui/llm-panels.md
-              - Dashboards: guides/web-ui/dashboards.md
-              - Evals: guides/web-ui/evals.md
-              - Issues: guides/web-ui/issues.md
-              - Alerts: guides/web-ui/alerts.md
-              - Saved Searches: guides/web-ui/saved-searches.md
-              - SQL Explorer: guides/web-ui/explore.md
-              - Public traces: guides/web-ui/public-traces.md
-      - Understanding your Usage: logfire-costs.md
-      - How To - Guides:
-          - Create Write Tokens: how-to-guides/create-write-tokens.md
-          - Use different environments: how-to-guides/environments.md
-          - Convert to Organization: how-to-guides/convert-to-organization.md
-          - Write Dashboard Queries: how-to-guides/write-dashboard-queries.md
-          - Link to Code Source: how-to-guides/link-to-code-source.md
-          - Use Alternative Clients: how-to-guides/alternative-clients.md
-          - Use Alternative Backends: how-to-guides/alternative-backends.md
-          - Implement Sampling Strategies: how-to-guides/sampling.md
-          - Export your Logfire Data: how-to-guides/query-api.md
+      - Instrument Your App:
+          - Onboarding Checklist: guides/onboarding-checklist/index.md
+          - Integrate Logfire: guides/onboarding-checklist/integrate.md
+          - Manual Tracing: guides/onboarding-checklist/add-manual-tracing.md
+          - Auto-Tracing: guides/onboarding-checklist/add-auto-tracing.md
+          - Metrics: guides/onboarding-checklist/add-metrics.md
+          - Distributed Tracing: how-to-guides/distributed-tracing.md
+          - Sampling Strategies: how-to-guides/sampling.md
           - Scrub Sensitive Data: how-to-guides/scrubbing.md
-          - Trace across Multiple Services: how-to-guides/distributed-tracing.md
-          - Combine Multiple Configurations: how-to-guides/different-configurations.md
-          - Detect Service is Down: how-to-guides/detect-service-is-down.md
           - Suppress Spans and Metrics: how-to-guides/suppress.md
           - OpenTelemetry Collector:
               - Overview: how-to-guides/otel-collector/otel-collector-overview.md
               - Advanced Scrubbing: how-to-guides/otel-collector/otel-collector-scrubbing.md
-          - Collect Metrics from your Cloud Provider: how-to-guides/cloud-metrics.md
-          - Connect to the MCP Server: how-to-guides/mcp-server.md
-          - Setup Slack Alerts: how-to-guides/setup-slack-alerts.md
-          - Client-Side Feature Flags with OFREP: how-to-guides/client-side-feature-flags.md
       - Integrations:
           - Integrations: integrations/index.md
-          - LLMs:
+          - AI & LLM Frameworks:
               - Pydantic AI: integrations/llms/pydanticai.md
               - OpenAI: integrations/llms/openai.md
               - Google Gen AI: integrations/llms/google-genai.md
@@ -181,7 +154,7 @@ nav:
               - HTTPX: integrations/http-clients/httpx.md
               - Requests: integrations/http-clients/requests.md
               - AIOHTTP: integrations/http-clients/aiohttp.md
-          - Event Streams:
+          - Task Queues & Pipelines:
               - Airflow: integrations/event-streams/airflow.md
               - FastStream: integrations/event-streams/faststream.md
               - Celery: integrations/event-streams/celery.md
@@ -196,36 +169,55 @@ nav:
           - System Metrics: integrations/system-metrics.md
           - Stripe: integrations/stripe.md
           - AWS Lambda: integrations/aws-lambda.md
+      - Observe & Investigate:
+          - Live View: guides/web-ui/live.md
+          - LLM Panels: guides/web-ui/llm-panels.md
+          - Dashboards: guides/web-ui/dashboards.md
+          - SQL Explorer: guides/web-ui/explore.md
+          - Issues: guides/web-ui/issues.md
+          - Alerts: guides/web-ui/alerts.md
+          - Saved Searches: guides/web-ui/saved-searches.md
+          - Public Traces: guides/web-ui/public-traces.md
+          - Write Dashboard Queries: how-to-guides/write-dashboard-queries.md
+          - Setup Slack Alerts: how-to-guides/setup-slack-alerts.md
+          - Detect Service is Down: how-to-guides/detect-service-is-down.md
+      - Evaluate:
+          - Evals: guides/web-ui/evals.md
+          - Datasets:
+              - Datasets: evaluate/datasets/index.md
+              - Web UI Guide: evaluate/datasets/ui.md
+              - SDK Guide: evaluate/datasets/sdk.md
+              - Running Evaluations: evaluate/datasets/evaluations.md
+              - SDK Reference: evaluate/datasets/sdk-reference.md
+      - Manage & Configure:
+          - Organizations & Projects: guides/web-ui/organizations-and-projects.md
+          - Configuration: reference/configuration.md
+          - Managed Variables:
+              - Overview: reference/advanced/managed-variables/index.md
+              - UI Guide: reference/advanced/managed-variables/ui.md
+              - A/B Testing: reference/advanced/managed-variables/ab-testing.md
+              - Targeting: reference/advanced/managed-variables/targeting.md
+              - Remote Variables: reference/advanced/managed-variables/remote.md
+              - External Variables & OFREP: reference/advanced/managed-variables/external.md
+              - Local Variables: reference/advanced/managed-variables/local.md
+              - Configuration Reference: reference/advanced/managed-variables/configuration-reference.md
+          - Environments: how-to-guides/environments.md
+          - Write Tokens: how-to-guides/create-write-tokens.md
+          - API Keys: reference/advanced/use-api-keys.md
+          - Multiple Configurations: how-to-guides/different-configurations.md
+          - Cost & Usage: logfire-costs.md
+          - Data Regions: reference/data-regions.md
+          - Export Data: how-to-guides/query-api.md
+          - Feature Flags (OFREP): how-to-guides/client-side-feature-flags.md
+          - Convert to Organization: how-to-guides/convert-to-organization.md
+      - Guides:
+          - Link to Code Source: how-to-guides/link-to-code-source.md
+          - Use Alternative Clients: how-to-guides/alternative-clients.md
+          - Use Alternative Backends: how-to-guides/alternative-backends.md
+          - Collect Cloud Provider Metrics: how-to-guides/cloud-metrics.md
+          - Connect to MCP Server: how-to-guides/mcp-server.md
       - Reference:
           - SQL: reference/sql.md
-          - Advanced:
-              - Managed Variables:
-                  - Overview: reference/advanced/managed-variables/index.md
-                  - UI Guide: reference/advanced/managed-variables/ui.md
-                  - A/B Testing: reference/advanced/managed-variables/ab-testing.md
-                  - Targeting: reference/advanced/managed-variables/targeting.md
-                  - Remote Variables: reference/advanced/managed-variables/remote.md
-                  - External Variables & OFREP: reference/advanced/managed-variables/external.md
-                  - Local Variables: reference/advanced/managed-variables/local.md
-                  - Configuration Reference: reference/advanced/managed-variables/configuration-reference.md
-              - Baggage: reference/advanced/baggage.md
-              - Generators: reference/advanced/generators.md
-              - Testing Logfire Instrumentation: reference/advanced/testing.md
-              - Aggregating Metrics in Spans: reference/advanced/metrics-in-spans.md
-              - Use API Keys: reference/advanced/use-api-keys.md
-              - Migrating Projects: reference/advanced/migrate-to-new-project.md
-          - Examples: reference/examples.md
-          - Configuration: reference/configuration.md
-          - Data Regions: reference/data-regions.md
-          - Self-Hosted Deployment:
-              - Overview: reference/self-hosted/overview.md
-              - Local Quickstart: reference/self-hosted/local-quickstart.md
-              - Installation: reference/self-hosted/installation.md
-              - Scaling: reference/self-hosted/scaling.md
-              - Troubleshooting: reference/self-hosted/troubleshooting.md
-              - Examples: reference/self-hosted/examples.md
-              - Usage Report: reference/self-hosted/usage-report.md
-          - SDK CLI: reference/cli.md
           - SDK API:
               - Logfire: reference/api/logfire.md
               - Testing: reference/api/testing.md
@@ -234,11 +226,28 @@ nav:
               - Exceptions: reference/api/exceptions.md
               - Pydantic: reference/api/pydantic.md
               - Types: reference/api/types.md
-      - Roadmap: roadmap.md
-      - Languages: languages.md
-      - Enterprise: enterprise.md
-      - Compliance: compliance.md
-      - Release Notes: release-notes.md
+          - SDK CLI: reference/cli.md
+          - Examples: reference/examples.md
+          - Baggage: reference/advanced/baggage.md
+          - Generators: reference/advanced/generators.md
+          - Aggregating Metrics in Spans: reference/advanced/metrics-in-spans.md
+          - Testing Logfire Instrumentation: reference/advanced/testing.md
+          - Migrating Projects: reference/advanced/migrate-to-new-project.md
+      - Deploy & Scale:
+          - Enterprise: enterprise.md
+          - Compliance: compliance.md
+          - Self-Hosted Deployment:
+              - Overview: reference/self-hosted/overview.md
+              - Local Quickstart: reference/self-hosted/local-quickstart.md
+              - Installation: reference/self-hosted/installation.md
+              - Scaling: reference/self-hosted/scaling.md
+              - Troubleshooting: reference/self-hosted/troubleshooting.md
+              - Examples: reference/self-hosted/examples.md
+              - Usage Report: reference/self-hosted/usage-report.md
+      - Resources:
+          - Languages: languages.md
+          - Roadmap: roadmap.md
+          - Release Notes: release-notes.md
 
 markdown_extensions:
   - tables
@@ -408,15 +417,68 @@ plugins:
           - concepts.md
           - ai-observability.md
           - faq.md
-        How To - Guides:
-          - guides/*/*.md
-          - how-to-guides/*.md
+        Instrument Your App:
+          - guides/onboarding-checklist/*.md
+          - how-to-guides/distributed-tracing.md
+          - how-to-guides/sampling.md
+          - how-to-guides/scrubbing.md
+          - how-to-guides/suppress.md
+          - how-to-guides/otel-collector/*.md
         Integrations:
           - integrations/*.md
           - integrations/*/*.md
+        Observe & Investigate:
+          - guides/web-ui/live.md
+          - guides/web-ui/llm-panels.md
+          - guides/web-ui/dashboards.md
+          - guides/web-ui/explore.md
+          - guides/web-ui/issues.md
+          - guides/web-ui/alerts.md
+          - guides/web-ui/saved-searches.md
+          - guides/web-ui/public-traces.md
+          - how-to-guides/write-dashboard-queries.md
+          - how-to-guides/setup-slack-alerts.md
+          - how-to-guides/detect-service-is-down.md
+        Evaluate:
+          - guides/web-ui/evals.md
+          - evaluate/datasets/*.md
+        Manage & Configure:
+          - guides/web-ui/organizations-and-projects.md
+          - reference/configuration.md
+          - reference/advanced/managed-variables/*.md
+          - reference/advanced/use-api-keys.md
+          - reference/data-regions.md
+          - logfire-costs.md
+          - how-to-guides/environments.md
+          - how-to-guides/create-write-tokens.md
+          - how-to-guides/different-configurations.md
+          - how-to-guides/query-api.md
+          - how-to-guides/client-side-feature-flags.md
+          - how-to-guides/convert-to-organization.md
+        Guides:
+          - how-to-guides/link-to-code-source.md
+          - how-to-guides/alternative-clients.md
+          - how-to-guides/alternative-backends.md
+          - how-to-guides/cloud-metrics.md
+          - how-to-guides/mcp-server.md
+        Reference:
+          - reference/sql.md
+          - reference/api/*.md
+          - reference/cli.md
+          - reference/examples.md
+          - reference/advanced/baggage.md
+          - reference/advanced/generators.md
+          - reference/advanced/metrics-in-spans.md
+          - reference/advanced/testing.md
+          - reference/advanced/migrate-to-new-project.md
+        Deploy & Scale:
+          - enterprise.md
+          - compliance.md
+          - reference/self-hosted/*.md
         Comparisons:
           - comparisons/*.md
         Optional:
+          - languages.md
           - roadmap.md
           - release-notes.md
 hooks:

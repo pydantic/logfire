@@ -1,5 +1,10 @@
 # Release Notes
 
+## [v4.25.0] (2026-02-19)
+
+* Add experimental datasets package by @dmontagu in [#1711](https://github.com/pydantic/logfire/pull/1711)
+* Extract langsmith provider name by @alexmojaki in [#1720](https://github.com/pydantic/logfire/pull/1720)
+
 ## [v4.24.0] (2026-02-13)
 
 * Add managed variables by @dmontagu in [#1691](https://github.com/pydantic/logfire/pull/1691)
@@ -1042,3 +1047,4 @@ First release from new repo!
 [v4.22.0]: https://github.com/pydantic/logfire/compare/v4.21.0...v4.22.0
 [v4.23.0]: https://github.com/pydantic/logfire/compare/v4.22.0...v4.23.0
 [v4.24.0]: https://github.com/pydantic/logfire/compare/v4.23.0...v4.24.0
+[v4.25.0]: https://github.com/pydantic/logfire/compare/v4.24.0...v4.25.0

@@ -104,7 +104,7 @@ with agent_config.get(
     ...
 ```
 
-These attributes can be used in override rules to route specific segments to specific labels:
+These attributes can be used in conditional rules to route specific segments to specific labels:
 
 ```python skip="true"
 from logfire.variables.config import (
@@ -162,7 +162,7 @@ with agent_config.get(
     targeting_key=user_id,
     attributes={'plan': 'free'},  # Does not match override
 ) as config:
-    # config.label will be 'standard' (the default rollout)
+    # config.label will be 'standard' (the default routing)
     ...
 ```
 

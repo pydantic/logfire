@@ -24,7 +24,7 @@ Arize Phoenix is an ML observability platform focused on model monitoring, drift
 - **Developer experience:** You want the quickest possible setup
 - **SQL analysis:** You prefer querying with SQL rather than learning a new querying language
 - **Unified tooling:** You don't want separate tools for AI and application monitoring
-- **MCP Integration:** Ask questions about your tracing data to your favourite coding assistant 
+- **MCP Integration:** Ask questions about your tracing data to your favourite coding assistant
 
 ## When to Choose Arize Phoenix
 

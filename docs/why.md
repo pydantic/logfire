@@ -18,13 +18,13 @@ From the team behind Pydantic Validation, **Pydantic Logfire** is an observabili
 
   [:octicons-arrow-right-24: Read more](#simplicity-and-power)
 
-- :snake:{ .lg .middle } **Python-centric Insights**
+- :material-code-braces:{ .lg .middle } **Deep Language Integration**
 
   ***
 
-  From rich display of **Python objects**, to **event-loop telemetry**, to **profiling Python code & database queries**, Logfire gives you unparalleled visibility into your Python application's behavior.
+  Python has the deepest integration — rich display of **Python objects**, **event-loop telemetry**, and **profiling** — but Logfire also has native SDKs for **JavaScript/TypeScript** and **Rust**, and works with **any OpenTelemetry language**.
 
-  [:octicons-arrow-right-24: Read more](#python-centric-insights)
+  [:octicons-arrow-right-24: Read more](#deep-language-integration)
 
 - :simple-pydantic:{ .lg .middle } **Pydantic Integration**
 
@@ -46,7 +46,7 @@ From the team behind Pydantic Validation, **Pydantic Logfire** is an observabili
 
   ***
 
-  Include your Python objects in Logfire calls (lists, dict, dataclasses, Pydantic models, DataFrames, and more), and it'll end up as structured data in our platform ready to be queried.
+  Include your structured data in Logfire calls — in Python, that means lists, dicts, dataclasses, Pydantic models, DataFrames, and more — and it'll end up as structured data in our platform ready to be queried.
 
   [:octicons-arrow-right-24: Read more](#sql)
 
@@ -62,7 +62,7 @@ From the team behind Pydantic Validation, **Pydantic Logfire** is an observabili
 
 ## Find the needle in a _stack trace_
 
-We understand Python and its peculiarities. Pydantic Logfire was crafted by Python developers, for Python developers, addressing the unique challenges and opportunities of the Python environment. It's not just about having data; it's about having the _right_ data, presented in ways that make sense for Python applications.
+Pydantic Logfire was built by developers who understand real applications — from async Python services to JavaScript frontends to multi-language distributed systems. With deep integrations across Python, JavaScript/TypeScript, Rust, and any OpenTelemetry-compatible language, it's not just about having data; it's about having the _right_ data, presented in ways that make sense for your applications.
 
 ![Logfire FastAPI screenshot](images/index/logfire-screenshot-fastapi-200.png)
 
@@ -85,12 +85,11 @@ This might look similar to simple logging, but it's much more powerful — you g
 
 Ready to try Logfire? [Get Started](index.md)! 🚀
 
-## Python-centric insights :material-snake:
+## Deep language integration :material-code-braces:
 
 **Pydantic Logfire** automatically instruments your code for minimal manual effort, provides
 exceptional insights into async code, offers detailed performance analytics, and displays Python
-objects the same as the interpreter. **Pydantic Logfire** gives you a clearer view into how your
-Python is running than any other observability tool.
+objects the same as the interpreter. Python has the deepest integration, but Logfire also has native SDKs for JavaScript/TypeScript and Rust, and works with any OpenTelemetry-compatible language.
 
 ### Rich display of Python objects
 
@@ -262,7 +261,7 @@ This means:
 
 When a coding agent is debugging your AI application, it shouldn't be limited by what queries someone anticipated. It should have full access to understand what's actually happening.
 
-Just include your Python objects in **Logfire** calls (lists, dict, dataclasses, Pydantic models, DataFrames, and more),
+Just include your structured data in **Logfire** calls — for example, in Python that means lists, dicts, dataclasses, Pydantic models, DataFrames, and more —
 and it'll end up as structured data in our platform ready to be queried.
 
 For example, using data from a `User` model, we could list users from the USA:
