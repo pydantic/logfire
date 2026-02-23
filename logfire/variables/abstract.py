@@ -6,7 +6,7 @@ import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from contextlib import ExitStack
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar
 
 SyncMode = Literal['merge', 'replace']
@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from pydantic import TypeAdapter
 
     import logfire
+    from logfire.variables.composition import ComposedReference
     from logfire.variables.config import VariableConfig, VariablesConfig, VariableTypeConfig
     from logfire.variables.variable import Variable
 
@@ -112,6 +113,12 @@ class ResolvedVariable(Generic[T_co]):
     """The version number of the resolved value, if any."""
     exception: Exception | None = None
     """Any exception that occurred during resolution."""
+    composed_from: list[ComposedReference] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    """Variables that were composed into this value via <<reference>> expansion.
+
+    Each entry is a ComposedReference for a referenced variable, including
+    its label, version, reason, and any nested composed_from entries.
+    """
 
     def __post_init__(self):
         self._exit_stack = ExitStack()
@@ -166,6 +173,8 @@ class VariableDiff:
 
     changes: list[VariableChange]
     orphaned_server_variables: list[str]  # Variables on server not in local code
+    reference_warnings: list[str] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    """Warnings about variable references (non-existent refs, cycles, etc.)."""
 
     @property
     def has_changes(self) -> bool:
@@ -216,6 +225,8 @@ class ValidationReport:
     """Names of variables that exist locally but not on the server."""
     description_differences: list[DescriptionDifference]
     """List of variables where local and server descriptions differ."""
+    reference_warnings: list[str] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    """Warnings about variable references (non-existent refs, cycles, etc.)."""
 
     @property
     def has_errors(self) -> bool:
@@ -278,6 +289,12 @@ class ValidationReport:
                 server_desc = diff.server_description or '(none)'
                 lines.append(f'    Local:  {local_desc}')
                 lines.append(f'    Server: {server_desc}')
+
+        # Show reference warnings
+        if self.reference_warnings:
+            lines.append(f'\n{yellow}=== Reference warnings ==={reset}')
+            for warning in self.reference_warnings:
+                lines.append(f'  {yellow}⚠ {warning}{reset}')
 
         # Summary line
         if not self.is_valid:
@@ -411,6 +428,90 @@ def _check_type_label_compatibility(
     return incompatible
 
 
+def _check_reference_warnings(
+    variables: Sequence[Variable[object]],
+    server_config: VariablesConfig,
+) -> list[str]:
+    """Check for reference warnings: non-existent refs and cycles.
+
+    Scans local variable defaults and server label values for <<references>>
+    and validates that referenced variables exist and there are no cycles.
+    """
+    from logfire.variables.composition import find_references
+    from logfire.variables.config import LabeledValue
+    from logfire.variables.variable import is_resolve_function
+
+    warnings_list: list[str] = []
+
+    # Collect all known variable names (local + server)
+    all_names: set[str] = {v.name for v in variables} | set(server_config.variables.keys())
+
+    # Build a reference graph: variable_name -> set of referenced names
+    ref_graph: dict[str, set[str]] = {}
+
+    # Scan local variable defaults for references
+    for variable in variables:
+        refs: set[str] = set()
+        if not is_resolve_function(variable.default):
+            try:
+                serialized_default = variable.type_adapter.dump_json(variable.default).decode('utf-8')
+                refs.update(find_references(serialized_default))
+            except Exception:
+                pass
+
+        # Also scan server label values for this variable
+        server_var = server_config.variables.get(variable.name)
+        if server_var is not None:
+            for _, labeled_value in server_var.labels.items():
+                if isinstance(labeled_value, LabeledValue):
+                    refs.update(find_references(labeled_value.serialized_value))
+            if server_var.latest_version is not None:
+                refs.update(find_references(server_var.latest_version.serialized_value))
+
+        if refs:
+            ref_graph[variable.name] = refs
+
+        # Check for non-existent references
+        for ref_name in refs:
+            if ref_name not in all_names:
+                warnings_list.append(f"Variable '{variable.name}' references '<<{ref_name}>>' which does not exist.")
+
+    # Check for cycles using DFS
+    def _detect_cycles(graph: dict[str, set[str]]) -> list[list[str]]:
+        cycles: list[list[str]] = []
+        visited: set[str] = set()
+        in_stack: set[str] = set()
+        path: list[str] = []
+
+        def dfs(node: str) -> None:
+            if node in in_stack:
+                # Found a cycle - extract it
+                cycle_start = path.index(node)
+                cycles.append(path[cycle_start:] + [node])
+                return
+            if node in visited:
+                return
+            visited.add(node)
+            in_stack.add(node)
+            path.append(node)
+            for neighbor in graph.get(node, set()):
+                dfs(neighbor)
+            path.pop()
+            in_stack.remove(node)
+
+        for node in graph:
+            if node not in visited:
+                dfs(node)
+        return cycles
+
+    cycles = _detect_cycles(ref_graph)
+    for cycle in cycles:
+        cycle_str = ' -> '.join(cycle)
+        warnings_list.append(f'Reference cycle detected: {cycle_str}')
+
+    return warnings_list
+
+
 def _compute_diff(
     variables: Sequence[Variable[object]],
     server_config: VariablesConfig,
@@ -495,7 +596,10 @@ def _compute_diff(
     # Find orphaned server variables (on server but not in local code)
     orphaned = [name for name in server_config.variables.keys() if name not in local_names]
 
-    return VariableDiff(changes=changes, orphaned_server_variables=orphaned)
+    # Check for reference warnings (non-existent refs, cycles)
+    reference_warnings = _check_reference_warnings(variables, server_config)
+
+    return VariableDiff(changes=changes, orphaned_server_variables=orphaned, reference_warnings=reference_warnings)
 
 
 def _format_diff(diff: VariableDiff) -> str:
@@ -557,6 +661,12 @@ def _format_diff(diff: VariableDiff) -> str:
             server_desc = change.server_description or '(none)'
             lines.append(f'    Local:  {local_desc}')
             lines.append(f'    Server: {server_desc}')
+
+    # Show reference warnings
+    if diff.reference_warnings:
+        lines.append(f'\n{ANSI_YELLOW}=== Reference warnings ==={ANSI_RESET}')
+        for warning in diff.reference_warnings:
+            lines.append(f'  {ANSI_YELLOW}⚠ {warning}{ANSI_RESET}')
 
     return '\n'.join(lines)
 
@@ -1152,11 +1262,15 @@ class VariableProvider(ABC):
                         )
                     )
 
+        # Check for reference warnings
+        reference_warnings = _check_reference_warnings(variables, server_config)
+
         return ValidationReport(
             errors=errors,
             variables_checked=len(variables),
             variables_not_on_server=variables_not_on_server,
             description_differences=description_differences,
+            reference_warnings=reference_warnings,
         )
 
     # --- Variable Types API ---

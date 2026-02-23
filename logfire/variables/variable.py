@@ -1,6 +1,7 @@
 from __future__ import annotations as _annotations
 
 import inspect
+import json
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import ExitStack, contextmanager
 from contextvars import ContextVar
@@ -12,7 +13,15 @@ from opentelemetry.trace import get_current_span
 from pydantic import TypeAdapter, ValidationError
 from typing_extensions import TypeIs
 
+from logfire.variables.composition import (
+    REFERENCE_PATTERN,
+    ComposedReference,
+    VariableCompositionError,
+    expand_references,
+)
+
 if TYPE_CHECKING:
+    from logfire.variables.abstract import VariableProvider
     from logfire.variables.config import VariableConfig
 
 if find_spec('anyio') is not None:  # pragma: no branch
@@ -242,15 +251,27 @@ class Variable(Generic[T_co]):
                     serialized_value = self.type_adapter.dump_json(result.value).decode('utf-8')
                 except Exception:
                     serialized_value = repr(result.value)
-                span.set_attributes(
-                    {
-                        'name': result.name,
-                        'value': serialized_value,
-                        'label': result.label,
-                        'version': result.version,
-                        'reason': result._reason,  # pyright: ignore[reportPrivateUsage]
-                    }
-                )
+                attrs: dict[str, Any] = {
+                    'name': result.name,
+                    'value': serialized_value,
+                    'label': result.label,
+                    'version': result.version,
+                    'reason': result._reason,  # pyright: ignore[reportPrivateUsage]
+                }
+                if result.composed_from:
+                    attrs['composed_from'] = json.dumps(
+                        [
+                            {
+                                'name': c.name,
+                                'version': c.version,
+                                'label': c.label,
+                                'reason': c.reason,
+                                'error': c.error,
+                            }
+                            for c in result.composed_from
+                        ]
+                    )
+                span.set_attributes(attrs)
                 if result.exception:
                     span.record_exception(
                         result.exception,
@@ -278,22 +299,7 @@ class Variable(Generic[T_co]):
             if label is not None:
                 serialized_result = provider.get_serialized_value_for_label(self.name, label)
                 if serialized_result.value is not None:
-                    # Successfully got the explicit label
-                    value_or_exc = self._deserialize(serialized_result.value)
-                    if isinstance(value_or_exc, Exception):
-                        if span:  # pragma: no branch
-                            span.set_attribute('invalid_serialized_label', serialized_result.label)
-                            span.set_attribute('invalid_serialized_value', serialized_result.value)
-                        default = self._get_default(targeting_key, attributes)
-                        reason: str = 'validation_error' if isinstance(value_or_exc, ValidationError) else 'other_error'
-                        return ResolvedVariable(name=self.name, value=default, exception=value_or_exc, _reason=reason)
-                    return ResolvedVariable(
-                        name=self.name,
-                        value=value_or_exc,
-                        label=serialized_result.label,
-                        version=serialized_result.version,
-                        _reason='resolved',
-                    )
+                    return self._expand_and_deserialize(serialized_result, provider, targeting_key, attributes, span)
                 # Label not found - fall through to default resolution
 
             serialized_result = provider.get_serialized_value(self.name, targeting_key, attributes)
@@ -302,23 +308,7 @@ class Variable(Generic[T_co]):
                 default = self._get_default(targeting_key, attributes)
                 return _with_value(serialized_result, default)
 
-            # Deserialize - returns T | Exception
-            value_or_exc = self._deserialize(serialized_result.value)
-            if isinstance(value_or_exc, Exception):
-                if span:  # pragma: no branch
-                    span.set_attribute('invalid_serialized_label', serialized_result.label)
-                    span.set_attribute('invalid_serialized_value', serialized_result.value)
-                default = self._get_default(targeting_key, attributes)
-                reason: str = 'validation_error' if isinstance(value_or_exc, ValidationError) else 'other_error'
-                return ResolvedVariable(name=self.name, value=default, exception=value_or_exc, _reason=reason)
-
-            return ResolvedVariable(
-                name=self.name,
-                value=value_or_exc,
-                label=serialized_result.label,
-                version=serialized_result.version,
-                _reason='resolved',
-            )
+            return self._expand_and_deserialize(serialized_result, provider, targeting_key, attributes, span)
 
         except Exception as e:
             if span and serialized_result is not None:  # pragma: no cover
@@ -326,6 +316,78 @@ class Variable(Generic[T_co]):
                 span.set_attribute('invalid_serialized_value', serialized_result.value)
             default = self._get_default(targeting_key, attributes)
             return ResolvedVariable(name=self.name, value=default, exception=e, _reason='other_error')
+
+    def _expand_and_deserialize(
+        self,
+        serialized_result: ResolvedVariable[str | None],
+        provider: VariableProvider,
+        targeting_key: str | None,
+        attributes: Mapping[str, Any] | None,
+        span: logfire.LogfireSpan | None,
+    ) -> ResolvedVariable[T_co]:
+        """Expand <<references>> in a serialized value, then deserialize.
+
+        Handles composition between the provider fetch and Pydantic deserialization.
+        """
+        assert serialized_result.value is not None
+
+        serialized_value = serialized_result.value
+        composed: list[ComposedReference] = []
+
+        # Expand <<references>> if any are present
+        if REFERENCE_PATTERN.search(serialized_value):
+
+            def resolve_fn(ref_name: str) -> tuple[str | None, str | None, int | None, str]:
+                ref_resolved = provider.get_serialized_value(ref_name, targeting_key, attributes)
+                return (
+                    ref_resolved.value,
+                    ref_resolved.label,
+                    ref_resolved.version,
+                    ref_resolved._reason,  # pyright: ignore[reportPrivateUsage]
+                )
+
+            try:
+                serialized_value, composed = expand_references(
+                    serialized_value,
+                    self.name,
+                    resolve_fn,
+                )
+            except VariableCompositionError as e:
+                default = self._get_default(targeting_key, attributes)
+                return ResolvedVariable(
+                    name=self.name,
+                    value=default,
+                    exception=e,
+                    _reason='other_error',
+                    label=serialized_result.label,
+                    version=serialized_result.version,
+                    composed_from=composed,
+                )
+
+        # Deserialize the (possibly expanded) value
+        value_or_exc = self._deserialize(serialized_value)
+        if isinstance(value_or_exc, Exception):
+            if span:  # pragma: no branch
+                span.set_attribute('invalid_serialized_label', serialized_result.label)
+                span.set_attribute('invalid_serialized_value', serialized_value)
+            default = self._get_default(targeting_key, attributes)
+            reason: str = 'validation_error' if isinstance(value_or_exc, ValidationError) else 'other_error'
+            return ResolvedVariable(
+                name=self.name,
+                value=default,
+                exception=value_or_exc,
+                _reason=reason,
+                composed_from=composed,
+            )
+
+        return ResolvedVariable(
+            name=self.name,
+            value=value_or_exc,
+            label=serialized_result.label,
+            version=serialized_result.version,
+            _reason='resolved',
+            composed_from=composed,
+        )
 
     def _get_default(
         self, targeting_key: str | None = None, merged_attributes: Mapping[str, Any] | None = None
