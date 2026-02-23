@@ -14,7 +14,7 @@ from logfire._internal.config import (
     VariablesOptions as VariablesOptions,
 )
 from logfire.variables.abstract import ResolvedVariable
-from logfire.variables.variable import Variable
+from logfire.variables.variable import _BaseVariable  # pyright: ignore[reportPrivateUsage]
 
 try:
     from pydantic import Discriminator
@@ -538,7 +538,7 @@ class VariablesConfig(BaseModel):
 
         return None
 
-    def get_validation_errors(self, variables: list[Variable[Any]]) -> dict[str, dict[str | None, Exception]]:
+    def get_validation_errors(self, variables: Sequence[_BaseVariable[Any]]) -> dict[str, dict[str | None, Exception]]:
         """Validate that all variable label values can be deserialized to their expected types.
 
         Args:
@@ -571,7 +571,7 @@ class VariablesConfig(BaseModel):
         return errors
 
     @staticmethod
-    def from_variables(variables: list[Variable[Any]]) -> VariablesConfig:
+    def from_variables(variables: Sequence[_BaseVariable[Any]]) -> VariablesConfig:
         """Create a VariablesConfig from a list of Variable instances.
 
         This creates a minimal config with just the name, schema, and example for each variable.

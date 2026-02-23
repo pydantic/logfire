@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     import logfire
     from logfire.variables.composition import ComposedReference
     from logfire.variables.config import VariableConfig, VariablesConfig, VariableTypeConfig
-    from logfire.variables.variable import Variable
+    from logfire.variables.variable import _BaseVariable  # pyright: ignore[reportPrivateUsage]
 
 # ANSI color codes for terminal output
 ANSI_RESET = '\033[0m'
@@ -38,6 +38,7 @@ __all__ = (
     'VariableWriteError',
     'VariableNotFoundError',
     'VariableAlreadyExistsError',
+    'render_serialized_string',
 )
 
 T = TypeVar('T')
@@ -193,46 +194,70 @@ class ResolvedVariable(Generic[T_co]):
         if self._deserializer is None:
             raise ValueError('Cannot render template: no deserializer available.')
 
-        try:
-            from pydantic_handlebars import SafeString, render as hbs_render
-        except ImportError:
-            raise ImportError(
-                "Template rendering requires the 'pydantic-handlebars' package.\n"
-                'Install it with: pip install pydantic-handlebars'
-            ) from None
-
-        safe_string_cls: type[str] = SafeString
-        render_fn: Callable[..., str] = hbs_render
-
-        # Build context dict from inputs
-        if inputs is None:
-            context: dict[str, Any] = {}
-        elif hasattr(inputs, 'model_dump'):
-            context = inputs.model_dump()
-        elif isinstance(inputs, Mapping):
-            context = dict(inputs)  # pyright: ignore[reportUnknownArgumentType]
-        else:
-            raise TypeError(
-                f'Expected a dict, Mapping, or Pydantic model for render inputs, got {type(inputs).__name__}'
-            )
-
-        # Wrap all string values in SafeString to disable HTML escaping.
-        # For prompt/config templates (not HTML), escaping is undesirable.
-        context = _wrap_safe_context(context, safe_string_cls)
-
-        # Decode the serialized JSON, render string values, then re-encode.
-        # We can't render the raw JSON directly because substituted values
-        # might contain JSON-special characters (e.g., double quotes) that
-        # would make the resulting JSON invalid.
-        decoded = json.loads(self._serialized_value)
-        rendered_value = _render_json_value(decoded, render_fn, context)
-        rendered_json = json.dumps(rendered_value)
+        rendered_json = render_serialized_string(self._serialized_value, inputs)
 
         # Deserialize the rendered JSON
         result = self._deserializer(rendered_json)
         if isinstance(result, Exception):
             raise result
         return result
+
+
+def _inputs_to_context(inputs: Any) -> dict[str, Any]:
+    """Convert inputs (Pydantic model, dict, or Mapping) to a template context dict.
+
+    Args:
+        inputs: Template context values. Can be a Pydantic ``BaseModel`` (uses ``model_dump()``),
+            a ``dict``, or any ``Mapping``. If ``None``, returns an empty dict.
+
+    Returns:
+        A dict suitable for use as a Handlebars template context.
+
+    Raises:
+        TypeError: If inputs is not a supported type.
+    """
+    if inputs is None:
+        return {}
+    elif hasattr(inputs, 'model_dump'):
+        return inputs.model_dump()
+    elif isinstance(inputs, Mapping):
+        return dict(inputs)  # pyright: ignore[reportUnknownArgumentType]
+    else:
+        raise TypeError(f'Expected a dict, Mapping, or Pydantic model for render inputs, got {type(inputs).__name__}')
+
+
+def render_serialized_string(serialized_json: str, inputs: Any) -> str:
+    """Render Handlebars templates in a serialized JSON string.
+
+    Decodes the JSON, renders all string values containing ``{{placeholders}}``
+    using the provided inputs, then re-encodes to JSON.
+
+    Args:
+        serialized_json: A JSON-encoded string potentially containing Handlebars templates.
+        inputs: Template context values. Can be a Pydantic ``BaseModel``, ``dict``,
+            ``Mapping``, or ``None``.
+
+    Returns:
+        The rendered JSON string.
+    """
+    from logfire.handlebars import SafeString, render as hbs_render
+
+    safe_string_cls: type[str] = SafeString
+    render_fn: Callable[..., str] = hbs_render
+
+    context = _inputs_to_context(inputs)
+
+    # Wrap all string values in SafeString to disable HTML escaping.
+    # For prompt/config templates (not HTML), escaping is undesirable.
+    context = _wrap_safe_context(context, safe_string_cls)
+
+    # Decode the serialized JSON, render string values, then re-encode.
+    # We can't render the raw JSON directly because substituted values
+    # might contain JSON-special characters (e.g., double quotes) that
+    # would make the resulting JSON invalid.
+    decoded = json.loads(serialized_json)
+    rendered_value = _render_json_value(decoded, render_fn, context)
+    return json.dumps(rendered_value)
 
 
 def _wrap_safe_context(context: dict[str, Any], safe_string_cls: type[str]) -> dict[str, Any]:
@@ -438,12 +463,12 @@ class ValidationReport:
 # --- Helper functions for push/validate operations ---
 
 
-def _get_json_schema(variable: Variable[object]) -> dict[str, Any]:
+def _get_json_schema(variable: _BaseVariable[object]) -> dict[str, Any]:
     """Get the JSON schema for a variable's type."""
     return variable.type_adapter.json_schema()
 
 
-def _get_default_serialized(variable: Variable[object]) -> str | None:
+def _get_default_serialized(variable: _BaseVariable[object]) -> str | None:
     """Get the serialized default value for a variable.
 
     Returns None if the default is a ResolveFunction (can't serialize a function).
@@ -457,7 +482,7 @@ def _get_default_serialized(variable: Variable[object]) -> str | None:
 
 
 def _check_label_compatibility(
-    variable: Variable[object],
+    variable: _BaseVariable[object],
     label: str,
     serialized_value: str,
 ) -> LabelCompatibility:
@@ -481,7 +506,7 @@ def _check_label_compatibility(
 
 
 def _check_all_label_compatibility(
-    variable: Variable[object],
+    variable: _BaseVariable[object],
     server_var: VariableConfig,
 ) -> list[LabelCompatibility]:
     """Check all labeled values and latest_version against the variable's Python type.
@@ -558,7 +583,7 @@ def _check_type_label_compatibility(
 
 
 def _check_reference_warnings(
-    variables: Sequence[Variable[object]],
+    variables: Sequence[_BaseVariable[object]],
     server_config: VariablesConfig,
 ) -> list[str]:
     """Check for reference warnings: non-existent refs and cycles.
@@ -642,7 +667,7 @@ def _check_reference_warnings(
 
 
 def _compute_diff(
-    variables: Sequence[Variable[object]],
+    variables: Sequence[_BaseVariable[object]],
     server_config: VariablesConfig,
 ) -> VariableDiff:
     """Compute the diff between local variables and server config.
@@ -1225,7 +1250,7 @@ class VariableProvider(ABC):
 
     def push_variables(
         self,
-        variables: Sequence[Variable[object]],
+        variables: Sequence[_BaseVariable[object]],
         *,
         dry_run: bool = False,
         yes: bool = False,
@@ -1321,7 +1346,7 @@ class VariableProvider(ABC):
 
     def validate_variables(
         self,
-        variables: Sequence[Variable[object]],
+        variables: Sequence[_BaseVariable[object]],
     ) -> ValidationReport:
         """Validate that provider-side variable label values match local type definitions.
 
@@ -1676,7 +1701,7 @@ class NoOpVariableProvider(VariableProvider):
 
     def push_variables(
         self,
-        variables: Sequence[Variable[Any]],
+        variables: Sequence[_BaseVariable[Any]],
         *,
         dry_run: bool = False,
         yes: bool = False,
@@ -1692,7 +1717,7 @@ class NoOpVariableProvider(VariableProvider):
 
     def validate_variables(
         self,
-        variables: Sequence[Variable[Any]],
+        variables: Sequence[_BaseVariable[Any]],
     ) -> ValidationReport:
         """No-op implementation that returns an empty validation report.
 

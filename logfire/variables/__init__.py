@@ -44,6 +44,7 @@ if TYPE_CHECKING:
     )
     from logfire.variables.variable import (
         ResolveFunction,
+        TemplateVariable,
         Variable,
         targeting_context,
     )
@@ -51,6 +52,7 @@ if TYPE_CHECKING:
 __all__ = [
     # Variable classes
     'Variable',
+    'TemplateVariable',
     'ResolvedVariable',
     'ResolveFunction',
     # Configuration classes
@@ -117,6 +119,7 @@ def __getattr__(name: str):
     )
     from logfire.variables.variable import (
         ResolveFunction,
+        TemplateVariable,
         Variable,
         targeting_context,
     )
