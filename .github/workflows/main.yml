@@ -43,7 +43,7 @@ jobs:
           enable-cache: true
 
       - run: uv sync --python 3.12 --frozen --group docs
-      - run: uv pip install --upgrade mkdocs-material mkdocstrings-python 'mkdocstrings<1' griffe==0.48.0
+      - run: uv pip install --upgrade mkdocs-material 'mkdocstrings-python<1.16' 'mkdocstrings<1' griffe==0.48.0
         env:
           UV_EXTRA_INDEX_URL: ${{ secrets.UV_EXTRA_INDEX_URL }}
       - run: |

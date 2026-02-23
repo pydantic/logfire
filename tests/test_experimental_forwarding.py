@@ -260,3 +260,22 @@ def test_fastapi_proxy_instrumentation_coverage_mock() -> None:
             assert response.status_code == 200
             assert response.content == b'{"ok": true}'
             assert mock_concurrency.run_in_threadpool.called
+
+
+def test_forward_export_request_explicit_config() -> None:
+    """Test that an explicit config can be passed to forward_export_request."""
+    logfire.configure(token='explicit_token', send_to_logfire=False)
+
+    explicit_config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
+
+    with mock.patch('requests.request') as mock_req:
+        mock_req.return_value.status_code = 200
+        mock_req.return_value.headers = {}
+        mock_req.return_value.content = b'ok'
+
+        response = forward_export_request('POST', '/v1/traces', {}, b'', config=explicit_config)
+
+        assert response.status_code == 200
+
+        headers = mock_req.call_args[1]['headers']
+        assert headers['Authorization'] == 'explicit_token'
