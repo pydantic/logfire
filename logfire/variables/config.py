@@ -312,6 +312,12 @@ class VariableConfig(BaseModel):
     """Alternative names that resolve to this variable; useful for name migrations."""
     example: str | None = None
     """JSON-serialized example value from code; used as a template when creating new values in the UI."""
+    template_inputs_schema: dict[str, Any] | None = None
+    """JSON Schema describing the expected template inputs for Handlebars rendering.
+
+    When set, the variable's values can contain {{placeholder}} Handlebars syntax.
+    The schema is derived from a Pydantic model passed as `template_inputs` to `logfire.var()`.
+    """
     # NOTE: Context-based targeting_key can be set via targeting_context() from logfire.variables.
     # TODO(DavidM): Consider adding remotely-managed targeting_key_attribute for automatic attribute-based targeting.
 
@@ -589,6 +595,9 @@ class VariablesConfig(BaseModel):
             if not is_resolve_function(variable.default):
                 example = variable.type_adapter.dump_json(variable.default).decode('utf-8')
 
+            # Get template inputs schema if available
+            template_inputs_schema = variable.get_template_inputs_schema()
+
             config = VariableConfig(
                 name=variable.name,
                 description=variable.description,
@@ -597,6 +606,7 @@ class VariablesConfig(BaseModel):
                 overrides=[],
                 json_schema=json_schema,
                 example=example,
+                template_inputs_schema=template_inputs_schema,
             )
             variable_configs[variable.name] = config
 

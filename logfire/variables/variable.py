@@ -135,6 +135,8 @@ class Variable(Generic[T_co]):
     """Default value or function to compute the default."""
     description: str | None
     """Description of the variable."""
+    template_inputs_type: type[Any] | None
+    """The Pydantic model type for template inputs, if template rendering is enabled."""
 
     logfire_instance: logfire.Logfire
     """The Logfire instance this variable is associated with."""
@@ -146,6 +148,7 @@ class Variable(Generic[T_co]):
         type: type[T_co],
         default: T_co | ResolveFunction[T_co],
         description: str | None = None,
+        template_inputs: type[Any] | None = None,
         logfire_instance: logfire.Logfire,
     ):
         """Create a new managed variable.
@@ -156,15 +159,29 @@ class Variable(Generic[T_co]):
             default: Default value to use when no configuration is found, or a function
                 that computes the default based on targeting_key and attributes.
             description: Optional human-readable description of what this variable controls.
+            template_inputs: Optional Pydantic model type describing the expected template inputs
+                for Handlebars rendering. When set, values can contain ``{{placeholder}}`` syntax.
             logfire_instance: The Logfire instance this variable is associated with. Used to determine config, etc.
         """
         self.name = name
         self.value_type = type
         self.default = default
         self.description = description
+        self.template_inputs_type = template_inputs
 
         self.logfire_instance = logfire_instance.with_settings(custom_scope_suffix='variables')
         self.type_adapter = TypeAdapter[T_co](type)
+
+        if template_inputs is not None:
+            self._template_inputs_adapter: TypeAdapter[Any] | None = TypeAdapter(template_inputs)
+        else:
+            self._template_inputs_adapter = None
+
+    def get_template_inputs_schema(self) -> dict[str, Any] | None:
+        """Return the JSON schema for template inputs, or None if not configured."""
+        if self._template_inputs_adapter is not None:
+            return self._template_inputs_adapter.json_schema()
+        return None
 
     def _deserialize(self, serialized_value: str) -> T_co | Exception:
         """Deserialize a JSON string to the variable's type, returning an Exception on failure."""
@@ -244,6 +261,14 @@ class Variable(Generic[T_co]):
                     )
                 )
             result = self._resolve(targeting_key, merged_attributes, span, label)
+            # Ensure rendering support is always available
+            if result._deserializer is None:  # pyright: ignore[reportPrivateUsage]
+                result._deserializer = self._deserialize  # pyright: ignore[reportPrivateUsage]
+            if result._serialized_value is None and result.value is not None:  # pyright: ignore[reportPrivateUsage]
+                try:
+                    result._serialized_value = self.type_adapter.dump_json(result.value).decode('utf-8')  # pyright: ignore[reportPrivateUsage]
+                except Exception:
+                    pass
             if span is not None:
                 # Serialize value safely for OTel span attributes, which only support primitives.
                 # Try to JSON serialize the value; if that fails, fall back to string representation.
@@ -387,6 +412,8 @@ class Variable(Generic[T_co]):
             version=serialized_result.version,
             _reason='resolved',
             composed_from=composed,
+            _serialized_value=serialized_value,
+            _deserializer=self._deserialize,
         )
 
     def _get_default(
@@ -436,6 +463,10 @@ class Variable(Generic[T_co]):
         if not is_resolve_function(self.default):
             example = self.type_adapter.dump_json(self.default).decode('utf-8')
 
+        template_inputs_schema: dict[str, Any] | None = None
+        if self._template_inputs_adapter is not None:
+            template_inputs_schema = self._template_inputs_adapter.json_schema()
+
         return VariableConfig(
             name=self.name,
             description=self.description,
@@ -444,6 +475,7 @@ class Variable(Generic[T_co]):
             overrides=[],
             json_schema=json_schema,
             example=example,
+            template_inputs_schema=template_inputs_schema,
         )
 
 

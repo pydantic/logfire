@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from contextlib import ExitStack
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Generic, Literal, TypeVar
 
 SyncMode = Literal['merge', 'replace']
 
@@ -119,6 +119,17 @@ class ResolvedVariable(Generic[T_co]):
     Each entry is a ComposedReference for a referenced variable, including
     its label, version, reason, and any nested composed_from entries.
     """
+    _serialized_value: str | None = None
+    """Internal: the post-composition, pre-deserialization JSON string.
+
+    Used by render() to apply Handlebars template rendering on the serialized
+    form before deserializing to the variable's type.
+    """
+    _deserializer: Callable[[str], Any] | None = None
+    """Internal: function to deserialize a JSON string to the variable's type.
+
+    Returns the deserialized value or an Exception on failure.
+    """
 
     def __post_init__(self):
         self._exit_stack = ExitStack()
@@ -136,6 +147,123 @@ class ResolvedVariable(Generic[T_co]):
 
     def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: Any) -> None:
         self._exit_stack.__exit__(exc_type, exc_val, exc_tb)
+
+    def render(self, inputs: Any = None) -> T_co:
+        """Render Handlebars templates in this variable's value.
+
+        Operates on the serialized JSON (post-composition), renders all ``{{placeholder}}``
+        expressions using the provided inputs, then deserializes to the variable's type.
+
+        For ``str`` variables, this renders the template and returns a string.
+        For structured variables (e.g., Pydantic models), all string values containing
+        ``{{placeholders}}`` are rendered while non-string fields pass through unchanged.
+
+        Args:
+            inputs: Template context values. Can be a Pydantic ``BaseModel`` (uses ``model_dump()``),
+                a ``dict``, or any ``Mapping``. If ``None``, renders with an empty context.
+
+        Returns:
+            The rendered value, typed as the variable's type ``T_co``.
+
+        Raises:
+            ValueError: If no serialized value is available for rendering.
+            ImportError: If ``pydantic-handlebars`` is not installed.
+
+        Example:
+            ```python skip="true"
+            from pydantic import BaseModel
+
+
+            class Inputs(BaseModel):
+                user_name: str
+
+
+            prompt = logfire.var('prompt', type=str, default='Hello {{user_name}}')
+            with prompt.get() as resolved:
+                rendered = resolved.render(Inputs(user_name='Alice'))
+                # rendered == "Hello Alice"
+            ```
+        """
+        if self._serialized_value is None:
+            raise ValueError(
+                'Cannot render template: no serialized value available. '
+                'This can happen if the variable resolved to a context override '
+                'or if serialization of the default value failed.'
+            )
+        if self._deserializer is None:
+            raise ValueError('Cannot render template: no deserializer available.')
+
+        try:
+            from pydantic_handlebars import SafeString, render as hbs_render
+        except ImportError:
+            raise ImportError(
+                "Template rendering requires the 'pydantic-handlebars' package.\n"
+                'Install it with: pip install pydantic-handlebars'
+            ) from None
+
+        safe_string_cls: type[str] = SafeString
+        render_fn: Callable[..., str] = hbs_render
+
+        # Build context dict from inputs
+        if inputs is None:
+            context: dict[str, Any] = {}
+        elif hasattr(inputs, 'model_dump'):
+            context = inputs.model_dump()
+        elif isinstance(inputs, Mapping):
+            context = dict(inputs)  # pyright: ignore[reportUnknownArgumentType]
+        else:
+            raise TypeError(
+                f'Expected a dict, Mapping, or Pydantic model for render inputs, got {type(inputs).__name__}'
+            )
+
+        # Wrap all string values in SafeString to disable HTML escaping.
+        # For prompt/config templates (not HTML), escaping is undesirable.
+        context = _wrap_safe_context(context, safe_string_cls)
+
+        # Decode the serialized JSON, render string values, then re-encode.
+        # We can't render the raw JSON directly because substituted values
+        # might contain JSON-special characters (e.g., double quotes) that
+        # would make the resulting JSON invalid.
+        decoded = json.loads(self._serialized_value)
+        rendered_value = _render_json_value(decoded, render_fn, context)
+        rendered_json = json.dumps(rendered_value)
+
+        # Deserialize the rendered JSON
+        result = self._deserializer(rendered_json)
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+
+def _wrap_safe_context(context: dict[str, Any], safe_string_cls: type[str]) -> dict[str, Any]:
+    """Recursively wrap all string values in SafeString to disable HTML escaping."""
+    return {k: _wrap_safe_value(v, safe_string_cls) for k, v in context.items()}
+
+
+def _wrap_safe_value(value: Any, safe_string_cls: type[str]) -> Any:
+    """Wrap a single value: strings become SafeString, dicts/lists are recursed."""
+    if isinstance(value, str):
+        return safe_string_cls(value)
+    if isinstance(value, dict):
+        return _wrap_safe_context(value, safe_string_cls)  # pyright: ignore[reportUnknownArgumentType]
+    if isinstance(value, list):
+        return [_wrap_safe_value(item, safe_string_cls) for item in value]  # pyright: ignore[reportUnknownVariableType]
+    return value
+
+
+def _render_json_value(value: Any, hbs_render: Callable[..., str], context: dict[str, Any]) -> Any:
+    """Recursively render Handlebars templates in a decoded JSON value.
+
+    Only string values are rendered; dicts and lists are walked recursively.
+    """
+    if isinstance(value, str):
+        return hbs_render(value, context)
+    if isinstance(value, dict):
+        return {k: _render_json_value(v, hbs_render, context) for k, v in value.items()}  # pyright: ignore[reportUnknownVariableType]
+    if isinstance(value, list):
+        return [_render_json_value(item, hbs_render, context) for item in value]  # pyright: ignore[reportUnknownVariableType]
+    # Numbers, booleans, None pass through unchanged
+    return value
 
 
 # --- Dataclasses for push/validate operations ---
@@ -165,6 +293,7 @@ class VariableChange:
     local_description: str | None = None
     server_description: str | None = None
     description_differs: bool = False  # True if descriptions differ (for warning)
+    template_inputs_schema: dict[str, Any] | None = None  # JSON Schema for template inputs
 
 
 @dataclass
@@ -533,6 +662,9 @@ def _compute_diff(
         local_description = variable.description
         server_var = server_config.variables.get(variable.name)
 
+        # Get template_inputs_schema if available
+        template_inputs_schema = variable.get_template_inputs_schema()
+
         if server_var is None:
             # New variable - needs to be created
             default_serialized = _get_default_serialized(variable)
@@ -543,6 +675,7 @@ def _compute_diff(
                     local_schema=local_schema,
                     initial_value=default_serialized,
                     local_description=local_description,
+                    template_inputs_schema=template_inputs_schema,
                 )
             )
         else:
@@ -701,6 +834,7 @@ def _create_variable(
         overrides=[],
         json_schema=change.local_schema,
         example=change.initial_value,  # Store the code default as an example for the UI
+        template_inputs_schema=change.template_inputs_schema,
     )
 
     provider.create_variable(config)

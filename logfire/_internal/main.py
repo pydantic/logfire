@@ -2455,6 +2455,7 @@ class Logfire:
         *,
         default: T,
         description: str | None = None,
+        template_inputs: type[Any] | None = None,
     ) -> Variable[T]: ...
 
     @overload
@@ -2465,6 +2466,7 @@ class Logfire:
         type: type[T],
         default: T | ResolveFunction[T],
         description: str | None = None,
+        template_inputs: type[Any] | None = None,
     ) -> Variable[T]: ...
 
     def var(
@@ -2474,6 +2476,7 @@ class Logfire:
         type: type[T] | None = None,
         default: T | ResolveFunction[T],
         description: str | None = None,
+        template_inputs: type[Any] | None = None,
     ) -> Variable[T]:
         """Define a managed variable.
 
@@ -2498,6 +2501,28 @@ class Logfire:
                 ...
         ```
 
+        Template rendering example:
+
+        ```py
+        from pydantic import BaseModel
+
+
+        class PromptInputs(BaseModel):
+            user_name: str
+            is_premium: bool = False
+
+
+        prompt = logfire.var(
+            'system_prompt',
+            type=str,
+            default='Hello {{user_name}}',
+            template_inputs=PromptInputs,
+        )
+
+        with prompt.get() as resolved:
+            rendered = resolved.render(PromptInputs(user_name='Alice'))
+        ```
+
         Args:
             name: Unique identifier for the variable. Must match the name configured in the
                 Logfire UI when using remote variables.
@@ -2509,6 +2534,9 @@ class Logfire:
                 Can also be a callable with `targeting_key` and `attributes` parameters
                 (requires `type` to be set explicitly).
             description: Optional human-readable description of what the variable controls.
+            template_inputs: Optional Pydantic model type describing the expected template inputs
+                for Handlebars ``{{placeholder}}`` rendering. When set, the JSON Schema of this
+                model is pushed to the server and used by the UI for autocomplete and preview.
         """
         from logfire.variables.variable import Variable, is_resolve_function
 
@@ -2536,7 +2564,14 @@ class Logfire:
                 f"A variable with name '{name}' has already been registered. Each variable must have a unique name."
             )
 
-        variable = Variable[T](name, default=default, type=tp, logfire_instance=self, description=description)
+        variable = Variable[T](
+            name,
+            default=default,
+            type=tp,
+            logfire_instance=self,
+            description=description,
+            template_inputs=template_inputs,
+        )
         self._variables[name] = variable
 
         return variable
