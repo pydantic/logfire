@@ -121,7 +121,6 @@ if TYPE_CHECKING:
     )
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
     from .integrations.aws_lambda import LambdaEvent, LambdaHandler
-    from .integrations.forwarding import ForwardRequestResponse
     from .integrations.llm_providers.semconv import SemconvVersion
     from .integrations.mysql import MySQLConnection
     from .integrations.psycopg import Psycopg2Connection, PsycopgConnection
@@ -297,30 +296,6 @@ class Logfire:
         except Exception:  # pragma: no cover
             log_internal_error()
             return NoopSpan()  # type: ignore
-
-    def forward_request(
-        self,
-        method: str,
-        path: str,
-        headers: Mapping[str, str],
-        body: bytes | None,
-    ) -> ForwardRequestResponse:
-        """Forward a request to the Logfire API.
-
-        This is useful for proxying requests from a browser or other client to Logfire.
-
-        Args:
-            method: The HTTP method.
-            path: The path to forward to (e.g. '/v1/traces').
-            headers: The headers to forward.
-            body: The body to forward.
-
-        Returns:
-            A `ForwardRequestResponse` object containing the status code, headers, and content.
-        """
-        from .integrations.forwarding import forward_request
-
-        return forward_request(self.config, method, path, headers, body)
 
     def trace(
         self,
@@ -1136,56 +1111,6 @@ class Logfire:
             include_binary_content=include_binary_content,
             **kwargs,
         )
-
-    def instrument_fastapi_proxy(
-        self,
-        app: FastAPI,
-        *,
-        prefix: str = '/logfire-proxy',
-        max_body_size: int = 50 * 1024 * 1024,  # 50 MB
-    ) -> None:
-        """Instrument a FastAPI app to proxy requests to Logfire.
-
-        This adds a route to the app that forwards requests to the Logfire API.
-        This is useful for proxying requests from a browser to Logfire,
-        to avoid exposing your write token in the browser.
-
-        **Security Note**: This endpoint is unauthenticated. Any client capable of reaching this
-        endpoint can send telemetry data to your Logfire project. In production, ensure you
-        have appropriate protections in place (e.g. CORS policies, rate limiting, or upstream authentication).
-
-        Args:
-            app: The FastAPI app to instrument.
-            prefix: The path prefix to use for the proxy.
-            max_body_size: The maximum allowed request body size in bytes. Defaults to 50MB.
-        """
-        from starlette.concurrency import run_in_threadpool
-        from starlette.responses import Response
-
-        async def logfire_proxy(request: Request):
-            # DoS Prevention: Check Content-Length before reading body
-            content_length = request.headers.get('content-length')
-            if content_length:
-                try:
-                    if int(content_length) > max_body_size:
-                        return Response(status_code=413, content='Payload too large')
-                except ValueError:
-                    return Response(status_code=400, content='Invalid Content-Length header')
-
-            body = await request.body()
-            if len(body) > max_body_size:
-                return Response(status_code=413, content='Payload too large')
-
-            path = request.path_params['path']
-
-            # Performance: Run synchronous requests call in a thread pool to avoid blocking the event loop
-            response = await run_in_threadpool(
-                self.forward_request, method=request.method, path=path, headers=request.headers, body=body
-            )
-            return Response(content=response.content, status_code=response.status_code, headers=dict(response.headers))
-
-        methods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD']
-        app.add_route(f'{prefix}/{{path:path}}', logfire_proxy, methods=methods, include_in_schema=False)
 
     def instrument_fastapi(
         self,

@@ -87,12 +87,6 @@ except ImportError:
 
             def set_attribute(self, key: str, value: Any) -> None: ... # pragma: no cover
 
-        class ForwardRequestResponse:
-            def __init__(self, status_code: int, headers: Any, content: bytes) -> None:
-                self.status_code = status_code
-                self.headers = headers
-                self.content = content
-
         class Logfire:
             def __getattr__(self, attr):
                 return MagicMock()  # pragma: no cover
@@ -151,11 +145,6 @@ except ImportError:
 
             def instrument_fastapi(self, *args, **kwargs) -> ContextManager[None]:
                 return nullcontext()
-
-            def instrument_fastapi_proxy(self, *args, **kwargs) -> None: ...
-
-            def forward_request(self, *args, **kwargs) -> Any:
-                return ForwardRequestResponse(501, {}, b'')
 
             def instrument_pydantic(self, *args, **kwargs) -> None: ...
 
@@ -230,7 +219,6 @@ except ImportError:
         with_tags = DEFAULT_LOGFIRE_INSTANCE.with_tags
         with_settings = DEFAULT_LOGFIRE_INSTANCE.with_settings
         force_flush = DEFAULT_LOGFIRE_INSTANCE.force_flush
-        forward_request = DEFAULT_LOGFIRE_INSTANCE.forward_request
         log_slow_async_callbacks = DEFAULT_LOGFIRE_INSTANCE.log_slow_async_callbacks
         install_auto_tracing = DEFAULT_LOGFIRE_INSTANCE.install_auto_tracing
         instrument = DEFAULT_LOGFIRE_INSTANCE.instrument
@@ -239,7 +227,6 @@ except ImportError:
         instrument_pydantic = DEFAULT_LOGFIRE_INSTANCE.instrument_pydantic
         instrument_pydantic_ai = DEFAULT_LOGFIRE_INSTANCE.instrument_pydantic_ai
         instrument_fastapi = DEFAULT_LOGFIRE_INSTANCE.instrument_fastapi
-        instrument_fastapi_proxy = DEFAULT_LOGFIRE_INSTANCE.instrument_fastapi_proxy
         instrument_openai = DEFAULT_LOGFIRE_INSTANCE.instrument_openai
         instrument_openai_agents = DEFAULT_LOGFIRE_INSTANCE.instrument_openai_agents
         instrument_anthropic = DEFAULT_LOGFIRE_INSTANCE.instrument_anthropic
