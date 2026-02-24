@@ -15,7 +15,7 @@ from pydantic import BaseModel
 
 try:
     from pydantic_evals import Case
-except (ImportError, AttributeError):
+except Exception:
     pytest.skip('pydantic_evals not compatible with this environment', allow_module_level=True)
 
 import logfire.experimental.datasets as datasets_module
