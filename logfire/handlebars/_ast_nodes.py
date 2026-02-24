@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Union
 
 
 @dataclass(slots=True)
@@ -78,9 +79,9 @@ class SubExpression:
 
 
 # Union type for all expression nodes
-Expression = (
-    PathExpression | StringLiteral | NumberLiteral | BooleanLiteral | UndefinedLiteral | NullLiteral | SubExpression
-)
+Expression = Union[
+    PathExpression, StringLiteral, NumberLiteral, BooleanLiteral, UndefinedLiteral, NullLiteral, SubExpression
+]
 
 
 @dataclass(slots=True)
@@ -186,7 +187,7 @@ class RawBlock:
 
 
 # Union type for all statement nodes
-Statement = MustacheStatement | ContentStatement | CommentStatement | BlockStatement | RawBlock
+Statement = Union[MustacheStatement, ContentStatement, CommentStatement, BlockStatement, RawBlock]
 
 
 @dataclass(slots=True)

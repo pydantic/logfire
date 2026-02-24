@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
-from typing import Callable
+from typing import Callable, Optional, Tuple  # noqa: UP035
 
 __all__ = (
     'REFERENCE_PATTERN',
@@ -64,7 +64,7 @@ class ComposedReference:
 
 
 # resolve_fn signature: (ref_name) -> (serialized_value, label, version, reason)
-ResolveFn = Callable[[str], tuple[str | None, str | None, int | None, str]]
+ResolveFn = Callable[[str], Tuple[Optional[str], Optional[str], Optional[int], str]]  # noqa: UP006
 
 
 def expand_references(
