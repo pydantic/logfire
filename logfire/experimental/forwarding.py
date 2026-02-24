@@ -3,14 +3,13 @@ from __future__ import annotations
 import posixpath
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from urllib.parse import unquote, urljoin
+
+import requests
 
 import logfire
 from logfire.version import VERSION
-
-if TYPE_CHECKING:
-    from logfire._internal.config import LogfireConfig
 
 __all__ = ('ForwardExportRequestResponse', 'forward_export_request', 'logfire_proxy')
 
@@ -25,25 +24,21 @@ class ForwardExportRequestResponse:
 
 
 def forward_export_request(
-    method: str,
+    *,
     path: str,
     headers: Mapping[str, str],
     body: bytes | None,
-    *,
-    config: LogfireConfig | None = None,
+    logfire_instance: logfire.Logfire | None = None,
 ) -> ForwardExportRequestResponse:
-    """Forward an export request to the Logfire API."""
-    import requests
+    """Forward an export request to the Logfire API.
 
-    if method.upper() != 'POST':
-        return ForwardExportRequestResponse(
-            status_code=405,
-            headers={'Content-Type': 'text/plain'},
-            content=b'Method Not Allowed',
-        )
+    Note: If the provided logfire instance is configured with multiple tokens,
+    only the first token will be used for the proxy request.
+    """
+    if logfire_instance is None:
+        logfire_instance = logfire.DEFAULT_LOGFIRE_INSTANCE
 
-    if config is None:
-        config = logfire.DEFAULT_LOGFIRE_INSTANCE.config
+    config = logfire_instance.config
 
     if not path.startswith('/'):
         path = '/' + path
@@ -52,12 +47,11 @@ def forward_export_request(
     # We unquote first to handle percent-encoded traversals (e.g. %2e%2e) that might bypass normalization
     path = posixpath.normpath(unquote(path))
 
-    allowed_prefixes = ('/v1/traces', '/v1/logs', '/v1/metrics')
-    if not any(path == prefix or path.startswith(prefix + '/') for prefix in allowed_prefixes):
+    if path not in ('/v1/traces', '/v1/logs', '/v1/metrics'):
         return ForwardExportRequestResponse(
             status_code=400,
             headers={'Content-Type': 'text/plain'},
-            content=b'Invalid path: must start with /v1/traces, /v1/logs, or /v1/metrics',
+            content=b'Invalid path: must be /v1/traces, /v1/logs, or /v1/metrics',
         )
 
     token = config.token
@@ -105,8 +99,7 @@ def forward_export_request(
     try:
         # Wrap with suppress_instrumentation so we don't infinitely trace proxy telemetry
         with logfire.suppress_instrumentation():
-            response = requests.request(
-                method=method,
+            response = requests.post(
                 url=url,
                 headers=new_headers,
                 data=body,
@@ -134,11 +127,19 @@ def forward_export_request(
     )
 
 
-async def logfire_proxy(request: Any, *, max_body_size: int = 50 * 1024 * 1024) -> Any:
+async def logfire_proxy(
+    request: Any,
+    *,
+    logfire_instance: logfire.Logfire | None = None,
+    max_body_size: int = 50 * 1024 * 1024,
+) -> Any:
     """A Starlette/FastAPI handler to proxy requests to Logfire.
 
     This is useful for proxying requests from a browser to Logfire,
     to avoid exposing your write token in the browser.
+
+    Note: If the provided logfire instance is configured with multiple tokens,
+    only the first token will be used for the proxy request.
 
     **Security Note**: This endpoint is unauthenticated unless you protect it.
     Any client capable of reaching this endpoint can send telemetry data to your Logfire project.
@@ -147,6 +148,7 @@ async def logfire_proxy(request: Any, *, max_body_size: int = 50 * 1024 * 1024) 
 
     Args:
         request: The Starlette/FastAPI Request object.
+        logfire_instance: The Logfire instance to use. If not provided, the default instance is used.
         max_body_size: The maximum allowed request body size in bytes. Defaults to 50MB.
 
     Returns:
@@ -158,7 +160,7 @@ async def logfire_proxy(request: Any, *, max_body_size: int = 50 * 1024 * 1024) 
     if request.method.upper() != 'POST':
         return Response(status_code=405, content='Method Not Allowed')
 
-    # DoS Prevention: Check Content-Length before reading body
+    # DoS Prevention: Check Content-Length to reject overtly large payloads immediately
     content_length = request.headers.get('content-length')
     if content_length:
         try:
@@ -167,9 +169,13 @@ async def logfire_proxy(request: Any, *, max_body_size: int = 50 * 1024 * 1024) 
         except ValueError:
             return Response(status_code=400, content='Invalid Content-Length header')
 
-    body = await request.body()
-    if len(body) > max_body_size:
-        return Response(status_code=413, content='Payload too large')
+    # Security: Read the body in chunks to prevent memory exhaustion DoS attacks
+    # in cases where the Content-Length header is omitted or spoofed.
+    body = bytearray()
+    async for chunk in request.stream():
+        body.extend(chunk)
+        if len(body) > max_body_size:
+            return Response(status_code=413, content='Payload too large')
 
     path = request.path_params.get('path')
     if not path:
@@ -178,9 +184,9 @@ async def logfire_proxy(request: Any, *, max_body_size: int = 50 * 1024 * 1024) 
     # Performance: Run synchronous requests call in a thread pool to avoid blocking the event loop
     response = await run_in_threadpool(
         forward_export_request,
-        method=request.method,
         path=path,
         headers=request.headers,
-        body=body,
+        body=bytes(body),
+        logfire_instance=logfire_instance,
     )
     return Response(content=response.content, status_code=response.status_code, headers=dict(response.headers))
