@@ -1,25 +1,21 @@
-"""Angle-bracket Handlebars: full Handlebars features via <<>> syntax.
+"""Angle-bracket Handlebars: low-level swap primitives for <<>> rendering.
 
-This module provides ``angle_render`` which lets you use ``<<>>`` as the
-delimiter instead of ``{{}}``. This is the engine behind variable composition
-(``<<variable>>`` references) — it gives ``<<>>`` syntax the full power of
-Handlebars (conditionals, loops, helpers, etc.) while preserving any ``{{}}``
-runtime placeholders untouched.
+This module provides ``render_once`` which performs a single-pass render using
+``<<>>`` as the delimiter instead of ``{{}}``. It is the engine behind variable
+composition — it gives ``<<>>`` syntax the full power of Handlebars
+(conditionals, loops, helpers, etc.) while preserving any ``{{}}`` runtime
+placeholders untouched.
 
 Algorithm (swap + protect):
-  1. Topo-sort context values by their ``<<ref>>`` dependencies
-  2. Resolve each value in dependency order using single-pass rendering:
-     a. Protect ``{}<>`` characters in context values with HTML entities
-     b. Swap ``{↔<`` and ``}↔>`` in the template (so ``<<>>`` becomes ``{{}}``)
-     c. Run standard Handlebars
-     d. Reverse swap
-     e. Unescape the entities we introduced
-  3. Render the top-level template with the fully-resolved context
+  a. Protect ``{}<>`` characters in context values with HTML entities
+  b. Swap ``{↔<`` and ``}↔>`` in the template (so ``<<>>`` becomes ``{{}}``)
+  c. Run standard Handlebars
+  d. Reverse swap
+  e. Unescape the entities we introduced
 """
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
 from logfire.handlebars import SafeString, render as hbs_render
@@ -71,65 +67,3 @@ def render_once(template: str, context: dict[str, Any]) -> str:
     result: str = hbs_render(swapped_template, safe_context)
     result = result.translate(_SWAP)
     return _unescape_protected(result)
-
-
-# ---------------------------------------------------------------------------
-# Reference detection for topo-sort
-# ---------------------------------------------------------------------------
-_ANGLE_REF = re.compile(r'<<([a-zA-Z_]\w*)>>')
-
-
-def _find_refs(value: Any) -> set[str]:
-    """Find <<name>> references in a string value."""
-    if isinstance(value, str):
-        return set(_ANGLE_REF.findall(value))
-    return set()
-
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
-
-def angle_render(template: str, context: dict[str, Any]) -> str:
-    """Render a template using ``<<>>`` syntax for variable composition.
-
-    - ``<<variable>>`` references are resolved from context (recursively via topo-sort)
-    - Full Handlebars features work: ``<<#if>>``, ``<<#each>>``, ``<<#unless>>``, helpers, etc.
-    - ``{{runtime}}`` placeholders are preserved untouched for later rendering
-
-    Args:
-        template: The template string using ``<<>>`` delimiters.
-        context: A dictionary of variable names to their values. Values that
-            are strings containing ``<<ref>>`` references to other context keys
-            are resolved in dependency order before the final render.
-
-    Returns:
-        The rendered string with all ``<<>>`` expressions evaluated.
-
-    Raises:
-        ValueError: If a circular reference is detected among context values.
-    """
-    # Build dependency graph (only for context keys that reference other context keys)
-    deps: dict[str, set[str]] = {}
-    for k, v in context.items():
-        deps[k] = _find_refs(v) & set(context.keys())
-
-    # Topo-sort: resolve leaf values first, then values that depend on them
-    resolved: dict[str, Any] = {}
-    remaining = dict(deps)
-
-    while remaining:
-        ready = [k for k, d in remaining.items() if d <= set(resolved.keys())]
-        if not ready:
-            raise ValueError(f'Circular reference among: {set(remaining.keys())}')
-        for k in ready:
-            v = context[k]
-            if isinstance(v, str) and deps[k]:
-                # This value has <<>> refs to other context values — render them
-                resolved[k] = render_once(v, resolved)
-            else:
-                resolved[k] = v
-            del remaining[k]
-
-    return render_once(template, resolved)

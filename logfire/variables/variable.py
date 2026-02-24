@@ -14,10 +14,10 @@ from pydantic import TypeAdapter, ValidationError
 from typing_extensions import TypeIs
 
 from logfire.variables.composition import (
-    REFERENCE_PATTERN,
     ComposedReference,
     VariableCompositionError,
     expand_references,
+    has_references,
 )
 
 if TYPE_CHECKING:
@@ -303,7 +303,7 @@ class _BaseVariable(Generic[T_co]):
         composed: list[ComposedReference] = []
 
         # Expand <<references>> if any are present
-        if REFERENCE_PATTERN.search(serialized_value):
+        if has_references(serialized_value):
 
             def resolve_ref(ref_name: str) -> tuple[str | None, str | None, int | None, str]:
                 ref_resolved = provider.get_serialized_value(ref_name, targeting_key, attributes)

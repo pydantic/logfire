@@ -89,8 +89,9 @@ class TestExpandReferences:
         resolve_fn = _make_resolve_fn({'word': '"echo"'})
         expanded, composed = expand_references('"<<word>> <<word>>"', 'my_var', resolve_fn)
         assert expanded == '"echo echo"'
-        assert len(composed) == 2
-        assert all(c.name == 'word' for c in composed)
+        # Handlebars resolves all occurrences in one pass, so only one ComposedReference
+        assert len(composed) == 1
+        assert composed[0].name == 'word'
 
     def test_nested_references(self):
         """References within referenced values are expanded recursively."""
@@ -191,31 +192,30 @@ class TestExpandReferences:
         assert composed[0].value is None
 
     def test_non_string_reference(self):
-        """References to non-string variables are left unexpanded with error."""
+        """Non-string variables (numbers) are rendered via Handlebars toString."""
         resolve_fn = _make_resolve_fn({'number': '42'})
         expanded, composed = expand_references('"Value: <<number>>"', 'my_var', resolve_fn)
-        assert expanded == '"Value: <<number>>"'
+        assert expanded == '"Value: 42"'
         assert len(composed) == 1
-        assert composed[0].error is not None
-        assert 'not a string' in composed[0].error
+        assert composed[0].error is None
 
     def test_boolean_reference(self):
-        """References to boolean variables are left unexpanded with error."""
+        """Boolean variables are rendered via Handlebars toString."""
         resolve_fn = _make_resolve_fn({'flag': 'true'})
         expanded, composed = expand_references('"Flag: <<flag>>"', 'my_var', resolve_fn)
-        assert expanded == '"Flag: <<flag>>"'
+        assert expanded == '"Flag: true"'
         assert len(composed) == 1
-        assert composed[0].error is not None
-        assert 'not a string' in composed[0].error
+        assert composed[0].error is None
 
     def test_object_reference(self):
-        """References to object variables are left unexpanded with error."""
+        """Object variables are available in the Handlebars context."""
         resolve_fn = _make_resolve_fn({'obj': '{"key": "value"}'})
         expanded, composed = expand_references('"Data: <<obj>>"', 'my_var', resolve_fn)
-        assert expanded == '"Data: <<obj>>"'
+        # Handlebars renders objects via toString — typically [object Object] or similar
+        result = json.loads(expanded)
+        assert 'Data:' in result
         assert len(composed) == 1
-        assert composed[0].error is not None
-        assert 'not a string' in composed[0].error
+        assert composed[0].error is None
 
     def test_structured_type_with_references(self):
         """References inside JSON string values of structured types expand correctly."""
@@ -321,6 +321,99 @@ class TestFindReferences:
         serialized = json.dumps({'prompt': '<<safety>>', 'other': '<<format>>'})
         assert find_references(serialized) == ['safety', 'format']
 
+    def test_find_references_block_helpers(self):
+        """find_references detects variable names from block helper syntax."""
+        serialized = json.dumps('<<#if brand>>show<<else>>hide<</if>>')
+        result = find_references(serialized)
+        assert 'brand' in result
+
+    def test_find_references_block_and_simple(self):
+        """find_references finds both simple and block-helper references."""
+        serialized = json.dumps('<<greeting>> <<#if flag>>yes<</if>>')
+        result = find_references(serialized)
+        assert 'greeting' in result
+        assert 'flag' in result
+
+
+# =============================================================================
+# Tests for Handlebars-powered <<>> block helpers
+# =============================================================================
+
+
+class TestBlockHelpers:
+    def test_block_if_true(self):
+        """<<#if flag>>yes<<else>>no<</if>> with truthy flag."""
+        resolve_fn = _make_resolve_fn({'flag': 'true'})
+        expanded, composed = expand_references('"<<#if flag>>yes<<else>>no<</if>>"', 'my_var', resolve_fn)
+        assert json.loads(expanded) == 'yes'
+        assert len(composed) == 1
+        assert composed[0].name == 'flag'
+
+    def test_block_if_false(self):
+        """<<#if flag>>yes<<else>>no<</if>> with falsy flag."""
+        resolve_fn = _make_resolve_fn({'flag': 'false'})
+        expanded, composed = expand_references('"<<#if flag>>yes<<else>>no<</if>>"', 'my_var', resolve_fn)
+        assert json.loads(expanded) == 'no'
+        assert len(composed) == 1
+        assert composed[0].name == 'flag'
+
+    def test_block_each(self):
+        """<<#each items>>- <<this>><</each>> iterates over a list."""
+        resolve_fn = _make_resolve_fn({'items': '["a", "b", "c"]'})
+        expanded, composed = expand_references('"<<#each items>><<this>> <</each>>"', 'my_var', resolve_fn)
+        result = json.loads(expanded)
+        assert result == 'a b c '
+        assert len(composed) == 1
+        assert composed[0].name == 'items'
+
+    def test_block_unless(self):
+        """<<#unless flag>>shown<</unless>> with falsy flag."""
+        resolve_fn = _make_resolve_fn({'flag': 'false'})
+        expanded, _ = expand_references('"<<#unless flag>>shown<</unless>>"', 'my_var', resolve_fn)
+        assert json.loads(expanded) == 'shown'
+
+    def test_block_unless_truthy(self):
+        """<<#unless flag>>shown<</unless>> with truthy flag shows nothing."""
+        resolve_fn = _make_resolve_fn({'flag': 'true'})
+        expanded, _ = expand_references('"<<#unless flag>>shown<</unless>>"', 'my_var', resolve_fn)
+        assert json.loads(expanded) == ''
+
+    def test_block_with(self):
+        """<<#with config>><<name>><</with>> accesses nested fields."""
+        resolve_fn = _make_resolve_fn({'config': '{"name": "acme"}'})
+        expanded, _ = expand_references('"<<#with config>><<name>><</with>>"', 'my_var', resolve_fn)
+        assert json.loads(expanded) == 'acme'
+
+    def test_block_if_with_composition(self):
+        """<<#if brand>><<brand.tagline>><</if>> — conditional with dotted access."""
+        resolve_fn = _make_resolve_fn({'brand': '{"tagline": "Build faster"}'})
+        expanded, _ = expand_references('"<<#if brand>><<brand.tagline>><</if>>"', 'my_var', resolve_fn)
+        assert json.loads(expanded) == 'Build faster'
+
+    def test_mixed_angle_and_curly_preserved(self):
+        """<<greeting>> expands, {{user.name}} is preserved for later rendering."""
+        resolve_fn = _make_resolve_fn({'greeting': '"Hello"'})
+        expanded, _ = expand_references('"<<greeting>> {{user.name}}"', 'my_var', resolve_fn)
+        assert json.loads(expanded) == 'Hello {{user.name}}'
+
+    def test_escape_angle_bracket(self):
+        r"""Escaped \<<ref>> becomes literal <<ref>> in output."""
+        resolve_fn = _make_resolve_fn({'ref': '"expanded"'})
+        raw_python_str = '\\<<ref>>'
+        serialized = json.dumps(raw_python_str)
+        expanded, _ = expand_references(serialized, 'my_var', resolve_fn)
+        result = json.loads(expanded)
+        assert result == '<<ref>>'
+
+    def test_escape_mixed(self):
+        r"""Escaped \<<escaped>> stays literal, real <<real>> expands."""
+        resolve_fn = _make_resolve_fn({'escaped': '"X"', 'real': '"expanded"'})
+        raw_python_str = '\\<<escaped>> <<real>>'
+        serialized = json.dumps(raw_python_str)
+        expanded, _ = expand_references(serialized, 'my_var', resolve_fn)
+        result = json.loads(expanded)
+        assert result == '<<escaped>> expanded'
+
 
 # =============================================================================
 # Integration tests using LocalVariableProvider
@@ -413,8 +506,8 @@ class TestCompositionIntegration:
         result = var.get()
         assert result.value == 'Hello <<nonexistent>>'
 
-    def test_non_string_reference_left_unexpanded(self, config_kwargs: dict[str, Any]):
-        """References to non-string variables are left as-is."""
+    def test_non_string_reference_expanded(self, config_kwargs: dict[str, Any]):
+        """Non-string variables are now expanded via Handlebars."""
         # Create a variable config with a non-string variable
         configs: dict[str, VariableConfig] = {
             'number': VariableConfig(
@@ -440,7 +533,7 @@ class TestCompositionIntegration:
 
         var = lf.var(name='main', default='fallback', type=str)
         result = var.get()
-        assert result.value == 'Value: <<number>>'
+        assert result.value == 'Value: 42'
 
     def test_structured_type_composition(self, config_kwargs: dict[str, Any]):
         """Composition works in string fields of Pydantic models."""
