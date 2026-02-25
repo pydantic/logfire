@@ -146,16 +146,29 @@ def check_trace_id_ratio(trace_id: int, rate: float) -> bool:
 
 
 class TailSamplingProcessor(WrapperSpanProcessor):
-    """Passes spans to the wrapped processor if any span in a trace meets the sampling criteria."""
+    """Buffers spans until a span in the trace meets the sampling criteria.
 
-    def __init__(self, processor: SpanProcessor, get_tail_sample_rate: Callable[[TailSamplingSpanInfo], float]) -> None:
+    Two types of wrapped processors are supported:
+    - `processor`: Both `on_start` and `on_end` are buffered until sampling decision.
+      Use for processors like `PendingSpanProcessor` that create spans in `on_start`.
+    - `immediate_on_start_processor`: `on_start` is called immediately, only `on_end` is buffered.
+      Use for processors that just set attributes (like `DirectBaggageAttributesSpanProcessor`).
+    """
+
+    def __init__(
+        self,
+        processor: SpanProcessor,
+        get_tail_sample_rate: Callable[[TailSamplingSpanInfo], float],
+        immediate_on_start_processor: SpanProcessor | None = None,
+    ) -> None:
         super().__init__(processor)
         self.get_tail_sample_rate = get_tail_sample_rate
+        self.immediate_on_start_processor = immediate_on_start_processor
 
-        # A TraceBuffer is typically created for each new trace.
-        # If a span meets the sampling criteria, the buffer is dropped and all spans within are pushed
-        # to the wrapped processor.
-        # So when more spans arrive and there's no buffer, they get passed through immediately.
+        # A TraceBuffer is created for each new trace to buffer on_start/on_end calls.
+        # If a span meets the sampling criteria, the buffer is dropped and buffered calls
+        # are passed to the wrapped processor.
+        # When more spans arrive after sampling, they get passed through immediately (no buffer).
         self.traces: dict[int, TraceBuffer] = {}
 
         # Code that touches self.traces and its contents should be protected by this lock.
@@ -178,11 +191,15 @@ class TailSamplingProcessor(WrapperSpanProcessor):
                     # This trace's spans haven't met the criteria yet, so add this span to the buffer.
                     buffer.started.append((span, parent_context))
                     dropped = self.check_span(TailSamplingSpanInfo(span, parent_context, 'start', buffer))
-                # The opposite case is handled outside the lock since it may take some time.
 
-        # This code may take longer since it calls the wrapped processor which might do anything.
-        # It shouldn't be inside the lock to avoid blocking other threads.
-        # Since it's not in the lock, it shouldn't touch self.traces or its contents.
+        # Call immediate_on_start_processor.on_start() right away.
+        # These processors just set attributes, which is safe even if the trace isn't sampled.
+        if self.immediate_on_start_processor is not None:
+            self.immediate_on_start_processor.on_start(span, parent_context)
+
+        # For the main processor (which may contain PendingSpanProcessor), buffer on_start
+        # until we know the trace is sampled.
+        # This code is outside the lock since it may take some time.
         if buffer is None:
             super().on_start(span, parent_context)
         elif dropped:
@@ -206,7 +223,11 @@ class TailSamplingProcessor(WrapperSpanProcessor):
                         # Delete the buffer to save memory.
                         self.traces.pop(trace_id, None)
 
+        # For immediate_on_start_processor, on_end is also buffered (only on_start is immediate).
+        # This ensures spans only get exported if the trace is sampled.
         if buffer is None:
+            if self.immediate_on_start_processor is not None:
+                self.immediate_on_start_processor.on_end(span)
             super().on_end(span)
         elif dropped:
             self.push_buffer(buffer)
@@ -223,6 +244,12 @@ class TailSamplingProcessor(WrapperSpanProcessor):
         del self.traces[buffer.trace_id]
 
     def push_buffer(self, buffer: TraceBuffer) -> None:
+        # For immediate_on_start_processor, on_start was already called, so only call on_end.
+        if self.immediate_on_start_processor is not None:
+            for span in buffer.ended:
+                self.immediate_on_start_processor.on_end(span)
+
+        # For the main processor, replay both on_start and on_end.
         for started in buffer.started:
             super().on_start(*started)
         for span in buffer.ended:
