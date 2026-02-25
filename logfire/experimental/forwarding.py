@@ -160,7 +160,7 @@ async def logfire_proxy(
     if request.method.upper() != 'POST':
         return Response(status_code=405, content='Method Not Allowed')
 
-    # DoS Prevention: Check Content-Length to reject overtly large payloads immediately
+    # Optimization: Fast-fail overtly large honest requests by checking Content-Length.
     content_length = request.headers.get('content-length')
     if content_length:
         try:
