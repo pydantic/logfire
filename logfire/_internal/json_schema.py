@@ -227,10 +227,26 @@ PLAIN_SCHEMAS: tuple[JsonDict, ...] = ({}, {'type': 'object'}, {'type': 'array'}
 
 def _mapping_schema(obj: Any, seen: set[int]) -> JsonDict:
     obj = cast(Mapping[Any, Any], obj)
-    schema: JsonDict = {
-        'type': 'object',
-        **_properties({(k if isinstance(k, str) else safe_repr(k)): v for k, v in obj.items()}, seen),
-    }
+    schema: JsonDict = {'type': 'object'}
+
+    # Check if all values produce the same schema (homogeneous)
+    common_schema: JsonDict | None = None
+    is_homogeneous = True
+    for v in obj.values():
+        v_schema = create_json_schema(v, seen)
+        if common_schema is None:
+            common_schema = v_schema
+        elif v_schema != common_schema:
+            is_homogeneous = False
+            break
+
+    if is_homogeneous and common_schema is not None and common_schema not in PLAIN_SCHEMAS:
+        schema['additionalProperties'] = common_schema
+    elif not is_homogeneous:
+        # Heterogeneous: use per-key properties (current behavior)
+        schema.update(_properties({(k if isinstance(k, str) else safe_repr(k)): v for k, v in obj.items()}, seen))
+    # else: all plain or empty dict → just {'type': 'object'}
+
     if obj.__class__.__name__ != 'dict':
         schema['x-python-datatype'] = 'Mapping'
         schema['title'] = obj.__class__.__name__

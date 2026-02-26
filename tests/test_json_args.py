@@ -31,6 +31,7 @@ from sqlalchemy.sql.schema import ForeignKey
 from sqlmodel import SQLModel
 
 import logfire
+from logfire._internal.json_schema import create_json_schema
 from logfire._internal.utils import get_version
 from logfire.testing import TestExporter
 
@@ -366,13 +367,11 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             '{"enum":"blue"}' if sys.version_info >= (3, 11) else '{"enum":"3"}',
             {
                 'type': 'object',
-                'properties': {
-                    'enum': {
-                        'type': 'string',
-                        'title': 'Color',
-                        'x-python-datatype': 'Enum',
-                        'enum': ['red', 'green', 'blue'] if sys.version_info >= (3, 11) else ['1', '2', '3'],
-                    }
+                'additionalProperties': {
+                    'type': 'string',
+                    'title': 'Color',
+                    'x-python-datatype': 'Enum',
+                    'enum': ['red', 'green', 'blue'] if sys.version_info >= (3, 11) else ['1', '2', '3'],
                 },
             },
             id='str_enum',
@@ -828,10 +827,7 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             '[{"<class \'str\'>":"<class \'bytes\'>","<class \'int\'>":"<class \'float\'>"}]',
             {
                 'items': {
-                    'properties': {
-                        "<class 'int'>": {'type': 'object', 'x-python-datatype': 'unknown'},
-                        "<class 'str'>": {'type': 'object', 'x-python-datatype': 'unknown'},
-                    },
+                    'additionalProperties': {'type': 'object', 'x-python-datatype': 'unknown'},
                     'type': 'object',
                 },
                 'type': 'array',
@@ -1126,22 +1122,20 @@ def test_recursive_objects(exporter: TestExporter) -> None:
                             'properties': {
                                 'dct': {
                                     'type': 'object',
-                                    'properties': {
-                                        'model': {
-                                            'type': 'object',
-                                            'title': 'Model',
-                                            'x-python-datatype': 'PydanticModel',
-                                            'properties': {
-                                                'lst': {
-                                                    'type': 'array',
-                                                    'items': {
-                                                        'type': 'object',
-                                                        'title': 'Dataclass',
-                                                        'x-python-datatype': 'dataclass',
-                                                    },
-                                                }
-                                            },
-                                        }
+                                    'additionalProperties': {
+                                        'type': 'object',
+                                        'title': 'Model',
+                                        'x-python-datatype': 'PydanticModel',
+                                        'properties': {
+                                            'lst': {
+                                                'type': 'array',
+                                                'items': {
+                                                    'type': 'object',
+                                                    'title': 'Dataclass',
+                                                    'x-python-datatype': 'dataclass',
+                                                },
+                                            }
+                                        },
                                     },
                                 },
                                 'data': {
@@ -1151,12 +1145,10 @@ def test_recursive_objects(exporter: TestExporter) -> None:
                                     'properties': {
                                         'dct': {
                                             'type': 'object',
-                                            'properties': {
-                                                'model': {
-                                                    'type': 'object',
-                                                    'title': 'Model',
-                                                    'x-python-datatype': 'PydanticModel',
-                                                }
+                                            'additionalProperties': {
+                                                'type': 'object',
+                                                'title': 'Model',
+                                                'x-python-datatype': 'PydanticModel',
                                             },
                                         }
                                     },
@@ -1170,12 +1162,10 @@ def test_recursive_objects(exporter: TestExporter) -> None:
                                         'properties': {
                                             'dct': {
                                                 'type': 'object',
-                                                'properties': {
-                                                    'model': {
-                                                        'type': 'object',
-                                                        'title': 'Model',
-                                                        'x-python-datatype': 'PydanticModel',
-                                                    }
+                                                'additionalProperties': {
+                                                    'type': 'object',
+                                                    'title': 'Model',
+                                                    'x-python-datatype': 'PydanticModel',
                                                 },
                                             }
                                         },
@@ -1539,6 +1529,75 @@ def test_mock(exporter: TestExporter):
                     'mock': IsStr(regex=r'^"<Mock id=\'\d+\'>"'),
                     'magic_mock': IsStr(regex=r'^"<MagicMock id=\'\d+\'>"'),
                     'logfire.json_schema': '{"type":"object","properties":{"foo":{"type":"object","x-python-datatype":"unknown"},"bar":{"type":"object","x-python-datatype":"unknown"},"mock":{"type":"object","x-python-datatype":"unknown"},"magic_mock":{"type":"object","x-python-datatype":"unknown"}}}',
+                },
+            }
+        ]
+    )
+
+
+def test_homogeneous_dict_schema():
+    """Homogeneous dicts with non-plain value schemas use additionalProperties."""
+    # All values are datetimes → same non-plain schema → additionalProperties
+    d = {'a': datetime(2023, 1, 1), 'b': datetime(2023, 6, 15)}
+    schema = create_json_schema(d, set())
+    assert schema == {
+        'type': 'object',
+        'additionalProperties': {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
+    }
+
+    # All values are plain (strings) → just {'type': 'object'}
+    d_plain = {'a': 'hello', 'b': 'world'}
+    schema_plain = create_json_schema(d_plain, set())
+    assert schema_plain == {'type': 'object'}
+
+    # Heterogeneous values → per-key properties
+    d_hetero = {'a': datetime(2023, 1, 1), 'b': UUID('12345678-1234-5678-1234-567812345678')}
+    schema_hetero = create_json_schema(d_hetero, set())
+    assert schema_hetero == {
+        'type': 'object',
+        'properties': {
+            'a': {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
+            'b': {'type': 'string', 'format': 'uuid'},
+        },
+    }
+
+    # Empty dict → just {'type': 'object'}
+    assert create_json_schema({}, set()) == {'type': 'object'}
+
+    # Mixed plain and non-plain → heterogeneous → per-key properties (only non-plain included)
+    d_mixed = {'a': 'hello', 'b': datetime(2023, 1, 1)}
+    schema_mixed = create_json_schema(d_mixed, set())
+    assert schema_mixed == {
+        'type': 'object',
+        'properties': {
+            'b': {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
+        },
+    }
+
+
+def test_homogeneous_dict_formatting(exporter: TestExporter):
+    """Test that homogeneous dicts with additionalProperties are formatted correctly."""
+    d = {'start': datetime(2023, 1, 1), 'end': datetime(2023, 6, 15)}
+    logfire.info('dates {d=}', d=d)
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'dates {d=}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'dates {d=}',
+                    'logfire.msg': "dates d={'start': datetime.datetime(2023, 1, 1, 0, 0), 'end': datetime.datetime(2023, 6, 15, 0, 0)}",
+                    'code.filepath': 'test_json_args.py',
+                    'code.function': 'test_homogeneous_dict_formatting',
+                    'code.lineno': 123,
+                    'd': '{"start":"2023-01-01T00:00:00","end":"2023-06-15T00:00:00"}',
+                    'logfire.json_schema': '{"type":"object","properties":{"d":{"type":"object","additionalProperties":{"type":"string","format":"date-time","x-python-datatype":"datetime"}}}}',
                 },
             }
         ]
