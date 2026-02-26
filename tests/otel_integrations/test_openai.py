@@ -2544,8 +2544,10 @@ def test_embeddings_version_v1_only(exporter: TestExporter) -> None:
                             'gen_ai.usage.input_tokens': {},
                             'response_data': {
                                 'type': 'object',
-                                'properties': {
-                                    'usage': {'type': 'object', 'title': 'Usage', 'x-python-datatype': 'PydanticModel'}
+                                'additionalProperties': {
+                                    'type': 'object',
+                                    'title': 'Usage',
+                                    'x-python-datatype': 'PydanticModel',
                                 },
                             },
                         },
@@ -2841,8 +2843,10 @@ def test_embeddings(instrumented_client: openai.Client, exporter: TestExporter) 
                             'gen_ai.usage.input_tokens': {},
                             'response_data': {
                                 'type': 'object',
-                                'properties': {
-                                    'usage': {'type': 'object', 'title': 'Usage', 'x-python-datatype': 'PydanticModel'}
+                                'additionalProperties': {
+                                    'type': 'object',
+                                    'title': 'Usage',
+                                    'x-python-datatype': 'PydanticModel',
                                 },
                             },
                         },
@@ -2903,15 +2907,9 @@ def test_images(instrumented_client: openai.Client, exporter: TestExporter) -> N
                             'async': {},
                             'response_data': {
                                 'type': 'object',
-                                'properties': {
-                                    'images': {
-                                        'type': 'array',
-                                        'items': {
-                                            'type': 'object',
-                                            'title': 'Image',
-                                            'x-python-datatype': 'PydanticModel',
-                                        },
-                                    }
+                                'additionalProperties': {
+                                    'type': 'array',
+                                    'items': {'type': 'object', 'title': 'Image', 'x-python-datatype': 'PydanticModel'},
                                 },
                             },
                         },
