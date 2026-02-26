@@ -1580,7 +1580,7 @@ def test_homogeneous_dict_formatting(exporter: TestExporter):
     d = {'start': datetime(2023, 1, 1), 'end': datetime(2023, 6, 15)}
     logfire.info('dates {d=}', d=d)
 
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
                 'name': 'dates {d=}',
