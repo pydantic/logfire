@@ -21,9 +21,6 @@ extra:
     - icon: fontawesome/brands/linkedin
       link: https://www.linkedin.com/company/pydantic/
       name: Pydantic on LinkedIn
-    - icon: fontawesome/brands/mastodon
-      link: https://fosstodon.org/@pydantic
-      name: Pydantic on Mastodon
     - icon: fontawesome/brands/bluesky
       link: https://bsky.app/profile/pydantic.dev
       name: Pydantic on Bluesky
