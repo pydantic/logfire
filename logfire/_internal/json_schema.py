@@ -225,27 +225,41 @@ def _enum_schema(obj: Enum, seen: set[int]) -> JsonDict:
 PLAIN_SCHEMAS: tuple[JsonDict, ...] = ({}, {'type': 'object'}, {'type': 'array'}, {'type': 'null'})
 
 
-def _mapping_schema(obj: Any, seen: set[int]) -> JsonDict:
-    obj = cast(Mapping[Any, Any], obj)
-    schema: JsonDict = {'type': 'object'}
+def _check_homogeneous(obj: Mapping[Any, Any], seen: set[int]) -> tuple[JsonDict | None, bool]:
+    """Check if all values in the mapping produce the same schema.
 
-    # Check if all values produce the same schema (homogeneous)
+    Returns (common_schema, is_homogeneous).
+    """
     common_schema: JsonDict | None = None
-    is_homogeneous = True
     for v in obj.values():
         v_schema = create_json_schema(v, seen)
         if common_schema is None:
             common_schema = v_schema
         elif v_schema != common_schema:
-            is_homogeneous = False
-            break
+            return common_schema, False
+    return common_schema, True
 
-    if is_homogeneous and common_schema is not None and common_schema not in PLAIN_SCHEMAS:
-        schema['additionalProperties'] = common_schema
-    elif not is_homogeneous:
-        # Heterogeneous: use per-key properties (current behavior)
+
+def _mapping_schema(obj: Any, seen: set[int]) -> JsonDict:
+    obj = cast(Mapping[Any, Any], obj)
+    schema: JsonDict = {'type': 'object'}
+
+    n = len(obj)
+    has_long_key = any(len(str(k)) > 100 for k in obj.keys())
+    is_large = n > 100 or has_long_key
+
+    if n <= 10 and not has_long_key:
+        # Small dict: always use per-key properties
         schema.update(_properties({(k if isinstance(k, str) else safe_repr(k)): v for k, v in obj.items()}, seen))
-    # else: all plain or empty dict → just {'type': 'object'}
+    else:
+        # Medium or large dict: check homogeneity
+        common_schema, is_homogeneous = _check_homogeneous(obj, seen)
+        if is_homogeneous and common_schema is not None and common_schema not in PLAIN_SCHEMAS:
+            schema['additionalProperties'] = common_schema
+        elif not is_large:
+            # Medium heterogeneous: per-key properties
+            schema.update(_properties({(k if isinstance(k, str) else safe_repr(k)): v for k, v in obj.items()}, seen))
+        # else: large heterogeneous → just {'type': 'object'} (drop schema)
 
     if obj.__class__.__name__ != 'dict':
         schema['x-python-datatype'] = 'Mapping'

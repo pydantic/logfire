@@ -367,11 +367,13 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             '{"enum":"blue"}' if sys.version_info >= (3, 11) else '{"enum":"3"}',
             {
                 'type': 'object',
-                'additionalProperties': {
-                    'type': 'string',
-                    'title': 'Color',
-                    'x-python-datatype': 'Enum',
-                    'enum': ['red', 'green', 'blue'] if sys.version_info >= (3, 11) else ['1', '2', '3'],
+                'properties': {
+                    'enum': {
+                        'type': 'string',
+                        'title': 'Color',
+                        'x-python-datatype': 'Enum',
+                        'enum': ['red', 'green', 'blue'] if sys.version_info >= (3, 11) else ['1', '2', '3'],
+                    },
                 },
             },
             id='str_enum',
@@ -827,8 +829,11 @@ ANYURL_REPR_CLASSNAME = repr(AnyUrl('http://test.com')).split('(')[0]
             '[{"<class \'str\'>":"<class \'bytes\'>","<class \'int\'>":"<class \'float\'>"}]',
             {
                 'items': {
-                    'additionalProperties': {'type': 'object', 'x-python-datatype': 'unknown'},
                     'type': 'object',
+                    'properties': {
+                        "<class 'str'>": {'type': 'object', 'x-python-datatype': 'unknown'},
+                        "<class 'int'>": {'type': 'object', 'x-python-datatype': 'unknown'},
+                    },
                 },
                 'type': 'array',
             },
@@ -1122,19 +1127,21 @@ def test_recursive_objects(exporter: TestExporter) -> None:
                             'properties': {
                                 'dct': {
                                     'type': 'object',
-                                    'additionalProperties': {
-                                        'type': 'object',
-                                        'title': 'Model',
-                                        'x-python-datatype': 'PydanticModel',
-                                        'properties': {
-                                            'lst': {
-                                                'type': 'array',
-                                                'items': {
-                                                    'type': 'object',
-                                                    'title': 'Dataclass',
-                                                    'x-python-datatype': 'dataclass',
-                                                },
-                                            }
+                                    'properties': {
+                                        'model': {
+                                            'type': 'object',
+                                            'title': 'Model',
+                                            'x-python-datatype': 'PydanticModel',
+                                            'properties': {
+                                                'lst': {
+                                                    'type': 'array',
+                                                    'items': {
+                                                        'type': 'object',
+                                                        'title': 'Dataclass',
+                                                        'x-python-datatype': 'dataclass',
+                                                    },
+                                                }
+                                            },
                                         },
                                     },
                                 },
@@ -1145,10 +1152,12 @@ def test_recursive_objects(exporter: TestExporter) -> None:
                                     'properties': {
                                         'dct': {
                                             'type': 'object',
-                                            'additionalProperties': {
-                                                'type': 'object',
-                                                'title': 'Model',
-                                                'x-python-datatype': 'PydanticModel',
+                                            'properties': {
+                                                'model': {
+                                                    'type': 'object',
+                                                    'title': 'Model',
+                                                    'x-python-datatype': 'PydanticModel',
+                                                },
                                             },
                                         }
                                     },
@@ -1162,10 +1171,12 @@ def test_recursive_objects(exporter: TestExporter) -> None:
                                         'properties': {
                                             'dct': {
                                                 'type': 'object',
-                                                'additionalProperties': {
-                                                    'type': 'object',
-                                                    'title': 'Model',
-                                                    'x-python-datatype': 'PydanticModel',
+                                                'properties': {
+                                                    'model': {
+                                                        'type': 'object',
+                                                        'title': 'Model',
+                                                        'x-python-datatype': 'PydanticModel',
+                                                    },
                                                 },
                                             }
                                         },
@@ -1536,13 +1547,16 @@ def test_mock(exporter: TestExporter):
 
 
 def test_homogeneous_dict_schema():
-    """Homogeneous dicts with non-plain value schemas use additionalProperties."""
-    # All values are datetimes → same non-plain schema → additionalProperties
+    """Small dicts (≤10 keys) always use per-key properties."""
+    # All values are datetimes → small dict → per-key properties
     d = {'a': datetime(2023, 1, 1), 'b': datetime(2023, 6, 15)}
     schema = create_json_schema(d, set())
     assert schema == {
         'type': 'object',
-        'additionalProperties': {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
+        'properties': {
+            'a': {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
+            'b': {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
+        },
     }
 
     # All values are plain (strings) → just {'type': 'object'}
@@ -1564,7 +1578,7 @@ def test_homogeneous_dict_schema():
     # Empty dict → just {'type': 'object'}
     assert create_json_schema({}, set()) == {'type': 'object'}
 
-    # Mixed plain and non-plain → heterogeneous → per-key properties (only non-plain included)
+    # Mixed plain and non-plain → per-key properties (only non-plain included)
     d_mixed = {'a': 'hello', 'b': datetime(2023, 1, 1)}
     schema_mixed = create_json_schema(d_mixed, set())
     assert schema_mixed == {
@@ -1573,6 +1587,69 @@ def test_homogeneous_dict_schema():
             'b': {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
         },
     }
+
+
+def test_medium_dict_schema():
+    """Medium dicts (11-100 keys) use additionalProperties when homogeneous, per-key properties when heterogeneous."""
+    # Medium homogeneous → additionalProperties
+    d_medium_homo = {f'key_{i}': datetime(2023, 1, 1) for i in range(20)}
+    schema = create_json_schema(d_medium_homo, set())
+    assert schema == {
+        'type': 'object',
+        'additionalProperties': {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
+    }
+
+    # Medium heterogeneous → per-key properties
+    d_medium_hetero = {
+        f'key_{i}': (datetime(2023, 1, 1) if i % 2 == 0 else UUID('12345678-1234-5678-1234-567812345678'))
+        for i in range(20)
+    }
+    schema_hetero = create_json_schema(d_medium_hetero, set())
+    assert schema_hetero['type'] == 'object'
+    assert 'properties' in schema_hetero
+    assert 'additionalProperties' not in schema_hetero
+    assert len(schema_hetero['properties']) == 20  # type: ignore
+
+    # Medium homogeneous with plain values → just {'type': 'object'}
+    d_medium_plain = {f'key_{i}': 'hello' for i in range(20)}
+    assert create_json_schema(d_medium_plain, set()) == {'type': 'object'}
+
+
+def test_large_dict_schema():
+    """Large dicts (>100 keys) use additionalProperties when homogeneous, drop schema when heterogeneous."""
+    # Large homogeneous → additionalProperties
+    d_large_homo = {f'key_{i}': datetime(2023, 1, 1) for i in range(150)}
+    schema = create_json_schema(d_large_homo, set())
+    assert schema == {
+        'type': 'object',
+        'additionalProperties': {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
+    }
+
+    # Large heterogeneous → schema dropped (just {'type': 'object'})
+    d_large_hetero = {
+        f'key_{i}': (datetime(2023, 1, 1) if i % 2 == 0 else UUID('12345678-1234-5678-1234-567812345678'))
+        for i in range(150)
+    }
+    schema_hetero = create_json_schema(d_large_hetero, set())
+    assert schema_hetero == {'type': 'object'}
+
+
+def test_long_key_dict_schema():
+    """Dicts with any key >100 chars are treated as large."""
+    long_key = 'k' * 101
+
+    # Long key + homogeneous → additionalProperties
+    d_long_homo = {long_key: datetime(2023, 1, 1), 'short': datetime(2023, 6, 15)}
+    schema = create_json_schema(d_long_homo, set())
+    assert schema == {
+        'type': 'object',
+        'additionalProperties': {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
+    }
+
+    # Long key + heterogeneous → schema dropped
+    d_long_hetero = {long_key: datetime(2023, 1, 1), 'short': UUID('12345678-1234-5678-1234-567812345678')}
+    schema_hetero = create_json_schema(d_long_hetero, set())
+    assert schema_hetero == {'type': 'object'}
 
 
 def test_homogeneous_dict_formatting(exporter: TestExporter):
@@ -1596,8 +1673,19 @@ def test_homogeneous_dict_formatting(exporter: TestExporter):
                     'code.filepath': 'test_json_args.py',
                     'code.function': 'test_homogeneous_dict_formatting',
                     'code.lineno': 123,
-                    'd': '{"start":"2023-01-01T00:00:00","end":"2023-06-15T00:00:00"}',
-                    'logfire.json_schema': '{"type":"object","properties":{"d":{"type":"object","additionalProperties":{"type":"string","format":"date-time","x-python-datatype":"datetime"}}}}',
+                    'd': {'start': '2023-01-01T00:00:00', 'end': '2023-06-15T00:00:00'},
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'd': {
+                                'type': 'object',
+                                'properties': {
+                                    'start': {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
+                                    'end': {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
+                                },
+                            }
+                        },
+                    },
                 },
             }
         ]
