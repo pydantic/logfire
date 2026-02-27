@@ -106,7 +106,7 @@ def safe_repr(obj: Any) -> str:
 Truncatable = TypeVar('Truncatable', str, bytes, 'list[Any]', 'tuple[Any, ...]')
 
 
-def truncate_string(s: str, *, max_length: int, middle: str = '...') -> str:
+def truncate_string(s: str, *, max_length: int, middle: str = '[...truncated by logfire...]') -> str:
     """Return a string at most max_length characters long, with `middle` in the middle if truncated."""
     return truncate_sequence(s, max_length=max_length, middle=middle)
 
