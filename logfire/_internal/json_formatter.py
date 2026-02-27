@@ -72,7 +72,7 @@ class JsonArgsValueFormatter:
             if 'type' in schema:
                 if (data_type := schema.get('x-python-datatype')) is None:
                     if schema['type'] == 'object' and isinstance(value, dict):
-                        self._format_items('{', ': ', '}', True, indent_current, value, None)
+                        self._format_items('{', ': ', '}', True, indent_current, value, schema)
                     elif schema['type'] == 'array' and isinstance(value, list):
                         self._format_list_like('[', ']', indent_current, value, schema)
                     else:
