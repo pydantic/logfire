@@ -1654,7 +1654,8 @@ def test_long_key_dict_schema():
 
 def test_homogeneous_dict_formatting(exporter: TestExporter):
     """Test that homogeneous dicts with additionalProperties are formatted correctly."""
-    d = {'start': datetime(2023, 1, 1), 'end': datetime(2023, 6, 15)}
+    # Use >10 keys to exercise the additionalProperties path
+    d = {f'date_{i}': datetime(2023, 1, i + 1) for i in range(11)}
     logfire.info('dates {d=}', d=d)
 
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
@@ -1669,19 +1670,32 @@ def test_homogeneous_dict_formatting(exporter: TestExporter):
                     'logfire.span_type': 'log',
                     'logfire.level_num': 9,
                     'logfire.msg_template': 'dates {d=}',
-                    'logfire.msg': "dates d={'start': datetime.datetime(2023, 1, 1, 0, 0), 'end': datetime.datetime(2023, 6, 15, 0, 0)}",
+                    'logfire.msg': "dates d={'date_0': datetime.datetime(2023, 1, 1, 0, 0), 'date_1': date...1, 10, 0, 0), 'date_10': datetime.datetime(2023, 1, 11, 0, 0)}",
                     'code.filepath': 'test_json_args.py',
                     'code.function': 'test_homogeneous_dict_formatting',
                     'code.lineno': 123,
-                    'd': {'start': '2023-01-01T00:00:00', 'end': '2023-06-15T00:00:00'},
+                    'd': {
+                        'date_0': '2023-01-01T00:00:00',
+                        'date_1': '2023-01-02T00:00:00',
+                        'date_2': '2023-01-03T00:00:00',
+                        'date_3': '2023-01-04T00:00:00',
+                        'date_4': '2023-01-05T00:00:00',
+                        'date_5': '2023-01-06T00:00:00',
+                        'date_6': '2023-01-07T00:00:00',
+                        'date_7': '2023-01-08T00:00:00',
+                        'date_8': '2023-01-09T00:00:00',
+                        'date_9': '2023-01-10T00:00:00',
+                        'date_10': '2023-01-11T00:00:00',
+                    },
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
                             'd': {
                                 'type': 'object',
-                                'properties': {
-                                    'start': {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
-                                    'end': {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
+                                'additionalProperties': {
+                                    'type': 'string',
+                                    'format': 'date-time',
+                                    'x-python-datatype': 'datetime',
                                 },
                             }
                         },
