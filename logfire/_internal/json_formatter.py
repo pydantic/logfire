@@ -72,7 +72,7 @@ class JsonArgsValueFormatter:
             if 'type' in schema:
                 if (data_type := schema.get('x-python-datatype')) is None:
                     if schema['type'] == 'object' and isinstance(value, dict):
-                        self._format_items('{', ': ', '}', True, indent_current, value, None)
+                        self._format_items('{', ': ', '}', True, indent_current, value, schema)
                     elif schema['type'] == 'array' and isinstance(value, list):
                         self._format_list_like('[', ']', indent_current, value, schema)
                     else:
@@ -174,6 +174,7 @@ class JsonArgsValueFormatter:
         self._stream.write(open_)
         first = True
         properties = schema.get('properties', {})
+        additional = schema.get('additionalProperties')
         for k, v in value.items():
             if first:
                 if self._newlines:
@@ -185,7 +186,7 @@ class JsonArgsValueFormatter:
             self._stream.write(before_)
             self._format(indent_new, repr_key, k, None)
             self._stream.write(split_)
-            self._format(indent_new, True, v, properties.get(k, None))
+            self._format(indent_new, True, v, properties.get(k, additional))
 
         if self._newlines and not first:
             self._stream.write(',\n')
