@@ -7,8 +7,12 @@ integration: logfire
 
 The `@pydantic/logfire-browser` NPM package wraps [OpenTelemetry browser tracing](https://opentelemetry.io/docs/languages/js/getting-started/browser/) with sensible defaults and provides a simple API for creating spans and reporting exceptions.
 
-!!! info
-    Logfire does not directly expose an endpoint suitable for sending traces from the browser, as this would make your write token publicly accessible. To send traces from the browser, you must create a proxy in your app that **forwards requests from your browser instrumentation to Logfire** while adding the `Authorization` header. Check the [Next.js proxy example implementation](https://github.com/pydantic/logfire-js/blob/main/examples/nextjs-client-side-instrumentation/proxy.ts) for more details.
+!!! info "Securely Sending Traces"
+    Logfire does not directly expose an endpoint suitable for sending traces from the browser, as this would make your write token publicly accessible.
+
+    To safely send traces, you must route them through a backend proxy that attaches the `Authorization` header server-side.
+    - **Python:** Use the built-in `logfire_proxy` handler for [FastAPI](../web-frameworks/fastapi.md#proxying-browser-telemetry) or [Starlette](../web-frameworks/starlette.md#proxying-browser-telemetry).
+    - **Next.js:** Check out the [Next.js proxy example implementation](https://github.com/pydantic/logfire-js/blob/main/examples/nextjs-client-side-instrumentation/proxy.ts).
 
 ## Simple Usage
 
@@ -16,9 +20,10 @@ The `@pydantic/logfire-browser` NPM package wraps [OpenTelemetry browser tracing
 import { getWebAutoInstrumentations } from "@opentelemetry/auto-instrumentations-web";
 import * as logfire from '@pydantic/logfire-browser';
 
-// Set the path to your traces proxy endpoint - assuming it's hosted at `/client-traces`, same domain.
+// Set the path to your backend proxy endpoint
+// For example, if using the Python `logfire_proxy` handler hosted on the same domain:
 const url = new URL(window.location.href);
-url.pathname = "/client-traces";
+url.pathname = "/logfire-proxy/v1/traces";
 
 logfire.configure({
   traceUrl: url.toString(),
@@ -26,7 +31,7 @@ logfire.configure({
   serviceVersion: '0.1.0',
   // The instrumentations to use
   // https://www.npmjs.com/package/@opentelemetry/auto-instrumentations-web - for more options and configuration
-  instrumentations: [
+  instrumentations:[
     getWebAutoInstrumentations()
   ],
   // This outputs details about the generated spans in the browser console, use only in development and for troubleshooting.
