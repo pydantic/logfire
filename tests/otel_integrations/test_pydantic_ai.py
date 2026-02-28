@@ -18,6 +18,10 @@ try:
 
 except Exception:
     assert not TYPE_CHECKING
+    # Provide fallback values so @pytest.mark.parametrize can resolve at module level;
+    # tests using these will be skipped by pytestmark on unsupported Python/Pydantic versions.
+    CallDeferred = type('CallDeferred', (Exception,), {})  # type: ignore
+    ApprovalRequired = type('ApprovalRequired', (Exception,), {})  # type: ignore
 
 pytestmark = [
     pytest.mark.skipif(sys.version_info < (3, 10), reason='Pydantic AI requires Python 3.10 or higher'),
