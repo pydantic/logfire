@@ -45,6 +45,7 @@ instrument_fastapi = DEFAULT_LOGFIRE_INSTANCE.instrument_fastapi
 instrument_openai = DEFAULT_LOGFIRE_INSTANCE.instrument_openai
 instrument_openai_agents = DEFAULT_LOGFIRE_INSTANCE.instrument_openai_agents
 instrument_anthropic = DEFAULT_LOGFIRE_INSTANCE.instrument_anthropic
+instrument_azure_ai_inference = DEFAULT_LOGFIRE_INSTANCE.instrument_azure_ai_inference
 instrument_google_genai = DEFAULT_LOGFIRE_INSTANCE.instrument_google_genai
 instrument_litellm = DEFAULT_LOGFIRE_INSTANCE.instrument_litellm
 instrument_dspy = DEFAULT_LOGFIRE_INSTANCE.instrument_dspy
@@ -152,6 +153,7 @@ __all__ = (
     'instrument_openai',
     'instrument_openai_agents',
     'instrument_anthropic',
+    'instrument_azure_ai_inference',
     'instrument_google_genai',
     'instrument_litellm',
     'instrument_dspy',
