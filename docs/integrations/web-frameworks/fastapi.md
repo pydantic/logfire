@@ -118,11 +118,13 @@ Instead, you can use experimental proxy handler to securely forward OTLP telemet
 
 ```py title="main.py" skip-run="true" skip-reason="server-start"
 from fastapi import FastAPI, Request
+
 import logfire
 from logfire.experimental.forwarding import logfire_proxy
 
 logfire.configure()
 app = FastAPI()
+
 
 # Mount the proxy handler
 # Note: {path:path} is strictly required to capture the OTLP route (e.g., /v1/traces)
@@ -134,16 +136,19 @@ async def proxy_browser_telemetry(request: Request):
 By default, this endpoint is unauthenticated and accepts payloads up to 50MB. In production, you should protect it using FastAPI dependencies to prevent abuse:
 
 ```py skip-run="true" skip-reason="server-start"
-from fastapi import FastAPI, Request, Depends
+from fastapi import Depends, FastAPI, Request
+
 import logfire
 from logfire.experimental.forwarding import logfire_proxy
 
 logfire.configure()
 app = FastAPI()
 
+
 async def verify_user_session():
     # Implement your authentication/rate-limiting logic here
     pass
+
 
 @app.post('/logfire-proxy/{path:path}', dependencies=[Depends(verify_user_session)])
 async def proxy_browser_telemetry_secure(request: Request):

@@ -65,15 +65,18 @@ Instead, you can use experimental proxy handler to securely forward OTLP telemet
 ```py title="main.py" skip-run="true" skip-reason="server-start"
 from starlette.applications import Starlette
 from starlette.routing import Route
+
 import logfire
 from logfire.experimental.forwarding import logfire_proxy
 
 logfire.configure()
 
-app = Starlette(routes=[
-    # Note: {path:path} is strictly required to capture the OTLP route (e.g., /v1/traces)
-    Route('/logfire-proxy/{path:path}', logfire_proxy, methods=['POST'])
-])
+app = Starlette(
+    routes=[
+        # Note: {path:path} is strictly required to capture the OTLP route (e.g., /v1/traces)
+        Route('/logfire-proxy/{path:path}', logfire_proxy, methods=['POST'])
+    ]
+)
 ```
 
 !!! warning "Security Note"
