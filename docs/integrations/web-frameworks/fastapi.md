@@ -135,8 +135,10 @@ By default, this endpoint is unauthenticated and accepts payloads up to 50MB. In
 
 ```py skip-run="true" skip-reason="server-start"
 from fastapi import FastAPI, Request, Depends
+import logfire
 from logfire.experimental.forwarding import logfire_proxy
 
+logfire.configure()
 app = FastAPI()
 
 async def verify_user_session():
