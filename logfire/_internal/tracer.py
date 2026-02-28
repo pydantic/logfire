@@ -421,6 +421,12 @@ def record_exception(
     if not span.is_recording():
         return
 
+    # pydantic-ai uses CallDeferred and ApprovalRequired as control flow exceptions
+    # for deferred tool calls and human-in-the-loop approval.
+    # They should not be recorded as errors.
+    if _is_pydantic_ai_control_flow_exception(exception):
+        return
+
     # From https://opentelemetry.io/docs/specs/semconv/attributes-registry/exception/
     # `escaped=True` means that the exception is escaping the scope of the span.
     # This means we know that the exception hasn't been handled,
@@ -479,3 +485,24 @@ def set_exception_status(span: trace_api.Span, exception: BaseException):
             description=f'{exception.__class__.__name__}: {exception}',
         )
     )
+
+
+_pydantic_ai_control_flow_exceptions: tuple[type[Exception], ...] | None = None
+
+
+def _is_pydantic_ai_control_flow_exception(exception: BaseException) -> bool:
+    """Check if the exception is a pydantic-ai control flow exception (CallDeferred or ApprovalRequired).
+
+    Uses lazy import to avoid circular imports between logfire and pydantic-ai.
+    """
+    global _pydantic_ai_control_flow_exceptions
+
+    if _pydantic_ai_control_flow_exceptions is None:
+        try:
+            from pydantic_ai.exceptions import ApprovalRequired, CallDeferred
+
+            _pydantic_ai_control_flow_exceptions = (CallDeferred, ApprovalRequired)
+        except ImportError:
+            _pydantic_ai_control_flow_exceptions = ()
+
+    return bool(_pydantic_ai_control_flow_exceptions) and isinstance(exception, _pydantic_ai_control_flow_exceptions)

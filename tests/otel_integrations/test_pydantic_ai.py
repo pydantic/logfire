@@ -3,13 +3,16 @@ from typing import TYPE_CHECKING
 
 import pydantic
 import pytest
+from inline_snapshot import snapshot
 
 import logfire
+from logfire._internal.exporters.test import TestExporter
 from logfire._internal.tracer import _ProxyTracer  # type: ignore
 from logfire._internal.utils import get_version
 
 try:
     from pydantic_ai import Agent
+    from pydantic_ai.exceptions import ApprovalRequired, CallDeferred
     from pydantic_ai.models.instrumented import InstrumentationSettings, InstrumentedModel
     from pydantic_ai.models.test import TestModel
 
@@ -97,3 +100,34 @@ async def test_instrument_pydantic_ai():
 def test_invalid_instrument_pydantic_ai():
     with pytest.raises(TypeError):
         logfire.instrument_pydantic_ai(42)  # type: ignore
+
+
+@pytest.mark.parametrize('exc_class', [CallDeferred, ApprovalRequired])
+def test_call_deferred_not_recorded_as_error(exporter: TestExporter, exc_class: type[Exception]):
+    """CallDeferred and ApprovalRequired are control flow exceptions in pydantic-ai.
+
+    They should not be recorded as errors or set the span level to error.
+    """
+    with pytest.raises(exc_class):
+        with logfire.span('tool call'):
+            raise exc_class()
+
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'tool call',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'code.filepath': 'test_pydantic_ai.py',
+                    'code.function': 'test_call_deferred_not_recorded_as_error',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'tool call',
+                    'logfire.msg': 'tool call',
+                    'logfire.span_type': 'span',
+                },
+            }
+        ]
+    )
