@@ -13,6 +13,7 @@ from opentelemetry.trace import get_current_span
 from pydantic import TypeAdapter, ValidationError
 from typing_extensions import TypeIs
 
+from logfire.handlebars._exceptions import HandlebarsError
 from logfire.variables.composition import (
     ComposedReference,
     VariableCompositionError,
@@ -190,11 +191,11 @@ class _BaseVariable(Generic[T_co]):
             return self._template_inputs_adapter.json_schema()
         return None
 
-    def _deserialize(self, serialized_value: str) -> T_co | Exception:
+    def _deserialize(self, serialized_value: str) -> T_co | ValidationError | ValueError:
         """Deserialize a JSON string to the variable's type, returning an Exception on failure."""
         try:
             return self.type_adapter.validate_json(serialized_value)
-        except Exception as e:
+        except (ValidationError, ValueError) as e:
             return e
 
     @contextmanager
@@ -263,7 +264,17 @@ class _BaseVariable(Generic[T_co]):
                 serialized_result, provider, targeting_key, attributes, span, render_fn=render_fn
             )
 
-        except Exception as e:
+        except (  # Safety net: providers and resolve functions are user-defined and may raise any of these
+            ValidationError,
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+            RuntimeError,
+            OSError,
+            HandlebarsError,
+            VariableCompositionError,
+        ) as e:
             if span and serialized_result is not None:  # pragma: no cover
                 span.set_attribute('invalid_serialized_label', serialized_result.label)
                 span.set_attribute('invalid_serialized_value', serialized_result.value)
@@ -276,10 +287,10 @@ class _BaseVariable(Generic[T_co]):
             serialized = self.type_adapter.dump_json(default).decode('utf-8')
             rendered = render_fn(serialized)
             result = self._deserialize(rendered)
-            if isinstance(result, Exception):
+            if isinstance(result, (ValidationError, ValueError)):
                 raise result
             return result
-        except Exception:
+        except (ValidationError, ValueError, TypeError, HandlebarsError):
             # If rendering the default fails, return the original default
             return default
 
@@ -336,7 +347,7 @@ class _BaseVariable(Generic[T_co]):
         if render_fn is not None:
             try:
                 serialized_value = render_fn(serialized_value)
-            except Exception as e:
+            except (HandlebarsError, ValueError, TypeError) as e:
                 default = self._get_default(targeting_key, attributes)
                 return ResolvedVariable(
                     name=self.name,
@@ -477,14 +488,14 @@ class _BaseVariable(Generic[T_co]):
             if result._serialized_value is None and result.value is not None:  # pyright: ignore[reportPrivateUsage]
                 try:
                     result._serialized_value = self.type_adapter.dump_json(result.value).decode('utf-8')  # pyright: ignore[reportPrivateUsage]
-                except Exception:
+                except (ValueError, TypeError, RuntimeError):
                     pass
             if span is not None:
                 # Serialize value safely for OTel span attributes, which only support primitives.
                 # Try to JSON serialize the value; if that fails, fall back to string representation.
                 try:
                     serialized_value = self.type_adapter.dump_json(result.value).decode('utf-8')
-                except Exception:
+                except (ValueError, TypeError, RuntimeError):
                     serialized_value = repr(result.value)
                 attrs: dict[str, Any] = {
                     'name': result.name,
