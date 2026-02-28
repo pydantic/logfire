@@ -6,8 +6,8 @@ import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from contextlib import ExitStack
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, Callable, Generic, Literal, TypeVar
 
 SyncMode = Literal['merge', 'replace']
 
@@ -15,8 +15,9 @@ if TYPE_CHECKING:
     from pydantic import TypeAdapter
 
     import logfire
+    from logfire.variables.composition import ComposedReference
     from logfire.variables.config import VariableConfig, VariablesConfig, VariableTypeConfig
-    from logfire.variables.variable import Variable
+    from logfire.variables.variable import _BaseVariable  # pyright: ignore[reportPrivateUsage]
 
 # ANSI color codes for terminal output
 ANSI_RESET = '\033[0m'
@@ -37,6 +38,7 @@ __all__ = (
     'VariableWriteError',
     'VariableNotFoundError',
     'VariableAlreadyExistsError',
+    'render_serialized_string',
 )
 
 T = TypeVar('T')
@@ -112,6 +114,23 @@ class ResolvedVariable(Generic[T_co]):
     """The version number of the resolved value, if any."""
     exception: Exception | None = None
     """Any exception that occurred during resolution."""
+    composed_from: list[ComposedReference] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    """Variables that were composed into this value via <<reference>> expansion.
+
+    Each entry is a ComposedReference for a referenced variable, including
+    its label, version, reason, and any nested composed_from entries.
+    """
+    _serialized_value: str | None = None
+    """Internal: the post-composition, pre-deserialization JSON string.
+
+    Used by render() to apply Handlebars template rendering on the serialized
+    form before deserializing to the variable's type.
+    """
+    _deserializer: Callable[[str], Any] | None = None
+    """Internal: function to deserialize a JSON string to the variable's type.
+
+    Returns the deserialized value or an Exception on failure.
+    """
 
     def __post_init__(self):
         self._exit_stack = ExitStack()
@@ -129,6 +148,147 @@ class ResolvedVariable(Generic[T_co]):
 
     def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: Any) -> None:
         self._exit_stack.__exit__(exc_type, exc_val, exc_tb)
+
+    def render(self, inputs: Any = None) -> T_co:
+        """Render Handlebars templates in this variable's value.
+
+        Operates on the serialized JSON (post-composition), renders all ``{{placeholder}}``
+        expressions using the provided inputs, then deserializes to the variable's type.
+
+        For ``str`` variables, this renders the template and returns a string.
+        For structured variables (e.g., Pydantic models), all string values containing
+        ``{{placeholders}}`` are rendered while non-string fields pass through unchanged.
+
+        Args:
+            inputs: Template context values. Can be a Pydantic ``BaseModel`` (uses ``model_dump()``),
+                a ``dict``, or any ``Mapping``. If ``None``, renders with an empty context.
+
+        Returns:
+            The rendered value, typed as the variable's type ``T_co``.
+
+        Raises:
+            ValueError: If no serialized value is available for rendering.
+            ImportError: If ``pydantic-handlebars`` is not installed.
+
+        Example:
+            ```python skip="true"
+            from pydantic import BaseModel
+
+
+            class Inputs(BaseModel):
+                user_name: str
+
+
+            prompt = logfire.var('prompt', type=str, default='Hello {{user_name}}')
+            with prompt.get() as resolved:
+                rendered = resolved.render(Inputs(user_name='Alice'))
+                # rendered == "Hello Alice"
+            ```
+        """
+        if self._serialized_value is None:
+            raise ValueError(
+                'Cannot render template: no serialized value available. '
+                'This can happen if the variable resolved to a context override '
+                'or if serialization of the default value failed.'
+            )
+        if self._deserializer is None:
+            raise ValueError('Cannot render template: no deserializer available.')
+
+        rendered_json = render_serialized_string(self._serialized_value, inputs)
+
+        # Deserialize the rendered JSON
+        result = self._deserializer(rendered_json)
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+
+def _inputs_to_context(inputs: Any) -> dict[str, Any]:
+    """Convert inputs (Pydantic model, dict, or Mapping) to a template context dict.
+
+    Args:
+        inputs: Template context values. Can be a Pydantic ``BaseModel`` (uses ``model_dump()``),
+            a ``dict``, or any ``Mapping``. If ``None``, returns an empty dict.
+
+    Returns:
+        A dict suitable for use as a Handlebars template context.
+
+    Raises:
+        TypeError: If inputs is not a supported type.
+    """
+    if inputs is None:
+        return {}
+    elif hasattr(inputs, 'model_dump'):
+        return inputs.model_dump()
+    elif isinstance(inputs, Mapping):
+        return dict(inputs)  # pyright: ignore[reportUnknownArgumentType]
+    else:
+        raise TypeError(f'Expected a dict, Mapping, or Pydantic model for render inputs, got {type(inputs).__name__}')
+
+
+def render_serialized_string(serialized_json: str, inputs: Any) -> str:
+    """Render Handlebars templates in a serialized JSON string.
+
+    Decodes the JSON, renders all string values containing ``{{placeholders}}``
+    using the provided inputs, then re-encodes to JSON.
+
+    Args:
+        serialized_json: A JSON-encoded string potentially containing Handlebars templates.
+        inputs: Template context values. Can be a Pydantic ``BaseModel``, ``dict``,
+            ``Mapping``, or ``None``.
+
+    Returns:
+        The rendered JSON string.
+    """
+    from logfire.handlebars import SafeString, render as hbs_render
+
+    safe_string_cls: type[str] = SafeString
+    render_fn: Callable[..., str] = hbs_render
+
+    context = _inputs_to_context(inputs)
+
+    # Wrap all string values in SafeString to disable HTML escaping.
+    # For prompt/config templates (not HTML), escaping is undesirable.
+    context = _wrap_safe_context(context, safe_string_cls)
+
+    # Decode the serialized JSON, render string values, then re-encode.
+    # We can't render the raw JSON directly because substituted values
+    # might contain JSON-special characters (e.g., double quotes) that
+    # would make the resulting JSON invalid.
+    decoded = json.loads(serialized_json)
+    rendered_value = _render_json_value(decoded, render_fn, context)
+    return json.dumps(rendered_value)
+
+
+def _wrap_safe_context(context: dict[str, Any], safe_string_cls: type[str]) -> dict[str, Any]:
+    """Recursively wrap all string values in SafeString to disable HTML escaping."""
+    return {k: _wrap_safe_value(v, safe_string_cls) for k, v in context.items()}
+
+
+def _wrap_safe_value(value: Any, safe_string_cls: type[str]) -> Any:
+    """Wrap a single value: strings become SafeString, dicts/lists are recursed."""
+    if isinstance(value, str):
+        return safe_string_cls(value)
+    if isinstance(value, dict):
+        return _wrap_safe_context(value, safe_string_cls)  # pyright: ignore[reportUnknownArgumentType]
+    if isinstance(value, list):
+        return [_wrap_safe_value(item, safe_string_cls) for item in value]  # pyright: ignore[reportUnknownVariableType]
+    return value
+
+
+def _render_json_value(value: Any, hbs_render: Callable[..., str], context: dict[str, Any]) -> Any:
+    """Recursively render Handlebars templates in a decoded JSON value.
+
+    Only string values are rendered; dicts and lists are walked recursively.
+    """
+    if isinstance(value, str):
+        return hbs_render(value, context)
+    if isinstance(value, dict):
+        return {k: _render_json_value(v, hbs_render, context) for k, v in value.items()}  # pyright: ignore[reportUnknownVariableType]
+    if isinstance(value, list):
+        return [_render_json_value(item, hbs_render, context) for item in value]  # pyright: ignore[reportUnknownVariableType]
+    # Numbers, booleans, None pass through unchanged
+    return value
 
 
 # --- Dataclasses for push/validate operations ---
@@ -158,6 +318,7 @@ class VariableChange:
     local_description: str | None = None
     server_description: str | None = None
     description_differs: bool = False  # True if descriptions differ (for warning)
+    template_inputs_schema: dict[str, Any] | None = None  # JSON Schema for template inputs
 
 
 @dataclass
@@ -166,6 +327,8 @@ class VariableDiff:
 
     changes: list[VariableChange]
     orphaned_server_variables: list[str]  # Variables on server not in local code
+    reference_warnings: list[str] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    """Warnings about variable references (non-existent refs, cycles, etc.)."""
 
     @property
     def has_changes(self) -> bool:
@@ -216,6 +379,8 @@ class ValidationReport:
     """Names of variables that exist locally but not on the server."""
     description_differences: list[DescriptionDifference]
     """List of variables where local and server descriptions differ."""
+    reference_warnings: list[str] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
+    """Warnings about variable references (non-existent refs, cycles, etc.)."""
 
     @property
     def has_errors(self) -> bool:
@@ -279,6 +444,12 @@ class ValidationReport:
                 lines.append(f'    Local:  {local_desc}')
                 lines.append(f'    Server: {server_desc}')
 
+        # Show reference warnings
+        if self.reference_warnings:
+            lines.append(f'\n{yellow}=== Reference warnings ==={reset}')
+            for warning in self.reference_warnings:
+                lines.append(f'  {yellow}⚠ {warning}{reset}')
+
         # Summary line
         if not self.is_valid:
             error_count = variables_with_errors + len(self.variables_not_on_server)
@@ -292,12 +463,12 @@ class ValidationReport:
 # --- Helper functions for push/validate operations ---
 
 
-def _get_json_schema(variable: Variable[object]) -> dict[str, Any]:
+def _get_json_schema(variable: _BaseVariable[object]) -> dict[str, Any]:
     """Get the JSON schema for a variable's type."""
     return variable.type_adapter.json_schema()
 
 
-def _get_default_serialized(variable: Variable[object]) -> str | None:
+def _get_default_serialized(variable: _BaseVariable[object]) -> str | None:
     """Get the serialized default value for a variable.
 
     Returns None if the default is a ResolveFunction (can't serialize a function).
@@ -311,7 +482,7 @@ def _get_default_serialized(variable: Variable[object]) -> str | None:
 
 
 def _check_label_compatibility(
-    variable: Variable[object],
+    variable: _BaseVariable[object],
     label: str,
     serialized_value: str,
 ) -> LabelCompatibility:
@@ -335,7 +506,7 @@ def _check_label_compatibility(
 
 
 def _check_all_label_compatibility(
-    variable: Variable[object],
+    variable: _BaseVariable[object],
     server_var: VariableConfig,
 ) -> list[LabelCompatibility]:
     """Check all labeled values and latest_version against the variable's Python type.
@@ -411,8 +582,92 @@ def _check_type_label_compatibility(
     return incompatible
 
 
+def _check_reference_warnings(
+    variables: Sequence[_BaseVariable[object]],
+    server_config: VariablesConfig,
+) -> list[str]:
+    """Check for reference warnings: non-existent refs and cycles.
+
+    Scans local variable defaults and server label values for <<references>>
+    and validates that referenced variables exist and there are no cycles.
+    """
+    from logfire.variables.composition import find_references
+    from logfire.variables.config import LabeledValue
+    from logfire.variables.variable import is_resolve_function
+
+    warnings_list: list[str] = []
+
+    # Collect all known variable names (local + server)
+    all_names: set[str] = {v.name for v in variables} | set(server_config.variables.keys())
+
+    # Build a reference graph: variable_name -> set of referenced names
+    ref_graph: dict[str, set[str]] = {}
+
+    # Scan local variable defaults for references
+    for variable in variables:
+        refs: set[str] = set()
+        if not is_resolve_function(variable.default):
+            try:
+                serialized_default = variable.type_adapter.dump_json(variable.default).decode('utf-8')
+                refs.update(find_references(serialized_default))
+            except Exception:
+                pass
+
+        # Also scan server label values for this variable
+        server_var = server_config.variables.get(variable.name)
+        if server_var is not None:
+            for _, labeled_value in server_var.labels.items():
+                if isinstance(labeled_value, LabeledValue):
+                    refs.update(find_references(labeled_value.serialized_value))
+            if server_var.latest_version is not None:
+                refs.update(find_references(server_var.latest_version.serialized_value))
+
+        if refs:
+            ref_graph[variable.name] = refs
+
+        # Check for non-existent references
+        for ref_name in refs:
+            if ref_name not in all_names:
+                warnings_list.append(f"Variable '{variable.name}' references '<<{ref_name}>>' which does not exist.")
+
+    # Check for cycles using DFS
+    def _detect_cycles(graph: dict[str, set[str]]) -> list[list[str]]:
+        cycles: list[list[str]] = []
+        visited: set[str] = set()
+        in_stack: set[str] = set()
+        path: list[str] = []
+
+        def dfs(node: str) -> None:
+            if node in in_stack:
+                # Found a cycle - extract it
+                cycle_start = path.index(node)
+                cycles.append(path[cycle_start:] + [node])
+                return
+            if node in visited:
+                return
+            visited.add(node)
+            in_stack.add(node)
+            path.append(node)
+            for neighbor in graph.get(node, set()):
+                dfs(neighbor)
+            path.pop()
+            in_stack.remove(node)
+
+        for node in graph:
+            if node not in visited:
+                dfs(node)
+        return cycles
+
+    cycles = _detect_cycles(ref_graph)
+    for cycle in cycles:
+        cycle_str = ' -> '.join(cycle)
+        warnings_list.append(f'Reference cycle detected: {cycle_str}')
+
+    return warnings_list
+
+
 def _compute_diff(
-    variables: Sequence[Variable[object]],
+    variables: Sequence[_BaseVariable[object]],
     server_config: VariablesConfig,
 ) -> VariableDiff:
     """Compute the diff between local variables and server config.
@@ -432,6 +687,9 @@ def _compute_diff(
         local_description = variable.description
         server_var = server_config.variables.get(variable.name)
 
+        # Get template_inputs_schema if available
+        template_inputs_schema = variable.get_template_inputs_schema()
+
         if server_var is None:
             # New variable - needs to be created
             default_serialized = _get_default_serialized(variable)
@@ -442,6 +700,7 @@ def _compute_diff(
                     local_schema=local_schema,
                     initial_value=default_serialized,
                     local_description=local_description,
+                    template_inputs_schema=template_inputs_schema,
                 )
             )
         else:
@@ -495,7 +754,10 @@ def _compute_diff(
     # Find orphaned server variables (on server but not in local code)
     orphaned = [name for name in server_config.variables.keys() if name not in local_names]
 
-    return VariableDiff(changes=changes, orphaned_server_variables=orphaned)
+    # Check for reference warnings (non-existent refs, cycles)
+    reference_warnings = _check_reference_warnings(variables, server_config)
+
+    return VariableDiff(changes=changes, orphaned_server_variables=orphaned, reference_warnings=reference_warnings)
 
 
 def _format_diff(diff: VariableDiff) -> str:
@@ -558,6 +820,12 @@ def _format_diff(diff: VariableDiff) -> str:
             lines.append(f'    Local:  {local_desc}')
             lines.append(f'    Server: {server_desc}')
 
+    # Show reference warnings
+    if diff.reference_warnings:
+        lines.append(f'\n{ANSI_YELLOW}=== Reference warnings ==={ANSI_RESET}')
+        for warning in diff.reference_warnings:
+            lines.append(f'  {ANSI_YELLOW}⚠ {warning}{ANSI_RESET}')
+
     return '\n'.join(lines)
 
 
@@ -591,6 +859,7 @@ def _create_variable(
         overrides=[],
         json_schema=change.local_schema,
         example=change.initial_value,  # Store the code default as an example for the UI
+        template_inputs_schema=change.template_inputs_schema,
     )
 
     provider.create_variable(config)
@@ -981,7 +1250,7 @@ class VariableProvider(ABC):
 
     def push_variables(
         self,
-        variables: Sequence[Variable[object]],
+        variables: Sequence[_BaseVariable[object]],
         *,
         dry_run: bool = False,
         yes: bool = False,
@@ -1077,7 +1346,7 @@ class VariableProvider(ABC):
 
     def validate_variables(
         self,
-        variables: Sequence[Variable[object]],
+        variables: Sequence[_BaseVariable[object]],
     ) -> ValidationReport:
         """Validate that provider-side variable label values match local type definitions.
 
@@ -1152,11 +1421,15 @@ class VariableProvider(ABC):
                         )
                     )
 
+        # Check for reference warnings
+        reference_warnings = _check_reference_warnings(variables, server_config)
+
         return ValidationReport(
             errors=errors,
             variables_checked=len(variables),
             variables_not_on_server=variables_not_on_server,
             description_differences=description_differences,
+            reference_warnings=reference_warnings,
         )
 
     # --- Variable Types API ---
@@ -1428,7 +1701,7 @@ class NoOpVariableProvider(VariableProvider):
 
     def push_variables(
         self,
-        variables: Sequence[Variable[Any]],
+        variables: Sequence[_BaseVariable[Any]],
         *,
         dry_run: bool = False,
         yes: bool = False,
@@ -1444,7 +1717,7 @@ class NoOpVariableProvider(VariableProvider):
 
     def validate_variables(
         self,
-        variables: Sequence[Variable[Any]],
+        variables: Sequence[_BaseVariable[Any]],
     ) -> ValidationReport:
         """No-op implementation that returns an empty validation report.
 
