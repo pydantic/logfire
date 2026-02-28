@@ -479,12 +479,6 @@ def record_exception(
 
 
 def set_exception_status(span: trace_api.Span, exception: BaseException):
-    # Don't set ERROR status for pydantic-ai control flow exceptions.
-    # Note: this guards our own code path; OTel SDK's use_span may also call
-    # span.set_status(ERROR) directly, but in practice pydantic-ai catches
-    # CallDeferred/ApprovalRequired internally so they don't escape that far.
-    if _is_pydantic_ai_control_flow_exception(exception):
-        return
     span.set_status(
         trace_api.Status(
             status_code=StatusCode.ERROR,
