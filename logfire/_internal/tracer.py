@@ -508,7 +508,7 @@ def _is_pydantic_ai_control_flow_exception(exception: BaseException) -> bool:
             from pydantic_ai.exceptions import ApprovalRequired, CallDeferred
 
             _pydantic_ai_control_flow_exceptions = (CallDeferred, ApprovalRequired)
-        except ImportError:
+        except Exception:
             _pydantic_ai_control_flow_exceptions = ()
 
     return bool(_pydantic_ai_control_flow_exceptions) and isinstance(exception, _pydantic_ai_control_flow_exceptions)
