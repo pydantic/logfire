@@ -31,8 +31,8 @@ from logfire.testing import TestExporter
 
 pytestmark = [
     pytest.mark.skipif(
-        get_version(pydantic.__version__) < get_version('2.5'),
-        reason='Requires Pydantic 2.5 or higher to import genai-prices and set operation.cost attribute',
+        get_version(pydantic.__version__) < get_version('2.11'),
+        reason='Requires Pydantic 2.5 or higher to import genai-prices and set operation.cost attribute. OpenAI is buggy for 2.6-2.10.',
     ),
 ]
 

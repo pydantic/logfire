@@ -131,6 +131,26 @@ Create a `.zed/settings.json` file in your project's root directory:
 
 ---
 
+## Sandboxed Environments
+
+If browser-based authentication is not available (e.g. in sandboxed environments), generate an API key with at least the `project:read` scope from your organization or project settings, then use it as a Bearer token:
+
+```json
+{
+  "mcpServers": {
+    "logfire": {
+      "type": "http",
+      "url": "https://logfire-us.pydantic.dev/mcp",
+      "headers": {
+        "Authorization": "Bearer <your-logfire-api-key>"
+      }
+    }
+  }
+}
+```
+
+---
+
 ## Running Locally (Deprecated)
 
 !!! warning
