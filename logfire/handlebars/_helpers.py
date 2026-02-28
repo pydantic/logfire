@@ -9,8 +9,8 @@ import json as json_module
 import warnings
 from typing import Any, cast
 
-from logfire.handlebars._compiler import HelperOptions
-from logfire.handlebars._utils import is_falsy, to_string
+from logfire.handlebars._compiler import HelperFunc, HelperOptions
+from logfire.handlebars._utils import is_blocked_attribute, is_falsy, to_string
 
 
 def _helper_if(context: Any, *args: Any, options: HelperOptions) -> str:
@@ -136,7 +136,7 @@ def _helper_lookup(*args: Any, options: HelperOptions) -> Any:
 
     # Try attribute access
     key_str = str(key)
-    if key_str.startswith('__'):
+    if is_blocked_attribute(key_str):
         return None
     try:
         return getattr(obj, key_str)
@@ -288,7 +288,7 @@ def _helper_default(*args: Any, options: HelperOptions) -> Any:
     return value
 
 
-def get_default_helpers() -> dict[str, Any]:
+def get_default_helpers() -> dict[str, HelperFunc]:
     """Get the default set of helpers.
 
     Returns:

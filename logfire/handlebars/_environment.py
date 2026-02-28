@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, TypeVar, overload
 
-from logfire.handlebars._compiler import Compiler
+from logfire.handlebars._compiler import Compiler, HelperFunc
 from logfire.handlebars._helpers import get_default_helpers
 from logfire.handlebars._parser import parse
 
@@ -24,8 +24,8 @@ class HandlebarsEnvironment:
 
 
         @env.helper
-        def shout(value):
-            return str(value).upper() + '!!!'
+        def shout(*args: object, options: HelperOptions) -> str:
+            return str(args[0]).upper() + '!!!'
 
 
         result = env.render('{{shout name}}', {'name': 'world'})
@@ -34,7 +34,7 @@ class HandlebarsEnvironment:
     """
 
     def __init__(self) -> None:
-        self._helpers: dict[str, Any] = get_default_helpers()
+        self._helpers: dict[str, HelperFunc] = get_default_helpers()
 
     @overload
     def helper(self, fn: F) -> F: ...  # pragma: no cover
@@ -49,13 +49,13 @@ class HandlebarsEnvironment:
 
         ```python
         @env.helper
-        def my_helper(value):
-            return str(value).upper()
+        def my_helper(*args: object, options: HelperOptions) -> str:
+            return str(args[0]).upper()
 
 
         @env.helper('custom-name')
-        def my_helper(value):
-            return str(value).upper()
+        def my_helper(*args: object, options: HelperOptions) -> str:
+            return str(args[0]).upper()
         ```
 
         Args:
@@ -76,7 +76,7 @@ class HandlebarsEnvironment:
             self._helpers[fn.__name__] = fn
             return fn
 
-    def register_helper(self, name: str, fn: Any) -> None:
+    def register_helper(self, name: str, fn: HelperFunc) -> None:
         """Register a helper function with an explicit name.
 
         Args:

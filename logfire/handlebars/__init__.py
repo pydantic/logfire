@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from logfire.handlebars._compiler import Compiler, HelperOptions, Scope
+from logfire.handlebars._compiler import Compiler, HelperFunc, HelperOptions, Scope
 from logfire.handlebars._environment import HandlebarsEnvironment
 from logfire.handlebars._exceptions import HandlebarsError, HandlebarsParseError, HandlebarsRuntimeError
 from logfire.handlebars._utils import SafeString, escape_expression
@@ -18,6 +18,7 @@ __all__ = [
     'HandlebarsParseError',
     'HandlebarsRuntimeError',
     'HandlebarsEnvironment',
+    'HelperFunc',
     'HelperOptions',
     'Compiler',
     'Scope',

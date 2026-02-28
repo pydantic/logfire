@@ -80,8 +80,19 @@ def _noop_block(
     return ''
 
 
-# Type for helper functions
-HelperFunc = Any  # Can be various callable signatures
+class HelperFunc(Protocol):
+    """Protocol for helper functions.
+
+    All helpers receive positional args (resolved from template expressions against the user's
+    context) and an ``options`` keyword providing block rendering capabilities and hash arguments.
+
+    Using ``object`` rather than ``Any`` for positional args prevents helpers from falsely claiming
+    args are pre-validated as specific types — the type checker will reject e.g.
+    ``def my_helper(val: float, ...)`` since args could be anything from the user's context.
+    Helpers that want to opt out can use ``Any`` explicitly.
+    """
+
+    def __call__(self, /, *args: object, options: HelperOptions) -> Any: ...  # pragma: no cover
 
 
 class Scope:
@@ -288,27 +299,15 @@ class Compiler:
         args = [self._eval_expression(p, scope) for p in stmt.params]
         hash_args = {k: self._eval_expression(v, scope) for k, v in stmt.hash_pairs.items()}
 
-        # Create options for potential block helper usage
         options = HelperOptions(
             hash=hash_args,
             data=scope.data,
         )
 
-        # Try calling with different signatures
-        try:
-            if args:
-                result = helper(*args, options=options)
-            else:
-                result = helper(scope.context, options=options)
-        except TypeError:
-            # Try simpler signature
-            try:
-                if args:
-                    result = helper(*args, **hash_args)
-                else:
-                    result = helper(scope.context)
-            except TypeError:
-                result = helper()
+        if args:
+            result = helper(*args, options=options)
+        else:
+            result = helper(scope.context, options=options)
 
         result_str = to_string(result)
 
@@ -465,13 +464,7 @@ class Compiler:
 
         options = HelperOptions(hash=hash_args, data=scope.data)
 
-        try:
-            return helper(*args, options=options)
-        except TypeError:
-            try:
-                return helper(*args, **hash_args)
-            except TypeError:
-                return helper(*args)
+        return helper(*args, options=options)
 
     def _resolve_path(self, path: PathExpression, scope: Scope) -> Any:
         """Resolve a path expression to its value."""
