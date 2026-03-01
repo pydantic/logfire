@@ -42,10 +42,10 @@ def instrument_django_ninja(
         try:
             response = original_on_exception(request, exc)
         except Exception:
-            if span.is_recording():
+            if span.is_recording():  # pragma: no branch
                 span.record_exception(exc, escaped=True)
             raise
-        if span.is_recording():
+        if span.is_recording():  # pragma: no branch
             span.record_exception(exc, escaped=False)
         return response
 
