@@ -892,6 +892,41 @@ class Logfire:
         """
         return self._config.force_flush(timeout_millis)
 
+    def instrument_asyncio(
+        self,
+        slow_duration: float = 0.1,
+        **kwargs: Any,
+    ) -> AbstractContextManager[None]:
+        """Instrument asyncio to trace coroutines, futures, and detect slow event loop callbacks.
+
+        This combines the OpenTelemetry asyncio instrumentation (for tracing coroutines, futures,
+        and `to_thread` calls) with Logfire's slow callback detection.
+
+        Args:
+            slow_duration: the threshold in seconds for when an event loop callback is considered slow.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods,
+                for future compatibility.
+
+        Returns:
+            A context manager that will revert the slow callback patch when exited.
+                This context manager doesn't take into account threads or other concurrency.
+                Calling this method will immediately apply the instrumentation
+                without waiting for the context manager to be opened,
+                i.e. it's not necessary to use this as a context manager.
+        """
+        from .integrations.asyncio_ import instrument_asyncio
+
+        self._warn_if_not_initialized_for_instrumentation()
+        return instrument_asyncio(
+            self,
+            slow_duration=slow_duration,
+            **{
+                'tracer_provider': self._config.get_tracer_provider(),
+                'meter_provider': self._config.get_meter_provider(),
+                **kwargs,
+            },
+        )
+
     def log_slow_async_callbacks(self, slow_duration: float = 0.1) -> AbstractContextManager[None]:
         """Log a warning whenever a function running in the asyncio event loop blocks for too long.
 

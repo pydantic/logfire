@@ -382,6 +382,24 @@ class Logfire:
                 without waiting for the context manager to be opened,
                 i.e. it's not necessary to use this as a context manager.
         """
+    def instrument_asyncio(self, slow_duration: float = 0.1, **kwargs: Any) -> AbstractContextManager[None]:
+        """Instrument asyncio to trace coroutines, futures, and detect slow event loop callbacks.
+
+        This combines the OpenTelemetry asyncio instrumentation (for tracing coroutines, futures,
+        and `to_thread` calls) with Logfire's slow callback detection.
+
+        Args:
+            slow_duration: the threshold in seconds for when an event loop callback is considered slow.
+            **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods,
+                for future compatibility.
+
+        Returns:
+            A context manager that will revert the slow callback patch when exited.
+                This context manager doesn't take into account threads or other concurrency.
+                Calling this method will immediately apply the instrumentation
+                without waiting for the context manager to be opened,
+                i.e. it's not necessary to use this as a context manager.
+        """
     def install_auto_tracing(self, modules: Sequence[str] | Callable[[AutoTraceModule], bool], *, min_duration: float, check_imported_modules: Literal['error', 'warn', 'ignore'] = 'error') -> None:
         """Install automatic tracing.
 
