@@ -208,6 +208,7 @@ nav:
           - Managed Variables:
               - Overview: reference/advanced/managed-variables/index.md
               - UI Guide: reference/advanced/managed-variables/ui.md
+              - Templates & Composition: reference/advanced/managed-variables/templates-and-composition.md
               - A/B Testing: reference/advanced/managed-variables/ab-testing.md
               - Targeting: reference/advanced/managed-variables/targeting.md
               - Remote Variables: reference/advanced/managed-variables/remote.md
