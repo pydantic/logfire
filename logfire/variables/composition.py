@@ -19,7 +19,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, Tuple  # noqa: UP035
 
-from logfire.handlebars.angle_bracket import render_once
+from logfire.variables.angle_bracket import render_once
 
 __all__ = (
     'MAX_COMPOSITION_DEPTH',

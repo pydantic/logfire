@@ -1,8 +1,11 @@
-"""Template validation: check {{field}} references against template_inputs_schema.
+"""Template validation: check ``{{field}}`` references against ``template_inputs_schema``.
 
 This module validates that Handlebars ``{{field}}`` references in template variable
 values (including composed ``<<ref>>`` dependencies) match the declared
-``template_inputs_schema``. It also provides cycle detection for composition graphs.
+``template_inputs_schema``. It uses ``pydantic_handlebars.check_template_compatibility``
+for full AST-based schema checking (nested paths, block scopes, helpers).
+
+It also provides cycle detection for composition graphs.
 
 Used by both the SDK and the backend for pre-write validation.
 """
@@ -14,6 +17,8 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
+
+from pydantic_handlebars import check_template_compatibility
 
 from logfire.variables.composition import find_references
 
@@ -61,34 +66,33 @@ def find_template_fields(text: str) -> set[str]:
     return set(TEMPLATE_FIELD_PATTERN.findall(text))
 
 
-def _find_fields_in_serialized(serialized_json: str) -> set[str]:
-    """Find all ``{{field}}`` references in string values within serialized JSON.
-
-    Decodes the JSON and recursively walks all string values to find template
-    field references.
-    """
+def _extract_template_strings(serialized_json: str) -> list[str]:
+    """Extract all string values from serialized JSON that contain ``{{...}}`` templates."""
     try:
         decoded = json.loads(serialized_json)
     except (json.JSONDecodeError, TypeError):
-        return find_template_fields(serialized_json)
-    return _find_fields_in_value(decoded)
+        # If it's not valid JSON, treat the raw string as a potential template
+        if '{{' in serialized_json:
+            return [serialized_json]
+        return []
+    return _collect_template_strings(decoded)
 
 
-def _find_fields_in_value(value: Any) -> set[str]:
-    """Recursively find ``{{field}}`` references in a decoded JSON value."""
+def _collect_template_strings(value: Any) -> list[str]:
+    """Recursively collect strings containing ``{{...}}`` from a decoded JSON value."""
     if isinstance(value, str):
-        return find_template_fields(value)
+        return [value] if '{{' in value else []
     if isinstance(value, dict):
-        fields: set[str] = set()
+        result: list[str] = []
         for v in value.values():  # pyright: ignore[reportUnknownVariableType]
-            fields |= _find_fields_in_value(v)
-        return fields
+            result.extend(_collect_template_strings(v))
+        return result
     if isinstance(value, list):
-        fields = set()
+        result = []
         for item in value:  # pyright: ignore[reportUnknownVariableType]
-            fields |= _find_fields_in_value(item)
-        return fields
-    return set()
+            result.extend(_collect_template_strings(item))
+        return result
+    return []
 
 
 def validate_template_composition(
@@ -99,20 +103,19 @@ def validate_template_composition(
     """Validate that ``{{field}}`` references in a template variable match its schema.
 
     Walks the composition graph starting from *variable_name*, collecting all
-    ``{{field}}`` references from the variable's values and its ``<<ref>>``
-    dependencies, then checks each against the ``template_inputs_schema`` properties.
+    template strings from the variable's values and its ``<<ref>>`` dependencies,
+    then uses AST-based schema checking via ``check_template_compatibility`` to
+    find incompatible field references.
 
     Args:
         variable_name: Name of the template variable to validate.
         template_inputs_schema: JSON Schema describing the expected template inputs.
-            The ``properties`` key is used to determine allowed field names.
         get_all_serialized_values: Function that returns ``{label_or_none: serialized_json}``
             for any variable name.  ``None`` key represents the latest version.
 
     Returns:
         A :class:`TemplateValidationResult` with any issues found.
     """
-    allowed_fields = set(template_inputs_schema.get('properties', {}).keys())
     issues: list[TemplateFieldIssue] = []
     seen_issues: set[tuple[str, str, str | None]] = set()
 
@@ -122,20 +125,27 @@ def validate_template_composition(
         visited = visited | {name}
 
         for label, serialized_value in get_all_serialized_values(name).items():
-            fields = _find_fields_in_serialized(serialized_value)
-            for f in fields:
-                if f not in allowed_fields:
-                    key = (f, name, label)
-                    if key not in seen_issues:
-                        seen_issues.add(key)
-                        issues.append(
-                            TemplateFieldIssue(
-                                field_name=f,
-                                found_in_variable=name,
-                                found_in_label=label,
-                                reference_path=list(path),
-                            )
+            templates = _extract_template_strings(serialized_value)
+            if not templates:
+                for ref in find_references(serialized_value):
+                    _collect(ref, path + [ref], visited)
+                continue
+
+            result = check_template_compatibility(templates, template_inputs_schema)
+            for issue in result.issues:
+                if issue.severity != 'error':
+                    continue
+                key = (issue.field_path, name, label)
+                if key not in seen_issues:
+                    seen_issues.add(key)
+                    issues.append(
+                        TemplateFieldIssue(
+                            field_name=issue.field_path,
+                            found_in_variable=name,
+                            found_in_label=label,
+                            reference_path=list(path),
                         )
+                    )
 
             for ref in find_references(serialized_value):
                 _collect(ref, path + [ref], visited)

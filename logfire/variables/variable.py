@@ -11,9 +11,9 @@ from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar
 
 from opentelemetry.trace import get_current_span
 from pydantic import TypeAdapter, ValidationError
+from pydantic_handlebars import HandlebarsError
 from typing_extensions import TypeIs
 
-from logfire.handlebars._exceptions import HandlebarsError
 from logfire.variables.composition import (
     ComposedReference,
     VariableCompositionError,

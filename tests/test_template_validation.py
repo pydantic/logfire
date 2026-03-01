@@ -7,7 +7,7 @@ from __future__ import annotations
 from logfire.variables.template_validation import (
     TemplateFieldIssue,
     TemplateValidationResult,
-    _find_fields_in_serialized,
+    _extract_template_strings,
     detect_composition_cycles,
     find_template_fields,
     validate_template_composition,
@@ -105,77 +105,87 @@ class TestFindTemplateFields:
 
 
 # =============================================================================
-# _find_fields_in_serialized
+# _extract_template_strings
 # =============================================================================
 
 
-class TestFindFieldsInSerialized:
+class TestExtractTemplateStrings:
     def test_json_string(self):
         """JSON string value like '"Hello {{name}}"'."""
-        result = _find_fields_in_serialized('"Hello {{name}}"')
-        assert result == {'name'}
+        result = _extract_template_strings('"Hello {{name}}"')
+        assert result == ['Hello {{name}}']
 
     def test_json_object(self):
         """JSON object with multiple string values containing fields."""
-        result = _find_fields_in_serialized('{"key": "Hello {{name}}", "other": "{{age}}"}')
-        assert result == {'name', 'age'}
+        result = _extract_template_strings('{"key": "Hello {{name}}", "other": "{{age}}"}')
+        assert result == ['Hello {{name}}', '{{age}}']
 
     def test_json_array(self):
         """JSON array with string values containing fields."""
-        result = _find_fields_in_serialized('["{{a}}", "{{b}}"]')
-        assert result == {'a', 'b'}
+        result = _extract_template_strings('["{{a}}", "{{b}}"]')
+        assert result == ['{{a}}', '{{b}}']
 
     def test_invalid_json_falls_back_to_plain_text(self):
-        """Invalid JSON falls back to plain text extraction."""
-        result = _find_fields_in_serialized('not valid json {{field}}')
-        assert result == {'field'}
+        """Invalid JSON with templates falls back to the raw string."""
+        result = _extract_template_strings('not valid json {{field}}')
+        assert result == ['not valid json {{field}}']
+
+    def test_invalid_json_no_templates(self):
+        """Invalid JSON without templates returns empty list."""
+        result = _extract_template_strings('not valid json no templates')
+        assert result == []
 
     def test_json_number_no_fields(self):
-        """JSON number value has no template fields."""
-        result = _find_fields_in_serialized('42')
-        assert result == set()
+        """JSON number value has no template strings."""
+        result = _extract_template_strings('42')
+        assert result == []
 
     def test_json_boolean_no_fields(self):
-        """JSON boolean value has no template fields."""
-        result = _find_fields_in_serialized('true')
-        assert result == set()
+        """JSON boolean value has no template strings."""
+        result = _extract_template_strings('true')
+        assert result == []
 
     def test_json_null_no_fields(self):
-        """JSON null value has no template fields."""
-        result = _find_fields_in_serialized('null')
-        assert result == set()
+        """JSON null value has no template strings."""
+        result = _extract_template_strings('null')
+        assert result == []
 
     def test_nested_json_object(self):
-        """Nested JSON objects have their string values scanned."""
-        result = _find_fields_in_serialized('{"outer": {"inner": "{{deep}}"}}')
-        assert result == {'deep'}
+        """Nested JSON objects have their string values collected."""
+        result = _extract_template_strings('{"outer": {"inner": "{{deep}}"}}')
+        assert result == ['{{deep}}']
 
     def test_mixed_types_in_object(self):
-        """Object with mixed types: only string values are scanned."""
-        result = _find_fields_in_serialized('{"text": "{{name}}", "count": 42, "active": true, "nothing": null}')
-        assert result == {'name'}
+        """Object with mixed types: only strings with templates are collected."""
+        result = _extract_template_strings('{"text": "{{name}}", "count": 42, "active": true, "nothing": null}')
+        assert result == ['{{name}}']
 
     def test_array_with_mixed_types(self):
-        """Array with mixed types: only strings scanned."""
-        result = _find_fields_in_serialized('["{{a}}", 42, true, null, "{{b}}"]')
-        assert result == {'a', 'b'}
+        """Array with mixed types: only template strings collected."""
+        result = _extract_template_strings('["{{a}}", 42, true, null, "{{b}}"]')
+        assert result == ['{{a}}', '{{b}}']
 
     def test_empty_json_string(self):
-        result = _find_fields_in_serialized('""')
-        assert result == set()
+        result = _extract_template_strings('""')
+        assert result == []
 
     def test_empty_json_object(self):
-        result = _find_fields_in_serialized('{}')
-        assert result == set()
+        result = _extract_template_strings('{}')
+        assert result == []
 
     def test_empty_json_array(self):
-        result = _find_fields_in_serialized('[]')
-        assert result == set()
+        result = _extract_template_strings('[]')
+        assert result == []
 
     def test_deeply_nested_structure(self):
-        """Deeply nested JSON structure with fields at various levels."""
-        result = _find_fields_in_serialized('{"a": [{"b": "{{x}}"}, {"c": ["{{y}}", {"d": "{{z}}"}]}]}')
-        assert result == {'x', 'y', 'z'}
+        """Deeply nested JSON structure with template strings at various levels."""
+        result = _extract_template_strings('{"a": [{"b": "{{x}}"}, {"c": ["{{y}}", {"d": "{{z}}"}]}]}')
+        assert result == ['{{x}}', '{{y}}', '{{z}}']
+
+    def test_string_without_templates_excluded(self):
+        """Strings without {{}} are not collected."""
+        result = _extract_template_strings('{"a": "no templates", "b": "has {{one}}"}')
+        assert result == ['has {{one}}']
 
 
 # =============================================================================
@@ -281,9 +291,20 @@ class TestValidateTemplateComposition:
         result = validate_template_composition('my_var', schema, get_values)
         assert result.issues == []
 
-    def test_empty_schema_all_fields_are_issues(self):
-        """With empty schema, every field is an issue."""
+    def test_empty_schema_no_restrictions(self):
+        """With empty properties, any field is allowed (no declared properties to conflict with)."""
         schema = {'properties': {}}
+        get_values = _make_get_all_serialized(
+            {
+                'my_var': {None: '"{{a}} {{b}}"'},
+            }
+        )
+        result = validate_template_composition('my_var', schema, get_values)
+        assert result.issues == []
+
+    def test_unknown_fields_with_declared_properties(self):
+        """When schema declares properties, unlisted fields are issues."""
+        schema = {'properties': {'x': {'type': 'string'}}}
         get_values = _make_get_all_serialized(
             {
                 'my_var': {None: '"{{a}} {{b}}"'},
@@ -343,7 +364,7 @@ class TestValidateTemplateComposition:
 
     def test_duplicate_issue_dedup(self):
         """Same field/variable/label combination is only reported once."""
-        schema = {'properties': {}}
+        schema = {'properties': {'allowed': {'type': 'string'}}}
         # Two labels in a, both reference b which has the same field
         get_values = _make_get_all_serialized(
             {
@@ -358,7 +379,7 @@ class TestValidateTemplateComposition:
 
     def test_issue_reference_path_is_copy(self):
         """reference_path in issues is an independent list, not a shared reference."""
-        schema = {'properties': {}}
+        schema = {'properties': {'allowed': {'type': 'string'}}}
         get_values = _make_get_all_serialized(
             {
                 'a': {None: '"<<b>> <<c>>"'},

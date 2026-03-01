@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from logfire.handlebars import SafeString, render as hbs_render
+from pydantic_handlebars import SafeString, render as hbs_render
 
 # ---------------------------------------------------------------------------
 # Character swap table: { ↔ < and } ↔ >

@@ -240,7 +240,7 @@ def render_serialized_string(serialized_json: str, inputs: Any) -> str:
     Returns:
         The rendered JSON string.
     """
-    from logfire.handlebars import SafeString, render as hbs_render
+    from pydantic_handlebars import SafeString, render as hbs_render
 
     safe_string_cls: type[str] = SafeString
     render_fn: Callable[..., str] = hbs_render
