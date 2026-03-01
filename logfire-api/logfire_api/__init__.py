@@ -166,6 +166,8 @@ except ImportError:
 
             def instrument_django(self, *args, **kwargs) -> None: ...
 
+            def instrument_django_ninja(self, *args, **kwargs) -> None: ...
+
             def instrument_psycopg(self, *args, **kwargs) -> None: ...
 
             def instrument_surrealdb(self, *args, **kwargs) -> None: ...
@@ -241,6 +243,7 @@ except ImportError:
         instrument_surrealdb = DEFAULT_LOGFIRE_INSTANCE.instrument_surrealdb
         instrument_psycopg = DEFAULT_LOGFIRE_INSTANCE.instrument_psycopg
         instrument_django = DEFAULT_LOGFIRE_INSTANCE.instrument_django
+        instrument_django_ninja = DEFAULT_LOGFIRE_INSTANCE.instrument_django_ninja
         instrument_flask = DEFAULT_LOGFIRE_INSTANCE.instrument_flask
         instrument_starlette = DEFAULT_LOGFIRE_INSTANCE.instrument_starlette
         instrument_aiohttp_client = DEFAULT_LOGFIRE_INSTANCE.instrument_aiohttp_client

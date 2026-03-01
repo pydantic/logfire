@@ -66,6 +66,7 @@ aiohttp-client = ["opentelemetry-instrumentation-aiohttp-client >= 0.42b0"]
 aiohttp-server = ["opentelemetry-instrumentation-aiohttp-server >= 0.55b0"]
 celery = ["opentelemetry-instrumentation-celery >= 0.42b0"]
 django = ["opentelemetry-instrumentation-django >= 0.42b0", "opentelemetry-instrumentation-asgi >= 0.42b0"]
+django-ninja = ["django-ninja >= 1.0.0"]
 fastapi = ["opentelemetry-instrumentation-fastapi >= 0.42b0"]
 flask = ["opentelemetry-instrumentation-flask >= 0.42b0"]
 httpx = ["opentelemetry-instrumentation-httpx >= 0.42b0"]
@@ -111,6 +112,7 @@ dev = [
     "fastapi != 0.124.3, != 0.124.4",
     "Flask >= 3.0.3",
     "django >= 4.2.16",
+    "django-ninja >= 1.0.0",
     "dirty-equals >= 0.8.0",
     "pytest >= 8.3.4",
     "pytest-django >= 4.6.0",
@@ -312,6 +314,8 @@ filterwarnings = [
     "ignore:Call to 'get_connection' function with deprecated usage of input argument/s.*:DeprecationWarning",
     # OpenTelemetry event logger stuff being used by Pydantic AI
     "ignore:You should use `\\w*(L|l)ogger\\w*` instead. Deprecated since version 1.39.0 and will be removed in a future release.:DeprecationWarning",
+    # django-ninja uses deprecated asyncio.iscoroutinefunction on Python 3.14+
+    "ignore:'asyncio.iscoroutinefunction' is deprecated.*:DeprecationWarning",
 ]
 DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_test_site.settings"
 
