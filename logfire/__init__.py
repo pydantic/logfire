@@ -55,6 +55,7 @@ instrument_celery = DEFAULT_LOGFIRE_INSTANCE.instrument_celery
 instrument_requests = DEFAULT_LOGFIRE_INSTANCE.instrument_requests
 instrument_psycopg = DEFAULT_LOGFIRE_INSTANCE.instrument_psycopg
 instrument_django = DEFAULT_LOGFIRE_INSTANCE.instrument_django
+instrument_django_ninja = DEFAULT_LOGFIRE_INSTANCE.instrument_django_ninja
 instrument_flask = DEFAULT_LOGFIRE_INSTANCE.instrument_flask
 instrument_starlette = DEFAULT_LOGFIRE_INSTANCE.instrument_starlette
 instrument_aiohttp_client = DEFAULT_LOGFIRE_INSTANCE.instrument_aiohttp_client
@@ -162,6 +163,7 @@ __all__ = (
     'instrument_requests',
     'instrument_psycopg',
     'instrument_django',
+    'instrument_django_ninja',
     'instrument_flask',
     'instrument_starlette',
     'instrument_aiohttp_client',

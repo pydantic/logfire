@@ -66,6 +66,7 @@ aiohttp-client = ["opentelemetry-instrumentation-aiohttp-client >= 0.42b0"]
 aiohttp-server = ["opentelemetry-instrumentation-aiohttp-server >= 0.55b0"]
 celery = ["opentelemetry-instrumentation-celery >= 0.42b0"]
 django = ["opentelemetry-instrumentation-django >= 0.42b0", "opentelemetry-instrumentation-asgi >= 0.42b0"]
+django-ninja = ["django-ninja >= 1.0.0"]
 fastapi = ["opentelemetry-instrumentation-fastapi >= 0.42b0"]
 flask = ["opentelemetry-instrumentation-flask >= 0.42b0"]
 httpx = ["opentelemetry-instrumentation-httpx >= 0.42b0"]
@@ -111,6 +112,7 @@ dev = [
     "fastapi != 0.124.3, != 0.124.4",
     "Flask >= 3.0.3",
     "django >= 4.2.16",
+    "django-ninja >= 1.0.0",
     "dirty-equals >= 0.8.0",
     "pytest >= 8.3.4",
     "pytest-django >= 4.6.0",

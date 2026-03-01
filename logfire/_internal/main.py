@@ -82,6 +82,7 @@ if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponse
     from fastapi import FastAPI
     from flask.app import Flask
+    from ninja import NinjaAPI
     from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
     from opentelemetry.metrics import _Gauge as Gauge
     from pymongo.monitoring import CommandFailedEvent, CommandStartedEvent, CommandSucceededEvent
@@ -1650,6 +1651,27 @@ class Logfire:
                 **kwargs,
             },
         )
+
+    def instrument_django_ninja(
+        self,
+        api: NinjaAPI,
+        **kwargs: Any,
+    ) -> None:
+        """Instrument a `django-ninja` NinjaAPI so that exceptions are recorded on OpenTelemetry spans.
+
+        Django Ninja catches exceptions before they propagate to Django's middleware,
+        which prevents OpenTelemetry's Django instrumentation from recording them.
+
+        This should be used in addition to [`instrument_django()`][logfire.Logfire.instrument_django].
+
+        Args:
+            api: The Django Ninja `NinjaAPI` instance to instrument.
+            **kwargs: Additional keyword arguments for future compatibility.
+        """
+        from .integrations.django_ninja import instrument_django_ninja
+
+        self._warn_if_not_initialized_for_instrumentation()
+        return instrument_django_ninja(api=api, **kwargs)
 
     def instrument_requests(
         self,

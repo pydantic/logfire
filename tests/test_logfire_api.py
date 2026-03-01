@@ -242,6 +242,10 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
             logfire_api.instrument_dspy()
     logfire__all__.remove('instrument_dspy')
 
+    assert hasattr(logfire_api, 'instrument_django_ninja')
+    logfire_api.instrument_django_ninja(api=MagicMock())
+    logfire__all__.remove('instrument_django_ninja')
+
     for member in [m for m in logfire__all__ if m.startswith('instrument_')]:
         assert hasattr(logfire_api, member), member
         if not (pydantic_pre_2_5 and member == 'instrument_pydantic'):
