@@ -14,6 +14,9 @@ except ImportError:
     )
 
 
+_LOGFIRE_INSTRUMENTED = '_logfire_instrumented'
+
+
 def instrument_django_ninja(
     api: NinjaAPI,
     **kwargs: Any,
@@ -27,6 +30,9 @@ def instrument_django_ninja(
 
     See the `Logfire.instrument_django_ninja` method for details.
     """
+    if getattr(api.on_exception, _LOGFIRE_INSTRUMENTED, False):
+        return
+
     from opentelemetry.trace import get_current_span
 
     original_on_exception = api.on_exception
@@ -43,4 +49,5 @@ def instrument_django_ninja(
             span.record_exception(exc, escaped=False)
         return response
 
+    patched_on_exception._logfire_instrumented = True  # type: ignore[attr-defined]
     api.on_exception = patched_on_exception  # type: ignore[method-assign]
