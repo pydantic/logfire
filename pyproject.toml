@@ -77,6 +77,7 @@ psycopg2 = ["opentelemetry-instrumentation-psycopg2 >= 0.42b0", "packaging"]
 pymongo = ["opentelemetry-instrumentation-pymongo >= 0.42b0"]
 redis = ["opentelemetry-instrumentation-redis >= 0.42b0"]
 requests = ["opentelemetry-instrumentation-requests >= 0.42b0"]
+urllib3 = ["opentelemetry-instrumentation-urllib3 >= 0.42b0"]
 mysql = ["opentelemetry-instrumentation-mysql >= 0.42b0"]
 sqlite3 = ["opentelemetry-instrumentation-sqlite3 >= 0.42b0"]
 aws-lambda = ["opentelemetry-instrumentation-aws-lambda >= 0.42b0"]
@@ -131,6 +132,7 @@ dev = [
     "opentelemetry-instrumentation-django>=0.42b0",
     "opentelemetry-instrumentation-httpx>=0.42b0",
     "opentelemetry-instrumentation-requests>=0.42b0",
+    "opentelemetry-instrumentation-urllib3>=0.42b0",
     "opentelemetry-instrumentation-sqlalchemy>=0.42b0",
     "opentelemetry-instrumentation-system-metrics>=0.42b0",
     "opentelemetry-instrumentation-asyncpg>=0.42b0",
