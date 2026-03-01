@@ -180,6 +180,7 @@ nav:
               - Pytest: integrations/pytest.md
           - Pydantic: integrations/pydantic.md
           - System Metrics: integrations/system-metrics.md
+          - Asyncio: integrations/asyncio.md
           - Stripe: integrations/stripe.md
           - AWS Lambda: integrations/aws-lambda.md
       - Observe & Investigate:

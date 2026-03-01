@@ -36,7 +36,7 @@ If a package you are using is not listed in this documentation, please let us kn
 - _Task Queues and Schedulers_: Airflow, FastStream, Celery
 - _Logging Libraries_: Standard Library Logging, Loguru, Structlog
 - _Testing_: Pytest
-- and more, such as Stripe, AWS Lambda, and system metrics.
+- and more, such as Stripe, AWS Lambda, asyncio, and system metrics.
 
 The below table lists these integrations and any corresponding `logfire.instrument_<package>()` calls:
 
@@ -48,6 +48,7 @@ The below table lists these integrations and any corresponding `logfire.instrume
 | [Airflow](event-streams/airflow.md)       | Task Scheduler          | N/A (built in, config needed)                                                                                                                                          |
 | [Anthropic](llms/anthropic.md)            | AI                      | [`logfire.instrument_anthropic()`][logfire.Logfire.instrument_anthropic]                                                                                               |
 | [ASGI](web-frameworks/asgi.md)            | Web Framework Interface | [`logfire.instrument_asgi()`][logfire.Logfire.instrument_asgi]                                                                                                         |
+| [Asyncio](asyncio.md)                    | Async Runtime           | Uses OpenTelemetry asyncio instrumentation directly + [`logfire.log_slow_async_callbacks()`][logfire.Logfire.log_slow_async_callbacks]                                  |
 | [AWS Lambda](aws-lambda.md)               | Cloud Function          | [`logfire.instrument_aws_lambda()`][logfire.Logfire.instrument_aws_lambda]                                                                                             |
 | [Asyncpg](databases/asyncpg.md)           | Database                | [`logfire.instrument_asyncpg()`][logfire.Logfire.instrument_asyncpg]                                                                                                   |
 | [BigQuery](databases/bigquery.md)         | Database                | N/A (built in, no config needed)                                                                                                                                       |
