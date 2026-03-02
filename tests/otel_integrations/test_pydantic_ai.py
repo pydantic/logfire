@@ -135,3 +135,24 @@ def test_call_deferred_not_recorded_as_error(exporter: TestExporter, exc_class: 
             }
         ]
     )
+
+
+@pytest.mark.parametrize('exc_class', [CallDeferred, ApprovalRequired])
+def test_call_deferred_not_recorded_via_start_as_current_span(exporter: TestExporter, exc_class: type[Exception]):
+    """When exceptions escape through start_as_current_span (OTel SDK's use_span path),
+    both record_exception and set_status(ERROR) should be suppressed for control flow exceptions.
+    """
+    logfire_config = logfire.configure(local=True)
+    tracer = logfire_config.get_tracer_provider().get_tracer('test')
+
+    with pytest.raises(exc_class):
+        with tracer.start_as_current_span('otel tool call'):
+            raise exc_class()
+
+    spans = exporter.exported_spans_as_dict()
+    for span in spans:
+        # No exception events should be recorded
+        assert not span.get('events', []), f'Unexpected exception events: {span.get("events")}'
+        # Status should not be ERROR
+        status = span.get('status', {})
+        assert status.get('status_code', 'UNSET') != 'ERROR', f'Unexpected ERROR status: {status}'

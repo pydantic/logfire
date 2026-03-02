@@ -147,6 +147,7 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
     record_metrics: bool
     metrics: dict[str, SpanMetric] = field(default_factory=lambda: defaultdict(SpanMetric))
     exception_callback: ExceptionCallback | None = None
+    _skip_next_error_status: bool = field(default=False, init=False, repr=False)
 
     def __post_init__(self):
         OPEN_SPANS[self._open_spans_key()] = self
@@ -194,6 +195,11 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
         status: Status | StatusCode,
         description: str | None = None,
     ) -> None:
+        if self._skip_next_error_status:
+            self._skip_next_error_status = False
+            status_code = status.status_code if isinstance(status, Status) else status
+            if status_code == StatusCode.ERROR:
+                return
         self.span.set_status(status, description)
 
     def record_exception(
@@ -203,6 +209,11 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
         timestamp: int | None = None,
         escaped: bool = False,
     ) -> None:
+        # Flag to skip the next ERROR set_status call if this is a control flow exception.
+        # OTel's use_span calls record_exception and set_status independently,
+        # so we need to coordinate between the two.
+        if _is_pydantic_ai_control_flow_exception(exception):
+            self._skip_next_error_status = True
         timestamp = timestamp or self.ns_timestamp_generator()
         record_exception(
             self.span,
