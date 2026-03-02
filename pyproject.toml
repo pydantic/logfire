@@ -217,7 +217,6 @@ format-command = "ruff format --stdin-filename {filename}"
 
 [tool.uv.sources]
 logfire-api = { workspace = true }
-pydantic-handlebars = { path = "../pydantic-handlebars", editable = true }
 
 [tool.uv]
 default-groups = ["dev", "docs"]
