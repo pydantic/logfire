@@ -1671,7 +1671,7 @@ def test_homogeneous_dict_formatting(capsys: pytest.CaptureFixture[str]):
     assert capsys.readouterr().out.splitlines() == snapshot(
         [
             'dates',
-            IsStr(regex=r'^│ .* info$'),
+            IsStr(regex=r'^│ tests/test_json_args.py:\d+ info$'),
             '│ d={',
             "│       'date_0': datetime.datetime(2023, 1, 1, 0, 0),",
             "│       'date_1': datetime.datetime(2023, 1, 2, 0, 0),",
