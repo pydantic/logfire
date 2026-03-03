@@ -217,6 +217,7 @@ nav:
           - Environments: how-to-guides/environments.md
           - Write Tokens: how-to-guides/create-write-tokens.md
           - API Keys: reference/advanced/use-api-keys.md
+          - Infrastructure as Code: how-to-guides/infrastructure-as-code.md
           - Multiple Configurations: how-to-guides/different-configurations.md
           - Cost & Usage: logfire-costs.md
           - Data Regions: reference/data-regions.md
