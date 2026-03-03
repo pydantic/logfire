@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from asyncio.events import Handle
 
 import logfire

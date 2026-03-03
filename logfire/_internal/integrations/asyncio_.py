@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 
 try:
     from opentelemetry.instrumentation.asyncio import AsyncioInstrumentor
-except ImportError:
+except ImportError:  # pragma: no cover
     raise RuntimeError(
         '`logfire.instrument_asyncio()` requires the `opentelemetry-instrumentation-asyncio` package.\n'
         'You can install this with:\n'
