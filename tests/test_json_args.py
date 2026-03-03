@@ -22,7 +22,6 @@ import pytest
 from attrs import define
 from dirty_equals import IsJson, IsStr
 from inline_snapshot import snapshot
-from logfire import ConsoleOptions
 from pydantic import AnyUrl, BaseModel, ConfigDict, FilePath, NameEmail, RootModel, SecretBytes, SecretStr
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 from sqlalchemy import String, create_engine
@@ -1657,7 +1656,7 @@ def test_homogeneous_dict_formatting(capsys: pytest.CaptureFixture[str]):
     """Test that homogeneous dicts with additionalProperties are formatted correctly."""
     logfire.configure(
         send_to_logfire=False,
-        console=ConsoleOptions(verbose=True, colors='never', include_timestamps=False),
+        console=logfire.ConsoleOptions(verbose=True, colors='never', include_timestamps=False),
     )
 
     # Use >10 keys to exercise the additionalProperties path
