@@ -85,6 +85,7 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
     from flask.app import Flask
     from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
+    from opentelemetry.instrumentation.urllib3 import RequestInfo as Urllib3RequestInfo
     from opentelemetry.metrics import _Gauge as Gauge
     from pymongo.monitoring import CommandFailedEvent, CommandStartedEvent, CommandSucceededEvent
     from sqlalchemy import Engine
@@ -1685,7 +1686,8 @@ class Logfire:
     def instrument_urllib3(
         self,
         excluded_urls: str | None = None,
-        request_hook: Callable[[Span, urllib3.connectionpool.HTTPConnectionPool, Any], None] | None = None,
+        request_hook: Callable[[Span, urllib3.connectionpool.HTTPConnectionPool, Urllib3RequestInfo], None]
+        | None = None,
         response_hook: Callable[[Span, urllib3.connectionpool.HTTPConnectionPool, urllib3.response.HTTPResponse], None]
         | None = None,
         url_filter: Callable[[str], str] | None = None,

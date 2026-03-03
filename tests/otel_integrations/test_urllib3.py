@@ -61,21 +61,14 @@ def _expected_metrics() -> dict[str, Any]:
 
 
 @pytest.fixture(autouse=True)
-def instrument_urllib3(monkeypatch: pytest.MonkeyPatch):
-    def mock_urlopen(self: Any, method: str, url: str, **kwargs: Any) -> urllib3.response.HTTPResponse:
-        return urllib3.response.HTTPResponse(
-            status=200,
-            headers={},
-        )
-
-    monkeypatch.setattr(urllib3.HTTPConnectionPool, 'urlopen', mock_urlopen)
-
+def uninstrument_urllib3():
     logfire.instrument_urllib3()
     yield
     URLLib3Instrumentor().uninstrument()
 
 
 @pytest.mark.anyio
+@pytest.mark.vcr()
 async def test_urllib3_instrumentation(exporter: TestExporter):
     with logfire.span('test span'):
         http = urllib3.PoolManager()

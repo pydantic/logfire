@@ -7,6 +7,7 @@ import pydantic_ai.models
 import requests
 import urllib3.connectionpool
 import urllib3.response
+from opentelemetry.instrumentation.urllib3 import RequestInfo as Urllib3RequestInfo
 from . import async_ as async_
 from ..integrations.aiohttp_client import RequestHook as AiohttpClientRequestHook, ResponseHook as AiohttpClientResponseHook
 from ..integrations.flask import CommenterOptions as FlaskCommenterOptions, RequestHook as FlaskRequestHook, ResponseHook as FlaskResponseHook
@@ -740,7 +741,7 @@ class Logfire:
             response_hook: A function called right before a span is finished for the response.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods, for future compatibility.
         """
-    def instrument_urllib3(self, excluded_urls: str | None = None, request_hook: Callable[[Span, urllib3.connectionpool.HTTPConnectionPool, Any], None] | None = None, response_hook: Callable[[Span, urllib3.connectionpool.HTTPConnectionPool, urllib3.response.HTTPResponse], None] | None = None, url_filter: Callable[[str], str] | None = None, **kwargs: Any) -> None:
+    def instrument_urllib3(self, excluded_urls: str | None = None, request_hook: Callable[[Span, urllib3.connectionpool.HTTPConnectionPool, Urllib3RequestInfo], None] | None = None, response_hook: Callable[[Span, urllib3.connectionpool.HTTPConnectionPool, urllib3.response.HTTPResponse], None] | None = None, url_filter: Callable[[str], str] | None = None, **kwargs: Any) -> None:
         """Instrument the `urllib3` module so that spans are automatically created for each request.
 
         Args:
