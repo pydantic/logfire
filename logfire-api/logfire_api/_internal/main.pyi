@@ -698,7 +698,7 @@ class Logfire:
         Args:
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` method, for future compatibility.
         """
-    def instrument_django(self, capture_headers: bool = False, is_sql_commentor_enabled: bool | None = None, request_hook: Callable[[trace_api.Span, HttpRequest], None] | None = None, response_hook: Callable[[trace_api.Span, HttpRequest, HttpResponse], None] | None = None, excluded_urls: str | None = None, **kwargs: Any) -> None:
+    def instrument_django(self, capture_headers: bool = False, is_sql_commentor_enabled: bool | None = None, request_hook: Callable[[trace_api.Span, HttpRequest], None] | None = None, response_hook: Callable[[trace_api.Span, HttpRequest, HttpResponse], None] | None = None, excluded_urls: str | None = None, instrument_ninja: bool = True, **kwargs: Any) -> None:
         """Instrument `django` so that spans are automatically created for each web request.
 
         Uses the
