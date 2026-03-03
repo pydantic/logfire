@@ -139,6 +139,7 @@ class _Property(_PropertyDataType, total=False):
     title: str
     format: Format
     properties: dict[str, JSONSchema]
+    additionalProperties: JSONSchema
 
 
 JSONSchema = Union[EnumSchema, ArraySchema, _Property]
