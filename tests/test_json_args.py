@@ -1652,55 +1652,37 @@ def test_long_key_dict_schema():
     assert schema_hetero == {'type': 'object'}
 
 
-def test_homogeneous_dict_formatting(exporter: TestExporter):
+def test_homogeneous_dict_formatting(capsys: pytest.CaptureFixture[str]):
     """Test that homogeneous dicts with additionalProperties are formatted correctly."""
+    logfire.configure(
+        send_to_logfire=False,
+        console=logfire.ConsoleOptions(verbose=True, colors='never', include_timestamps=False),
+    )
+
     # Use >10 keys to exercise the additionalProperties path
     d = {f'date_{i}': datetime(2023, 1, i + 1) for i in range(11)}
-    logfire.info('dates {d=}', d=d)
+    assert create_json_schema(d, set()) == {
+        'type': 'object',
+        'additionalProperties': {'type': 'string', 'format': 'date-time', 'x-python-datatype': 'datetime'},
+    }
 
-    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+    logfire.info('dates', d=d)
+    assert capsys.readouterr().out.splitlines() == snapshot(
         [
-            {
-                'name': 'dates {d=}',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 1000000000,
-                'attributes': {
-                    'logfire.span_type': 'log',
-                    'logfire.level_num': 9,
-                    'logfire.msg_template': 'dates {d=}',
-                    'logfire.msg': "dates d={'date_0': datetime.datetime(2023, 1, 1, 0, 0), 'date_1': date...1, 10, 0, 0), 'date_10': datetime.datetime(2023, 1, 11, 0, 0)}",
-                    'code.filepath': 'test_json_args.py',
-                    'code.function': 'test_homogeneous_dict_formatting',
-                    'code.lineno': 123,
-                    'd': {
-                        'date_0': '2023-01-01T00:00:00',
-                        'date_1': '2023-01-02T00:00:00',
-                        'date_2': '2023-01-03T00:00:00',
-                        'date_3': '2023-01-04T00:00:00',
-                        'date_4': '2023-01-05T00:00:00',
-                        'date_5': '2023-01-06T00:00:00',
-                        'date_6': '2023-01-07T00:00:00',
-                        'date_7': '2023-01-08T00:00:00',
-                        'date_8': '2023-01-09T00:00:00',
-                        'date_9': '2023-01-10T00:00:00',
-                        'date_10': '2023-01-11T00:00:00',
-                    },
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'd': {
-                                'type': 'object',
-                                'additionalProperties': {
-                                    'type': 'string',
-                                    'format': 'date-time',
-                                    'x-python-datatype': 'datetime',
-                                },
-                            }
-                        },
-                    },
-                },
-            }
+            'dates',
+            IsStr(regex=r'^│ tests/test_json_args.py:\d+ info$'),
+            '│ d={',
+            "│       'date_0': datetime.datetime(2023, 1, 1, 0, 0),",
+            "│       'date_1': datetime.datetime(2023, 1, 2, 0, 0),",
+            "│       'date_2': datetime.datetime(2023, 1, 3, 0, 0),",
+            "│       'date_3': datetime.datetime(2023, 1, 4, 0, 0),",
+            "│       'date_4': datetime.datetime(2023, 1, 5, 0, 0),",
+            "│       'date_5': datetime.datetime(2023, 1, 6, 0, 0),",
+            "│       'date_6': datetime.datetime(2023, 1, 7, 0, 0),",
+            "│       'date_7': datetime.datetime(2023, 1, 8, 0, 0),",
+            "│       'date_8': datetime.datetime(2023, 1, 9, 0, 0),",
+            "│       'date_9': datetime.datetime(2023, 1, 10, 0, 0),",
+            "│       'date_10': datetime.datetime(2023, 1, 11, 0, 0),",
+            '│   }',
         ]
     )
