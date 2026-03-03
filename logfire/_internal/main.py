@@ -1603,6 +1603,7 @@ class Logfire:
         request_hook: Callable[[trace_api.Span, HttpRequest], None] | None = None,
         response_hook: Callable[[trace_api.Span, HttpRequest, HttpResponse], None] | None = None,
         excluded_urls: str | None = None,
+        instrument_ninja: bool = True,
         **kwargs: Any,
     ) -> None:
         """Instrument `django` so that spans are automatically created for each web request.
@@ -1631,6 +1632,11 @@ class Logfire:
 
             excluded_urls: A string containing a comma-delimited list of regexes used to exclude URLs from tracking.
 
+            instrument_ninja: Set to `True` (the default) to also instrument Django Ninja's
+                `NinjaAPI.on_exception` so that exceptions caught by Django Ninja are recorded
+                on OpenTelemetry spans. Requires `django-ninja` to be installed; silently
+                skipped if not available.
+
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` method,
                 for future compatibility.
 
@@ -1644,6 +1650,7 @@ class Logfire:
             request_hook=request_hook,
             response_hook=response_hook,
             excluded_urls=excluded_urls,
+            instrument_ninja=instrument_ninja,
             **{
                 'tracer_provider': self._config.get_tracer_provider(),
                 'meter_provider': self._config.get_meter_provider(),
