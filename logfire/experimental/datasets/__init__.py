@@ -59,9 +59,16 @@ Example usage:
 
 from logfire.experimental.api_client import (
     AsyncLogfireAPIClient,
+    CaseData,
+    CaseDetail,
     CaseNotFoundError,
     DatasetApiError,
+    DatasetDetail,
     DatasetNotFoundError,
+    DatasetSummary,
+    EvaluatorSpec,
+    ExportedCase,
+    ExportedDataset,
     LogfireAPIClient,
 )
 
@@ -69,6 +76,14 @@ __all__ = [
     # Clients
     'LogfireAPIClient',
     'AsyncLogfireAPIClient',
+    # Response types
+    'DatasetSummary',
+    'DatasetDetail',
+    'CaseDetail',
+    'CaseData',
+    'ExportedDataset',
+    'ExportedCase',
+    'EvaluatorSpec',
     # Errors
     'DatasetNotFoundError',
     'CaseNotFoundError',

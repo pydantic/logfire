@@ -50,11 +50,13 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
+from datetime import datetime
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast, overload
+from uuid import UUID
 
 from pydantic import TypeAdapter
-from typing_extensions import Self
+from typing_extensions import NotRequired, Self, TypedDict
 
 from logfire._internal.config import get_base_url_from_token
 
@@ -82,6 +84,121 @@ _UNSET: Any = object()
 
 
 _DATASET_NAME_RE = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9._-]*$')
+
+
+# --- Response TypedDicts ---
+# Pydantic TypeAdapters are used to validate responses, coercing
+# string UUIDs/datetimes from JSON into proper Python types.
+
+
+class EvaluatorSpec(TypedDict):
+    """An evaluator specification with a name and optional arguments."""
+
+    name: str
+    arguments: dict[str, Any] | None
+
+
+class DatasetSummary(TypedDict):
+    """Summary of a dataset, returned by :meth:`LogfireAPIClient.list_datasets`."""
+
+    id: UUID
+    project_id: UUID
+    name: str
+    description: str | None
+    guidance: str | None
+    ai_managed_guidance: bool
+    case_count: int
+    created_at: datetime
+    updated_at: datetime
+    created_by_name: str | None
+    updated_by_name: str | None
+
+
+class DatasetDetail(TypedDict):
+    """Full dataset details.
+
+    Returned by `LogfireAPIClient.get_dataset`,
+    `LogfireAPIClient.create_dataset`, and `LogfireAPIClient.update_dataset`.
+    """
+
+    id: UUID
+    project_id: UUID
+    name: str
+    description: str | None
+    input_schema: dict[str, Any] | None
+    output_schema: dict[str, Any] | None
+    metadata_schema: dict[str, Any] | None
+    guidance: str | None
+    ai_managed_guidance: bool
+    case_count: int
+    created_at: datetime
+    updated_at: datetime
+    created_by: UUID | None
+
+
+class CaseDetail(TypedDict):
+    """Full case details, returned by case operations like `LogfireAPIClient.get_case`."""
+
+    id: UUID
+    dataset_id: UUID
+    name: str | None
+    inputs: Any
+    expected_output: Any
+    metadata: Any
+    evaluators: list[EvaluatorSpec] | None
+    source_trace_id: str | None
+    source_span_id: str | None
+    tags: list[str] | None
+    version: int
+    created_at: datetime
+    created_by: UUID | None
+    updated_at: datetime
+    updated_by: UUID | None
+
+
+class CaseData(TypedDict):
+    """Data for creating a case via `LogfireAPIClient.add_cases`.
+
+    Only ``inputs`` is required; all other fields are optional.
+    """
+
+    inputs: Any
+    name: NotRequired[str | None]
+    expected_output: NotRequired[Any]
+    metadata: NotRequired[Any]
+    evaluators: NotRequired[list[EvaluatorSpec] | None]
+    tags: NotRequired[list[str] | None]
+
+
+class ExportedCase(TypedDict):
+    """A case in pydantic-evals compatible format, part of :class:`ExportedDataset`."""
+
+    name: str | None
+    inputs: Any
+    metadata: Any
+    expected_output: Any
+    evaluators: list[EvaluatorSpec] | None
+
+
+class ExportedDataset(TypedDict):
+    """Dataset export in pydantic-evals compatible format.
+
+    Returned by `LogfireAPIClient.export_dataset` when called without type arguments.
+    Compatible with ``pydantic_evals.Dataset.from_dict()``.
+    """
+
+    name: str | None
+    cases: list[ExportedCase]
+    evaluators: list[EvaluatorSpec]
+
+
+# --- TypeAdapters for response validation ---
+
+_dataset_summary_list_adapter: TypeAdapter[list[DatasetSummary]] = TypeAdapter(list[DatasetSummary])
+_dataset_detail_adapter: TypeAdapter[DatasetDetail] = TypeAdapter(DatasetDetail)
+_case_detail_list_adapter: TypeAdapter[list[CaseDetail]] = TypeAdapter(list[CaseDetail])
+_case_detail_adapter: TypeAdapter[CaseDetail] = TypeAdapter(CaseDetail)
+_exported_dataset_adapter: TypeAdapter[ExportedDataset] = TypeAdapter(ExportedDataset)
 
 
 def _validate_dataset_name(name: str) -> None:
@@ -323,16 +440,16 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
 
     # --- Dataset operations ---
 
-    def list_datasets(self) -> list[dict[str, Any]]:
+    def list_datasets(self) -> list[DatasetSummary]:
         """List all datasets in the project.
 
         Returns:
             List of dataset summaries with id, name, description, case_count, etc.
         """
         response = self.client.get('/v1/datasets/')
-        return self._handle_response(response)
+        return _dataset_summary_list_adapter.validate_python(self._handle_response(response))
 
-    def get_dataset(self, id_or_name: str) -> dict[str, Any]:
+    def get_dataset(self, id_or_name: str) -> DatasetDetail:
         """Get a dataset by ID or name.
 
         Args:
@@ -345,7 +462,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             DatasetNotFoundError: If the dataset does not exist.
         """
         response = self.client.get(f'/v1/datasets/{id_or_name}/')
-        return self._handle_response(response)
+        return _dataset_detail_adapter.validate_python(self._handle_response(response))
 
     def create_dataset(
         self,
@@ -357,7 +474,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         description: str | None = None,
         guidance: str | None = None,
         ai_managed_guidance: bool = False,
-    ) -> dict[str, Any]:
+    ) -> DatasetDetail:
         """Create a new dataset with optional type schemas.
 
         Args:
@@ -413,7 +530,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             data['ai_managed_guidance'] = ai_managed_guidance
 
         response = self.client.post('/v1/datasets/', json=data)
-        return self._handle_response(response)
+        return _dataset_detail_adapter.validate_python(self._handle_response(response))
 
     def update_dataset(
         self,
@@ -426,7 +543,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         description: str | None = _UNSET,
         guidance: str | None = _UNSET,
         ai_managed_guidance: bool | None = None,
-    ) -> dict[str, Any]:
+    ) -> DatasetDetail:
         """Update an existing dataset.
 
         Args:
@@ -463,7 +580,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             data['ai_managed_guidance'] = ai_managed_guidance
 
         response = self.client.patch(f'/v1/datasets/{id_or_name}/', json=data)
-        return self._handle_response(response)
+        return _dataset_detail_adapter.validate_python(self._handle_response(response))
 
     def delete_dataset(self, id_or_name: str) -> None:
         """Delete a dataset and all its cases.
@@ -479,7 +596,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
 
     # --- Case operations ---
 
-    def list_cases(self, dataset_id_or_name: str, *, tags: list[str] | None = None) -> list[dict[str, Any]]:
+    def list_cases(self, dataset_id_or_name: str, *, tags: list[str] | None = None) -> list[CaseDetail]:
         """List all cases in a dataset.
 
         Args:
@@ -496,9 +613,9 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         if tags is not None:
             params['tags'] = tags
         response = self.client.get(f'/v1/datasets/{dataset_id_or_name}/cases/', params=params)
-        return self._handle_response(response)
+        return _case_detail_list_adapter.validate_python(self._handle_response(response))
 
-    def get_case(self, dataset_id_or_name: str, case_id: str) -> dict[str, Any]:
+    def get_case(self, dataset_id_or_name: str, case_id: str) -> CaseDetail:
         """Get a specific case from a dataset.
 
         Args:
@@ -513,16 +630,16 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             CaseNotFoundError: If the case does not exist.
         """
         response = self.client.get(f'/v1/datasets/{dataset_id_or_name}/cases/{case_id}/')
-        return self._handle_response(response, is_case_endpoint=True)
+        return _case_detail_adapter.validate_python(self._handle_response(response, is_case_endpoint=True))
 
     def add_cases(
         self,
         dataset_id_or_name: str,
-        cases: Sequence[Case[InputsT, OutputT, MetadataT]] | Sequence[dict[str, Any]],
+        cases: Sequence[Case[InputsT, OutputT, MetadataT]] | Sequence[CaseData],
         *,
         tags: list[str] | None = None,
         on_conflict: str = 'update',
-    ) -> list[dict[str, Any]]:
+    ) -> list[CaseDetail]:
         """Add cases to a dataset.
 
         Accepts either pydantic-evals Case objects or plain dicts.
@@ -571,7 +688,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             json={'cases': serialized_cases},
             params={'on_conflict': on_conflict},
         )
-        return self._handle_response(response)
+        return _case_detail_list_adapter.validate_python(self._handle_response(response))
 
     def update_case(
         self,
@@ -584,7 +701,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         metadata: Any | None = _UNSET,
         evaluators: Sequence[Evaluator[Any, Any, Any]] | None = _UNSET,
         tags: list[str] | None = _UNSET,
-    ) -> dict[str, Any]:
+    ) -> CaseDetail:
         """Update an existing case.
 
         Args:
@@ -627,7 +744,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             data['tags'] = tags
 
         response = self.client.patch(f'/v1/datasets/{dataset_id_or_name}/cases/{case_id}/', json=data)
-        return self._handle_response(response, is_case_endpoint=True)
+        return _case_detail_adapter.validate_python(self._handle_response(response, is_case_endpoint=True))
 
     def delete_case(self, dataset_id_or_name: str, case_id: str) -> None:
         """Delete a case from a dataset.
@@ -646,7 +763,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
     # --- Export/Import operations ---
 
     @overload
-    def export_dataset(self, id_or_name: str) -> dict[str, Any]: ...
+    def export_dataset(self, id_or_name: str) -> ExportedDataset: ...
 
     @overload
     def export_dataset(
@@ -667,7 +784,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         metadata_type: type[MetadataT] | None = None,
         *,
         custom_evaluator_types: Sequence[type[Evaluator[Any, Any, Any]]] = (),
-    ) -> Dataset[InputsT, OutputT, MetadataT] | dict[str, Any]:
+    ) -> Dataset[InputsT, OutputT, MetadataT] | ExportedDataset:
         """Export a dataset, optionally as a typed pydantic-evals Dataset.
 
         When called with type arguments, returns a `pydantic_evals.Dataset` with
@@ -709,9 +826,9 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         response = self.client.get(f'/v1/datasets/{id_or_name}/export/')
         data = self._handle_response(response)
 
-        # If no types provided, return raw dict
+        # If no types provided, return validated dict
         if input_type is None:
-            return data
+            return _exported_dataset_adapter.validate_python(data)
 
         # Convert to typed Dataset using pydantic-evals
         Dataset, _ = _import_pydantic_evals()
@@ -761,15 +878,15 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
     ) -> None:
         await self.client.__aexit__(exc_type, exc_value, traceback)
 
-    async def list_datasets(self) -> list[dict[str, Any]]:
+    async def list_datasets(self) -> list[DatasetSummary]:
         """List all datasets."""
         response = await self.client.get('/v1/datasets/')
-        return self._handle_response(response)
+        return _dataset_summary_list_adapter.validate_python(self._handle_response(response))
 
-    async def get_dataset(self, id_or_name: str) -> dict[str, Any]:
+    async def get_dataset(self, id_or_name: str) -> DatasetDetail:
         """Get a dataset by ID or name."""
         response = await self.client.get(f'/v1/datasets/{id_or_name}/')
-        return self._handle_response(response)
+        return _dataset_detail_adapter.validate_python(self._handle_response(response))
 
     async def create_dataset(
         self,
@@ -781,7 +898,7 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         description: str | None = None,
         guidance: str | None = None,
         ai_managed_guidance: bool = False,
-    ) -> dict[str, Any]:
+    ) -> DatasetDetail:
         """Create a new dataset."""
         _validate_dataset_name(name)
         data: dict[str, Any] = {'name': name}
@@ -799,7 +916,7 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
             data['ai_managed_guidance'] = ai_managed_guidance
 
         response = await self.client.post('/v1/datasets/', json=data)
-        return self._handle_response(response)
+        return _dataset_detail_adapter.validate_python(self._handle_response(response))
 
     async def update_dataset(
         self,
@@ -812,7 +929,7 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         description: str | None = _UNSET,
         guidance: str | None = _UNSET,
         ai_managed_guidance: bool | None = None,
-    ) -> dict[str, Any]:
+    ) -> DatasetDetail:
         """Update an existing dataset."""
         data: dict[str, Any] = {}
         if name is not _UNSET:
@@ -832,34 +949,34 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
             data['ai_managed_guidance'] = ai_managed_guidance
 
         response = await self.client.patch(f'/v1/datasets/{id_or_name}/', json=data)
-        return self._handle_response(response)
+        return _dataset_detail_adapter.validate_python(self._handle_response(response))
 
     async def delete_dataset(self, id_or_name: str) -> None:
         """Delete a dataset."""
         response = await self.client.delete(f'/v1/datasets/{id_or_name}/')
         self._handle_response(response)
 
-    async def list_cases(self, dataset_id_or_name: str, *, tags: list[str] | None = None) -> list[dict[str, Any]]:
+    async def list_cases(self, dataset_id_or_name: str, *, tags: list[str] | None = None) -> list[CaseDetail]:
         """List all cases in a dataset."""
         params: dict[str, Any] = {}
         if tags is not None:
             params['tags'] = tags
         response = await self.client.get(f'/v1/datasets/{dataset_id_or_name}/cases/', params=params)
-        return self._handle_response(response)
+        return _case_detail_list_adapter.validate_python(self._handle_response(response))
 
-    async def get_case(self, dataset_id_or_name: str, case_id: str) -> dict[str, Any]:
+    async def get_case(self, dataset_id_or_name: str, case_id: str) -> CaseDetail:
         """Get a specific case from a dataset."""
         response = await self.client.get(f'/v1/datasets/{dataset_id_or_name}/cases/{case_id}/')
-        return self._handle_response(response, is_case_endpoint=True)
+        return _case_detail_adapter.validate_python(self._handle_response(response, is_case_endpoint=True))
 
     async def add_cases(
         self,
         dataset_id_or_name: str,
-        cases: Sequence[Case[InputsT, OutputT, MetadataT]] | Sequence[dict[str, Any]],
+        cases: Sequence[Case[InputsT, OutputT, MetadataT]] | Sequence[CaseData],
         *,
         tags: list[str] | None = None,
         on_conflict: str = 'update',
-    ) -> list[dict[str, Any]]:
+    ) -> list[CaseDetail]:
         """Add cases to a dataset.
 
         Accepts either pydantic-evals Case objects or plain dicts.
@@ -882,7 +999,7 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
             json={'cases': serialized_cases},
             params={'on_conflict': on_conflict},
         )
-        return self._handle_response(response)
+        return _case_detail_list_adapter.validate_python(self._handle_response(response))
 
     async def update_case(
         self,
@@ -895,7 +1012,7 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         metadata: Any | None = _UNSET,
         evaluators: Sequence[Evaluator[Any, Any, Any]] | None = _UNSET,
         tags: list[str] | None = _UNSET,
-    ) -> dict[str, Any]:
+    ) -> CaseDetail:
         """Update an existing case."""
         data: dict[str, Any] = {}
         if name is not _UNSET:
@@ -920,7 +1037,7 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
             data['tags'] = tags
 
         response = await self.client.patch(f'/v1/datasets/{dataset_id_or_name}/cases/{case_id}/', json=data)
-        return self._handle_response(response, is_case_endpoint=True)
+        return _case_detail_adapter.validate_python(self._handle_response(response, is_case_endpoint=True))
 
     async def delete_case(self, dataset_id_or_name: str, case_id: str) -> None:
         """Delete a case from a dataset."""
@@ -928,7 +1045,7 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         self._handle_response(response, is_case_endpoint=True)
 
     @overload
-    async def export_dataset(self, id_or_name: str) -> dict[str, Any]: ...
+    async def export_dataset(self, id_or_name: str) -> ExportedDataset: ...
 
     @overload
     async def export_dataset(
@@ -949,13 +1066,13 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         metadata_type: type[MetadataT] | None = None,
         *,
         custom_evaluator_types: Sequence[type[Evaluator[Any, Any, Any]]] = (),
-    ) -> Dataset[InputsT, OutputT, MetadataT] | dict[str, Any]:
+    ) -> Dataset[InputsT, OutputT, MetadataT] | ExportedDataset:
         """Export a dataset, optionally as a typed pydantic-evals Dataset."""
         response = await self.client.get(f'/v1/datasets/{id_or_name}/export/')
         data = self._handle_response(response)
 
         if input_type is None:
-            return data
+            return _exported_dataset_adapter.validate_python(data)
 
         Dataset, _ = _import_pydantic_evals()
         typed_dataset_cls: type[Dataset[InputsT, OutputT, MetadataT]] = Dataset[input_type, output_type, metadata_type]  # type: ignore
