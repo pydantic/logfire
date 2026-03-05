@@ -1,11 +1,11 @@
 ---
 title: "SSO Setup (Enterprise Cloud)"
-description: "Step-by-step guide to configure Single Sign-On (SSO) for Logfire Enterprise Cloud. Supports Okta, Azure Entra ID, Auth0, Google Workspace, and any OIDC-compatible provider."
+description: "Step-by-step guide to configure Single Sign-On (SSO) for Logfire Enterprise Cloud. Supports Okta, Microsoft Azure Entra ID, Keycloak, and any OIDC-compatible provider."
 ---
 
 # SSO Setup
 
-Logfire Enterprise Cloud supports Single Sign-On (SSO) via any [OIDC-compatible](https://openid.net/developers/how-connect-works/) identity provider, including Okta, Microsoft Azure Entra ID, Auth0, Google Workspace, AWS Cognito, Keycloak, and more. Under the hood, Logfire uses [Dex](https://github.com/dexidp/dex), an open-source OIDC gateway that integrates with virtually any IdP.
+Logfire Enterprise Cloud supports Single Sign-On (SSO) via [OIDC-compatible](https://openid.net/developers/how-connect-works/) identity providers, including Okta, Microsoft Azure Entra ID, and Keycloak. Under the hood, Logfire uses [Dex](https://github.com/dexidp/dex), an open-source OIDC gateway.
 
 This guide uses **Microsoft Azure Entra ID** as an example, but the general steps — registering an OIDC app, obtaining a Client ID, Client Secret, and Issuer URL, then connecting it in Logfire — apply to any supported provider.
 
@@ -103,7 +103,7 @@ A request will be sent to your Azure admin for approval. The Azure admin should 
 1. Go to your Enterprise Cloud organization in Logfire.
 2. Navigate to **Settings** → **Invite Members**.
 3. Create an invite link (set it to never expire for convenience if you plan to share it in internal documentation).
-4. Share both the **invite link** and the **SSO login URL** with your team.
+4. Share the **invite link** with your team — if users are not already authenticated, it will automatically redirect them to your SSO login page.
 
 ---
 
@@ -116,11 +116,17 @@ Once your team has successfully migrated to Entra ID SSO:
 - You can **disconnect** individual login methods from **Organization Settings** → **Identity Providers**.
 - Advise team members to use the SSO login URL going forward. If other providers are still enabled, users may inadvertently log in with their personal accounts instead.
 
-!!! warning "Existing Users and Email Addresses"
-    Users who previously signed up with a different email (e.g., a personal Gmail) will appear with that email in Logfire, even after connecting Entra ID. To have team members appear under their corporate email addresses:
+### Linking Accounts for Existing Users
 
-    1. Have the user **join via the invite link** using the SSO login URL — this creates a new Logfire account linked to their corporate identity.
-    2. Once they are in the organization, you can remove their old account or leave both and manage membership from **Organization Settings** → **Members**.
+Users who joined the organization before SSO was configured need to connect their existing account to the new identity provider. For example, if a user previously logged in with GitHub and the organization has now set up Azure Entra ID:
+
+1. The user logs in with **GitHub** (their existing provider).
+2. They navigate to **Organization Settings** → **Account connections**.
+3. They connect their account to **Azure Entra ID**.
+4. After linking, the user can log in with either GitHub or Azure.
+
+!!! warning "Existing Users and Email Addresses"
+    Users who previously signed up with a different email (e.g., a personal Gmail) will appear with that email in Logfire. To update an email address to a corporate address, the user can go to **Account Settings** → **Emails** (`https://logfire.pydantic.dev/settings/emails`) and add their corporate email.
 
 ---
 
@@ -135,7 +141,7 @@ Once your team has successfully migrated to Entra ID SSO:
 | 5 | Add Azure OIDC provider in Logfire with Issuer URL `https://login.microsoftonline.com/{tenant-id}/v2.0` |
 | 6 | Connect Entra ID and approve the request in Azure |
 | 7 | Test SSO login via `https://logfire.pydantic.dev/{org-name}/login` |
-| 8 | Share the invite link and SSO login URL with your team |
+| 8 | Share the invite link with your team (redirects to SSO login if unauthenticated) |
 
 ---
 
