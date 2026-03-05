@@ -514,3 +514,52 @@ def test_both_trace_and_head():
         )
     ):
         logfire.configure(trace_sample_rate=0.5, sampling=logfire.SamplingOptions())  # type: ignore
+
+
+def test_tail_sampling_no_warning_on_ended_span(
+    exporter: TestExporter,
+    id_generator: Any,
+    time_generator: TimeGenerator,
+    caplog: pytest.LogCaptureFixture,
+):
+    """Test that tail sampling with baggage doesn't trigger 'Setting attribute on ended span' warnings.
+
+    DirectBaggageAttributesSpanProcessor is passed as immediate_on_start_processor,
+    so its on_start is called immediately (before spans end), avoiding the warning.
+    """
+    import logging
+
+    from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
+    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+
+    from logfire._internal.exporters.test import TestLogExporter
+
+    config_kwargs = dict(
+        send_to_logfire=False,
+        console=False,
+        advanced=logfire.AdvancedOptions(
+            id_generator=id_generator,
+            ns_timestamp_generator=time_generator,
+            log_record_processors=[SimpleLogRecordProcessor(TestLogExporter(time_generator))],
+        ),
+        additional_span_processors=[SimpleSpanProcessor(exporter)],
+        add_baggage_to_attributes=True,  # Enable baggage processor
+    )
+
+    logfire.configure(
+        **config_kwargs,  # type: ignore
+        sampling=logfire.SamplingOptions(tail=lambda info: 1.0 if info.level >= 'error' else 0.0),
+    )
+
+    caplog.set_level(logging.WARNING, logger='opentelemetry.sdk.trace')
+
+    with logfire.span('root'):
+        with logfire.span('child_1'):
+            pass
+        with logfire.span('child_2'):
+            pass
+        logfire.error('Trigger sampling')
+
+    warnings = [r for r in caplog.records if 'Setting attribute on ended span' in r.message]
+    assert warnings == [], f'Unexpected warnings: {[r.message for r in warnings]}'
+    assert len(exporter.exported_spans_as_dict()) > 0

@@ -1008,8 +1008,20 @@ class LogfireConfig(_LogfireConfigData):
 
             processors_with_pending_spans: list[SpanProcessor] = []
             root_processor = main_multiprocessor = SynchronousMultiSpanProcessor()
+
+            # Processors that only set attributes can have on_start called immediately,
+            # even during tail sampling. This avoids "Setting attribute on ended span" warnings.
+            immediate_on_start_multiprocessor: SynchronousMultiSpanProcessor | None = None
+            if self.sampling.tail and self.add_baggage_to_attributes:
+                immediate_on_start_multiprocessor = SynchronousMultiSpanProcessor()
+                immediate_on_start_multiprocessor.add_span_processor(DirectBaggageAttributesSpanProcessor())
+
             if self.sampling.tail:
-                root_processor = TailSamplingProcessor(root_processor, self.sampling.tail)
+                root_processor = TailSamplingProcessor(
+                    root_processor,
+                    self.sampling.tail,
+                    immediate_on_start_processor=immediate_on_start_multiprocessor,
+                )
             tracer_provider.add_span_processor(
                 CheckSuppressInstrumentationProcessorWrapper(
                     MainSpanProcessorWrapper(root_processor, self.scrubber),
@@ -1025,7 +1037,9 @@ class LogfireConfig(_LogfireConfigData):
                 if has_pending:
                     processors_with_pending_spans.append(span_processor)
 
-            if self.add_baggage_to_attributes:
+            # Only add baggage processor to main_multiprocessor if NOT using tail sampling
+            # (when using tail sampling, it's added to immediate_on_start_multiprocessor above)
+            if self.add_baggage_to_attributes and not self.sampling.tail:
                 add_span_processor(DirectBaggageAttributesSpanProcessor())
 
             if self.additional_span_processors is not None:
