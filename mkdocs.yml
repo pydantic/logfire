@@ -249,6 +249,7 @@ nav:
           - Migrating Projects: reference/advanced/migrate-to-new-project.md
       - Deploy & Scale:
           - Enterprise: enterprise.md
+          - SSO Setup: how-to-guides/sso-setup.md
           - Compliance: compliance.md
           - Self-Hosted Deployment:
               - Overview: reference/self-hosted/overview.md
@@ -487,6 +488,7 @@ plugins:
           - reference/advanced/migrate-to-new-project.md
         Deploy & Scale:
           - enterprise.md
+          - how-to-guides/sso-setup.md
           - compliance.md
           - reference/self-hosted/*.md
         Comparisons:
