@@ -179,7 +179,7 @@ def span_to_dict(span: ReadableSpan) -> ReadableSpanDict:
 class UnexpectedResponse(RequestException):
     """An unexpected response was received from the server."""
 
-    response: Response  # type: ignore
+    response: Response  # pyright: ignore[reportIncompatibleVariableOverride]
 
     def __init__(self, response: Response) -> None:
         super().__init__(f'Unexpected response: {response.status_code}', response=response)
@@ -245,7 +245,7 @@ def get_version(version: str) -> Version:
         except ImportError:
             # sys.path is only changed in newer versions, so fallback to just importing the vendored Version directly.
             from setuptools._vendor.packaging.version import Version
-    return Version(version)  # type: ignore
+    return Version(version)  # pyright: ignore[reportReturnType]
 
 
 # OTEL uses two different keys to suppress instrumentation. We need to check both.
@@ -256,7 +256,7 @@ SUPPRESS_INSTRUMENTATION_CONTEXT_KEYS = [
 
 try:
     # This is the 'main' key used by OTEL in recent versions
-    SUPPRESS_INSTRUMENTATION_CONTEXT_KEYS.append(context._SUPPRESS_INSTRUMENTATION_KEY)  # type: ignore
+    SUPPRESS_INSTRUMENTATION_CONTEXT_KEYS.append(context._SUPPRESS_INSTRUMENTATION_KEY)  # pyright: ignore[reportPrivateUsage]
 except AttributeError:  # pragma: no cover
     pass
 

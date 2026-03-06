@@ -319,7 +319,7 @@ def _pydantic_root_model_schema(obj: Any, seen: set[int]) -> JsonDict:
 
     assert isinstance(obj, pydantic.RootModel)
 
-    root = obj.root  # type: ignore
+    root = obj.root  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
 
     if isinstance(root, type(None)):
         return {'type': 'null'}
@@ -349,7 +349,7 @@ def _pydantic_root_model_schema(obj: Any, seen: set[int]) -> JsonDict:
 
         return schema
 
-    return create_json_schema(obj.root, seen)  # type: ignore
+    return create_json_schema(obj.root, seen)  # pyright: ignore[reportUnknownMemberType]
 
 
 def _pydantic_model_schema(obj: Any, seen: set[int]) -> JsonDict:
@@ -362,7 +362,7 @@ def _pydantic_model_schema(obj: Any, seen: set[int]) -> JsonDict:
         extra = obj.model_extra or {}
     except AttributeError:  # pragma: no cover
         # pydantic v1
-        fields = obj.__fields__  # type: ignore
+        fields = obj.__fields__  # pyright: ignore[reportDeprecated]
         extra = {}
     return _custom_object_schema(obj, 'PydanticModel', [*fields, *extra], seen)
 
@@ -376,11 +376,11 @@ def _pandas_schema(obj: Any, _seen: set[int]) -> JsonDict:
 
     max_columns = pandas.get_option('display.max_columns')
     col_middle = min(max_columns, column_count) // 2
-    columns = list(obj.columns[:col_middle]) + list(obj.columns[-col_middle:])  # type: ignore
+    columns = list(obj.columns[:col_middle]) + list(obj.columns[-col_middle:])  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType]
 
     max_rows = pandas.get_option('display.max_rows')
     row_middle = min(max_rows, row_count) // 2
-    indices = list(obj.index[:row_middle]) + list(obj.index[-row_middle:])  # type: ignore
+    indices = list(obj.index[:row_middle]) + list(obj.index[-row_middle:])  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType]
 
     return {
         'type': 'array',
@@ -400,8 +400,8 @@ def _numpy_schema(obj: Any, seen: set[int]) -> JsonDict:
     return {
         'type': 'array',
         'x-python-datatype': 'ndarray',
-        'x-shape': to_json_value(obj.shape, seen),  # type: ignore
-        'x-dtype': str(obj.dtype),  # type: ignore
+        'x-shape': to_json_value(obj.shape, seen),  # pyright: ignore[reportUnknownMemberType]
+        'x-dtype': str(obj.dtype),  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
     }
 
 

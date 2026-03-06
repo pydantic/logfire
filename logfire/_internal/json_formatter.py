@@ -148,7 +148,7 @@ class JsonArgsValueFormatter:
             self._stream.write(before)
 
             item_schema = prefix_items[i] if prefix_items and len(prefix_items) > i else items_schema
-            self._format(indent_new, True, v, item_schema)  # type: ignore
+            self._format(indent_new, True, v, item_schema)  # pyright: ignore[reportArgumentType]
 
         if self._newlines and not first:
             self._stream.write(comma)

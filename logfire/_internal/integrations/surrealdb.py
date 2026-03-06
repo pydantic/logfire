@@ -103,7 +103,7 @@ def patch_method(obj: Any, method_name: str, logfire_instance: Logfire):
                 return original_method(*args, **kwargs)
 
     # Mark the method as patched to avoid double patching. Also useful for testing.
-    wrapped_method._logfire_template = template  # type: ignore
+    wrapped_method._logfire_template = template  # pyright: ignore[reportAttributeAccessIssue]
 
     setattr(obj, method_name, wrapped_method)
 

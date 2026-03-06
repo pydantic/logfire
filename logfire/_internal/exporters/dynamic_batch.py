@@ -17,7 +17,7 @@ class DynamicBatchSpanProcessor(WrapperSpanProcessor):
     This makes the initial experience of the SDK more responsive.
     """
 
-    processor: BatchSpanProcessor  # type: ignore
+    processor: BatchSpanProcessor  # pyright: ignore[reportIncompatibleVariableOverride]
 
     def __init__(self, exporter: SpanExporter) -> None:
         self.final_delay = float(os.environ.get(OTEL_BSP_SCHEDULE_DELAY) or 500)
@@ -34,16 +34,16 @@ class DynamicBatchSpanProcessor(WrapperSpanProcessor):
 
     @property
     def batch_processor(self):
-        return self.processor._batch_processor  # type: ignore
+        return self.processor._batch_processor  # pyright: ignore[reportPrivateUsage]
 
     @property
     def span_exporter(self) -> SpanExporter:
-        return self.batch_processor._exporter  # type: ignore
+        return self.batch_processor._exporter  # pyright: ignore[reportReturnType, reportPrivateUsage]
 
     @property
     def schedule_delay_millis(self) -> float:
-        return self.batch_processor._schedule_delay * 1000  # type: ignore
+        return self.batch_processor._schedule_delay * 1000  # pyright: ignore[reportPrivateUsage]
 
     @schedule_delay_millis.setter
     def schedule_delay_millis(self, value: float):
-        self.batch_processor._schedule_delay = value / 1000  # type: ignore
+        self.batch_processor._schedule_delay = value / 1000  # pyright: ignore[reportPrivateUsage]

@@ -126,7 +126,7 @@ class BaseTransformer(ast.NodeTransformer):
             'code.lineno': lineno,
             'code.function': qualname,
         }
-        attributes: dict[str, otel_types.AttributeValue] = {**stack_info}  # type: ignore
+        attributes: dict[str, otel_types.AttributeValue] = {**stack_info}  # pyright: ignore[reportAssignmentType]
 
         logfire_args = self.logfire_args
         msg_template = logfire_args.msg_template or f'Calling {self.module_name}.{qualname}'

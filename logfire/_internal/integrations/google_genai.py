@@ -24,7 +24,7 @@ except ImportError:
 try:
     from opentelemetry.instrumentation.google_genai import dict_util
 
-    original_flatten_compound_value = dict_util._flatten_compound_value  # type: ignore
+    original_flatten_compound_value = dict_util._flatten_compound_value  # pyright: ignore[reportPrivateUsage]
 
     def wrapped_flatten_compound_value(key: str, value: Any, *args: Any, **kwargs: Any):
         try:
@@ -32,7 +32,7 @@ try:
         except Exception:  # pragma: no cover
             return {key: safe_repr(value)}
 
-    dict_util._flatten_compound_value = wrapped_flatten_compound_value  # type: ignore
+    dict_util._flatten_compound_value = wrapped_flatten_compound_value  # pyright: ignore[reportPrivateUsage]
 except Exception:  # pragma: no cover
     pass
 
@@ -41,7 +41,7 @@ try:
     from opentelemetry.instrumentation.google_genai import generate_content
     from pydantic import TypeAdapter
 
-    original_to_dict: Any = generate_content._to_dict  # type: ignore
+    original_to_dict: Any = generate_content._to_dict  # pyright: ignore[reportPrivateUsage]
 
     ANY_ADAPTER = TypeAdapter[Any](Any)
 
@@ -54,7 +54,7 @@ try:
             except Exception:  # pragma: no cover
                 return safe_repr(obj)
 
-    generate_content._to_dict = wrapped_to_dict  # type: ignore
+    generate_content._to_dict = wrapped_to_dict  # pyright: ignore[reportPrivateUsage]
 
 except Exception:  # pragma: no cover
     pass
@@ -69,7 +69,7 @@ def default_json(x: Any) -> str:
 
 class SpanEventLogger(Logger):
     @handle_internal_errors
-    def emit(self, record: LogRecord) -> None:  # type: ignore
+    def emit(self, record: LogRecord) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
         span = get_current_span()
         assert isinstance(record.body, dict)
         assert record.event_name

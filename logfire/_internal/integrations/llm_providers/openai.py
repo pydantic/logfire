@@ -599,7 +599,7 @@ try:
             return result
 
 except ImportError:  # pragma: no cover
-    OpenaiChatCompletionStreamState = OpenaiCompletionStreamState  # type: ignore
+    OpenaiChatCompletionStreamState = OpenaiCompletionStreamState  # pyright: ignore[reportAssignmentType]
 
 
 @handle_internal_errors
@@ -610,7 +610,7 @@ def on_response(
     versions: frozenset[SemconvVersion] = version if isinstance(version, frozenset) else frozenset({version})
 
     if isinstance(response, LegacyAPIResponse):  # pragma: no cover
-        on_response(response.parse(), span, version=versions)  # type: ignore
+        on_response(response.parse(), span, version=versions)  # pyright: ignore[reportUnknownArgumentType]
         return cast('ResponseT', response)
 
     span.set_attribute('gen_ai.system', 'openai')
@@ -699,7 +699,7 @@ def on_response(
             span.set_attribute(OUTPUT_MESSAGES, response_output_messages)
         if 1 in versions:
             try:
-                events = json.loads(span.attributes['events'])  # type: ignore
+                events = json.loads(span.attributes['events'])  # pyright: ignore[reportArgumentType, reportOptionalSubscript]
             except Exception:
                 pass
             else:
