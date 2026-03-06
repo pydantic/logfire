@@ -437,9 +437,9 @@ def pytest_fixture_setup(
                 # span remain as the current context so the test span is parented
                 # correctly. Store the token on the item for cleanup in teardown.
                 pyfuncitem = request._pyfuncitem
-                _pending: list[Any] = getattr(pyfuncitem, '_logfire_ctx_tokens', None) or []
-                if not hasattr(pyfuncitem, '_logfire_ctx_tokens'):
-                    pyfuncitem._logfire_ctx_tokens = _pending
+                _pending: list[Any] | None = getattr(pyfuncitem, '_logfire_ctx_tokens', None)
+                if _pending is None:
+                    _pending = pyfuncitem._logfire_ctx_tokens = []
                 _pending.append(token)
     else:
         if is_scoped:
@@ -692,20 +692,23 @@ def pytest_runtest_teardown(item: pytest.Item) -> Generator[None]:
     else:
         yield
 
+    from opentelemetry import context as context_api
+
     # Close the per-test span that was opened in pytest_runtest_setup
     span_info = item.stash.get(_LOGFIRE_SPAN_KEY, None)
     if span_info is not None:
-        from opentelemetry import context as context_api
-
         span, fixture_ctx_token = span_info
         span.__exit__(None, None, None)
+    else:
+        fixture_ctx_token = None
 
-        # Detach function-scoped fixture context tokens (stored by pytest_fixture_setup)
-        for token in reversed(getattr(item, '_logfire_ctx_tokens', [])):
-            context_api.detach(token)
+    # Detach function-scoped fixture context tokens (stored by pytest_fixture_setup).
+    # These must be detached even if setup failed before creating the test span.
+    for token in reversed(getattr(item, '_logfire_ctx_tokens', [])):
+        context_api.detach(token)
 
-        if fixture_ctx_token is not None:
-            context_api.detach(fixture_ctx_token)
+    if fixture_ctx_token is not None:
+        context_api.detach(fixture_ctx_token)
 
 
 def _should_trace_phases(config: pytest.Config) -> bool:
@@ -785,7 +788,7 @@ def logfire_pytest(request: pytest.FixtureRequest) -> Logfire:
 def pytest_pyfunc_call(pyfuncitem: pytest.Function) -> Generator[None]:
     """Re-attach the per-test span context for async test functions.
 
-    The ``pytest_runtest_protocol`` hook creates a span per test and attaches it
+    The ``pytest_runtest_setup`` hook creates a span per test and attaches it
     to the OTel context via ``context_api.attach()`` in the **synchronous** hook
     thread.  However, when tests are async (e.g. with anyio/pytest-asyncio), they
     may run inside an event-loop task whose ``contextvars`` snapshot was taken
