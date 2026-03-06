@@ -621,7 +621,7 @@ def on_response(
         try:
             from genai_prices import calc_price, extract_usage
 
-            response_data = response.model_dump()  # type: ignore
+            response_data = response.model_dump()  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType, reportAttributeAccessIssue, reportOptionalMemberAccess]
             usage_data = extract_usage(
                 response_data,
                 provider_id='openai',

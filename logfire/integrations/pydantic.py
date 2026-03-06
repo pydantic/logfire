@@ -268,9 +268,9 @@ def get_schema_name(schema: CoreSchema) -> str:
         The name of the schema.
     """
     if schema['type'] in {'model', 'dataclass'}:
-        return schema['cls'].__name__  # type: ignore
+        return schema['cls'].__name__  # pyright: ignore[reportGeneralTypeIssues, reportTypedDictNotRequiredAccess, reportUnknownVariableType, reportUnknownMemberType]
     elif schema['type'] in {'function-after', 'function-before', 'function-wrap'}:
-        return get_schema_name(schema['schema'])  # type: ignore
+        return get_schema_name(schema['schema'])  # pyright: ignore[reportGeneralTypeIssues, reportTypedDictNotRequiredAccess, reportUnknownArgumentType]
     elif schema['type'] == 'definitions':
         inner_schema = schema['schema']
         if inner_schema['type'] == 'definition-ref':
