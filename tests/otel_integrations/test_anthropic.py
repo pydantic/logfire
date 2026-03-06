@@ -23,7 +23,16 @@ from httpx._transports.mock import MockTransport
 from inline_snapshot import snapshot
 
 import logfire
+from logfire._internal.utils import get_version
 from logfire.testing import TestExporter
+
+pytestmark = [
+    pytest.mark.skipif(
+        get_version(pydantic.__version__) < get_version('2.5'),
+        reason='Requires Pydantic 2.5 or higher to import genai-prices and set operation.cost attribute.',
+    ),
+]
+
 
 ANY_ADAPTER = pydantic.TypeAdapter(Any)  # type: ignore
 
@@ -215,6 +224,7 @@ def test_sync_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 3,
                     'gen_ai.response.finish_reasons': ['end_turn'],
+                    'operation.cost': 4.25e-06,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -243,6 +253,7 @@ def test_sync_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
+                            'operation.cost': {},
                         },
                     },
                 },
@@ -317,6 +328,7 @@ async def test_async_messages(instrumented_async_client: anthropic.AsyncAnthropi
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 3,
                     'gen_ai.response.finish_reasons': ['end_turn'],
+                    'operation.cost': 4.25e-06,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -341,6 +353,7 @@ async def test_async_messages(instrumented_async_client: anthropic.AsyncAnthropi
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
+                            'operation.cost': {},
                         },
                     },
                 },
@@ -789,6 +802,7 @@ def test_tool_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 3,
                     'gen_ai.response.finish_reasons': ['tool_use'],
+                    'operation.cost': 4.25e-06,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -813,6 +827,7 @@ def test_tool_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
+                            'operation.cost': {},
                         },
                     },
                 },
@@ -883,6 +898,7 @@ def test_messages_without_stop_reason(instrumented_client: anthropic.Anthropic, 
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 3,
+                    'operation.cost': 4.25e-06,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -906,6 +922,7 @@ def test_messages_without_stop_reason(instrumented_client: anthropic.Anthropic, 
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'operation.cost': {},
                         },
                     },
                 },
@@ -1072,6 +1089,7 @@ def test_request_parameters(instrumented_client: anthropic.Anthropic, exporter: 
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 3,
                     'gen_ai.response.finish_reasons': ['end_turn'],
+                    'operation.cost': 4.25e-06,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -1101,6 +1119,7 @@ def test_request_parameters(instrumented_client: anthropic.Anthropic, exporter: 
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
+                            'operation.cost': {},
                         },
                     },
                 },
@@ -1269,6 +1288,7 @@ def test_sync_messages_version_latest(exporter: TestExporter) -> None:
                     'gen_ai.usage.input_tokens': IsInt(),
                     'gen_ai.usage.output_tokens': IsInt(),
                     'gen_ai.response.finish_reasons': ['end_turn'],
+                    'operation.cost': 0.000192,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -1287,6 +1307,7 @@ def test_sync_messages_version_latest(exporter: TestExporter) -> None:
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
+                            'operation.cost': {},
                         },
                     },
                 },
@@ -1357,6 +1378,7 @@ def test_sync_messages_version_v1_only(exporter: TestExporter) -> None:
                     'gen_ai.usage.input_tokens': IsInt(),
                     'gen_ai.usage.output_tokens': IsInt(),
                     'gen_ai.response.finish_reasons': ['end_turn'],
+                    'operation.cost': 0.000192,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -1389,6 +1411,7 @@ def test_sync_messages_version_v1_only(exporter: TestExporter) -> None:
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
+                            'operation.cost': {},
                         },
                     },
                 },

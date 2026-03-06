@@ -342,6 +342,18 @@ def on_response(
         if response.stop_reason:
             span.set_attribute(RESPONSE_FINISH_REASONS, [response.stop_reason])
 
+        try:
+            from genai_prices import calc_price, extract_usage
+
+            response_data = response.model_dump()
+            usage_data = extract_usage(response_data, provider_id='anthropic')
+            span.set_attribute(
+                'operation.cost',
+                float(calc_price(usage_data.usage, model_ref=response.model, provider_id='anthropic').total_price),
+            )
+        except Exception:
+            pass
+
     return response
 
 
