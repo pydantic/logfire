@@ -58,7 +58,11 @@ from logfire._internal.config import (
     sanitize_project_name,
 )
 from logfire._internal.config_params import extract_list_of_str, normalize_token
-from logfire._internal.exporters.console import ConsoleLogExporter, ShowParentsConsoleSpanExporter
+from logfire._internal.exporters.console import (
+    ConsoleLogExporter,
+    ShowParentsConsoleSpanExporter,
+    SimpleConsoleSpanExporter,
+)
 from logfire._internal.exporters.dynamic_batch import DynamicBatchSpanProcessor
 from logfire._internal.exporters.logs import CheckSuppressInstrumentationLogProcessorWrapper, MainLogProcessorWrapper
 from logfire._internal.exporters.otlp import QuietLogExporter, QuietSpanExporter
@@ -913,6 +917,7 @@ def test_serialize_config_unpicklable():
     logfire.configure(
         send_to_logfire=False,
         advanced=logfire.AdvancedOptions(exception_callback=local_exception_callback),
+        additional_span_processors=[BatchSpanProcessor(SimpleConsoleSpanExporter())],
     )
 
     # Call the callback to cover the pass statement
