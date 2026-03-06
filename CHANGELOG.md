@@ -1,5 +1,11 @@
 # Release Notes
 
+## [v4.26.0] (2026-03-06)
+
+* feat: add browser proxy helpers: `forward_export_request` and `logfire_proxy` by @AlanPonnachan in [#1697](https://github.com/pydantic/logfire/pull/1697)
+* Handle pickling errors in `dataclasses.asdict` by @alexmojaki in [#1756](https://github.com/pydantic/logfire/pull/1756)
+* Use additionalProperties for homogeneous dict schemas by @adriangb in [#1738](https://github.com/pydantic/logfire/pull/1738)
+
 ## [v4.25.0] (2026-02-19)
 
 * Add experimental datasets package by @dmontagu in [#1711](https://github.com/pydantic/logfire/pull/1711)
@@ -1048,3 +1054,4 @@ First release from new repo!
 [v4.23.0]: https://github.com/pydantic/logfire/compare/v4.22.0...v4.23.0
 [v4.24.0]: https://github.com/pydantic/logfire/compare/v4.23.0...v4.24.0
 [v4.25.0]: https://github.com/pydantic/logfire/compare/v4.24.0...v4.25.0
+[v4.26.0]: https://github.com/pydantic/logfire/compare/v4.25.0...v4.26.0
