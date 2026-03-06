@@ -1589,3 +1589,140 @@ def test_no_xdist_attributes_without_xdist(logfire_pytester: pytest.Pytester):
 
     test_span = find_span_by_pattern(spans, 'test_example')
     assert test_span is not None
+
+
+def test_logfire_fixture_scoped_fixtures_span_hierarchy(logfire_pytester: pytest.Pytester):
+    """Verify span hierarchy when logfire_pytest is used in session/module/function-scoped fixtures.
+
+    Test scenario:
+        - session_fixture: session-scoped, creates a span
+        - module_fixture:  module-scoped, depends on session_fixture, creates a span
+        - function_fixture: function-scoped, depends on module_fixture, creates a span
+        - test_module:    uses module_fixture directly
+        - test_function:  uses function_fixture (which pulls in module_fixture)
+        - test_session:   uses only session_fixture (different module, so module/function
+                          fixtures are not active)
+
+    Expected hierarchy:
+        session span
+        └── session fixture span
+            ├── module fixture span
+            │   ├── test_module
+            │   └── function fixture span
+            │       └── test_function
+            └── test_session
+    """
+    # The session-scoped fixture lives in conftest so it's shared across both test modules.
+    logfire_pytester.makeconftest(
+        logfire_pytester.path.joinpath('conftest.py').read_text()
+        + """
+import pytest
+
+@pytest.fixture(scope="session")
+def session_fixture(logfire_pytest):
+    with logfire_pytest.span("session fixture span"):
+        yield "session-value"
+"""
+    )
+    logfire_pytester.makepyfile(
+        test_module_and_function="""
+        import pytest
+
+        @pytest.fixture(scope="module")
+        def module_fixture(logfire_pytest, session_fixture):
+            with logfire_pytest.span("module fixture span"):
+                yield "module-value"
+
+        @pytest.fixture
+        def function_fixture(logfire_pytest, module_fixture):
+            with logfire_pytest.span("function fixture span"):
+                yield "function-value"
+
+        def test_module(logfire_pytest, module_fixture):
+            assert module_fixture == "module-value"
+
+        def test_function(logfire_pytest, function_fixture):
+            assert function_fixture == "function-value"
+        """,
+        test_session_only="""
+        def test_session(logfire_pytest, session_fixture):
+            assert session_fixture == "session-value"
+        """,
+    )
+    # Run test_module_and_function first so session/module fixtures are set up there,
+    # then test_session_only where only the session fixture is (already) active.
+    result = logfire_pytester.runpytest_subprocess(
+        '-p',
+        'no:django',
+        '-p',
+        'no:pretty',
+        '--logfire',
+        'test_module_and_function.py',
+        'test_session_only.py',
+    )
+    result.assert_outcomes(passed=3)
+
+    spans = load_spans(logfire_pytester)
+
+    # Find all spans
+    session_span = find_session_span(spans)
+    assert session_span is not None, 'Session span not found'
+
+    session_fixtures = find_spans_by_pattern(spans, 'session fixture span')
+    module_fixture = find_span_by_pattern(spans, 'module fixture span')
+    function_fixture = find_span_by_pattern(spans, 'function fixture span')
+    test_module = find_span_by_pattern(spans, 'test_module')
+    test_function = find_span_by_pattern(spans, 'test_function')
+    test_session = find_span_by_pattern(spans, 'test_session')
+
+    # The session fixture is scoped to the whole session, so there should be exactly one span.
+    assert len(session_fixtures) == 1, f'Expected 1 session fixture span, got {len(session_fixtures)}'
+    session_fixture = session_fixtures[0]
+
+    assert module_fixture is not None, 'Module fixture span not found'
+    assert function_fixture is not None, 'Function fixture span not found'
+    assert test_module is not None, 'test_module span not found'
+    assert test_function is not None, 'test_function span not found'
+    assert test_session is not None, 'test_session span not found'
+
+    # All spans share the same trace
+    trace_id = session_span['context']['trace_id']
+    for span in [session_fixture, module_fixture, function_fixture, test_module, test_function, test_session]:
+        assert span['context']['trace_id'] == trace_id, f'Span {span["name"]} has different trace_id'
+
+    session_span_id = session_span['context']['span_id']
+    session_fixture_id = session_fixture['context']['span_id']
+    module_fixture_id = module_fixture['context']['span_id']
+
+    # --- Desired parent relationships ---
+
+    # session fixture span → session span
+    assert session_fixture['parent']['span_id'] == session_span_id, (
+        'Session fixture span should be a child of the session span, '
+        f'but got parent span_id={session_fixture["parent"]["span_id"]}'
+    )
+
+    # module fixture span → session fixture span
+    assert module_fixture['parent']['span_id'] == session_fixture_id, (
+        'Module fixture span should be a child of the session fixture span'
+    )
+
+    # test_module → module fixture span (test runs while module fixture is active)
+    assert test_module['parent']['span_id'] == module_fixture_id, (
+        'test_module span should be a child of the module fixture span'
+    )
+
+    # function fixture span → module fixture span
+    assert function_fixture['parent']['span_id'] == module_fixture_id, (
+        'Function fixture span should be a child of the module fixture span'
+    )
+
+    # test_function → function fixture span
+    assert test_function['parent']['span_id'] == function_fixture['context']['span_id'], (
+        'test_function span should be a child of the function fixture span'
+    )
+
+    # test_session → session fixture span (only session fixture is active)
+    assert test_session['parent']['span_id'] == session_fixture_id, (
+        'test_session span should be a child of the session fixture span'
+    )
