@@ -25,7 +25,7 @@ from opentelemetry.sdk.metrics import MeterProvider as SDKMeterProvider
 from opentelemetry.trace import get_current_span
 from opentelemetry.util.types import Attributes
 
-from .tracer import _LogfireWrappedSpan  # type: ignore
+from .tracer import _LogfireWrappedSpan  # type: ignore[reportPrivateUsage]
 from .utils import handle_internal_errors
 
 
@@ -110,7 +110,7 @@ class _ProxyMeter(Meter):
         with self._lock:
             proxy = instrument_type(self._meter, **kwargs)
             self._instruments.add(proxy)
-            return proxy  # type: ignore
+            return proxy  # type: ignore[reportReturnType]
 
     def create_counter(
         self,
