@@ -1,0 +1,41 @@
+logfire/_internal/auto_trace/import_hook.py
+  81bfb200d83f2c75 59
+logfire/_internal/json_encoder.py
+  81bfb200d83f2c75 135
+logfire/_internal/integrations/llm_providers/openai.py
+  81bfb200d83f2c75 624
+logfire/_internal/integrations/mysql.py
+  81bfb200d83f2c75 33-34
+logfire/integrations/loguru.py
+  81bfb200d83f2c75 91
+logfire/_internal/integrations/asgi.py
+  81bfb200d83f2c75 110,112
+logfire/_internal/integrations/mcp.py
+  81bfb200d83f2c75 111
+logfire/integrations/pydantic.py
+  81bfb200d83f2c75 271,273
+logfire/_internal/utils.py
+  81bfb200d83f2c75 479
+logfire/_internal/integrations/httpx.py
+  81bfb200d83f2c75 227
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.8",
+  "base_commit_sha": "dc242b67bde69caed8bb9ceb52b1bac2607f3754",
+  "prompts": {
+    "81bfb200d83f2c75": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a9618815-8f8c-43b5-96b8-08e019213652",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>",
+      "messages": [],
+      "total_additions": 13,
+      "total_deletions": 13,
+      "accepted_lines": 13,
+      "overriden_lines": 0
+    }
+  }
+}
