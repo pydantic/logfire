@@ -1,5 +1,10 @@
 # Release Notes
 
+## [v4.27.0] (2026-03-06)
+
+* Add `gen_ai.system` attribute to anthropic spans, enabling token/cost badges by @alexmojaki in [#1760](https://github.com/pydantic/logfire/pull/1760)
+* Set `operation.cost` attribute on anthropic spans when `genai-prices` is installed by @alexmojaki in [#1761](https://github.com/pydantic/logfire/pull/1761)
+
 ## [v4.26.0] (2026-03-06)
 
 * feat: add browser proxy helpers: `forward_export_request` and `logfire_proxy` by @AlanPonnachan in [#1697](https://github.com/pydantic/logfire/pull/1697)
@@ -1055,3 +1060,4 @@ First release from new repo!
 [v4.24.0]: https://github.com/pydantic/logfire/compare/v4.23.0...v4.24.0
 [v4.25.0]: https://github.com/pydantic/logfire/compare/v4.24.0...v4.25.0
 [v4.26.0]: https://github.com/pydantic/logfire/compare/v4.25.0...v4.26.0
+[v4.27.0]: https://github.com/pydantic/logfire/compare/v4.26.0...v4.27.0
