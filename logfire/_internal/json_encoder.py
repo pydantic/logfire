@@ -132,7 +132,7 @@ def _numpy_array_encoder(o: Any, seen: set[int]) -> JsonValue:
     dimensions = o.ndim
 
     if isinstance(o, numpy.matrix):
-        o = o.A  # type: ignore
+        o = o.A  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
 
     for dimension in range(dimensions):
         if shape[dimension] <= NUMPY_DIMENSION_MAX_SIZE:
