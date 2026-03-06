@@ -1,0 +1,29 @@
+logfire/_internal/utils.py
+  81bfb200d83f2c75 27,480
+logfire/_internal/auto_trace/import_hook.py
+  81bfb200d83f2c75 59-60
+logfire/integrations/loguru.py
+  81bfb200d83f2c75 8,91-92
+logfire/_internal/integrations/llm_providers/openai.py
+  81bfb200d83f2c75 62,625
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.8",
+  "base_commit_sha": "6c808b0852faf90c26acc68447ba342a8be65c63",
+  "prompts": {
+    "81bfb200d83f2c75": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a9618815-8f8c-43b5-96b8-08e019213652",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>",
+      "messages": [],
+      "total_additions": 17,
+      "total_deletions": 13,
+      "accepted_lines": 9,
+      "overriden_lines": 0
+    }
+  }
+}
