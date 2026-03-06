@@ -107,9 +107,9 @@ def instrument_asgi(
     See the `Logfire.instrument_asgi` method for details.
     """
     maybe_capture_server_headers(capture_headers)
-    return OpenTelemetryMiddleware(
+    return OpenTelemetryMiddleware(  # pyright: ignore[reportReturnType]
         app,
-        **{  # type: ignore
+        **{  # pyright: ignore[reportArgumentType]
             'tracer_provider': tweak_asgi_spans_tracer_provider(logfire_instance, record_send_receive),
             'meter_provider': logfire_instance.config.get_meter_provider(),
             **kwargs,

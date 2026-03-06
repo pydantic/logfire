@@ -108,7 +108,7 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
         with _handle_request_with_context(request, message, span_name):
             return await original_handle_server_request(self, message, request, *args, **kwargs)
 
-    Server._handle_request = _handle_request  # type: ignore
+    Server._handle_request = _handle_request  # pyright: ignore[reportPrivateUsage, reportAttributeAccessIssue]
 
     @contextmanager
     def _handle_request_with_context(
