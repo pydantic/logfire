@@ -622,8 +622,7 @@ def on_response(
         try:
             from genai_prices import calc_price, extract_usage
 
-            assert isinstance(response, BaseModel)
-            response_data = response.model_dump()
+            response_data = cast('BaseModel', response).model_dump()
             usage_data = extract_usage(
                 response_data,
                 provider_id='openai',
