@@ -439,7 +439,7 @@ def record_exception(
         with handle_internal_errors:
             callback(helper)
 
-    if not helper._record_exception:  # type: ignore
+    if not helper._record_exception:  # type: ignore[reportPrivateUsage]
         return
 
     attributes = helper.event_attributes
