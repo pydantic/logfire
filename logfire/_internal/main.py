@@ -64,8 +64,8 @@ from .metrics import ProxyMeterProvider
 from .stack_info import get_user_stack_info
 from .tracer import (
     ProxyTracerProvider,
-    _LogfireWrappedSpan,  # type: ignore
-    _ProxyTracer,  # type: ignore
+    _LogfireWrappedSpan,  # type: ignore[reportPrivateUsage]
+    _ProxyTracer,  # type: ignore[reportPrivateUsage]
     set_exception_status,
 )
 from .utils import get_version, handle_internal_errors, log_internal_error, uniquify_sequence
@@ -211,7 +211,7 @@ class Logfire:
                 level_attributes = log_level_attributes(_level)
                 level_num = level_attributes[ATTRIBUTES_LOG_LEVEL_NUM_KEY]
                 if level_num < self.config.min_level:
-                    return NoopSpan()  # type: ignore
+                    return NoopSpan()  # type: ignore[reportReturnType]
             else:
                 level_attributes = None
 
@@ -219,7 +219,7 @@ class Logfire:
             merged_attributes = {**stack_info, **attributes}
 
             if self._config.inspect_arguments:
-                fstring_frame = inspect.currentframe().f_back  # type: ignore
+                fstring_frame = inspect.currentframe().f_back  # type: ignore[reportOptionalMemberAccess]
             else:
                 fstring_frame = None
 
@@ -264,7 +264,7 @@ class Logfire:
             )
         except Exception:
             log_internal_error()
-            return NoopSpan()  # type: ignore
+            return NoopSpan()  # type: ignore[reportReturnType]
 
     def _fast_span(self, name: str, attributes: otel_types.Attributes, **kwargs: Any) -> FastLogfireSpan:
         """A simple version of `_span` optimized for auto-tracing that doesn't support message formatting.
@@ -276,7 +276,7 @@ class Logfire:
             return FastLogfireSpan(span)
         except Exception:  # pragma: no cover
             log_internal_error()
-            return NoopSpan()  # type: ignore
+            return NoopSpan()  # type: ignore[reportReturnType]
 
     def _instrument_span_with_args(
         self, name: str, attributes: dict[str, otel_types.AttributeValue], function_args: dict[str, Any], **kwargs: Any
@@ -287,7 +287,7 @@ class Logfire:
         and arbitrary types of attributes.
         """
         try:
-            msg_template: str = attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
+            msg_template: str = attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore[reportAssignmentType]
             attributes[ATTRIBUTES_MESSAGE_KEY] = logfire_format(msg_template, function_args, self._config.scrubber)
             if json_schema_properties := attributes_json_schema_properties(function_args):  # pragma: no branch
                 attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
@@ -295,7 +295,7 @@ class Logfire:
             return self._fast_span(name, attributes, **kwargs)
         except Exception:  # pragma: no cover
             log_internal_error()
-            return NoopSpan()  # type: ignore
+            return NoopSpan()  # type: ignore[reportReturnType]
 
     def trace(
         self,
@@ -735,10 +735,10 @@ class Logfire:
                 fstring_frame = None
                 if self._config.inspect_arguments:
                     fstring_frame = inspect.currentframe()
-                    if fstring_frame.f_back.f_code.co_filename == Logfire.log.__code__.co_filename:  # type: ignore
+                    if fstring_frame.f_back.f_code.co_filename == Logfire.log.__code__.co_filename:  # type: ignore[reportOptionalMemberAccess]
                         # fstring_frame.f_back should be the user's frame.
                         # The user called logfire.info or a similar method rather than calling logfire.log directly.
-                        fstring_frame = fstring_frame.f_back  # type: ignore
+                        fstring_frame = fstring_frame.f_back  # type: ignore[reportOptionalMemberAccess]
 
                 msg, extra_attrs, msg_template = logfire_format_with_magic(
                     msg_template,
@@ -800,7 +800,7 @@ class Logfire:
                     exc_info = exc_info[1]
                 if isinstance(exc_info, BaseException):
                     span.record_exception(exc_info)
-                    if otlp_attributes[ATTRIBUTES_LOG_LEVEL_NUM_KEY] >= LEVEL_NUMBERS['error']:  # type: ignore
+                    if otlp_attributes[ATTRIBUTES_LOG_LEVEL_NUM_KEY] >= LEVEL_NUMBERS['error']:  # type: ignore[reportOperatorIssue]
                         # Set the status description to the exception message.
                         # OTEL only lets us set the description when the status code is ERROR,
                         # which we only want to do when the log level is error.
@@ -2018,7 +2018,7 @@ class Logfire:
         return instrument_aws_lambda(
             lambda_handler=lambda_handler,
             event_context_extractor=event_context_extractor,
-            **{  # type: ignore
+            **{  # type: ignore[reportArgumentType]
                 'tracer_provider': self._config.get_tracer_provider(),
                 'meter_provider': self._config.get_meter_provider(),
                 **kwargs,
@@ -2113,7 +2113,7 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_mysql(
             conn=conn,
-            **{  # type: ignore
+            **{  # type: ignore[reportArgumentType]
                 'tracer_provider': self._config.get_tracer_provider(),
                 'meter_provider': self._config.get_meter_provider(),
                 **kwargs,
@@ -3011,7 +3011,7 @@ class NoopSpan:
 
     def __getattr__(self, _name: str) -> Any:
         # Handle methods of LogfireSpan which return nothing
-        return lambda *_args, **__kwargs: None  # type: ignore
+        return lambda *_args, **__kwargs: None  # type: ignore[reportUnknownVariableType, reportUnknownLambdaType]
 
     def __enter__(self) -> NoopSpan:
         return self
