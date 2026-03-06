@@ -506,7 +506,7 @@ def configure(
             'The `scrubbing_callback` and `scrubbing_patterns` arguments are deprecated. '
             'Use `scrubbing=logfire.ScrubbingOptions(callback=..., extra_patterns=[...])` instead.',
         )
-        scrubbing = ScrubbingOptions(callback=scrubbing_callback, extra_patterns=scrubbing_patterns)  # type: ignore
+        scrubbing = ScrubbingOptions(callback=scrubbing_callback, extra_patterns=scrubbing_patterns)  # type: ignore[reportArgumentType]
 
     project_name = deprecated_kwargs.pop('project_name', None)
     if project_name is not None:
@@ -514,7 +514,7 @@ def configure(
             'The `project_name` argument is deprecated and not needed.',
         )
 
-    trace_sample_rate: float | None = deprecated_kwargs.pop('trace_sample_rate', None)  # type: ignore
+    trace_sample_rate: float | None = deprecated_kwargs.pop('trace_sample_rate', None)  # type: ignore[reportAssignmentType]
     if trace_sample_rate is not None:
         if sampling:
             raise ValueError(
@@ -732,7 +732,7 @@ class _LogfireConfigData:
         # We save `scrubbing` just so that it can be serialized and deserialized.
         if isinstance(scrubbing, dict):
             # This is particularly for deserializing from a dict as in executors.py
-            scrubbing = ScrubbingOptions(**scrubbing)  # type: ignore
+            scrubbing = ScrubbingOptions(**scrubbing)  # type: ignore[reportUnknownArgumentType]
         if scrubbing is None:
             scrubbing = ScrubbingOptions()
         self.scrubbing: ScrubbingOptions | Literal[False] = scrubbing
@@ -742,7 +742,7 @@ class _LogfireConfigData:
 
         if isinstance(console, dict):
             # This is particularly for deserializing from a dict as in executors.py
-            console = ConsoleOptions(**console)  # type: ignore
+            console = ConsoleOptions(**console)  # type: ignore[reportUnknownArgumentType]
         if console is not None:
             self.console = console
         elif param_manager.load_param('console') is False:
@@ -760,7 +760,7 @@ class _LogfireConfigData:
 
         if isinstance(sampling, dict):
             # This is particularly for deserializing from a dict as in executors.py
-            sampling = SamplingOptions(**sampling)  # type: ignore
+            sampling = SamplingOptions(**sampling)  # type: ignore[reportUnknownArgumentType]
         elif sampling is None:
             sampling = SamplingOptions(
                 head=param_manager.load_param('trace_sample_rate'),
@@ -769,33 +769,33 @@ class _LogfireConfigData:
 
         if isinstance(code_source, dict):
             # This is particularly for deserializing from a dict as in executors.py
-            code_source = CodeSource(**code_source)  # type: ignore
+            code_source = CodeSource(**code_source)  # type: ignore[reportUnknownArgumentType]
         self.code_source = code_source
 
         if isinstance(variables, dict):
             # This is particularly for deserializing from a dict as in executors.py
-            config = variables.pop('config', None)  # type: ignore
+            config = variables.pop('config', None)  # type: ignore[reportUnknownVariableType, reportUnknownMemberType]
             if isinstance(config, dict):
                 if 'variables' in config:
                     from logfire.variables import VariablesConfig as _VariablesConfig  # pragma: no cover
 
-                    config = _VariablesConfig(**config)  # type: ignore  # pragma: no cover
-                    variables = LocalVariablesOptions(config=config, **variables)  # type: ignore  # pragma: no cover
+                    config = _VariablesConfig(**config)  # type: ignore[reportUnknownArgumentType]  # pragma: no cover
+                    variables = LocalVariablesOptions(config=config, **variables)  # type: ignore[reportUnknownArgumentType]  # pragma: no cover
                 else:
-                    variables = VariablesOptions(**config, **variables)  # type: ignore
+                    variables = VariablesOptions(**config, **variables)  # type: ignore[reportUnknownArgumentType]
             elif config is not None:
                 # config is a VariablesConfig Pydantic model (from asdict() of LocalVariablesOptions)
-                variables = LocalVariablesOptions(config=config, **variables)  # type: ignore
+                variables = LocalVariablesOptions(config=config, **variables)  # type: ignore[reportUnknownArgumentType]
             else:
-                variables = VariablesOptions(**variables)  # type: ignore  # pragma: no cover
+                variables = VariablesOptions(**variables)  # type: ignore[reportUnknownArgumentType]  # pragma: no cover
         self.variables = variables
 
         if isinstance(advanced, dict):
             # This is particularly for deserializing from a dict as in executors.py
-            advanced = AdvancedOptions(**advanced)  # type: ignore
+            advanced = AdvancedOptions(**advanced)  # type: ignore[reportUnknownArgumentType]
             id_generator = advanced.id_generator
-            if isinstance(id_generator, dict) and list(id_generator.keys()) == ['seed', '_ms_timestamp_generator']:  # type: ignore  # pragma: no branch
-                advanced.id_generator = SeededRandomIdGenerator(**id_generator)  # type: ignore
+            if isinstance(id_generator, dict) and list(id_generator.keys()) == ['seed', '_ms_timestamp_generator']:  # type: ignore[reportUnknownArgumentType]  # pragma: no branch
+                advanced.id_generator = SeededRandomIdGenerator(**id_generator)  # type: ignore[reportUnknownArgumentType]
         elif advanced is None:
             advanced = AdvancedOptions(base_url=param_manager.load_param('base_url'))
         self.advanced = advanced
@@ -1235,9 +1235,9 @@ class LogfireConfig(_LogfireConfigData):
                 def fix_pid():  # pragma: no cover
                     with handle_internal_errors:
                         new_resource = resource.merge(Resource({'process.pid': os.getpid()}))
-                        tracer_provider._resource = new_resource  # type: ignore
-                        meter_provider._resource = new_resource  # type: ignore
-                        logger_provider._resource = new_resource  # type: ignore
+                        tracer_provider._resource = new_resource  # type: ignore[reportPrivateUsage]
+                        meter_provider._resource = new_resource  # type: ignore[reportAttributeAccessIssue]
+                        logger_provider._resource = new_resource  # type: ignore[reportPrivateUsage]
 
                 os.register_at_fork(after_in_child=fix_pid)
 
@@ -1493,7 +1493,7 @@ def exit_open_spans():  # pragma: no cover
         span.end()
         # Interpreter shutdown may trigger another call to .end(),
         # which would log a warning "Calling end() on an ended span."
-        span.end = lambda *_, **__: None  # type: ignore
+        span.end = lambda *_, **__: None  # type: ignore[reportUnknownLambdaType]
 
 
 # atexit isn't called in forked processes, patch os._exit to ensure cleanup.
@@ -1773,14 +1773,14 @@ class LogfireCredentials:
             try:
                 project = client.create_new_project(organization, project_name)
             except ProjectAlreadyExists:
-                project_name_default = ...  # type: ignore  # this means the value is required
+                project_name_default = ...  # type: ignore[reportAssignmentType]  # this means the value is required
                 project_name_prompt = (
                     f"\nA project with the name '{project_name}' already exists. Please enter a different project name"
                 )
                 project_name = None
                 continue
             except InvalidProjectName as exc:
-                project_name_default = ...  # type: ignore  # this means the value is required
+                project_name_default = ...  # type: ignore[reportAssignmentType]  # this means the value is required
                 project_name_prompt = (
                     f'\nThe project name you entered is invalid:\n{exc.reason}\nPlease enter a different project name'
                 )
