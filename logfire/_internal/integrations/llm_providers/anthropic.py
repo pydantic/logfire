@@ -99,6 +99,7 @@ def get_endpoint_config(
     if url == '/v1/messages':
         span_data: dict[str, Any] = {
             'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
+            'gen_ai.system': 'anthropic',
             PROVIDER_NAME: 'anthropic',
             OPERATION_NAME: 'chat',
             REQUEST_MODEL: json_data.get('model'),
@@ -124,6 +125,7 @@ def get_endpoint_config(
         span_data = {
             'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
             'url': url,
+            'gen_ai.system': 'anthropic',
             PROVIDER_NAME: 'anthropic',
         }
         if 'model' in json_data:  # pragma: no branch
