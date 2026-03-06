@@ -939,6 +939,7 @@ def test_unknown_method(instrumented_client: anthropic.Anthropic, exporter: Test
                     'request_data': {'max_tokens_to_sample': 1000, 'model': 'claude-2.1', 'prompt': 'prompt'},
                     'url': '/v1/complete',
                     'async': False,
+                    'gen_ai.system': 'anthropic',
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.request.model': 'claude-2.1',
                     'logfire.msg_template': 'Anthropic API call to {url!r}',
@@ -952,6 +953,7 @@ def test_unknown_method(instrumented_client: anthropic.Anthropic, exporter: Test
                         'properties': {
                             'request_data': {'type': 'object'},
                             'url': {},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.request.model': {},
                             'async': {},
