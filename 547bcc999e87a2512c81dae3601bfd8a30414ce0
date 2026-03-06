@@ -1,0 +1,25 @@
+logfire/_internal/utils.py
+  81bfb200d83f2c75 182,248,259,479
+logfire/_internal/scrubbing.py
+  81bfb200d83f2c75 232-233
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.8",
+  "base_commit_sha": "547bcc999e87a2512c81dae3601bfd8a30414ce0",
+  "prompts": {
+    "81bfb200d83f2c75": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a9618815-8f8c-43b5-96b8-08e019213652",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>",
+      "messages": [],
+      "total_additions": 6,
+      "total_deletions": 6,
+      "accepted_lines": 6,
+      "overriden_lines": 0
+    }
+  }
+}
