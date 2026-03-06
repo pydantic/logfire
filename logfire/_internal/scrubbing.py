@@ -229,8 +229,8 @@ class SpanScrubber:
     """
 
     def __init__(self, parent: Scrubber):
-        self._pattern = parent._pattern  # type: ignore[reportPrivateUsage]
-        self._callback = parent._callback  # type: ignore[reportPrivateUsage]
+        self._pattern = parent._pattern  # pyright: ignore[reportPrivateUsage]
+        self._callback = parent._callback  # pyright: ignore[reportPrivateUsage]
         self.scrubbed: list[ScrubbedNote] = []
         self.did_scrub = False
 

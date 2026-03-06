@@ -266,9 +266,9 @@ def convert_response_to_semconv(message: Message) -> OutputMessage:
 
 def content_from_messages(chunk: anthropic.types.MessageStreamEvent) -> str | None:
     if hasattr(chunk, 'content_block'):
-        return chunk.content_block.text if isinstance(chunk.content_block, TextBlock) else None  # type: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
+        return chunk.content_block.text if isinstance(chunk.content_block, TextBlock) else None  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
     if hasattr(chunk, 'delta'):
-        return chunk.delta.text if isinstance(chunk.delta, TextDelta) else None  # type: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
+        return chunk.delta.text if isinstance(chunk.delta, TextDelta) else None  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
     return None
 
 

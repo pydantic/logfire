@@ -88,9 +88,9 @@ class LogfireHandler(LogfireLoggingHandler):
 
 
 try:
-    _LOG_METHOD_CODE = inspect.unwrap(type(loguru.logger)._log).__code__  # type: ignore[reportAttributeAccessIssue, reportUnknownArgumentType, reportUnknownMemberType]
+    _LOG_METHOD_CODE = inspect.unwrap(type(loguru.logger)._log).__code__  # pyright: ignore[reportAttributeAccessIssue, reportUnknownArgumentType, reportUnknownMemberType]
 except Exception:  # pragma: no cover
-    _LOG_METHOD_CODE = None  # type: ignore[reportConstantRedefinition]
+    _LOG_METHOD_CODE = None  # pyright: ignore[reportConstantRedefinition]
     warn_at_user_stacklevel(
         'Failed to find loguru log method code to extract detailed information', LoguruInspectionFailed
     )

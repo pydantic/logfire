@@ -24,7 +24,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from pydantic.plugin import SchemaKind, SchemaTypePath
     from pydantic_core import CoreConfig, CoreSchema
 
-METER = GLOBAL_CONFIG._meter_provider.get_meter('logfire.pydantic')  # type: ignore[reportPrivateUsage]
+METER = GLOBAL_CONFIG._meter_provider.get_meter('logfire.pydantic')  # pyright: ignore[reportPrivateUsage]
 validation_counter = METER.create_counter('pydantic.validations')
 
 
@@ -113,7 +113,7 @@ class _ValidateWrapper:
 
             @functools.wraps(validator)
             def wrapped_validator(input_data: Any, *args: Any, **kwargs: Any) -> Any:
-                if not GLOBAL_CONFIG._initialized:  # type: ignore[reportPrivateUsage]
+                if not GLOBAL_CONFIG._initialized:  # pyright: ignore[reportPrivateUsage]
                     # These wrappers should be created when the model is defined if the plugin is activated
                     # by env vars even if logfire.configure() hasn't been called yet,
                     # but we don't want to actually record anything until logfire.configure() has been called.
@@ -145,7 +145,7 @@ class _ValidateWrapper:
 
             @functools.wraps(validator)
             def wrapped_validator(input_data: Any, *args: Any, **kwargs: Any) -> Any:
-                if not GLOBAL_CONFIG._initialized:  # type: ignore[reportPrivateUsage]
+                if not GLOBAL_CONFIG._initialized:  # pyright: ignore[reportPrivateUsage]
                     # Only start recording after logfire has been configured.
                     return validator(input_data, *args, **kwargs)
 
@@ -167,7 +167,7 @@ class _ValidateWrapper:
 
             @functools.wraps(validator)
             def wrapped_validator(input_data: Any, *args: Any, **kwargs: Any) -> Any:
-                if not GLOBAL_CONFIG._initialized:  # type: ignore[reportPrivateUsage]
+                if not GLOBAL_CONFIG._initialized:  # pyright: ignore[reportPrivateUsage]
                     # Only start recording after logfire has been configured.
                     return validator(input_data, *args, **kwargs)
 
@@ -268,17 +268,17 @@ def get_schema_name(schema: CoreSchema) -> str:
         The name of the schema.
     """
     if schema['type'] in {'model', 'dataclass'}:
-        return schema['cls'].__name__  # type: ignore[reportUnknownVariableType]
+        return schema['cls'].__name__  # pyright: ignore[reportGeneralTypeIssues, reportTypedDictNotRequiredAccess, reportUnknownVariableType, reportUnknownMemberType]
     elif schema['type'] in {'function-after', 'function-before', 'function-wrap'}:
-        return get_schema_name(schema['schema'])  # type: ignore[reportGeneralTypeIssues, reportTypedDictNotRequiredAccess, reportUnknownArgumentType]
+        return get_schema_name(schema['schema'])  # pyright: ignore[reportGeneralTypeIssues, reportTypedDictNotRequiredAccess, reportUnknownArgumentType]
     elif schema['type'] == 'definitions':
         inner_schema = schema['schema']
         if inner_schema['type'] == 'definition-ref':
-            schema_ref: str = inner_schema['schema_ref']  # type: ignore[reportGeneralTypeIssues, reportUnknownVariableType]
+            schema_ref: str = inner_schema['schema_ref']  # pyright: ignore[reportGeneralTypeIssues, reportUnknownVariableType]
             [schema_definition] = [
                 definition
                 for definition in schema['definitions']
-                if definition['ref'] == schema_ref  # type: ignore[reportGeneralTypeIssues, reportTypedDictNotRequiredAccess]
+                if definition['ref'] == schema_ref  # pyright: ignore[reportGeneralTypeIssues, reportTypedDictNotRequiredAccess]
             ]
             return get_schema_name(schema_definition)
         else:
@@ -299,7 +299,7 @@ class LogfirePydanticPlugin:
 
     if get_version(pydantic.__version__) < get_version('2.5.0') or os.environ.get('LOGFIRE_PYDANTIC_RECORD') == 'off':
 
-        def new_schema_validator(  # type: ignore[reportRedeclaration]
+        def new_schema_validator(  # pyright: ignore[reportRedeclaration]
             self, *_: Any, **__: Any
         ) -> tuple[_ValidateWrapper, ...] | tuple[None, ...]:
             """Backwards compatibility for Pydantic < 2.5.0.
@@ -459,7 +459,7 @@ def _build_wrapper(func: Callable[P, R], event_handlers: list[Any]) -> Callable[
             func = old_wrapped
         elif callable(handler):  # no event handler methods found
             # Use the new API, especially _ValidateWrapper.__call__
-            func = handler(func)  # type: ignore[reportAssignmentType]
+            func = handler(func)  # pyright: ignore[reportAssignmentType]
 
     return func
 

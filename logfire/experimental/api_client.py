@@ -717,7 +717,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         Dataset, _ = _import_pydantic_evals()
 
         # Create a properly typed Dataset class
-        typed_dataset_cls: type[Dataset[InputsT, OutputT, MetadataT]] = Dataset[input_type, output_type, metadata_type]  # type: ignore[reportIndexIssue, reportUnknownVariableType]
+        typed_dataset_cls: type[Dataset[InputsT, OutputT, MetadataT]] = Dataset[input_type, output_type, metadata_type]  # pyright: ignore[reportIndexIssue, reportUnknownVariableType]
         return typed_dataset_cls.from_dict(data, custom_evaluator_types=list(custom_evaluator_types))  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
 
 
@@ -958,5 +958,5 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
             return data
 
         Dataset, _ = _import_pydantic_evals()
-        typed_dataset_cls: type[Dataset[InputsT, OutputT, MetadataT]] = Dataset[input_type, output_type, metadata_type]  # type: ignore[reportIndexIssue, reportUnknownVariableType]
+        typed_dataset_cls: type[Dataset[InputsT, OutputT, MetadataT]] = Dataset[input_type, output_type, metadata_type]  # pyright: ignore[reportIndexIssue, reportUnknownVariableType]
         return typed_dataset_cls.from_dict(data, custom_evaluator_types=list(custom_evaluator_types))  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
