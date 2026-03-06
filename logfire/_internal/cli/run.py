@@ -22,6 +22,8 @@ from rich.text import Text
 import logfire
 
 STANDARD_LIBRARY_PACKAGES = {'urllib', 'sqlite3'}
+# Packages that are always present because they're dependencies of OpenTelemetry itself
+OTEL_DEPENDENCY_PACKAGES = {'requests'}
 
 # Map of instrumentation packages to the packages they instrument
 OTEL_INSTRUMENTATION_MAP = {
@@ -235,9 +237,21 @@ def instrumented_packages_text(
 def get_recommendation_texts(recommendations: set[tuple[str, str]]) -> tuple[Text, Text]:
     """Return (recommended_packages_text, install_all_text) as Text objects."""
     sorted_recommendations = sorted(recommendations)
+    has_auto_packages = False
     recommended_text = Text()
+    auto_packages = STANDARD_LIBRARY_PACKAGES | OTEL_DEPENDENCY_PACKAGES
     for pkg_name, instrumented_pkg in sorted_recommendations:
-        recommended_text.append(f'☐ {instrumented_pkg} (need to install {pkg_name})\n', style='grey50')
+        if instrumented_pkg in auto_packages:
+            has_auto_packages = True
+            recommended_text.append(f'☐ {instrumented_pkg}* (need to install {pkg_name})\n', style='grey50')
+        else:
+            recommended_text.append(f'☐ {instrumented_pkg} (need to install {pkg_name})\n', style='grey50')
+    if has_auto_packages:
+        recommended_text.append('\n')
+        recommended_text.append(
+            '* Always detected (stdlib or OpenTelemetry dependency) — ignore if not used in your code.\n',
+            style='dim italic',
+        )
     recommended_text.append('\n')
 
     install_text = Text()
