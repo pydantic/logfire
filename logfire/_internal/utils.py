@@ -476,7 +476,7 @@ def canonicalize_exception_traceback(exc: BaseException, seen: set[int] | None =
         else:
             seen.add(id(exc))
             if isinstance(exc, BaseExceptionGroup):
-                sub_exceptions: tuple[BaseException] = exc.exceptions  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType, reportAssignmentType]
+                sub_exceptions: tuple[BaseException] = exc.exceptions  # type: ignore
                 parts += [
                     '\n<ExceptionGroup>',
                     *sorted({canonicalize_exception_traceback(nested_exc, seen) for nested_exc in sub_exceptions}),
