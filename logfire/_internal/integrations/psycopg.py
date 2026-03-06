@@ -84,7 +84,7 @@ def _instrument_psycopg(
             import psycopg.pq
 
             # OTEL looks for __libpq_version__ which only exists in psycopg2.
-            mod.__libpq_version__ = psycopg.pq.version()  # type: ignore
+            mod.__libpq_version__ = psycopg.pq.version()  # type: ignore[reportAttributeAccessIssue]
 
         instrumentor.instrument(
             skip_dep_check=skip_dep_check,

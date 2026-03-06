@@ -109,7 +109,7 @@ def instrument_asgi(
     maybe_capture_server_headers(capture_headers)
     return OpenTelemetryMiddleware(
         app,
-        **{  # type: ignore
+        **{  # type: ignore[reportArgumentType]
             'tracer_provider': tweak_asgi_spans_tracer_provider(logfire_instance, record_send_receive),
             'meter_provider': logfire_instance.config.get_meter_provider(),
             **kwargs,

@@ -92,5 +92,5 @@ def deserialize_config(config: dict[str, Any] | None) -> None:
     if config is None:
         return
 
-    if not GLOBAL_CONFIG._initialized:  # type: ignore
+    if not GLOBAL_CONFIG._initialized:  # type: ignore[reportPrivateUsage]
         configure(**config)
