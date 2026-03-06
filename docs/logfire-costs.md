@@ -5,7 +5,7 @@
 * **What we meter:** every span, log **or** metric you ship. If you're not sure what those are, check out
 our [concepts page](concepts.md)
 * **Free allowance**: Your org's first **10 million** units (equivalent to $20 of usage) each calendar month are free.
-* **Pro rate:** anything above the allowance is billed at **$2 per million**. See our <a href="https://pydantic.dev/pricing" target="_blank">pricing calculator</a>.
+* **Paid rate:** anything above the allowance is billed at **$2 per million**. See our <a href="https://pydantic.dev/pricing" target="_blank">pricing calculator</a>.
 * We average payload size over time; anything over the generous **5 KB per span/metric** budget might trigger a polite
   email, never a surprise fee.
 * No hosts, seats, or projects are metered - just what you send.
@@ -79,7 +79,8 @@ tuning is via [sampling](how-to-guides/sampling.md).
 
 ## Export data via API for longer retention
 
-Data older than **30 days** is pruned (except for customers on our [enterprise plans](enterprise.md)).
+Unless you are under the [Growth or Enterprise plan](https://pydantic.dev/pricing),
+data older than **30 days** is pruned.
 If you need longer retention we recommend writing to both Logfire and a long-term storage
 such as AWS S3. We have a [guide on how to back up data to S3](how-to-guides/otel-collector/otel-collector-overview.md#back-up-data-in-aws-s3).
 You can also use the Query API which allows you to run SQL queries
