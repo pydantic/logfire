@@ -40,7 +40,7 @@ def instrument_starlette(
         server_request_hook=server_request_hook,
         client_request_hook=client_request_hook,
         client_response_hook=client_response_hook,
-        **{  # type: ignore
+        **{  # pyright: ignore[reportArgumentType]
             'tracer_provider': tweak_asgi_spans_tracer_provider(logfire_instance, record_send_receive),
             'meter_provider': logfire_instance.config.get_meter_provider(),
             **kwargs,

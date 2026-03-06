@@ -69,14 +69,14 @@ def instrument(
             if not allow_generator:
                 warnings.warn(GENERATOR_WARNING_MESSAGE, stacklevel=2)
 
-            def wrapper(*func_args: P.args, **func_kwargs: P.kwargs):  # type: ignore
+            def wrapper(*func_args: P.args, **func_kwargs: P.kwargs):  # pyright: ignore[reportUnknownParameterType, reportRedeclaration]
                 with open_span(*func_args, **func_kwargs):
                     yield from func(*func_args, **func_kwargs)
         elif inspect.isasyncgenfunction(func):
             if not allow_generator:
                 warnings.warn(GENERATOR_WARNING_MESSAGE, stacklevel=2)
 
-            async def wrapper(*func_args: P.args, **func_kwargs: P.kwargs):  # type: ignore
+            async def wrapper(*func_args: P.args, **func_kwargs: P.kwargs):  # pyright: ignore[reportRedeclaration]
                 with open_span(*func_args, **func_kwargs):
                     # `yield from` is invalid syntax in an async function.
                     # This loop is not quite equivalent, because `yield from` also handles things like
@@ -90,7 +90,7 @@ def instrument(
 
         elif inspect.iscoroutinefunction(func):
 
-            async def wrapper(*func_args: P.args, **func_kwargs: P.kwargs) -> R:  # type: ignore
+            async def wrapper(*func_args: P.args, **func_kwargs: P.kwargs) -> R:  # pyright: ignore[reportRedeclaration]
                 with open_span(*func_args, **func_kwargs) as span:
                     result = await func(*func_args, **func_kwargs)
                     if record_return:
@@ -109,7 +109,7 @@ def instrument(
                         set_user_attributes_on_raw_span(span._span, {'return': result})
                     return result
 
-        wrapper = functools.wraps(func)(wrapper)  # type: ignore
+        wrapper = functools.wraps(func)(wrapper)  # pyright: ignore[reportUnknownVariableType, reportAssignmentType]
         return wrapper
 
     return decorator
@@ -123,7 +123,7 @@ def get_open_span(
     func: Callable[P, R],
     new_trace: bool,
 ) -> Callable[P, AbstractContextManager[Any]]:
-    final_span_name: str = span_name or attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
+    final_span_name: str = span_name or attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # pyright: ignore[reportAssignmentType]
 
     def get_logfire():
         # This avoids having a `logfire` closure variable, which would make the instrumented
@@ -155,8 +155,8 @@ def get_open_span(
             return {}
 
     # This is the fast case for when there are no arguments to extract
-    def open_span(*_: P.args, **__: P.kwargs):  # type: ignore
-        return get_logfire()._fast_span(final_span_name, attributes, **extra_span_kwargs())  # type: ignore
+    def open_span(*_: P.args, **__: P.kwargs):  # pyright: ignore[reportRedeclaration]
+        return get_logfire()._fast_span(final_span_name, attributes, **extra_span_kwargs())  # pyright: ignore[reportPrivateUsage]
 
     if extract_args is True:
         sig = inspect.signature(func)
@@ -166,7 +166,7 @@ def get_open_span(
                 bound = sig.bind(*func_args, **func_kwargs)
                 bound.apply_defaults()
                 args_dict = bound.arguments
-                return get_logfire()._instrument_span_with_args(  # type: ignore
+                return get_logfire()._instrument_span_with_args(  # pyright: ignore[reportPrivateUsage]
                     final_span_name, attributes, args_dict, **extra_span_kwargs()
                 )
 
@@ -197,7 +197,7 @@ def get_open_span(
                 # This line is the only difference from the extract_args=True case
                 args_dict = {k: args_dict[k] for k in extract_args_final}
 
-                return get_logfire()._instrument_span_with_args(  # type: ignore
+                return get_logfire()._instrument_span_with_args(  # pyright: ignore[reportPrivateUsage]
                     final_span_name, attributes, args_dict, **extra_span_kwargs()
                 )
 
@@ -214,7 +214,7 @@ def get_attributes(
     func_name = getattr(func, '__qualname__', getattr(func, '__name__', safe_repr(func)))
     if not msg_template:
         try:
-            msg_template = f'Calling {inspect.getmodule(func).__name__}.{func_name}'  # type: ignore
+            msg_template = f'Calling {inspect.getmodule(func).__name__}.{func_name}'  # pyright: ignore[reportOptionalMemberAccess]
         except Exception:  # pragma: no cover
             msg_template = f'Calling {func_name}'
     attributes: dict[str, otel_types.AttributeValue] = {
@@ -224,7 +224,7 @@ def get_attributes(
     with contextlib.suppress(Exception):
         attributes['code.lineno'] = func.__code__.co_firstlineno
     with contextlib.suppress(Exception):
-        attributes.update(get_filepath_attribute(inspect.getsourcefile(func)))  # type: ignore
+        attributes.update(get_filepath_attribute(inspect.getsourcefile(func)))  # pyright: ignore[reportCallIssue, reportArgumentType]
 
     if tags:
         attributes[ATTRIBUTES_TAGS_KEY] = uniquify_sequence(tags)
