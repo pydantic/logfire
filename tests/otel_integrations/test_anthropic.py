@@ -23,7 +23,16 @@ from httpx._transports.mock import MockTransport
 from inline_snapshot import snapshot
 
 import logfire
+from logfire._internal.utils import get_version
 from logfire.testing import TestExporter
+
+pytestmark = [
+    pytest.mark.skipif(
+        get_version(pydantic.__version__) < get_version('2.5'),
+        reason='Requires Pydantic 2.5 or higher to import genai-prices and set operation.cost attribute.',
+    ),
+]
+
 
 ANY_ADAPTER = pydantic.TypeAdapter(Any)  # type: ignore
 
