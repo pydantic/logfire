@@ -46,7 +46,7 @@ After filling in the form, click the **Create alert** button. And... Alert creat
 
 ## Notification modes
 
-The **"Notify me when"** setting controls when you receive notifications. There are three modes:
+The **"Notify me when"** setting controls when you receive notifications. There are four modes:
 
 ### The query has any results
 
