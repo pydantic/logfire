@@ -54,10 +54,9 @@ class LogfireFinder(MetaPathFinder):
             # We fully expect plain_spec.origin and self.get_filename(...)
             # to be the same thing (a valid filename), but they're optional.
             filename = plain_spec.origin
-            if not filename:  # pragma: no cover
+            if not filename and plain_spec.loader is not None:  # pragma: no cover
                 try:
-                    if plain_spec.loader is not None:
-                        filename = cast('str | None', plain_spec.loader.get_filename(fullname))  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue]
+                    filename = cast('str | None', plain_spec.loader.get_filename(fullname))  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue]
                 except Exception:
                     pass
 

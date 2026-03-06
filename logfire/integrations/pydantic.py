@@ -271,16 +271,16 @@ def get_schema_name(schema: CoreSchema) -> str:
         assert 'cls' in schema
         return schema['cls'].__name__
     elif schema['type'] in {'function-after', 'function-before', 'function-wrap'}:
-        inner = schema['schema']  # pyright: ignore[reportGeneralTypeIssues, reportTypedDictNotRequiredAccess, reportUnknownVariableType]
-        return get_schema_name(inner)  # pyright: ignore[reportUnknownArgumentType]
+        assert 'schema' in schema
+        return get_schema_name(schema['schema'])
     elif schema['type'] == 'definitions':
         inner_schema = schema['schema']
         if inner_schema['type'] == 'definition-ref':
-            schema_ref: str = inner_schema['schema_ref']  # pyright: ignore[reportGeneralTypeIssues, reportUnknownVariableType]
+            assert 'schema_ref' in inner_schema
+            schema_ref: str = inner_schema['schema_ref']
+            assert 'definitions' in schema
             [schema_definition] = [
-                definition
-                for definition in schema['definitions']
-                if definition['ref'] == schema_ref  # pyright: ignore[reportGeneralTypeIssues, reportTypedDictNotRequiredAccess]
+                definition for definition in schema['definitions'] if definition.get('ref') == schema_ref
             ]
             return get_schema_name(schema_definition)
         else:
