@@ -1,0 +1,31 @@
+logfire/_internal/exporters/otlp.py
+  81bfb200d83f2c75 56
+logfire/_internal/exporters/dynamic_batch.py
+  81bfb200d83f2c75 20,37,41,45,49
+logfire/_internal/exporters/processor_wrapper.py
+  81bfb200d83f2c75 293,485
+logfire/_internal/exporters/console.py
+  81bfb200d83f2c75 70,74-75,81,242,261,492
+logfire/_internal/exporters/wrapper.py
+  81bfb200d83f2c75 43,47,53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.8",
+  "base_commit_sha": "efc2671bd95fefb1fc5c40b09f363516bd37fbaa",
+  "prompts": {
+    "81bfb200d83f2c75": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a9618815-8f8c-43b5-96b8-08e019213652",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>",
+      "messages": [],
+      "total_additions": 18,
+      "total_deletions": 18,
+      "accepted_lines": 18,
+      "overriden_lines": 0
+    }
+  }
+}
