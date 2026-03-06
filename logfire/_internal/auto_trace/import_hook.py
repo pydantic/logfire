@@ -56,7 +56,8 @@ class LogfireFinder(MetaPathFinder):
             filename = plain_spec.origin
             if not filename:  # pragma: no cover
                 try:
-                    filename = cast('str | None', plain_spec.loader.get_filename(fullname))  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue, reportOptionalMemberAccess]
+                    if plain_spec.loader is not None:
+                        filename = cast('str | None', plain_spec.loader.get_filename(fullname))  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue]
                 except Exception:
                     pass
 
