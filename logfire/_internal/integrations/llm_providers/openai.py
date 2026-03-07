@@ -336,9 +336,7 @@ def convert_responses_inputs_to_semconv(
         system_instructions.append(TextPart(type='text', content=instructions))
     if inputs:
         if isinstance(inputs, str):
-            input_messages.append(
-                cast('ChatMessage', {'role': 'user', 'parts': [TextPart(type='text', content=inputs)]})
-            )
+            input_messages.append(ChatMessage(role='user', parts=[TextPart(type='text', content=inputs)]))
         else:
             for inp in inputs:
                 role, typ, content = inp.get('role', 'user'), inp.get('type'), inp.get('content')
@@ -356,26 +354,23 @@ def convert_responses_inputs_to_semconv(
                                     parts.append(cast('MessagePart', item_dict))
                             else:
                                 parts.append(TextPart(type='text', content=str(item)))
-                    input_messages.append(cast('ChatMessage', {'role': role, 'parts': parts}))
+                    input_messages.append(ChatMessage(role=role, parts=parts))
                 elif typ == 'function_call':
                     arguments: Any = inp.get('arguments')
                     if isinstance(arguments, str):
                         with contextlib.suppress(json.JSONDecodeError):
                             arguments = json.loads(arguments)
                     input_messages.append(
-                        cast(
-                            'ChatMessage',
-                            {
-                                'role': 'assistant',
-                                'parts': [
-                                    ToolCallPart(
-                                        type='tool_call',
-                                        id=inp.get('call_id', ''),
-                                        name=inp.get('name', ''),
-                                        arguments=arguments,
-                                    )
-                                ],
-                            },
+                        ChatMessage(
+                            role='assistant',
+                            parts=[
+                                ToolCallPart(
+                                    type='tool_call',
+                                    id=inp.get('call_id', ''),
+                                    name=inp.get('name', ''),
+                                    arguments=arguments,
+                                )
+                            ],
                         )
                     )
                 elif typ == 'function_call_output':
@@ -456,12 +451,9 @@ def convert_responses_outputs_to_semconv(response: Response) -> OutputMessages:
                 if item.get('type') == 'output_text':
                     parts.append(TextPart(type='text', content=cast(str, item.get('text', ''))))
             output_messages.append(
-                cast(
-                    'OutputMessage',
-                    {
-                        'role': 'assistant',
-                        'parts': parts,
-                    },
+                OutputMessage(
+                    role='assistant',
+                    parts=parts,
                 )
             )
         elif typ == 'function_call':  # pragma: no cover - outputs are typically 'message' type
@@ -470,19 +462,16 @@ def convert_responses_outputs_to_semconv(response: Response) -> OutputMessages:
                 with contextlib.suppress(json.JSONDecodeError):
                     arguments = json.loads(arguments)
             output_messages.append(
-                cast(
-                    'OutputMessage',
-                    {
-                        'role': 'assistant',
-                        'parts': [
-                            ToolCallPart(
-                                type='tool_call',
-                                id=out_dict.get('call_id', ''),
-                                name=out_dict.get('name', ''),
-                                arguments=arguments,
-                            )
-                        ],
-                    },
+                OutputMessage(
+                    role='assistant',
+                    parts=[
+                        ToolCallPart(
+                            type='tool_call',
+                            id=out_dict.get('call_id', ''),
+                            name=out_dict.get('name', ''),
+                            arguments=arguments,
+                        )
+                    ],
                 )
             )
     return output_messages
