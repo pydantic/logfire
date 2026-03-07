@@ -437,10 +437,7 @@ def convert_responses_outputs_to_semconv(response: Response) -> OutputMessages:
         content = out_dict.get('content')
 
         if typ in (None, 'message') and content:
-            parts: list[MessagePart] = []
-            for item in cast('list[dict[str, Any]]', content):
-                if item.get('type') == 'output_text':
-                    parts.append(TextPart(type='text', content=cast(str, item.get('text', ''))))
+            parts: list[MessagePart] = _convert_content_part_or_parts(content)
             output_messages.append(
                 OutputMessage(
                     role='assistant',
