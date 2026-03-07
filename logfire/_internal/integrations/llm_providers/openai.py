@@ -266,12 +266,7 @@ def convert_chat_completions_to_semconv(
             # Regular messages: build parts from content and tool calls
             # Add content parts
             if content is not None:
-                if isinstance(content, str):
-                    parts.append(TextPart(type='text', content=content))
-                elif isinstance(content, list):
-                    for part in cast('list[dict[str, Any] | str]', content):
-                        parts.append(_convert_content_part(part))
-                # else: content is neither str nor list - unreachable in practice
+                parts.extend(_convert_content_part_or_parts(content))
 
             # Add tool call parts (for assistant messages with tool calls)
             if tool_calls:  # pragma: no cover
@@ -304,13 +299,21 @@ def convert_chat_completions_to_semconv(
     return input_messages
 
 
-def _convert_content_part(part: dict[str, Any] | str) -> MessagePart:
-    """Convert a single content part to semconv format."""
-    if isinstance(part, str):  # pragma: no cover
-        return TextPart(type='text', content=part)
+def _convert_content_part_or_parts(content: object) -> list[MessagePart]:
+    if isinstance(content, list):
+        return [_convert_content_part(part) for part in cast(list[Any], content)]
+    else:
+        return [_convert_content_part(content)]
 
+
+def _convert_content_part(part: object) -> MessagePart:
+    """Convert a single content part to semconv format."""
+    if not isinstance(part, dict):  # pragma: no cover
+        return TextPart(type='text', content=str(part))
+
+    part = cast('dict[str, Any]', part)
     part_type = part.get('type', 'unknown')
-    if part_type == 'text':
+    if part_type in ('text', 'output_text'):
         return TextPart(type='text', content=part.get('text', ''))
     elif part_type == 'image_url':  # pragma: no cover
         url = part.get('image_url', {}).get('url', '')
@@ -341,19 +344,7 @@ def convert_responses_inputs_to_semconv(
             for inp in inputs:
                 role, typ, content = inp.get('role', 'user'), inp.get('type'), inp.get('content')
                 if typ in (None, 'message') and content:
-                    parts: list[MessagePart] = []
-                    if isinstance(content, str):
-                        parts.append(TextPart(type='text', content=content))
-                    elif isinstance(content, list):  # pragma: no cover
-                        for item in cast(list[Any], content):
-                            if isinstance(item, dict):
-                                item_dict = cast(dict[str, Any], item)
-                                if item_dict.get('type') == 'output_text':
-                                    parts.append(TextPart(type='text', content=item_dict.get('text', '')))
-                                else:
-                                    parts.append(cast('MessagePart', item_dict))
-                            else:
-                                parts.append(TextPart(type='text', content=str(item)))
+                    parts: list[MessagePart] = _convert_content_part_or_parts(content)
                     input_messages.append(ChatMessage(role=role, parts=parts))
                 elif typ == 'function_call':
                     arguments: Any = inp.get('arguments')
@@ -428,7 +419,7 @@ def convert_openai_response_to_semconv(
                 )
 
     result: OutputMessage = {
-        'role': cast('Role', message.role),
+        'role': message.role,
         'parts': parts,
     }
     if finish_reason:
