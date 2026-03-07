@@ -295,6 +295,9 @@ def convert_chat_completions_to_semconv(
 
 
 def _convert_content_part_or_parts(content: object) -> list[MessagePart]:
+    if not content:
+        return []
+
     if isinstance(content, list):
         return [_convert_content_part(part) for part in cast(list[Any], content)]
     else:
@@ -329,9 +332,7 @@ def convert_responses_inputs_to_semconv(
 ) -> tuple[InputMessages, SystemInstructions]:
     """Convert Responses API inputs to OTel Gen AI Semantic Convention format."""
     input_messages: InputMessages = []
-    system_instructions: SystemInstructions = []
-    if instructions:
-        system_instructions.append(TextPart(type='text', content=instructions))
+    system_instructions: SystemInstructions = _convert_content_part_or_parts(instructions)
     if inputs:
         if isinstance(inputs, str):
             input_messages.append(ChatMessage(role='user', parts=[TextPart(type='text', content=inputs)]))
@@ -386,10 +387,7 @@ def convert_openai_response_to_semconv(
     finish_reason: str | None = None,
 ) -> OutputMessage:
     """Convert an OpenAI ChatCompletionMessage to OTel Gen AI Semantic Convention format."""
-    parts: list[MessagePart] = []
-
-    if message.content:
-        parts.append(TextPart(type='text', content=message.content))
+    parts: list[MessagePart] = _convert_content_part_or_parts(message.content)
 
     if message.tool_calls:  # pragma: no cover
         for tc in message.tool_calls:
