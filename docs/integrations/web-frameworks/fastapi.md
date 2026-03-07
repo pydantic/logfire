@@ -109,6 +109,52 @@ The main request span will still have the attributes described above, but it wil
 This is mostly redundant now and is mainly provided for backwards compatibility.
 It can also be useful for grouping together child logs and spans produced by the request.
 
+
+## Proxying Browser Telemetry
+
+If you have a frontend application (e.g., React, Vue, or Vanilla JS) that sends telemetry from the browser, you should **never** expose your Logfire Write Token in the frontend code.
+
+Instead, you can use experimental proxy handler to securely forward OTLP telemetry from the browser through your FastAPI backend to Logfire.
+
+```py title="main.py" skip-run="true" skip-reason="server-start"
+from fastapi import FastAPI, Request
+
+import logfire
+from logfire.experimental.forwarding import logfire_proxy
+
+logfire.configure()
+app = FastAPI()
+
+
+# Mount the proxy handler
+# Note: {path:path} is strictly required to capture the OTLP route (e.g., /v1/traces)
+@app.post('/logfire-proxy/{path:path}')
+async def proxy_browser_telemetry(request: Request):
+    return await logfire_proxy(request)
+```
+
+By default, this endpoint is unauthenticated and accepts payloads up to 50MB. In production, you should protect it using FastAPI dependencies to prevent abuse:
+
+```py skip-run="true" skip-reason="server-start"
+from fastapi import Depends, FastAPI, Request
+
+import logfire
+from logfire.experimental.forwarding import logfire_proxy
+
+logfire.configure()
+app = FastAPI()
+
+
+async def verify_user_session():
+    # Implement your authentication/rate-limiting logic here
+    pass
+
+
+@app.post('/logfire-proxy/{path:path}', dependencies=[Depends(verify_user_session)])
+async def proxy_browser_telemetry_secure(request: Request):
+    return await logfire_proxy(request)
+```
+
 [fastapi]: https://fastapi.tiangolo.com/
 [opentelemetry-asgi]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html
 [opentelemetry-fastapi]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html
