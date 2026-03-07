@@ -437,11 +437,10 @@ def convert_responses_outputs_to_semconv(response: Response) -> OutputMessages:
         content = out_dict.get('content')
 
         if typ in (None, 'message') and content:
-            parts: list[MessagePart] = _convert_content_part_or_parts(content)
             output_messages.append(
                 OutputMessage(
                     role='assistant',
-                    parts=parts,
+                    parts=_convert_content_part_or_parts(content),
                 )
             )
         elif typ == 'function_call':  # pragma: no cover - outputs are typically 'message' type
