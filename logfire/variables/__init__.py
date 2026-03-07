@@ -13,6 +13,11 @@ from logfire.variables.abstract import (
     VariableNotFoundError,
     VariableWriteError,
 )
+from logfire.variables.composition import (
+    ComposedReference,
+    VariableCompositionCycleError,
+    VariableCompositionError,
+)
 
 if TYPE_CHECKING:
     # We use a TYPE_CHECKING block here because we need to do these imports lazily to prevent issues due to loading the
@@ -39,6 +44,7 @@ if TYPE_CHECKING:
     )
     from logfire.variables.variable import (
         ResolveFunction,
+        TemplateVariable,
         Variable,
         targeting_context,
     )
@@ -46,6 +52,7 @@ if TYPE_CHECKING:
 __all__ = [
     # Variable classes
     'Variable',
+    'TemplateVariable',
     'ResolvedVariable',
     'ResolveFunction',
     # Configuration classes
@@ -112,6 +119,7 @@ def __getattr__(name: str):
     )
     from logfire.variables.variable import (
         ResolveFunction,
+        TemplateVariable,
         Variable,
         targeting_context,
     )
