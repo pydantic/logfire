@@ -1589,3 +1589,351 @@ def test_no_xdist_attributes_without_xdist(logfire_pytester: pytest.Pytester):
 
     test_span = find_span_by_pattern(spans, 'test_example')
     assert test_span is not None
+
+
+def test_logfire_fixture_scoped_fixtures_span_hierarchy(logfire_pytester: pytest.Pytester):
+    """Verify span hierarchy when logfire_pytest is used in session/module/function-scoped fixtures.
+
+    Test scenario:
+        - session_fixture: session-scoped, creates a span
+        - module_fixture:  module-scoped, depends on session_fixture, creates a span
+        - function_fixture: function-scoped, depends on module_fixture, creates a span
+        - test_module:    uses module_fixture directly
+        - test_function:  uses function_fixture (which pulls in module_fixture)
+        - test_session:   uses only session_fixture (different module, so module/function
+                          fixtures are not active)
+
+    Expected hierarchy:
+        session span
+        └── session fixture span
+            ├── module fixture span
+            │   ├── test_module
+            │   └── function fixture span
+            │       └── test_function
+            └── test_session
+    """
+    # The session-scoped fixture lives in conftest so it's shared across both test modules.
+    logfire_pytester.makeconftest(
+        logfire_pytester.path.joinpath('conftest.py').read_text()
+        + """
+import pytest
+
+@pytest.fixture(scope="session")
+def session_fixture(logfire_pytest):
+    with logfire_pytest.span("session fixture span"):
+        yield "session-value"
+"""
+    )
+    logfire_pytester.makepyfile(
+        test_module_and_function="""
+        import pytest
+
+        @pytest.fixture(scope="module")
+        def module_fixture(logfire_pytest, session_fixture):
+            with logfire_pytest.span("module fixture span"):
+                yield "module-value"
+
+        @pytest.fixture
+        def function_fixture(logfire_pytest, module_fixture):
+            with logfire_pytest.span("function fixture span"):
+                yield "function-value"
+
+        def test_module(logfire_pytest, module_fixture):
+            assert module_fixture == "module-value"
+
+        def test_function(logfire_pytest, function_fixture):
+            assert function_fixture == "function-value"
+        """,
+        test_session_only="""
+        def test_session(logfire_pytest, session_fixture):
+            assert session_fixture == "session-value"
+        """,
+    )
+    # Run test_module_and_function first so session/module fixtures are set up there,
+    # then test_session_only where only the session fixture is (already) active.
+    result = logfire_pytester.runpytest_subprocess(
+        '-p',
+        'no:django',
+        '-p',
+        'no:pretty',
+        '--logfire',
+        'test_module_and_function.py',
+        'test_session_only.py',
+    )
+    result.assert_outcomes(passed=3)
+
+    spans = load_spans(logfire_pytester)
+
+    # Find all spans
+    session_span = find_session_span(spans)
+    assert session_span is not None, 'Session span not found'
+
+    session_fixtures = find_spans_by_pattern(spans, 'session fixture span')
+    module_fixture = find_span_by_pattern(spans, 'module fixture span')
+    function_fixture = find_span_by_pattern(spans, 'function fixture span')
+    test_module = find_span_by_pattern(spans, 'test_module')
+    test_function = find_span_by_pattern(spans, 'test_function')
+    test_session = find_span_by_pattern(spans, 'test_session')
+
+    # The session fixture is scoped to the whole session, so there should be exactly one span.
+    assert len(session_fixtures) == 1, f'Expected 1 session fixture span, got {len(session_fixtures)}'
+    session_fixture = session_fixtures[0]
+
+    assert module_fixture is not None, 'Module fixture span not found'
+    assert function_fixture is not None, 'Function fixture span not found'
+    assert test_module is not None, 'test_module span not found'
+    assert test_function is not None, 'test_function span not found'
+    assert test_session is not None, 'test_session span not found'
+
+    # All spans share the same trace
+    trace_id = session_span['context']['trace_id']
+    for span in [session_fixture, module_fixture, function_fixture, test_module, test_function, test_session]:
+        assert span['context']['trace_id'] == trace_id, f'Span {span["name"]} has different trace_id'
+
+    session_span_id = session_span['context']['span_id']
+    session_fixture_id = session_fixture['context']['span_id']
+    module_fixture_id = module_fixture['context']['span_id']
+
+    # --- Desired parent relationships ---
+
+    # session fixture span → session span
+    assert session_fixture['parent']['span_id'] == session_span_id, (
+        'Session fixture span should be a child of the session span, '
+        f'but got parent span_id={session_fixture["parent"]["span_id"]}'
+    )
+
+    # module fixture span → session fixture span
+    assert module_fixture['parent']['span_id'] == session_fixture_id, (
+        'Module fixture span should be a child of the session fixture span'
+    )
+
+    # test_module → module fixture span (test runs while module fixture is active)
+    assert test_module['parent']['span_id'] == module_fixture_id, (
+        'test_module span should be a child of the module fixture span'
+    )
+
+    # function fixture span → module fixture span
+    assert function_fixture['parent']['span_id'] == module_fixture_id, (
+        'Function fixture span should be a child of the module fixture span'
+    )
+
+    # test_function → function fixture span
+    assert test_function['parent']['span_id'] == function_fixture['context']['span_id'], (
+        'test_function span should be a child of the function fixture span'
+    )
+
+    # test_session → session fixture span (only session fixture is active)
+    assert test_session['parent']['span_id'] == session_fixture_id, (
+        'test_session span should be a child of the session fixture span'
+    )
+
+
+def test_scoped_fixture_without_parent_context(logfire_pytester: pytest.Pytester):
+    """A module-scoped fixture that doesn't depend on any other fixture still captures context.
+
+    This covers the branch where parent_ctx is None and is_scoped is True, but the
+    fixture creates a span anyway (lines 446-452 in pytest_fixture_setup).
+    """
+    logfire_pytester.makepyfile(
+        test_standalone_module="""
+        import pytest
+
+        @pytest.fixture(scope="module")
+        def standalone_module_fixture(logfire_pytest):
+            with logfire_pytest.span("standalone module span"):
+                yield "standalone"
+
+        def test_first(standalone_module_fixture):
+            assert standalone_module_fixture == "standalone"
+
+        def test_second(standalone_module_fixture):
+            assert standalone_module_fixture == "standalone"
+        """
+    )
+    result = logfire_pytester.runpytest_subprocess(
+        '-p',
+        'no:django',
+        '-p',
+        'no:pretty',
+        '--logfire',
+        'test_standalone_module.py',
+    )
+    result.assert_outcomes(passed=2)
+
+    spans = load_spans(logfire_pytester)
+
+    module_span = find_span_by_pattern(spans, 'standalone module span')
+    assert module_span is not None, 'Module fixture span not found'
+
+    test_first = find_span_by_pattern(spans, 'test_first')
+    test_second = find_span_by_pattern(spans, 'test_second')
+    assert test_first is not None
+    assert test_second is not None
+
+    # Both tests should be children of the module fixture span
+    module_span_id = module_span['context']['span_id']
+    assert test_first['parent']['span_id'] == module_span_id
+    assert test_second['parent']['span_id'] == module_span_id
+
+
+def test_fixture_with_missing_dependency(logfire_pytester: pytest.Pytester):
+    """A fixture whose dependency lookup raises an exception should still work.
+
+    This covers the except branch in pytest_fixture_setup (lines 406-407)
+    where _get_active_fixturedef raises and we continue.
+    """
+    logfire_pytester.makepyfile(
+        test_missing_dep="""
+        import pytest
+
+        @pytest.fixture(scope="module")
+        def base_fixture(logfire_pytest):
+            with logfire_pytest.span("base span"):
+                yield "base"
+
+        @pytest.fixture(scope="module")
+        def derived_fixture(logfire_pytest, base_fixture, request):
+            # 'request' is a built-in fixture that won't have an active fixturedef
+            # in the normal sense, exercising the exception path
+            with logfire_pytest.span("derived span"):
+                yield "derived"
+
+        def test_with_derived(derived_fixture):
+            assert derived_fixture == "derived"
+        """
+    )
+    result = logfire_pytester.runpytest_subprocess(
+        '-p',
+        'no:django',
+        '-p',
+        'no:pretty',
+        '--logfire',
+        'test_missing_dep.py',
+    )
+    result.assert_outcomes(passed=1)
+
+    spans = load_spans(logfire_pytester)
+    derived_span = find_span_by_pattern(spans, 'derived span')
+    base_span = find_span_by_pattern(spans, 'base span')
+    assert derived_span is not None
+    assert base_span is not None
+
+
+def test_new_scoped_fixture_setup_during_test(logfire_pytester: pytest.Pytester):
+    """When a test triggers setup of a new scoped fixture, post_ctx differs from pre_ctx.
+
+    This covers the branch at line 609-612 where post_ctx is not pre_ctx and
+    pre_token is detached.
+    """
+    logfire_pytester.makeconftest(
+        logfire_pytester.path.joinpath('conftest.py').read_text()
+        + """
+import pytest
+
+@pytest.fixture(scope="session")
+def session_fix(logfire_pytest):
+    with logfire_pytest.span("session fix span"):
+        yield "session"
+"""
+    )
+    logfire_pytester.makepyfile(
+        test_a_module="""
+        import pytest
+
+        @pytest.fixture(scope="module")
+        def module_fix(logfire_pytest, session_fix):
+            with logfire_pytest.span("module fix span"):
+                yield "module"
+
+        def test_first(session_fix):
+            '''First test uses only session fixture, caching its context.'''
+            assert session_fix == "session"
+
+        def test_second(module_fix):
+            '''Second test triggers module fixture setup; post_ctx != pre_ctx.'''
+            assert module_fix == "module"
+        """
+    )
+    result = logfire_pytester.runpytest_subprocess(
+        '-p',
+        'no:django',
+        '-p',
+        'no:pretty',
+        '--logfire',
+        'test_a_module.py',
+    )
+    result.assert_outcomes(passed=2)
+
+    spans = load_spans(logfire_pytester)
+
+    session_fix_span = find_span_by_pattern(spans, 'session fix span')
+    module_fix_span = find_span_by_pattern(spans, 'module fix span')
+    test_second = find_span_by_pattern(spans, 'test_second')
+    assert session_fix_span is not None
+    assert module_fix_span is not None
+    assert test_second is not None
+
+    # module fixture should be child of session fixture
+    assert module_fix_span['parent']['span_id'] == session_fix_span['context']['span_id']
+    # test_second should be child of module fixture (the more specific context)
+    assert test_second['parent']['span_id'] == module_fix_span['context']['span_id']
+
+
+def test_skipped_during_setup_no_span_leak(logfire_pytester: pytest.Pytester):
+    """When a test is skipped during fixture setup, context tokens should not leak.
+
+    This covers the teardown path where span_info is None (line 697→exit)
+    and ensures _logfire_ctx_tokens are still cleaned up.
+    """
+    logfire_pytester.makeconftest(
+        logfire_pytester.path.joinpath('conftest.py').read_text()
+        + """
+import pytest
+
+@pytest.fixture(scope="session")
+def session_fix(logfire_pytest):
+    with logfire_pytest.span("session fix"):
+        yield
+
+@pytest.fixture
+def skip_fixture(session_fix):
+    pytest.skip("skipping in fixture")
+"""
+    )
+    logfire_pytester.makepyfile(
+        test_skip="""
+        def test_skipped(skip_fixture, logfire_pytest):
+            # This body never runs because skip_fixture skips during setup.
+            # The span below should NOT appear in the captured spans.
+            with logfire_pytest.span("should not appear"):
+                pass
+
+        def test_after_skip(logfire_pytest):
+            '''This test should still work fine after the skipped one.'''
+            with logfire_pytest.span("after skip span"):
+                pass
+        """
+    )
+    result = logfire_pytester.runpytest_subprocess(
+        '-p',
+        'no:django',
+        '-p',
+        'no:pretty',
+        '--logfire',
+        'test_skip.py',
+    )
+    result.assert_outcomes(passed=1, skipped=1)
+
+    spans = load_spans(logfire_pytester)
+
+    # The skipped test still gets a test span (hookwrapper yield doesn't raise on skip)
+    skipped_span = find_span_by_pattern(spans, 'test_skipped')
+    assert skipped_span is not None, 'Skipped test should still have a test span'
+
+    # The span inside the skipped test body should NOT exist (body never ran)
+    should_not_appear = find_span_by_pattern(spans, 'should not appear')
+    assert should_not_appear is None, 'Span inside skipped test body should not exist'
+
+    # The test after the skip should still work fine (no context leak)
+    after_skip = find_span_by_pattern(spans, 'after skip span')
+    assert after_skip is not None, f'Span after skip should exist, got: {[s["name"] for s in spans]}'

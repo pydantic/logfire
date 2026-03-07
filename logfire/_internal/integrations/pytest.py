@@ -26,6 +26,10 @@ try:
     _SESSION_SPAN_KEY: pytest.StashKey[LogfireSpan] = pytest.StashKey()
     _SPAN_KEY: pytest.StashKey[Any] = pytest.StashKey()  # Stores OTel span
     _CONTEXT_TOKEN_KEY: pytest.StashKey[Any] = pytest.StashKey()  # Stores context token from TRACEPARENT
+    # Maps FixtureDef id → OTel Context captured after non-function-scoped fixture setup.
+    _FIXTURE_CONTEXT_KEY: pytest.StashKey[dict[int, Any]] = pytest.StashKey()
+    # Stores (LogfireSpan, fixture_ctx_token) for cleanup in teardown
+    _LOGFIRE_SPAN_KEY: pytest.StashKey[Any] = pytest.StashKey()
 except ImportError:  # pragma: no cover
     pass
 
@@ -157,6 +161,7 @@ def pytest_configure(config: pytest.Config) -> None:
         service_name=service_name,
         trace_phases=_get_trace_phases(config),
     )
+    config.stash[_FIXTURE_CONTEXT_KEY] = {}
 
 
 def _add_ci_metadata(span: LogfireSpan) -> None:
@@ -360,72 +365,161 @@ def pytest_sessionstart(session: pytest.Session) -> None:
 
 
 @pytest.hookimpl(hookwrapper=True)
+def pytest_fixture_setup(
+    fixturedef: Any,
+    request: Any,
+) -> Generator[None]:
+    """Manage OTel context for fixture setup.
+
+    For non-function-scoped fixtures: ensures their spans are children of the
+    session span (or a parent fixture's span) rather than the test span that
+    lazily triggers setup. After setup, captures the OTel context so subsequent
+    tests can parent their spans correctly.
+
+    For function-scoped fixtures that depend on scoped fixtures: restores the
+    parent fixture's context so the function fixture's spans are parented
+    correctly.
+    """
+    from _pytest.scope import Scope
+
+    config = request.config
+    if not _is_enabled(config):
+        yield
+        return
+
+    from opentelemetry import context as context_api
+
+    fixture_contexts = config.stash.get(_FIXTURE_CONTEXT_KEY, None)
+    if fixture_contexts is None:
+        yield
+        return
+
+    scope = fixturedef._scope
+    is_scoped = scope != Scope.Function
+
+    # Find the best parent context: walk up the fixture's dependencies to find
+    # the innermost fixture that already has a captured context.
+    parent_ctx = None
+    for argname in fixturedef.argnames:
+        try:
+            dep_fixturedef = request._get_active_fixturedef(argname)
+        except Exception:
+            continue
+        dep_ctx = fixture_contexts.get(id(dep_fixturedef))
+        if dep_ctx is not None:
+            parent_ctx = dep_ctx
+
+    if parent_ctx is None and is_scoped:
+        # Fall back to session span context for scoped fixtures.
+        session = request.session
+        session_span = session.stash.get(_SESSION_SPAN_KEY, None)
+        if session_span and session_span._span is not None:
+            from opentelemetry import trace
+
+            parent_ctx = trace.set_span_in_context(session_span._span)
+
+    if parent_ctx is not None:
+        from opentelemetry import trace
+
+        token = context_api.attach(parent_ctx)
+        span_before = trace.get_current_span()
+        try:
+            yield
+        finally:
+            if is_scoped:
+                # Only capture the context if the fixture actually created a new span.
+                span_after = trace.get_current_span()
+                if span_after is not span_before:
+                    fixture_contexts[id(fixturedef)] = context_api.get_current()
+                context_api.detach(token)
+            else:
+                # For function-scoped fixtures, DON'T detach — let the fixture's
+                # span remain as the current context so the test span is parented
+                # correctly. Store the token on the item for cleanup in teardown.
+                pyfuncitem = request._pyfuncitem
+                _pending: list[Any] | None = getattr(pyfuncitem, '_logfire_ctx_tokens', None)
+                if _pending is None:
+                    _pending = pyfuncitem._logfire_ctx_tokens = []
+                _pending.append(token)
+    else:
+        if is_scoped:
+            from opentelemetry import trace
+
+            span_before = trace.get_current_span()
+            yield
+            span_after = trace.get_current_span()
+            if span_after is not span_before:
+                fixture_contexts[id(fixturedef)] = context_api.get_current()
+        else:
+            yield
+
+
+def _get_innermost_fixture_context(item: pytest.Item) -> Any | None:
+    """Find the OTel context of the innermost non-function-scoped fixture for a test item.
+
+    Uses item.fixturenames and the fixture manager to resolve fixture defs,
+    so it works both before and after fixture setup.
+    """
+    from _pytest.scope import Scope
+
+    config = item.config
+    fixture_contexts = config.stash.get(_FIXTURE_CONTEXT_KEY, None)
+    if not fixture_contexts:
+        return None
+
+    best_ctx = None
+    best_scope = Scope.Session  # Start with widest scope
+
+    fixturemanager = item.session._fixturemanager  # type: ignore[union-attr]
+    for argname in getattr(item, 'fixturenames', []):
+        fixturedefs = fixturemanager.getfixturedefs(argname, item)
+        if not fixturedefs:
+            continue
+        fdef = fixturedefs[-1]  # Last one wins (overrides)
+        ctx = fixture_contexts.get(id(fdef))
+        if ctx is not None:
+            fscope = Scope(fdef.scope)
+            if fscope <= best_scope:
+                best_scope = fscope
+                best_ctx = ctx
+
+    return best_ctx
+
+
+@pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_protocol(
     item: pytest.Item,
     nextitem: pytest.Item | None,
 ) -> Generator[None]:
-    """Create a span for each test."""
+    """Wrap test protocol to manage TRACEPARENT env var propagation.
+
+    The per-test span is NOT created here. It is created in pytest_runtest_setup
+    (after fixture setup) so that the span is correctly parented to the innermost
+    active scoped fixture span rather than always to the session span.
+    """
     if not _is_enabled(item.config):
         yield
         return
 
     plugin_config = item.config.stash.get(_CONFIG_KEY, None)
     if not plugin_config:  # pragma: no cover
-        # Defensive check: plugin should be configured if test is running
         yield
         return
 
-    from opentelemetry import trace
-
-    logfire_instance = plugin_config.logfire_instance
-
-    with logfire_instance.span(item.nodeid) as span:
-        location = item.location
-        span.set_attributes(
-            {
-                'test.name': item.name,
-                'test.nodeid': item.nodeid,
-                'code.filepath': location[0],
-                'code.lineno': location[1],
-                'code.function': location[2],
-            }
-        )
-
-        # Add class/module info if available
-        if hasattr(item, 'cls') and item.cls:  # type: ignore[attr-defined]
-            span.set_attribute('test.class', item.cls.__name__)  # type: ignore[attr-defined]
-        if hasattr(item, 'module') and item.module:  # type: ignore[attr-defined] pragma: no cover
-            span.set_attribute('test.module', item.module.__name__)  # type: ignore[attr-defined]
-
-        # Handle parameterized tests
-        if hasattr(item, 'callspec'):
-            import json
-
-            try:
-                params_json = json.dumps(item.callspec.params)  # type: ignore[attr-defined]
-                span.set_attribute('test.parameters', params_json)
-            except (TypeError, ValueError):
-                # If parameters can't be serialized, just store the keys
-                span.set_attribute('test.parameters', str(list(item.callspec.params.keys())))  # type: ignore[attr-defined]
-
-        item.stash[_SPAN_KEY] = trace.get_current_span()
-
-        # Propagate trace context via env vars so child processes
-        # (e.g. subprocess.Popen, subprocess.run) inherit the test's trace.
-        old_traceparent = os.environ.get('TRACEPARENT')
-        old_tracestate = os.environ.get('TRACESTATE')
-        _inject_traceparent_env()
-        try:
-            yield
-        finally:
-            if old_traceparent is not None:
-                os.environ['TRACEPARENT'] = old_traceparent
-            else:
-                os.environ.pop('TRACEPARENT', None)
-            if old_tracestate is not None:
-                os.environ['TRACESTATE'] = old_tracestate
-            else:
-                os.environ.pop('TRACESTATE', None)
+    # Propagate trace context via env vars so child processes inherit it.
+    old_traceparent = os.environ.get('TRACEPARENT')
+    old_tracestate = os.environ.get('TRACESTATE')
+    try:
+        yield
+    finally:
+        if old_traceparent is not None:
+            os.environ['TRACEPARENT'] = old_traceparent
+        else:
+            os.environ.pop('TRACEPARENT', None)
+        if old_tracestate is not None:
+            os.environ['TRACESTATE'] = old_tracestate
+        else:
+            os.environ.pop('TRACESTATE', None)
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -473,21 +567,90 @@ def pytest_runtest_makereport(
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_setup(item: pytest.Item) -> Generator[None]:
-    """Trace test setup phase if --logfire-trace-phases is enabled."""
-    if not _should_trace_phases(item.config):
+    """Set up fixtures, then create the per-test span.
+
+    The test span is created AFTER fixture setup so that it is correctly
+    parented to the innermost active scoped fixture span. If --logfire-trace-phases
+    is enabled, the setup phase is also traced with a sub-span.
+    """
+    if not _is_enabled(item.config):
         yield
         return
 
     plugin_config = item.config.stash.get(_CONFIG_KEY, None)
     if not plugin_config:  # pragma: no cover
-        # Defensive check: plugin should be configured if test is running
         yield
         return
 
     logfire_instance = plugin_config.logfire_instance
 
-    with logfire_instance.span('setup: {nodeid}', nodeid=item.nodeid):
+    from opentelemetry import context as context_api, trace
+
+    # Before fixture setup, restore the innermost cached scoped fixture context.
+    # This ensures that function-scoped fixtures (set up during this phase) create
+    # their spans as children of the correct scoped fixture span rather than the
+    # session span.
+    pre_ctx = _get_innermost_fixture_context(item)
+    if pre_ctx is not None:
+        pre_token = context_api.attach(pre_ctx)
+    else:
+        pre_token = None
+
+    if _should_trace_phases(item.config):
+        with logfire_instance.span('setup: {nodeid}', nodeid=item.nodeid):
+            yield
+    else:
         yield
+
+    # After fixture setup, check if new (more specific) fixture contexts were
+    # captured during setup (e.g. the first test triggering scoped fixture setup).
+    post_ctx = _get_innermost_fixture_context(item)
+
+    if post_ctx is not None and post_ctx is not pre_ctx:
+        # New context captured during setup — use it instead
+        if pre_token is not None:
+            context_api.detach(pre_token)
+        fixture_ctx_token = context_api.attach(post_ctx)
+    elif pre_token is not None:
+        fixture_ctx_token = pre_token
+    else:
+        fixture_ctx_token = None
+
+    span = logfire_instance.span(item.nodeid)
+    location = item.location
+    span.set_attributes(
+        {
+            'test.name': item.name,
+            'test.nodeid': item.nodeid,
+            'code.filepath': location[0],
+            'code.lineno': location[1],
+            'code.function': location[2],
+        }
+    )
+
+    # Add class/module info if available
+    if hasattr(item, 'cls') and item.cls:  # type: ignore[attr-defined]
+        span.set_attribute('test.class', item.cls.__name__)  # type: ignore[attr-defined]
+    if hasattr(item, 'module') and item.module:  # type: ignore[attr-defined] pragma: no cover
+        span.set_attribute('test.module', item.module.__name__)  # type: ignore[attr-defined]
+
+    # Handle parameterized tests
+    if hasattr(item, 'callspec'):
+        import json
+
+        try:
+            params_json = json.dumps(item.callspec.params)  # type: ignore[attr-defined]
+            span.set_attribute('test.parameters', params_json)
+        except (TypeError, ValueError):
+            span.set_attribute('test.parameters', str(list(item.callspec.params.keys())))  # type: ignore[attr-defined]
+
+    span.__enter__()
+    item.stash[_SPAN_KEY] = trace.get_current_span()
+    # Store the LogfireSpan and fixture context token for cleanup in teardown.
+    item.stash[_LOGFIRE_SPAN_KEY] = (span, fixture_ctx_token)
+
+    # Propagate trace context via env vars
+    _inject_traceparent_env()
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -511,21 +674,41 @@ def pytest_runtest_call(item: pytest.Item) -> Generator[None]:
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_teardown(item: pytest.Item) -> Generator[None]:
-    """Trace test teardown phase if --logfire-trace-phases is enabled."""
-    if not _should_trace_phases(item.config):
+    """Close the per-test span and trace teardown phase."""
+    if not _is_enabled(item.config):
         yield
         return
 
     plugin_config = item.config.stash.get(_CONFIG_KEY, None)
     if not plugin_config:  # pragma: no cover
-        # Defensive check: plugin should be configured if test is running
         yield
         return
 
     logfire_instance = plugin_config.logfire_instance
 
-    with logfire_instance.span('teardown: {nodeid}', nodeid=item.nodeid):
+    if _should_trace_phases(item.config):
+        with logfire_instance.span('teardown: {nodeid}', nodeid=item.nodeid):
+            yield
+    else:
         yield
+
+    from opentelemetry import context as context_api
+
+    # Close the per-test span that was opened in pytest_runtest_setup
+    span_info = item.stash.get(_LOGFIRE_SPAN_KEY, None)
+    if span_info is not None:
+        span, fixture_ctx_token = span_info
+        span.__exit__(None, None, None)
+    else:
+        fixture_ctx_token = None
+
+    # Detach function-scoped fixture context tokens (stored by pytest_fixture_setup).
+    # These must be detached even if setup failed before creating the test span.
+    for token in reversed(getattr(item, '_logfire_ctx_tokens', [])):
+        context_api.detach(token)
+
+    if fixture_ctx_token is not None:
+        context_api.detach(fixture_ctx_token)
 
 
 def _should_trace_phases(config: pytest.Config) -> bool:
@@ -572,7 +755,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     logfire_instance.force_flush(timeout_millis=5000)
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def logfire_pytest(request: pytest.FixtureRequest) -> Logfire:
     """Provide a Logfire instance configured for the pytest plugin.
 
@@ -605,7 +788,7 @@ def logfire_pytest(request: pytest.FixtureRequest) -> Logfire:
 def pytest_pyfunc_call(pyfuncitem: pytest.Function) -> Generator[None]:
     """Re-attach the per-test span context for async test functions.
 
-    The ``pytest_runtest_protocol`` hook creates a span per test and attaches it
+    The ``pytest_runtest_setup`` hook creates a span per test and attaches it
     to the OTel context via ``context_api.attach()`` in the **synchronous** hook
     thread.  However, when tests are async (e.g. with anyio/pytest-asyncio), they
     may run inside an event-loop task whose ``contextvars`` snapshot was taken
