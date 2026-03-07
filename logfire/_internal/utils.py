@@ -24,6 +24,7 @@ from typing import (
     TypedDict,
     TypeVar,
     Union,
+    cast,
 )
 
 from opentelemetry import context, trace as trace_api
@@ -476,7 +477,7 @@ def canonicalize_exception_traceback(exc: BaseException, seen: set[int] | None =
         else:
             seen.add(id(exc))
             if isinstance(exc, BaseExceptionGroup):
-                sub_exceptions: tuple[BaseException] = exc.exceptions  # type: ignore
+                sub_exceptions = cast('tuple[BaseException, ...]', exc.exceptions)  # pyright: ignore[reportUnknownMemberType]
                 parts += [
                     '\n<ExceptionGroup>',
                     *sorted({canonicalize_exception_traceback(nested_exc, seen) for nested_exc in sub_exceptions}),

@@ -59,6 +59,7 @@ from .types import EndpointConfig, StreamState
 if TYPE_CHECKING:
     from openai._models import FinalRequestOptions
     from openai._types import ResponseT
+    from pydantic import BaseModel
 
     from ...main import LogfireSpan
 
@@ -621,7 +622,7 @@ def on_response(
         try:
             from genai_prices import calc_price, extract_usage
 
-            response_data = response.model_dump()  # type: ignore
+            response_data = cast('BaseModel', response).model_dump()
             usage_data = extract_usage(
                 response_data,
                 provider_id='openai',
