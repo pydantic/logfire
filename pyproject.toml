@@ -64,6 +64,7 @@ wsgi = ["opentelemetry-instrumentation-wsgi >= 0.42b0"]
 aiohttp = ["opentelemetry-instrumentation-aiohttp-client >= 0.42b0"]
 aiohttp-client = ["opentelemetry-instrumentation-aiohttp-client >= 0.42b0"]
 aiohttp-server = ["opentelemetry-instrumentation-aiohttp-server >= 0.55b0"]
+asyncio = ["opentelemetry-instrumentation-asyncio >= 0.42b0"]
 celery = ["opentelemetry-instrumentation-celery >= 0.42b0"]
 django = ["opentelemetry-instrumentation-django >= 0.42b0", "opentelemetry-instrumentation-asgi >= 0.42b0"]
 fastapi = ["opentelemetry-instrumentation-fastapi >= 0.42b0"]
@@ -124,6 +125,7 @@ dev = [
     "opentelemetry-instrumentation-aiohttp-client>=0.42b0",
     "opentelemetry-instrumentation-aiohttp-server>=0.55b0",
     "opentelemetry-instrumentation-asgi>=0.42b0",
+    "opentelemetry-instrumentation-asyncio>=0.42b0",
     "opentelemetry-instrumentation-wsgi>=0.42b0",
     "opentelemetry-instrumentation-fastapi>=0.42b0",
     "opentelemetry-instrumentation-starlette>=0.42b0",

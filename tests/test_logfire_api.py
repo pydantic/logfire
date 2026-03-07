@@ -157,6 +157,11 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     # NOTE: We don't call the log_slow_async_callbacks, to not give side effect to the test suite.
     logfire__all__.remove('log_slow_async_callbacks')
 
+    assert hasattr(logfire_api, 'instrument_asyncio')
+    # NOTE: We don't call instrument_asyncio, to not give side effect to the test suite
+    # (it patches asyncio.events.Handle._run via log_slow_callbacks).
+    logfire__all__.remove('instrument_asyncio')
+
     assert hasattr(logfire_api, 'install_auto_tracing')
     logfire_api.install_auto_tracing(modules=['all'], min_duration=0)
     logfire__all__.remove('install_auto_tracing')
