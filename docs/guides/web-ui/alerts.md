@@ -56,16 +56,13 @@ This is the default mode. You'll receive a notification **every time** the alert
 
 ### The query starts or stops having results
 
-You'll only receive a notification when the alert **transitions** between states — when the query goes from returning no rows to returning rows, or vice versa. This is useful when you want to know about the **onset** of an issue without getting repeated notifications while it persists.
+You'll receive a notification when the query **transitions** between having results and not. If your query is written so that rows indicate a problem (e.g., selecting error spans), this means you'll be notified both when the issue starts and when it resolves.
 
-**Example use case:** Alert me when my API starts experiencing high latency (over 1 second), but don't keep alerting me while the issue is ongoing. You'll get one notification when the problem starts, and another when it resolves.
-
-??? tip "Avoiding the resolution notification"
-    This mode sends a notification both when the issue starts **and** when it ends. If you only want to be notified when the issue starts (and not when it resolves), use the **"the query starts having results"** mode instead.
+**Example use case:** Alert me when my API starts experiencing high latency (over 1 second), and again when it recovers.
 
 ### The query starts having results
 
-You'll receive a notification **only** when the alert transitions from returning no rows to returning rows. Unlike "starts or stops having results", you will **not** be notified when the issue resolves (rows → no rows). This is useful when you want to know about the onset of an issue without any follow-up notifications.
+Same as above, but you'll **only** be notified on the transition from no rows to rows — not the other direction. If rows indicate a problem, this means you'll hear about the onset but not the resolution.
 
 **Example use case:** Alert me when my service starts throwing exceptions, but don't notify me when it stops — I'll check resolution on my own schedule.
 
