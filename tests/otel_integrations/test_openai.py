@@ -4233,7 +4233,9 @@ def test_convert_responses_outputs_non_text_content() -> None:
     }
     response.output = [out]
 
-    assert convert_responses_outputs_to_semconv(response) == snapshot([{'role': 'assistant', 'parts': []}])
+    assert convert_responses_outputs_to_semconv(response) == snapshot(
+        [{'role': 'assistant', 'parts': [{'type': 'refusal', 'refusal': 'I cannot help with that'}]}]
+    )
 
 
 def test_completion_stream_state_version_latest_only() -> None:

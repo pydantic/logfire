@@ -266,27 +266,17 @@ def convert_chat_completions_to_semconv(
             # Regular messages: build parts from content and tool calls
             # Add content parts
             if content is not None:
-                if isinstance(content, str):
-                    parts.append(TextPart(type='text', content=content))
-                elif isinstance(content, list):
-                    for part in cast('list[dict[str, Any] | str]', content):
-                        parts.append(_convert_content_part(part))
-                # else: content is neither str nor list - unreachable in practice
+                parts.extend(_convert_content_part_or_parts(content))
 
             # Add tool call parts (for assistant messages with tool calls)
             if tool_calls:  # pragma: no cover
                 for tc in tool_calls:
                     function = tc.get('function', {})
-                    arguments = function.get('arguments')
-                    if isinstance(arguments, str):
-                        with contextlib.suppress(json.JSONDecodeError):
-                            arguments = json.loads(arguments)
                     parts.append(
-                        ToolCallPart(
-                            type='tool_call',
-                            id=tc.get('id', ''),
+                        make_tool_call_part(
+                            tool_call_id=tc.get('id', ''),
                             name=function.get('name', ''),
-                            arguments=arguments,
+                            arguments=function.get('arguments'),
                         )
                     )
 
@@ -304,13 +294,24 @@ def convert_chat_completions_to_semconv(
     return input_messages
 
 
-def _convert_content_part(part: dict[str, Any] | str) -> MessagePart:
-    """Convert a single content part to semconv format."""
-    if isinstance(part, str):  # pragma: no cover
-        return TextPart(type='text', content=part)
+def _convert_content_part_or_parts(content: object) -> list[MessagePart]:
+    if not content:
+        return []
 
+    if isinstance(content, list):
+        return [_convert_content_part(part) for part in cast(list[Any], content)]
+    else:
+        return [_convert_content_part(content)]
+
+
+def _convert_content_part(part: object) -> MessagePart:
+    """Convert a single content part to semconv format."""
+    if not isinstance(part, dict):  # pragma: no cover
+        return TextPart(type='text', content=str(part))
+
+    part = cast('dict[str, Any]', part)
     part_type = part.get('type', 'unknown')
-    if part_type == 'text':
+    if part_type in ('text', 'output_text'):
         return TextPart(type='text', content=part.get('text', ''))
     elif part_type == 'image_url':  # pragma: no cover
         url = part.get('image_url', {}).get('url', '')
@@ -331,51 +332,27 @@ def convert_responses_inputs_to_semconv(
 ) -> tuple[InputMessages, SystemInstructions]:
     """Convert Responses API inputs to OTel Gen AI Semantic Convention format."""
     input_messages: InputMessages = []
-    system_instructions: SystemInstructions = []
-    if instructions:
-        system_instructions.append(TextPart(type='text', content=instructions))
+    system_instructions: SystemInstructions = _convert_content_part_or_parts(instructions)
     if inputs:
         if isinstance(inputs, str):
-            input_messages.append(
-                cast('ChatMessage', {'role': 'user', 'parts': [TextPart(type='text', content=inputs)]})
-            )
+            input_messages.append(ChatMessage(role='user', parts=[TextPart(type='text', content=inputs)]))
         else:
             for inp in inputs:
                 role, typ, content = inp.get('role', 'user'), inp.get('type'), inp.get('content')
                 if typ in (None, 'message') and content:
-                    parts: list[MessagePart] = []
-                    if isinstance(content, str):
-                        parts.append(TextPart(type='text', content=content))
-                    elif isinstance(content, list):  # pragma: no cover
-                        for item in cast(list[Any], content):
-                            if isinstance(item, dict):
-                                item_dict = cast(dict[str, Any], item)
-                                if item_dict.get('type') == 'output_text':
-                                    parts.append(TextPart(type='text', content=item_dict.get('text', '')))
-                                else:
-                                    parts.append(cast('MessagePart', item_dict))
-                            else:
-                                parts.append(TextPart(type='text', content=str(item)))
-                    input_messages.append(cast('ChatMessage', {'role': role, 'parts': parts}))
+                    parts: list[MessagePart] = _convert_content_part_or_parts(content)
+                    input_messages.append(ChatMessage(role=role, parts=parts))
                 elif typ == 'function_call':
-                    arguments: Any = inp.get('arguments')
-                    if isinstance(arguments, str):
-                        with contextlib.suppress(json.JSONDecodeError):
-                            arguments = json.loads(arguments)
                     input_messages.append(
-                        cast(
-                            'ChatMessage',
-                            {
-                                'role': 'assistant',
-                                'parts': [
-                                    ToolCallPart(
-                                        type='tool_call',
-                                        id=inp.get('call_id', ''),
-                                        name=inp.get('name', ''),
-                                        arguments=arguments,
-                                    )
-                                ],
-                            },
+                        ChatMessage(
+                            role='assistant',
+                            parts=[
+                                make_tool_call_part(
+                                    tool_call_id=inp.get('call_id', ''),
+                                    name=inp.get('name', ''),
+                                    arguments=inp.get('arguments'),
+                                )
+                            ],
                         )
                     )
                 elif typ == 'function_call_output':
@@ -410,30 +387,22 @@ def convert_openai_response_to_semconv(
     finish_reason: str | None = None,
 ) -> OutputMessage:
     """Convert an OpenAI ChatCompletionMessage to OTel Gen AI Semantic Convention format."""
-    parts: list[MessagePart] = []
-
-    if message.content:
-        parts.append(TextPart(type='text', content=message.content))
+    parts: list[MessagePart] = _convert_content_part_or_parts(message.content)
 
     if message.tool_calls:  # pragma: no cover
         for tc in message.tool_calls:
             # Only handle function tool calls (not custom tool calls)
             if isinstance(tc, ChatCompletionMessageFunctionToolCall):  # pragma: no cover
-                func_args: Any = tc.function.arguments
-                if isinstance(func_args, str):
-                    with contextlib.suppress(json.JSONDecodeError):
-                        func_args = json.loads(func_args)
                 parts.append(
-                    ToolCallPart(
-                        type='tool_call',
-                        id=tc.id,
+                    make_tool_call_part(
+                        tool_call_id=tc.id,
                         name=tc.function.name,
-                        arguments=func_args,
+                        arguments=tc.function.arguments,
                     )
                 )
 
     result: OutputMessage = {
-        'role': cast('Role', message.role),
+        'role': message.role,
         'parts': parts,
     }
     if finish_reason:
@@ -451,41 +420,43 @@ def convert_responses_outputs_to_semconv(response: Response) -> OutputMessages:
         content = out_dict.get('content')
 
         if typ in (None, 'message') and content:
-            parts: list[MessagePart] = []
-            for item in cast('list[dict[str, Any]]', content):
-                if item.get('type') == 'output_text':
-                    parts.append(TextPart(type='text', content=cast(str, item.get('text', ''))))
             output_messages.append(
-                cast(
-                    'OutputMessage',
-                    {
-                        'role': 'assistant',
-                        'parts': parts,
-                    },
+                OutputMessage(
+                    role='assistant',
+                    parts=_convert_content_part_or_parts(content),
                 )
             )
         elif typ == 'function_call':  # pragma: no cover - outputs are typically 'message' type
-            arguments: Any = out_dict.get('arguments')
-            if isinstance(arguments, str):
-                with contextlib.suppress(json.JSONDecodeError):
-                    arguments = json.loads(arguments)
             output_messages.append(
-                cast(
-                    'OutputMessage',
-                    {
-                        'role': 'assistant',
-                        'parts': [
-                            ToolCallPart(
-                                type='tool_call',
-                                id=out_dict.get('call_id', ''),
-                                name=out_dict.get('name', ''),
-                                arguments=arguments,
-                            )
-                        ],
-                    },
+                OutputMessage(
+                    role='assistant',
+                    parts=[
+                        make_tool_call_part(
+                            tool_call_id=out_dict.get('call_id', ''),
+                            name=out_dict.get('name', ''),
+                            arguments=out_dict.get('arguments'),
+                        )
+                    ],
                 )
             )
     return output_messages
+
+
+def make_tool_call_part(
+    tool_call_id: str,
+    name: str,
+    arguments: Any,
+) -> ToolCallPart:
+    """Helper function to create a ToolCallPart."""
+    if isinstance(arguments, str):
+        with contextlib.suppress(json.JSONDecodeError):
+            arguments = json.loads(arguments)
+    return ToolCallPart(
+        type='tool_call',
+        id=tool_call_id,
+        name=name,
+        arguments=arguments,
+    )
 
 
 def content_from_completions(chunk: Completion | None) -> str | None:
