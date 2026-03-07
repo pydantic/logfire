@@ -272,16 +272,11 @@ def convert_chat_completions_to_semconv(
             if tool_calls:  # pragma: no cover
                 for tc in tool_calls:
                     function = tc.get('function', {})
-                    arguments = function.get('arguments')
-                    if isinstance(arguments, str):
-                        with contextlib.suppress(json.JSONDecodeError):
-                            arguments = json.loads(arguments)
                     parts.append(
-                        ToolCallPart(
-                            type='tool_call',
-                            id=tc.get('id', ''),
+                        make_tool_call_part(
+                            tool_call_id=tc.get('id', ''),
                             name=function.get('name', ''),
-                            arguments=arguments,
+                            arguments=function.get('arguments'),
                         )
                     )
 
@@ -347,19 +342,14 @@ def convert_responses_inputs_to_semconv(
                     parts: list[MessagePart] = _convert_content_part_or_parts(content)
                     input_messages.append(ChatMessage(role=role, parts=parts))
                 elif typ == 'function_call':
-                    arguments: Any = inp.get('arguments')
-                    if isinstance(arguments, str):
-                        with contextlib.suppress(json.JSONDecodeError):
-                            arguments = json.loads(arguments)
                     input_messages.append(
                         ChatMessage(
                             role='assistant',
                             parts=[
-                                ToolCallPart(
-                                    type='tool_call',
-                                    id=inp.get('call_id', ''),
+                                make_tool_call_part(
+                                    tool_call_id=inp.get('call_id', ''),
                                     name=inp.get('name', ''),
-                                    arguments=arguments,
+                                    arguments=inp.get('arguments'),
                                 )
                             ],
                         )
@@ -405,16 +395,11 @@ def convert_openai_response_to_semconv(
         for tc in message.tool_calls:
             # Only handle function tool calls (not custom tool calls)
             if isinstance(tc, ChatCompletionMessageFunctionToolCall):  # pragma: no cover
-                func_args: Any = tc.function.arguments
-                if isinstance(func_args, str):
-                    with contextlib.suppress(json.JSONDecodeError):
-                        func_args = json.loads(func_args)
                 parts.append(
-                    ToolCallPart(
-                        type='tool_call',
-                        id=tc.id,
+                    make_tool_call_part(
+                        tool_call_id=tc.id,
                         name=tc.function.name,
-                        arguments=func_args,
+                        arguments=tc.function.arguments,
                     )
                 )
 
@@ -444,24 +429,36 @@ def convert_responses_outputs_to_semconv(response: Response) -> OutputMessages:
                 )
             )
         elif typ == 'function_call':  # pragma: no cover - outputs are typically 'message' type
-            arguments: Any = out_dict.get('arguments')
-            if isinstance(arguments, str):
-                with contextlib.suppress(json.JSONDecodeError):
-                    arguments = json.loads(arguments)
             output_messages.append(
                 OutputMessage(
                     role='assistant',
                     parts=[
-                        ToolCallPart(
-                            type='tool_call',
-                            id=out_dict.get('call_id', ''),
+                        make_tool_call_part(
+                            tool_call_id=out_dict.get('call_id', ''),
                             name=out_dict.get('name', ''),
-                            arguments=arguments,
+                            arguments=out_dict.get('arguments'),
                         )
                     ],
                 )
             )
     return output_messages
+
+
+def make_tool_call_part(
+    tool_call_id: str,
+    name: str,
+    arguments: Any,
+) -> ToolCallPart:
+    """Helper function to create a ToolCallPart."""
+    if isinstance(arguments, str):
+        with contextlib.suppress(json.JSONDecodeError):
+            arguments = json.loads(arguments)
+    return ToolCallPart(
+        type='tool_call',
+        id=tool_call_id,
+        name=name,
+        arguments=arguments,
+    )
 
 
 def content_from_completions(chunk: Completion | None) -> str | None:
