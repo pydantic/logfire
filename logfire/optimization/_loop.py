@@ -11,18 +11,19 @@ Implements `optimize_variable_async` and `optimize_variable` which coordinate:
 from __future__ import annotations
 
 import asyncio
+import time
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from typing import TYPE_CHECKING, Any, TypeVar
 
 import logfire
-
-from logfire.optimization._client import AsyncOptimizationClient, OptimizationApiError
+from logfire.experimental.api_client import AsyncLogfireAPIClient, LogfireApiError
 from logfire.optimization._models import OptimizeIterationResult, OptimizeVariableResult
 
 if TYPE_CHECKING:
-    from logfire.variables.variable import Variable
     from pydantic_evals import Dataset
+
+    from logfire.variables.variable import Variable
 
 InputsT = TypeVar('InputsT')
 OutputT = TypeVar('OutputT')
@@ -30,6 +31,43 @@ MetadataT = TypeVar('MetadataT')
 
 _TERMINAL_STATUSES = {'promoted', 'rolled_back', 'rejected', 'failed', 'timed_out', 'canceled'}
 _PROPOSAL_READY = {'proposed', 'awaiting_approval'}
+
+
+async def _poll_iteration(
+    client: AsyncLogfireAPIClient,
+    optimization_id: str,
+    iteration_id: str,
+    target_status: set[str],
+    timeout: float = 300.0,
+    poll_interval: float = 2.0,
+) -> dict[str, Any]:
+    """Poll an iteration until it reaches one of the target statuses.
+
+    Args:
+        client: The API client to use for polling.
+        optimization_id: The optimization ID.
+        iteration_id: The iteration ID to poll.
+        target_status: Set of statuses to wait for.
+        timeout: Maximum time to wait in seconds (default 5 minutes).
+        poll_interval: Time between polls in seconds.
+
+    Returns:
+        The iteration data once it reaches a target status.
+
+    Raises:
+        TimeoutError: If the iteration doesn't reach a target status in time.
+    """
+    deadline = time.monotonic() + timeout
+    last_status: str | None = None
+    while time.monotonic() < deadline:
+        iteration = await client.get_iteration(optimization_id, iteration_id)
+        last_status = iteration['status']
+        if last_status in target_status:
+            return iteration
+        await asyncio.sleep(poll_interval)
+    raise TimeoutError(
+        f'Iteration {iteration_id} did not reach status {target_status} within {timeout}s (last status: {last_status})'
+    )
 
 
 async def optimize_variable_async(
@@ -87,7 +125,7 @@ async def optimize_variable_async(
     # Capture baseline value before starting
     baseline_value = variable.get().value
 
-    async with AsyncOptimizationClient(api_key=api_key, base_url=base_url) as client:
+    async with AsyncLogfireAPIClient(api_key=api_key, base_url=base_url) as client:
         # 1. Create optimization record
         create_data: dict[str, Any] = {
             'variable_name': variable.name,
@@ -101,15 +139,10 @@ async def optimize_variable_async(
             create_data['model_config'] = {'model': model}
         try:
             optimization_data = await client.create_optimization(create_data)
-        except OptimizationApiError as exc:
+        except LogfireApiError as exc:
             if exc.status_code == 409:
                 # Optimization already exists — delete it and recreate
                 logfire.info('Optimization already exists for variable {name}, recreating...', name=variable.name)
-                # We need to find the existing optimization ID. The error means
-                # one already exists for this variable. List all and find it.
-                # For now, try getting it by listing, or just get the optimization by variable name
-                # Since there's no list-by-name endpoint, let's get the optimization from the
-                # create response or use the variable name endpoint
                 existing = await client.get_optimization_by_variable_name(variable.name)
                 if existing:
                     await client.delete_optimization(existing['id'])
@@ -179,7 +212,7 @@ async def optimize_variable_async(
 
 async def _run_single_iteration(
     *,
-    client: AsyncOptimizationClient,
+    client: AsyncLogfireAPIClient,
     optimization_id: str,
     variable: Variable[str],
     dataset: Dataset[Any, Any, Any],
@@ -211,7 +244,8 @@ async def _run_single_iteration(
         iteration_number = iteration_data['iteration_number']
 
         # Poll until proposal is ready
-        iteration_data = await client.poll_iteration(
+        iteration_data = await _poll_iteration(
+            client,
             optimization_id,
             iteration_id,
             target_status=_PROPOSAL_READY | _TERMINAL_STATUSES,
@@ -255,7 +289,8 @@ async def _run_single_iteration(
 
         # Compare scores
         score_delta = {
-            k: candidate_scores.get(k, 0) - baseline_scores.get(k, 0) for k in set(baseline_scores) | set(candidate_scores)
+            k: candidate_scores.get(k, 0) - baseline_scores.get(k, 0)
+            for k in set(baseline_scores) | set(candidate_scores)
         }
 
         # Check if improved
@@ -268,10 +303,10 @@ async def _run_single_iteration(
         if improved:
             # Always approve on the backend to clear the active iteration,
             # allowing subsequent iterations to proceed.
-            await client.approve(optimization_id)
+            await client.approve_optimization(optimization_id)
             status = 'applied' if auto_deploy else 'accepted'
         else:
-            await client.reject(optimization_id, reason='Score did not improve sufficiently')
+            await client.reject_optimization(optimization_id, reason='Score did not improve sufficiently')
             status = 'rejected'
 
         return OptimizeIterationResult(

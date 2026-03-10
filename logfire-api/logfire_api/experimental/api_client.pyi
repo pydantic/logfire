@@ -18,16 +18,19 @@ InputsT = TypeVar('InputsT')
 OutputT = TypeVar('OutputT')
 MetadataT = TypeVar('MetadataT')
 
+class LogfireApiError(Exception):
+    """Raised when the Logfire API returns an error."""
+    status_code: Incomplete
+    detail: Incomplete
+    def __init__(self, status_code: int, detail: Any) -> None: ...
+
 class DatasetNotFoundError(Exception):
     """Raised when a dataset is not found."""
 class CaseNotFoundError(Exception):
     """Raised when a case is not found."""
 
-class DatasetApiError(Exception):
-    """Raised when the API returns an error."""
-    status_code: Incomplete
-    detail: Incomplete
-    def __init__(self, status_code: int, detail: Any) -> None: ...
+class DatasetApiError(LogfireApiError):
+    """Raised when the datasets API returns an error."""
 
 class _BaseLogfireAPIClient(Generic[T]):
     """Base class for datasets clients."""
@@ -267,6 +270,28 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
     def export_dataset(self, id_or_name: str) -> dict[str, Any]: ...
     @overload
     def export_dataset(self, id_or_name: str, input_type: type[InputsT], output_type: type[OutputT] | None = None, metadata_type: type[MetadataT] | None = None, *, custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = ()) -> Dataset[InputsT, OutputT, MetadataT]: ...
+    def create_optimization(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Create a new optimization."""
+    def get_optimization(self, optimization_id: str) -> dict[str, Any]:
+        """Get an optimization by ID."""
+    def get_optimization_by_variable_name(self, variable_name: str) -> dict[str, Any] | None:
+        """Get an optimization by variable name. Returns None if not found."""
+    def request_proposal(self, optimization_id: str, context: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Request a new proposal from the optimization agent."""
+    def get_iteration(self, optimization_id: str, iteration_id: str) -> dict[str, Any]:
+        """Get an iteration by ID."""
+    def list_iterations(self, optimization_id: str) -> list[dict[str, Any]]:
+        """List iterations for an optimization."""
+    def submit_evaluation(self, optimization_id: str, iteration_id: str, control_metrics: dict[str, float] | None = None, treatment_metrics: dict[str, float] | None = None) -> dict[str, Any]:
+        """Submit evaluation results for an iteration."""
+    def approve_optimization(self, optimization_id: str) -> dict[str, Any]:
+        """Approve the current proposal."""
+    def reject_optimization(self, optimization_id: str, reason: str | None = None) -> dict[str, Any]:
+        """Reject the current proposal."""
+    def cancel_optimization(self, optimization_id: str) -> dict[str, Any]:
+        """Cancel the active iteration."""
+    def delete_optimization(self, optimization_id: str) -> None:
+        """Delete an optimization."""
 
 class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
     """Asynchronous client for managing Logfire datasets.
@@ -307,3 +332,25 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
     async def export_dataset(self, id_or_name: str) -> dict[str, Any]: ...
     @overload
     async def export_dataset(self, id_or_name: str, input_type: type[InputsT], output_type: type[OutputT] | None = None, metadata_type: type[MetadataT] | None = None, *, custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = ()) -> Dataset[InputsT, OutputT, MetadataT]: ...
+    async def create_optimization(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Create a new optimization."""
+    async def get_optimization(self, optimization_id: str) -> dict[str, Any]:
+        """Get an optimization by ID."""
+    async def get_optimization_by_variable_name(self, variable_name: str) -> dict[str, Any] | None:
+        """Get an optimization by variable name. Returns None if not found."""
+    async def request_proposal(self, optimization_id: str, context: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Request a new proposal from the optimization agent."""
+    async def get_iteration(self, optimization_id: str, iteration_id: str) -> dict[str, Any]:
+        """Get an iteration by ID."""
+    async def list_iterations(self, optimization_id: str) -> list[dict[str, Any]]:
+        """List iterations for an optimization."""
+    async def submit_evaluation(self, optimization_id: str, iteration_id: str, control_metrics: dict[str, float] | None = None, treatment_metrics: dict[str, float] | None = None) -> dict[str, Any]:
+        """Submit evaluation results for an iteration."""
+    async def approve_optimization(self, optimization_id: str) -> dict[str, Any]:
+        """Approve the current proposal."""
+    async def reject_optimization(self, optimization_id: str, reason: str | None = None) -> dict[str, Any]:
+        """Reject the current proposal."""
+    async def cancel_optimization(self, optimization_id: str) -> dict[str, Any]:
+        """Cancel the active iteration."""
+    async def delete_optimization(self, optimization_id: str) -> None:
+        """Delete an optimization."""

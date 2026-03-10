@@ -115,13 +115,19 @@ class CaseNotFoundError(Exception):
     pass
 
 
-class DatasetApiError(Exception):
-    """Raised when the API returns an error."""
+class LogfireApiError(Exception):
+    """Raised when the Logfire API returns an error."""
 
     def __init__(self, status_code: int, detail: Any):
         self.status_code = status_code
         self.detail = detail
         super().__init__(f'API error {status_code}: {detail}')
+
+
+class DatasetApiError(LogfireApiError):
+    """Raised when the datasets API returns an error."""
+
+    pass
 
 
 def _type_to_schema(type_: type[Any] | None) -> dict[str, Any] | None:
@@ -720,6 +726,93 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         typed_dataset_cls: type[Dataset[InputsT, OutputT, MetadataT]] = Dataset[input_type, output_type, metadata_type]  # pyright: ignore[reportIndexIssue, reportUnknownVariableType]
         return typed_dataset_cls.from_dict(data, custom_evaluator_types=list(custom_evaluator_types))  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
 
+    # --- Optimization operations ---
+
+    def create_optimization(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Create a new optimization."""
+        response = self.client.post('/v1/optimizations/', json=data)
+        return self._handle_response(response)
+
+    def get_optimization(self, optimization_id: str) -> dict[str, Any]:
+        """Get an optimization by ID."""
+        response = self.client.get(f'/v1/optimizations/{optimization_id}/')
+        return self._handle_response(response)
+
+    def get_optimization_by_variable_name(self, variable_name: str) -> dict[str, Any] | None:
+        """Get an optimization by variable name. Returns None if not found."""
+        response = self.client.get(f'/v1/optimizations/by-variable/{variable_name}/')
+        if response.status_code == 404:
+            return None
+        return self._handle_response(response)
+
+    def request_proposal(
+        self,
+        optimization_id: str,
+        context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Request a new proposal from the optimization agent."""
+        data: dict[str, Any] | None = None
+        if context:
+            data = {'trigger_data': {'evaluation_context': context}}
+        response = self.client.post(
+            f'/v1/optimizations/{optimization_id}/actions/request-proposal',
+            json=data,
+        )
+        return self._handle_response(response)
+
+    def get_iteration(self, optimization_id: str, iteration_id: str) -> dict[str, Any]:
+        """Get an iteration by ID."""
+        response = self.client.get(f'/v1/optimizations/{optimization_id}/iterations/{iteration_id}/')
+        return self._handle_response(response)
+
+    def list_iterations(self, optimization_id: str) -> list[dict[str, Any]]:
+        """List iterations for an optimization."""
+        response = self.client.get(f'/v1/optimizations/{optimization_id}/iterations/')
+        return self._handle_response(response)
+
+    def submit_evaluation(
+        self,
+        optimization_id: str,
+        iteration_id: str,
+        control_metrics: dict[str, float] | None = None,
+        treatment_metrics: dict[str, float] | None = None,
+    ) -> dict[str, Any]:
+        """Submit evaluation results for an iteration."""
+        data: dict[str, Any] = {}
+        if control_metrics is not None:
+            data['control_metrics'] = control_metrics
+        if treatment_metrics is not None:
+            data['treatment_metrics'] = treatment_metrics
+        response = self.client.post(
+            f'/v1/optimizations/{optimization_id}/iterations/{iteration_id}/evaluation',
+            json=data,
+        )
+        return self._handle_response(response)
+
+    def approve_optimization(self, optimization_id: str) -> dict[str, Any]:
+        """Approve the current proposal."""
+        response = self.client.post(f'/v1/optimizations/{optimization_id}/actions/approve')
+        return self._handle_response(response)
+
+    def reject_optimization(self, optimization_id: str, reason: str | None = None) -> dict[str, Any]:
+        """Reject the current proposal."""
+        data = {'reason': reason} if reason else {}
+        response = self.client.post(
+            f'/v1/optimizations/{optimization_id}/actions/reject',
+            json=data,
+        )
+        return self._handle_response(response)
+
+    def cancel_optimization(self, optimization_id: str) -> dict[str, Any]:
+        """Cancel the active iteration."""
+        response = self.client.post(f'/v1/optimizations/{optimization_id}/actions/cancel')
+        return self._handle_response(response)
+
+    def delete_optimization(self, optimization_id: str) -> None:
+        """Delete an optimization."""
+        response = self.client.delete(f'/v1/optimizations/{optimization_id}/')
+        self._handle_response(response)
+
 
 class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
     """Asynchronous client for managing Logfire datasets.
@@ -960,3 +1053,90 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         Dataset, _ = _import_pydantic_evals()
         typed_dataset_cls: type[Dataset[InputsT, OutputT, MetadataT]] = Dataset[input_type, output_type, metadata_type]  # pyright: ignore[reportIndexIssue, reportUnknownVariableType]
         return typed_dataset_cls.from_dict(data, custom_evaluator_types=list(custom_evaluator_types))  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
+
+    # --- Optimization operations ---
+
+    async def create_optimization(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Create a new optimization."""
+        response = await self.client.post('/v1/optimizations/', json=data)
+        return self._handle_response(response)
+
+    async def get_optimization(self, optimization_id: str) -> dict[str, Any]:
+        """Get an optimization by ID."""
+        response = await self.client.get(f'/v1/optimizations/{optimization_id}/')
+        return self._handle_response(response)
+
+    async def get_optimization_by_variable_name(self, variable_name: str) -> dict[str, Any] | None:
+        """Get an optimization by variable name. Returns None if not found."""
+        response = await self.client.get(f'/v1/optimizations/by-variable/{variable_name}/')
+        if response.status_code == 404:
+            return None
+        return self._handle_response(response)
+
+    async def request_proposal(
+        self,
+        optimization_id: str,
+        context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Request a new proposal from the optimization agent."""
+        data: dict[str, Any] | None = None
+        if context:
+            data = {'trigger_data': {'evaluation_context': context}}
+        response = await self.client.post(
+            f'/v1/optimizations/{optimization_id}/actions/request-proposal',
+            json=data,
+        )
+        return self._handle_response(response)
+
+    async def get_iteration(self, optimization_id: str, iteration_id: str) -> dict[str, Any]:
+        """Get an iteration by ID."""
+        response = await self.client.get(f'/v1/optimizations/{optimization_id}/iterations/{iteration_id}/')
+        return self._handle_response(response)
+
+    async def list_iterations(self, optimization_id: str) -> list[dict[str, Any]]:
+        """List iterations for an optimization."""
+        response = await self.client.get(f'/v1/optimizations/{optimization_id}/iterations/')
+        return self._handle_response(response)
+
+    async def submit_evaluation(
+        self,
+        optimization_id: str,
+        iteration_id: str,
+        control_metrics: dict[str, float] | None = None,
+        treatment_metrics: dict[str, float] | None = None,
+    ) -> dict[str, Any]:
+        """Submit evaluation results for an iteration."""
+        data: dict[str, Any] = {}
+        if control_metrics is not None:
+            data['control_metrics'] = control_metrics
+        if treatment_metrics is not None:
+            data['treatment_metrics'] = treatment_metrics
+        response = await self.client.post(
+            f'/v1/optimizations/{optimization_id}/iterations/{iteration_id}/evaluation',
+            json=data,
+        )
+        return self._handle_response(response)
+
+    async def approve_optimization(self, optimization_id: str) -> dict[str, Any]:
+        """Approve the current proposal."""
+        response = await self.client.post(f'/v1/optimizations/{optimization_id}/actions/approve')
+        return self._handle_response(response)
+
+    async def reject_optimization(self, optimization_id: str, reason: str | None = None) -> dict[str, Any]:
+        """Reject the current proposal."""
+        data = {'reason': reason} if reason else {}
+        response = await self.client.post(
+            f'/v1/optimizations/{optimization_id}/actions/reject',
+            json=data,
+        )
+        return self._handle_response(response)
+
+    async def cancel_optimization(self, optimization_id: str) -> dict[str, Any]:
+        """Cancel the active iteration."""
+        response = await self.client.post(f'/v1/optimizations/{optimization_id}/actions/cancel')
+        return self._handle_response(response)
+
+    async def delete_optimization(self, optimization_id: str) -> None:
+        """Delete an optimization."""
+        response = await self.client.delete(f'/v1/optimizations/{optimization_id}/')
+        self._handle_response(response)
