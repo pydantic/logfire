@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import anthropic
 from anthropic.types import Message, TextBlock, TextDelta, ToolUseBlock
-from anthropic.types.beta import BetaMessage, BetaTextBlock
+from anthropic.types.beta import BetaMessage, BetaTextBlock, BetaTextDelta, BetaToolUseBlock
 
 from logfire._internal.utils import handle_internal_errors
 
@@ -245,7 +245,7 @@ def convert_response_to_semconv(message: Message | BetaMessage) -> OutputMessage
     for block in message.content:
         if isinstance(block, (TextBlock, BetaTextBlock)):
             parts.append(TextPart(type='text', content=block.text))
-        elif isinstance(block, ToolUseBlock):
+        elif isinstance(block, (ToolUseBlock, BetaToolUseBlock)):
             parts.append(
                 make_tool_call_part(
                     tool_call_id=block.id,
@@ -270,9 +270,9 @@ def convert_response_to_semconv(message: Message | BetaMessage) -> OutputMessage
 
 def content_from_messages(chunk: anthropic.types.MessageStreamEvent) -> str | None:
     if hasattr(chunk, 'content_block'):
-        return chunk.content_block.text if isinstance(chunk.content_block, TextBlock) else None  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
+        return chunk.content_block.text if isinstance(chunk.content_block, (TextBlock, BetaTextBlock)) else None  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
     if hasattr(chunk, 'delta'):
-        return chunk.delta.text if isinstance(chunk.delta, TextDelta) else None  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
+        return chunk.delta.text if isinstance(chunk.delta, (TextDelta, BetaTextDelta)) else None  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
     return None
 
 
