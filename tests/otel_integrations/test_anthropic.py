@@ -1668,9 +1668,9 @@ def test_sync_messages_beta_stream(exporter: TestExporter) -> None:
         combined = ''.join(
             chunk.delta.text  # type: ignore
             for chunk in stream
-            if hasattr(chunk, 'delta') and isinstance(chunk.delta, TextDelta)  # type: ignore
+            if hasattr(chunk, 'delta') and hasattr(chunk.delta, 'text')  # type: ignore
         )
-    assert combined == snapshot('')
+    assert combined == snapshot('Four plus five equals nine.')
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
