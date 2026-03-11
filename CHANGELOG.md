@@ -1,5 +1,11 @@
 # Release Notes
 
+## [v4.28.0] (2026-03-11)
+
+* Handle anthropic beta messages and refactor by @alexmojaki in [#1774](https://github.com/pydantic/logfire/pull/1774)
+* Delete redundant `logfire.experimental.datasets` package by @alexmojaki in [#1763](https://github.com/pydantic/logfire/pull/1763)
+* Change `logfire_pytest` fixture scope to session by @jirikuncar in [#1758](https://github.com/pydantic/logfire/pull/1758)
+
 ## [v4.27.0] (2026-03-06)
 
 * Add `gen_ai.system` attribute to anthropic spans, enabling token/cost badges by @alexmojaki in [#1760](https://github.com/pydantic/logfire/pull/1760)
@@ -1061,3 +1067,4 @@ First release from new repo!
 [v4.25.0]: https://github.com/pydantic/logfire/compare/v4.24.0...v4.25.0
 [v4.26.0]: https://github.com/pydantic/logfire/compare/v4.25.0...v4.26.0
 [v4.27.0]: https://github.com/pydantic/logfire/compare/v4.26.0...v4.27.0
+[v4.28.0]: https://github.com/pydantic/logfire/compare/v4.27.0...v4.28.0
