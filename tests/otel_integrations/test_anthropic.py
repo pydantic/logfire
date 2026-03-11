@@ -1661,7 +1661,7 @@ def test_sync_messages_beta_stream(exporter: TestExporter) -> None:
         max_tokens=1000,
         model='claude-sonnet-4-20250514',
         system='You are a helpful assistant.',
-        messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+        messages=[{'role': 'user', 'content': [{'text': 'What is four plus five?', 'type': 'text'}]}],
         stream=True,
     )
     with response as stream:
@@ -1685,7 +1685,9 @@ def test_sync_messages_beta_stream(exporter: TestExporter) -> None:
                     'code.lineno': 123,
                     'request_data': {
                         'max_tokens': 1000,
-                        'messages': [{'role': 'user', 'content': 'What is four plus five?'}],
+                        'messages': [
+                            {'role': 'user', 'content': [{'text': 'What is four plus five?', 'type': 'text'}]}
+                        ],
                         'model': 'claude-sonnet-4-20250514',
                         'stream': True,
                         'system': 'You are a helpful assistant.',
@@ -1738,7 +1740,9 @@ def test_sync_messages_beta_stream(exporter: TestExporter) -> None:
                     'duration': 1.0,
                     'request_data': {
                         'max_tokens': 1000,
-                        'messages': [{'role': 'user', 'content': 'What is four plus five?'}],
+                        'messages': [
+                            {'role': 'user', 'content': [{'text': 'What is four plus five?', 'type': 'text'}]}
+                        ],
                         'model': 'claude-sonnet-4-20250514',
                         'stream': True,
                         'system': 'You are a helpful assistant.',

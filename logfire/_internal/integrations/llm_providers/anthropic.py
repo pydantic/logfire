@@ -206,7 +206,7 @@ def make_tool_call_part(
     arguments: Any,
 ) -> ToolCallPart:
     """Helper function to create a ToolCallPart."""
-    if isinstance(arguments, str):
+    if isinstance(arguments, str):  # pragma: no cover
         with contextlib.suppress(json.JSONDecodeError):
             arguments = json.loads(arguments)
     return ToolCallPart(
