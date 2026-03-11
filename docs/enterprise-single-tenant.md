@@ -13,7 +13,7 @@ Logfire Dedicated is a fully managed, single-tenant deployment of Logfire that r
 
 ## Architecture
 
-Each Logfire Self-Hosted environment provisions the following dedicated cloud resources for the tenant:
+Each Logfire Dedicated environment provisions the following dedicated cloud resources for the tenant:
 
 ```
                                                           Pydantic
