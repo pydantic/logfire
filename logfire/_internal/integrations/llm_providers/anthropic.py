@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 from typing import TYPE_CHECKING, Any, cast
 
@@ -137,55 +138,22 @@ def get_endpoint_config(
         )
 
 
-def convert_messages_to_semconv(
-    messages: list[dict[str, Any]],
-    system: str | list[dict[str, Any]] | None = None,
-) -> tuple[InputMessages, SystemInstructions]:
-    """Convert Anthropic messages format to OTel Gen AI Semantic Convention format.
+def _convert_content_part_or_parts(content: object) -> list[MessagePart]:
+    if not content:
+        return []
 
-    Returns a tuple of (input_messages, system_instructions).
-    """
-    input_messages: InputMessages = []
-    system_instructions: SystemInstructions = []
-
-    # Handle system parameter (Anthropic uses a separate 'system' parameter)
-    if system:
-        if isinstance(system, str):
-            system_instructions.append(TextPart(type='text', content=system))
-        else:  # pragma: no cover
-            for part in system:
-                if part.get('type') == 'text':
-                    system_instructions.append(TextPart(type='text', content=part.get('text', '')))
-                else:
-                    system_instructions.append(part)
-
-    for msg in messages:
-        role: Role = msg.get('role') or 'user'
-        content = msg.get('content')
-
-        parts: list[MessagePart] = []
-
-        if content is not None:
-            if isinstance(content, str):
-                parts.append(TextPart(type='text', content=content))
-            elif isinstance(content, list):  # pragma: no cover
-                for part in cast('list[dict[str, Any] | str]', content):
-                    parts.append(_convert_content_part(part))
-
-        message: ChatMessage = {
-            'role': role,
-            'parts': parts,
-        }
-        input_messages.append(message)
-
-    return input_messages, system_instructions
+    if isinstance(content, list):
+        return [_convert_content_part(part) for part in cast(list[Any], content)]
+    else:
+        return [_convert_content_part(content)]
 
 
-def _convert_content_part(part: dict[str, Any] | str) -> MessagePart:  # pragma: no cover
+def _convert_content_part(part: object) -> MessagePart:  # pragma: no cover
     """Convert a single Anthropic content part to semconv format."""
-    if isinstance(part, str):
-        return TextPart(type='text', content=part)
+    if not isinstance(part, dict):
+        return TextPart(type='text', content=str(part))
 
+    part = cast('dict[str, Any]', part)
     part_type = part.get('type', 'text')
     if part_type == 'text':
         return TextPart(type='text', content=part.get('text', ''))
@@ -205,9 +173,8 @@ def _convert_content_part(part: dict[str, Any] | str) -> MessagePart:  # pragma:
         else:
             return {'type': 'image', **part}
     elif part_type == 'tool_use':
-        return ToolCallPart(
-            type='tool_call',
-            id=part.get('id', ''),
+        return make_tool_call_part(
+            tool_call_id=part.get('id', ''),
             name=part.get('name', ''),
             arguments=part.get('input'),
         )
@@ -234,6 +201,45 @@ def _convert_content_part(part: dict[str, Any] | str) -> MessagePart:  # pragma:
         return {**part, 'type': part_type}
 
 
+def make_tool_call_part(
+    tool_call_id: str,
+    name: str,
+    arguments: Any,
+) -> ToolCallPart:
+    """Helper function to create a ToolCallPart."""
+    if isinstance(arguments, str):
+        with contextlib.suppress(json.JSONDecodeError):
+            arguments = json.loads(arguments)
+    return ToolCallPart(
+        type='tool_call',
+        id=tool_call_id,
+        name=name,
+        arguments=arguments,
+    )
+
+
+def convert_messages_to_semconv(
+    messages: list[dict[str, Any]],
+    system: str | list[dict[str, Any]] | None = None,
+) -> tuple[InputMessages, SystemInstructions]:
+    """Convert Anthropic messages format to OTel Gen AI Semantic Convention format.
+
+    Returns a tuple of (input_messages, system_instructions).
+    """
+    input_messages: InputMessages = []
+    system_instructions: SystemInstructions = _convert_content_part_or_parts(system)
+
+    for msg in messages:
+        role: Role = msg.get('role') or 'user'
+        content = msg.get('content')
+
+        parts: list[MessagePart] = _convert_content_part_or_parts(content) if content is not None else []
+
+        input_messages.append(ChatMessage(role=role, parts=parts))
+
+    return input_messages, system_instructions
+
+
 def convert_response_to_semconv(message: Message | BetaMessage) -> OutputMessage:
     """Convert an Anthropic response message to OTel Gen AI Semantic Convention format."""
     parts: list[MessagePart] = []
@@ -243,9 +249,8 @@ def convert_response_to_semconv(message: Message | BetaMessage) -> OutputMessage
             parts.append(TextPart(type='text', content=block.text))
         elif isinstance(block, ToolUseBlock):
             parts.append(
-                ToolCallPart(
-                    type='tool_call',
-                    id=block.id,
+                make_tool_call_part(
+                    tool_call_id=block.id,
                     name=block.name,
                     arguments=block.input,
                 )
@@ -255,10 +260,10 @@ def convert_response_to_semconv(message: Message | BetaMessage) -> OutputMessage
             block_dict = block.model_dump() if hasattr(block, 'model_dump') else dict(block)
             parts.append(block_dict)
 
-    result: OutputMessage = {
-        'role': cast('Role', message.role),
-        'parts': parts,
-    }
+    result = OutputMessage(
+        role=message.role,
+        parts=parts,
+    )
     if message.stop_reason:
         result['finish_reason'] = message.stop_reason
 
@@ -295,10 +300,10 @@ class AnthropicMessageStreamState(StreamState):
         if 'latest' in versions and self._content:
             combined = ''.join(self._content)
             result[OUTPUT_MESSAGES] = [
-                {
-                    'role': 'assistant',
-                    'parts': [TextPart(type='text', content=combined)],
-                }
+                OutputMessage(
+                    role='assistant',
+                    parts=[TextPart(type='text', content=combined)],
+                )
             ]
         return result
 
