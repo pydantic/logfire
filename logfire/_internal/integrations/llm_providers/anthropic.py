@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import anthropic
 from anthropic.types import Message, TextBlock, TextDelta, ToolUseBlock
-from anthropic.types.beta import BetaMessage
+from anthropic.types.beta import BetaMessage, BetaTextBlock
 
 from logfire._internal.utils import handle_internal_errors
 
@@ -243,7 +243,7 @@ def convert_response_to_semconv(message: Message | BetaMessage) -> OutputMessage
     parts: list[MessagePart] = []
 
     for block in message.content:
-        if isinstance(block, TextBlock):
+        if isinstance(block, (TextBlock, BetaTextBlock)):
             parts.append(TextPart(type='text', content=block.text))
         elif isinstance(block, ToolUseBlock):
             parts.append(
