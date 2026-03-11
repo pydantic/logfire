@@ -1,13 +1,13 @@
 ---
-title: Logfire Dedicated Single Tenant
-description: "Logfire Dedicated is a fully managed, single-tenant deployment of Logfire running on isolated infrastructure provisioned and operated by Pydantic."
+title: Enterprise Dedicated Single Tenant
+description: "Enterprise Dedicated is a fully managed, single-tenant deployment of Logfire running on isolated infrastructure provisioned and operated by Pydantic."
 ---
 
-# Logfire Dedicated: Single Tenant Deployment
+# Enterprise Dedicated: Single Tenant Deployment
 
 ## Overview
 
-Logfire Dedicated is a fully managed, single-tenant deployment of Logfire that runs on dedicated infrastructure provisioned and operated by Pydantic. Each tenant receives a fully isolated environment — their own virtual network, managed Kubernetes cluster, managed database, and object storage — ensuring complete data separation from other customers. The deployment region is fully configurable, allowing customers to choose the region that best meets their latency, data residency, or compliance requirements. Pydantic handles all provisioning, upgrades, and operational concerns; customers simply access their dedicated Logfire instance via a unique hostname.
+Enterprise Dedicated is a fully managed, single-tenant deployment of Logfire that runs on dedicated infrastructure provisioned and operated by Pydantic. Each tenant receives a fully isolated environment — their own virtual network, managed Kubernetes cluster, managed database, and object storage — ensuring complete data separation from other customers. The deployment region is fully configurable, allowing customers to choose the region that best meets their latency, data residency, or compliance requirements. Pydantic handles all provisioning, upgrades, and operational concerns; customers simply access their dedicated Logfire instance via a unique hostname.
 
 > **Cloud support:** GCP is currently supported. Additional cloud providers are planned.
 
