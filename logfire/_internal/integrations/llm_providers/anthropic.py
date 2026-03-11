@@ -33,7 +33,6 @@ from .semconv import (
     InputMessages,
     MessagePart,
     OutputMessage,
-    Role,
     SemconvVersion,
     SystemInstructions,
     TextPart,
@@ -226,16 +225,15 @@ def convert_messages_to_semconv(
 
     Returns a tuple of (input_messages, system_instructions).
     """
-    input_messages: InputMessages = []
     system_instructions: SystemInstructions = _convert_content_part_or_parts(system)
 
-    for msg in messages:
-        role: Role = msg.get('role') or 'user'
-        content = msg.get('content')
-
-        parts: list[MessagePart] = _convert_content_part_or_parts(content)
-
-        input_messages.append(ChatMessage(role=role, parts=parts))
+    input_messages: InputMessages = [
+        ChatMessage(
+            role=msg.get('role') or 'user',
+            parts=_convert_content_part_or_parts(msg.get('content')),
+        )
+        for msg in messages
+    ]
 
     return input_messages, system_instructions
 
