@@ -48,7 +48,6 @@ def pytest_runtest_teardown(item: pytest.Item) -> Generator[None]:
     """Trace test teardown phase if --logfire-trace-phases is enabled."""
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     """End the session span and flush traces."""
-@pytest.fixture
 def logfire_pytest(request: pytest.FixtureRequest) -> Logfire:
     """Provide a Logfire instance configured for the pytest plugin.
 
