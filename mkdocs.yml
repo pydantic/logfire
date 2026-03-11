@@ -258,6 +258,7 @@ nav:
               - Installation: reference/self-hosted/installation.md
               - Scaling: reference/self-hosted/scaling.md
               - Troubleshooting: reference/self-hosted/troubleshooting.md
+              - Bucket Migration: reference/self-hosted/bucket-migration.md
               - Examples: reference/self-hosted/examples.md
               - Usage Report: reference/self-hosted/usage-report.md
       - Resources:
