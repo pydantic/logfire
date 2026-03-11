@@ -489,6 +489,7 @@ plugins:
           - reference/advanced/migrate-to-new-project.md
         Deploy & Scale:
           - enterprise.md
+          - enterprise-single-tenant.md
           - how-to-guides/sso-setup.md
           - compliance.md
           - reference/self-hosted/*.md
