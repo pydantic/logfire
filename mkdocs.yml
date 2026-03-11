@@ -249,6 +249,7 @@ nav:
           - Migrating Projects: reference/advanced/migrate-to-new-project.md
       - Deploy & Scale:
           - Enterprise: enterprise.md
+          - Single Tenant: enterprise-single-tenant.md
           - SSO Setup: how-to-guides/sso-setup.md
           - Compliance: compliance.md
           - Self-Hosted Deployment:
