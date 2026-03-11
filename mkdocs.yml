@@ -249,6 +249,7 @@ nav:
           - Migrating Projects: reference/advanced/migrate-to-new-project.md
       - Deploy & Scale:
           - Enterprise: enterprise.md
+          - Single Tenant: enterprise-single-tenant.md
           - SSO Setup: how-to-guides/sso-setup.md
           - Compliance: compliance.md
           - Self-Hosted Deployment:
@@ -257,6 +258,7 @@ nav:
               - Installation: reference/self-hosted/installation.md
               - Scaling: reference/self-hosted/scaling.md
               - Troubleshooting: reference/self-hosted/troubleshooting.md
+              - Bucket Migration: reference/self-hosted/bucket-migration.md
               - Examples: reference/self-hosted/examples.md
               - Usage Report: reference/self-hosted/usage-report.md
       - Resources:
@@ -488,6 +490,7 @@ plugins:
           - reference/advanced/migrate-to-new-project.md
         Deploy & Scale:
           - enterprise.md
+          - enterprise-single-tenant.md
           - how-to-guides/sso-setup.md
           - compliance.md
           - reference/self-hosted/*.md
