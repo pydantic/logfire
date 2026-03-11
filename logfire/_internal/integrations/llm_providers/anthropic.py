@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import anthropic
 from anthropic.types import Message, TextBlock, TextDelta, ToolUseBlock
+from anthropic.types.beta import BetaMessage
 
 from logfire._internal.utils import handle_internal_errors
 
@@ -96,7 +97,7 @@ def get_endpoint_config(
         raw_json_data = {}
     json_data = cast('dict[str, Any]', raw_json_data)
 
-    if url == '/v1/messages':
+    if url in ('/v1/messages', '/v1/messages?beta=true'):
         span_data: dict[str, Any] = {
             'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
             'gen_ai.system': 'anthropic',
@@ -233,7 +234,7 @@ def _convert_content_part(part: dict[str, Any] | str) -> MessagePart:  # pragma:
         return {**part, 'type': part_type}
 
 
-def convert_response_to_semconv(message: Message) -> OutputMessage:
+def convert_response_to_semconv(message: Message | BetaMessage) -> OutputMessage:
     """Convert an Anthropic response message to OTel Gen AI Semantic Convention format."""
     parts: list[MessagePart] = []
 
@@ -309,7 +310,7 @@ def on_response(
     """Updates the span based on the type of response."""
     versions: frozenset[SemconvVersion] = version if isinstance(version, frozenset) else frozenset({version})
 
-    if isinstance(response, Message):
+    if isinstance(response, (Message, BetaMessage)):
         if 1 in versions:
             message: dict[str, Any] = {'role': 'assistant'}
             for block in response.content:
