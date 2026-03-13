@@ -437,6 +437,7 @@ def test_sync_chat_completions(instrumented_client: openai.Client, exporter: Tes
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 1,
+                    'gen_ai.usage.raw': {'completion_tokens': 1, 'prompt_tokens': 2, 'total_tokens': 3},
                     'response_data': {
                         'message': {
                             'content': 'Nine',
@@ -474,6 +475,7 @@ def test_sync_chat_completions(instrumented_client: openai.Client, exporter: Tes
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
@@ -565,6 +567,7 @@ def test_sync_chat_completions_with_all_request_params(
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 1,
+                    'gen_ai.usage.raw': {'completion_tokens': 1, 'prompt_tokens': 2, 'total_tokens': 3},
                     'response_data': {
                         'message': {
                             'content': 'Nine',
@@ -609,6 +612,7 @@ def test_sync_chat_completions_with_all_request_params(
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
@@ -680,6 +684,7 @@ def test_sync_chat_completions_with_stop_string(instrumented_client: openai.Clie
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 1,
+                    'gen_ai.usage.raw': {'completion_tokens': 1, 'prompt_tokens': 2, 'total_tokens': 3},
                     'response_data': {
                         'message': {
                             'content': 'Nine',
@@ -718,6 +723,7 @@ def test_sync_chat_completions_with_stop_string(instrumented_client: openai.Clie
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
@@ -819,6 +825,7 @@ async def test_async_chat_completions(instrumented_async_client: openai.AsyncCli
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 1,
+                    'gen_ai.usage.raw': {'completion_tokens': 1, 'prompt_tokens': 2, 'total_tokens': 3},
                     'response_data': {
                         'message': {
                             'content': 'Nine',
@@ -856,6 +863,7 @@ async def test_async_chat_completions(instrumented_async_client: openai.AsyncCli
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
@@ -1968,6 +1976,7 @@ def test_completions(instrumented_client: openai.Client, exporter: TestExporter)
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.output_tokens': 1,
                     'operation.cost': 5e-06,
+                    'gen_ai.usage.raw': {'completion_tokens': 1, 'prompt_tokens': 2, 'total_tokens': 3},
                     'response_data': {
                         'finish_reason': 'stop',
                         'text': 'Nine',
@@ -1997,6 +2006,7 @@ def test_completions(instrumented_client: openai.Client, exporter: TestExporter)
                             'gen_ai.response.id': {},
                             'gen_ai.usage.output_tokens': {},
                             'operation.cost': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
@@ -2061,6 +2071,18 @@ def test_sync_chat_completions_version_latest(exporter: TestExporter) -> None:
                     'gen_ai.response.id': IsStr(),
                     'gen_ai.usage.input_tokens': IsInt(),
                     'gen_ai.usage.output_tokens': IsInt(),
+                    'gen_ai.usage.raw': {
+                        'completion_tokens': 6,
+                        'prompt_tokens': 23,
+                        'total_tokens': 29,
+                        'completion_tokens_details': {
+                            'accepted_prediction_tokens': 0,
+                            'audio_tokens': 0,
+                            'reasoning_tokens': 0,
+                            'rejected_prediction_tokens': 0,
+                        },
+                        'prompt_tokens_details': {'audio_tokens': 0, 'cached_tokens': 0},
+                    },
                     'gen_ai.output.messages': [
                         {
                             'role': 'assistant',
@@ -2084,6 +2106,7 @@ def test_sync_chat_completions_version_latest(exporter: TestExporter) -> None:
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                         },
@@ -2140,6 +2163,18 @@ def test_sync_chat_completions_version_v1_only(exporter: TestExporter) -> None:
                     'gen_ai.response.id': IsStr(),
                     'gen_ai.usage.input_tokens': IsInt(),
                     'gen_ai.usage.output_tokens': IsInt(),
+                    'gen_ai.usage.raw': {
+                        'completion_tokens': 6,
+                        'prompt_tokens': 23,
+                        'total_tokens': 29,
+                        'completion_tokens_details': {
+                            'accepted_prediction_tokens': 0,
+                            'audio_tokens': 0,
+                            'reasoning_tokens': 0,
+                            'rejected_prediction_tokens': 0,
+                        },
+                        'prompt_tokens_details': {'audio_tokens': 0, 'cached_tokens': 0},
+                    },
                     'response_data': {
                         'message': {
                             'content': 'Four plus five is nine.',
@@ -2178,6 +2213,7 @@ def test_sync_chat_completions_version_v1_only(exporter: TestExporter) -> None:
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
@@ -2478,6 +2514,7 @@ def test_embeddings_version_latest(exporter: TestExporter) -> None:
                     'gen_ai.system': 'openai',
                     'gen_ai.response.model': 'text-embedding-3-small',
                     'gen_ai.usage.input_tokens': IsInt(),
+                    'gen_ai.usage.raw': {'prompt_tokens': 1, 'total_tokens': 1},
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -2489,6 +2526,7 @@ def test_embeddings_version_latest(exporter: TestExporter) -> None:
                             'gen_ai.system': {},
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                         },
                     },
                 },
@@ -2530,6 +2568,7 @@ def test_embeddings_version_v1_only(exporter: TestExporter) -> None:
                     'gen_ai.system': 'openai',
                     'gen_ai.response.model': 'text-embedding-3-small',
                     'gen_ai.usage.input_tokens': IsInt(),
+                    'gen_ai.usage.raw': {'prompt_tokens': 1, 'total_tokens': 1},
                     'response_data': {'usage': {'prompt_tokens': IsInt(), 'total_tokens': IsInt()}},
                     'logfire.json_schema': {
                         'type': 'object',
@@ -2542,6 +2581,7 @@ def test_embeddings_version_v1_only(exporter: TestExporter) -> None:
                             'gen_ai.system': {},
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
@@ -2827,6 +2867,7 @@ def test_embeddings(instrumented_client: openai.Client, exporter: TestExporter) 
                     'gen_ai.request.model': 'text-embedding-3-small',
                     'gen_ai.response.model': 'text-embedding-3-small',
                     'gen_ai.usage.input_tokens': 1,
+                    'gen_ai.usage.raw': {'prompt_tokens': 1, 'total_tokens': 2},
                     'response_data': {'usage': {'prompt_tokens': 1, 'total_tokens': 2}},
                     'logfire.json_schema': {
                         'type': 'object',
@@ -2839,6 +2880,7 @@ def test_embeddings(instrumented_client: openai.Client, exporter: TestExporter) 
                             'gen_ai.request.model': {},
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
@@ -3017,6 +3059,7 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.output_tokens': 1,
                     'operation.cost': 5e-06,
+                    'gen_ai.usage.raw': {'completion_tokens': 1, 'prompt_tokens': 2, 'total_tokens': 3},
                     'response_data': {
                         'finish_reason': 'stop',
                         'text': 'Nine',
@@ -3046,6 +3089,7 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                             'gen_ai.response.id': {},
                             'gen_ai.usage.output_tokens': {},
                             'operation.cost': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
@@ -3136,6 +3180,7 @@ def test_suppress_httpx(exporter: TestExporter) -> None:
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.output_tokens': 1,
                     'operation.cost': 5e-06,
+                    'gen_ai.usage.raw': {'completion_tokens': 1, 'prompt_tokens': 2, 'total_tokens': 3},
                     'response_data': {
                         'finish_reason': 'stop',
                         'text': 'Nine',
@@ -3165,6 +3210,7 @@ def test_suppress_httpx(exporter: TestExporter) -> None:
                             'gen_ai.response.id': {},
                             'gen_ai.usage.output_tokens': {},
                             'operation.cost': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
@@ -3496,6 +3542,13 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'gen_ai.response.id': 'resp_039e74dd66b112920068dfe10528b8819c82d1214897014964',
                     'gen_ai.usage.input_tokens': 65,
                     'gen_ai.usage.output_tokens': 17,
+                    'gen_ai.usage.raw': {
+                        'input_tokens': 65,
+                        'input_tokens_details': {'cached_tokens': 0},
+                        'output_tokens': 17,
+                        'output_tokens_details': {'reasoning_tokens': 0},
+                        'total_tokens': 82,
+                    },
                     'gen_ai.output.messages': [
                         {
                             'role': 'assistant',
@@ -3528,6 +3581,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                             'gen_ai.response.id': {},
                             'gen_ai.usage.output_tokens': {},
                             'operation.cost': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'gen_ai.output.messages': {'type': 'array'},
                         },
                     },
@@ -3614,6 +3668,13 @@ def test_responses_api(exporter: TestExporter) -> None:
                         },
                     ],
                     'gen_ai.usage.output_tokens': 21,
+                    'gen_ai.usage.raw': {
+                        'input_tokens': 43,
+                        'input_tokens_details': {'cached_tokens': 0},
+                        'output_tokens': 21,
+                        'output_tokens_details': {'reasoning_tokens': 0},
+                        'total_tokens': 64,
+                    },
                     'gen_ai.output.messages': [
                         {
                             'role': 'assistant',
@@ -3642,6 +3703,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                             'gen_ai.response.id': {},
                             'gen_ai.usage.output_tokens': {},
                             'operation.cost': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'gen_ai.output.messages': {'type': 'array'},
                         },
                     },
@@ -3946,6 +4008,24 @@ def test_chat_completions_with_audio_input(exporter: TestExporter) -> None:
                     'gen_ai.response.id': 'chatcmpl-D5caSDR31gOd1Qpyucf0b5VvVy9zY',
                     'gen_ai.usage.input_tokens': 21,
                     'gen_ai.usage.output_tokens': 1,
+                    'gen_ai.usage.raw': {
+                        'completion_tokens': 1,
+                        'prompt_tokens': 21,
+                        'total_tokens': 22,
+                        'completion_tokens_details': {
+                            'accepted_prediction_tokens': 0,
+                            'audio_tokens': 0,
+                            'reasoning_tokens': 0,
+                            'rejected_prediction_tokens': 0,
+                            'text_tokens': 1,
+                        },
+                        'prompt_tokens_details': {
+                            'audio_tokens': 2,
+                            'cached_tokens': 0,
+                            'text_tokens': 19,
+                            'image_tokens': 0,
+                        },
+                    },
                     'response_data': {
                         'message': {
                             'content': 'Hello',
@@ -3994,6 +4074,7 @@ def test_chat_completions_with_audio_input(exporter: TestExporter) -> None:
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
@@ -4370,6 +4451,7 @@ def test_completions_version_v1_only(exporter: TestExporter) -> None:
                     'gen_ai.response.id': IsStr(),
                     'gen_ai.usage.input_tokens': IsInt(),
                     'gen_ai.usage.output_tokens': IsInt(),
+                    'gen_ai.usage.raw': {'completion_tokens': 1, 'prompt_tokens': 5, 'total_tokens': 6},
                     'response_data': {
                         'finish_reason': 'stop',
                         'text': 'Nine',
@@ -4397,6 +4479,7 @@ def test_completions_version_v1_only(exporter: TestExporter) -> None:
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
@@ -4455,6 +4538,7 @@ def test_completions_version_latest_only(exporter: TestExporter) -> None:
                     'gen_ai.response.id': IsStr(),
                     'gen_ai.usage.input_tokens': IsInt(),
                     'gen_ai.usage.output_tokens': IsInt(),
+                    'gen_ai.usage.raw': {'completion_tokens': 1, 'prompt_tokens': 5, 'total_tokens': 6},
                     'gen_ai.output.messages': [
                         {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Nine'}], 'finish_reason': 'stop'}
                     ],
@@ -4474,6 +4558,7 @@ def test_completions_version_latest_only(exporter: TestExporter) -> None:
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                         },
@@ -4521,6 +4606,13 @@ def test_responses_api_version_v1_only(exporter: TestExporter) -> None:
                     'gen_ai.response.id': IsStr(),
                     'gen_ai.usage.input_tokens': IsInt(),
                     'gen_ai.usage.output_tokens': IsInt(),
+                    'gen_ai.usage.raw': {
+                        'input_tokens': 12,
+                        'input_tokens_details': {'cached_tokens': 0},
+                        'output_tokens': 8,
+                        'output_tokens_details': {'reasoning_tokens': 0},
+                        'total_tokens': 20,
+                    },
                     'events': [
                         {'event.name': 'gen_ai.user.message', 'content': 'What is four plus five?', 'role': 'user'},
                         {
@@ -4544,6 +4636,7 @@ def test_responses_api_version_v1_only(exporter: TestExporter) -> None:
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                         },
                     },
                 },
@@ -4592,6 +4685,13 @@ def test_responses_api_version_latest_only(exporter: TestExporter) -> None:
                     'gen_ai.response.id': IsStr(),
                     'gen_ai.usage.input_tokens': IsInt(),
                     'gen_ai.usage.output_tokens': IsInt(),
+                    'gen_ai.usage.raw': {
+                        'input_tokens': 12,
+                        'input_tokens_details': {'cached_tokens': 0},
+                        'output_tokens': 8,
+                        'output_tokens_details': {'reasoning_tokens': 0},
+                        'total_tokens': 20,
+                    },
                     'gen_ai.output.messages': [
                         {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Four plus five is nine.'}]}
                     ],
@@ -4610,6 +4710,7 @@ def test_responses_api_version_latest_only(exporter: TestExporter) -> None:
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'gen_ai.output.messages': {'type': 'array'},
                         },
                     },
