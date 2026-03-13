@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v4.29.0] (2026-03-13)
+
+* Add `gen_ai.usage.raw` attribute to OpenAI Responses spans by @alexmojaki in [#1777](https://github.com/pydantic/logfire/pull/1777)
+
 ## [v4.28.0] (2026-03-11)
 
 * Handle anthropic beta messages and refactor by @alexmojaki in [#1774](https://github.com/pydantic/logfire/pull/1774)
@@ -1068,3 +1072,4 @@ First release from new repo!
 [v4.26.0]: https://github.com/pydantic/logfire/compare/v4.25.0...v4.26.0
 [v4.27.0]: https://github.com/pydantic/logfire/compare/v4.26.0...v4.27.0
 [v4.28.0]: https://github.com/pydantic/logfire/compare/v4.27.0...v4.28.0
+[v4.29.0]: https://github.com/pydantic/logfire/compare/v4.28.0...v4.29.0
