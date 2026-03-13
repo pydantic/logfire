@@ -230,6 +230,7 @@ nav:
           - Use Alternative Backends: how-to-guides/alternative-backends.md
           - Collect Cloud Provider Metrics: how-to-guides/cloud-metrics.md
           - Connect to MCP Server: how-to-guides/mcp-server.md
+          - Claude Code Skills: how-to-guides/skills.md
       - Reference:
           - SQL: reference/sql.md
           - SDK API:
