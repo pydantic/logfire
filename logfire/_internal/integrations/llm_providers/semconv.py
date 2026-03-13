@@ -62,6 +62,7 @@ RESPONSE_FINISH_REASONS = 'gen_ai.response.finish_reasons'
 # Token usage
 INPUT_TOKENS = 'gen_ai.usage.input_tokens'
 OUTPUT_TOKENS = 'gen_ai.usage.output_tokens'
+USAGE_RAW = 'gen_ai.usage.raw'
 
 # Message content
 INPUT_MESSAGES = 'gen_ai.input.messages'
