@@ -5,10 +5,8 @@ description: Use Pydantic's Claude Code skills and plugins to streamline your wo
 
 # Claude Code Skills
 
-[Skills](https://code.claude.com/docs/en/skills) are reusable prompt-driven capabilities for
-[Claude Code](https://docs.anthropic.com/en/docs/claude-code). You create a `SKILL.md` file with
-instructions, and Claude adds it to its toolkit — using it automatically when relevant, or on demand
-via `/skill-name`.
+[Skills](https://code.claude.com/docs/en/skills) are reusable prompt-driven capabilities for agents.
+You create a `SKILL.md` file with instructions, and your agent adds it to its toolkit — using it automatically when relevant, or on demand via `/skill-name` in Claude Code for example.
 
 Pydantic provides a set of skills and plugins for working with Logfire at
 [github.com/pydantic/skills](https://github.com/pydantic/skills).
@@ -26,7 +24,7 @@ The [pydantic/skills](https://github.com/pydantic/skills) repository includes:
 
 ## Installation
 
-Skills and plugins are managed using the [`skills` CLI](https://github.com/vercel-labs/skills).
+Skills and plugins can be managed using the [`skills` CLI](https://github.com/vercel-labs/skills).
 
 Install the Pydantic skills with:
 
@@ -34,9 +32,10 @@ Install the Pydantic skills with:
 npx skills install pydantic/skills
 ```
 
-This will make the skills and plugins available in your Claude Code sessions.
+This will make the skills and plugins available to Claude Code and other agents.
+See the [skills CLI documentation](https://github.com/vercel-labs/skills) for more details on supported frameworks and installation options.
 
-## Usage
+## Usage with Claude Code
 
 Once installed, Claude will automatically use the relevant skills when appropriate. You can also
 invoke them directly using the `/` command:
