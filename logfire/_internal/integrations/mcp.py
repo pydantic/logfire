@@ -28,9 +28,9 @@ if TYPE_CHECKING:
 def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
     logfire_instance = logfire_instance.with_settings(custom_scope_suffix='mcp')
 
-    original_send_request = BaseSession.send_request  # type: ignore
+    original_send_request = BaseSession.send_request  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
 
-    @functools.wraps(original_send_request)  # type: ignore
+    @functools.wraps(original_send_request)  # pyright: ignore[reportUnknownArgumentType]
     async def send_request(self: Any, request: Any, *args: Any, **kwargs: Any):
         root = request.root
         attributes: dict[str, Any] = {
@@ -57,16 +57,16 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
 
     BaseSession.send_request = send_request
 
-    original_send_notification = BaseSession.send_notification  # type: ignore
+    original_send_notification = BaseSession.send_notification  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
 
-    @functools.wraps(original_send_notification)  # type: ignore
+    @functools.wraps(original_send_notification)  # pyright: ignore[reportUnknownArgumentType]
     async def send_notification(self: Any, notification: Any, *args: Any, **kwargs: Any):
         _attach_context_to_request(notification.root)
         return await original_send_notification(self, notification, *args, **kwargs)
 
     BaseSession.send_notification = send_notification
 
-    original_received_notification = ClientSession._received_notification  # type: ignore
+    original_received_notification = ClientSession._received_notification  # pyright: ignore[reportPrivateUsage]
 
     @functools.wraps(original_received_notification)
     async def _received_notification(self: Any, notification: Any, *args: Any, **kwargs: Any):
@@ -85,9 +85,9 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
                     logfire_instance.log(level, span_name, attributes=dict(data=params.data))
         await original_received_notification(self, notification, *args, **kwargs)
 
-    ClientSession._received_notification = _received_notification  # type: ignore
+    ClientSession._received_notification = _received_notification  # pyright: ignore[reportPrivateUsage]
 
-    original_handle_client_request = ClientSession._received_request  # type: ignore
+    original_handle_client_request = ClientSession._received_request  # pyright: ignore[reportPrivateUsage]
 
     @functools.wraps(original_handle_client_request)
     async def _received_request_client(self: Any, responder: RequestResponder[ServerRequest, ClientResult]) -> None:
@@ -96,9 +96,9 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
         with _handle_request_with_context(request, responder, span_name):
             await original_handle_client_request(self, responder)
 
-    ClientSession._received_request = _received_request_client  # type: ignore
+    ClientSession._received_request = _received_request_client  # pyright: ignore[reportPrivateUsage]
 
-    original_handle_server_request = Server._handle_request  # type: ignore
+    original_handle_server_request = Server._handle_request  # pyright: ignore[reportPrivateUsage]
 
     @functools.wraps(original_handle_server_request)
     async def _handle_request(
@@ -108,7 +108,7 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
         with _handle_request_with_context(request, message, span_name):
             return await original_handle_server_request(self, message, request, *args, **kwargs)
 
-    Server._handle_request = _handle_request  # type: ignore
+    Server._handle_request = _handle_request  # pyright: ignore[reportPrivateUsage, reportAttributeAccessIssue]
 
     @contextmanager
     def _handle_request_with_context(
@@ -150,16 +150,16 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
         if params := getattr(root, 'params', None):
             if meta := getattr(params, 'meta', None):
                 if isinstance(meta, dict):
-                    dumped_meta = meta  # type: ignore
+                    dumped_meta = meta  # pyright: ignore[reportUnknownVariableType]
                 else:
                     dumped_meta = meta.model_dump()
             else:
                 dumped_meta = {}
             # Prioritise existing values in meta over the context carrier.
             # RequestParams.Meta should allow basically anything, we're being extra careful here.
-            params.meta = type(params).Meta.model_validate({**carrier, **dumped_meta})  # type: ignore
+            params.meta = type(params).Meta.model_validate({**carrier, **dumped_meta})  # pyright: ignore[reportUnknownMemberType]
         else:
-            root.params = _request_params_type_adapter(type(root)).validate_python({'_meta': carrier})  # type: ignore
+            root.params = _request_params_type_adapter(type(root)).validate_python({'_meta': carrier})  # pyright: ignore[reportUnknownArgumentType]
 
 
 @functools.lru_cache

@@ -5,7 +5,7 @@ from __future__ import annotations
 import inspect
 from logging import LogRecord
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, cast
 
 import loguru
 
@@ -88,9 +88,10 @@ class LogfireHandler(LogfireLoggingHandler):
 
 
 try:
-    _LOG_METHOD_CODE = inspect.unwrap(type(loguru.logger)._log).__code__  # type: ignore
+    _log_method = cast('Callable[..., Any]', type(loguru.logger)._log)  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
+    _LOG_METHOD_CODE = inspect.unwrap(_log_method).__code__
 except Exception:  # pragma: no cover
-    _LOG_METHOD_CODE = None  # type: ignore
+    _LOG_METHOD_CODE = None  # pyright: ignore[reportConstantRedefinition]
     warn_at_user_stacklevel(
         'Failed to find loguru log method code to extract detailed information', LoguruInspectionFailed
     )

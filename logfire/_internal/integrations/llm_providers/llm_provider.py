@@ -108,7 +108,7 @@ def instrument_llm_provider(
                             with record_streaming(
                                 logfire_llm, span_data, stream_state_cls, original_context
                             ) as record_chunk:
-                                async for chunk in super().__stream__():  # type: ignore
+                                async for chunk in super().__stream__():  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
                                     record_chunk(chunk)
                                     yield chunk
 
@@ -120,7 +120,7 @@ def instrument_llm_provider(
                             with record_streaming(
                                 logfire_llm, span_data, stream_state_cls, original_context
                             ) as record_chunk:
-                                for chunk in super().__stream__():  # type: ignore
+                                for chunk in super().__stream__():  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
                                     record_chunk(chunk)
                                     yield chunk
 
@@ -175,7 +175,7 @@ def instrument_llm_provider(
         try:
             yield
         finally:
-            setattr(client, attr_name, client._original_request_method)  # type: ignore
+            setattr(client, attr_name, client._original_request_method)  # pyright: ignore[reportUnknownMemberType]
             del client._original_request_method
             client._is_instrumented_by_logfire = False
 
@@ -204,7 +204,7 @@ def record_streaming(
         if chunk:
             stream_state.record_chunk(chunk)
 
-    timer = logire_llm._config.advanced.ns_timestamp_generator  # type: ignore
+    timer = logire_llm._config.advanced.ns_timestamp_generator  # pyright: ignore[reportPrivateUsage]
     start = timer()
     try:
         yield record_chunk

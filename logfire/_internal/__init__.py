@@ -11,4 +11,4 @@ from logfire._internal.utils import platform_is_emscripten
 if platform_is_emscripten():  # pragma: no cover
     # Resource.create starts a thread, which is not supported in Emscripten.
     # We have to patch it early like this because it gets called just by importing OTel logs modules.
-    Resource.create = Resource  # type: ignore
+    Resource.create = Resource  # pyright: ignore[reportAttributeAccessIssue]

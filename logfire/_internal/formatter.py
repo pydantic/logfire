@@ -67,7 +67,7 @@ class ChunksFormatter(Formatter):
         # `frame` is the frame of the method that's being called by the user,
         # so that we can tell if `logfire.log` is being called.
         called_code = frame.f_code
-        frame = frame.f_back  # type: ignore
+        frame = frame.f_back  # pyright: ignore[reportAssignmentType]
         # Now `frame` is the frame where the user called a logfire method.
         assert frame is not None
 
@@ -120,7 +120,7 @@ class ChunksFormatter(Formatter):
         for node_value in arg_node.values:
             if isinstance(node_value, ast.Constant):
                 # These are the parts of the f-string not enclosed by `{}`, e.g. 'foo ' in f'foo {bar}'
-                value: str = node_value.value  # type: ignore
+                value: str = node_value.value  # pyright: ignore[reportAssignmentType]
                 result.append({'v': value, 't': 'lit'})
                 new_template += value
             else:

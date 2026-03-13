@@ -225,12 +225,42 @@ def _enum_schema(obj: Enum, seen: set[int]) -> JsonDict:
 PLAIN_SCHEMAS: tuple[JsonDict, ...] = ({}, {'type': 'object'}, {'type': 'array'}, {'type': 'null'})
 
 
+def _check_homogeneous(obj: Mapping[Any, Any], seen: set[int]) -> tuple[JsonDict | None, bool]:
+    """Check if all values in the mapping produce the same schema.
+
+    Returns (common_schema, is_homogeneous).
+    """
+    common_schema: JsonDict | None = None
+    for v in obj.values():
+        v_schema = create_json_schema(v, seen)
+        if common_schema is None:
+            common_schema = v_schema
+        elif v_schema != common_schema:
+            return common_schema, False
+    return common_schema, True
+
+
 def _mapping_schema(obj: Any, seen: set[int]) -> JsonDict:
     obj = cast(Mapping[Any, Any], obj)
-    schema: JsonDict = {
-        'type': 'object',
-        **_properties({(k if isinstance(k, str) else safe_repr(k)): v for k, v in obj.items()}, seen),
-    }
+    schema: JsonDict = {'type': 'object'}
+
+    n = len(obj)
+    has_long_key = any(len(str(k)) > 100 for k in obj.keys())
+    is_large = n > 100 or has_long_key
+
+    if n <= 10 and not has_long_key:
+        # Small dict: always use per-key properties
+        schema.update(_properties({(k if isinstance(k, str) else safe_repr(k)): v for k, v in obj.items()}, seen))
+    else:
+        # Medium or large dict: check homogeneity
+        common_schema, is_homogeneous = _check_homogeneous(obj, seen)
+        if is_homogeneous and common_schema is not None and common_schema not in PLAIN_SCHEMAS:
+            schema['additionalProperties'] = common_schema
+        elif not is_large:
+            # Medium heterogeneous: per-key properties
+            schema.update(_properties({(k if isinstance(k, str) else safe_repr(k)): v for k, v in obj.items()}, seen))
+        # else: large heterogeneous → just {'type': 'object'} (drop schema)
+
     if obj.__class__.__name__ != 'dict':
         schema['x-python-datatype'] = 'Mapping'
         schema['title'] = obj.__class__.__name__
@@ -289,7 +319,7 @@ def _pydantic_root_model_schema(obj: Any, seen: set[int]) -> JsonDict:
 
     assert isinstance(obj, pydantic.RootModel)
 
-    root = obj.root  # type: ignore
+    root = obj.root  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
 
     if isinstance(root, type(None)):
         return {'type': 'null'}
@@ -319,7 +349,7 @@ def _pydantic_root_model_schema(obj: Any, seen: set[int]) -> JsonDict:
 
         return schema
 
-    return create_json_schema(obj.root, seen)  # type: ignore
+    return create_json_schema(obj.root, seen)  # pyright: ignore[reportUnknownMemberType]
 
 
 def _pydantic_model_schema(obj: Any, seen: set[int]) -> JsonDict:
@@ -332,7 +362,7 @@ def _pydantic_model_schema(obj: Any, seen: set[int]) -> JsonDict:
         extra = obj.model_extra or {}
     except AttributeError:  # pragma: no cover
         # pydantic v1
-        fields = obj.__fields__  # type: ignore
+        fields = obj.__fields__  # pyright: ignore[reportDeprecated]
         extra = {}
     return _custom_object_schema(obj, 'PydanticModel', [*fields, *extra], seen)
 
@@ -346,11 +376,11 @@ def _pandas_schema(obj: Any, _seen: set[int]) -> JsonDict:
 
     max_columns = pandas.get_option('display.max_columns')
     col_middle = min(max_columns, column_count) // 2
-    columns = list(obj.columns[:col_middle]) + list(obj.columns[-col_middle:])  # type: ignore
+    columns = list(obj.columns[:col_middle]) + list(obj.columns[-col_middle:])  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType]
 
     max_rows = pandas.get_option('display.max_rows')
     row_middle = min(max_rows, row_count) // 2
-    indices = list(obj.index[:row_middle]) + list(obj.index[-row_middle:])  # type: ignore
+    indices = list(obj.index[:row_middle]) + list(obj.index[-row_middle:])  # pyright: ignore[reportUnknownVariableType, reportUnknownArgumentType]
 
     return {
         'type': 'array',
@@ -370,8 +400,8 @@ def _numpy_schema(obj: Any, seen: set[int]) -> JsonDict:
     return {
         'type': 'array',
         'x-python-datatype': 'ndarray',
-        'x-shape': to_json_value(obj.shape, seen),  # type: ignore
-        'x-dtype': str(obj.dtype),  # type: ignore
+        'x-shape': to_json_value(obj.shape, seen),  # pyright: ignore[reportUnknownMemberType]
+        'x-dtype': str(obj.dtype),  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
     }
 
 

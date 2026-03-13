@@ -1,5 +1,26 @@
 # Release Notes
 
+## [v4.29.0] (2026-03-13)
+
+* Add `gen_ai.usage.raw` attribute to OpenAI Responses spans by @alexmojaki in [#1777](https://github.com/pydantic/logfire/pull/1777)
+
+## [v4.28.0] (2026-03-11)
+
+* Handle anthropic beta messages and refactor by @alexmojaki in [#1774](https://github.com/pydantic/logfire/pull/1774)
+* Delete redundant `logfire.experimental.datasets` package by @alexmojaki in [#1763](https://github.com/pydantic/logfire/pull/1763)
+* Change `logfire_pytest` fixture scope to session by @jirikuncar in [#1758](https://github.com/pydantic/logfire/pull/1758)
+
+## [v4.27.0] (2026-03-06)
+
+* Add `gen_ai.system` attribute to anthropic spans, enabling token/cost badges by @alexmojaki in [#1760](https://github.com/pydantic/logfire/pull/1760)
+* Set `operation.cost` attribute on anthropic spans when `genai-prices` is installed by @alexmojaki in [#1761](https://github.com/pydantic/logfire/pull/1761)
+
+## [v4.26.0] (2026-03-06)
+
+* feat: add browser proxy helpers: `forward_export_request` and `logfire_proxy` by @AlanPonnachan in [#1697](https://github.com/pydantic/logfire/pull/1697)
+* Handle pickling errors in `dataclasses.asdict` by @alexmojaki in [#1756](https://github.com/pydantic/logfire/pull/1756)
+* Use additionalProperties for homogeneous dict schemas by @adriangb in [#1738](https://github.com/pydantic/logfire/pull/1738)
+
 ## [v4.25.0] (2026-02-19)
 
 * Add experimental datasets package by @dmontagu in [#1711](https://github.com/pydantic/logfire/pull/1711)
@@ -1048,3 +1069,7 @@ First release from new repo!
 [v4.23.0]: https://github.com/pydantic/logfire/compare/v4.22.0...v4.23.0
 [v4.24.0]: https://github.com/pydantic/logfire/compare/v4.23.0...v4.24.0
 [v4.25.0]: https://github.com/pydantic/logfire/compare/v4.24.0...v4.25.0
+[v4.26.0]: https://github.com/pydantic/logfire/compare/v4.25.0...v4.26.0
+[v4.27.0]: https://github.com/pydantic/logfire/compare/v4.26.0...v4.27.0
+[v4.28.0]: https://github.com/pydantic/logfire/compare/v4.27.0...v4.28.0
+[v4.29.0]: https://github.com/pydantic/logfire/compare/v4.28.0...v4.29.0

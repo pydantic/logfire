@@ -57,7 +57,7 @@ def set_baggage(**values: str) -> Iterator[None]:
     """
     current_context = context.get_current()
     for key, value in values.items():
-        if not isinstance(value, str):  # type: ignore
+        if not isinstance(value, str):  # pyright: ignore[reportUnnecessaryIsInstance]
             warnings.warn(
                 f'Baggage value for key "{key}" is of type "{type(value).__name__}". Converting to string.',
                 stacklevel=3,

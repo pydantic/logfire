@@ -146,7 +146,7 @@ class LogfireAioHttpRequestInfo(TraceRequestStartParams, LogfireClientInfoMixin)
         self.span.set_attribute(attr_name, text)
 
     def _set_complex_span_attributes(self, attributes: dict[str, Any]) -> None:
-        set_user_attributes_on_raw_span(self.span, attributes)  # type: ignore
+        set_user_attributes_on_raw_span(self.span, attributes)  # pyright: ignore[reportArgumentType]
 
 
 @attr.s(auto_attribs=True, slots=True)
@@ -195,7 +195,7 @@ class LogfireAioHttpResponseInfo(LogfireClientInfoMixin):
 
     def capture_text_as_json(self, span: LogfireSpan, *, text: str, attr_name: str) -> None:
         span.set_attribute(attr_name, {})
-        span._span.set_attribute(attr_name, text)  # type: ignore
+        span._span.set_attribute(attr_name, text)  # pyright: ignore[reportOptionalMemberAccess, reportPrivateUsage]
 
     @classmethod
     def create_from_trace_params(
@@ -308,7 +308,7 @@ def capture_request_or_response_headers(
 
 
 CODES_FOR_METHODS_WITH_DATA_OR_JSON_PARAM = [
-    inspect.unwrap(ClientSession._request).__code__,  # type: ignore
+    inspect.unwrap(ClientSession._request).__code__,  # pyright: ignore[reportPrivateUsage]
 ]
 
 

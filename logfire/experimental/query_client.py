@@ -15,7 +15,7 @@ except ImportError as e:  # pragma: no cover
     raise ImportError('httpx is required to use the Logfire query clients') from e
 
 if TYPE_CHECKING:
-    from pyarrow import Table  # type: ignore
+    from pyarrow import Table  # pyright: ignore[reportUnknownVariableType]
 
 DEFAULT_TIMEOUT = Timeout(30.0)  # queries might typically be slower than the 5s default from AsyncClient
 
@@ -188,7 +188,7 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         )
         return response.json()
 
-    def query_arrow(  # type: ignore
+    def query_arrow(  # pyright: ignore[reportUnknownParameterType]
         self,
         sql: str,
         min_timestamp: datetime | None = None,
@@ -213,9 +213,9 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
             max_timestamp=max_timestamp,
             limit=limit,
         )
-        with pyarrow.ipc.open_stream(response.content) as reader:  # type: ignore
-            arrow_table: Table = reader.read_all()  # type: ignore
-        return arrow_table  # type: ignore
+        with pyarrow.ipc.open_stream(response.content) as reader:  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+            arrow_table: Table = reader.read_all()  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+        return arrow_table  # pyright: ignore[reportUnknownVariableType]
 
     def query_csv(
         self,
@@ -329,7 +329,7 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         )
         return response.json()
 
-    async def query_arrow(  # type: ignore
+    async def query_arrow(  # pyright: ignore[reportUnknownParameterType]
         self,
         sql: str,
         min_timestamp: datetime | None = None,
@@ -354,9 +354,9 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
             max_timestamp=max_timestamp,
             limit=limit,
         )
-        with pyarrow.ipc.open_stream(response.content) as reader:  # type: ignore
-            arrow_table: Table = reader.read_all()  # type: ignore
-        return arrow_table  # type: ignore
+        with pyarrow.ipc.open_stream(response.content) as reader:  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+            arrow_table: Table = reader.read_all()  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+        return arrow_table  # pyright: ignore[reportUnknownVariableType]
 
     async def query_csv(
         self,

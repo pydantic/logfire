@@ -53,7 +53,7 @@ class BodySizeCheckingOTLPSpanExporter(OTLPSpanExporter):
 class OTLPExporterHttpSession(Session):
     """A requests.Session subclass that defers failed requests to a DiskRetryer."""
 
-    def post(self, url: str, data: bytes, **kwargs: Any):  # type: ignore
+    def post(self, url: str, data: bytes, **kwargs: Any):  # pyright: ignore[reportIncompatibleMethodOverride]
         start_time = time.time()
         try:
             return self._post(url, data, **kwargs)
