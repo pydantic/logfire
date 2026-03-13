@@ -1,0 +1,23 @@
+logfire/_internal/integrations/llm_providers/semconv.py
+  c92e62b2b2736f58 65
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.11",
+  "base_commit_sha": "7eb4fac31e218d60ecc6f2f3d5fc021f0f7d40ad",
+  "prompts": {
+    "c92e62b2b2736f58": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b087a29-50c3-42cd-94ef-03e009e8cf49",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
