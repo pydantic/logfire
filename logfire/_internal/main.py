@@ -79,6 +79,14 @@ if TYPE_CHECKING:
     import openai
     import pydantic_ai.models
     import requests
+    from azure.ai.inference import (
+        ChatCompletionsClient as AzureChatCompletionsClient,
+        EmbeddingsClient as AzureEmbeddingsClient,
+    )
+    from azure.ai.inference.aio import (
+        ChatCompletionsClient as AsyncAzureChatCompletionsClient,
+        EmbeddingsClient as AsyncAzureEmbeddingsClient,
+    )
     from django.http import HttpRequest, HttpResponse
     from fastapi import FastAPI
     from flask.app import Flask
@@ -1387,6 +1395,76 @@ class Logfire:
             partial(get_endpoint_config, version=normalized_versions),
             partial(on_response, version=normalized_versions),
             is_async_client,
+        )
+
+    def instrument_azure_ai_inference(
+        self,
+        azure_ai_inference_client: (
+            AzureChatCompletionsClient
+            | AzureEmbeddingsClient
+            | AsyncAzureChatCompletionsClient
+            | AsyncAzureEmbeddingsClient
+            | type[AzureChatCompletionsClient]
+            | type[AzureEmbeddingsClient]
+            | type[AsyncAzureChatCompletionsClient]
+            | type[AsyncAzureEmbeddingsClient]
+            | None
+        ) = None,
+        *,
+        suppress_other_instrumentation: bool = True,
+    ) -> AbstractContextManager[None]:
+        """Instrument an Azure AI Inference client so that spans are automatically created for each request.
+
+        Supports both the sync and async clients from the
+        [`azure-ai-inference`](https://pypi.org/project/azure-ai-inference/) package:
+
+        - [`ChatCompletionsClient.complete`](https://learn.microsoft.com/python/api/azure-ai-inference/azure.ai.inference.chatcompletionsclient) - with and without `stream=True`
+        - [`EmbeddingsClient.embed`](https://learn.microsoft.com/python/api/azure-ai-inference/azure.ai.inference.embeddingsclient)
+
+        Example usage:
+
+        ```python skip-run="true" skip-reason="external-connection"
+        from azure.ai.inference import ChatCompletionsClient
+        from azure.core.credentials import AzureKeyCredential
+
+        import logfire
+
+        client = ChatCompletionsClient(
+            endpoint='https://my-endpoint.inference.ai.azure.com',
+            credential=AzureKeyCredential('my-api-key'),
+        )
+
+        logfire.configure()
+        logfire.instrument_azure_ai_inference(client)
+
+        response = client.complete(
+            model='gpt-4',
+            messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+        )
+        print(response.choices[0].message.content)
+        ```
+
+        Args:
+            azure_ai_inference_client: The Azure AI Inference client or class to instrument:
+
+                - `None` (the default) to instrument all Azure AI Inference client classes.
+                - A `ChatCompletionsClient` or `EmbeddingsClient` class or instance (sync or async).
+
+            suppress_other_instrumentation: If True, suppress any other OTEL instrumentation that may be otherwise
+                enabled. In reality, this means the Azure Core tracing instrumentation, which could otherwise be
+                called since the Azure SDK uses its own pipeline to make HTTP requests.
+
+        Returns:
+            A context manager that will revert the instrumentation when exited.
+                Use of this context manager is optional.
+        """
+        from .integrations.llm_providers.azure_ai_inference import instrument_azure_ai_inference
+
+        self._warn_if_not_initialized_for_instrumentation()
+        return instrument_azure_ai_inference(
+            self,
+            azure_ai_inference_client,
+            suppress_other_instrumentation,
         )
 
     def instrument_google_genai(self, **kwargs: Any):
