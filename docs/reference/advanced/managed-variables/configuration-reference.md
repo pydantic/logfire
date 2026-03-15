@@ -14,7 +14,8 @@
 | `json_schema` | JSON Schema for validation (optional) |
 | `description` | Human-readable description (optional) |
 | `aliases` | Alternative names that resolve to this variable (optional, for migrations) |
-| `example` | JSON-serialized example value, used as template in UI (optional) |
+| `example` | JSON-serialized example value, used as starting point when creating versions in the UI (optional) |
+| `template_inputs_schema` | JSON Schema for template `{{placeholder}}` inputs (optional, set automatically by `logfire.template_var()`) |
 
 **LabeledValue** — A label with an inline serialized value:
 

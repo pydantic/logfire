@@ -97,6 +97,7 @@ metric_up_down_counter_callback = DEFAULT_LOGFIRE_INSTANCE.metric_up_down_counte
 
 # Variables
 var = DEFAULT_LOGFIRE_INSTANCE.var
+template_var = DEFAULT_LOGFIRE_INSTANCE.template_var
 variables_clear = DEFAULT_LOGFIRE_INSTANCE.variables_clear
 variables_get = DEFAULT_LOGFIRE_INSTANCE.variables_get
 variables_push = DEFAULT_LOGFIRE_INSTANCE.variables_push
@@ -196,6 +197,7 @@ __all__ = (
     'LocalVariablesOptions',
     'variables',
     'var',
+    'template_var',
     'variables_clear',
     'variables_get',
     'variables_push',
