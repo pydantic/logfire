@@ -217,6 +217,7 @@ nav:
           - Environments: how-to-guides/environments.md
           - Write Tokens: how-to-guides/create-write-tokens.md
           - API Keys: reference/advanced/use-api-keys.md
+          - Infrastructure as Code: how-to-guides/infrastructure-as-code.md
           - Multiple Configurations: how-to-guides/different-configurations.md
           - Cost & Usage: logfire-costs.md
           - Data Regions: reference/data-regions.md
@@ -229,6 +230,7 @@ nav:
           - Use Alternative Backends: how-to-guides/alternative-backends.md
           - Collect Cloud Provider Metrics: how-to-guides/cloud-metrics.md
           - Connect to MCP Server: how-to-guides/mcp-server.md
+          - Claude Code Skills: how-to-guides/skills.md
       - Reference:
           - SQL: reference/sql.md
           - SDK API:
@@ -248,6 +250,8 @@ nav:
           - Migrating Projects: reference/advanced/migrate-to-new-project.md
       - Deploy & Scale:
           - Enterprise: enterprise.md
+          - Single Tenant: enterprise-single-tenant.md
+          - SSO Setup: how-to-guides/sso-setup.md
           - Compliance: compliance.md
           - Self-Hosted Deployment:
               - Overview: reference/self-hosted/overview.md
@@ -255,6 +259,7 @@ nav:
               - Installation: reference/self-hosted/installation.md
               - Scaling: reference/self-hosted/scaling.md
               - Troubleshooting: reference/self-hosted/troubleshooting.md
+              - Bucket Migration: reference/self-hosted/bucket-migration.md
               - Examples: reference/self-hosted/examples.md
               - Usage Report: reference/self-hosted/usage-report.md
       - Resources:
@@ -486,6 +491,8 @@ plugins:
           - reference/advanced/migrate-to-new-project.md
         Deploy & Scale:
           - enterprise.md
+          - enterprise-single-tenant.md
+          - how-to-guides/sso-setup.md
           - compliance.md
           - reference/self-hosted/*.md
         Comparisons:

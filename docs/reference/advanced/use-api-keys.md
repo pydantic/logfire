@@ -48,8 +48,6 @@ Available scopes depend on whether you're creating an organization or project AP
 | Scope                                | Organization API Key | Project API Key |
 | ------------------------------------ | -------------------- | --------------- |
 | Organization management (read/write) | ✓                    | —               |
-| Member management                    | ✓                    | —               |
-| Billing access                       | ✓                    | —               |
 | Project settings (read/write)        | ✓                    | ✓               |
 | Write tokens management              | ✓                    | ✓               |
 | Read tokens management               | ✓                    | ✓               |

@@ -216,15 +216,15 @@ class ParamManager:
                     pass
             raise LogfireConfigError(f'Expected {name} to be an instance of one of {get_args(tp)}, got {value!r}')
         if tp is bool:
-            return _check_bool(value, name)  # type: ignore
+            return _check_bool(value, name)  # pyright: ignore[reportReturnType]
         if tp is float:
-            return float(value)  # type: ignore
+            return float(value)  # pyright: ignore[reportReturnType]
         if tp is Path:
-            return Path(value)  # type: ignore
+            return Path(value)  # pyright: ignore[reportReturnType]
         if get_origin(tp) is set and get_args(tp) == (str,):  # pragma: no branch
-            return _extract_set_of_str(value)  # type: ignore
+            return _extract_set_of_str(value)  # pyright: ignore[reportReturnType]
         if get_origin(tp) is list and get_args(tp) == (str,):
-            return extract_list_of_str(value)  # type: ignore
+            return extract_list_of_str(value)  # pyright: ignore[reportReturnType]
         raise RuntimeError(f'Unexpected type {tp}')  # pragma: no cover
 
 

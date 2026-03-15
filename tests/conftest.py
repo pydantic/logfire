@@ -27,7 +27,9 @@ os.environ['OTEL_SEMCONV_STABILITY_OPT_IN'] = 'http/dup'
 
 # Ensure that these variables in the environment don't interfere
 os.environ['LOGFIRE_TOKEN'] = ''
+os.environ['LOGFIRE_API_KEY'] = ''
 os.environ.setdefault('OPENAI_API_KEY', 'foo')
+os.environ.setdefault('ANTHROPIC_API_KEY', os.environ.get('TEST_ANTHROPIC_API_KEY', 'foo'))
 os.environ.pop('OPENAI_BASE_URL', None)
 os.environ.pop('ANTHROPIC_BASE_URL', None)
 

@@ -132,7 +132,7 @@ def _numpy_array_encoder(o: Any, seen: set[int]) -> JsonValue:
     dimensions = o.ndim
 
     if isinstance(o, numpy.matrix):
-        o = o.A  # type: ignore[reportUnknownMemberType]
+        o = o.A  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
 
     for dimension in range(dimensions):
         if shape[dimension] <= NUMPY_DIMENSION_MAX_SIZE:
@@ -157,13 +157,13 @@ def _pydantic_model_encoder(o: Any, seen: set[int]) -> JsonValue:
     assert isinstance(o, pydantic.BaseModel)
 
     if isinstance(o, pydantic.RootModel):
-        return to_json_value(o.root, seen)  # type: ignore
+        return to_json_value(o.root, seen)  # pyright: ignore[reportUnknownMemberType]
 
     try:
         dump = o.model_dump()
     except AttributeError:  # pragma: no cover
         # pydantic v1
-        dump = o.dict()  # type: ignore
+        dump = o.dict()  # pyright: ignore[reportDeprecated]
     return to_json_value(dump, seen)
 
 
@@ -179,7 +179,7 @@ def _get_sqlalchemy_data(o: Any, seen: set[int]) -> JsonValue | None:
             return None
         deferred = state.unloaded
     except ModuleNotFoundError:  # pragma: no cover
-        deferred = set()  # type: ignore
+        deferred = set()  # pyright: ignore[reportUnknownVariableType]
 
     return to_json_value(
         {field: getattr(o, field) if field not in deferred else '<deferred>' for field in o.__mapper__.attrs.keys()},
@@ -255,11 +255,11 @@ def to_json_value(o: Any, seen: set[int]) -> JsonValue:
 
         if isinstance(o, (list, tuple)):
             # we do list & tuple before Mapping as it's > twice as fast and just as common
-            return [to_json_value(item, seen) for item in o]  # type: ignore
+            return [to_json_value(item, seen) for item in o]  # pyright: ignore[reportUnknownVariableType]
         elif isinstance(o, Mapping):
             return {
                 key if isinstance(key, str) else safe_repr(key): to_json_value(value, seen)
-                for key, value in o.items()  # type: ignore
+                for key, value in o.items()  # pyright: ignore[reportUnknownVariableType]
             }
 
         sa_data = _get_sqlalchemy_data(o, seen)
@@ -280,12 +280,12 @@ def to_json_value(o: Any, seen: set[int]) -> JsonValue:
                 return encoder(o, seen)
 
         if isinstance(o, Sequence):
-            return [to_json_value(item, seen) for item in o]  # type: ignore
+            return [to_json_value(item, seen) for item in o]  # pyright: ignore[reportUnknownVariableType]
 
         try:
             # Some VertexAI classes have this method. They have no common base class.
             # Seems like a sensible thing to try in general.
-            to_dict = type(o).to_dict(o)  # type: ignore
+            to_dict = type(o).to_dict(o)  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
         except Exception:  # currently redundant, but future-proof
             pass
         else:

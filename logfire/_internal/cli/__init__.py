@@ -322,11 +322,11 @@ def _main(args: list[str] | None = None) -> None:
         '--base-url', help='the base URL for self-hosted Logfire instances (e.g., http://localhost:8080)'
     )
     url_or_region_grp.add_argument('--region', choices=REGIONS, help='the region to use')
-    parser.set_defaults(func=lambda _: parser.print_help())  # type: ignore
+    parser.set_defaults(func=lambda _: parser.print_help())  # pyright: ignore[reportUnknownLambdaType]
     subparsers = parser.add_subparsers(title='commands', metavar='')
 
     # NOTE(DavidM): Let's try to keep the commands listed in alphabetical order if we can
-    cmd_auth = subparsers.add_parser('auth', help=parse_auth.__doc__.split('\n', 1)[0], description=parse_auth.__doc__)  # type: ignore
+    cmd_auth = subparsers.add_parser('auth', help=parse_auth.__doc__.split('\n', 1)[0], description=parse_auth.__doc__)  # pyright: ignore[reportOptionalMemberAccess]
     cmd_auth.set_defaults(func=parse_auth)
 
     cmd_clean = subparsers.add_parser('clean', help=parse_clean.__doc__)
@@ -343,7 +343,7 @@ def _main(args: list[str] | None = None) -> None:
     cmd_whoami.add_argument('--data-dir', default='.logfire')
 
     cmd_projects = subparsers.add_parser('projects', help='Project management for Logfire.')
-    cmd_projects.set_defaults(func=lambda _: cmd_projects.print_help())  # type: ignore
+    cmd_projects.set_defaults(func=lambda _: cmd_projects.print_help())  # pyright: ignore[reportUnknownLambdaType]
     projects_subparsers = cmd_projects.add_subparsers()
 
     cmd_projects_list = projects_subparsers.add_parser('list', help='list projects')
@@ -366,7 +366,7 @@ def _main(args: list[str] | None = None) -> None:
 
     cmd_read_tokens = subparsers.add_parser('read-tokens', help='Manage read tokens for a project')
     cmd_read_tokens.add_argument('--project', action=OrgProjectAction, help='project in the format <org>/<project>')
-    cmd_read_tokens.set_defaults(func=lambda _: cmd_read_tokens.print_help())  # type: ignore
+    cmd_read_tokens.set_defaults(func=lambda _: cmd_read_tokens.print_help())  # pyright: ignore[reportUnknownLambdaType]
     read_tokens_subparsers = cmd_read_tokens.add_subparsers()
 
     # With this command you can do:

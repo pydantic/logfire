@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import contextlib
 import json
 from typing import TYPE_CHECKING, Any, cast
 
 import anthropic
 from anthropic.types import Message, TextBlock, TextDelta, ToolUseBlock
+from anthropic.types.beta import BetaMessage, BetaTextBlock, BetaTextDelta, BetaToolUseBlock
 
 from logfire._internal.utils import handle_internal_errors
 
@@ -31,7 +33,6 @@ from .semconv import (
     InputMessages,
     MessagePart,
     OutputMessage,
-    Role,
     SemconvVersion,
     SystemInstructions,
     TextPart,
@@ -96,9 +97,10 @@ def get_endpoint_config(
         raw_json_data = {}
     json_data = cast('dict[str, Any]', raw_json_data)
 
-    if url == '/v1/messages':
+    if url in ('/v1/messages', '/v1/messages?beta=true'):
         span_data: dict[str, Any] = {
             'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
+            'gen_ai.system': 'anthropic',
             PROVIDER_NAME: 'anthropic',
             OPERATION_NAME: 'chat',
             REQUEST_MODEL: json_data.get('model'),
@@ -124,6 +126,7 @@ def get_endpoint_config(
         span_data = {
             'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
             'url': url,
+            'gen_ai.system': 'anthropic',
             PROVIDER_NAME: 'anthropic',
         }
         if 'model' in json_data:  # pragma: no branch
@@ -134,55 +137,22 @@ def get_endpoint_config(
         )
 
 
-def convert_messages_to_semconv(
-    messages: list[dict[str, Any]],
-    system: str | list[dict[str, Any]] | None = None,
-) -> tuple[InputMessages, SystemInstructions]:
-    """Convert Anthropic messages format to OTel Gen AI Semantic Convention format.
+def _convert_content_part_or_parts(content: object) -> list[MessagePart]:
+    if not content:
+        return []
 
-    Returns a tuple of (input_messages, system_instructions).
-    """
-    input_messages: InputMessages = []
-    system_instructions: SystemInstructions = []
-
-    # Handle system parameter (Anthropic uses a separate 'system' parameter)
-    if system:
-        if isinstance(system, str):
-            system_instructions.append(TextPart(type='text', content=system))
-        else:  # pragma: no cover
-            for part in system:
-                if part.get('type') == 'text':
-                    system_instructions.append(TextPart(type='text', content=part.get('text', '')))
-                else:
-                    system_instructions.append(part)
-
-    for msg in messages:
-        role: Role = msg.get('role') or 'user'
-        content = msg.get('content')
-
-        parts: list[MessagePart] = []
-
-        if content is not None:
-            if isinstance(content, str):
-                parts.append(TextPart(type='text', content=content))
-            elif isinstance(content, list):  # pragma: no cover
-                for part in cast('list[dict[str, Any] | str]', content):
-                    parts.append(_convert_content_part(part))
-
-        message: ChatMessage = {
-            'role': role,
-            'parts': parts,
-        }
-        input_messages.append(message)
-
-    return input_messages, system_instructions
+    if isinstance(content, list):
+        return [_convert_content_part(part) for part in cast(list[Any], content)]
+    else:
+        return [_convert_content_part(content)]
 
 
-def _convert_content_part(part: dict[str, Any] | str) -> MessagePart:  # pragma: no cover
+def _convert_content_part(part: object) -> MessagePart:  # pragma: no cover
     """Convert a single Anthropic content part to semconv format."""
-    if isinstance(part, str):
-        return TextPart(type='text', content=part)
+    if not isinstance(part, dict):
+        return TextPart(type='text', content=str(part))
 
+    part = cast('dict[str, Any]', part)
     part_type = part.get('type', 'text')
     if part_type == 'text':
         return TextPart(type='text', content=part.get('text', ''))
@@ -202,9 +172,8 @@ def _convert_content_part(part: dict[str, Any] | str) -> MessagePart:  # pragma:
         else:
             return {'type': 'image', **part}
     elif part_type == 'tool_use':
-        return ToolCallPart(
-            type='tool_call',
-            id=part.get('id', ''),
+        return make_tool_call_part(
+            tool_call_id=part.get('id', ''),
             name=part.get('name', ''),
             arguments=part.get('input'),
         )
@@ -231,18 +200,55 @@ def _convert_content_part(part: dict[str, Any] | str) -> MessagePart:  # pragma:
         return {**part, 'type': part_type}
 
 
-def convert_response_to_semconv(message: Message) -> OutputMessage:
+def make_tool_call_part(
+    tool_call_id: str,
+    name: str,
+    arguments: Any,
+) -> ToolCallPart:
+    """Helper function to create a ToolCallPart."""
+    if isinstance(arguments, str):  # pragma: no cover
+        with contextlib.suppress(json.JSONDecodeError):
+            arguments = json.loads(arguments)
+    return ToolCallPart(
+        type='tool_call',
+        id=tool_call_id,
+        name=name,
+        arguments=arguments,
+    )
+
+
+def convert_messages_to_semconv(
+    messages: list[dict[str, Any]],
+    system: str | list[dict[str, Any]] | None = None,
+) -> tuple[InputMessages, SystemInstructions]:
+    """Convert Anthropic messages format to OTel Gen AI Semantic Convention format.
+
+    Returns a tuple of (input_messages, system_instructions).
+    """
+    system_instructions: SystemInstructions = _convert_content_part_or_parts(system)
+
+    input_messages: InputMessages = [
+        ChatMessage(
+            role=msg.get('role') or 'user',
+            parts=_convert_content_part_or_parts(msg.get('content')),
+        )
+        for msg in messages
+    ]
+
+    return input_messages, system_instructions
+
+
+def convert_response_to_semconv(message: Message | BetaMessage) -> OutputMessage:
     """Convert an Anthropic response message to OTel Gen AI Semantic Convention format."""
     parts: list[MessagePart] = []
 
     for block in message.content:
-        if isinstance(block, TextBlock):
+        if isinstance(block, (TextBlock, BetaTextBlock)):
             parts.append(TextPart(type='text', content=block.text))
-        elif isinstance(block, ToolUseBlock):
+        elif isinstance(block, (ToolUseBlock, BetaToolUseBlock)):
             parts.append(
-                ToolCallPart(
-                    type='tool_call',
-                    id=block.id,
+                make_tool_call_part(
+                    tool_call_id=block.id,
                     name=block.name,
                     arguments=block.input,
                 )
@@ -252,10 +258,10 @@ def convert_response_to_semconv(message: Message) -> OutputMessage:
             block_dict = block.model_dump() if hasattr(block, 'model_dump') else dict(block)
             parts.append(block_dict)
 
-    result: OutputMessage = {
-        'role': cast('Role', message.role),
-        'parts': parts,
-    }
+    result = OutputMessage(
+        role=message.role,
+        parts=parts,
+    )
     if message.stop_reason:
         result['finish_reason'] = message.stop_reason
 
@@ -264,9 +270,9 @@ def convert_response_to_semconv(message: Message) -> OutputMessage:
 
 def content_from_messages(chunk: anthropic.types.MessageStreamEvent) -> str | None:
     if hasattr(chunk, 'content_block'):
-        return chunk.content_block.text if isinstance(chunk.content_block, TextBlock) else None  # type: ignore
+        return chunk.content_block.text if isinstance(chunk.content_block, (TextBlock, BetaTextBlock)) else None  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
     if hasattr(chunk, 'delta'):
-        return chunk.delta.text if isinstance(chunk.delta, TextDelta) else None  # type: ignore
+        return chunk.delta.text if isinstance(chunk.delta, (TextDelta, BetaTextDelta)) else None  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
     return None
 
 
@@ -292,10 +298,10 @@ class AnthropicMessageStreamState(StreamState):
         if 'latest' in versions and self._content:
             combined = ''.join(self._content)
             result[OUTPUT_MESSAGES] = [
-                {
-                    'role': 'assistant',
-                    'parts': [TextPart(type='text', content=combined)],
-                }
+                OutputMessage(
+                    role='assistant',
+                    parts=[TextPart(type='text', content=combined)],
+                )
             ]
         return result
 
@@ -307,7 +313,7 @@ def on_response(
     """Updates the span based on the type of response."""
     versions: frozenset[SemconvVersion] = version if isinstance(version, frozenset) else frozenset({version})
 
-    if isinstance(response, Message):
+    if isinstance(response, (Message, BetaMessage)):
         if 1 in versions:
             message: dict[str, Any] = {'role': 'assistant'}
             for block in response.content:
@@ -339,6 +345,18 @@ def on_response(
 
         if response.stop_reason:
             span.set_attribute(RESPONSE_FINISH_REASONS, [response.stop_reason])
+
+        try:
+            from genai_prices import calc_price, extract_usage
+
+            response_data = response.model_dump()
+            usage_data = extract_usage(response_data, provider_id='anthropic')
+            span.set_attribute(
+                'operation.cost',
+                float(calc_price(usage_data.usage, model_ref=response.model, provider_id='anthropic').total_price),
+            )
+        except Exception:
+            pass
 
     return response
 

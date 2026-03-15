@@ -66,13 +66,14 @@ def serialize_config() -> dict[str, Any] | None:
     """
     from ..config import GLOBAL_CONFIG
 
-    # note: since `logfire.config._LogfireConfigData` is a dataclass
-    # but `LogfireConfig` is not we only get the attributes from `_LogfireConfigData`
-    # which is what we want here!
-    config_dict = asdict(GLOBAL_CONFIG)
-
     try:
+        # note: since `logfire.config._LogfireConfigData` is a dataclass
+        # but `LogfireConfig` is not we only get the attributes from `_LogfireConfigData`
+        # which is what we want here!
+        config_dict = asdict(GLOBAL_CONFIG)
+        # Verify that the config can be pickled before ProcessPoolExecutor tries to pickle it.
         pickle.dumps(config_dict)
+        return config_dict
     except Exception:
         warn_at_user_stacklevel(
             'The Logfire configuration cannot be pickled and will not be automatically '
@@ -83,8 +84,6 @@ def serialize_config() -> dict[str, Any] | None:
         )
         return None
 
-    return config_dict
-
 
 def deserialize_config(config: dict[str, Any] | None) -> None:
     """Deserialize a config dict and apply it to the global config."""
@@ -93,5 +92,5 @@ def deserialize_config(config: dict[str, Any] | None) -> None:
     if config is None:
         return
 
-    if not GLOBAL_CONFIG._initialized:  # type: ignore
+    if not GLOBAL_CONFIG._initialized:  # pyright: ignore[reportPrivateUsage]
         configure(**config)
