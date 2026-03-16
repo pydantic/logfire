@@ -2,11 +2,20 @@ from __future__ import annotations
 
 import sys
 from datetime import datetime, timezone
+from typing import Any
 
 import pytest
 from inline_snapshot import snapshot
 
-from logfire.query_client import AsyncLogfireQueryClient, LogfireQueryClient
+from logfire.experimental.query_client import (
+    _build_paginated_records_sql,
+    _extract_cursor_from_row,
+)
+from logfire.query_client import (
+    AsyncLogfireQueryClient,
+    LogfireQueryClient,
+    PaginationCursor,
+)
 
 # This file is intended to be updated by the Logfire developers, with the development platform running locally.
 # To update, set the `CLIENT_BASE_URL` and `CLIENT_READ_TOKEN` values to match the local development environment,
@@ -312,3 +321,100 @@ is_exception,count(*)
 is_exception,count(*)
 false,37
 """)
+
+
+def test_iter_paginated_records_sync():
+    """Test that iter_paginated_records yields pages of records."""
+    with LogfireQueryClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL) as client:
+        all_rows: list[dict[str, Any]] = []
+        cursor: PaginationCursor | None = None
+        for rows, next_cursor in client.iter_paginated_records(
+            select='kind, message, start_timestamp, trace_id, span_id',
+            page_size=5,
+        ):
+            all_rows.extend(rows)
+            cursor = next_cursor
+            if cursor is None or len(rows) < 5:
+                break
+        assert len(all_rows) >= 5
+
+
+def test_build_paginated_records_sql_use_created_at():
+    """Test _build_paginated_records_sql with use_created_at=True uses records_all and created_at."""
+    sql = _build_paginated_records_sql(use_created_at=True)
+    assert 'FROM records_all' in sql
+    assert 'ORDER BY created_at, trace_id, span_id, kind' in sql
+
+
+def test_build_paginated_records_sql_where_with_cursor():
+    """Test _build_paginated_records_sql with where clause and cursor."""
+    sql = _build_paginated_records_sql(
+        where="level >= 'error'",
+        cursor={'start_timestamp': '2024-01-01T00:00:00Z', 'trace_id': 'abc', 'span_id': 'def'},
+    )
+    assert 'WHERE level >= ' in sql
+    assert "AND (start_timestamp, trace_id, span_id) > ('2024-01-01T00:00:00Z'" in sql
+
+
+def test_build_paginated_records_sql_cursor_only():
+    """Test _build_paginated_records_sql with cursor and no where clause."""
+    sql = _build_paginated_records_sql(
+        cursor={'start_timestamp': '2024-01-01T00:00:00Z', 'trace_id': 'abc', 'span_id': 'def'},
+    )
+    assert "WHERE (start_timestamp, trace_id, span_id) > ('2024-01-01T00:00:00Z'" in sql
+
+
+def test_extract_cursor_from_row_use_created_at():
+    """Test _extract_cursor_from_row with use_created_at=True."""
+    row = {
+        'created_at': '2024-01-01T00:00:00Z',
+        'trace_id': 'abc',
+        'span_id': 'def',
+        'kind': 'span',
+    }
+    cursor = _extract_cursor_from_row(row, use_created_at=True)
+    assert cursor == {'created_at': '2024-01-01T00:00:00Z', 'trace_id': 'abc', 'span_id': 'def', 'kind': 'span'}
+
+
+def test_extract_cursor_from_row_returns_none_when_keys_missing():
+    """Test _extract_cursor_from_row returns None when required keys are missing."""
+    assert _extract_cursor_from_row({'message': 'foo'}) is None
+    assert _extract_cursor_from_row({'start_timestamp': 'x', 'trace_id': 'y'}) is None
+
+
+def test_iter_paginated_records_empty_response_sync():
+    """Test iter_paginated_records handles empty response and yields once."""
+    with LogfireQueryClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL) as client:
+        pages = list(client.iter_paginated_records(where="message = 'nonexistent'", page_size=5))
+        assert len(pages) == 1
+        assert pages[0][0] == []
+        assert pages[0][1] is None
+
+
+@pytest.mark.anyio
+async def test_iter_paginated_records_empty_response_async():
+    """Test async iter_paginated_records handles empty response and yields once."""
+    async with AsyncLogfireQueryClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL) as client:
+        pages = []
+        async for rows, next_cursor in client.iter_paginated_records(where="message = 'nonexistent'", page_size=5):
+            pages.append((rows, next_cursor))
+        assert len(pages) == 1
+        assert pages[0][0] == []
+        assert pages[0][1] is None
+
+
+@pytest.mark.anyio
+async def test_iter_paginated_records_async():
+    """Test that async iter_paginated_records yields pages of records."""
+    async with AsyncLogfireQueryClient(read_token=CLIENT_READ_TOKEN, base_url=CLIENT_BASE_URL) as client:
+        all_rows: list[dict[str, Any]] = []
+        cursor: PaginationCursor | None = None
+        async for rows, next_cursor in client.iter_paginated_records(
+            select='kind, message, start_timestamp, trace_id, span_id',
+            page_size=5,
+        ):
+            all_rows.extend(rows)
+            cursor = next_cursor
+            if cursor is None or len(rows) < 5:
+                break
+        assert len(all_rows) >= 5
