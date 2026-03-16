@@ -73,3 +73,21 @@ def parse_auth(args: argparse.Namespace) -> None:
     tokens_collection.add_token(logfire_url, poll_for_token(args._session, device_code, logfire_url))
     sys.stderr.write('Successfully authenticated!\n')
     sys.stderr.write(f'\nYour Logfire credentials are stored in {DEFAULT_FILE}\n')
+
+
+def parse_logout(args: argparse.Namespace) -> None:
+    """Log out from Logfire."""
+    logfire_url: str | None = args.logfire_url
+
+    tokens_collection = UserTokenCollection()
+
+    try:
+        removed = tokens_collection.logout(logfire_url)
+
+    except ValueError as e:
+        sys.stderr.write(f'{e}\n')
+        sys.exit(1)
+
+    for url in removed:
+        sys.stderr.write(f'Successfully logged out from {url}\n')
+    sys.stderr.write(f'\nYour Logfire credentials have been removed from {DEFAULT_FILE}\n')
