@@ -5,6 +5,7 @@ import sys
 import webbrowser
 from urllib.parse import urlparse
 
+from ...exceptions import LogfireConfigError
 from ..auth import DEFAULT_FILE, UserTokenCollection, poll_for_token, request_device_code
 from ..config import REGIONS
 
@@ -84,7 +85,7 @@ def parse_logout(args: argparse.Namespace) -> None:
     try:
         removed = tokens_collection.logout(logfire_url)
 
-    except ValueError as e:
+    except LogfireConfigError as e:
         sys.stderr.write(f'{e}\n')
         sys.exit(1)
 

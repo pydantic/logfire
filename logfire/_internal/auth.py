@@ -197,7 +197,7 @@ class UserTokenCollection:
                 'Please run `logfire auth` to authenticate.'
             )
 
-        removed = [base_url] if base_url else list(self.user_tokens.keys())
+        removed = [base_url] if base_url is not None else list(self.user_tokens.keys())
         for url in removed:
             del self.user_tokens[url]
 
