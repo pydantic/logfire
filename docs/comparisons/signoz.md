@@ -85,7 +85,7 @@ This is the nature of self-hosted infrastructure. Some organizations need this l
 
 ### When to Choose Each
 
-**Choose Logfire** if you want to focus on your application instead of your monitoring infrastructure, need AI-first observability, don't have dedicated DevOps resources, want to use MCP server to debug errors, query tracing data with SQL, built dashboards, visualise evals and setup alerts with the same platform. 
+**Choose Logfire** if you want to focus on your application instead of your monitoring infrastructure, need AI-first observability, don't have dedicated DevOps resources, want to use MCP server to debug errors, query tracing data with SQL, built dashboards, visualise evals and setup alerts with the same platform.
 
 **Choose SigNoz Self-Hosted** if you have strict data residency requirements that prevent using any cloud service, need complete control over your observability infrastructure, or have a DevOps team with capacity to maintain the stack.
 

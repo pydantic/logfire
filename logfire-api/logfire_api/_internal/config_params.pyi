@@ -33,6 +33,7 @@ class _DefaultCallback:
 SEND_TO_LOGFIRE: Incomplete
 MIN_LEVEL: Incomplete
 TOKEN: Incomplete
+API_KEY: Incomplete
 SERVICE_NAME: Incomplete
 SERVICE_VERSION: Incomplete
 ENVIRONMENT: Incomplete

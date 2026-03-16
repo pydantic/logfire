@@ -40,17 +40,17 @@ class WrapperMetricExporter(MetricExporter):
         preferred_temporality: dict[type, AggregationTemporality] | None = None,
         preferred_aggregation: dict[type, Aggregation] | None = None,
     ) -> None:
-        super().__init__(preferred_temporality=preferred_temporality, preferred_aggregation=preferred_aggregation)  # type: ignore
+        super().__init__(preferred_temporality=preferred_temporality, preferred_aggregation=preferred_aggregation)  # pyright: ignore[reportUnknownMemberType]
         self.wrapped_exporter = exporter
 
     def export(self, metrics_data: MetricsData, timeout_millis: float = 10_000, **kwargs: Any) -> MetricExportResult:
-        return self.wrapped_exporter.export(metrics_data, timeout_millis, **kwargs)  # type: ignore
+        return self.wrapped_exporter.export(metrics_data, timeout_millis, **kwargs)  # pyright: ignore[reportUnknownMemberType]
 
     def force_flush(self, timeout_millis: float = 10_000) -> bool:
         return self.wrapped_exporter.force_flush(timeout_millis)
 
     def shutdown(self, timeout_millis: float = 30_000, **kwargs: Any) -> None:
-        self.wrapped_exporter.shutdown(timeout_millis, **kwargs)  # type: ignore
+        self.wrapped_exporter.shutdown(timeout_millis, **kwargs)  # pyright: ignore[reportUnknownMemberType]
 
 
 @dataclass

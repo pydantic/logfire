@@ -58,7 +58,7 @@ def rewrite_ast(
     context_factories: list[Callable[[], AbstractContextManager[Any]]],
     min_duration: int,
 ) -> ast.AST:
-    logfire_args = LogfireArgs(logfire_instance._tags, logfire_instance._sample_rate)  # type: ignore
+    logfire_args = LogfireArgs(logfire_instance._tags, logfire_instance._sample_rate)  # pyright: ignore[reportPrivateUsage]
     transformer = AutoTraceTransformer(
         logfire_args, logfire_name, filename, module_name, logfire_instance, context_factories, min_duration
     )
@@ -111,11 +111,11 @@ class AutoTraceTransformer(BaseTransformer):
         # See the exec_source docstring
         index = len(self.context_factories)
         span_factory = partial(
-            self.logfire_instance._fast_span,  # type: ignore
+            self.logfire_instance._fast_span,  # pyright: ignore[reportPrivateUsage]
             *self.logfire_method_arg_values(qualname, node.lineno),
         )
         if self.min_duration > 0:
-            config = self.logfire_instance._config  # type: ignore
+            config = self.logfire_instance._config  # pyright: ignore[reportPrivateUsage]
 
             # Local vars for fast access
             timer = config.advanced.ns_timestamp_generator
@@ -144,7 +144,7 @@ class AutoTraceTransformer(BaseTransformer):
         return ast.Call(
             func=ast.Subscript(
                 value=ast.Name(id=self.logfire_method_name, ctx=ast.Load()),
-                slice=ast.Index(value=ast.Constant(value=index)),  # type: ignore
+                slice=ast.Index(value=ast.Constant(value=index)),  # pyright: ignore[reportDeprecated]
                 ctx=ast.Load(),
             ),
             args=[],

@@ -9,79 +9,71 @@ access to OpenTelemetry traces and metrics through Logfire. This server enables 
 application's telemetry data, analyze distributed traces, and perform custom queries using
 **Logfire**'s OpenTelemetry-native API.
 
-<div class="video-wrapper">
-  <iframe width="560" height="315" src="https://www.youtube.com/embed/z56NOvrtG74" frameborder="0" allowfullscreen></iframe>
-</div>
-
 You can check the [Logfire MCP server](https://github.com/pydantic/logfire-mcp) repository
 for more information.
 
-## Installation
+## Remote MCP Server (Recommended)
 
-The MCP server is a CLI tool that you can run from the command line.
+Pydantic Logfire provides a hosted remote MCP server that you can use without installing anything locally.
+This is the easiest way to get started with the Logfire MCP server.
 
-You'll need a read token to use the MCP server. See
-[Create Read Token](./query-api.md#how-to-create-a-read-token) for more information.
+To use the remote MCP server, add the following configuration to your MCP client.
 
-You can then start the MCP server with the following command:
+**Choose the endpoint that matches your Logfire data region:**
 
-```bash
-LOGFIRE_READ_TOKEN=<your-token> uvx logfire-mcp@latest
-```
-
-!!! note
-    The `uvx` command will download the PyPI package [`logfire-mcp`](https://pypi.org/project/logfire-mcp/),
-    and run the `logfire-mcp` command.
-
-### Configuration
-
-The way to configure the MCP server depends on the software you're using.
+- **US region** — `logfire-us.pydantic.dev`
+- **EU region** — `logfire-eu.pydantic.dev`
 
 !!! note
-  If you are in the EU region, you need to set the `LOGFIRE_BASE_URL` environment variable to `https://api-eu.pydantic.dev`. You can also use the `--base-url` flag to set the base URL.
+    The remote MCP server handles authentication automatically through your browser. When you first connect,
+    you'll be prompted to authenticate with your Pydantic Logfire account.
 
-#### Cursor
+!!! note
+    If you are running a self-hosted Logfire instance, replace the URL above with your own Logfire instance URL
+    (e.g., `https://logfire.my-company.com/mcp`), as the remote MCP server is hosted alongside your Logfire deployment.
 
-[Cursor](https://www.cursor.com/) is a popular IDE that supports MCP servers. You can configure
-it by creating a `.cursor/mcp.json` file in your project root:
+---
+
+## Configuration with well-known MCP clients
+
+The examples below use the **US region** endpoint. Replace the URL with `https://logfire-eu.pydantic.dev/mcp` if you are using the EU region.
+
+### Cursor
+
+Create a `.cursor/mcp.json` file in your project root:
 
 ```json
 {
   "mcpServers": {
     "logfire": {
-      "command": "uvx",
-      "args": ["logfire-mcp", "--read-token=YOUR-TOKEN"],
+      "type": "http",
+      "url": "https://logfire-us.pydantic.dev/mcp"
     }
   }
 }
 ```
 
-!!! note
-    You need to pass the token via the `--read-token` flag, because Cursor doesn't
-    support the `env` field in the MCP configuration.
-
 For more detailed information, you can check the
 [Cursor documentation](https://docs.cursor.com/context/model-context-protocol).
 
-#### Claude Desktop
+### Claude Code
 
-[Claude Desktop](https://claude.ai/download) is a desktop application for the popular
-LLM Claude.
+Run the following command:
 
-You can configure it to use the MCP server by adding the following configuration to the
-`~/claude_desktop_config.json` file:
+```bash
+claude mcp add logfire --transport http https://logfire-us.pydantic.dev/mcp
+```
+
+### Claude Desktop
+
+Add to your Claude settings:
 
 ```json
 {
   "mcpServers": {
     "logfire": {
-      "command": "uvx",
-      "args": [
-        "logfire-mcp",
-      ],
-      "env": {
-        "LOGFIRE_READ_TOKEN": "your_token"
-      }
+      "type": "http",
+      "url": "https://logfire-us.pydantic.dev/mcp"
     }
   }
 }
@@ -90,63 +82,76 @@ You can configure it to use the MCP server by adding the following configuration
 Check out the [MCP quickstart](https://modelcontextprotocol.io/quickstart/user)
 for more information.
 
-#### Claude Code
+### Cline
 
-[Claude Code](https://claude.ai/code) is a coding tool that is used via CLI.
-
-You can run the following command to add the Logfire MCP server to your Claude Code:
-
-```bash
-claude mcp add logfire -e LOGFIRE_READ_TOKEN="your-token" -- uvx logfire-mcp@latest
-```
-
-#### Cline
-
-[Cline](https://docs.cline.bot/) is a popular chatbot platform that supports MCP servers.
-
-You can configure it to use the MCP server by adding the following configuration to the
-`cline_mcp_settings.json` file:
+Add to your Cline settings in `cline_mcp_settings.json`:
 
 ```json
 {
   "mcpServers": {
     "logfire": {
-      "command": "uvx",
-      "args": [
-        "logfire-mcp",
-      ],
-      "env": {
-        "LOGFIRE_READ_TOKEN": "your_token"
-      },
-      "disabled": false,
-      "autoApprove": []
+      "type": "http",
+      "url": "https://logfire-us.pydantic.dev/mcp"
     }
   }
 }
 ```
 
-### Tools
+### VS Code
 
-There are four tools available in the MCP server:
+Make sure you [enabled MCP support in VS Code](https://code.visualstudio.com/docs/copilot/chat/mcp-servers#_enable-mcp-support-in-vs-code).
 
-1. `find_exceptions(age: int)` - Get exception counts from traces grouped by file.
+Create a `.vscode/mcp.json` file in your project's root directory:
 
-    Required arguments:
+```json
+{
+  "servers": {
+    "logfire": {
+      "type": "http",
+      "url": "https://logfire-us.pydantic.dev/mcp"
+    }
+  }
+}
+```
 
-    - `age`: Number of minutes to look back (e.g., 30 for last 30 minutes, max 7 days)
+### Zed
 
-2. `find_exceptions_in_file(filepath: str, age: int)` - Get detailed trace information about exceptions in a specific file.
+Create a `.zed/settings.json` file in your project's root directory:
 
-    Required arguments:
+```json
+{
+  "context_servers": {
+    "logfire": {
+      "type": "http",
+      "url": "https://logfire-us.pydantic.dev/mcp"
+    }
+  }
+}
+```
 
-    - `filepath`: Path to the file to analyze
-    - `age`: Number of minutes to look back (max 7 days)
+---
 
-3. `arbitrary_query(query: str, age: int)` - Run custom SQL queries on your OpenTelemetry traces and metrics.
+## Sandboxed Environments
 
-    Required arguments:
+If browser-based authentication is not available (e.g. in sandboxed environments), generate an API key with at least the `project:read` scope from your organization or project settings, then use it as a Bearer token:
 
-    - `query`: SQL query to execute
-    - `age`: Number of minutes to look back (max 7 days)
+```json
+{
+  "mcpServers": {
+    "logfire": {
+      "type": "http",
+      "url": "https://logfire-us.pydantic.dev/mcp",
+      "headers": {
+        "Authorization": "Bearer <your-logfire-api-key>"
+      }
+    }
+  }
+}
+```
 
-4. `get_logfire_records_schema()` - Get the OpenTelemetry schema to help with custom queries.
+---
+
+## Running Locally (Deprecated)
+
+!!! warning
+    If you still want to run the MCP server locally, refer to the [local mcp server documentation](https://github.com/pydantic/logfire-mcp/blob/main/OLD_README.md) for setup and configuration instructions.

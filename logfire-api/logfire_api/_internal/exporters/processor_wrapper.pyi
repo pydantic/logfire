@@ -1,5 +1,6 @@
 from ..constants import ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY as ATTRIBUTES_EXCEPTION_FINGERPRINT_KEY, ATTRIBUTES_JSON_SCHEMA_KEY as ATTRIBUTES_JSON_SCHEMA_KEY, ATTRIBUTES_LOG_LEVEL_NUM_KEY as ATTRIBUTES_LOG_LEVEL_NUM_KEY, ATTRIBUTES_MESSAGE_KEY as ATTRIBUTES_MESSAGE_KEY, ATTRIBUTES_MESSAGE_TEMPLATE_KEY as ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_TAGS_KEY as ATTRIBUTES_TAGS_KEY, LEVEL_NUMBERS as LEVEL_NUMBERS, log_level_attributes as log_level_attributes
 from ..db_statement_summary import message_from_db_statement as message_from_db_statement
+from ..integrations.llm_providers.semconv import PROVIDER_NAME as PROVIDER_NAME
 from ..json_schema import JsonSchemaProperties as JsonSchemaProperties, attributes_json_schema as attributes_json_schema
 from ..scrubbing import BaseScrubber as BaseScrubber
 from ..utils import ReadableSpanDict as ReadableSpanDict, handle_internal_errors as handle_internal_errors, is_asgi_send_receive_span_name as is_asgi_send_receive_span_name, is_instrumentation_suppressed as is_instrumentation_suppressed, span_to_dict as span_to_dict, truncate_string as truncate_string

@@ -203,6 +203,7 @@ except ImportError:
 
             def shutdown(self, *args, **kwargs) -> None: ...
 
+
         DEFAULT_LOGFIRE_INSTANCE = Logfire()
         span = DEFAULT_LOGFIRE_INSTANCE.span
         log = DEFAULT_LOGFIRE_INSTANCE.log
@@ -284,6 +285,7 @@ except ImportError:
 
         class MetricsOptions:
             def __init__(self, *args, **kwargs) -> None: ...
+
 
         class PydanticPlugin:
             def __init__(self, *args, **kwargs) -> None: ...

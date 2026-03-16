@@ -5,19 +5,21 @@ import inspect
 import json
 import sys
 import warnings
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from contextlib import AbstractContextManager
 from contextvars import Token
 from enum import Enum
-from functools import cached_property
+from functools import cached_property, partial
 from time import time
-from typing import (
+from typing import (  # NOQA UP035
     TYPE_CHECKING,
     Any,
     Callable,
     Literal,
+    Type,
     TypeVar,
     Union,
+    cast,
     overload,
 )
 
@@ -62,8 +64,8 @@ from .metrics import ProxyMeterProvider
 from .stack_info import get_user_stack_info
 from .tracer import (
     ProxyTracerProvider,
-    _LogfireWrappedSpan,  # type: ignore
-    _ProxyTracer,  # type: ignore
+    _LogfireWrappedSpan,  # pyright: ignore[reportPrivateUsage]
+    _ProxyTracer,  # pyright: ignore[reportPrivateUsage]
     set_exception_status,
 )
 from .utils import get_version, handle_internal_errors, log_internal_error, uniquify_sequence
@@ -111,8 +113,15 @@ if TYPE_CHECKING:
     from ..integrations.redis import RequestHook as RedisRequestHook, ResponseHook as RedisResponseHook
     from ..integrations.sqlalchemy import CommenterOptions as SQLAlchemyCommenterOptions
     from ..integrations.wsgi import RequestHook as WSGIRequestHook, ResponseHook as WSGIResponseHook
+    from ..variables import (
+        ResolveFunction,
+        ValidationReport,
+        Variable,
+        VariablesConfig,
+    )
     from .integrations.asgi import ASGIApp, ASGIInstrumentKwargs
     from .integrations.aws_lambda import LambdaEvent, LambdaHandler
+    from .integrations.llm_providers.semconv import SemconvVersion
     from .integrations.mysql import MySQLConnection
     from .integrations.psycopg import Psycopg2Connection, PsycopgConnection
     from .integrations.sqlite3 import SQLite3Connection
@@ -126,6 +135,8 @@ if TYPE_CHECKING:
     # 2. It mirrors the exc_info argument of the stdlib logging methods
     # 3. The argument name exc_info is very suggestive of the sys function.
     ExcInfo = Union[SysExcInfo, BaseException, bool, None]
+
+T = TypeVar('T')
 
 
 class Logfire:
@@ -145,10 +156,15 @@ class Logfire:
         self._sample_rate = sample_rate
         self._console_log = console_log
         self._otel_scope = otel_scope
+        self._variables: dict[str, Variable[Any]] = {}
 
     @property
     def config(self) -> LogfireConfig:
         return self._config
+
+    @property
+    def resource_attributes(self) -> Mapping[str, Any]:
+        return self._tracer_provider.resource.attributes
 
     @cached_property
     def _tracer_provider(self) -> ProxyTracerProvider:
@@ -195,7 +211,7 @@ class Logfire:
                 level_attributes = log_level_attributes(_level)
                 level_num = level_attributes[ATTRIBUTES_LOG_LEVEL_NUM_KEY]
                 if level_num < self.config.min_level:
-                    return NoopSpan()  # type: ignore
+                    return NoopSpan()  # pyright: ignore[reportReturnType]
             else:
                 level_attributes = None
 
@@ -203,7 +219,7 @@ class Logfire:
             merged_attributes = {**stack_info, **attributes}
 
             if self._config.inspect_arguments:
-                fstring_frame = inspect.currentframe().f_back  # type: ignore
+                fstring_frame = inspect.currentframe().f_back  # pyright: ignore[reportOptionalMemberAccess]
             else:
                 fstring_frame = None
 
@@ -248,7 +264,7 @@ class Logfire:
             )
         except Exception:
             log_internal_error()
-            return NoopSpan()  # type: ignore
+            return NoopSpan()  # pyright: ignore[reportReturnType]
 
     def _fast_span(self, name: str, attributes: otel_types.Attributes, **kwargs: Any) -> FastLogfireSpan:
         """A simple version of `_span` optimized for auto-tracing that doesn't support message formatting.
@@ -260,7 +276,7 @@ class Logfire:
             return FastLogfireSpan(span)
         except Exception:  # pragma: no cover
             log_internal_error()
-            return NoopSpan()  # type: ignore
+            return NoopSpan()  # pyright: ignore[reportReturnType]
 
     def _instrument_span_with_args(
         self, name: str, attributes: dict[str, otel_types.AttributeValue], function_args: dict[str, Any], **kwargs: Any
@@ -271,7 +287,7 @@ class Logfire:
         and arbitrary types of attributes.
         """
         try:
-            msg_template: str = attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # type: ignore
+            msg_template: str = attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # pyright: ignore[reportAssignmentType]
             attributes[ATTRIBUTES_MESSAGE_KEY] = logfire_format(msg_template, function_args, self._config.scrubber)
             if json_schema_properties := attributes_json_schema_properties(function_args):  # pragma: no branch
                 attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
@@ -279,7 +295,7 @@ class Logfire:
             return self._fast_span(name, attributes, **kwargs)
         except Exception:  # pragma: no cover
             log_internal_error()
-            return NoopSpan()  # type: ignore
+            return NoopSpan()  # pyright: ignore[reportReturnType]
 
     def trace(
         self,
@@ -634,7 +650,7 @@ class Logfire:
         ```
         """
 
-    def instrument(  # type: ignore[reportInconsistentOverload]
+    def instrument(  # pyright: ignore[reportInconsistentOverload]
         self,
         msg_template: Callable[P, R] | LiteralString | None = None,
         *,
@@ -719,10 +735,10 @@ class Logfire:
                 fstring_frame = None
                 if self._config.inspect_arguments:
                     fstring_frame = inspect.currentframe()
-                    if fstring_frame.f_back.f_code.co_filename == Logfire.log.__code__.co_filename:  # type: ignore
+                    if fstring_frame.f_back.f_code.co_filename == Logfire.log.__code__.co_filename:  # pyright: ignore[reportOptionalMemberAccess]
                         # fstring_frame.f_back should be the user's frame.
                         # The user called logfire.info or a similar method rather than calling logfire.log directly.
-                        fstring_frame = fstring_frame.f_back  # type: ignore
+                        fstring_frame = fstring_frame.f_back  # pyright: ignore[reportOptionalMemberAccess]
 
                 msg, extra_attrs, msg_template = logfire_format_with_magic(
                     msg_template,
@@ -784,7 +800,7 @@ class Logfire:
                     exc_info = exc_info[1]
                 if isinstance(exc_info, BaseException):
                     span.record_exception(exc_info)
-                    if otlp_attributes[ATTRIBUTES_LOG_LEVEL_NUM_KEY] >= LEVEL_NUMBERS['error']:  # type: ignore
+                    if otlp_attributes[ATTRIBUTES_LOG_LEVEL_NUM_KEY] >= LEVEL_NUMBERS['error']:  # pyright: ignore[reportOperatorIssue]
                         # Set the status description to the exception message.
                         # OTEL only lets us set the description when the status code is ERROR,
                         # which we only want to do when the log level is error.
@@ -1179,6 +1195,7 @@ class Logfire:
         | None = None,
         *,
         suppress_other_instrumentation: bool = True,
+        version: SemconvVersion | Sequence[SemconvVersion] = 1,
     ) -> AbstractContextManager[None]:
         """Instrument an OpenAI client so that spans are automatically created for each request.
 
@@ -1228,6 +1245,17 @@ class Logfire:
                 enabled. In reality, this means the HTTPX instrumentation, which could otherwise be called since
                 OpenAI uses HTTPX to make HTTP requests.
 
+            version: The version(s) of the span attribute format to use:
+
+                - `1` (the default): Uses `request_data` and `response_data` attributes.
+                - `'latest'`: Uses OpenTelemetry Gen AI semantic convention attributes
+                  (`gen_ai.input.messages`, `gen_ai.output.messages`, etc.) and omits the full
+                  `response_data` attribute. A minimal `request_data` (e.g. `{"model": ...}`) is
+                  still recorded for message template compatibility. This format may change between
+                  releases.
+                - `[1, 'latest']`: Emits both the full legacy attributes and the semantic convention
+                  attributes simultaneously, useful for migration and testing.
+
         Returns:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
@@ -1236,15 +1264,17 @@ class Logfire:
 
         from .integrations.llm_providers.llm_provider import instrument_llm_provider
         from .integrations.llm_providers.openai import get_endpoint_config, is_async_client, on_response
+        from .integrations.llm_providers.semconv import normalize_versions
 
+        normalized_versions = normalize_versions(version)
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_llm_provider(
             self,
             openai_client or (openai.OpenAI, openai.AsyncOpenAI),
             suppress_other_instrumentation,
             'OpenAI',
-            get_endpoint_config,
-            on_response,
+            partial(get_endpoint_config, version=normalized_versions),
+            partial(on_response, version=normalized_versions),
             is_async_client,
         )
 
@@ -1275,6 +1305,7 @@ class Logfire:
         ) = None,
         *,
         suppress_other_instrumentation: bool = True,
+        version: SemconvVersion | Sequence[SemconvVersion] = 1,
     ) -> AbstractContextManager[None]:
         """Instrument an Anthropic client so that spans are automatically created for each request.
 
@@ -1319,6 +1350,17 @@ class Logfire:
                 enabled. In reality, this means the HTTPX instrumentation, which could otherwise be called since
                 OpenAI uses HTTPX to make HTTP requests.
 
+            version: The version(s) of the span attribute format to use:
+
+                - `1` (the default): Uses `request_data` and `response_data` attributes.
+                - `'latest'`: Uses OpenTelemetry Gen AI semantic convention attributes
+                  (`gen_ai.input.messages`, `gen_ai.output.messages`, etc.) and omits the full
+                  `response_data` attribute. A minimal `request_data` (e.g. `{"model": ...}`) is
+                  still recorded for message template compatibility. This format may change between
+                  releases.
+                - `[1, 'latest']`: Emits both the full legacy attributes and the semantic convention
+                  attributes simultaneously, useful for migration and testing.
+
         Returns:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
@@ -1327,7 +1369,9 @@ class Logfire:
 
         from .integrations.llm_providers.anthropic import get_endpoint_config, is_async_client, on_response
         from .integrations.llm_providers.llm_provider import instrument_llm_provider
+        from .integrations.llm_providers.semconv import normalize_versions
 
+        normalized_versions = normalize_versions(version)
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_llm_provider(
             self,
@@ -1340,8 +1384,8 @@ class Logfire:
             ),
             suppress_other_instrumentation,
             'Anthropic',
-            get_endpoint_config,
-            on_response,
+            partial(get_endpoint_config, version=normalized_versions),
+            partial(on_response, version=normalized_versions),
             is_async_client,
         )
 
@@ -1974,7 +2018,7 @@ class Logfire:
         return instrument_aws_lambda(
             lambda_handler=lambda_handler,
             event_context_extractor=event_context_extractor,
-            **{  # type: ignore
+            **{  # pyright: ignore[reportArgumentType]
                 'tracer_provider': self._config.get_tracer_provider(),
                 'meter_provider': self._config.get_meter_provider(),
                 **kwargs,
@@ -2069,7 +2113,7 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_mysql(
             conn=conn,
-            **{  # type: ignore
+            **{  # pyright: ignore[reportArgumentType]
                 'tracer_provider': self._config.get_tracer_provider(),
                 'meter_provider': self._config.get_meter_provider(),
                 **kwargs,
@@ -2371,23 +2415,396 @@ class Logfire:
             `False` if the timeout was reached before the shutdown was completed, `True` otherwise.
         """
         start = time()
-        if flush:  # pragma: no branch
-            self._tracer_provider.force_flush(timeout_millis)
-        remaining = max(0, timeout_millis - (time() - start))
-        if not remaining:  # pragma: no cover
-            return False
-        self._tracer_provider.shutdown()
 
-        remaining = max(0, timeout_millis - (time() - start))
+        def remaining_ms() -> int:
+            return max(0, int(timeout_millis - (time() - start) * 1000))
+
+        self.config.get_variable_provider().shutdown(timeout_millis=remaining_ms())
+        remaining = remaining_ms()
         if not remaining:  # pragma: no cover
             return False
+
+        if flush:  # pragma: no branch
+            self._tracer_provider.force_flush(remaining)
+            remaining = remaining_ms()
+            if not remaining:  # pragma: no cover
+                return False
+
+        self._tracer_provider.shutdown()
+        remaining = remaining_ms()
+        if not remaining:  # pragma: no cover
+            return False
+
         if flush:  # pragma: no branch
             self._meter_provider.force_flush(remaining)
-        remaining = max(0, timeout_millis - (time() - start))
+            remaining = remaining_ms()
+            if not remaining:  # pragma: no cover
+                return False
+
+        self._meter_provider.shutdown(remaining)
+        remaining = remaining_ms()
         if not remaining:  # pragma: no cover
             return False
-        self._meter_provider.shutdown(remaining)
-        return (start - time()) < timeout_millis
+
+        return remaining_ms() > 0
+
+    @overload
+    def var(
+        self,
+        name: str,
+        *,
+        default: T,
+        description: str | None = None,
+    ) -> Variable[T]: ...
+
+    @overload
+    def var(
+        self,
+        name: str,
+        *,
+        type: type[T],
+        default: T | ResolveFunction[T],
+        description: str | None = None,
+    ) -> Variable[T]: ...
+
+    def var(
+        self,
+        name: str,
+        *,
+        type: type[T] | None = None,
+        default: T | ResolveFunction[T],
+        description: str | None = None,
+    ) -> Variable[T]:
+        """Define a managed variable.
+
+        Managed variables let you externalize runtime configuration from your code,
+        controlling values from the Logfire UI without redeploying. Use `.get()` on the
+        returned `Variable` to resolve the current value.
+
+        See the [managed variables guide](https://logfire.pydantic.dev/docs/reference/advanced/managed-variables/)
+        for more details.
+
+        ```py
+        import logfire
+
+        logfire.configure()
+
+        # Simple primitive variable (type inferred from default)
+        feature_enabled = logfire.var('feature_enabled', default=False)
+
+        # Use the variable
+        with feature_enabled.get(targeting_key='user-123') as resolved:
+            if resolved.value:
+                ...
+        ```
+
+        Args:
+            name: Unique identifier for the variable. Must match the name configured in the
+                Logfire UI when using remote variables.
+            type: Expected type for validation and JSON schema generation. Can be a primitive
+                type or a Pydantic model. If not provided, the type is inferred from `default`.
+                Required when `default` is a resolve function.
+            default: Default value used when no remote configuration is found.
+                When `type` is not provided, the type is inferred from this value.
+                Can also be a callable with `targeting_key` and `attributes` parameters
+                (requires `type` to be set explicitly).
+            description: Optional human-readable description of what the variable controls.
+        """
+        from logfire.variables.variable import Variable, is_resolve_function
+
+        if type is None:
+            if is_resolve_function(default):
+                raise TypeError(
+                    'When `default` is a resolve function (callable with targeting_key and attributes parameters), '
+                    '`type` must be provided to specify the variable value type.'
+                )
+            tp = cast(Type[T], default.__class__)  # noqa UP006
+        else:
+            tp = type
+
+        import re
+
+        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', name):
+            raise ValueError(
+                f"Invalid variable name '{name}'. "
+                'Variable names must be valid Python identifiers (letters, digits, and underscores, '
+                'not starting with a digit).'
+            )
+
+        if name in self._variables:
+            raise ValueError(
+                f"A variable with name '{name}' has already been registered. Each variable must have a unique name."
+            )
+
+        variable = Variable[T](name, default=default, type=tp, logfire_instance=self, description=description)
+        self._variables[name] = variable
+
+        return variable
+
+    def variables_clear(self) -> None:
+        """Clear all registered variables from this Logfire instance.
+
+        This removes all variables previously registered via [`var()`][logfire.Logfire.var],
+        allowing them to be re-registered. This is primarily intended for use in tests
+        to ensure a clean state between test cases.
+        """
+        self._variables.clear()
+
+    def variables_get(self) -> list[Variable[Any]]:
+        """Get all variables registered with this Logfire instance."""
+        return list(self._variables.values())
+
+    def variables_push(
+        self,
+        variables: list[Variable[Any]] | None = None,
+        *,
+        dry_run: bool = False,
+        yes: bool = False,
+        strict: bool = False,
+    ) -> bool:
+        """Push variable definitions (metadata only) to the configured variable provider.
+
+        This method syncs local variable definitions with the provider:
+        - Creates new variables that don't exist in the provider
+        - Updates JSON schemas for existing variables if they've changed
+        - Warns about existing label values that are incompatible with new schemas
+
+        The provider is determined by the Logfire configuration. For remote providers,
+        this requires proper authentication (via VariablesOptions or LOGFIRE_API_KEY).
+
+        Args:
+            variables: Variable instances to push. If None, all variables
+                registered with this Logfire instance will be pushed.
+            dry_run: If True, only show what would change without applying.
+            yes: If True, skip confirmation prompt.
+            strict: If True, fail if any existing label values are incompatible with new schemas.
+
+        Returns:
+            True if changes were applied (or would be applied in dry_run mode), False otherwise.
+
+        Example:
+            ```python
+            import logfire
+
+            feature_enabled = logfire.var(name='feature_enabled', type=bool, default=False)
+            max_retries = logfire.var(name='max_retries', type=int, default=3)
+
+            if __name__ == '__main__':
+                # Push all registered variables
+                logfire.variables_push()
+
+                # Or push specific variables only
+                logfire.variables_push([feature_enabled])
+            ```
+        """
+        if variables is None:
+            variables = self.variables_get()  # pragma: no cover
+
+        provider = self.config.get_variable_provider()
+        return provider.push_variables(variables, dry_run=dry_run, yes=yes, strict=strict)
+
+    def variables_push_types(
+        self,
+        types: Sequence[type[Any] | tuple[type[Any], str]],
+        *,
+        dry_run: bool = False,
+        yes: bool = False,
+        strict: bool = False,
+    ) -> bool:
+        """Push variable type definitions to the configured variable provider.
+
+        Variable types are reusable schema definitions that can be referenced by variables.
+        They help organize and standardize variable schemas across your project.
+
+        This method syncs local Python types with the provider:
+        - Creates new types that don't exist in the provider
+        - Updates schemas for existing types if they've changed
+        - Shows a diff of changes before applying
+        - Checks if existing variable label values are compatible with the new schemas
+
+        The provider is determined by the Logfire configuration. For remote providers,
+        this requires proper authentication (via VariablesOptions or LOGFIRE_API_KEY).
+
+        Args:
+            types: Types to push. Items can be:
+                - A type (name defaults to __name__ or str(type))
+                - A tuple of (type, name) for explicit naming
+            dry_run: If True, only show what would change without applying.
+            yes: If True, skip confirmation prompt.
+            strict: If True, abort when existing label values are incompatible with
+                the new type schema.
+
+        Returns:
+            True if changes were applied (or would be applied in dry_run mode), False otherwise.
+
+        Example:
+            ```python
+            import logfire
+            from pydantic import BaseModel
+
+
+            class FeatureConfig(BaseModel):
+                enabled: bool = False
+                max_retries: int = 3
+                timeout_seconds: float = 30.0
+
+
+            class UserSettings(BaseModel):
+                theme: str = 'light'
+                notifications_enabled: bool = True
+
+
+            if __name__ == '__main__':
+                # Push type definitions using their class names
+                logfire.variables_push_types([FeatureConfig, UserSettings])
+
+                # Or push with explicit names
+                logfire.variables_push_types(
+                    [
+                        (FeatureConfig, 'my-feature-config'),
+                        (UserSettings, 'my-user-settings'),
+                    ]
+                )
+            ```
+        """
+        provider = self.config.get_variable_provider()
+        return provider.push_variable_types(types, dry_run=dry_run, yes=yes, strict=strict)
+
+    def variables_validate(
+        self,
+        variables: list[Variable[Any]] | None = None,
+    ) -> ValidationReport:
+        """Validate that provider-side variable label values match local type definitions.
+
+        This method fetches the current variable configuration from the provider and
+        validates that all label values can be deserialized to the expected types
+        defined in the local Variable instances.
+
+        Args:
+            variables: Variable instances to validate. If None, all variables
+                registered with this Logfire instance will be validated.
+
+        Returns:
+            A ValidationReport containing any errors found. Use `report.is_valid` to check
+            if validation passed, and `report.format()` to get a human-readable summary.
+
+        Example:
+            ```python
+            import logfire
+
+            feature_enabled = logfire.var(name='feature_enabled', type=bool, default=False)
+            max_retries = logfire.var(name='max_retries', type=int, default=3)
+
+            if __name__ == '__main__':
+                # Validate all registered variables
+                logfire.variables_validate()
+
+                # Or validate specific variables only
+                report = logfire.variables_validate([feature_enabled])
+                assert report.is_valid
+            ```
+        """
+        if variables is None:
+            variables = self.variables_get()  # pragma: no cover
+
+        provider = self.config.get_variable_provider()
+        return provider.validate_variables(variables)
+
+    def variables_push_config(
+        self,
+        config: VariablesConfig,
+        *,
+        mode: Literal['merge', 'replace'] = 'merge',
+        dry_run: bool = False,
+        yes: bool = False,
+    ) -> bool:  # pragma: no cover
+        """Push a VariablesConfig to the configured provider.
+
+        This method pushes a complete VariablesConfig (including labels and rollouts)
+        to the provider. It's useful for:
+        - Pushing configs generated or modified locally
+        - Pushing configs read from files
+        - Partial updates (merge mode) or full replacement (replace mode)
+
+        Args:
+            config: The VariablesConfig to sync.
+            mode: 'merge' updates/creates only variables in config (leaves others unchanged).
+                  'replace' makes the server match the config exactly (deletes missing variables).
+            dry_run: If True, only show what would change without applying.
+            yes: If True, skip confirmation prompt.
+
+        Returns:
+            True if changes were applied (or would be applied in dry_run mode), False otherwise.
+
+        Example:
+            ```python skip="true"
+            import logfire
+            from logfire.variables import VariablesConfig
+
+            # Push config to server
+            logfire.variables_push_config(config)
+
+            # Or merge just a subset of variables
+            logfire.variables_push_config(config, mode='merge')
+            ```
+        """
+        provider = self.config.get_variable_provider()
+        return provider.push_config(config, mode=mode, dry_run=dry_run, yes=yes)
+
+    def variables_pull_config(self) -> VariablesConfig:  # pragma: no cover
+        """Pull the current variable configuration from the provider.
+
+        This method fetches the complete configuration from the provider,
+        useful for generating local copies of the config that can be modified.
+
+        Returns:
+            The current VariablesConfig from the provider.
+
+        Example:
+            ```python skip="true"
+            import logfire
+
+            # Pull config from the provider
+            config = logfire.variables_pull_config()
+            print(config.model_dump_json(indent=2))
+            ```
+        """
+        provider = self.config.get_variable_provider()
+        return provider.pull_config()
+
+    def variables_build_config(
+        self,
+        variables: list[Variable[Any]] | None = None,
+    ) -> VariablesConfig:
+        """Build a VariablesConfig from registered Variable instances.
+
+        This creates a minimal config with just the name, schema, and example for each variable.
+        No labels or versions are created - use this to build a template config that can be edited.
+
+        Args:
+            variables: Variable instances to include. If None, uses all registered variables.
+
+        Returns:
+            A VariablesConfig with minimal configs for each variable.
+
+        Example:
+            ```python skip="true"
+            import logfire
+
+            feature_enabled = logfire.var(name='feature_enabled', type=bool, default=False)
+            max_retries = logfire.var(name='max_retries', type=int, default=3)
+
+            # Build config from registered variables
+            config = logfire.variables_build_config()
+            print(config.model_dump_json(indent=2))
+            ```
+        """
+        if variables is None:
+            variables = self.variables_get()  # pragma: no cover
+
+        from logfire.variables.config import VariablesConfig
+
+        return VariablesConfig.from_variables(variables)
 
 
 class FastLogfireSpan:
@@ -2594,7 +3011,7 @@ class NoopSpan:
 
     def __getattr__(self, _name: str) -> Any:
         # Handle methods of LogfireSpan which return nothing
-        return lambda *_args, **__kwargs: None  # type: ignore
+        return lambda *_args, **__kwargs: None  # pyright: ignore[reportUnknownVariableType, reportUnknownLambdaType]
 
     def __enter__(self) -> NoopSpan:
         return self
