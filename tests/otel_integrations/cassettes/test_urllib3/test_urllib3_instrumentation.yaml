@@ -1,0 +1,26 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Host:
+      - example.org:8080
+      User-Agent:
+      - python-urllib3/2.4.0
+    method: GET
+    uri: https://example.org:8080/foo
+  response:
+    body:
+      string: ''
+    headers:
+      Content-Length:
+      - '0'
+      Content-Type:
+      - text/html
+    status:
+      code: 200
+      message: OK
+version: 1

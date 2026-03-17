@@ -166,6 +166,7 @@ nav:
           - HTTP Clients:
               - HTTPX: integrations/http-clients/httpx.md
               - Requests: integrations/http-clients/requests.md
+              - urllib3: integrations/http-clients/urllib3.md
               - AIOHTTP: integrations/http-clients/aiohttp.md
           - Task Queues & Pipelines:
               - Airflow: integrations/event-streams/airflow.md

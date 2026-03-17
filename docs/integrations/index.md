@@ -32,7 +32,7 @@ If a package you are using is not listed in this documentation, please let us kn
 - _LLM Clients and AI Frameworks_: Pydantic AI, OpenAI, Anthropic, LangChain, LlamaIndex, Mirascope, LiteLLM, Magentic
 - _Web Frameworks_: FastAPI, Django, Flask, Starlette, AIOHTTP, ASGI, WSGI
 - _Database Clients_: Psycopg, SQLAlchemy, Asyncpg, PyMongo, MySQL, SQLite3, Redis, BigQuery
-- _HTTP Clients_: HTTPX, Requests, AIOHTTP
+- _HTTP Clients_: HTTPX, Requests, urllib3, AIOHTTP
 - _Task Queues and Schedulers_: Airflow, FastStream, Celery
 - _Logging Libraries_: Standard Library Logging, Loguru, Structlog
 - _Testing_: Pytest
@@ -77,6 +77,7 @@ The below table lists these integrations and any corresponding `logfire.instrume
 | [Stripe](stripe.md)                       | Payment Gateway         | N/A (requires other instrumentations)                                                                                                                                  |
 | [Structlog](structlog.md)                 | Logging                 | See documentation                                                                                                                                                      |
 | [System Metrics](system-metrics.md)       | System Metrics          | [`logfire.instrument_system_metrics()`][logfire.Logfire.instrument_system_metrics]                                                                                     |
+| [urllib3](http-clients/urllib3.md)         | HTTP Client             | [`logfire.instrument_urllib3()`][logfire.Logfire.instrument_urllib3]                                                                                                    |
 | [WSGI](web-frameworks/wsgi.md)            | Web Framework Interface | [`logfire.instrument_wsgi()`][logfire.Logfire.instrument_wsgi]                                                                                                         |
 
 If you are using Logfire with a web application, we also recommend reviewing
