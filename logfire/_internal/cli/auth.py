@@ -84,7 +84,6 @@ def parse_logout(args: argparse.Namespace) -> None:
 
     try:
         removed = tokens_collection.logout(logfire_url)
-
     except LogfireConfigError as e:
         sys.stderr.write(f'{e}\n')
         sys.exit(1)
