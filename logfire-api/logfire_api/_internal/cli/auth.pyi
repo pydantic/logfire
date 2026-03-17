@@ -7,3 +7,6 @@ def parse_auth(args: argparse.Namespace) -> None:
 
     This will authenticate your machine with Logfire and store the credentials.
     """
+
+def parse_logout(args: argparse.Namespace) -> None:
+    """Log out from Logfire."""
