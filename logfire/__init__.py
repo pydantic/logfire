@@ -36,6 +36,7 @@ span = DEFAULT_LOGFIRE_INSTANCE.span
 instrument = DEFAULT_LOGFIRE_INSTANCE.instrument
 force_flush = DEFAULT_LOGFIRE_INSTANCE.force_flush
 log_slow_async_callbacks = DEFAULT_LOGFIRE_INSTANCE.log_slow_async_callbacks
+instrument_asyncio = DEFAULT_LOGFIRE_INSTANCE.instrument_asyncio
 install_auto_tracing = DEFAULT_LOGFIRE_INSTANCE.install_auto_tracing
 instrument_pydantic = DEFAULT_LOGFIRE_INSTANCE.instrument_pydantic
 instrument_pydantic_ai = DEFAULT_LOGFIRE_INSTANCE.instrument_pydantic_ai
@@ -143,6 +144,7 @@ __all__ = (
     'fatal',
     'force_flush',
     'log_slow_async_callbacks',
+    'instrument_asyncio',
     'install_auto_tracing',
     'instrument_asgi',
     'instrument_wsgi',
