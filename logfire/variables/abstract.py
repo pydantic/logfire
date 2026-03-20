@@ -886,7 +886,7 @@ class VariableProvider(ABC):
             server_var = server_config.variables.get(name)
             if server_var is None:
                 creates.append(name)
-            elif var_config.model_dump() != server_var.model_dump():
+            elif var_config.model_dump(exclude={'latest_version'}) != server_var.model_dump(exclude={'latest_version'}):
                 updates.append(name)
             else:
                 unchanged.append(name)
