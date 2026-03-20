@@ -1,23 +1,30 @@
 ---
-title: "Managed Datasets: Build and Manage Evaluation Test Cases"
+title: "Datasets: Build and Manage Evaluation Test Cases"
 description: "Create, manage, and fetch typed evaluation datasets in Pydantic Logfire. Integrate with pydantic-evals to run evaluations against your AI systems."
 ---
 
-# Managed Datasets
+# Datasets
 
-!!! warning "Experimental Feature"
-
-    Managed datasets are an experimental feature currently gated behind a feature flag. Reach out to us on [Slack](https://logfire.pydantic.dev/docs/join-slack/) or [contact us](../../help.md) to learn how to enable it for your project.
-
-Managed datasets let you build and maintain collections of test cases for evaluating your AI systems. You can create datasets through the Logfire web UI or programmatically via the SDK, then fetch them as [pydantic-evals](https://ai.pydantic.dev/evals/) `Dataset` objects to run evaluations.
+Datasets let you build and maintain collections of test cases for evaluating your AI systems. You can create datasets through the Logfire web UI or programmatically via the SDK, then fetch them as [pydantic-evals](https://ai.pydantic.dev/evals/) `Dataset` objects to run evaluations.
 
 !!! note "Relationship with Pydantic Evals"
 
-    Managed datasets are the server-side complement to [pydantic-evals](https://ai.pydantic.dev/evals/) file-based datasets. While pydantic-evals stores datasets as local YAML files, managed datasets are stored in Logfire and can be created from production traces, edited collaboratively in the UI, and fetched for evaluation. The SDK is designed so you can move seamlessly between the two.
+    Datasets in Logfire are the server-side complement to [pydantic-evals](https://ai.pydantic.dev/evals/) file-based datasets. While pydantic-evals stores datasets as local YAML files, Logfire datasets are stored on the server and can be created from production traces, edited collaboratively in the UI, and fetched for evaluation. The SDK is designed so you can move seamlessly between the two.
 
-## Why Managed Datasets?
+## Hosted vs Code-Detected Datasets
 
-When evaluating AI systems, you need test cases that reflect real-world usage. Managed datasets solve several problems:
+When you open the **Evals** page, you'll see two types of datasets:
+
+- **Hosted** datasets have their cases stored and editable on Logfire. You create these through the UI or SDK, and can add, edit, and delete individual test cases.
+- **Code-detected** datasets are discovered automatically from experiment runs in your code (via `pydantic-evals`). They appear in the list alongside hosted datasets but their cases are read-only --- they reflect what your code defined.
+
+A dataset can be both: if you create a hosted dataset with the same name as one in your code, they merge into a single entry with both hosted cases and experiment history.
+
+You can filter between these types using the **Hosted** and **Code** tabs at the top of the datasets list.
+
+## Why Datasets?
+
+When evaluating AI systems, you need test cases that reflect real-world usage. Datasets solve several problems:
 
 - **Production-driven test cases**: Create test cases directly from production traces using the "Add to Dataset" action in Live View, so your evaluations reflect real user inputs.
 - **Collaborative editing**: Team members can add, review, and refine test cases through the web UI without touching code.
@@ -26,10 +33,10 @@ When evaluating AI systems, you need test cases that reflect real-world usage. M
 
 ## The Evaluation Workflow
 
-Managed datasets fit into a continuous evaluation loop:
+Datasets fit into a continuous evaluation loop:
 
 1. **Observe** production behavior in Live View.
-2. **Curate** test cases by adding interesting traces to a managed dataset.
+2. **Curate** test cases by adding interesting traces to a dataset.
 3. **Evaluate** your system against the dataset using pydantic-evals.
 4. **Analyze** the results in the Logfire Evals tab.
 5. **Improve** your system and repeat.
