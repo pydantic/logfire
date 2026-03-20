@@ -176,18 +176,8 @@ Contact our sales team to discuss your requirements.
 
 ### Q: What does Logfire cost?
 
-**Logfire Cloud (Pro tier):**
-
-- Free tier: 10 million spans per month
-- Beyond free tier: $2 per million spans
-- No per-host pricing. You pay for data, not infrastructure.
-
-This pricing scales predictably. We process billions of spans per month for production AI workloads. Scale your load without worrying about your bill.
-
-**Enterprise (Cloud or Self-Hosted):**
-Contact sales for pricing on enterprise features including self-hosting, SSO, custom retention, and dedicated support.
-
-[Understanding your usage](logfire-costs.md)
+Logfire offers two different plans (Team and Growth) as well as Enterprise (cloud or self-hosted) contracts. Refer to the
+[pricing page](https://pydantic.dev/pricing) and [Understanding your usage](logfire-costs.md) for more details.
 
 ### Q: Is Logfire enterprise-ready?
 

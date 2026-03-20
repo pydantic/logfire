@@ -113,3 +113,46 @@ def test_get_user_token_not_authenticated(default_credentials: Path) -> None:
     ):
         # Use a port that we don't use for local development to reduce conflicts with local configuration
         token_collection.get_token(base_url='http://localhost:8234')
+
+
+def test_logout_single_token(default_credentials: Path) -> None:
+    token_collection = UserTokenCollection(default_credentials)
+    removed = token_collection.logout()
+    assert removed == ['https://logfire-us.pydantic.dev']
+    assert default_credentials.read_text() == ''
+
+
+def test_logout_specific_region(multiple_credentials: Path) -> None:
+    token_collection = UserTokenCollection(multiple_credentials)
+    removed = token_collection.logout('https://logfire-us.pydantic.dev')
+    assert removed == ['https://logfire-us.pydantic.dev']
+    content = multiple_credentials.read_text()
+    assert 'logfire-us' not in content
+    assert 'logfire-eu' in content
+
+
+def test_logout_wrong_region(default_credentials: Path) -> None:
+    token_collection = UserTokenCollection(default_credentials)
+    with inline_snapshot.extra.raises(
+        snapshot(
+            'LogfireConfigError: No user token was found matching the https://logfire-eu.pydantic.dev Logfire URL. Please run `logfire auth` to authenticate.'
+        )
+    ):
+        token_collection.logout('https://logfire-eu.pydantic.dev')
+
+
+def test_logout_not_logged_in(tmp_path: Path) -> None:
+    empty_auth_file = tmp_path / 'default.toml'
+    empty_auth_file.touch()
+    token_collection = UserTokenCollection(empty_auth_file)
+    with inline_snapshot.extra.raises(
+        snapshot('LogfireConfigError: You are not logged into Logfire. Please run `logfire auth` to authenticate.')
+    ):
+        token_collection.logout()
+
+
+def test_logout_all_multiple_regions(multiple_credentials: Path) -> None:
+    token_collection = UserTokenCollection(multiple_credentials)
+    removed = token_collection.logout()
+    assert removed == ['https://logfire-us.pydantic.dev', 'https://logfire-eu.pydantic.dev']
+    assert multiple_credentials.read_text() == ''

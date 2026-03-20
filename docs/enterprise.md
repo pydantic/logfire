@@ -6,7 +6,7 @@ description: "The Logfire Enterprise Plan includes custom SSO, guaranteed SLAs, 
 
 ## Overview
 
-In addition to the [Pro plan](https://pydantic.dev/pricing), Pydantic Logfire has three enterprise offerings:
+In addition to the [Team and Growth plans](https://pydantic.dev/pricing), Pydantic Logfire has three enterprise offerings:
 
 - **Enterprise Cloud**: Fully managed, SLA-backed service
 - **Enterprise Dedicated**: Fully managed, single-tenant deployment on isolated infrastructure — see the [Enterprise Dedicated](enterprise-single-tenant.md) page for details
