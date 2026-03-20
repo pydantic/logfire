@@ -1843,19 +1843,15 @@ class LogfireCredentials:
         """Print a summary of the existing project."""
         if self.project_url:  # pragma: no branch
             _print_summary(
-                f'[bold]Logfire[/bold] project URL: [link={self.project_url} cyan]{self.project_url}[/link]',
+                f'[bold]Logfire[/bold] project URL: [cyan]{self.project_url}[/cyan]',
                 min_content_width=len(self.project_url),
             )
 
 
 def _print_summary(message: str, min_content_width: int) -> None:
     from rich.console import Console
-    from rich.style import Style
-    from rich.theme import Theme
 
-    # customise the link color since the default `blue` is too dark for me to read.
-    custom_theme = Theme({'markdown.link_url': Style(color='cyan')})
-    console = Console(stderr=True, theme=custom_theme)
+    console = Console(stderr=True)
     if console.width < min_content_width + 4:  # pragma: no cover
         console.width = min_content_width + 4
     console.print(message)
