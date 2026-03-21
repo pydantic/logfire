@@ -130,6 +130,11 @@ from logfire.experimental.forwarding import forward_export_request
 
 logfire.configure()
 
+class CustomFrameworkResponse:
+    """Replace this with your framework's actual Response class."""
+    def __init__(self, content: bytes, status_code: int, headers: dict[str, str]):
+        pass
+
 # Example generic route handler:
 def my_custom_proxy_route(request):
 
