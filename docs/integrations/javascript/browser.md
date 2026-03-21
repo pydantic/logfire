@@ -12,7 +12,7 @@ The `@pydantic/logfire-browser` NPM package wraps [OpenTelemetry browser tracing
 
     To safely send traces, you must create a proxy in your app that **forwards requests from your browser instrumentation to Logfire** while attaching the `Authorization` header server-side.
     - **Python:** See [Proxying Browser Telemetry](#proxying-browser-telemetry) below for FastAPI, Starlette, and generic framework examples.
-    - **Next.js:** Check out the[Next.js proxy example implementation](https://github.com/pydantic/logfire-js/blob/main/examples/nextjs-client-side-instrumentation/proxy.ts)
+    - **Next.js:** Check out the [Next.js proxy example implementation](https://github.com/pydantic/logfire-js/blob/main/examples/nextjs-client-side-instrumentation/proxy.ts)
 
 ## Simple Usage
 
