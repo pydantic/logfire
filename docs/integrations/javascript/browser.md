@@ -53,7 +53,7 @@ If you use a Python backend, logfire provide experimental tools in the `logfire.
 
 ### FastAPI
 
-For FastAPI, logfire provide a built-in `logfire_proxy` handler that safely buffers requests to prevent memory exhaustion DoS attacks.
+For FastAPI, logfire provide a built-in `logfire_proxy` handler that limits request body size (default 50MB) by reading in chunks to avoid loading oversized payloads into memory.
 
 ```py title="main.py" skip-run="true" skip-reason="server-start"
 from fastapi import FastAPI, Request
