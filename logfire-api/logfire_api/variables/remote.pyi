@@ -95,9 +95,6 @@ class LogfireRemoteVariableProvider(VariableProvider):
     def update_variable(self, name: str, config: VariableConfig) -> VariableConfig:
         """Update an existing variable configuration via the remote API.
 
-        This is a metadata-only update (name, description, schema, example).
-        Labels and versions are managed through the UI.
-
         Args:
             name: The name of the variable to update.
             config: The new configuration for the variable.

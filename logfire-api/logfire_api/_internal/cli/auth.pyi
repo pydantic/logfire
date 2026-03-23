@@ -1,4 +1,5 @@
 import argparse
+from ...exceptions import LogfireConfigError as LogfireConfigError
 from ..auth import DEFAULT_FILE as DEFAULT_FILE, UserTokenCollection as UserTokenCollection, poll_for_token as poll_for_token, request_device_code as request_device_code
 from ..config import REGIONS as REGIONS
 
@@ -7,6 +8,5 @@ def parse_auth(args: argparse.Namespace) -> None:
 
     This will authenticate your machine with Logfire and store the credentials.
     """
-
 def parse_logout(args: argparse.Namespace) -> None:
     """Log out from Logfire."""

@@ -93,10 +93,6 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         Returns:
             List of dataset summaries with id, name, description, case_count, etc.
         """
-    @overload
-    def get_dataset(self, id_or_name: str, *, include_cases: bool = True) -> dict[str, Any]: ...
-    @overload
-    def get_dataset(self, id_or_name: str, input_type: type[InputsT], output_type: type[OutputT] | None = None, metadata_type: type[MetadataT] | None = None, *, custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = ()) -> Dataset[InputsT, OutputT, MetadataT]: ...
     def create_dataset(self, name: str, *, input_type: type[Any] | None = None, output_type: type[Any] | None = None, metadata_type: type[Any] | None = None, description: str | None = None, guidance: str | None = None, ai_managed_guidance: bool = False) -> dict[str, Any]:
         '''Create a new dataset with optional type schemas.
 
@@ -255,6 +251,10 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             DatasetNotFoundError: If the dataset does not exist.
             CaseNotFoundError: If the case does not exist.
         """
+    @overload
+    def get_dataset(self, id_or_name: str, *, include_cases: bool = True) -> dict[str, Any]: ...
+    @overload
+    def get_dataset(self, id_or_name: str, input_type: type[InputsT], output_type: type[OutputT] | None = None, metadata_type: type[MetadataT] | None = None, *, custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = ()) -> Dataset[InputsT, OutputT, MetadataT]: ...
 
 class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
     """Asynchronous client for managing Logfire datasets.
@@ -266,10 +266,6 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
     async def __aexit__(self, exc_type: type[BaseException] | None = None, exc_value: BaseException | None = None, traceback: TracebackType | None = None) -> None: ...
     async def list_datasets(self) -> list[dict[str, Any]]:
         """List all datasets."""
-    @overload
-    async def get_dataset(self, id_or_name: str, *, include_cases: bool = True) -> dict[str, Any]: ...
-    @overload
-    async def get_dataset(self, id_or_name: str, input_type: type[InputsT], output_type: type[OutputT] | None = None, metadata_type: type[MetadataT] | None = None, *, custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = ()) -> Dataset[InputsT, OutputT, MetadataT]: ...
     async def create_dataset(self, name: str, *, input_type: type[Any] | None = None, output_type: type[Any] | None = None, metadata_type: type[Any] | None = None, description: str | None = None, guidance: str | None = None, ai_managed_guidance: bool = False) -> dict[str, Any]:
         """Create a new dataset."""
     async def update_dataset(self, id_or_name: str, *, name: str = ..., input_type: type[Any] | None = None, output_type: type[Any] | None = None, metadata_type: type[Any] | None = None, description: str | None = ..., guidance: str | None = ..., ai_managed_guidance: bool | None = None) -> dict[str, Any]:
@@ -293,3 +289,7 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         """Update an existing case."""
     async def delete_case(self, dataset_id_or_name: str, case_id: str) -> None:
         """Delete a case from a dataset."""
+    @overload
+    async def get_dataset(self, id_or_name: str, *, include_cases: bool = True) -> dict[str, Any]: ...
+    @overload
+    async def get_dataset(self, id_or_name: str, input_type: type[InputsT], output_type: type[OutputT] | None = None, metadata_type: type[MetadataT] | None = None, *, custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = ()) -> Dataset[InputsT, OutputT, MetadataT]: ...
