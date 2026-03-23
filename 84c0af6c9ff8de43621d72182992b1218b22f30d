@@ -1,0 +1,23 @@
+tests/otel_integrations/test_openai_agents_mcp.py
+  823edb0ed618ba38 70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.17",
+  "base_commit_sha": "84c0af6c9ff8de43621d72182992b1218b22f30d",
+  "prompts": {
+    "823edb0ed618ba38": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ec5eb034-81ca-433b-8c6c-bf7fb3f8e7c9",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
