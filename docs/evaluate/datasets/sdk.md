@@ -173,7 +173,7 @@ for ds in datasets:
     print(f"{ds['name']}: {ds['case_count']} cases")
 
 # Get a specific dataset by name or ID
-dataset_info = client.get_dataset('qa-golden-set')
+dataset_info = client.get_dataset('qa-golden-set', include_cases=False)
 ```
 
 ## Updating and Deleting
