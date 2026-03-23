@@ -109,6 +109,13 @@ The main request span will still have the attributes described above, but it wil
 This is mostly redundant now and is mainly provided for backwards compatibility.
 It can also be useful for grouping together child logs and spans produced by the request.
 
+
+## Proxying Browser Telemetry
+
+If your frontend application sends telemetry from the browser, you should never expose your Logfire Write Token in the frontend code.
+
+You can use experimental proxy handler to securely forward OTLP telemetry through your FastAPI backend. See the [Browser Telemetry Proxying guide](../javascript/browser.md#proxying-browser-telemetry) for detailed instructions.
+
 [fastapi]: https://fastapi.tiangolo.com/
 [opentelemetry-asgi]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html
 [opentelemetry-fastapi]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html
