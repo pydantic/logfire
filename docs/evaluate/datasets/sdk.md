@@ -173,7 +173,7 @@ for ds in datasets:
     print(f"{ds['name']}: {ds['case_count']} cases")
 
 # Get a specific dataset by name or ID
-dataset_info = client.get_dataset('qa-golden-set')
+dataset_info = client.get_dataset('qa-golden-set', include_cases=False)
 ```
 
 ## Updating and Deleting
@@ -199,6 +199,6 @@ client.delete_dataset('qa-golden-set')
 
 ## What's Next?
 
-- **[Running Evaluations](evaluations.md)** --- Export your dataset and run evaluations with pydantic-evals.
+- **[Running Evaluations](evaluations.md)** --- Fetch your dataset and run evaluations with pydantic-evals.
 - **[SDK Reference](../../reference/api/datasets.md)** --- Complete method signatures and exception reference.
 - **[Web UI Guide](ui.md)** --- Manage datasets through the Logfire web interface.

@@ -37,8 +37,8 @@ Example usage:
             ],
         )
 
-        # Export as pydantic-evals Dataset
-        dataset: Dataset[MyInput, MyOutput, None] = client.export_dataset(
+        # Get as pydantic-evals Dataset
+        dataset: Dataset[MyInput, MyOutput, None] = client.get_dataset(
             'my-dataset',
             input_type=MyInput,
             output_type=MyOutput,
@@ -274,8 +274,8 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
                 ],
             )
 
-            # Export as pydantic-evals Dataset
-            dataset = client.export_dataset('qa-dataset', MyInput, MyOutput)
+            # Get as pydantic-evals Dataset
+            dataset = client.get_dataset('qa-dataset', MyInput, MyOutput)
         ```
     """
 
@@ -330,21 +330,6 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             List of dataset summaries with id, name, description, case_count, etc.
         """
         response = self.client.get('/v1/datasets/')
-        return self._handle_response(response)
-
-    def get_dataset(self, id_or_name: str) -> dict[str, Any]:
-        """Get a dataset by ID or name.
-
-        Args:
-            id_or_name: The dataset ID (UUID) or name.
-
-        Returns:
-            Dataset details including schemas and metadata.
-
-        Raises:
-            DatasetNotFoundError: If the dataset does not exist.
-        """
-        response = self.client.get(f'/v1/datasets/{id_or_name}/')
         return self._handle_response(response)
 
     def create_dataset(
@@ -643,13 +628,11 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         response = self.client.delete(f'/v1/datasets/{dataset_id_or_name}/cases/{case_id}/')
         self._handle_response(response, is_case_endpoint=True)
 
-    # --- Export/Import operations ---
+    @overload
+    def get_dataset(self, id_or_name: str, *, include_cases: bool = True) -> dict[str, Any]: ...
 
     @overload
-    def export_dataset(self, id_or_name: str) -> dict[str, Any]: ...
-
-    @overload
-    def export_dataset(
+    def get_dataset(
         self,
         id_or_name: str,
         input_type: type[InputsT],
@@ -659,64 +642,70 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = (),
     ) -> Dataset[InputsT, OutputT, MetadataT]: ...
 
-    def export_dataset(
+    def get_dataset(
         self,
         id_or_name: str,
         input_type: type[InputsT] | None = None,
         output_type: type[OutputT] | None = None,
         metadata_type: type[MetadataT] | None = None,
         *,
+        include_cases: bool = True,
         custom_evaluator_types: Sequence[type[Evaluator[Any, Any, Any]]] = (),
     ) -> Dataset[InputsT, OutputT, MetadataT] | dict[str, Any]:
-        """Export a dataset, optionally as a typed pydantic-evals Dataset.
+        """Get a dataset by ID or name.
 
-        When called with type arguments, returns a `pydantic_evals.Dataset` with
-        properly typed cases. Without type arguments, returns raw dict data.
+        The return type depends on the arguments provided:
+
+        - **No type arguments** (default): fetches the dataset with all its cases
+          and returns a raw dict in pydantic-evals-compatible format.
+        - **With type arguments** (`input_type`, etc.): same as above, but parses
+          the result into a typed `pydantic_evals.Dataset` ready for evaluation.
+        - **`include_cases=False`**: returns only dataset metadata (schemas,
+          description, case count, etc.) without fetching case data.
 
         Args:
             id_or_name: The dataset ID (UUID) or name.
-            input_type: Type for case inputs.
+            input_type: Type for case inputs. When provided, the response is
+                parsed into a `pydantic_evals.Dataset`.
             output_type: Type for expected outputs.
             metadata_type: Type for case metadata.
-            custom_evaluator_types: Custom evaluator classes for deserializing case evaluators.
+            include_cases: Whether to include cases in the response. Defaults
+                to True. Set to False to retrieve only dataset metadata.
+            custom_evaluator_types: Custom evaluator classes for deserializing
+                case-level evaluators stored in the dataset.
 
         Returns:
-            If types provided: `pydantic_evals.Dataset[InputsT, OutputT, MetadataT]`
-            Otherwise: Raw dict in pydantic-evals compatible format.
+            A `pydantic_evals.Dataset` when `input_type` is provided, otherwise
+            a raw dict. With `include_cases=False`, the dict contains only
+            dataset metadata.
 
         Raises:
             DatasetNotFoundError: If the dataset does not exist.
-            ImportError: If pydantic-evals is not installed (when using types).
+            ImportError: If pydantic-evals is not installed (when using type arguments).
 
         Example:
             ```python skip-run="true" skip-reason="external-connection"
-            from pydantic_evals import Dataset
-            from pydantic_evals.evaluators import IsInstance
+            # Get as a typed pydantic-evals Dataset for evaluation
+            dataset = client.get_dataset('qa-dataset', MyInput, MyOutput)
 
-            # Export with types and custom evaluators
-            dataset: Dataset[MyInput, MyOutput, None] = client.export_dataset(
-                'my-dataset',
-                input_type=MyInput,
-                output_type=MyOutput,
-                custom_evaluator_types=[MyCustomEvaluator],
-            )
+            # Get raw dict with cases
+            raw = client.get_dataset('qa-dataset')
 
-
-            # Use with evaluations (in an async context)
-            # report = await dataset.evaluate(my_task)
+            # Get metadata only (no cases)
+            info = client.get_dataset('qa-dataset', include_cases=False)
             ```
         """
+        if not include_cases:
+            response = self.client.get(f'/v1/datasets/{id_or_name}/')
+            return self._handle_response(response)
+
         response = self.client.get(f'/v1/datasets/{id_or_name}/export/')
         data = self._handle_response(response)
 
-        # If no types provided, return raw dict
         if input_type is None:
             return data
 
-        # Convert to typed Dataset using pydantic-evals
         Dataset, _ = _import_pydantic_evals()
-
-        # Create a properly typed Dataset class
         typed_dataset_cls: type[Dataset[InputsT, OutputT, MetadataT]] = Dataset[input_type, output_type, metadata_type]  # pyright: ignore[reportIndexIssue, reportUnknownVariableType]
         return typed_dataset_cls.from_dict(data, custom_evaluator_types=list(custom_evaluator_types))  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
 
@@ -764,11 +753,6 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
     async def list_datasets(self) -> list[dict[str, Any]]:
         """List all datasets."""
         response = await self.client.get('/v1/datasets/')
-        return self._handle_response(response)
-
-    async def get_dataset(self, id_or_name: str) -> dict[str, Any]:
-        """Get a dataset by ID or name."""
-        response = await self.client.get(f'/v1/datasets/{id_or_name}/')
         return self._handle_response(response)
 
     async def create_dataset(
@@ -928,10 +912,10 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         self._handle_response(response, is_case_endpoint=True)
 
     @overload
-    async def export_dataset(self, id_or_name: str) -> dict[str, Any]: ...
+    async def get_dataset(self, id_or_name: str, *, include_cases: bool = True) -> dict[str, Any]: ...
 
     @overload
-    async def export_dataset(
+    async def get_dataset(
         self,
         id_or_name: str,
         input_type: type[InputsT],
@@ -941,16 +925,24 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = (),
     ) -> Dataset[InputsT, OutputT, MetadataT]: ...
 
-    async def export_dataset(
+    async def get_dataset(
         self,
         id_or_name: str,
         input_type: type[InputsT] | None = None,
         output_type: type[OutputT] | None = None,
         metadata_type: type[MetadataT] | None = None,
         *,
+        include_cases: bool = True,
         custom_evaluator_types: Sequence[type[Evaluator[Any, Any, Any]]] = (),
     ) -> Dataset[InputsT, OutputT, MetadataT] | dict[str, Any]:
-        """Export a dataset, optionally as a typed pydantic-evals Dataset."""
+        """Get a dataset by ID or name.
+
+        See `LogfireAPIClient.get_dataset` for full documentation.
+        """
+        if not include_cases:
+            response = await self.client.get(f'/v1/datasets/{id_or_name}/')
+            return self._handle_response(response)
+
         response = await self.client.get(f'/v1/datasets/{id_or_name}/export/')
         data = self._handle_response(response)
 
