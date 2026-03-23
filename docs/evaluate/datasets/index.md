@@ -22,7 +22,7 @@ When evaluating AI systems, you need test cases that reflect real-world usage. M
 - **Production-driven test cases**: Create test cases directly from production traces using the "Add to Dataset" action in Live View, so your evaluations reflect real user inputs.
 - **Collaborative editing**: Team members can add, review, and refine test cases through the web UI without touching code.
 - **Typed schemas**: Define input, output, and metadata schemas so that every case is validated, preventing malformed test data.
-- **SDK integration**: Export datasets as typed `pydantic_evals.Dataset` objects and run evaluations with a single method call.
+- **SDK integration**: Export datasets as typed [`pydantic_evals.Dataset`][pydantic_evals.Dataset] objects and run evaluations with a single method call.
 
 ## The Evaluation Workflow
 

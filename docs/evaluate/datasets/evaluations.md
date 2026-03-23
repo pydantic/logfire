@@ -14,7 +14,8 @@ typed [`pydantic_evals.Dataset`][pydantic_evals.Dataset] and use it to evaluate 
 
 ## Exporting to pydantic-evals Dataset
 
-The `export_dataset` method fetches all cases and returns a typed `pydantic_evals.Dataset` that you can use directly for evaluation:
+The `export_dataset` method fetches all cases and returns a typed
+[`pydantic_evals.Dataset`][pydantic_evals.Dataset] that you can use directly for evaluation:
 
 ```python skip-run="true" skip-reason="external-connection"
 from dataclasses import dataclass
