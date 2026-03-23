@@ -335,6 +335,7 @@ plugins:
             - url: https://pymongo.readthedocs.io/en/stable/objects.inv
   - redirects:
       redirect_maps:
+        "evaluate/datasets/sdk-reference.md": "reference/api/datasets.md"
         "guides/first_steps/index.md": "index.md"
         "guides/onboarding_checklist/index.md": "guides/onboarding-checklist/index.md"
         "guides/onboarding_checklist/integrate.md": "guides/onboarding-checklist/integrate.md"
