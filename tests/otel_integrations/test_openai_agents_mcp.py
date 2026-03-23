@@ -67,7 +67,7 @@ async def test_mcp(exporter: TestExporter):
 
         class MyMCPServer(_MCPServerWithClientSession):
             @asynccontextmanager
-            async def create_streams(self):  # type: ignore
+            async def create_streams(self):
                 yield client_streams
 
             @property
