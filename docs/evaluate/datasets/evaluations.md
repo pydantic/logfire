@@ -1,6 +1,6 @@
 ---
 title: "Running Evaluations"
-description: "Fetch managed datasets and run evaluations with pydantic-evals."
+description: "Fetch hosted datasets and run evaluations with pydantic-evals."
 ---
 
 # Running Evaluations
@@ -9,7 +9,7 @@ description: "Fetch managed datasets and run evaluations with pydantic-evals."
 
     The dataset management SDK is under `logfire.experimental.api_client`. The API may change in future releases.
 
-Once you have a managed dataset (created via the [Web UI](ui.md) or [SDK](sdk.md)), you can fetch it as a
+Once you have a hosted dataset (created via the [Web UI](ui.md) or [SDK](sdk.md)), you can fetch it as a
 typed [`pydantic_evals.Dataset`][pydantic_evals.Dataset] and use it to evaluate your AI system.
 
 ## Getting a typed pydantic-evals Dataset
@@ -114,7 +114,7 @@ With Logfire tracing enabled, the evaluation results appear automatically in the
 This creates a continuous improvement loop:
 
 1. **Observe** production behavior in Live View.
-2. **Curate** test cases by adding interesting traces to a managed dataset.
+2. **Curate** test cases by adding interesting traces to a dataset.
 3. **Evaluate** your system against the dataset using pydantic-evals.
 4. **Analyze** the results in the Logfire Evals tab.
 5. **Improve** your system and repeat.

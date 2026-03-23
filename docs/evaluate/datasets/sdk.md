@@ -5,9 +5,9 @@ description: "Manage evaluation datasets programmatically with the Logfire Pytho
 
 # SDK Guide
 
-!!! warning "Experimental Feature"
+!!! note "Experimental SDK"
 
-    Managed datasets are an experimental feature currently gated behind a feature flag. Reach out to us on [Slack](https://logfire.pydantic.dev/docs/join-slack/) or [contact us](../../help.md) to learn how to enable it for your project.
+    The dataset management SDK is under `logfire.experimental.api_client`. The API may change in future releases.
 
 The SDK provides a typed Python client for managing datasets programmatically. This is the recommended approach when you want to define schemas using Python types and automate dataset management. You can also manage datasets through the [Web UI](ui.md).
 
