@@ -71,9 +71,8 @@ class UserTokenCollection:
         """
     def add_token(self, base_url: str, token: UserTokenData) -> UserToken:
         """Add a user token to the collection."""
-
     def logout(self, base_url: str | None = None) -> list[str]:
-        """Log out from Logfire."""
+        """Remove user token(s) from the collection."""
 
 class NewDeviceFlow(TypedDict):
     """Matches model of the same name in the backend."""

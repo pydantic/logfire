@@ -1,5 +1,12 @@
 # Release Notes
 
+## [v4.30.0] (2026-03-23)
+
+* Add `logfire auth logout` command by @ai-man-codes in [#1781](https://github.com/pydantic/logfire/pull/1781)
+* Remove Rich link styling from project URL output by @ameenalkhaldi in [#1784](https://github.com/pydantic/logfire/pull/1784)
+* Fix push_config() to push labels and versions by @dmontagu in [#1785](https://github.com/pydantic/logfire/pull/1785)
+* Merge `export_dataset` into `get_dataset` with `include_cases` parameter by @Kludex in [#1792](https://github.com/pydantic/logfire/pull/1792)
+
 ## [v4.29.0] (2026-03-13)
 
 * Add `gen_ai.usage.raw` attribute to OpenAI Responses spans by @alexmojaki in [#1777](https://github.com/pydantic/logfire/pull/1777)
@@ -1073,3 +1080,4 @@ First release from new repo!
 [v4.27.0]: https://github.com/pydantic/logfire/compare/v4.26.0...v4.27.0
 [v4.28.0]: https://github.com/pydantic/logfire/compare/v4.27.0...v4.28.0
 [v4.29.0]: https://github.com/pydantic/logfire/compare/v4.28.0...v4.29.0
+[v4.30.0]: https://github.com/pydantic/logfire/compare/v4.29.0...v4.30.0
