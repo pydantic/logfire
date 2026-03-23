@@ -333,6 +333,7 @@ plugins:
             - url: https://faststream.ag2.ai/latest/objects.inv
             - url: https://redis.readthedocs.io/en/stable/objects.inv
             - url: https://pymongo.readthedocs.io/en/stable/objects.inv
+            - url: https://ai.pydantic.dev/objects.inv
   - redirects:
       redirect_maps:
         "evaluate/datasets/sdk-reference.md": "reference/api/datasets.md"
