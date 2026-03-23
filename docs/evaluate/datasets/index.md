@@ -11,7 +11,7 @@ Datasets let you build and maintain collections of test cases for evaluating you
 
     Datasets in Logfire are the server-side complement to [pydantic-evals](https://ai.pydantic.dev/evals/) file-based datasets. While pydantic-evals stores datasets as local YAML files, Logfire datasets are stored on the server and can be created from production traces, edited collaboratively in the UI, and fetched for evaluation. The SDK is designed so you can move seamlessly between the two.
 
-## Hosted vs Code-Detected Datasets
+## Hosted vs Local Datasets
 
 When you open the **Evals** page, you'll see two types of datasets:
 
