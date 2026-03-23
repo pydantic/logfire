@@ -118,9 +118,9 @@ Here's the typical workflow using the `AgentConfig` example from above:
 
 1. **Define the variable in code** with your current configuration as the default
 2. **Deploy your application**: it starts using the default immediately
-3. **Push the variable to Logfire** using `logfire.variables_push()` to sync metadata and schemas
-4. **Create versions** in the Logfire UI: add your initial value as version 1, then create additional versions with different configurations
-5. **Assign labels**: create labels like `production` and `canary`, pointing them at specific versions
+3. **Push the variable to Logfire** using `logfire.variables_push()` to sync metadata, schemas, labels, and versions
+4. **Create additional versions** in the Logfire UI or from code, then create additional versions with different configurations
+5. **Assign labels**: create labels like `production` and `canary`, pointing them at specific versions — from the UI or programmatically
 6. **Set up a rollout**: configure 90% of traffic to the `production` label and 10% to `canary`
 7. **Monitor in real-time**: filter traces by label to compare response quality, latency, and token usage
 8. **Adjust based on data**: if the canary version performs better, move the `production` label to that version
