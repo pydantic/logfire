@@ -25,7 +25,7 @@ For usage examples, see the [SDK Guide](../../evaluate/datasets/sdk.md).
 | `add_cases(dataset_id_or_name, cases, *, tags, on_conflict)` | Add cases to a dataset. Accepts [`pydantic_evals.Case`][pydantic_evals.Case] objects or plain dicts. Uses upsert by default (`on_conflict='update'`): cases with matching names are updated. Set `on_conflict='error'` to fail on conflicts. |
 | `update_case(dataset_id_or_name, case_id, *, name, inputs, expected_output, metadata, evaluators, tags)` | Update an existing case. |
 | `delete_case(dataset_id_or_name, case_id)` | Delete a case. |
-| `export_dataset(id_or_name, input_type, output_type, metadata_type)` | Export as a typed [`pydantic_evals.Dataset`][pydantic_evals.Dataset]. |
+| `import_dataset(id_or_name, input_type, output_type, metadata_type)` | Import as a typed [`pydantic_evals.Dataset`][pydantic_evals.Dataset]. |
 
 An async version, `AsyncLogfireAPIClient`, provides the same methods as async coroutines.
 

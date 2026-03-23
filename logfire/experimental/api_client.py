@@ -37,8 +37,8 @@ Example usage:
             ],
         )
 
-        # Export as pydantic-evals Dataset
-        dataset: Dataset[MyInput, MyOutput, None] = client.export_dataset(
+        # Import as pydantic-evals Dataset
+        dataset: Dataset[MyInput, MyOutput, None] = client.import_dataset(
             'my-dataset',
             input_type=MyInput,
             output_type=MyOutput,
@@ -274,8 +274,8 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
                 ],
             )
 
-            # Export as pydantic-evals Dataset
-            dataset = client.export_dataset('qa-dataset', MyInput, MyOutput)
+            # Import as pydantic-evals Dataset
+            dataset = client.import_dataset('qa-dataset', MyInput, MyOutput)
         ```
     """
 
@@ -643,13 +643,13 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         response = self.client.delete(f'/v1/datasets/{dataset_id_or_name}/cases/{case_id}/')
         self._handle_response(response, is_case_endpoint=True)
 
-    # --- Export/Import operations ---
+    # --- Import operations ---
 
     @overload
-    def export_dataset(self, id_or_name: str) -> dict[str, Any]: ...
+    def import_dataset(self, id_or_name: str) -> dict[str, Any]: ...
 
     @overload
-    def export_dataset(
+    def import_dataset(
         self,
         id_or_name: str,
         input_type: type[InputsT],
@@ -659,7 +659,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = (),
     ) -> Dataset[InputsT, OutputT, MetadataT]: ...
 
-    def export_dataset(
+    def import_dataset(
         self,
         id_or_name: str,
         input_type: type[InputsT] | None = None,
@@ -668,7 +668,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         *,
         custom_evaluator_types: Sequence[type[Evaluator[Any, Any, Any]]] = (),
     ) -> Dataset[InputsT, OutputT, MetadataT] | dict[str, Any]:
-        """Export a dataset, optionally as a typed pydantic-evals Dataset.
+        """Import a dataset, optionally as a typed pydantic-evals Dataset.
 
         When called with type arguments, returns a `pydantic_evals.Dataset` with
         properly typed cases. Without type arguments, returns raw dict data.
@@ -693,8 +693,8 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             from pydantic_evals import Dataset
             from pydantic_evals.evaluators import IsInstance
 
-            # Export with types and custom evaluators
-            dataset: Dataset[MyInput, MyOutput, None] = client.export_dataset(
+            # Import with types and custom evaluators
+            dataset: Dataset[MyInput, MyOutput, None] = client.import_dataset(
                 'my-dataset',
                 input_type=MyInput,
                 output_type=MyOutput,
@@ -928,10 +928,10 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         self._handle_response(response, is_case_endpoint=True)
 
     @overload
-    async def export_dataset(self, id_or_name: str) -> dict[str, Any]: ...
+    async def import_dataset(self, id_or_name: str) -> dict[str, Any]: ...
 
     @overload
-    async def export_dataset(
+    async def import_dataset(
         self,
         id_or_name: str,
         input_type: type[InputsT],
@@ -941,7 +941,7 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = (),
     ) -> Dataset[InputsT, OutputT, MetadataT]: ...
 
-    async def export_dataset(
+    async def import_dataset(
         self,
         id_or_name: str,
         input_type: type[InputsT] | None = None,
@@ -950,7 +950,7 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         *,
         custom_evaluator_types: Sequence[type[Evaluator[Any, Any, Any]]] = (),
     ) -> Dataset[InputsT, OutputT, MetadataT] | dict[str, Any]:
-        """Export a dataset, optionally as a typed pydantic-evals Dataset."""
+        """Import a dataset, optionally as a typed pydantic-evals Dataset."""
         response = await self.client.get(f'/v1/datasets/{id_or_name}/export/')
         data = self._handle_response(response)
 

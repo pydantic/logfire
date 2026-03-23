@@ -72,8 +72,8 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
                 ],
             )
 
-            # Export as pydantic-evals Dataset
-            dataset = client.export_dataset(\'qa-dataset\', MyInput, MyOutput)
+            # Import as pydantic-evals Dataset
+            dataset = client.import_dataset(\'qa-dataset\', MyInput, MyOutput)
         ```
     '''
     def __init__(self, api_key: str | None = None, base_url: str | None = None, timeout: Timeout = ..., *, client: Client | None = None) -> None:
@@ -264,9 +264,9 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             CaseNotFoundError: If the case does not exist.
         """
     @overload
-    def export_dataset(self, id_or_name: str) -> dict[str, Any]: ...
+    def import_dataset(self, id_or_name: str) -> dict[str, Any]: ...
     @overload
-    def export_dataset(self, id_or_name: str, input_type: type[InputsT], output_type: type[OutputT] | None = None, metadata_type: type[MetadataT] | None = None, *, custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = ()) -> Dataset[InputsT, OutputT, MetadataT]: ...
+    def import_dataset(self, id_or_name: str, input_type: type[InputsT], output_type: type[OutputT] | None = None, metadata_type: type[MetadataT] | None = None, *, custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = ()) -> Dataset[InputsT, OutputT, MetadataT]: ...
 
 class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
     """Asynchronous client for managing Logfire datasets.
@@ -304,6 +304,6 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
     async def delete_case(self, dataset_id_or_name: str, case_id: str) -> None:
         """Delete a case from a dataset."""
     @overload
-    async def export_dataset(self, id_or_name: str) -> dict[str, Any]: ...
+    async def import_dataset(self, id_or_name: str) -> dict[str, Any]: ...
     @overload
-    async def export_dataset(self, id_or_name: str, input_type: type[InputsT], output_type: type[OutputT] | None = None, metadata_type: type[MetadataT] | None = None, *, custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = ()) -> Dataset[InputsT, OutputT, MetadataT]: ...
+    async def import_dataset(self, id_or_name: str, input_type: type[InputsT], output_type: type[OutputT] | None = None, metadata_type: type[MetadataT] | None = None, *, custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = ()) -> Dataset[InputsT, OutputT, MetadataT]: ...

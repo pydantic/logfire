@@ -199,6 +199,6 @@ client.delete_dataset('qa-golden-set')
 
 ## What's Next?
 
-- **[Running Evaluations](evaluations.md)** --- Export your dataset and run evaluations with pydantic-evals.
+- **[Running Evaluations](evaluations.md)** --- Import your dataset and run evaluations with pydantic-evals.
 - **[SDK Reference](../../reference/api/datasets.md)** --- Complete method signatures and exception reference.
 - **[Web UI Guide](ui.md)** --- Manage datasets through the Logfire web interface.

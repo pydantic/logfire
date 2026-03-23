@@ -1,6 +1,6 @@
 ---
 title: "Managed Datasets: Build and Manage Evaluation Test Cases"
-description: "Create, manage, and export typed evaluation datasets in Pydantic Logfire. Integrate with pydantic-evals to run evaluations against your AI systems."
+description: "Create, manage, and import typed evaluation datasets in Pydantic Logfire. Integrate with pydantic-evals to run evaluations against your AI systems."
 ---
 
 # Managed Datasets
@@ -9,11 +9,11 @@ description: "Create, manage, and export typed evaluation datasets in Pydantic L
 
     Managed datasets are an experimental feature currently gated behind a feature flag. Reach out to us on [Slack](https://logfire.pydantic.dev/docs/join-slack/) or [contact us](../../help.md) to learn how to enable it for your project.
 
-Managed datasets let you build and maintain collections of test cases for evaluating your AI systems. You can create datasets through the Logfire web UI or programmatically via the SDK, then export them as [pydantic-evals](https://ai.pydantic.dev/evals/) `Dataset` objects to run evaluations.
+Managed datasets let you build and maintain collections of test cases for evaluating your AI systems. You can create datasets through the Logfire web UI or programmatically via the SDK, then import them as [pydantic-evals](https://ai.pydantic.dev/evals/) `Dataset` objects to run evaluations.
 
 !!! note "Relationship with Pydantic Evals"
 
-    Managed datasets are the server-side complement to [pydantic-evals](https://ai.pydantic.dev/evals/) file-based datasets. While pydantic-evals stores datasets as local YAML files, managed datasets are stored in Logfire and can be created from production traces, edited collaboratively in the UI, and exported for evaluation. The SDK is designed so you can move seamlessly between the two.
+    Managed datasets are the server-side complement to [pydantic-evals](https://ai.pydantic.dev/evals/) file-based datasets. While pydantic-evals stores datasets as local YAML files, managed datasets are stored in Logfire and can be created from production traces, edited collaboratively in the UI, and imported for evaluation. The SDK is designed so you can move seamlessly between the two.
 
 ## Why Managed Datasets?
 
@@ -22,7 +22,7 @@ When evaluating AI systems, you need test cases that reflect real-world usage. M
 - **Production-driven test cases**: Create test cases directly from production traces using the "Add to Dataset" action in Live View, so your evaluations reflect real user inputs.
 - **Collaborative editing**: Team members can add, review, and refine test cases through the web UI without touching code.
 - **Typed schemas**: Define input, output, and metadata schemas so that every case is validated, preventing malformed test data.
-- **SDK integration**: Export datasets as typed [`pydantic_evals.Dataset`][pydantic_evals.Dataset] objects and run evaluations with a single method call.
+- **SDK integration**: Import datasets as typed [`pydantic_evals.Dataset`][pydantic_evals.Dataset] objects and run evaluations with a single method call.
 
 ## The Evaluation Workflow
 
@@ -38,5 +38,5 @@ Managed datasets fit into a continuous evaluation loop:
 
 - **[Web UI Guide](ui.md)** --- Create and manage datasets through the Logfire interface.
 - **[SDK Guide](sdk.md)** --- Manage datasets programmatically with Python.
-- **[Running Evaluations](evaluations.md)** --- Export datasets and run evaluations with pydantic-evals.
+- **[Running Evaluations](evaluations.md)** --- Import datasets and run evaluations with pydantic-evals.
 - **[SDK Reference](../../reference/api/datasets.md)** --- Complete method and exception reference.

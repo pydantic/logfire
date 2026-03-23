@@ -697,16 +697,16 @@ class TestLogfireAPIClient:
         result = client.delete_case('test-dataset', 'case-456')
         assert result is None
 
-    def test_export_dataset_raw(self):
+    def test_import_dataset_raw(self):
         """Without type args, returns raw dict."""
         client = make_client()
-        result = client.export_dataset('test-dataset')
+        result = client.import_dataset('test-dataset')
         assert result == FAKE_EXPORT
 
-    def test_export_dataset_typed(self):
+    def test_import_dataset_typed(self):
         """With type args, returns pydantic-evals Dataset."""
         client = make_client()
-        result = client.export_dataset('test-dataset', input_type=MyInput, output_type=MyOutput)
+        result = client.import_dataset('test-dataset', input_type=MyInput, output_type=MyOutput)
         from pydantic_evals import Dataset
 
         assert isinstance(result, Dataset)
@@ -1047,15 +1047,15 @@ class TestAsyncLogfireAPIClient:
         assert result is None
 
     @pytest.mark.anyio
-    async def test_export_dataset_raw(self):
+    async def test_import_dataset_raw(self):
         client = make_async_client()
-        result = await client.export_dataset('test-dataset')
+        result = await client.import_dataset('test-dataset')
         assert result == FAKE_EXPORT
 
     @pytest.mark.anyio
-    async def test_export_dataset_typed(self):
+    async def test_import_dataset_typed(self):
         client = make_async_client()
-        result = await client.export_dataset('test-dataset', input_type=MyInput, output_type=MyOutput)
+        result = await client.import_dataset('test-dataset', input_type=MyInput, output_type=MyOutput)
         from pydantic_evals import Dataset
 
         assert isinstance(result, Dataset)

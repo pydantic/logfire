@@ -1,6 +1,6 @@
 ---
 title: "Running Evaluations"
-description: "Export managed datasets and run evaluations with pydantic-evals."
+description: "Import managed datasets and run evaluations with pydantic-evals."
 ---
 
 # Running Evaluations
@@ -12,9 +12,9 @@ description: "Export managed datasets and run evaluations with pydantic-evals."
 Once you have a managed dataset (created via the [Web UI](ui.md) or [SDK](sdk.md)), you can export it as a
 typed [`pydantic_evals.Dataset`][pydantic_evals.Dataset] and use it to evaluate your AI system.
 
-## Exporting to pydantic-evals Dataset
+## Importing to pydantic-evals Dataset
 
-The `export_dataset` method fetches all cases and returns a typed
+The `import_dataset` method fetches all cases and returns a typed
 [`pydantic_evals.Dataset`][pydantic_evals.Dataset] that you can use directly for evaluation:
 
 ```python skip-run="true" skip-reason="external-connection"
@@ -45,21 +45,21 @@ class CaseMetadata:
 
 
 with LogfireAPIClient(api_key='your-api-key') as client:
-    dataset: Dataset[QuestionInput, AnswerOutput, CaseMetadata] = client.export_dataset(
+    dataset: Dataset[QuestionInput, AnswerOutput, CaseMetadata] = client.import_dataset(
         'qa-golden-set',
         input_type=QuestionInput,
         output_type=AnswerOutput,
         metadata_type=CaseMetadata,
     )
 
-print(f'Exported {len(dataset.cases)} cases')
+print(f'Imported {len(dataset.cases)} cases')
 print(f'First case input type: {type(dataset.cases[0].inputs).__name__}')
 ```
 
 If you have custom evaluator types stored with your cases, pass them via `custom_evaluator_types` so they can be deserialized:
 
 ```python skip="true" skip-reason="external-connection"
-dataset = client.export_dataset(
+dataset = client.import_dataset(
     'qa-golden-set',
     input_type=QuestionInput,
     output_type=AnswerOutput,
@@ -67,10 +67,10 @@ dataset = client.export_dataset(
 )
 ```
 
-Without type arguments, `export_dataset` returns the raw dict in pydantic-evals compatible format:
+Without type arguments, `import_dataset` returns the raw dict in pydantic-evals-compatible format:
 
 ```python skip="true" skip-reason="external-connection"
-raw_data = client.export_dataset('qa-golden-set')
+raw_data = client.import_dataset('qa-golden-set')
 # raw_data is a dict with 'name', 'cases', etc.
 ```
 
@@ -92,8 +92,8 @@ async def my_qa_task(inputs: QuestionInput) -> AnswerOutput:
 
 async def run_evaluation():
     with LogfireAPIClient(api_key='your-api-key') as client:
-        # Export the dataset
-        dataset: Dataset[QuestionInput, AnswerOutput, CaseMetadata] = client.export_dataset(
+        # Import the dataset
+        dataset: Dataset[QuestionInput, AnswerOutput, CaseMetadata] = client.import_dataset(
             'qa-golden-set',
             input_type=QuestionInput,
             output_type=AnswerOutput,
