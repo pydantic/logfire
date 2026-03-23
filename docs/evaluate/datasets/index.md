@@ -16,11 +16,11 @@ Datasets let you build and maintain collections of test cases for evaluating you
 When you open the **Evals** page, you'll see two types of datasets:
 
 - **Hosted** datasets have their cases stored and editable on Logfire. You create these through the UI or SDK, and can add, edit, and delete individual test cases.
-- **Code-detected** datasets are discovered automatically from experiment runs in your code (via `pydantic-evals`). They appear in the list alongside hosted datasets but their cases are read-only --- they reflect what your code defined.
+- **Local** datasets are discovered automatically from experiment runs in your code (via `pydantic-evals`). They appear in the list alongside hosted datasets but their cases are read-only --- they reflect what your code defined. If you run an experiment without defining a `dataset_name` in code, it still appears in the list using the experiment ID as a fallback name.
 
 A dataset can be both: if you create a hosted dataset with the same name as one in your code, they merge into a single entry with both hosted cases and experiment history.
 
-You can filter between these types using the **Hosted** and **Code** tabs at the top of the datasets list.
+You can filter between these types using the **Hosted** and **Local** tabs at the top of the datasets list.
 
 ## Why Datasets?
 

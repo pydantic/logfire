@@ -5,9 +5,9 @@ description: "Fetch managed datasets and run evaluations with pydantic-evals."
 
 # Running Evaluations
 
-!!! warning "Experimental Feature"
+!!! note "Experimental SDK"
 
-    Managed datasets are an experimental feature currently gated behind a feature flag. Reach out to us on [Slack](https://logfire.pydantic.dev/docs/join-slack/) or [contact us](../../help.md) to learn how to enable it for your project.
+    The dataset management SDK is under `logfire.experimental.api_client`. The API may change in future releases.
 
 Once you have a managed dataset (created via the [Web UI](ui.md) or [SDK](sdk.md)), you can fetch it as a
 typed [`pydantic_evals.Dataset`][pydantic_evals.Dataset] and use it to evaluate your AI system.

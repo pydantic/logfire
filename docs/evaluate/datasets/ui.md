@@ -11,8 +11,9 @@ This guide covers creating and managing datasets through the Logfire web interfa
 
 Click **Evals** in the sidebar to open the datasets list. From there:
 
-- Click a dataset name to see its detail page (experiments, cases, schema, labels, SDK snippets).
+- Click a dataset name to see its detail page (experiments, cases, schema).
 - Click **Edit** to modify the dataset's name, description, and schemas.
+- Click **`<> SDK`** to view code snippets for working with the dataset programmatically.
 - Click **+ Add case** to add a new test case.
 - Select experiments and click **Compare** to compare multiple runs side by side.
 
@@ -20,7 +21,9 @@ Breadcrumbs at the top of each page show your current location (e.g., `Evals / D
 
 ## Creating a New Dataset
 
-Click **+ New dataset** and enter a name for your dataset. Once created, you can edit the dataset to add a description and define schemas.
+Click **+ New dataset** in the top right and enter a name for your dataset. If you don't have any datasets yet, you can also type a name directly into the empty state and click **Create**.
+
+Once created, you can edit the dataset to add a description and define schemas.
 
 !!! tip "Schema generation from code"
     If you are using Python types (dataclasses, Pydantic models, etc.) for your schemas, it is easier to create the dataset via the SDK, which generates JSON schemas automatically from your type definitions. See [Creating a Dataset with Typed Schemas](sdk.md#creating-a-dataset-with-typed-schemas) in the SDK Guide.
