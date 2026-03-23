@@ -11,7 +11,7 @@ We're consolidating the AI Gateway into Logfire. This means [gateway.pydantic.de
 
 Moving the gateway into Logfire unlocks a number of improvements:
 
-- **Observability and gateway, side by side.** Because the gateway now lives in Logfire, you can instrument your LLM calls and trace them directly — no context switching between separate products.
+- **Observability and gateway, side by side.** Because the gateway now lives in Logfire, you can instrument your LLM calls and trace them directly, with no context switching between separate products.
 - **Tighter integration with features that use the gateway.** The [LLM Playground](https://logfire.pydantic.dev) and other Logfire features that rely on the gateway are now in the same place, making them easier to discover and use together.
 - **Enterprise-grade controls, included.** The gateway now inherits Logfire's [enterprise features](enterprise.md) — including SSO, custom roles and permissions, and security group mapping — so teams with existing enterprise setups get those controls automatically.
 - **One account, one billing relationship.** Rather than managing a separate balance on a separate platform, gateway usage is consolidated into your Logfire account alongside any other plan charges.
