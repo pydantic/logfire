@@ -9,7 +9,7 @@ description: "Complete method and exception reference for the Logfire datasets S
 
     Managed datasets are an experimental feature currently gated behind a feature flag. Reach out to us on [Slack](https://logfire.pydantic.dev/docs/join-slack/) or [contact us](../../help.md) to learn how to enable it for your project.
 
-For usage examples, see the [SDK Guide](sdk.md).
+For usage examples, see the [SDK Guide](../../evaluate/datasets/sdk.md).
 
 ## LogfireAPIClient
 

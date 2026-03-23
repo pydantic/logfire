@@ -39,4 +39,4 @@ Managed datasets fit into a continuous evaluation loop:
 - **[Web UI Guide](ui.md)** --- Create and manage datasets through the Logfire interface.
 - **[SDK Guide](sdk.md)** --- Manage datasets programmatically with Python.
 - **[Running Evaluations](evaluations.md)** --- Export datasets and run evaluations with pydantic-evals.
-- **[SDK Reference](sdk-reference.md)** --- Complete method and exception reference.
+- **[SDK Reference](../../reference/api/datasets.md)** --- Complete method and exception reference.
