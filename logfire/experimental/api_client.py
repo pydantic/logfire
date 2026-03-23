@@ -332,65 +332,6 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         response = self.client.get('/v1/datasets/')
         return self._handle_response(response)
 
-    @overload
-    def get_dataset(self, id_or_name: str, *, include_cases: bool = True) -> dict[str, Any]: ...
-
-    @overload
-    def get_dataset(
-        self,
-        id_or_name: str,
-        input_type: type[InputsT],
-        output_type: type[OutputT] | None = None,
-        metadata_type: type[MetadataT] | None = None,
-        *,
-        custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = (),
-    ) -> Dataset[InputsT, OutputT, MetadataT]: ...
-
-    def get_dataset(
-        self,
-        id_or_name: str,
-        input_type: type[InputsT] | None = None,
-        output_type: type[OutputT] | None = None,
-        metadata_type: type[MetadataT] | None = None,
-        *,
-        include_cases: bool = True,
-        custom_evaluator_types: Sequence[type[Evaluator[Any, Any, Any]]] = (),
-    ) -> Dataset[InputsT, OutputT, MetadataT] | dict[str, Any]:
-        """Get a dataset, optionally as a typed pydantic-evals Dataset.
-
-        When called with type arguments, returns a `pydantic_evals.Dataset` with
-        properly typed cases. Without type arguments, returns raw dict data.
-
-        Args:
-            id_or_name: The dataset ID (UUID) or name.
-            input_type: Type for case inputs.
-            output_type: Type for expected outputs.
-            metadata_type: Type for case metadata.
-            include_cases: Whether to include cases in the response. Defaults to True.
-            custom_evaluator_types: Custom evaluator classes for deserializing case evaluators.
-
-        Returns:
-            If types provided: `pydantic_evals.Dataset[InputsT, OutputT, MetadataT]`
-            Otherwise: Raw dict in pydantic-evals compatible format.
-
-        Raises:
-            DatasetNotFoundError: If the dataset does not exist.
-            ImportError: If pydantic-evals is not installed (when using types).
-        """
-        if not include_cases:
-            response = self.client.get(f'/v1/datasets/{id_or_name}/')
-            return self._handle_response(response)
-
-        response = self.client.get(f'/v1/datasets/{id_or_name}/export/')
-        data = self._handle_response(response)
-
-        if input_type is None:
-            return data
-
-        Dataset, _ = _import_pydantic_evals()
-        typed_dataset_cls: type[Dataset[InputsT, OutputT, MetadataT]] = Dataset[input_type, output_type, metadata_type]  # pyright: ignore[reportIndexIssue, reportUnknownVariableType]
-        return typed_dataset_cls.from_dict(data, custom_evaluator_types=list(custom_evaluator_types))  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
-
     def create_dataset(
         self,
         name: str,
@@ -686,6 +627,65 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         """
         response = self.client.delete(f'/v1/datasets/{dataset_id_or_name}/cases/{case_id}/')
         self._handle_response(response, is_case_endpoint=True)
+
+    @overload
+    def get_dataset(self, id_or_name: str, *, include_cases: bool = True) -> dict[str, Any]: ...
+
+    @overload
+    def get_dataset(
+        self,
+        id_or_name: str,
+        input_type: type[InputsT],
+        output_type: type[OutputT] | None = None,
+        metadata_type: type[MetadataT] | None = None,
+        *,
+        custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = (),
+    ) -> Dataset[InputsT, OutputT, MetadataT]: ...
+
+    def get_dataset(
+        self,
+        id_or_name: str,
+        input_type: type[InputsT] | None = None,
+        output_type: type[OutputT] | None = None,
+        metadata_type: type[MetadataT] | None = None,
+        *,
+        include_cases: bool = True,
+        custom_evaluator_types: Sequence[type[Evaluator[Any, Any, Any]]] = (),
+    ) -> Dataset[InputsT, OutputT, MetadataT] | dict[str, Any]:
+        """Get a dataset, optionally as a typed pydantic-evals Dataset.
+
+        When called with type arguments, returns a `pydantic_evals.Dataset` with
+        properly typed cases. Without type arguments, returns raw dict data.
+
+        Args:
+            id_or_name: The dataset ID (UUID) or name.
+            input_type: Type for case inputs.
+            output_type: Type for expected outputs.
+            metadata_type: Type for case metadata.
+            include_cases: Whether to include cases in the response. Defaults to True.
+            custom_evaluator_types: Custom evaluator classes for deserializing case evaluators.
+
+        Returns:
+            If types provided: `pydantic_evals.Dataset[InputsT, OutputT, MetadataT]`
+            Otherwise: Raw dict in pydantic-evals compatible format.
+
+        Raises:
+            DatasetNotFoundError: If the dataset does not exist.
+            ImportError: If pydantic-evals is not installed (when using types).
+        """
+        if not include_cases:
+            response = self.client.get(f'/v1/datasets/{id_or_name}/')
+            return self._handle_response(response)
+
+        response = self.client.get(f'/v1/datasets/{id_or_name}/export/')
+        data = self._handle_response(response)
+
+        if input_type is None:
+            return data
+
+        Dataset, _ = _import_pydantic_evals()
+        typed_dataset_cls: type[Dataset[InputsT, OutputT, MetadataT]] = Dataset[input_type, output_type, metadata_type]  # pyright: ignore[reportIndexIssue, reportUnknownVariableType]
+        return typed_dataset_cls.from_dict(data, custom_evaluator_types=list(custom_evaluator_types))  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
 
 
 class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
