@@ -96,6 +96,7 @@ nav:
           - AI & LLM Observability: ai-observability.md
           - Core Concepts: concepts.md
           - FAQ: faq.md
+          - Gateway Migration: gateway-migration.md
           - Get Help: help.md
           - Comparisons:
               - Overview: comparisons/index.md
