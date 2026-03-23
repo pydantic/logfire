@@ -201,7 +201,6 @@ nav:
               - Web UI Guide: evaluate/datasets/ui.md
               - SDK Guide: evaluate/datasets/sdk.md
               - Running Evaluations: evaluate/datasets/evaluations.md
-              - SDK Reference: evaluate/datasets/sdk-reference.md
       - Manage & Configure:
           - Organizations & Projects: guides/web-ui/organizations-and-projects.md
           - Configuration: reference/configuration.md
@@ -241,6 +240,7 @@ nav:
               - Exceptions: reference/api/exceptions.md
               - Pydantic: reference/api/pydantic.md
               - Types: reference/api/types.md
+              - Datasets: reference/api/datasets.md
           - SDK CLI: reference/cli.md
           - Examples: reference/examples.md
           - Baggage: reference/advanced/baggage.md
@@ -335,6 +335,7 @@ plugins:
             - url: https://pymongo.readthedocs.io/en/stable/objects.inv
   - redirects:
       redirect_maps:
+        "evaluate/datasets/sdk-reference.md": "reference/api/datasets.md"
         "guides/first_steps/index.md": "index.md"
         "guides/onboarding_checklist/index.md": "guides/onboarding-checklist/index.md"
         "guides/onboarding_checklist/integrate.md": "guides/onboarding-checklist/integrate.md"
