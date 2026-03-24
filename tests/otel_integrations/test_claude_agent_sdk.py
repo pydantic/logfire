@@ -1009,3 +1009,58 @@ def test_inject_hooks_with_existing_events():
             sys.modules['claude_agent_sdk'] = prev
         else:
             sys.modules.pop('claude_agent_sdk', None)
+
+
+class TestExtractToolResultTextExtra:
+    def test_list_with_only_non_text_dicts(self):
+        """List with dict items that have no text type should use str fallback."""
+        from logfire._internal.integrations.claude_agent_sdk import _extract_tool_result_text
+
+        items = [{'type': 'image', 'url': 'http://example.com'}]
+        result = _extract_tool_result_text(items)
+        assert result == str(items)
+
+
+@pytest.mark.anyio
+async def test_instrument_result_only(exporter: TestExporter):
+    """Conversation with only ResultMessage (no AssistantMessage) exercises TurnTracker.close with no current span."""
+    from logfire._internal.integrations.claude_agent_sdk import instrument_claude_agent_sdk
+
+    messages = [_make_result_message()]
+    cls, _, prev = _setup_mock_sdk(messages)
+    try:
+        instrument_claude_agent_sdk(logfire.DEFAULT_LOGFIRE_INSTANCE)
+        client = cls(options=MockOptions())
+        await client.query('Hello')
+        [m async for m in client.receive_response()]
+    finally:
+        _teardown_mock_sdk(cls, prev)
+
+
+def test_inject_hooks_all_events_exist():
+    """When all hook events already exist, the for loop should not create new ones."""
+    import sys
+    import types
+
+    from logfire._internal.integrations.claude_agent_sdk import _inject_tracing_hooks
+
+    prev = sys.modules.get('claude_agent_sdk')
+    fake_module = types.ModuleType('claude_agent_sdk')
+    fake_module.HookMatcher = MockHookMatcher  # type: ignore[attr-defined]
+    sys.modules['claude_agent_sdk'] = fake_module
+    try:
+        options = MockOptions(
+            hooks={
+                'PreToolUse': [],
+                'PostToolUse': [],
+                'PostToolUseFailure': [],
+            }
+        )
+        _inject_tracing_hooks(options)
+        assert options.hooks is not None
+        assert len(options.hooks['PreToolUse']) == 1
+    finally:
+        if prev is not None:
+            sys.modules['claude_agent_sdk'] = prev
+        else:
+            sys.modules.pop('claude_agent_sdk', None)
