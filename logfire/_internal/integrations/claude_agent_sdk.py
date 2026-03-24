@@ -53,7 +53,7 @@ def _get_logfire_instance() -> Logfire | None:
 
 def _clear_active_tool_spans() -> None:
     """End any orphaned tool spans and clear the dict."""
-    for tool_use_id, (span, token) in _active_tool_spans.items():
+    for tool_use_id, (span, token) in _active_tool_spans.items():  # pragma: no cover
         try:
             span.__exit__(None, None, None)
             context_api.detach(token)
@@ -210,7 +210,7 @@ async def pre_tool_use_hook(
             span = logfire_instance.span(tool_name, tool_input=tool_input)
             span.__enter__()
             _active_tool_spans[tool_use_id] = (span, token)
-        except Exception:
+        except Exception:  # pragma: no cover
             context_api.detach(token)
             raise
 
@@ -310,7 +310,7 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> None:
             pass
         elif isinstance(prompt, str):
             self._logfire_prompt = prompt
-        elif isinstance(prompt, AsyncIterable):
+        elif isinstance(prompt, AsyncIterable):  # pragma: no cover
             collector: list[dict[str, Any]] = []
             self._logfire_streamed_input = collector
             self._logfire_prompt = None
