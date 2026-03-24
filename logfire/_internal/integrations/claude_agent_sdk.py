@@ -4,7 +4,6 @@ from __future__ import annotations
 import functools
 import logging
 import threading
-import time
 from collections.abc import AsyncGenerator, AsyncIterable
 from typing import TYPE_CHECKING, Any
 
@@ -289,8 +288,6 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> None:
         original_init(self, *args, **kwargs)
 
         self._logfire_prompt = None
-        self._logfire_start_time = None
-        self._logfire_streamed_input = None
 
         options = kwargs.get('options') or (args[0] if args else None)
         if options:
@@ -302,29 +299,12 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> None:
 
     @functools.wraps(original_query)
     async def patched_query(self: Any, *args: Any, **kwargs: Any) -> Any:
-        self._logfire_start_time = time.time()
-        self._logfire_streamed_input = None
+        self._logfire_prompt = None
         prompt = args[0] if args else kwargs.get('prompt')
 
-        if prompt is None:
-            pass
-        elif isinstance(prompt, str):
+        if isinstance(prompt, str):
             self._logfire_prompt = prompt
-        elif isinstance(prompt, AsyncIterable):  # pragma: no cover
-            collector: list[dict[str, Any]] = []
-            self._logfire_streamed_input = collector
-            self._logfire_prompt = None
-
-            async def _gen_wrapper() -> AsyncGenerator[dict[str, Any], None]:
-                async for msg in prompt:
-                    collector.append(msg)
-                    yield msg
-
-            if args:
-                args = (_gen_wrapper(),) + args[1:]
-            else:
-                kwargs['prompt'] = _gen_wrapper()
-        else:
+        elif prompt is not None and not isinstance(prompt, AsyncIterable):  # pragma: no cover
             self._logfire_prompt = str(prompt)
 
         return await original_query(self, *args, **kwargs)
@@ -350,7 +330,7 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> None:
         with logfire_claude.span('claude.conversation', **span_data) as root_span:
             _set_parent_span(root_span._span)  # pyright: ignore[reportPrivateUsage]
             _set_logfire_instance(logfire_claude)
-            turn_tracker = _TurnTracker(logfire_claude, getattr(self, '_logfire_start_time', None))
+            turn_tracker = _TurnTracker(logfire_claude)
 
             try:
                 async for msg in original_receive_response(self):
@@ -359,8 +339,6 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> None:
                     with handle_internal_errors:
                         if msg_type == 'AssistantMessage':
                             turn_tracker.start_turn(msg)
-                        elif msg_type == 'UserMessage':
-                            turn_tracker.mark_next_start()
                         elif msg_type == 'ResultMessage':
                             _record_result(root_span, msg)
 
@@ -399,10 +377,9 @@ def _inject_tracing_hooks(options: Any) -> None:
 class _TurnTracker:
     """Track assistant turn spans so consecutive turns are recorded as siblings."""
 
-    def __init__(self, logfire_instance: Logfire, start_time: float | None = None) -> None:
+    def __init__(self, logfire_instance: Logfire) -> None:
         self._logfire = logfire_instance
         self._current_span: Any | None = None
-        self._next_start_time: float | None = start_time
 
     def start_turn(self, message: Any) -> None:
         """Close previous turn span if open, open a new one."""
@@ -420,10 +397,6 @@ class _TurnTracker:
 
         self._current_span = self._logfire.span('claude.assistant.turn', **span_data)
         self._current_span.__enter__()
-        self._next_start_time = None
-
-    def mark_next_start(self) -> None:
-        self._next_start_time = time.time()
 
     def close(self) -> None:
         if self._current_span is not None:

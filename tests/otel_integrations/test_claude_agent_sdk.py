@@ -361,8 +361,6 @@ def _setup_mock_sdk(messages: list[Any]) -> tuple[type, Any, Any]:
         def __init__(self, *, options: Any = None):
             self.options = options
             self._logfire_prompt: str | None = None
-            self._logfire_start_time: float | None = None
-            self._logfire_streamed_input: list[dict[str, Any]] | None = None
 
         async def query(self, prompt: Any) -> None:
             pass
@@ -1033,6 +1031,8 @@ async def test_instrument_result_only(exporter: TestExporter):
         client = cls(options=MockOptions())
         await client.query('Hello')
         [m async for m in client.receive_response()]
+        spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+        assert [s['name'] for s in spans] == ['claude.conversation']
     finally:
         _teardown_mock_sdk(cls, prev)
 
@@ -1091,5 +1091,6 @@ async def test_instrument_unknown_message_type(exporter: TestExporter):
         await client.query('Hello')
         collected = [m async for m in client.receive_response()]
         assert len(collected) == 3
+        assert collected[1] is unknown_msg
     finally:
         _teardown_mock_sdk(cls, prev)
