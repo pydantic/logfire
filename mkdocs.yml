@@ -223,6 +223,7 @@ nav:
           - Export Data: how-to-guides/query-api.md
           - Feature Flags (OFREP): how-to-guides/client-side-feature-flags.md
           - Convert to Organization: how-to-guides/convert-to-organization.md
+          - Gateway Migration: gateway-migration.md
       - Guides:
           - Link to Code Source: how-to-guides/link-to-code-source.md
           - Use Alternative Clients: how-to-guides/alternative-clients.md
@@ -475,6 +476,7 @@ plugins:
           - how-to-guides/query-api.md
           - how-to-guides/client-side-feature-flags.md
           - how-to-guides/convert-to-organization.md
+          - gateway-migration.md
         Guides:
           - how-to-guides/link-to-code-source.md
           - how-to-guides/alternative-clients.md
