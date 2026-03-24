@@ -1064,3 +1064,12 @@ def test_inject_hooks_all_events_exist():
             sys.modules['claude_agent_sdk'] = prev
         else:
             sys.modules.pop('claude_agent_sdk', None)
+
+
+class TestExtractToolResultTextNonDictNoText:
+    def test_item_without_text(self):
+        """List item that is not a dict and has no .text attribute."""
+        from logfire._internal.integrations.claude_agent_sdk import _extract_tool_result_text
+
+        result = _extract_tool_result_text([42, 'not a dict'])
+        assert result == str([42, 'not a dict'])
