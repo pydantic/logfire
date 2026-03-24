@@ -213,8 +213,12 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     logfire__all__.remove('instrument_mcp')
 
     assert hasattr(logfire_api, 'instrument_claude_agent_sdk')
-    if sys.version_info >= (3, 10):
+    try:
+        import claude_agent_sdk  # pyright: ignore[reportUnusedImport]  # noqa: F401
+
         logfire_api.instrument_claude_agent_sdk()
+    except ImportError:
+        pass
     logfire__all__.remove('instrument_claude_agent_sdk')
 
     assert hasattr(logfire_api, 'instrument_google_genai')
