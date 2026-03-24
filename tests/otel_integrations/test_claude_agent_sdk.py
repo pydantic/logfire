@@ -152,7 +152,7 @@ class TestUsageMetadata:
         result = extract_usage_metadata(usage)
         assert result['input_tokens'] == 100
         assert result['output_tokens'] == 50
-        assert result['input_token_details'] == {'cache_read': 20.0, 'cache_creation': 10.0}
+        assert result['input_token_details'] == {'cache_read': 20, 'cache_creation': 10}
 
     def test_extract_empty(self):
         from logfire._internal.integrations.claude_agent_sdk import extract_usage_metadata

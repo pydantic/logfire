@@ -142,20 +142,14 @@ def extract_usage_metadata(usage: Any) -> Any:
         except (ValueError, TypeError):
             return None
 
-    def to_float(value: Any) -> float | None:
-        try:
-            return float(value)
-        except (ValueError, TypeError):
-            return None
-
     meta: dict[str, Any] = {}
     if (v := to_int(get('input_tokens'))) is not None:
         meta['input_tokens'] = v
     if (v := to_int(get('output_tokens'))) is not None:
         meta['output_tokens'] = v
 
-    cache_read = to_float(get('cache_read_input_tokens'))
-    cache_create = to_float(get('cache_creation_input_tokens'))
+    cache_read = to_int(get('cache_read_input_tokens'))
+    cache_create = to_int(get('cache_creation_input_tokens'))
     if cache_read is not None or cache_create is not None:
         meta['input_token_details'] = {}
         if cache_read is not None:
