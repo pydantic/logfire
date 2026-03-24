@@ -983,6 +983,17 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         instrument_mcp(self, propagate_otel_context)
 
+    def instrument_claude_agent_sdk(self) -> None:
+        """Instrument the [Claude Agent SDK](https://platform.claude.com/docs/en/agent-sdk/overview).
+
+        All `ClaudeSDKClient` instances created after this call will be automatically traced.
+        Existing instances created before this call will not have tool call tracing.
+        """
+        from .integrations.claude_agent_sdk import instrument_claude_agent_sdk
+
+        self._warn_if_not_initialized_for_instrumentation()
+        instrument_claude_agent_sdk(self)
+
     def instrument_pydantic(
         self,
         record: PydanticPluginRecordValues = 'all',
