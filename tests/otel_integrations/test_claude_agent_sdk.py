@@ -892,3 +892,120 @@ async def test_instrument_with_cache_usage(exporter: TestExporter):
         assert attrs['usage.total_tokens'] == 180
     finally:
         _teardown_mock_sdk(cls, prev)
+
+
+@pytest.mark.anyio
+async def test_instrument_no_content_no_model_turn(exporter: TestExporter):
+    """Turn with no content and no model should still produce a span."""
+    from logfire._internal.integrations.claude_agent_sdk import instrument_claude_agent_sdk
+
+    msg = Mock()
+    msg.__class__ = type('AssistantMessage', (), {})
+    msg.content = []
+    msg.model = None
+    msg.parent_tool_use_id = None
+
+    messages = [msg, _make_result_message()]
+    cls, _, prev = _setup_mock_sdk(messages)
+    try:
+        instrument_claude_agent_sdk(logfire.DEFAULT_LOGFIRE_INSTANCE)
+        client = cls(options=MockOptions())
+        await client.query('Hello')
+        [m async for m in client.receive_response()]
+        spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+        turn_spans = [s for s in spans if s['name'] == 'claude.assistant.turn']
+        assert len(turn_spans) == 1
+        assert 'content' not in turn_spans[0]['attributes']
+        assert 'model' not in turn_spans[0]['attributes']
+    finally:
+        _teardown_mock_sdk(cls, prev)
+
+
+@pytest.mark.anyio
+async def test_instrument_result_no_usage(exporter: TestExporter):
+    """ResultMessage without usage should still work."""
+    from logfire._internal.integrations.claude_agent_sdk import instrument_claude_agent_sdk
+
+    msg = Mock()
+    msg.__class__ = type('ResultMessage', (), {})
+    msg.usage = None
+    msg.total_cost_usd = None
+    msg.num_turns = None
+    msg.session_id = None
+    msg.duration_ms = None
+    msg.is_error = None
+
+    messages = [_make_assistant_message('Hi'), msg]
+    cls, _, prev = _setup_mock_sdk(messages)
+    try:
+        instrument_claude_agent_sdk(logfire.DEFAULT_LOGFIRE_INSTANCE)
+        client = cls(options=MockOptions())
+        await client.query('Hello')
+        [m async for m in client.receive_response()]
+        spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+        conversation_span = [s for s in spans if s['name'] == 'claude.conversation'][0]
+        assert 'usage.input_tokens' not in conversation_span['attributes']
+    finally:
+        _teardown_mock_sdk(cls, prev)
+
+
+@pytest.mark.anyio
+async def test_post_tool_use_hook_no_tool_response(exporter: TestExporter):
+    """post_tool_use_hook when tool_response is absent."""
+    from logfire._internal.integrations.claude_agent_sdk import (
+        _clear_parent_span,
+        _set_logfire_instance,
+        _set_parent_span,
+        post_tool_use_hook,
+        pre_tool_use_hook,
+    )
+
+    logfire_instance = logfire.DEFAULT_LOGFIRE_INSTANCE.with_settings(
+        custom_scope_suffix='claude-agent-sdk', tags=['LLM']
+    )
+    _set_logfire_instance(logfire_instance)
+
+    with logfire_instance.span('root') as root_span:
+        _set_parent_span(root_span._span)  # pyright: ignore[reportPrivateUsage]
+        try:
+            await pre_tool_use_hook(
+                {'tool_name': 'Read', 'tool_input': {}, 'tool_use_id': 'tool_3'},
+                'tool_3',
+                {},
+            )
+            await post_tool_use_hook(
+                {'tool_name': 'Read', 'tool_input': {}},
+                'tool_3',
+                {},
+            )
+        finally:
+            _clear_parent_span()
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    tool_span = [s for s in spans if s['name'] == 'Read'][0]
+    assert 'tool_response' not in tool_span['attributes']
+
+
+def test_inject_hooks_with_existing_events():
+    """Hooks should be added when events already exist in options.hooks."""
+    import sys
+    import types
+
+    from logfire._internal.integrations.claude_agent_sdk import _inject_tracing_hooks
+
+    prev = sys.modules.get('claude_agent_sdk')
+    fake_module = types.ModuleType('claude_agent_sdk')
+    fake_module.HookMatcher = MockHookMatcher  # type: ignore[attr-defined]
+    sys.modules['claude_agent_sdk'] = fake_module
+    try:
+        existing_hook = MockHookMatcher(matcher='existing', hooks=[lambda: None])
+        options = MockOptions(hooks={'PreToolUse': [existing_hook], 'PostToolUse': [], 'PostToolUseFailure': []})
+        _inject_tracing_hooks(options)
+        assert options.hooks is not None
+        assert len(options.hooks['PreToolUse']) == 2
+        assert options.hooks['PreToolUse'][1] is existing_hook
+    finally:
+        if prev is not None:
+            sys.modules['claude_agent_sdk'] = prev
+        else:
+            sys.modules.pop('claude_agent_sdk', None)
