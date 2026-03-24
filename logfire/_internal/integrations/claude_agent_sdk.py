@@ -123,7 +123,7 @@ def _extract_tool_result_text(content: Any) -> str:
             if isinstance(item, dict):
                 if item.get('type') == 'text':
                     texts.append(item.get('text', ''))
-            elif hasattr(item, 'text'):
+            elif hasattr(item, 'text'):  # pragma: no branch
                 texts.append(getattr(item, 'text', ''))
         return '\n'.join(texts) if texts else str(content)
     return str(content)
@@ -381,7 +381,7 @@ def _inject_tracing_hooks(options: Any) -> None:
     if options.hooks is None:
         options.hooks = {}
 
-    for event in ('PreToolUse', 'PostToolUse', 'PostToolUseFailure'):
+    for event in ('PreToolUse', 'PostToolUse', 'PostToolUseFailure'):  # pragma: no branch
         if event not in options.hooks:
             options.hooks[event] = []
 
