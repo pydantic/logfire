@@ -1073,3 +1073,23 @@ class TestExtractToolResultTextNonDictNoText:
 
         result = _extract_tool_result_text([42, 'not a dict'])
         assert result == str([42, 'not a dict'])
+
+
+@pytest.mark.anyio
+async def test_instrument_unknown_message_type(exporter: TestExporter):
+    """Unknown message types should be yielded without special handling."""
+    from logfire._internal.integrations.claude_agent_sdk import instrument_claude_agent_sdk
+
+    unknown_msg = Mock()
+    unknown_msg.__class__ = type('SomeOtherMessage', (), {})
+
+    messages = [_make_assistant_message('Hi'), unknown_msg, _make_result_message()]
+    cls, _, prev = _setup_mock_sdk(messages)
+    try:
+        instrument_claude_agent_sdk(logfire.DEFAULT_LOGFIRE_INSTANCE)
+        client = cls(options=MockOptions())
+        await client.query('Hello')
+        collected = [m async for m in client.receive_response()]
+        assert len(collected) == 3
+    finally:
+        _teardown_mock_sdk(cls, prev)
