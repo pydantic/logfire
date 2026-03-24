@@ -53,9 +53,10 @@ def _get_logfire_instance() -> Logfire | None:
 
 def _clear_active_tool_spans() -> None:
     """End any orphaned tool spans and clear the dict."""
-    for tool_use_id, span in _active_tool_spans.items():
+    for tool_use_id, (span, token) in _active_tool_spans.items():
         try:
             span.__exit__(None, None, None)
+            context_api.detach(token)
         except Exception:
             logger.debug('Failed to clean up orphaned tool span %s', tool_use_id, exc_info=True)
     _active_tool_spans.clear()
@@ -356,7 +357,6 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> None:
             _set_parent_span(root_span._span)  # pyright: ignore[reportPrivateUsage]
             _set_logfire_instance(logfire_claude)
             turn_tracker = _TurnTracker(logfire_claude, getattr(self, '_logfire_start_time', None))
-            collected: list[dict[str, Any]] = []
 
             try:
                 async for msg in original_receive_response(self):
@@ -366,25 +366,6 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> None:
                         if msg_type == 'AssistantMessage':
                             turn_tracker.start_turn(msg)
                         elif msg_type == 'UserMessage':
-                            msg_content = getattr(msg, 'content', None)
-                            if msg_content is not None:
-                                flattened = flatten_content_blocks(msg_content)
-                                if (
-                                    isinstance(flattened, list)
-                                    and flattened
-                                    and isinstance(flattened[0], dict)
-                                    and flattened[0].get('type') == 'tool_result'
-                                ):
-                                    for block in flattened:
-                                        collected.append(
-                                            {
-                                                'role': 'tool',
-                                                'content': block.get('content', ''),
-                                                'tool_call_id': block.get('tool_use_id'),
-                                            }
-                                        )
-                                else:
-                                    collected.append({'content': flattened, 'role': 'user'})
                             turn_tracker.mark_next_start()
                         elif msg_type == 'ResultMessage':
                             _record_result(root_span, msg)
