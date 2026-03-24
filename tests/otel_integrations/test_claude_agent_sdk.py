@@ -347,10 +347,10 @@ async def test_post_tool_use_failure_hook(exporter: TestExporter):
 # ---------------------------------------------------------------------------
 
 
-def _setup_mock_sdk(messages: list[Any]) -> tuple[type, Any]:
+def _setup_mock_sdk(messages: list[Any]) -> tuple[type, Any, Any]:
     """Create a mock ClaudeSDKClient class and register it as a fake module.
 
-    Returns the class and the fake module. The caller must clean up sys.modules.
+    Returns the class, fake module, and previous module. The caller must clean up sys.modules.
     """
     import sys
     import types
@@ -371,18 +371,23 @@ def _setup_mock_sdk(messages: list[Any]) -> tuple[type, Any]:
             for msg in messages:
                 yield msg
 
+    _prev_module = sys.modules.get('claude_agent_sdk')
+
     fake_module = types.ModuleType('claude_agent_sdk')
     fake_module.ClaudeSDKClient = MockClaudeSDKClient  # type: ignore[attr-defined]
     fake_module.HookMatcher = MockHookMatcher  # type: ignore[attr-defined]
     sys.modules['claude_agent_sdk'] = fake_module
 
-    return MockClaudeSDKClient, fake_module
+    return MockClaudeSDKClient, fake_module, _prev_module
 
 
-def _teardown_mock_sdk(cls: type) -> None:
+def _teardown_mock_sdk(cls: type, prev_module: Any = None) -> None:
     import sys
 
-    sys.modules.pop('claude_agent_sdk', None)
+    if prev_module is not None:
+        sys.modules['claude_agent_sdk'] = prev_module
+    else:
+        sys.modules.pop('claude_agent_sdk', None)
     cls._is_instrumented_by_logfire = False  # type: ignore[attr-defined]
 
 
@@ -395,13 +400,12 @@ async def test_instrument_basic_conversation(exporter: TestExporter):
         _make_assistant_message('Hello! How can I help?'),
         _make_result_message(),
     ]
-    cls, _ = _setup_mock_sdk(messages)
+    cls, _, prev = _setup_mock_sdk(messages)
     try:
         instrument_claude_agent_sdk(logfire.DEFAULT_LOGFIRE_INSTANCE)
 
         client = cls(options=MockOptions(system_prompt='Be helpful'))
         await client.query('What is 2+2?')
-        client._logfire_prompt = 'What is 2+2?'
 
         collected = []
         async for msg in client.receive_response():
@@ -477,7 +481,7 @@ async def test_instrument_basic_conversation(exporter: TestExporter):
             ]
         )
     finally:
-        _teardown_mock_sdk(cls)
+        _teardown_mock_sdk(cls, prev)
 
 
 @pytest.mark.anyio
@@ -491,13 +495,12 @@ async def test_instrument_conversation_with_tool_call(exporter: TestExporter):
         _make_assistant_message('Here are the files: file1.txt, file2.txt'),
         _make_result_message(),
     ]
-    cls, _ = _setup_mock_sdk(messages)
+    cls, _, prev = _setup_mock_sdk(messages)
     try:
         instrument_claude_agent_sdk(logfire.DEFAULT_LOGFIRE_INSTANCE)
 
         client = cls(options=MockOptions(system_prompt='Be helpful'))
         await client.query('List files')
-        client._logfire_prompt = 'List files'
 
         collected = []
         async for msg in client.receive_response():
@@ -595,4 +598,4 @@ async def test_instrument_conversation_with_tool_call(exporter: TestExporter):
             ]
         )
     finally:
-        _teardown_mock_sdk(cls)
+        _teardown_mock_sdk(cls, prev)
