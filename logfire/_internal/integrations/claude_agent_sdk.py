@@ -385,12 +385,16 @@ def _inject_tracing_hooks(options: Any) -> None:
         if event not in options.hooks:
             options.hooks[event] = []
 
+    if getattr(options, '_logfire_hooks_injected', False):
+        return
+
     with handle_internal_errors:
         from claude_agent_sdk import HookMatcher
 
         options.hooks['PreToolUse'].insert(0, HookMatcher(matcher=None, hooks=[pre_tool_use_hook]))
         options.hooks['PostToolUse'].insert(0, HookMatcher(matcher=None, hooks=[post_tool_use_hook]))
         options.hooks['PostToolUseFailure'].insert(0, HookMatcher(matcher=None, hooks=[post_tool_use_failure_hook]))
+        options._logfire_hooks_injected = True
 
 
 class _TurnTracker:
