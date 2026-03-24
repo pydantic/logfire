@@ -1,11 +1,11 @@
 ---
 title: "Logfire Integrations: Claude Agent SDK"
-description: "Guide for using Logfire with Claude Agent SDK via Langsmith OpenTelemetry tracing, including setup instructions and example trace output."
+description: "Guide for using Logfire with the Claude Agent SDK, including setup instructions and example trace output."
 integration: "third-party"
 ---
 # Claude Agent SDK
 
-You can instrument the Python [Claude Agent SDK](https://platform.claude.com/docs/en/agent-sdk/overview) using **Logfire** and [Langsmith](https://docs.langchain.com/langsmith/trace-claude-agent-sdk).
+You can instrument the Python [Claude Agent SDK](https://platform.claude.com/docs/en/agent-sdk/overview) using **Logfire**.
 
 !!! note
     This is separate from the [`anthropic` integration](../llms/anthropic.md). The Claude Agent SDK doesn't actually use the `anthropic` package under the hood.
@@ -13,14 +13,13 @@ You can instrument the Python [Claude Agent SDK](https://platform.claude.com/doc
 First, install dependencies:
 
 ```bash
-pip install 'langsmith[claude-agent-sdk, otel]'
+pip install logfire claude-agent-sdk
 ```
 
 Here's an example script:
 
 ```python skip-run="true" skip-reason="external-connection"
 import asyncio
-import os
 from typing import Any
 
 from claude_agent_sdk import (
@@ -29,21 +28,11 @@ from claude_agent_sdk import (
     create_sdk_mcp_server,
     tool,
 )
-from langsmith.integrations.claude_agent_sdk import configure_claude_agent_sdk
 
 import logfire
 
-# These environment variables enable Langsmith OpenTelemetry tracing,
-# instead of sending traces to Langsmith directly.
-os.environ['LANGSMITH_OTEL_ENABLED'] = 'true'
-os.environ['LANGSMITH_OTEL_ONLY'] = 'true'
-os.environ['LANGSMITH_TRACING'] = 'true'
-
-# Ensure that OpenTelemetry traces are sent to Logfire
 logfire.configure()
-
-# Instrument the Claude Agent SDK with Langsmith
-configure_claude_agent_sdk()
+logfire.instrument_claude_agent_sdk()
 
 
 # Example of using a tool in the Claude Agent SDK:
@@ -85,7 +74,7 @@ asyncio.run(main())
 ```
 
 !!! warning
-    Only the `ClaudeSDKClient` is instrumented, not the top-level `claude_agent_sdk.query()` function.
+    Only `ClaudeSDKClient` instances created **after** calling `logfire.instrument_claude_agent_sdk()` are fully instrumented. Existing instances will get conversation and turn spans but not tool call spans.
 
 The resulting trace looks like this in Logfire:
 
