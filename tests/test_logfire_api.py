@@ -212,6 +212,11 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         logfire_api.instrument_mcp()
     logfire__all__.remove('instrument_mcp')
 
+    assert hasattr(logfire_api, 'instrument_claude_agent_sdk')
+    if sys.version_info >= (3, 10):
+        logfire_api.instrument_claude_agent_sdk()
+    logfire__all__.remove('instrument_claude_agent_sdk')
+
     assert hasattr(logfire_api, 'instrument_google_genai')
     if get_version(pydantic_version) >= get_version('2.7.0'):
         with warnings.catch_warnings():
