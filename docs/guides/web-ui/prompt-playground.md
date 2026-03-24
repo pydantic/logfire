@@ -1,9 +1,7 @@
-
 ---
 title: "Prompt Playground: Experiment with agent prompts"
 description: "Prompt Playground: Experiment with agent prompts"
 ---
-
 # Prompt Playground
 
 The prompt playground gives you the ability to experiment with an agent run and its different parts. It is mostly useful when you want to iterate
