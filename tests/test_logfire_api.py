@@ -214,11 +214,11 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
 
     assert hasattr(logfire_api, 'instrument_claude_agent_sdk')
     try:
-        import claude_agent_sdk  # pyright: ignore[reportUnusedImport]  # noqa: F401
-
-        logfire_api.instrument_claude_agent_sdk()
+        importlib.import_module('claude_agent_sdk')
     except ImportError:
         pass
+    else:
+        logfire_api.instrument_claude_agent_sdk()
     logfire__all__.remove('instrument_claude_agent_sdk')
 
     assert hasattr(logfire_api, 'instrument_google_genai')
