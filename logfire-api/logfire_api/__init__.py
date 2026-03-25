@@ -201,7 +201,8 @@ except ImportError:
 
             def instrument_mcp(self, *args, **kwargs) -> None: ...
 
-            def instrument_claude_agent_sdk(self, *args, **kwargs) -> None: ...
+            def instrument_claude_agent_sdk(self, *args, **kwargs) -> ContextManager[None]:
+                return nullcontext()
 
             def shutdown(self, *args, **kwargs) -> None: ...
 
