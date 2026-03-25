@@ -1,4 +1,3 @@
-# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportAttributeAccessIssue=false
 from __future__ import annotations
 
 import functools
@@ -6,7 +5,7 @@ import logging
 import threading
 from collections.abc import AsyncGenerator, AsyncIterable
 from contextlib import AbstractContextManager, contextmanager
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import claude_agent_sdk
 from opentelemetry import context as context_api, trace as trace_api
@@ -54,7 +53,7 @@ def _get_logfire_instance() -> Logfire | None:
 
 def _clear_active_tool_spans() -> None:
     """End any orphaned tool spans and clear the dict."""
-    for tool_use_id, (span, token) in _active_tool_spans.items():  # pragma: no cover
+    for tool_use_id, (span, token) in _active_tool_spans.items():
         try:
             span.__exit__(None, None, None)
             context_api.detach(token)
@@ -74,7 +73,7 @@ def flatten_content_blocks(content: Any) -> Any:
         return content
 
     result: list[Any] = []
-    for block in content:
+    for block in cast(list[Any], content):
         block_type: str = block.__class__.__name__
 
         if block_type == 'TextBlock':
@@ -119,23 +118,28 @@ def _extract_tool_result_text(content: Any) -> str:
     if isinstance(content, str):
         return content
     if isinstance(content, list):
-        texts = []
-        for item in content:
+        items = cast(list[Any], content)
+        texts: list[str] = []
+        for item in items:
             if isinstance(item, dict):
-                if item.get('type') == 'text':
-                    texts.append(item.get('text', ''))
+                d = cast(dict[str, Any], item)
+                if d.get('type') == 'text':
+                    texts.append(d.get('text', ''))
             elif hasattr(item, 'text'):
                 texts.append(getattr(item, 'text', ''))
-        return '\n'.join(texts) if texts else str(content)
+        return '\n'.join(texts) if texts else str(items)
     return str(content)
 
 
-def extract_usage_metadata(usage: Any) -> Any:
+def extract_usage_metadata(usage: Any) -> dict[str, Any]:
     """Extract and normalize usage metrics from a Claude usage object or dict."""
     if not usage:
         return {}
 
-    get = usage.get if isinstance(usage, dict) else lambda k: getattr(usage, k, None)  # pyright: ignore[reportUnknownLambdaType]
+    def get(key: str) -> Any:
+        if isinstance(usage, dict):
+            return cast(dict[str, Any], usage).get(key)
+        return getattr(usage, key, None)
 
     def to_int(value: Any) -> int | None:
         try:
@@ -161,18 +165,18 @@ def extract_usage_metadata(usage: Any) -> Any:
     return meta
 
 
-def get_usage_from_result(usage: Any) -> Any:
+def get_usage_from_result(usage: Any) -> dict[str, Any]:
     """Extract usage metadata and compute totals."""
     metrics = extract_usage_metadata(usage)
     if not metrics:
         return {}
 
-    details = metrics.get('input_token_details') or {}
-    cache_read = details.get('cache_read', 0) or 0
-    cache_create = details.get('cache_creation', 0) or 0
+    details: dict[str, Any] = metrics.get('input_token_details') or {}
+    cache_read: int = details.get('cache_read', 0) or 0
+    cache_create: int = details.get('cache_creation', 0) or 0
 
-    input_tokens = (metrics.get('input_tokens') or 0) + cache_read + cache_create
-    output_tokens = metrics.get('output_tokens') or 0
+    input_tokens: int = (metrics.get('input_tokens') or 0) + cache_read + cache_create
+    output_tokens: int = metrics.get('output_tokens') or 0
 
     return {
         **metrics,
@@ -289,7 +293,7 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> AbstractContextMan
     original_query = cls.query
     original_receive_response = cls.receive_response
 
-    cls._is_instrumented_by_logfire = True
+    cls._is_instrumented_by_logfire = True  # pyright: ignore[reportAttributeAccessIssue]
 
     logfire_claude = logfire_instance.with_settings(custom_scope_suffix='claude_agent_sdk')
 
@@ -366,7 +370,7 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> AbstractContextMan
             cls.__init__ = original_init
             cls.query = original_query
             cls.receive_response = original_receive_response
-            cls._is_instrumented_by_logfire = False
+            cls._is_instrumented_by_logfire = False  # pyright: ignore[reportAttributeAccessIssue]
 
     return uninstrument_context()
 
@@ -381,19 +385,21 @@ def _inject_tracing_hooks(options: Any) -> None:
     if not hasattr(options, 'hooks'):
         return
 
+    hooks: dict[str, list[Any]]
     if options.hooks is None:
-        options.hooks = {}
-
+        hooks = options.hooks = {}
+    else:
+        hooks = options.hooks
     for event in ('PreToolUse', 'PostToolUse', 'PostToolUseFailure'):
-        options.hooks.setdefault(event, [])
+        hooks.setdefault(event, [])
 
     if getattr(options, '_logfire_hooks_injected', False):
         return
 
     with handle_internal_errors:
-        options.hooks['PreToolUse'].insert(0, claude_agent_sdk.HookMatcher(matcher=None, hooks=[pre_tool_use_hook]))
-        options.hooks['PostToolUse'].insert(0, claude_agent_sdk.HookMatcher(matcher=None, hooks=[post_tool_use_hook]))
-        options.hooks['PostToolUseFailure'].insert(
+        hooks['PreToolUse'].insert(0, claude_agent_sdk.HookMatcher(matcher=None, hooks=[pre_tool_use_hook]))
+        hooks['PostToolUse'].insert(0, claude_agent_sdk.HookMatcher(matcher=None, hooks=[post_tool_use_hook]))
+        hooks['PostToolUseFailure'].insert(
             0, claude_agent_sdk.HookMatcher(matcher=None, hooks=[post_tool_use_failure_hook])
         )
         options._logfire_hooks_injected = True
