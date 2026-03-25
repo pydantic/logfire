@@ -1,4 +1,4 @@
-# pyright: reportPrivateUsage=false, reportAttributeAccessIssue=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnnecessaryTypeIgnoreComment=false, reportUnusedFunction=false, reportUnnecessaryComparison=false, reportArgumentType=false
+# pyright: reportPrivateUsage=false, reportAttributeAccessIssue=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnnecessaryTypeIgnoreComment=false, reportUnusedFunction=false, reportUnnecessaryComparison=false
 """Tests for Claude Agent SDK instrumentation.
 
 Integration tests use a mock transport to exercise the real SDK client
@@ -14,6 +14,7 @@ from typing import Any
 from unittest.mock import Mock
 
 import pytest
+from claude_agent_sdk import Transport
 from inline_snapshot import snapshot
 
 import logfire
@@ -30,7 +31,7 @@ pytestmark = pytest.mark.skipif(
 # ---------------------------------------------------------------------------
 
 
-class MockTransport:
+class MockTransport(Transport):
     """Mock transport for the Claude Agent SDK.
 
     Handles the initialize handshake (control_request/response) and yields
@@ -40,13 +41,13 @@ class MockTransport:
     def __init__(self, responses: list[dict[str, Any]]) -> None:
         self.responses = responses
         self.written: list[dict[str, Any]] = []
+        self._init_request_id: str | None = None
 
     async def connect(self) -> None:
         import anyio
 
         self._init_event = anyio.Event()
         self._query_event = anyio.Event()
-        self._init_request_id: str | None = None
 
     async def write(self, data: str) -> None:
         msg = json.loads(data)
@@ -634,7 +635,7 @@ def test_inject_hooks_with_existing_events():
 
     from logfire._internal.integrations.claude_agent_sdk import _inject_tracing_hooks
 
-    existing_hook = HookMatcher(matcher='existing', hooks=[lambda: None])
+    existing_hook = HookMatcher(matcher='existing', hooks=[lambda: None])  # pyright: ignore[reportArgumentType]
 
     class Opts:
         hooks: dict[str, list[Any]] | None = {
