@@ -5,6 +5,7 @@ import functools
 import logging
 import threading
 from collections.abc import AsyncGenerator, AsyncIterable
+from contextlib import AbstractContextManager, contextmanager
 from typing import TYPE_CHECKING, Any
 
 import claude_agent_sdk
@@ -269,19 +270,30 @@ async def post_tool_use_failure_hook(
 # ---------------------------------------------------------------------------
 
 
-def instrument_claude_agent_sdk(logfire_instance: Logfire) -> None:
-    """Instrument the Claude Agent SDK by monkey-patching ClaudeSDKClient."""
+def instrument_claude_agent_sdk(logfire_instance: Logfire) -> AbstractContextManager[None]:
+    """Instrument the Claude Agent SDK by monkey-patching ClaudeSDKClient.
+
+    Returns:
+        A context manager that will revert the instrumentation when exited.
+            This context manager doesn't take into account threads or other concurrency.
+            Calling this function will immediately apply the instrumentation
+            without waiting for the context manager to be opened,
+            i.e. it's not necessary to use this as a context manager.
+    """
     cls = claude_agent_sdk.ClaudeSDKClient
 
     if getattr(cls, '_is_instrumented_by_logfire', False):
-        return
+        return _noop_context()
+
+    original_init = cls.__init__
+    original_query = cls.query
+    original_receive_response = cls.receive_response
+
     cls._is_instrumented_by_logfire = True
 
     logfire_claude = logfire_instance.with_settings(custom_scope_suffix='claude_agent_sdk')
 
     # --- Patch __init__ ---
-    original_init = cls.__init__
-
     @functools.wraps(original_init)
     def patched_init(self: Any, *args: Any, **kwargs: Any) -> None:
         original_init(self, *args, **kwargs)
@@ -292,9 +304,8 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> None:
             _inject_tracing_hooks(self.options)
 
     cls.__init__ = patched_init
-    # --- Patch query ---
-    original_query = cls.query
 
+    # --- Patch query ---
     @functools.wraps(original_query)
     async def patched_query(self: Any, *args: Any, **kwargs: Any) -> Any:
         self._logfire_prompt = None
@@ -308,9 +319,8 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> None:
         return await original_query(self, *args, **kwargs)
 
     cls.query = patched_query
-    # --- Patch receive_response ---
-    original_receive_response = cls.receive_response
 
+    # --- Patch receive_response ---
     @functools.wraps(original_receive_response)
     async def patched_receive_response(self: Any) -> AsyncGenerator[Any, None]:
         prompt = getattr(self, '_logfire_prompt', None)
@@ -347,6 +357,23 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> None:
                 _clear_active_tool_spans()
 
     cls.receive_response = patched_receive_response
+
+    @contextmanager
+    def uninstrument_context():
+        try:
+            yield
+        finally:
+            cls.__init__ = original_init
+            cls.query = original_query
+            cls.receive_response = original_receive_response
+            cls._is_instrumented_by_logfire = False
+
+    return uninstrument_context()
+
+
+@contextmanager
+def _noop_context():
+    yield
 
 
 def _inject_tracing_hooks(options: Any) -> None:
