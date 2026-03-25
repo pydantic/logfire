@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+from threading import Event
+from unittest.mock import patch
 
 import pytest
 import requests_mock
@@ -75,6 +77,78 @@ def test_url_from_eval_no_ids() -> None:
     report = _make_report()
     result = instance.url_from_eval(report)
     assert result is None
+
+
+def test_reconfigure_discards_stale_project_url(tmp_path: Path) -> None:
+    """Test that a background thread from a previous configure() call
+    does not write a stale project_url after reconfigure() bumps the generation."""
+    block = Event()
+    first_thread_done = Event()
+    original_from_token = LogfireConfig._initialize_credentials_from_token  # pyright: ignore[reportPrivateUsage]
+
+    call_count = 0
+
+    def slow_from_token(self: LogfireConfig, token: str):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            # First configure's thread blocks here until we release it
+            block.wait()
+            result = original_from_token(self, token)
+            first_thread_done.set()
+            return result
+        return original_from_token(self, token)
+
+    with (
+        requests_mock.Mocker() as mocker,
+        patch.object(LogfireConfig, '_initialize_credentials_from_token', slow_from_token),
+    ):
+        mocker.get(
+            'https://logfire-us.pydantic.dev/v1/info',
+            json={
+                'project_name': 'stale',
+                'project_url': 'https://logfire-us.pydantic.dev/stale-org/stale-project',
+            },
+        )
+        config = LogfireConfig(
+            send_to_logfire=True,
+            token='token-a',
+            console=False,
+            data_dir=tmp_path,
+        )
+        config.initialize()
+        first_thread = config._check_tokens_thread  # pyright: ignore[reportPrivateUsage]
+        assert first_thread is not None
+        # First thread is now blocked in slow_from_token.
+        # Reconfigure the same config object - this bumps the generation.
+        config.configure(
+            send_to_logfire=False,
+            token=None,
+            api_key=None,
+            service_name=None,
+            service_version=None,
+            environment=None,
+            console=False,
+            config_dir=None,
+            data_dir=tmp_path,
+            additional_span_processors=None,
+            metrics=None,
+            scrubbing=None,
+            inspect_arguments=None,
+            sampling=None,
+            min_level=None,
+            add_baggage_to_attributes=True,
+            code_source=None,
+            variables=None,
+            distributed_tracing=None,
+            advanced=None,
+        )
+        # Release the first thread
+        block.set()
+        first_thread_done.wait(timeout=5)
+        first_thread.join(timeout=5)
+        # The stale thread should NOT have written its project_url
+        assert config.project_url is None
 
 
 def test_url_from_eval_waits_for_token_validation(tmp_path: Path) -> None:
