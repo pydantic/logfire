@@ -1253,10 +1253,77 @@ async def test_error_result(exporter: TestExporter) -> None:
     finally:
         await client.disconnect()
 
-    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-    root_span = spans[-1]
-    assert root_span['name'] == 'invoke_agent'
-    assert root_span['attributes']['logfire.level_num'] == snapshot(17)
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'chat claude-sonnet-4-20250514',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'code.filepath': 'test_claude_agent_sdk.py',
+                    'code.function': 'test_error_result',
+                    'code.lineno': 123,
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.response.model': 'claude-sonnet-4-20250514',
+                    'gen_ai.output.messages': [
+                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Hello! How can I help?'}]}
+                    ],
+                    'logfire.msg_template': 'chat claude-sonnet-4-20250514',
+                    'logfire.msg': 'chat claude-sonnet-4-20250514',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'gen_ai.operation.name': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.output.messages': {'type': 'array'},
+                        },
+                    },
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'invoke_agent',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_claude_agent_sdk.py',
+                    'code.function': 'test_error_result',
+                    'code.lineno': 123,
+                    'gen_ai.operation.name': 'invoke_agent',
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hi'}]}],
+                    'logfire.msg_template': 'invoke_agent',
+                    'logfire.msg': 'invoke_agent',
+                    'logfire.span_type': 'span',
+                    'gen_ai.usage.input_tokens': 100,
+                    'gen_ai.usage.output_tokens': 50,
+                    'operation.cost': 0.01,
+                    'gen_ai.conversation.id': 'sess_123',
+                    'num_turns': 1,
+                    'duration_ms': 500,
+                    'logfire.level_num': 17,
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'gen_ai.operation.name': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'operation.cost': {},
+                            'gen_ai.conversation.id': {},
+                            'num_turns': {},
+                            'duration_ms': {},
+                        },
+                    },
+                },
+            },
+        ]
+    )
 
 
 @pytest.mark.anyio
