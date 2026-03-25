@@ -5,27 +5,25 @@ description: "Create and manage evaluation datasets through the Logfire web inte
 
 # Web UI Guide
 
-!!! warning "Experimental Feature"
-
-    Managed datasets are an experimental feature currently gated behind a feature flag. Reach out to us on [Slack](https://logfire.pydantic.dev/docs/join-slack/) or [contact us](../../help.md) to learn how to enable it for your project.
-
 This guide covers creating and managing datasets through the Logfire web interface. For programmatic access, see the [SDK Guide](sdk.md).
 
-## Navigate to Datasets
+## Navigating Evals
 
-Open the **Datasets** page in your project. This shows all datasets in the project along with their case counts and descriptions.
+Click **Evals** in the sidebar to open the datasets list. From there:
+
+- Click a dataset name to see its detail page (experiments, cases, schema).
+- Click **Edit** to modify the dataset's name, description, and schemas.
+- Click **`<> SDK`** to view code snippets for working with the dataset programmatically.
+- Click **+ Add case** to add a new test case.
+- Select experiments and click **Compare** to compare multiple runs side by side.
+
+Breadcrumbs at the top of each page show your current location (e.g., `Evals / Datasets / my-dataset / Edit`).
 
 ## Creating a New Dataset
 
-Click **New Dataset** and fill in:
+Click **+ New dataset** in the top right and enter a name for your dataset. If you don't have any datasets yet, you can also type a name directly into the empty state and click **Create**.
 
-- **Name**: A unique identifier for the dataset (e.g., `qa-golden-set`, `support-agent-regression`).
-- **Description**: Optional text explaining what the dataset is for.
-- **Input schema**: A JSON Schema defining the structure of case inputs.
-- **Output schema**: A JSON Schema defining the structure of expected outputs.
-- **Metadata schema**: A JSON Schema defining the structure of case metadata.
-- **Guidance**: Optional free-text instructions that describe how cases should be structured, what makes a good test case, or any other context for contributors.
-- **AI-managed guidance**: When enabled, the system can automatically refine the guidance based on the cases added to the dataset.
+Once created, you can edit the dataset to add a description and define schemas.
 
 !!! tip "Schema generation from code"
     If you are using Python types (dataclasses, Pydantic models, etc.) for your schemas, it is easier to create the dataset via the SDK, which generates JSON schemas automatically from your type definitions. See [Creating a Dataset with Typed Schemas](sdk.md#creating-a-dataset-with-typed-schemas) in the SDK Guide.
@@ -56,21 +54,25 @@ Click **New Dataset** and fill in:
             description='Golden test cases for the Q&A system',
             input_type=QuestionInput,
             output_type=AnswerOutput,
-            guidance='Each case should represent a realistic user question with a verified answer.',
         )
     ```
 
     See the [SDK Guide](sdk.md) for full details on creating and managing datasets programmatically.
 
-## Adding Cases Manually
+## Editing a Dataset
 
-Once a dataset exists, you can add cases through the UI by clicking **Add Case** and providing:
+From the dataset detail page, click **Edit** to modify the dataset's configuration. The edit form has two sections:
 
-- **Name**: An optional label for the case (e.g., `capital-question`, `edge-case-empty-input`).
-- **Inputs**: The case inputs, validated against the dataset's input schema.
-- **Expected output**: The expected result, validated against the output schema.
-- **Metadata**: Additional information for organizing or filtering cases.
-- **Tags**: Optional labels for organizing and filtering cases (e.g., `regression`, `edge-case`, `high-priority`).
+- **General**: Name and description.
+- **Schemas**: Define JSON schemas for inputs, expected outputs, and metadata. Use the **Generate schema** toggle to have Pydantic AI create schemas from a natural language description of your data shape.
+
+## Managing Cases
+
+From the dataset detail page, click the **Cases** tab to see all hosted cases for the dataset.
+
+- **Add a case**: Click **+ Add case** to open the case editor. Fill in name, inputs, expected output, and metadata. When the dataset has schemas defined, fields render as labeled inputs with type information; otherwise you edit raw JSON.
+- **Edit a case**: Click the pencil icon on any case row to open the editor pre-populated with that case's data. Make your changes and save.
+- **Delete a case**: Click the trash icon on any case row and confirm deletion.
 
 ??? example "SDK equivalent"
 
@@ -86,7 +88,6 @@ Once a dataset exists, you can add cases through the UI by clicking **Add Case**
                 expected_output=AnswerOutput(answer='Paris', confidence=0.99),
             ),
         ],
-        tags=['geography', 'easy'],
     )
     ```
 
@@ -97,9 +98,9 @@ Once a dataset exists, you can add cases through the UI by clicking **Add Case**
 You can create test cases directly from production data:
 
 1. Open **Live View** and find a trace or span that represents a good test case.
-2. Click the **Add to Dataset** button on the span.
-3. Select the target dataset and review the extracted inputs and outputs.
-4. Optionally edit the values before saving.
+2. Click the **database icon** (+) on the span details panel.
+3. Select an existing dataset or create a new one.
+4. The AI can automatically extract inputs and outputs from the span data --- review and edit the extracted values before saving.
 
 This preserves a link back to the source trace, so you always know where a test case came from.
 
@@ -124,39 +125,20 @@ This preserves a link back to the source trace, so you always know where a test 
 
     See [Adding Cases](sdk.md#adding-cases) in the SDK Guide for more details.
 
-## Tags
+## Exporting a Dataset
 
-Tags let you organize and categorize cases within a dataset. Each case can have zero or more tags --- short text labels like `regression`, `edge-case`, or `high-priority`.
+From the dataset detail page, click **Export** to download the dataset in one of two formats:
 
-### Adding Tags to Cases
+- **JSON**: Raw JSON representation of all cases.
+- **pydantic-evals**: A YAML format compatible with `pydantic_evals.Dataset.from_file()`.
 
-You can add tags when creating a new case or by editing an existing case. Tags are free-form text, so you can use whatever labeling scheme fits your workflow.
+## Viewing Experiments
 
-### Filtering Cases by Tags
+The **Experiments** tab on the dataset detail page shows all evaluation runs against this dataset. You can:
 
-Use the tag filter on the dataset view to narrow the case list to only those matching specific tags. This is useful when you want to:
-
-- Focus on a subset of cases for review (e.g., all `needs-review` cases).
-- Run evaluations against a specific category (e.g., only `regression` cases).
-- Track which cases have been verified (e.g., filter by `verified` vs. `unverified`).
-
-??? example "SDK equivalent"
-
-    You can filter cases by tags and manage tags via the SDK as well:
-
-    ```python skip="true" skip-reason="external-connection"
-    # List only cases with a specific tag
-    regression_cases = client.list_cases('qa-golden-set', tags=['regression'])
-
-    # Update tags on an existing case
-    client.update_case(
-        'qa-golden-set',
-        case_id='some-case-uuid',
-        tags=['verified', 'regression'],
-    )
-    ```
-
-    See [Listing Cases](sdk.md#listing-cases) and [Updating and Deleting](sdk.md#updating-and-deleting) in the SDK Guide.
+- Click any experiment row to see detailed results (inputs, outputs, scores, assertions).
+- Select multiple experiments and click **Compare** to view them side by side.
+- See pass rates, scores, labels, and metrics at a glance.
 
 ## What's Next?
 
