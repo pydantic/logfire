@@ -112,7 +112,7 @@ def test_reconfigure_discards_stale_project_url(tmp_path: Path) -> None:
         )
         config = LogfireConfig(
             send_to_logfire=True,
-            token='token-a',
+            token=['token-a', 'token-a2'],
             console=False,
             data_dir=tmp_path,
         )
@@ -145,8 +145,9 @@ def test_reconfigure_discards_stale_project_url(tmp_path: Path) -> None:
         )
         # Release the first thread
         block.set()
-        first_thread_done.wait(timeout=5)
+        assert first_thread_done.wait(timeout=5)
         first_thread.join(timeout=5)
+        assert not first_thread.is_alive()
         # The stale thread should NOT have written its project_url
         assert config.project_url is None
 
