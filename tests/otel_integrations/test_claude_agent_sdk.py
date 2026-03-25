@@ -737,15 +737,113 @@ async def test_conversation_with_two_turns(exporter: TestExporter) -> None:
         await client.disconnect()
 
     assert len(collected) == 3
-    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-    span_names = [s['name'] for s in spans]
-    assert span_names.count('claude.assistant.turn') == 2
-    assert 'claude.conversation' in span_names
-    # Both turns should be children of the conversation
-    conv_span = [s for s in spans if s['name'] == 'claude.conversation'][0]
-    turn_spans = [s for s in spans if s['name'] == 'claude.assistant.turn']
-    for turn in turn_spans:
-        assert turn['parent'] == conv_span['context']
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Bash',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'pytest',
+                    'code.lineno': 123,
+                    'tool_input': {'command': 'ls'},
+                    'logfire.msg_template': 'Bash',
+                    'logfire.msg': 'Bash',
+                    'logfire.span_type': 'span',
+                    'tool_response': 'mock_response',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'tool_input': {'type': 'object'}, 'tool_response': {}},
+                    },
+                },
+            },
+            {
+                'name': 'claude.assistant.turn',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'code.filepath': 'test_claude_agent_sdk.py',
+                    'code.function': 'test_conversation_with_two_turns',
+                    'code.lineno': 123,
+                    'content': [{'type': 'tool_use', 'id': 'tool_1', 'name': 'Bash', 'input': {'command': 'ls'}}],
+                    'model': 'claude-sonnet-4-20250514',
+                    'logfire.msg_template': 'claude.assistant.turn',
+                    'logfire.msg': 'claude.assistant.turn',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'content': {'type': 'array'}, 'model': {}},
+                    },
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'claude.assistant.turn',
+                'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 6000000000,
+                'end_time': 7000000000,
+                'attributes': {
+                    'code.filepath': 'test_claude_agent_sdk.py',
+                    'code.function': 'test_conversation_with_two_turns',
+                    'code.lineno': 123,
+                    'content': [{'type': 'text', 'text': 'Here are the files: file1.txt, file2.txt'}],
+                    'model': 'claude-sonnet-4-20250514',
+                    'logfire.msg_template': 'claude.assistant.turn',
+                    'logfire.msg': 'claude.assistant.turn',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'content': {'type': 'array'}, 'model': {}},
+                    },
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'claude.conversation',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 8000000000,
+                'attributes': {
+                    'code.filepath': 'test_claude_agent_sdk.py',
+                    'code.function': 'test_conversation_with_two_turns',
+                    'code.lineno': 123,
+                    'prompt': 'List files',
+                    'system_prompt': 'Be helpful',
+                    'logfire.msg_template': 'claude.conversation',
+                    'logfire.msg': 'claude.conversation',
+                    'logfire.span_type': 'span',
+                    'usage.input_tokens': 100,
+                    'usage.output_tokens': 50,
+                    'usage.total_tokens': 150,
+                    'total_cost_usd': 0.01,
+                    'num_turns': 1,
+                    'session_id': "[Scrubbed due to 'session']",
+                    'duration_ms': 500,
+                    'is_error': False,
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'prompt': {},
+                            'system_prompt': {},
+                            'usage.input_tokens': {},
+                            'usage.output_tokens': {},
+                            'usage.total_tokens': {},
+                            'total_cost_usd': {},
+                            'num_turns': {},
+                            'session_id': {},
+                            'duration_ms': {},
+                            'is_error': {},
+                        },
+                    },
+                    'logfire.scrubbed': [{'path': ['attributes', 'session_id'], 'matched_substring': 'session'}],
+                },
+            },
+        ]
+    )
 
 
 @pytest.mark.anyio
