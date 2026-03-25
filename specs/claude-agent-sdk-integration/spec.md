@@ -10,7 +10,7 @@ The SDK has no plugin API. We patch `__init__` (to inject tracing hooks), `query
 An `_is_instrumented_by_logfire` flag on the class guards against double-patching.
 
 **The public API is `logfire.instrument_claude_agent_sdk()` — no arguments.** *(from "Instrumentation is via monkey-patching")*
-Since instrumentation is global, there's nothing to configure per-call. Returns `AbstractContextManager[None]` that reverts instrumentation when exited (consistent with other logfire integrations). The instrumentation is applied immediately — using the context manager is optional.
+Since instrumentation is global, there's nothing to configure per-call. Returns `AbstractContextManager[None]` that reverts instrumentation when exited — reverting means restoring the original unpatched methods and resetting the `_is_instrumented_by_logfire` flag (consistent with other logfire integrations). The instrumentation is applied immediately — using the context manager is optional.
 
 **Per-instance instrumentation is out of scope.** *(from "Instrumentation is via monkey-patching")*
 Consequence of class-level patching: `query()`/`receive_response()` patches affect existing instances (Python MRO), but `__init__` won't re-run, so existing instances won't get hooks and won't produce tool spans.
