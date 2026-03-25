@@ -14,9 +14,9 @@ from collections.abc import AsyncIterator
 from typing import Any
 from unittest.mock import Mock
 
+import anyio
 import pytest
 
-# Must come before logfire internal imports which transitively import claude_agent_sdk
 pytest.importorskip('claude_agent_sdk', reason='claude_agent_sdk requires Python 3.10+')
 
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, HookMatcher, Transport
@@ -75,8 +75,6 @@ class MockTransport(Transport):
         self._tool_failure_ids = tool_failure_ids or set()
 
     async def connect(self) -> None:
-        import anyio
-
         self._init_event = anyio.Event()
         self._query_event = anyio.Event()
 
@@ -117,8 +115,6 @@ class MockTransport(Transport):
         }
 
     async def _read_impl(self) -> AsyncIterator[dict[str, Any]]:
-        import anyio
-
         # Wait for initialize request, then respond
         await self._init_event.wait()
         yield {
