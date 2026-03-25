@@ -74,7 +74,7 @@ asyncio.run(main())
 ```
 
 !!! warning
-    Only `ClaudeSDKClient` instances created **after** calling `logfire.instrument_claude_agent_sdk()` are fully instrumented. Existing instances will get conversation and turn spans but not tool call spans.
+    Only the `ClaudeSDKClient` is instrumented, not the top-level `claude_agent_sdk.query()` function. Instances created **after** calling `logfire.instrument_claude_agent_sdk()` are fully instrumented. Existing instances will get conversation and turn spans but not tool call spans.
 
 The resulting trace looks like this in Logfire:
 
