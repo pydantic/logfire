@@ -28,7 +28,13 @@ claude.conversation                      # root, wraps receive_response()
 └── ...
 ```
 
-**The root span `claude.conversation` captures prompt, usage, and cost.** *(from "Span structure is a practical flat tree")*
+**Span attributes are bare keys, not namespaced.** *(from "Span structure is a practical flat tree")*
+Attribute names like `prompt`, `tool_input`, `usage.input_tokens` are the literal OTel attribute keys — no `logfire.claude.*` or GenAI semantic convention prefix.
+
+**The patched `receive_response` drives span lifecycle by inspecting messages from the stream.** *(from "Instrumentation is via monkey-patching", "Span structure is a practical flat tree")*
+It wraps the original async generator: opens a `claude.conversation` root span for the entire iteration, then inspects each yielded message. On `AssistantMessage`: closes the previous turn span (if any) and opens a new `claude.assistant.turn` sibling. On `ResultMessage`: records usage/cost on the root span. Each message is yielded through unchanged. If `query` was not called before `receive_response`, the prompt attribute is simply omitted.
+
+**The root span `claude.conversation` captures prompt, usage, and cost.** *(from "The patched `receive_response` drives span lifecycle")*
 On start: `prompt`, `system_prompt`. On completion (from `ResultMessage`): `usage.input_tokens`, `usage.output_tokens`, `usage.total_tokens`, cache token details, `total_cost_usd`, `num_turns`, `session_id`, `duration_ms`, `is_error`. If the stream raises an exception, the root span records it via OTel's standard span exception/status mechanism (the `LogfireSpan` context manager handles this).
 
 **Turn spans capture the assistant's message content and model.** *(from "Span structure is a practical flat tree")*
@@ -37,7 +43,7 @@ On start: `prompt`, `system_prompt`. On completion (from `ResultMessage`): `usag
 **Tool spans use the tool name as span name and capture input/output.** *(from "Span structure is a practical flat tree")*
 On start: `tool_input`. On success: `tool_response`. On failure: `error`.
 
-**Hooks run in isolated async contexts, so context propagation uses `threading.local()`.** *(from "Instrumentation is via monkey-patching", "Tool spans use the tool name as span name")*
+**Hooks run in isolated async contexts, so context propagation uses `threading.local()`.** *(from "Instrumentation is via monkey-patching")*
 The SDK uses anyio internally, and anyio tasks don't propagate contextvars from the parent. We store the current parent span and logfire instance in `threading.local()` so hooks can create child spans under the correct parent, attaching context explicitly via `trace_api.set_span_in_context` + `context_api.attach`. This relies on all async tasks running on the same thread — if the SDK ever used threaded execution, this approach would need revisiting.
 
 **Active tool spans are tracked by `tool_use_id` to correlate pre/post hooks.** *(from "Tool spans use the tool name as span name", "Hooks run in isolated async contexts")*
