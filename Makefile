@@ -48,6 +48,7 @@ generate-stubs:
 .PHONY: testcov  # Run tests and generate a coverage report
 testcov:
 	uv run --no-sync coverage run -m pytest -n auto --dist=loadgroup
+	uv run coverage combine
 	@echo "building coverage html"
 	uv run coverage html --show-contexts
 
