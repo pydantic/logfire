@@ -28,13 +28,12 @@ from logfire._internal.integrations.claude_agent_sdk import (
     _active_tool_spans,
     _clear_active_tool_spans,
     _clear_parent_span,
+    _content_blocks_to_output_messages,
     _extract_tool_result_text,
+    _extract_usage,
     _inject_tracing_hooks,
     _set_logfire_instance,
     _set_parent_span,
-    extract_usage_metadata,
-    flatten_content_blocks,
-    get_usage_from_result,
     post_tool_use_failure_hook,
     post_tool_use_hook,
     pre_tool_use_hook,
@@ -335,39 +334,46 @@ def _make_block(class_name: str, **attrs: object) -> Mock:
 # ---------------------------------------------------------------------------
 
 
-class TestFlattenContentBlocks:
+class TestContentBlocksToOutputMessages:
     def test_text_block(self) -> None:
         block = _make_block('TextBlock', text='hello world')
-        assert flatten_content_blocks([block]) == [{'type': 'text', 'text': 'hello world'}]
+        result = _content_blocks_to_output_messages([block], 'claude-3')
+        assert result == [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'hello world'}]}]
 
     def test_thinking_block(self) -> None:
         block = _make_block('ThinkingBlock', thinking='let me think...', signature='sig123')
-        assert flatten_content_blocks([block]) == [
-            {'type': 'thinking', 'thinking': 'let me think...', 'signature': 'sig123'}
+        result = _content_blocks_to_output_messages([block], None)
+        assert result == [
+            {'role': 'assistant', 'parts': [{'type': 'thinking', 'content': 'let me think...', 'signature': 'sig123'}]}
         ]
 
     def test_tool_use_block(self) -> None:
         block = _make_block('ToolUseBlock', id='tool_1', name='Bash', input={'command': 'ls'})
-        assert flatten_content_blocks([block]) == [
-            {'type': 'tool_use', 'id': 'tool_1', 'name': 'Bash', 'input': {'command': 'ls'}}
+        result = _content_blocks_to_output_messages([block], None)
+        assert result == [
+            {
+                'role': 'assistant',
+                'parts': [{'type': 'tool_call', 'id': 'tool_1', 'name': 'Bash', 'arguments': {'command': 'ls'}}],
+            }
         ]
 
     def test_tool_result_block(self) -> None:
         text_item = Mock()
         text_item.text = 'output text'
         block = _make_block('ToolResultBlock', tool_use_id='tool_1', content=[text_item], is_error=False)
-        assert flatten_content_blocks([block]) == [
-            {'type': 'tool_result', 'tool_use_id': 'tool_1', 'content': 'output text', 'is_error': False}
+        result = _content_blocks_to_output_messages([block], None)
+        assert result == [
+            {'role': 'assistant', 'parts': [{'type': 'tool_call_response', 'id': 'tool_1', 'response': 'output text'}]}
         ]
 
-    def test_non_list_passthrough(self) -> None:
-        assert flatten_content_blocks('just a string') == 'just a string'
+    def test_non_list_returns_empty(self) -> None:
+        assert _content_blocks_to_output_messages('just a string', None) == []
 
     def test_unknown_block_type(self) -> None:
         block = _make_block('UnknownBlock', data='test')
-        result = flatten_content_blocks([block])
+        result = _content_blocks_to_output_messages([block], None)
         assert len(result) == 1
-        assert result[0] is block
+        assert result[0]['parts'][0] is block
 
 
 class TestExtractToolResultText:
@@ -399,7 +405,7 @@ class TestExtractToolResultText:
         assert result == str([42, 'not a dict'])
 
 
-class TestUsageMetadata:
+class TestExtractUsage:
     def test_extract_usage(self) -> None:
         usage = {
             'input_tokens': 100,
@@ -407,35 +413,23 @@ class TestUsageMetadata:
             'cache_read_input_tokens': 20,
             'cache_creation_input_tokens': 10,
         }
-        result = extract_usage_metadata(usage)
-        assert result['input_tokens'] == 100
-        assert result['output_tokens'] == 50
-        assert result['input_token_details'] == {'cache_read': 20, 'cache_creation': 10}
+        result = _extract_usage(usage)
+        assert result['gen_ai.usage.input_tokens'] == 100
+        assert result['gen_ai.usage.output_tokens'] == 50
+        assert result['gen_ai.usage.cache_read.input_tokens'] == 20
+        assert result['gen_ai.usage.cache_creation.input_tokens'] == 10
 
     def test_extract_empty(self) -> None:
-        assert extract_usage_metadata(None) == {}
-        assert extract_usage_metadata({}) == {}
-
-    def test_get_usage_from_result(self) -> None:
-        result = get_usage_from_result(
-            {
-                'input_tokens': 100,
-                'output_tokens': 50,
-                'cache_read_input_tokens': 20,
-                'cache_creation_input_tokens': 10,
-            }
-        )
-        assert result['input_tokens'] == 130  # 100 + 20 + 10
-        assert result['output_tokens'] == 50
-        assert result['total_tokens'] == 180  # 130 + 50
+        assert _extract_usage(None) == {}
+        assert _extract_usage({}) == {}
 
     def test_only_cache_read(self) -> None:
-        result = extract_usage_metadata({'input_tokens': 50, 'cache_read_input_tokens': 10})
-        assert result['input_token_details'] == {'cache_read': 10}
+        result = _extract_usage({'input_tokens': 50, 'cache_read_input_tokens': 10})
+        assert result['gen_ai.usage.cache_read.input_tokens'] == 10
 
     def test_only_cache_create(self) -> None:
-        result = extract_usage_metadata({'output_tokens': 30, 'cache_creation_input_tokens': 5})
-        assert result['input_token_details'] == {'cache_creation': 5}
+        result = _extract_usage({'output_tokens': 30, 'cache_creation_input_tokens': 5})
+        assert result['gen_ai.usage.cache_creation.input_tokens'] == 5
 
     def test_non_dict_usage(self) -> None:
         class UsageObj:
@@ -444,21 +438,12 @@ class TestUsageMetadata:
             cache_read_input_tokens = None
             cache_creation_input_tokens = None
 
-        result = extract_usage_metadata(UsageObj())
-        assert result == {'input_tokens': 100, 'output_tokens': 50}
+        result = _extract_usage(UsageObj())
+        assert result == {'gen_ai.usage.input_tokens': 100, 'gen_ai.usage.output_tokens': 50}
 
     def test_invalid_token_values(self) -> None:
-        result = extract_usage_metadata({'input_tokens': 'not_a_number', 'output_tokens': None})
+        result = _extract_usage({'input_tokens': 'not_a_number', 'output_tokens': None})
         assert result == {}
-
-    def test_get_usage_from_result_empty(self) -> None:
-        assert get_usage_from_result(None) == {}
-        assert get_usage_from_result({}) == {}
-
-    def test_get_usage_no_cache(self) -> None:
-        result = get_usage_from_result({'input_tokens': 100, 'output_tokens': 50})
-        assert result['input_tokens'] == 100
-        assert result['total_tokens'] == 150
 
 
 # ---------------------------------------------------------------------------

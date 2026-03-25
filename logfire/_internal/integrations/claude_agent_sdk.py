@@ -12,6 +12,20 @@ import claude_agent_sdk
 from opentelemetry import context as context_api, trace as trace_api
 from opentelemetry.context import Context
 
+from logfire._internal.integrations.llm_providers.semconv import (
+    CONVERSATION_ID,
+    INPUT_MESSAGES,
+    INPUT_TOKENS,
+    OPERATION_NAME,
+    OUTPUT_MESSAGES,
+    OUTPUT_TOKENS,
+    PROVIDER_NAME,
+    RESPONSE_MODEL,
+    SYSTEM_INSTRUCTIONS,
+    OutputMessage,
+    TextPart,
+    ToolCallPart,
+)
 from logfire._internal.utils import handle_internal_errors
 
 if TYPE_CHECKING:
@@ -65,52 +79,54 @@ def _clear_active_tool_spans() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Utility functions for converting SDK types to serializable dicts.
+# Utility functions for converting SDK types to semconv part dicts.
 # ---------------------------------------------------------------------------
 
 
-def flatten_content_blocks(content: Any) -> Any:
-    """Convert SDK content block objects into serializable dicts."""
+def _content_blocks_to_output_messages(content: Any, model: str | None) -> list[OutputMessage]:
+    """Convert SDK content block objects into semconv OutputMessages."""
+    parts: list[Any] = []
     if not isinstance(content, list):
-        return content
+        return []
 
-    result: list[Any] = []
     for block in cast(list[Any], content):
         block_type: str = block.__class__.__name__
 
         if block_type == 'TextBlock':
-            result.append({'type': 'text', 'text': getattr(block, 'text', '')})
+            parts.append(TextPart(type='text', content=getattr(block, 'text', '')))
         elif block_type == 'ThinkingBlock':
-            result.append(
+            parts.append(
                 {
                     'type': 'thinking',
-                    'thinking': getattr(block, 'thinking', ''),
+                    'content': getattr(block, 'thinking', ''),
                     'signature': getattr(block, 'signature', ''),
                 }
             )
         elif block_type == 'ToolUseBlock':
-            result.append(
-                {
-                    'type': 'tool_use',
-                    'id': getattr(block, 'id', None),
-                    'name': getattr(block, 'name', None),
-                    'input': getattr(block, 'input', None),
-                }
+            part = ToolCallPart(
+                type='tool_call',
+                id=getattr(block, 'id', '') or '',
+                name=getattr(block, 'name', '') or '',
             )
+            tool_input = getattr(block, 'input', None)
+            if tool_input is not None:
+                part['arguments'] = tool_input
+            parts.append(part)
         elif block_type == 'ToolResultBlock':
             tool_content = getattr(block, 'content', None)
             content_text = _extract_tool_result_text(tool_content)
-            result.append(
+            parts.append(
                 {
-                    'type': 'tool_result',
-                    'tool_use_id': getattr(block, 'tool_use_id', None),
-                    'content': content_text,
-                    'is_error': getattr(block, 'is_error', False),
+                    'type': 'tool_call_response',
+                    'id': getattr(block, 'tool_use_id', '') or '',
+                    'response': content_text,
                 }
             )
         else:
-            result.append(block)
-    return result
+            parts.append(block)
+
+    msg = OutputMessage(role='assistant', parts=parts)
+    return [msg]
 
 
 def _extract_tool_result_text(content: Any) -> str:
@@ -133,8 +149,8 @@ def _extract_tool_result_text(content: Any) -> str:
     return str(content)
 
 
-def extract_usage_metadata(usage: Any) -> dict[str, Any]:
-    """Extract and normalize usage metrics from a Claude usage object or dict."""
+def _extract_usage(usage: Any) -> dict[str, int]:
+    """Extract usage metrics from a Claude usage object or dict."""
     if not usage:
         return {}
 
@@ -149,42 +165,20 @@ def extract_usage_metadata(usage: Any) -> dict[str, Any]:
         except (ValueError, TypeError):
             return None
 
-    meta: dict[str, Any] = {}
+    result: dict[str, int] = {}
     if (v := to_int(get('input_tokens'))) is not None:
-        meta['input_tokens'] = v
+        result[INPUT_TOKENS] = v
     if (v := to_int(get('output_tokens'))) is not None:
-        meta['output_tokens'] = v
+        result[OUTPUT_TOKENS] = v
 
     cache_read = to_int(get('cache_read_input_tokens'))
     cache_create = to_int(get('cache_creation_input_tokens'))
-    if cache_read is not None or cache_create is not None:
-        meta['input_token_details'] = {}
-        if cache_read is not None:
-            meta['input_token_details']['cache_read'] = cache_read
-        if cache_create is not None:
-            meta['input_token_details']['cache_creation'] = cache_create
+    if cache_read is not None:
+        result['gen_ai.usage.cache_read.input_tokens'] = cache_read
+    if cache_create is not None:
+        result['gen_ai.usage.cache_creation.input_tokens'] = cache_create
 
-    return meta
-
-
-def get_usage_from_result(usage: Any) -> dict[str, Any]:
-    """Extract usage metadata and compute totals."""
-    metrics = extract_usage_metadata(usage)
-    if not metrics:
-        return {}
-
-    details: dict[str, Any] = metrics.get('input_token_details') or {}
-    cache_read: int = details.get('cache_read', 0) or 0
-    cache_create: int = details.get('cache_creation', 0) or 0
-
-    input_tokens: int = (metrics.get('input_tokens') or 0) + cache_read + cache_create
-    output_tokens: int = metrics.get('output_tokens') or 0
-
-    return {
-        **metrics,
-        'input_tokens': input_tokens,
-        'total_tokens': input_tokens + output_tokens,
-    }
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -214,7 +208,11 @@ async def pre_tool_use_hook(
         parent_ctx = trace_api.set_span_in_context(parent_span)
         token = context_api.attach(parent_ctx)
         try:
-            span = logfire_instance.span(tool_name, tool_input=tool_input)
+            span = logfire_instance.span(f'execute_tool {tool_name}')
+            span.set_attribute(OPERATION_NAME, 'execute_tool')
+            span.set_attribute('gen_ai.tool.name', tool_name)
+            span.set_attribute('gen_ai.tool.call.id', tool_use_id)
+            span.set_attribute('gen_ai.tool.call.arguments', tool_input)
             span.__enter__()
             _active_tool_spans[tool_use_id] = (span, token)
         except Exception:  # pragma: no cover
@@ -241,7 +239,7 @@ async def post_tool_use_hook(
         span, token = entry
         tool_response = input_data.get('tool_response')
         if tool_response is not None:
-            span.set_attribute('tool_response', str(tool_response))
+            span.set_attribute('gen_ai.tool.call.result', str(tool_response))
         span.__exit__(None, None, None)
         context_api.detach(token)
 
@@ -264,7 +262,7 @@ async def post_tool_use_failure_hook(
 
         span, token = entry
         error = str(input_data.get('error', 'Unknown error'))
-        span.set_attribute('error', error)
+        span.set_attribute('error.type', error)
         span.__exit__(None, None, None)
         context_api.detach(token)
 
@@ -330,18 +328,19 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> AbstractContextMan
     @functools.wraps(original_receive_response)
     async def patched_receive_response(self: Any) -> AsyncGenerator[Any, None]:
         prompt = getattr(self, '_logfire_prompt', None)
-        span_data: dict[str, Any] = {}
+        span_data: dict[str, Any] = {
+            OPERATION_NAME: 'invoke_agent',
+            PROVIDER_NAME: 'anthropic',
+        }
         if prompt:  # pragma: no branch
-            span_data['prompt'] = prompt
+            span_data[INPUT_MESSAGES] = [{'role': 'user', 'parts': [TextPart(type='text', content=prompt)]}]
         if hasattr(self, 'options') and self.options:  # pragma: no branch
             system_prompt = getattr(self.options, 'system_prompt', None)
             if system_prompt:
-                if isinstance(system_prompt, str):
-                    span_data['system_prompt'] = system_prompt
-                else:
-                    span_data['system_prompt'] = str(system_prompt)
+                text = system_prompt if isinstance(system_prompt, str) else str(system_prompt)
+                span_data[SYSTEM_INSTRUCTIONS] = [TextPart(type='text', content=text)]
 
-        with logfire_claude.span('claude.conversation', **span_data) as root_span:
+        with logfire_claude.span('invoke_agent', **span_data) as root_span:
             _set_parent_span(root_span._span)  # pyright: ignore[reportPrivateUsage]
             _set_logfire_instance(logfire_claude)
             turn_tracker = _TurnTracker(logfire_claude)
@@ -419,16 +418,18 @@ class _TurnTracker:
         if self._current_span is not None:
             self._current_span.__exit__(None, None, None)
 
-        content = flatten_content_blocks(getattr(message, 'content', []))
         model = getattr(message, 'model', None)
+        content = getattr(message, 'content', [])
+        output_messages = _content_blocks_to_output_messages(content, model)
 
-        span_data: dict[str, Any] = {}
-        if content:  # pragma: no branch
-            span_data['content'] = content
+        span_data: dict[str, Any] = {OPERATION_NAME: 'chat'}
         if model:  # pragma: no branch
-            span_data['model'] = model
+            span_data[RESPONSE_MODEL] = model
+        if output_messages:  # pragma: no branch
+            span_data[OUTPUT_MESSAGES] = output_messages
 
-        self._current_span = self._logfire.span('claude.assistant.turn', **span_data)
+        span_name = f'chat {model}' if model else 'chat'
+        self._current_span = self._logfire.span(span_name, **span_data)
         self._current_span.__enter__()
 
     def close(self) -> None:
@@ -440,17 +441,25 @@ class _TurnTracker:
 def _record_result(span: LogfireSpan, msg: Any) -> None:
     """Record ResultMessage data onto the root span."""
     if hasattr(msg, 'usage') and msg.usage:
-        usage = get_usage_from_result(msg.usage)
+        usage = _extract_usage(msg.usage)
         for key, value in usage.items():
-            if key == 'input_token_details':
-                for detail_key, detail_value in value.items():
-                    span.set_attribute(f'usage.{key}.{detail_key}', detail_value)
-            else:
-                span.set_attribute(f'usage.{key}', value)
+            span.set_attribute(key, value)
+
+    model = getattr(msg, 'model', None)
+    if model:
+        span.set_attribute(RESPONSE_MODEL, model)
 
     if hasattr(msg, 'total_cost_usd') and msg.total_cost_usd is not None:
-        span.set_attribute('total_cost_usd', msg.total_cost_usd)
+        span.set_attribute('operation.cost', float(msg.total_cost_usd))
 
-    for attr in ('num_turns', 'session_id', 'duration_ms', 'is_error'):
+    session_id = getattr(msg, 'session_id', None)
+    if session_id is not None:
+        span.set_attribute(CONVERSATION_ID, session_id)
+
+    for attr in ('num_turns', 'duration_ms'):
         if (value := getattr(msg, attr, None)) is not None:  # pragma: no branch
             span.set_attribute(attr, value)
+
+    is_error = getattr(msg, 'is_error', None)
+    if is_error:
+        span.set_level('error')
