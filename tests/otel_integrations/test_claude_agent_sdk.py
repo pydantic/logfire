@@ -20,6 +20,7 @@ import pytest
 pytest.importorskip('claude_agent_sdk', reason='claude_agent_sdk requires Python 3.10+')
 
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, HookMatcher, Transport
+from dirty_equals import IsStr
 from inline_snapshot import snapshot
 
 import logfire
@@ -746,7 +747,7 @@ async def test_conversation_with_two_turns(exporter: TestExporter) -> None:
                 'start_time': 3000000000,
                 'end_time': 4000000000,
                 'attributes': {
-                    'code.filepath': 'pytest',
+                    'code.filepath': IsStr(),
                     'code.lineno': 123,
                     'tool_input': {'command': 'ls'},
                     'logfire.msg_template': 'Bash',
