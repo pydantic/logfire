@@ -1,4 +1,3 @@
-# ruff: noqa: E402
 # pyright: reportPrivateUsage=false
 """Tests for Claude Agent SDK instrumentation.
 
@@ -18,8 +17,9 @@ from unittest.mock import Mock
 import pytest
 
 # Must come before logfire internal imports which transitively import claude_agent_sdk
-claude_agent_sdk = pytest.importorskip('claude_agent_sdk', reason='claude_agent_sdk requires Python 3.10+')
+pytest.importorskip('claude_agent_sdk', reason='claude_agent_sdk requires Python 3.10+')
 
+from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, HookMatcher, Transport
 from inline_snapshot import snapshot
 
 import logfire
@@ -45,11 +45,6 @@ from logfire.testing import TestExporter
 # with del+gc.collect() because the SDK's internal reference chain keeps them alive until
 # the test function's frame is destroyed by pytest.
 pytestmark = pytest.mark.filterwarnings('ignore::pytest.PytestUnraisableExceptionWarning')
-
-ClaudeAgentOptions = claude_agent_sdk.ClaudeAgentOptions
-ClaudeSDKClient = claude_agent_sdk.ClaudeSDKClient
-HookMatcher = claude_agent_sdk.HookMatcher
-Transport = claude_agent_sdk.Transport
 
 
 # ---------------------------------------------------------------------------
@@ -617,7 +612,7 @@ def test_inject_hooks_idempotent() -> None:
 
 
 def test_inject_hooks_with_existing_events() -> None:
-    existing_hook = HookMatcher(matcher='existing', hooks=[lambda: None])
+    existing_hook = HookMatcher(matcher='existing', hooks=[pre_tool_use_hook])
 
     class Opts:
         hooks: dict[str, list[Any]] | None = {
