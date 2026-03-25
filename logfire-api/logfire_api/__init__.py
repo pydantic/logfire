@@ -201,7 +201,8 @@ except ImportError:
 
             def instrument_mcp(self, *args, **kwargs) -> None: ...
 
-            def url_from_eval(self, *args, **kwargs) -> None: ...
+            def url_from_eval(self, *args, **kwargs) -> str | None:
+                return None
 
             def shutdown(self, *args, **kwargs) -> None: ...
 
