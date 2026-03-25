@@ -191,6 +191,7 @@ nav:
           - Alerts: guides/web-ui/alerts.md
           - Saved Searches: guides/web-ui/saved-searches.md
           - Public Traces: guides/web-ui/public-traces.md
+          - Prompt Playground: guides/web-ui/prompt-playground.md
           - Write Dashboard Queries: how-to-guides/write-dashboard-queries.md
           - Setup Slack Alerts: how-to-guides/setup-slack-alerts.md
           - Detect Service is Down: how-to-guides/detect-service-is-down.md
@@ -301,6 +302,7 @@ markdown_extensions:
   - pymdownx.tasklist:
       custom_checkbox: true
   - sane_lists # this means you can start a list from any number
+  - pydantic_docs.mdext
 
 watch:
   - logfire
@@ -457,6 +459,7 @@ plugins:
           - guides/web-ui/alerts.md
           - guides/web-ui/saved-searches.md
           - guides/web-ui/public-traces.md
+          - guides/web-ui/prompt-playground.md
           - how-to-guides/write-dashboard-queries.md
           - how-to-guides/setup-slack-alerts.md
           - how-to-guides/detect-service-is-down.md
