@@ -294,6 +294,7 @@ def make_result(
     total_cost_usd: float | None = 0.01,
     cache_read: int | None = None,
     cache_create: int | None = None,
+    is_error: bool = False,
     usage: dict[str, Any] | None = ...,  # type: ignore[assignment]
 ) -> dict[str, Any]:
     """Build a result message for the mock transport."""
@@ -309,7 +310,7 @@ def make_result(
         'subtype': 'completion',
         'duration_ms': 500,
         'duration_api_ms': 400,
-        'is_error': False,
+        'is_error': is_error,
         'num_turns': 1,
         'session_id': 'sess_123',
         'usage': usage,
@@ -1235,6 +1236,24 @@ async def test_result_only(exporter: TestExporter) -> None:
             }
         ]
     )
+
+
+@pytest.mark.anyio
+async def test_error_result(exporter: TestExporter) -> None:
+    """Result with is_error=True sets span level to error."""
+    transport = MockTransport([ASSISTANT_HELLO, make_result(is_error=True)])
+    client = ClaudeSDKClient(options=ClaudeAgentOptions(), transport=transport)
+    try:
+        await client.connect()
+        await client.query('Hi')
+        [msg async for msg in client.receive_response()]
+    finally:
+        await client.disconnect()
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    root_span = spans[-1]
+    assert root_span['name'] == 'invoke_agent'
+    assert root_span['attributes']['logfire.level_num'] == snapshot(17)
 
 
 @pytest.mark.anyio
