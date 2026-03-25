@@ -1,3 +1,4 @@
+# ruff: noqa: E402
 # pyright: reportPrivateUsage=false, reportAttributeAccessIssue=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnnecessaryTypeIgnoreComment=false, reportUnusedFunction=false, reportUnnecessaryComparison=false, reportArgumentType=false
 """Tests for Claude Agent SDK instrumentation.
 
@@ -13,6 +14,10 @@ from typing import Any
 from unittest.mock import Mock
 
 import pytest
+
+# Must come before logfire internal imports which transitively import claude_agent_sdk
+claude_agent_sdk = pytest.importorskip('claude_agent_sdk', reason='claude_agent_sdk requires Python 3.10+')
+
 from inline_snapshot import snapshot
 
 import logfire
@@ -31,7 +36,6 @@ from logfire._internal.integrations.claude_agent_sdk import (
 )
 from logfire.testing import TestExporter
 
-claude_agent_sdk = pytest.importorskip('claude_agent_sdk', reason='claude_agent_sdk requires Python 3.10+')
 ClaudeAgentOptions = claude_agent_sdk.ClaudeAgentOptions
 ClaudeSDKClient = claude_agent_sdk.ClaudeSDKClient
 HookMatcher = claude_agent_sdk.HookMatcher
