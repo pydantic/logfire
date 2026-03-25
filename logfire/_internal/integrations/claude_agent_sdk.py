@@ -5,15 +5,17 @@ import logging
 import threading
 from collections.abc import AsyncGenerator, AsyncIterable
 from contextlib import AbstractContextManager, contextmanager
+from contextvars import Token
 from typing import TYPE_CHECKING, Any, cast
 
 import claude_agent_sdk
 from opentelemetry import context as context_api, trace as trace_api
+from opentelemetry.context import Context
 
 from logfire._internal.utils import handle_internal_errors
 
 if TYPE_CHECKING:
-    from logfire._internal.main import Logfire
+    from logfire._internal.main import Logfire, LogfireSpan
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +29,7 @@ logger = logging.getLogger(__name__)
 _thread_local = threading.local()
 
 # Active tool spans, keyed by tool_use_id.
-_active_tool_spans: dict[str, Any] = {}
+_active_tool_spans: dict[str, tuple[LogfireSpan, Token[Context]]] = {}
 
 
 def _set_parent_span(span: Any) -> None:
@@ -410,7 +412,7 @@ class _TurnTracker:
 
     def __init__(self, logfire_instance: Logfire) -> None:
         self._logfire = logfire_instance
-        self._current_span: Any | None = None
+        self._current_span: LogfireSpan | None = None
 
     def start_turn(self, message: Any) -> None:
         """Close previous turn span if open, open a new one."""
@@ -435,7 +437,7 @@ class _TurnTracker:
             self._current_span = None
 
 
-def _record_result(span: Any, msg: Any) -> None:
+def _record_result(span: LogfireSpan, msg: Any) -> None:
     """Record ResultMessage data onto the root span."""
     if hasattr(msg, 'usage') and msg.usage:
         usage = get_usage_from_result(msg.usage)
