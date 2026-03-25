@@ -289,9 +289,8 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> None:
 
         self._logfire_prompt = None
 
-        options = kwargs.get('options') or (args[0] if args else None)
-        if options:
-            _inject_tracing_hooks(options)
+        if self.options:
+            _inject_tracing_hooks(self.options)
 
     cls.__init__ = patched_init
     # --- Patch query ---
