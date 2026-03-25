@@ -379,33 +379,21 @@ class TestContentBlocksToOutputMessages:
         assert result[0]['parts'][0] is block
 
 
-class TestExtractToolResultText:
-    def test_none_content(self) -> None:
-        assert _extract_tool_result_text(None) == ''
-
-    def test_string_content(self) -> None:
-        assert _extract_tool_result_text('hello') == 'hello'
-
-    def test_dict_text_items(self) -> None:
-        items = [{'type': 'text', 'text': 'line1'}, {'type': 'text', 'text': 'line2'}]
-        assert _extract_tool_result_text(items) == 'line1\nline2'
-
-    def test_empty_list_fallback(self) -> None:
-        items: list[dict[str, str]] = [{'type': 'image'}]
-        assert _extract_tool_result_text(items) == str(items)
-
-    def test_non_list_non_string(self) -> None:
-        assert _extract_tool_result_text(42) == '42'
-
-    def test_list_with_hasattr_text(self) -> None:
-        item = Mock()
-        item.text = 'from attr'
-        assert _extract_tool_result_text([item]) == 'from attr'
-
-    def test_list_with_non_text_items(self) -> None:
-        """List item that is not a dict and has no .text attribute."""
-        result = _extract_tool_result_text([42, 'not a dict'])
-        assert result == str([42, 'not a dict'])
+def test_extract_tool_result_text() -> None:
+    assert _extract_tool_result_text(None) == ''
+    assert _extract_tool_result_text('hello') == 'hello'
+    assert (
+        _extract_tool_result_text([{'type': 'text', 'text': 'line1'}, {'type': 'text', 'text': 'line2'}])
+        == 'line1\nline2'
+    )
+    assert _extract_tool_result_text([{'type': 'image'}]) == str([{'type': 'image'}])
+    assert _extract_tool_result_text(42) == '42'
+    # Object with .text attribute
+    item = Mock()
+    item.text = 'from attr'
+    assert _extract_tool_result_text([item]) == 'from attr'
+    # List items that are not dicts and have no .text attribute
+    assert _extract_tool_result_text([42, 'not a dict']) == str([42, 'not a dict'])
 
 
 class TestExtractUsage:
