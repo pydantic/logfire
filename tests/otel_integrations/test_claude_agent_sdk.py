@@ -754,7 +754,7 @@ def test_inject_hooks_with_existing_events() -> None:
     existing_hook = HookMatcher(matcher='existing', hooks=[pre_tool_use_hook])
 
     class Opts:
-        hooks: dict[str, list[Any]] | None = {
+        hooks: dict[str, list[HookMatcher]] | None = {
             'PreToolUse': [existing_hook],
             'PostToolUse': [],
             'PostToolUseFailure': [],
