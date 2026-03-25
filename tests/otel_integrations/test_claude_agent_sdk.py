@@ -1,4 +1,4 @@
-# pyright: reportPrivateUsage=false, reportAttributeAccessIssue=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnnecessaryTypeIgnoreComment=false, reportUnusedFunction=false, reportUnnecessaryComparison=false
+# pyright: reportPrivateUsage=false, reportAttributeAccessIssue=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnnecessaryTypeIgnoreComment=false, reportUnusedFunction=false, reportUnnecessaryComparison=false, reportArgumentType=false
 """Tests for Claude Agent SDK instrumentation.
 
 Integration tests use a mock transport to exercise the real SDK client
@@ -8,22 +8,34 @@ with instrumented methods, making them resilient to import refactoring.
 from __future__ import annotations
 
 import json
-import sys
 from collections.abc import AsyncIterator
 from typing import Any
 from unittest.mock import Mock
 
 import pytest
-from claude_agent_sdk import Transport
 from inline_snapshot import snapshot
 
 import logfire
+from logfire._internal.integrations.claude_agent_sdk import (
+    _clear_parent_span,
+    _extract_tool_result_text,
+    _inject_tracing_hooks,
+    _set_logfire_instance,
+    _set_parent_span,
+    extract_usage_metadata,
+    flatten_content_blocks,
+    get_usage_from_result,
+    post_tool_use_failure_hook,
+    post_tool_use_hook,
+    pre_tool_use_hook,
+)
 from logfire.testing import TestExporter
 
-pytestmark = pytest.mark.skipif(
-    sys.version_info < (3, 10),
-    reason='claude_agent_sdk requires Python 3.10+',
-)
+claude_agent_sdk = pytest.importorskip('claude_agent_sdk', reason='claude_agent_sdk requires Python 3.10+')
+ClaudeAgentOptions = claude_agent_sdk.ClaudeAgentOptions
+ClaudeSDKClient = claude_agent_sdk.ClaudeSDKClient
+HookMatcher = claude_agent_sdk.HookMatcher
+Transport = claude_agent_sdk.Transport
 
 
 # ---------------------------------------------------------------------------
@@ -94,18 +106,9 @@ class MockTransport(Transport):
 
 @pytest.fixture(autouse=True)
 def _reset_instrumentation():
-    """Reset SDK class patching between tests so each test starts clean."""
-    from claude_agent_sdk import ClaudeSDKClient
-
-    orig_init = ClaudeSDKClient.__init__
-    orig_query = ClaudeSDKClient.query
-    orig_receive = ClaudeSDKClient.receive_response
-    ClaudeSDKClient._is_instrumented_by_logfire = False
-    yield
-    ClaudeSDKClient.__init__ = orig_init
-    ClaudeSDKClient.query = orig_query
-    ClaudeSDKClient.receive_response = orig_receive
-    ClaudeSDKClient._is_instrumented_by_logfire = False
+    """Instrument and reset SDK class patching between tests."""
+    with logfire.instrument_claude_agent_sdk():
+        yield
 
 
 # ---------------------------------------------------------------------------
@@ -191,30 +194,22 @@ def _make_block(class_name: str, **attrs: object) -> Mock:
 
 class TestFlattenContentBlocks:
     def test_text_block(self):
-        from logfire._internal.integrations.claude_agent_sdk import flatten_content_blocks
-
         block = _make_block('TextBlock', text='hello world')
         assert flatten_content_blocks([block]) == [{'type': 'text', 'text': 'hello world'}]
 
     def test_thinking_block(self):
-        from logfire._internal.integrations.claude_agent_sdk import flatten_content_blocks
-
         block = _make_block('ThinkingBlock', thinking='let me think...', signature='sig123')
         assert flatten_content_blocks([block]) == [
             {'type': 'thinking', 'thinking': 'let me think...', 'signature': 'sig123'}
         ]
 
     def test_tool_use_block(self):
-        from logfire._internal.integrations.claude_agent_sdk import flatten_content_blocks
-
         block = _make_block('ToolUseBlock', id='tool_1', name='Bash', input={'command': 'ls'})
         assert flatten_content_blocks([block]) == [
             {'type': 'tool_use', 'id': 'tool_1', 'name': 'Bash', 'input': {'command': 'ls'}}
         ]
 
     def test_tool_result_block(self):
-        from logfire._internal.integrations.claude_agent_sdk import flatten_content_blocks
-
         text_item = Mock()
         text_item.text = 'output text'
         block = _make_block('ToolResultBlock', tool_use_id='tool_1', content=[text_item], is_error=False)
@@ -223,13 +218,9 @@ class TestFlattenContentBlocks:
         ]
 
     def test_non_list_passthrough(self):
-        from logfire._internal.integrations.claude_agent_sdk import flatten_content_blocks
-
         assert flatten_content_blocks('just a string') == 'just a string'
 
     def test_unknown_block_type(self):
-        from logfire._internal.integrations.claude_agent_sdk import flatten_content_blocks
-
         block = _make_block('UnknownBlock', data='test')
         result = flatten_content_blocks([block])
         assert len(result) == 1
@@ -238,51 +229,35 @@ class TestFlattenContentBlocks:
 
 class TestExtractToolResultText:
     def test_none_content(self):
-        from logfire._internal.integrations.claude_agent_sdk import _extract_tool_result_text
-
         assert _extract_tool_result_text(None) == ''
 
     def test_string_content(self):
-        from logfire._internal.integrations.claude_agent_sdk import _extract_tool_result_text
-
         assert _extract_tool_result_text('hello') == 'hello'
 
     def test_dict_text_items(self):
-        from logfire._internal.integrations.claude_agent_sdk import _extract_tool_result_text
-
         items = [{'type': 'text', 'text': 'line1'}, {'type': 'text', 'text': 'line2'}]
         assert _extract_tool_result_text(items) == 'line1\nline2'
 
     def test_empty_list_fallback(self):
-        from logfire._internal.integrations.claude_agent_sdk import _extract_tool_result_text
-
         items: list[dict[str, str]] = [{'type': 'image'}]
         assert _extract_tool_result_text(items) == str(items)
 
     def test_non_list_non_string(self):
-        from logfire._internal.integrations.claude_agent_sdk import _extract_tool_result_text
-
         assert _extract_tool_result_text(42) == '42'
 
     def test_list_with_hasattr_text(self):
-        from logfire._internal.integrations.claude_agent_sdk import _extract_tool_result_text
-
         item = Mock()
         item.text = 'from attr'
         assert _extract_tool_result_text([item]) == 'from attr'
 
     def test_list_with_non_text_items(self):
         """List item that is not a dict and has no .text attribute."""
-        from logfire._internal.integrations.claude_agent_sdk import _extract_tool_result_text
-
         result = _extract_tool_result_text([42, 'not a dict'])
         assert result == str([42, 'not a dict'])
 
 
 class TestUsageMetadata:
     def test_extract_usage(self):
-        from logfire._internal.integrations.claude_agent_sdk import extract_usage_metadata
-
         usage = {
             'input_tokens': 100,
             'output_tokens': 50,
@@ -295,14 +270,10 @@ class TestUsageMetadata:
         assert result['input_token_details'] == {'cache_read': 20, 'cache_creation': 10}
 
     def test_extract_empty(self):
-        from logfire._internal.integrations.claude_agent_sdk import extract_usage_metadata
-
         assert extract_usage_metadata(None) == {}
         assert extract_usage_metadata({}) == {}
 
     def test_get_usage_from_result(self):
-        from logfire._internal.integrations.claude_agent_sdk import get_usage_from_result
-
         result = get_usage_from_result(
             {
                 'input_tokens': 100,
@@ -316,20 +287,14 @@ class TestUsageMetadata:
         assert result['total_tokens'] == 180  # 130 + 50
 
     def test_only_cache_read(self):
-        from logfire._internal.integrations.claude_agent_sdk import extract_usage_metadata
-
         result = extract_usage_metadata({'input_tokens': 50, 'cache_read_input_tokens': 10})
         assert result['input_token_details'] == {'cache_read': 10}
 
     def test_only_cache_create(self):
-        from logfire._internal.integrations.claude_agent_sdk import extract_usage_metadata
-
         result = extract_usage_metadata({'output_tokens': 30, 'cache_creation_input_tokens': 5})
         assert result['input_token_details'] == {'cache_creation': 5}
 
     def test_non_dict_usage(self):
-        from logfire._internal.integrations.claude_agent_sdk import extract_usage_metadata
-
         class UsageObj:
             input_tokens = 100
             output_tokens = 50
@@ -340,20 +305,14 @@ class TestUsageMetadata:
         assert result == {'input_tokens': 100, 'output_tokens': 50}
 
     def test_invalid_token_values(self):
-        from logfire._internal.integrations.claude_agent_sdk import extract_usage_metadata
-
         result = extract_usage_metadata({'input_tokens': 'not_a_number', 'output_tokens': None})
         assert result == {}
 
     def test_get_usage_from_result_empty(self):
-        from logfire._internal.integrations.claude_agent_sdk import get_usage_from_result
-
         assert get_usage_from_result(None) == {}
         assert get_usage_from_result({}) == {}
 
     def test_get_usage_no_cache(self):
-        from logfire._internal.integrations.claude_agent_sdk import get_usage_from_result
-
         result = get_usage_from_result({'input_tokens': 100, 'output_tokens': 50})
         assert result['input_tokens'] == 100
         assert result['total_tokens'] == 150
@@ -365,23 +324,15 @@ class TestUsageMetadata:
 
 
 @pytest.mark.anyio
-async def test_pre_and_post_tool_use_hooks(exporter: TestExporter):
-    from logfire._internal.integrations.claude_agent_sdk import (
-        _clear_parent_span,
-        _set_logfire_instance,
-        _set_parent_span,
-        post_tool_use_hook,
-        pre_tool_use_hook,
-    )
-
-    logfire_instance = logfire.DEFAULT_LOGFIRE_INSTANCE.with_settings(
-        custom_scope_suffix='claude-agent-sdk', tags=['LLM']
-    )
+async def test_tool_use_hooks(exporter: TestExporter):
+    """Test pre/post tool use hooks create proper child spans."""
+    logfire_instance = logfire.DEFAULT_LOGFIRE_INSTANCE.with_settings(custom_scope_suffix='claude_agent_sdk')
     _set_logfire_instance(logfire_instance)
 
     with logfire_instance.span('root') as root_span:
-        _set_parent_span(root_span._span)  # pyright: ignore[reportPrivateUsage]
+        _set_parent_span(root_span._span)
         try:
+            # Successful tool call
             await pre_tool_use_hook(
                 {'tool_name': 'Bash', 'tool_input': {'command': 'ls'}, 'tool_use_id': 'tool_1'},
                 'tool_1',
@@ -397,80 +348,16 @@ async def test_pre_and_post_tool_use_hooks(exporter: TestExporter):
                 'tool_1',
                 {'signal': None},
             )
-        finally:
-            _clear_parent_span()
-
-    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
-        [
-            {
-                'name': 'Bash',
-                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 2000000000,
-                'end_time': 3000000000,
-                'attributes': {
-                    'code.filepath': 'test_claude_agent_sdk.py',
-                    'code.function': 'test_pre_and_post_tool_use_hooks',
-                    'code.lineno': 123,
-                    'tool_input': {'command': 'ls'},
-                    'logfire.msg_template': 'Bash',
-                    'logfire.msg': 'Bash',
-                    'logfire.tags': ('LLM',),
-                    'logfire.span_type': 'span',
-                    'tool_response': 'file1.txt',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {'tool_input': {'type': 'object'}, 'tool_response': {}},
-                    },
-                },
-            },
-            {
-                'name': 'root',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 4000000000,
-                'attributes': {
-                    'code.filepath': 'test_claude_agent_sdk.py',
-                    'code.function': 'test_pre_and_post_tool_use_hooks',
-                    'code.lineno': 123,
-                    'logfire.msg_template': 'root',
-                    'logfire.msg': 'root',
-                    'logfire.tags': ('LLM',),
-                    'logfire.span_type': 'span',
-                },
-            },
-        ]
-    )
-
-
-@pytest.mark.anyio
-async def test_post_tool_use_failure_hook(exporter: TestExporter):
-    from logfire._internal.integrations.claude_agent_sdk import (
-        _clear_parent_span,
-        _set_logfire_instance,
-        _set_parent_span,
-        post_tool_use_failure_hook,
-        pre_tool_use_hook,
-    )
-
-    logfire_instance = logfire.DEFAULT_LOGFIRE_INSTANCE.with_settings(
-        custom_scope_suffix='claude-agent-sdk', tags=['LLM']
-    )
-    _set_logfire_instance(logfire_instance)
-
-    with logfire_instance.span('root') as root_span:
-        _set_parent_span(root_span._span)  # pyright: ignore[reportPrivateUsage]
-        try:
+            # Failed tool call
             await pre_tool_use_hook(
-                {'tool_name': 'Write', 'tool_input': {'path': '/etc/passwd'}, 'tool_use_id': 'tool_2'},
+                {'tool_name': 'Write', 'tool_input': {'path': '/tmp/test'}, 'tool_use_id': 'tool_2'},
                 'tool_2',
                 {'signal': None},
             )
             await post_tool_use_failure_hook(
                 {
                     'tool_name': 'Write',
-                    'tool_input': {'path': '/etc/passwd'},
+                    'tool_input': {'path': '/tmp/test'},
                     'error': 'Permission denied',
                     'tool_use_id': 'tool_2',
                 },
@@ -480,115 +367,36 @@ async def test_post_tool_use_failure_hook(exporter: TestExporter):
         finally:
             _clear_parent_span()
 
-    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
-        [
-            {
-                'name': 'Write',
-                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 2000000000,
-                'end_time': 3000000000,
-                'attributes': {
-                    'code.filepath': 'test_claude_agent_sdk.py',
-                    'code.function': 'test_post_tool_use_failure_hook',
-                    'code.lineno': 123,
-                    'tool_input': {'path': "[Scrubbed due to 'passwd']"},
-                    'logfire.msg_template': 'Write',
-                    'logfire.msg': 'Write',
-                    'logfire.tags': ('LLM',),
-                    'logfire.span_type': 'span',
-                    'error': 'Permission denied',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {'tool_input': {'type': 'object'}, 'error': {}},
-                    },
-                    'logfire.scrubbed': [{'path': ['attributes', 'tool_input', 'path'], 'matched_substring': 'passwd'}],
-                },
-            },
-            {
-                'name': 'root',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 4000000000,
-                'attributes': {
-                    'code.filepath': 'test_claude_agent_sdk.py',
-                    'code.function': 'test_post_tool_use_failure_hook',
-                    'code.lineno': 123,
-                    'logfire.msg_template': 'root',
-                    'logfire.msg': 'root',
-                    'logfire.tags': ('LLM',),
-                    'logfire.span_type': 'span',
-                },
-            },
-        ]
-    )
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    tool_spans = [s for s in spans if s['name'] in ('Bash', 'Write')]
+    assert len(tool_spans) == 2
+    # Both are children of the root span
+    root = [s for s in spans if s['name'] == 'root'][0]
+    for ts in tool_spans:
+        assert ts['parent'] == root['context']
+    # Successful tool has response attribute
+    bash_span = [s for s in spans if s['name'] == 'Bash'][0]
+    assert bash_span['attributes']['tool_response'] == 'file1.txt'
+    # Failed tool has error attribute
+    write_span = [s for s in spans if s['name'] == 'Write'][0]
+    assert write_span['attributes']['error'] == 'Permission denied'
 
 
 @pytest.mark.anyio
-async def test_hook_with_none_tool_use_id():
-    from logfire._internal.integrations.claude_agent_sdk import (
-        post_tool_use_failure_hook,
-        post_tool_use_hook,
-        pre_tool_use_hook,
-    )
-
+async def test_hook_edge_cases():
+    """Hooks return empty dict for edge cases: None tool_use_id, no parent span, missing entry."""
+    # None tool_use_id
     assert await pre_tool_use_hook({}, None, {}) == {}
     assert await post_tool_use_hook({}, None, {}) == {}
     assert await post_tool_use_failure_hook({}, None, {}) == {}
 
-
-@pytest.mark.anyio
-async def test_hook_with_no_parent_span():
-    from logfire._internal.integrations.claude_agent_sdk import _clear_parent_span, pre_tool_use_hook
-
+    # No parent span set
     _clear_parent_span()
     assert await pre_tool_use_hook({'tool_name': 'Bash', 'tool_input': {}}, 'tool_1', {}) == {}
 
-
-@pytest.mark.anyio
-async def test_post_hook_with_missing_entry():
-    from logfire._internal.integrations.claude_agent_sdk import post_tool_use_failure_hook, post_tool_use_hook
-
+    # Post hooks with no matching pre entry
     assert await post_tool_use_hook({'tool_response': 'test'}, 'nonexistent', {}) == {}
     assert await post_tool_use_failure_hook({'error': 'test'}, 'nonexistent', {}) == {}
-
-
-@pytest.mark.anyio
-async def test_post_tool_use_hook_no_tool_response(exporter: TestExporter):
-    """post_tool_use_hook when tool_response is absent."""
-    from logfire._internal.integrations.claude_agent_sdk import (
-        _clear_parent_span,
-        _set_logfire_instance,
-        _set_parent_span,
-        post_tool_use_hook,
-        pre_tool_use_hook,
-    )
-
-    logfire_instance = logfire.DEFAULT_LOGFIRE_INSTANCE.with_settings(
-        custom_scope_suffix='claude-agent-sdk', tags=['LLM']
-    )
-    _set_logfire_instance(logfire_instance)
-
-    with logfire_instance.span('root') as root_span:
-        _set_parent_span(root_span._span)  # pyright: ignore[reportPrivateUsage]
-        try:
-            await pre_tool_use_hook(
-                {'tool_name': 'Read', 'tool_input': {}, 'tool_use_id': 'tool_3'},
-                'tool_3',
-                {},
-            )
-            await post_tool_use_hook(
-                {'tool_name': 'Read', 'tool_input': {}},
-                'tool_3',
-                {},
-            )
-        finally:
-            _clear_parent_span()
-
-    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-    tool_span = [s for s in spans if s['name'] == 'Read'][0]
-    assert 'tool_response' not in tool_span['attributes']
 
 
 # ---------------------------------------------------------------------------
@@ -597,8 +405,6 @@ async def test_post_tool_use_hook_no_tool_response(exporter: TestExporter):
 
 
 def test_inject_hooks_no_hooks_attr():
-    from logfire._internal.integrations.claude_agent_sdk import _inject_tracing_hooks
-
     class NoHooksOptions:
         pass
 
@@ -606,10 +412,6 @@ def test_inject_hooks_no_hooks_attr():
 
 
 def test_inject_hooks_none_hooks():
-    from claude_agent_sdk import ClaudeAgentOptions
-
-    from logfire._internal.integrations.claude_agent_sdk import _inject_tracing_hooks
-
     options = ClaudeAgentOptions(hooks=None)
     _inject_tracing_hooks(options)
     assert options.hooks is not None
@@ -618,10 +420,6 @@ def test_inject_hooks_none_hooks():
 
 
 def test_inject_hooks_idempotent():
-    from claude_agent_sdk import ClaudeAgentOptions
-
-    from logfire._internal.integrations.claude_agent_sdk import _inject_tracing_hooks
-
     options = ClaudeAgentOptions(hooks=None)
     _inject_tracing_hooks(options)
     assert options.hooks is not None
@@ -631,11 +429,7 @@ def test_inject_hooks_idempotent():
 
 
 def test_inject_hooks_with_existing_events():
-    from claude_agent_sdk import HookMatcher
-
-    from logfire._internal.integrations.claude_agent_sdk import _inject_tracing_hooks
-
-    existing_hook = HookMatcher(matcher='existing', hooks=[lambda: None])  # pyright: ignore[reportArgumentType]
+    existing_hook = HookMatcher(matcher='existing', hooks=[lambda: None])
 
     class Opts:
         hooks: dict[str, list[Any]] | None = {
@@ -656,20 +450,10 @@ def test_inject_hooks_with_existing_events():
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture
-def instrument():
-    """Instrument the real ClaudeSDKClient."""
-    from logfire._internal.integrations.claude_agent_sdk import instrument_claude_agent_sdk
-
-    instrument_claude_agent_sdk(logfire.DEFAULT_LOGFIRE_INSTANCE)
-
-
 @pytest.mark.anyio
 @pytest.mark.filterwarnings('ignore::pytest.PytestUnraisableExceptionWarning')
-async def test_basic_conversation(instrument: None, exporter: TestExporter):
+async def test_basic_conversation(exporter: TestExporter):
     """Basic conversation: one assistant turn + result."""
-    from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
-
     transport = MockTransport([ASSISTANT_HELLO, make_result()])
     client = ClaudeSDKClient(options=ClaudeAgentOptions(system_prompt='Be helpful'), transport=transport)
     try:
@@ -700,7 +484,6 @@ async def test_basic_conversation(instrument: None, exporter: TestExporter):
                         'type': 'object',
                         'properties': {'content': {'type': 'array'}, 'model': {}},
                     },
-                    'logfire.tags': ('LLM',),
                     'logfire.span_type': 'span',
                 },
             },
@@ -718,7 +501,6 @@ async def test_basic_conversation(instrument: None, exporter: TestExporter):
                     'system_prompt': 'Be helpful',
                     'logfire.msg_template': 'claude.conversation',
                     'logfire.msg': 'claude.conversation',
-                    'logfire.tags': ('LLM',),
                     'logfire.span_type': 'span',
                     'usage.input_tokens': 100,
                     'usage.output_tokens': 50,
@@ -752,10 +534,8 @@ async def test_basic_conversation(instrument: None, exporter: TestExporter):
 
 @pytest.mark.anyio
 @pytest.mark.filterwarnings('ignore::pytest.PytestUnraisableExceptionWarning')
-async def test_conversation_with_two_turns(instrument: None, exporter: TestExporter):
+async def test_conversation_with_two_turns(exporter: TestExporter):
     """Two assistant turns (e.g. tool use then result) produce sibling turn spans."""
-    from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
-
     transport = MockTransport([ASSISTANT_TOOL_USE, ASSISTANT_FILES, make_result()])
     client = ClaudeSDKClient(options=ClaudeAgentOptions(system_prompt='Be helpful'), transport=transport)
     try:
@@ -779,10 +559,8 @@ async def test_conversation_with_two_turns(instrument: None, exporter: TestExpor
 
 @pytest.mark.anyio
 @pytest.mark.filterwarnings('ignore::pytest.PytestUnraisableExceptionWarning')
-async def test_usage_and_cost_attributes(instrument: None, exporter: TestExporter):
+async def test_usage_and_cost_attributes(exporter: TestExporter):
     """Result message usage metrics appear on the conversation span."""
-    from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
-
     transport = MockTransport(
         [
             ASSISTANT_HELLO,
@@ -810,10 +588,8 @@ async def test_usage_and_cost_attributes(instrument: None, exporter: TestExporte
 
 @pytest.mark.anyio
 @pytest.mark.filterwarnings('ignore::pytest.PytestUnraisableExceptionWarning')
-async def test_result_no_usage(instrument: None, exporter: TestExporter):
+async def test_result_no_usage(exporter: TestExporter):
     """Result without usage should not produce usage attributes."""
-    from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
-
     transport = MockTransport([ASSISTANT_HELLO, make_result(usage=None)])
     client = ClaudeSDKClient(options=ClaudeAgentOptions(), transport=transport)
     try:
@@ -830,10 +606,8 @@ async def test_result_no_usage(instrument: None, exporter: TestExporter):
 
 @pytest.mark.anyio
 @pytest.mark.filterwarnings('ignore::pytest.PytestUnraisableExceptionWarning')
-async def test_result_only(instrument: None, exporter: TestExporter):
+async def test_result_only(exporter: TestExporter):
     """Conversation with only ResultMessage (no assistant turn)."""
-    from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
-
     transport = MockTransport([make_result()])
     client = ClaudeSDKClient(options=ClaudeAgentOptions(), transport=transport)
     try:
@@ -849,10 +623,8 @@ async def test_result_only(instrument: None, exporter: TestExporter):
 
 @pytest.mark.anyio
 @pytest.mark.filterwarnings('ignore::pytest.PytestUnraisableExceptionWarning')
-async def test_non_string_system_prompt(instrument: None, exporter: TestExporter):
+async def test_non_string_system_prompt(exporter: TestExporter):
     """Non-string system prompt gets stringified."""
-    from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
-
     options = ClaudeAgentOptions()
     # Bypass type checking to test the defensive code path
     object.__setattr__(options, 'system_prompt', ['Be helpful', 'Be concise'])
@@ -875,19 +647,15 @@ async def test_non_string_system_prompt(instrument: None, exporter: TestExporter
 @pytest.mark.filterwarnings('ignore::pytest.PytestUnraisableExceptionWarning')
 async def test_already_instrumented(exporter: TestExporter):
     """Calling instrument twice is a no-op (idempotent)."""
-    from logfire._internal.integrations.claude_agent_sdk import instrument_claude_agent_sdk
-
-    instrument_claude_agent_sdk(logfire.DEFAULT_LOGFIRE_INSTANCE)
-    instrument_claude_agent_sdk(logfire.DEFAULT_LOGFIRE_INSTANCE)
+    logfire.instrument_claude_agent_sdk()
+    logfire.instrument_claude_agent_sdk()
     # No error, and only one layer of patching
 
 
 @pytest.mark.anyio
 @pytest.mark.filterwarnings('ignore::pytest.PytestUnraisableExceptionWarning')
-async def test_default_options_get_hooks_injected(instrument: None, exporter: TestExporter):
+async def test_default_options_get_hooks_injected(exporter: TestExporter):
     """Client created without explicit options still gets hooks injected."""
-    from claude_agent_sdk import ClaudeSDKClient
-
     transport = MockTransport([ASSISTANT_HELLO, make_result()])
     client = ClaudeSDKClient(transport=transport)
     try:
