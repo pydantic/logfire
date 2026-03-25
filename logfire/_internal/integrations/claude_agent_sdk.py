@@ -69,6 +69,14 @@ def _get_logfire_instance() -> Logfire | None:
     return getattr(_thread_local, 'logfire_instance', None)
 
 
+def _set_turn_tracker(tracker: _TurnTracker) -> None:
+    _thread_local.turn_tracker = tracker
+
+
+def _get_turn_tracker() -> _TurnTracker | None:
+    return getattr(_thread_local, 'turn_tracker', None)
+
+
 def _clear_active_tool_spans() -> None:
     """End any orphaned tool spans and clear the dict."""
     for tool_use_id, (span, token) in _active_tool_spans.items():
@@ -245,6 +253,14 @@ async def post_tool_use_hook(
         span.__exit__(None, None, None)
         context_api.detach(token)
 
+        # Record tool result for the next chat span's input messages
+        turn_tracker = _get_turn_tracker()
+        if turn_tracker is not None:
+            tool_name = str(input_data.get('tool_name', 'unknown_tool'))
+            turn_tracker.add_tool_result(
+                tool_use_id, tool_name, str(tool_response) if tool_response is not None else ''
+            )
+
     return {}
 
 
@@ -330,12 +346,17 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> AbstractContextMan
     @functools.wraps(original_receive_response)
     async def patched_receive_response(self: Any) -> AsyncGenerator[Any, None]:
         prompt = getattr(self, '_logfire_prompt', None)
+        input_messages: list[dict[str, Any]] = []
+        if prompt:  # pragma: no branch
+            input_messages = [{'role': 'user', 'parts': [TextPart(type='text', content=prompt)]}]
+
         span_data: dict[str, Any] = {
             OPERATION_NAME: 'invoke_agent',
             PROVIDER_NAME: 'anthropic',
+            'gen_ai.system': 'anthropic',
         }
-        if prompt:  # pragma: no branch
-            span_data[INPUT_MESSAGES] = [{'role': 'user', 'parts': [TextPart(type='text', content=prompt)]}]
+        if input_messages:  # pragma: no branch
+            span_data[INPUT_MESSAGES] = input_messages
         if hasattr(self, 'options') and self.options:  # pragma: no branch
             system_prompt = getattr(self.options, 'system_prompt', None)
             if system_prompt:
@@ -347,7 +368,8 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> AbstractContextMan
             if otel_span is not None:
                 _set_parent_span(otel_span)
             _set_logfire_instance(logfire_claude)
-            turn_tracker = _TurnTracker(logfire_claude)
+            turn_tracker = _TurnTracker(logfire_claude, input_messages)
+            _set_turn_tracker(turn_tracker)
 
             try:
                 async for msg in original_receive_response(self):
@@ -407,11 +429,28 @@ def _inject_tracing_hooks(options: Any) -> None:
 
 
 class _TurnTracker:
-    """Track assistant turn spans so consecutive turns are recorded as siblings."""
+    """Track assistant turn spans so consecutive turns are recorded as siblings.
 
-    def __init__(self, logfire_instance: Logfire) -> None:
+    Also tracks input messages for each turn: the first turn gets the user prompt,
+    subsequent turns get tool result messages accumulated between turns.
+    """
+
+    def __init__(self, logfire_instance: Logfire, initial_input_messages: list[dict[str, Any]]) -> None:
         self._logfire = logfire_instance
         self._current_span: LogfireSpan | None = None
+        # Input messages for the next chat span.
+        # Starts with the user prompt; after each turn, accumulates tool results.
+        self._pending_input: list[dict[str, Any]] = list(initial_input_messages)
+
+    def add_tool_result(self, tool_use_id: str, tool_name: str, result: str) -> None:
+        """Record a tool result to include in the next chat span's input messages."""
+        self._pending_input.append(
+            {
+                'role': 'tool',
+                'name': tool_name,
+                'parts': [{'type': 'tool_call_response', 'id': tool_use_id, 'response': result}],
+            }
+        )
 
     def start_turn(self, message: AssistantMessage) -> None:
         """Close previous turn span if open, open a new one."""
@@ -422,15 +461,35 @@ class _TurnTracker:
         content = getattr(message, 'content', [])
         output_messages = _content_blocks_to_output_messages(content)
 
-        span_data: dict[str, Any] = {OPERATION_NAME: 'chat'}
+        span_data: dict[str, Any] = {
+            OPERATION_NAME: 'chat',
+            PROVIDER_NAME: 'anthropic',
+            'gen_ai.system': 'anthropic',
+        }
         if model:  # pragma: no branch
             span_data[RESPONSE_MODEL] = model
         if output_messages:  # pragma: no branch
             span_data[OUTPUT_MESSAGES] = output_messages
+        if self._pending_input:
+            span_data[INPUT_MESSAGES] = self._pending_input
+
+        # Per-turn token usage from AssistantMessage.usage
+        usage = getattr(message, 'usage', None)
+        if usage:
+            for key, value in _extract_usage(usage).items():
+                span_data[key] = value
 
         span_name = f'chat {model}' if model else 'chat'
         self._current_span = self._logfire.span(span_name, **span_data)
         self._current_span.__enter__()
+
+        # Set error if the assistant message indicates an error
+        error = getattr(message, 'error', None)
+        if error:
+            self._current_span.set_attribute('error.type', str(error))
+
+        # Reset pending input — next turn will collect tool results
+        self._pending_input = []
 
     def close(self) -> None:
         if self._current_span is not None:

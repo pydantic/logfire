@@ -798,18 +798,24 @@ async def test_basic_conversation(exporter: TestExporter) -> None:
                     'code.function': 'test_basic_conversation',
                     'code.lineno': 123,
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.system': 'anthropic',
                     'gen_ai.response.model': 'claude-sonnet-4-20250514',
                     'gen_ai.output.messages': [
                         {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Hello! How can I help?'}]}
                     ],
+                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'What is 2+2?'}]}],
                     'logfire.msg_template': 'chat claude-sonnet-4-20250514',
                     'logfire.msg': 'chat claude-sonnet-4-20250514',
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
                             'gen_ai.operation.name': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'gen_ai.response.model': {},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.input.messages': {'type': 'array'},
                         },
                     },
                     'logfire.span_type': 'span',
@@ -827,6 +833,7 @@ async def test_basic_conversation(exporter: TestExporter) -> None:
                     'code.lineno': 123,
                     'gen_ai.operation.name': 'invoke_agent',
                     'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.system': 'anthropic',
                     'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'What is 2+2?'}]}],
                     'gen_ai.system_instructions': [{'type': 'text', 'content': 'Be helpful'}],
                     'logfire.msg_template': 'invoke_agent',
@@ -843,6 +850,7 @@ async def test_basic_conversation(exporter: TestExporter) -> None:
                         'properties': {
                             'gen_ai.operation.name': {},
                             'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'gen_ai.input.messages': {'type': 'array'},
                             'gen_ai.system_instructions': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
@@ -916,6 +924,8 @@ async def test_conversation_with_two_turns(exporter: TestExporter) -> None:
                     'code.function': 'test_conversation_with_two_turns',
                     'code.lineno': 123,
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.system': 'anthropic',
                     'gen_ai.response.model': 'claude-sonnet-4-20250514',
                     'gen_ai.output.messages': [
                         {
@@ -925,14 +935,18 @@ async def test_conversation_with_two_turns(exporter: TestExporter) -> None:
                             ],
                         }
                     ],
+                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'List files'}]}],
                     'logfire.msg_template': 'chat claude-sonnet-4-20250514',
                     'logfire.msg': 'chat claude-sonnet-4-20250514',
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
                             'gen_ai.operation.name': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'gen_ai.response.model': {},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.input.messages': {'type': 'array'},
                         },
                     },
                     'logfire.span_type': 'span',
@@ -949,11 +963,20 @@ async def test_conversation_with_two_turns(exporter: TestExporter) -> None:
                     'code.function': 'test_conversation_with_two_turns',
                     'code.lineno': 123,
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.system': 'anthropic',
                     'gen_ai.response.model': 'claude-sonnet-4-20250514',
                     'gen_ai.output.messages': [
                         {
                             'role': 'assistant',
                             'parts': [{'type': 'text', 'content': 'Here are the files: file1.txt, file2.txt'}],
+                        }
+                    ],
+                    'gen_ai.input.messages': [
+                        {
+                            'role': 'tool',
+                            'name': 'Bash',
+                            'parts': [{'type': 'tool_call_response', 'id': 'tool_1', 'response': 'mock_response'}],
                         }
                     ],
                     'logfire.msg_template': 'chat claude-sonnet-4-20250514',
@@ -962,8 +985,11 @@ async def test_conversation_with_two_turns(exporter: TestExporter) -> None:
                         'type': 'object',
                         'properties': {
                             'gen_ai.operation.name': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'gen_ai.response.model': {},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.input.messages': {'type': 'array'},
                         },
                     },
                     'logfire.span_type': 'span',
@@ -981,6 +1007,7 @@ async def test_conversation_with_two_turns(exporter: TestExporter) -> None:
                     'code.lineno': 123,
                     'gen_ai.operation.name': 'invoke_agent',
                     'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.system': 'anthropic',
                     'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'List files'}]}],
                     'gen_ai.system_instructions': [{'type': 'text', 'content': 'Be helpful'}],
                     'logfire.msg_template': 'invoke_agent',
@@ -997,6 +1024,7 @@ async def test_conversation_with_two_turns(exporter: TestExporter) -> None:
                         'properties': {
                             'gen_ai.operation.name': {},
                             'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'gen_ai.input.messages': {'type': 'array'},
                             'gen_ai.system_instructions': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
@@ -1073,6 +1101,8 @@ async def test_tool_use_failure(exporter: TestExporter) -> None:
                     'code.function': 'test_tool_use_failure',
                     'code.lineno': 123,
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.system': 'anthropic',
                     'gen_ai.response.model': 'claude-sonnet-4-20250514',
                     'gen_ai.output.messages': [
                         {
@@ -1082,14 +1112,18 @@ async def test_tool_use_failure(exporter: TestExporter) -> None:
                             ],
                         }
                     ],
+                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'List files'}]}],
                     'logfire.msg_template': 'chat claude-sonnet-4-20250514',
                     'logfire.msg': 'chat claude-sonnet-4-20250514',
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
                             'gen_ai.operation.name': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'gen_ai.response.model': {},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.input.messages': {'type': 'array'},
                         },
                     },
                     'logfire.span_type': 'span',
@@ -1106,6 +1140,8 @@ async def test_tool_use_failure(exporter: TestExporter) -> None:
                     'code.function': 'test_tool_use_failure',
                     'code.lineno': 123,
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.system': 'anthropic',
                     'gen_ai.response.model': 'claude-sonnet-4-20250514',
                     'gen_ai.output.messages': [
                         {
@@ -1119,6 +1155,8 @@ async def test_tool_use_failure(exporter: TestExporter) -> None:
                         'type': 'object',
                         'properties': {
                             'gen_ai.operation.name': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'gen_ai.response.model': {},
                             'gen_ai.output.messages': {'type': 'array'},
                         },
@@ -1138,6 +1176,7 @@ async def test_tool_use_failure(exporter: TestExporter) -> None:
                     'code.lineno': 123,
                     'gen_ai.operation.name': 'invoke_agent',
                     'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.system': 'anthropic',
                     'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'List files'}]}],
                     'gen_ai.system_instructions': [{'type': 'text', 'content': 'Be helpful'}],
                     'logfire.msg_template': 'invoke_agent',
@@ -1154,6 +1193,7 @@ async def test_tool_use_failure(exporter: TestExporter) -> None:
                         'properties': {
                             'gen_ai.operation.name': {},
                             'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'gen_ai.input.messages': {'type': 'array'},
                             'gen_ai.system_instructions': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
@@ -1201,18 +1241,24 @@ async def test_usage_and_cost_attributes(exporter: TestExporter) -> None:
                     'code.function': 'test_usage_and_cost_attributes',
                     'code.lineno': 123,
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.system': 'anthropic',
                     'gen_ai.response.model': 'claude-sonnet-4-20250514',
                     'gen_ai.output.messages': [
                         {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Hello! How can I help?'}]}
                     ],
+                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hi'}]}],
                     'logfire.msg_template': 'chat claude-sonnet-4-20250514',
                     'logfire.msg': 'chat claude-sonnet-4-20250514',
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
                             'gen_ai.operation.name': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'gen_ai.response.model': {},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.input.messages': {'type': 'array'},
                         },
                     },
                     'logfire.span_type': 'span',
@@ -1230,6 +1276,7 @@ async def test_usage_and_cost_attributes(exporter: TestExporter) -> None:
                     'code.lineno': 123,
                     'gen_ai.operation.name': 'invoke_agent',
                     'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.system': 'anthropic',
                     'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hi'}]}],
                     'logfire.msg_template': 'invoke_agent',
                     'logfire.msg': 'invoke_agent',
@@ -1247,6 +1294,7 @@ async def test_usage_and_cost_attributes(exporter: TestExporter) -> None:
                         'properties': {
                             'gen_ai.operation.name': {},
                             'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'gen_ai.input.messages': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
@@ -1289,18 +1337,24 @@ async def test_result_no_usage_or_cost(exporter: TestExporter) -> None:
                     'code.function': 'test_result_no_usage_or_cost',
                     'code.lineno': 123,
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.system': 'anthropic',
                     'gen_ai.response.model': 'claude-sonnet-4-20250514',
                     'gen_ai.output.messages': [
                         {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Hello! How can I help?'}]}
                     ],
+                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hi'}]}],
                     'logfire.msg_template': 'chat claude-sonnet-4-20250514',
                     'logfire.msg': 'chat claude-sonnet-4-20250514',
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
                             'gen_ai.operation.name': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'gen_ai.response.model': {},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.input.messages': {'type': 'array'},
                         },
                     },
                     'logfire.span_type': 'span',
@@ -1318,6 +1372,7 @@ async def test_result_no_usage_or_cost(exporter: TestExporter) -> None:
                     'code.lineno': 123,
                     'gen_ai.operation.name': 'invoke_agent',
                     'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.system': 'anthropic',
                     'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hi'}]}],
                     'logfire.msg_template': 'invoke_agent',
                     'logfire.msg': 'invoke_agent',
@@ -1330,6 +1385,7 @@ async def test_result_no_usage_or_cost(exporter: TestExporter) -> None:
                         'properties': {
                             'gen_ai.operation.name': {},
                             'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'gen_ai.input.messages': {'type': 'array'},
                             'gen_ai.conversation.id': {},
                             'num_turns': {},
@@ -1368,6 +1424,7 @@ async def test_result_only(exporter: TestExporter) -> None:
                     'code.lineno': 123,
                     'gen_ai.operation.name': 'invoke_agent',
                     'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.system': 'anthropic',
                     'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hi'}]}],
                     'logfire.msg_template': 'invoke_agent',
                     'logfire.msg': 'invoke_agent',
@@ -1383,6 +1440,7 @@ async def test_result_only(exporter: TestExporter) -> None:
                         'properties': {
                             'gen_ai.operation.name': {},
                             'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'gen_ai.input.messages': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
@@ -1423,18 +1481,24 @@ async def test_error_result(exporter: TestExporter) -> None:
                     'code.function': 'test_error_result',
                     'code.lineno': 123,
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.system': 'anthropic',
                     'gen_ai.response.model': 'claude-sonnet-4-20250514',
                     'gen_ai.output.messages': [
                         {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Hello! How can I help?'}]}
                     ],
+                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hi'}]}],
                     'logfire.msg_template': 'chat claude-sonnet-4-20250514',
                     'logfire.msg': 'chat claude-sonnet-4-20250514',
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
                             'gen_ai.operation.name': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'gen_ai.response.model': {},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.input.messages': {'type': 'array'},
                         },
                     },
                     'logfire.span_type': 'span',
@@ -1452,6 +1516,7 @@ async def test_error_result(exporter: TestExporter) -> None:
                     'code.lineno': 123,
                     'gen_ai.operation.name': 'invoke_agent',
                     'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.system': 'anthropic',
                     'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hi'}]}],
                     'logfire.msg_template': 'invoke_agent',
                     'logfire.msg': 'invoke_agent',
@@ -1468,6 +1533,7 @@ async def test_error_result(exporter: TestExporter) -> None:
                         'properties': {
                             'gen_ai.operation.name': {},
                             'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'gen_ai.input.messages': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
@@ -1512,18 +1578,24 @@ async def test_non_string_system_prompt(exporter: TestExporter) -> None:
                     'code.function': 'test_non_string_system_prompt',
                     'code.lineno': 123,
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.system': 'anthropic',
                     'gen_ai.response.model': 'claude-sonnet-4-20250514',
                     'gen_ai.output.messages': [
                         {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Hello! How can I help?'}]}
                     ],
+                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hi'}]}],
                     'logfire.msg_template': 'chat claude-sonnet-4-20250514',
                     'logfire.msg': 'chat claude-sonnet-4-20250514',
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
                             'gen_ai.operation.name': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'gen_ai.response.model': {},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.input.messages': {'type': 'array'},
                         },
                     },
                     'logfire.span_type': 'span',
@@ -1541,6 +1613,7 @@ async def test_non_string_system_prompt(exporter: TestExporter) -> None:
                     'code.lineno': 123,
                     'gen_ai.operation.name': 'invoke_agent',
                     'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.system': 'anthropic',
                     'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hi'}]}],
                     'gen_ai.system_instructions': [{'type': 'text', 'content': "['Be helpful', 'Be concise']"}],
                     'logfire.msg_template': 'invoke_agent',
@@ -1557,6 +1630,7 @@ async def test_non_string_system_prompt(exporter: TestExporter) -> None:
                         'properties': {
                             'gen_ai.operation.name': {},
                             'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'gen_ai.input.messages': {'type': 'array'},
                             'gen_ai.system_instructions': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
@@ -1606,18 +1680,24 @@ async def test_default_options_get_hooks_injected(exporter: TestExporter) -> Non
                     'code.function': 'test_default_options_get_hooks_injected',
                     'code.lineno': 123,
                     'gen_ai.operation.name': 'chat',
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.system': 'anthropic',
                     'gen_ai.response.model': 'claude-sonnet-4-20250514',
                     'gen_ai.output.messages': [
                         {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Hello! How can I help?'}]}
                     ],
+                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hi'}]}],
                     'logfire.msg_template': 'chat claude-sonnet-4-20250514',
                     'logfire.msg': 'chat claude-sonnet-4-20250514',
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
                             'gen_ai.operation.name': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'gen_ai.response.model': {},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.input.messages': {'type': 'array'},
                         },
                     },
                     'logfire.span_type': 'span',
@@ -1635,6 +1715,7 @@ async def test_default_options_get_hooks_injected(exporter: TestExporter) -> Non
                     'code.lineno': 123,
                     'gen_ai.operation.name': 'invoke_agent',
                     'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.system': 'anthropic',
                     'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hi'}]}],
                     'logfire.msg_template': 'invoke_agent',
                     'logfire.msg': 'invoke_agent',
@@ -1650,6 +1731,7 @@ async def test_default_options_get_hooks_injected(exporter: TestExporter) -> Non
                         'properties': {
                             'gen_ai.operation.name': {},
                             'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'gen_ai.input.messages': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
