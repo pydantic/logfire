@@ -24,6 +24,8 @@ from inline_snapshot import snapshot
 
 import logfire
 from logfire._internal.integrations.claude_agent_sdk import (
+    _active_tool_spans,
+    _clear_active_tool_spans,
     _clear_parent_span,
     _extract_tool_result_text,
     _inject_tracing_hooks,
@@ -406,6 +408,33 @@ async def test_tool_use_hooks(exporter: TestExporter):
     # Failed tool has error attribute
     write_span = [s for s in spans if s['name'] == 'Write'][0]
     assert write_span['attributes']['error'] == 'Permission denied'
+
+
+@pytest.mark.anyio
+async def test_clear_orphaned_tool_spans(exporter: TestExporter):
+    """_clear_active_tool_spans ends and removes any orphaned tool spans."""
+    logfire_instance = logfire.DEFAULT_LOGFIRE_INSTANCE.with_settings(custom_scope_suffix='claude_agent_sdk')
+    _set_logfire_instance(logfire_instance)
+
+    with logfire_instance.span('root') as root_span:
+        _set_parent_span(root_span._span)
+        try:
+            # Start a tool span but never call post_tool_use_hook
+            await pre_tool_use_hook(
+                {'tool_name': 'OrphanTool', 'tool_input': {}, 'tool_use_id': 'orphan_1'},
+                'orphan_1',
+                {'signal': None},
+            )
+            assert 'orphan_1' in _active_tool_spans
+            _clear_active_tool_spans()
+            assert 'orphan_1' not in _active_tool_spans
+            assert len(_active_tool_spans) == 0
+        finally:
+            _clear_parent_span()
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    orphan_spans = [s for s in spans if s['name'] == 'OrphanTool']
+    assert len(orphan_spans) == 1
 
 
 @pytest.mark.anyio
