@@ -1110,12 +1110,10 @@ class LogfireConfig(_LogfireConfigData):
                         with suppress_instrumentation():
                             for token in token_list:
                                 validated_credentials = self._initialize_credentials_from_token(token)
-                                if (
-                                    validated_credentials is not None
-                                    and show_project_link
-                                    and token not in printed_tokens
-                                ):
-                                    validated_credentials.print_token_summary()
+                                if validated_credentials is not None:
+                                    self.project_url = self.project_url or validated_credentials.project_url
+                                    if show_project_link and token not in printed_tokens:
+                                        validated_credentials.print_token_summary()
 
                     if emscripten:  # pragma: no cover
                         check_tokens()
