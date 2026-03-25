@@ -360,6 +360,17 @@ async def test_tool_use_hooks(exporter: TestExporter):
                 'tool_1',
                 {'signal': None},
             )
+            # Successful tool call with no tool_response (covers 237->239 branch)
+            await pre_tool_use_hook(
+                {'tool_name': 'Read', 'tool_input': {'path': '/tmp'}, 'tool_use_id': 'tool_no_resp'},
+                'tool_no_resp',
+                {'signal': None},
+            )
+            await post_tool_use_hook(
+                {'tool_name': 'Read', 'tool_input': {'path': '/tmp'}, 'tool_use_id': 'tool_no_resp'},
+                'tool_no_resp',
+                {'signal': None},
+            )
             # Failed tool call
             await pre_tool_use_hook(
                 {'tool_name': 'Write', 'tool_input': {'path': '/tmp/test'}, 'tool_use_id': 'tool_2'},
@@ -380,15 +391,18 @@ async def test_tool_use_hooks(exporter: TestExporter):
             _clear_parent_span()
 
     spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-    tool_spans = [s for s in spans if s['name'] in ('Bash', 'Write')]
-    assert len(tool_spans) == 2
-    # Both are children of the root span
+    tool_spans = [s for s in spans if s['name'] in ('Bash', 'Read', 'Write')]
+    assert len(tool_spans) == 3
+    # All are children of the root span
     root = [s for s in spans if s['name'] == 'root'][0]
     for ts in tool_spans:
         assert ts['parent'] == root['context']
     # Successful tool has response attribute
     bash_span = [s for s in spans if s['name'] == 'Bash'][0]
     assert bash_span['attributes']['tool_response'] == 'file1.txt'
+    # Tool with no response has no tool_response attribute
+    read_span = [s for s in spans if s['name'] == 'Read'][0]
+    assert 'tool_response' not in read_span['attributes']
     # Failed tool has error attribute
     write_span = [s for s in spans if s['name'] == 'Write'][0]
     assert write_span['attributes']['error'] == 'Permission denied'
@@ -631,6 +645,28 @@ async def test_result_only(exporter: TestExporter):
 
     spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
     assert [s['name'] for s in spans] == ['claude.conversation']
+
+
+@pytest.mark.anyio
+@pytest.mark.filterwarnings('ignore::pytest.PytestUnraisableExceptionWarning')
+async def test_result_no_cost(exporter: TestExporter):
+    """Result without total_cost_usd covers the None-check branch in _record_result."""
+    sparse_result = make_result(usage=None)
+    sparse_result.pop('total_cost_usd', None)
+
+    transport = MockTransport([ASSISTANT_HELLO, sparse_result])
+    client = ClaudeSDKClient(options=ClaudeAgentOptions(), transport=transport)
+    try:
+        await client.connect()
+        await client.query('Hi')
+        [msg async for msg in client.receive_response()]
+    finally:
+        await client.disconnect()
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    conv = [s for s in spans if s['name'] == 'claude.conversation'][0]
+    assert 'total_cost_usd' not in conv['attributes']
+    assert 'usage.input_tokens' not in conv['attributes']
 
 
 @pytest.mark.anyio

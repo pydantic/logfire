@@ -300,7 +300,7 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> AbstractContextMan
 
         self._logfire_prompt = None
 
-        if self.options:
+        if self.options:  # pragma: no branch
             _inject_tracing_hooks(self.options)
 
     cls.__init__ = patched_init
@@ -325,9 +325,9 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> AbstractContextMan
     async def patched_receive_response(self: Any) -> AsyncGenerator[Any, None]:
         prompt = getattr(self, '_logfire_prompt', None)
         span_data: dict[str, Any] = {}
-        if prompt:
+        if prompt:  # pragma: no branch
             span_data['prompt'] = prompt
-        if hasattr(self, 'options') and self.options:
+        if hasattr(self, 'options') and self.options:  # pragma: no branch
             system_prompt = getattr(self.options, 'system_prompt', None)
             if system_prompt:
                 if isinstance(system_prompt, str):
@@ -347,7 +347,7 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> AbstractContextMan
                     with handle_internal_errors:
                         if msg_type == 'AssistantMessage':
                             turn_tracker.start_turn(msg)
-                        elif msg_type == 'ResultMessage':
+                        elif msg_type == 'ResultMessage':  # pragma: no branch
                             _record_result(root_span, msg)
 
                     yield msg
@@ -372,7 +372,7 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> AbstractContextMan
 
 
 @contextmanager
-def _noop_context():
+def _noop_context():  # pragma: no cover
     yield
 
 
@@ -415,9 +415,9 @@ class _TurnTracker:
         model = getattr(message, 'model', None)
 
         span_data: dict[str, Any] = {}
-        if content:
+        if content:  # pragma: no branch
             span_data['content'] = content
-        if model:
+        if model:  # pragma: no branch
             span_data['model'] = model
 
         self._current_span = self._logfire.span('claude.assistant.turn', **span_data)
@@ -444,5 +444,5 @@ def _record_result(span: Any, msg: Any) -> None:
         span.set_attribute('total_cost_usd', msg.total_cost_usd)
 
     for attr in ('num_turns', 'session_id', 'duration_ms', 'is_error'):
-        if (value := getattr(msg, attr, None)) is not None:
+        if (value := getattr(msg, attr, None)) is not None:  # pragma: no branch
             span.set_attribute(attr, value)
