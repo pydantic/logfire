@@ -287,6 +287,9 @@ ASSISTANT_FILES = {
 }
 
 
+_UNSET = object()
+
+
 def make_result(
     *,
     input_tokens: int = 100,
@@ -295,10 +298,10 @@ def make_result(
     cache_read: int | None = None,
     cache_create: int | None = None,
     is_error: bool = False,
-    usage: dict[str, Any] | None = ...,  # type: ignore[assignment]
+    usage: dict[str, Any] | None | object = _UNSET,
 ) -> dict[str, Any]:
     """Build a result message for the mock transport."""
-    if usage is ...:  # pyright: ignore[reportUnnecessaryComparison]
+    if usage is _UNSET:
         u: dict[str, Any] = {'input_tokens': input_tokens, 'output_tokens': output_tokens}
         if cache_read is not None:
             u['cache_read_input_tokens'] = cache_read
