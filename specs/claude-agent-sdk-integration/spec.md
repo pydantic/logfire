@@ -4,7 +4,7 @@
 Context: The SDK communicates with Claude Code CLI via subprocess/JSON-RPC. It exposes an async message stream (`receive_response()`) yielding typed messages, and a hook system (`PreToolUse`, `PostToolUse`, `PostToolUseFailure`) for intercepting tool execution. It has no built-in OTel support and doesn't use the `anthropic` package.
 
 **Instrumentation is via monkey-patching `ClaudeSDKClient` at the class level.** *(from "The Claude Agent SDK gets first-party OTel instrumentation")*
-The SDK has no plugin API. We patch `__init__` (to inject tracing hooks), `query` (to capture the prompt via `self._logfire_prompt`, which `receive_response` reads back — needed because `receive_response` doesn't receive the prompt itself), and `receive_response` (to manage spans around the message stream). This matches the existing logfire pattern (see `instrument_llm_provider`, MCP integration). Hook injection in `__init__` is the critical piece — the SDK doesn't support late hook injection. A separate `_logfire_hooks_injected` flag on each options object prevents duplicate hook injection when multiple instances share the same options.
+The SDK has no plugin API. We patch `__init__` (to inject tracing hooks), `query` (to capture the prompt via `self._logfire_prompt`, which `receive_response` reads back — needed because `receive_response` doesn't receive the prompt itself), and `receive_response` (to manage spans around the message stream). This matches the existing logfire pattern (see `instrument_llm_provider`, MCP integration). Hook injection in `__init__` is the critical piece — the SDK doesn't support late hook injection. A separate `_logfire_hooks_injected` flag on each options object prevents duplicate hook injection when multiple instances share the same options. Note: `query()`/`receive_response()` patches affect existing instances (Python MRO), but `__init__` won't re-run, so existing instances won't get hooks and won't produce tool spans.
 
 **All hook and message-processing logic is wrapped in `handle_internal_errors`.** *(from "Instrumentation is via monkey-patching")*
 Instrumentation errors must never crash user code. Every hook callback and the `receive_response` message loop use `handle_internal_errors` to swallow and log failures.
@@ -18,14 +18,11 @@ An `_is_instrumented_by_logfire` flag on the class guards against double-patchin
 **The public API is `logfire.instrument_claude_agent_sdk()` — no arguments.** *(from "Instrumentation is via monkey-patching")*
 Since instrumentation is global, there's nothing to configure per-call. Returns `AbstractContextManager[None]` that reverts instrumentation when exited — reverting means restoring the original unpatched methods and resetting the `_is_instrumented_by_logfire` flag (consistent with other logfire integrations). The instrumentation is applied immediately — using the context manager is optional.
 
-**Per-instance instrumentation is out of scope.** *(from "Instrumentation is via monkey-patching")*
-Consequence of class-level patching: `query()`/`receive_response()` patches affect existing instances (Python MRO), but `__init__` won't re-run, so existing instances won't get hooks and won't produce tool spans.
-
-**Subagent nesting is out of scope.** *(from "The Claude Agent SDK gets first-party OTel instrumentation")*
+**Subagent nesting is out of scope.**
 Task tool calls appear as flat tool spans like any other tool. Nested subagent span hierarchies can be added later.
 
 **Spans follow OTel GenAI semantic conventions for names, hierarchy, and attributes.** *(from "The Claude Agent SDK gets first-party OTel instrumentation")*
-See [otel-genai-spans.md](otel-genai-spans.md) and [otel-genai-agent-spans.md](otel-genai-agent-spans.md) for the full semconv reference. Attributes use constants and part dict types from `logfire/_internal/integrations/llm_providers/semconv.py`. The hierarchy is `invoke_agent` → `chat` + `execute_tool`:
+See [otel-genai-spans.md](otel-genai-spans.md) and [otel-genai-agent-spans.md](otel-genai-agent-spans.md) for the full semconv reference. Use constants from `logfire/_internal/integrations/llm_providers/semconv.py` where they exist; use string literals for semconv attributes not yet defined there (e.g. `gen_ai.tool.name`, `gen_ai.tool.call.id`). Use part dict types (`TextPart`, `ToolCallPart`, `OutputMessage`, etc.) from that module for message content. The hierarchy is `invoke_agent` → `chat` + `execute_tool`:
 
 ```
 invoke_agent                         # root, wraps receive_response()
@@ -38,8 +35,11 @@ invoke_agent                         # root, wraps receive_response()
 
 All spans are siblings under `invoke_agent` — tool spans are children of the root, not of the preceding chat span. This is because hooks run independently and don't know which chat turn they belong to.
 
+**Sensitive message attributes are always recorded (no opt-in gate).** *(from "Spans follow OTel GenAI semantic conventions")*
+The semconv marks `gen_ai.input.messages`, `gen_ai.output.messages`, and `gen_ai.system_instructions` as opt-in due to PII concerns. We always record them because Logfire is the user's own observability tool — they're instrumenting their own agent and expect to see the content. This goes against the semconv recommendation "don't record by default" but is the right trade-off here.
+
 **The root span is `invoke_agent`.** *(from "Spans follow OTel GenAI semantic conventions")*
-Span name: `invoke_agent`. The SDK doesn't expose an agent name, so the semconv `{gen_ai.agent.name}` suffix is omitted. Attributes set at span creation: `gen_ai.operation.name` = `invoke_agent`, `gen_ai.provider.name` = `anthropic`. On start: `gen_ai.input.messages` (prompt as `InputMessages` with part dicts), `gen_ai.system_instructions` (system prompt as `SystemInstructions` with part dicts). On completion (from `ResultMessage`): `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`, `gen_ai.usage.cache_creation.input_tokens`, `gen_ai.usage.cache_read.input_tokens`, `gen_ai.response.model`, `gen_ai.conversation.id` (the SDK's session ID), `operation.cost` (from the SDK's `total_cost_usd`). Additional non-semconv attributes from the SDK's result metadata: `num_turns`, `duration_ms`. When `is_error` is true in the result, the span's level is set to error via `span.set_level('error')`.
+Span name: `invoke_agent`. The SDK doesn't expose an agent name, so the semconv `{gen_ai.agent.name}` suffix is omitted. Attributes set at span creation: `gen_ai.operation.name` = `invoke_agent`, `gen_ai.provider.name` = `anthropic`. On start: `gen_ai.input.messages` (prompt as `InputMessages` with part dicts), `gen_ai.system_instructions` (system prompt as `SystemInstructions` with part dicts). On completion (from `ResultMessage`): `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`, `gen_ai.usage.cache_creation.input_tokens`, `gen_ai.usage.cache_read.input_tokens`, `gen_ai.response.model`, `gen_ai.conversation.id` (the SDK's session ID), `operation.cost` (from the SDK's `total_cost_usd` — a logfire convention also used by the anthropic and openai integrations, not part of OTel semconv). Additional non-semconv attributes from the SDK's result metadata: `num_turns`, `duration_ms`. When `is_error` is true in the result, the span's level is set to error via `span.set_level('error')` (a logfire API, not OTel span status).
 
 **Chat spans represent each assistant turn.** *(from "Spans follow OTel GenAI semantic conventions")*
 Span name: `chat {model}`. One per `AssistantMessage`. Attributes: `gen_ai.operation.name` = `chat`, `gen_ai.response.model` (from `AssistantMessage.model`), `gen_ai.output.messages` (the assistant's content as `OutputMessages` using `TextPart`, `ToolCallPart`, etc. from semconv).
