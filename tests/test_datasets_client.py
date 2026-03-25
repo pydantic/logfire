@@ -449,7 +449,7 @@ class TestLogfireAPIClient:
 
     def test_get_dataset(self):
         client = make_client()
-        result = client.get_dataset('test-dataset')
+        result = client.get_dataset('test-dataset', include_cases=False)
         assert result == FAKE_DATASET
 
     def test_create_dataset_minimal(self):
@@ -697,16 +697,16 @@ class TestLogfireAPIClient:
         result = client.delete_case('test-dataset', 'case-456')
         assert result is None
 
-    def test_export_dataset_raw(self):
-        """Without type args, returns raw dict."""
+    def test_get_dataset_with_cases(self):
+        """Without type args, returns raw dict with cases."""
         client = make_client()
-        result = client.export_dataset('test-dataset')
+        result = client.get_dataset('test-dataset')
         assert result == FAKE_EXPORT
 
-    def test_export_dataset_typed(self):
+    def test_get_dataset_typed(self):
         """With type args, returns pydantic-evals Dataset."""
         client = make_client()
-        result = client.export_dataset('test-dataset', input_type=MyInput, output_type=MyOutput)
+        result = client.get_dataset('test-dataset', input_type=MyInput, output_type=MyOutput)
         from pydantic_evals import Dataset
 
         assert isinstance(result, Dataset)
@@ -794,7 +794,7 @@ class TestAsyncLogfireAPIClient:
     @pytest.mark.anyio
     async def test_get_dataset(self):
         client = make_async_client()
-        result = await client.get_dataset('test-dataset')
+        result = await client.get_dataset('test-dataset', include_cases=False)
         assert result == FAKE_DATASET
 
     @pytest.mark.anyio
@@ -1047,15 +1047,15 @@ class TestAsyncLogfireAPIClient:
         assert result is None
 
     @pytest.mark.anyio
-    async def test_export_dataset_raw(self):
+    async def test_get_dataset_with_cases(self):
         client = make_async_client()
-        result = await client.export_dataset('test-dataset')
+        result = await client.get_dataset('test-dataset')
         assert result == FAKE_EXPORT
 
     @pytest.mark.anyio
-    async def test_export_dataset_typed(self):
+    async def test_get_dataset_typed(self):
         client = make_async_client()
-        result = await client.export_dataset('test-dataset', input_type=MyInput, output_type=MyOutput)
+        result = await client.get_dataset('test-dataset', input_type=MyInput, output_type=MyOutput)
         from pydantic_evals import Dataset
 
         assert isinstance(result, Dataset)

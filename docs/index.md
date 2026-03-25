@@ -42,8 +42,8 @@ This page walks through setting up a Python app. For other languages, see the [J
 
 ??? tip "Ready to create your own projects in UI or CLI?"
 
-- In the UI, create projects by navigating to the Organization > Projects page, and click **New project**.
-- For CLI check the [SDK CLI documentation](reference/cli.md#create-projects-new).
+    - In the UI, create projects by navigating to the Organization > Projects page, and click **New project**.
+    - For CLI check the [SDK CLI documentation](reference/cli.md#create-projects-new).
 
 ## Install the SDK {#sdk}
 

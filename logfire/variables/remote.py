@@ -28,6 +28,8 @@ from logfire.variables.abstract import (
 from logfire.variables.config import (
     KeyIsNotPresent,
     KeyIsPresent,
+    LabeledValue,
+    LabelRef,
     ValueDoesNotEqual,
     ValueDoesNotMatchRegex,
     ValueEquals,
@@ -451,9 +453,6 @@ class LogfireRemoteVariableProvider(VariableProvider):
     def update_variable(self, name: str, config: VariableConfig) -> VariableConfig:
         """Update an existing variable configuration via the remote API.
 
-        This is a metadata-only update (name, description, schema, example).
-        Labels and versions are managed through the UI.
-
         Args:
             name: The name of the variable to update.
             config: The new configuration for the variable.
@@ -508,9 +507,6 @@ class LogfireRemoteVariableProvider(VariableProvider):
     def _config_to_api_body(self, config: VariableConfig) -> dict[str, Any]:
         """Convert a VariableConfig to the API request body format.
 
-        This sends metadata only (name, description, schema, example, aliases).
-        Labels and versions are managed through the UI.
-
         Args:
             config: The VariableConfig to convert.
 
@@ -546,7 +542,37 @@ class LogfireRemoteVariableProvider(VariableProvider):
         if config.example is not None:
             body['example'] = config.example
 
+        # Include labels if present
+        if config.labels:
+            body['labels'] = {
+                label_name: self._label_to_api_data(label_value) for label_name, label_value in config.labels.items()
+            }
+
         return body
+
+    @staticmethod
+    def _label_to_api_data(label: LabeledValue | LabelRef) -> dict[str, Any]:
+        """Convert a label value to the API label data format.
+
+        Args:
+            label: The label to convert.
+
+        Returns:
+            A dictionary suitable for the API labels field.
+        """
+        if isinstance(label, LabeledValue):
+            return {
+                'target_type': 'version',
+                'version': label.version,
+                'serialized_value': label.serialized_value,
+            }
+        # LabelRef
+        if label.ref == 'latest':
+            return {'target_type': 'latest'}
+        elif label.ref == 'code_default':
+            return {'target_type': 'code_default'}
+        else:
+            return {'target_type': 'label', 'target_label': label.ref}
 
     def _condition_extra_fields(self, condition: Any) -> dict[str, Any]:
         """Extract extra fields from a condition based on its type.

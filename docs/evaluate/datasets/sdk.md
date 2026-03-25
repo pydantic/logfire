@@ -5,9 +5,9 @@ description: "Manage evaluation datasets programmatically with the Logfire Pytho
 
 # SDK Guide
 
-!!! warning "Experimental Feature"
+!!! note "Experimental SDK"
 
-    Managed datasets are an experimental feature currently gated behind a feature flag. Reach out to us on [Slack](https://logfire.pydantic.dev/docs/join-slack/) or [contact us](../../help.md) to learn how to enable it for your project.
+    The dataset management SDK is under `logfire.experimental.api_client`. The API may change in future releases.
 
 The SDK provides a typed Python client for managing datasets programmatically. This is the recommended approach when you want to define schemas using Python types and automate dataset management. You can also manage datasets through the [Web UI](ui.md).
 
@@ -173,7 +173,7 @@ for ds in datasets:
     print(f"{ds['name']}: {ds['case_count']} cases")
 
 # Get a specific dataset by name or ID
-dataset_info = client.get_dataset('qa-golden-set')
+dataset_info = client.get_dataset('qa-golden-set', include_cases=False)
 ```
 
 ## Updating and Deleting
@@ -199,6 +199,6 @@ client.delete_dataset('qa-golden-set')
 
 ## What's Next?
 
-- **[Running Evaluations](evaluations.md)** --- Export your dataset and run evaluations with pydantic-evals.
-- **[SDK Reference](sdk-reference.md)** --- Complete method signatures and exception reference.
+- **[Running Evaluations](evaluations.md)** --- Fetch your dataset and run evaluations with pydantic-evals.
+- **[SDK Reference](../../reference/api/datasets.md)** --- Complete method signatures and exception reference.
 - **[Web UI Guide](ui.md)** --- Manage datasets through the Logfire web interface.

@@ -40,6 +40,7 @@ from .semconv import (
     RESPONSE_MODEL,
     SYSTEM_INSTRUCTIONS,
     TOOL_DEFINITIONS,
+    USAGE_RAW,
     BlobPart,
     ChatMessage,
     InputMessages,
@@ -617,6 +618,8 @@ def on_response(
         span.set_attribute(INPUT_TOKENS, input_tokens)
     if isinstance(output_tokens, int):
         span.set_attribute(OUTPUT_TOKENS, output_tokens)
+    if usage is not None and hasattr(usage, 'model_dump'):
+        span.set_attribute(USAGE_RAW, usage.model_dump(exclude_none=True))
 
     if isinstance(response, ChatCompletion) and response.choices:
         if 1 in versions:

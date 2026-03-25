@@ -2684,6 +2684,86 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             finally:
                 provider.shutdown()
 
+    def test_config_to_api_body_label_ref_types(self) -> None:
+        """Test _config_to_api_body with all LabelRef types (latest, code_default, label-to-label)."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        request_mocker.post('http://localhost:8000/v1/variables/', json={'name': 'ref_var'})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                config = VariableConfig(
+                    name='ref_var',
+                    labels={
+                        'production': LabeledValue(version=1, serialized_value='"prod_val"'),
+                        'latest_lbl': LabelRef(ref='latest'),
+                        'default_lbl': LabelRef(ref='code_default'),
+                        'mirror': LabelRef(ref='production'),
+                    },
+                    rollout=Rollout(labels={'production': 0.5, 'latest_lbl': 0.5}),
+                    overrides=[],
+                    description=None,
+                    json_schema=None,
+                )
+                provider.create_variable(config)
+
+                post_request = None
+                for req in request_mocker.request_history:  # pragma: no branch
+                    if req.method == 'POST':  # pragma: no branch
+                        post_request = req
+                        break
+
+                assert post_request is not None
+                body = post_request.json()
+                assert body['labels']['production'] == {
+                    'target_type': 'version',
+                    'version': 1,
+                    'serialized_value': '"prod_val"',
+                }
+                assert body['labels']['latest_lbl'] == {'target_type': 'latest'}
+                assert body['labels']['default_lbl'] == {'target_type': 'code_default'}
+                assert body['labels']['mirror'] == {'target_type': 'label', 'target_label': 'production'}
+            finally:
+                provider.shutdown()
+
+    def test_config_to_api_body_empty_labels(self) -> None:
+        """Test _config_to_api_body omits labels key when labels is empty."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        request_mocker.post('http://localhost:8000/v1/variables/', json={'name': 'no_label_var'})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                config = VariableConfig(
+                    name='no_label_var',
+                    labels={},
+                    rollout=Rollout(labels={}),
+                    overrides=[],
+                    description=None,
+                    json_schema=None,
+                )
+                provider.create_variable(config)
+
+                post_request = None
+                for req in request_mocker.request_history:  # pragma: no branch
+                    if req.method == 'POST':  # pragma: no branch
+                        post_request = req
+                        break
+
+                assert post_request is not None
+                body = post_request.json()
+                assert 'labels' not in body
+            finally:
+                provider.shutdown()
+
     def test_config_to_api_body_with_key_conditions(self) -> None:
         """Test _config_to_api_body with KeyIsPresent/KeyIsNotPresent conditions."""
         request_mocker = requests_mock_module.Mocker()

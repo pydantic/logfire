@@ -462,6 +462,37 @@ def test_auth_on_authenticated_user(default_credentials: Path, capsys: pytest.Ca
         assert 'You are already logged in' in err
 
 
+def test_auth_logout(default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    with patch('logfire._internal.auth.DEFAULT_FILE', default_credentials):
+        main(['--region', 'us', 'auth', 'logout'])
+
+    assert default_credentials.read_text() == ''
+    _, err = capsys.readouterr()
+    assert err.splitlines() == snapshot(
+        [
+            'Successfully logged out from https://logfire-us.pydantic.dev',
+            '',
+            IsStr(regex=r'Your Logfire credentials have been removed from .*\.toml'),
+        ]
+    )
+
+
+def test_auth_logout_not_logged_in(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    auth_file = tmp_path / 'default.toml'
+    auth_file.touch()
+    with patch('logfire._internal.auth.DEFAULT_FILE', auth_file), pytest.raises(SystemExit) as exc:
+        main(['auth', 'logout'])
+    assert exc.value.code == 1
+    assert 'You are not logged into Logfire' in capsys.readouterr().err
+
+
+def test_auth_logout_wrong_region(default_credentials: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    with patch('logfire._internal.auth.DEFAULT_FILE', default_credentials), pytest.raises(SystemExit) as exc:
+        main(['--region', 'eu', 'auth', 'logout'])
+    assert exc.value.code == 1
+    assert 'No user token was found matching' in capsys.readouterr().err
+
+
 def test_auth_no_region_specified(tmp_path: Path) -> None:
     auth_file = tmp_path / 'default.toml'
     with ExitStack() as stack:

@@ -38,7 +38,7 @@ class OptimizeVariableResult(Generic[InputsT, OutputT, MetadataT]):
     baseline_score: float | None
     best_score: float | None
     final_memory: str | None
-    iterations: list[OptimizeIterationResult[InputsT, OutputT, MetadataT]] = field(default_factory=list)
+    iterations: list[OptimizeIterationResult[InputsT, OutputT, MetadataT]] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
     applied_version: int | None = None
     applied_label: str | None = None
     dashboard_url: str | None = None

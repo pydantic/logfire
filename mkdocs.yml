@@ -191,6 +191,7 @@ nav:
           - Alerts: guides/web-ui/alerts.md
           - Saved Searches: guides/web-ui/saved-searches.md
           - Public Traces: guides/web-ui/public-traces.md
+          - Prompt Playground: guides/web-ui/prompt-playground.md
           - Write Dashboard Queries: how-to-guides/write-dashboard-queries.md
           - Setup Slack Alerts: how-to-guides/setup-slack-alerts.md
           - Detect Service is Down: how-to-guides/detect-service-is-down.md
@@ -201,7 +202,6 @@ nav:
               - Web UI Guide: evaluate/datasets/ui.md
               - SDK Guide: evaluate/datasets/sdk.md
               - Running Evaluations: evaluate/datasets/evaluations.md
-              - SDK Reference: evaluate/datasets/sdk-reference.md
       - Manage & Configure:
           - Organizations & Projects: guides/web-ui/organizations-and-projects.md
           - Configuration: reference/configuration.md
@@ -224,12 +224,14 @@ nav:
           - Export Data: how-to-guides/query-api.md
           - Feature Flags (OFREP): how-to-guides/client-side-feature-flags.md
           - Convert to Organization: how-to-guides/convert-to-organization.md
+          - Gateway Migration: gateway-migration.md
       - Guides:
           - Link to Code Source: how-to-guides/link-to-code-source.md
           - Use Alternative Clients: how-to-guides/alternative-clients.md
           - Use Alternative Backends: how-to-guides/alternative-backends.md
           - Collect Cloud Provider Metrics: how-to-guides/cloud-metrics.md
           - Connect to MCP Server: how-to-guides/mcp-server.md
+          - Claude Code Skills: how-to-guides/skills.md
       - Reference:
           - SQL: reference/sql.md
           - SDK API:
@@ -240,6 +242,7 @@ nav:
               - Exceptions: reference/api/exceptions.md
               - Pydantic: reference/api/pydantic.md
               - Types: reference/api/types.md
+              - Datasets: reference/api/datasets.md
           - SDK CLI: reference/cli.md
           - Examples: reference/examples.md
           - Baggage: reference/advanced/baggage.md
@@ -249,6 +252,7 @@ nav:
           - Migrating Projects: reference/advanced/migrate-to-new-project.md
       - Deploy & Scale:
           - Enterprise: enterprise.md
+          - Single Tenant: enterprise-single-tenant.md
           - SSO Setup: how-to-guides/sso-setup.md
           - Compliance: compliance.md
           - Self-Hosted Deployment:
@@ -257,6 +261,7 @@ nav:
               - Installation: reference/self-hosted/installation.md
               - Scaling: reference/self-hosted/scaling.md
               - Troubleshooting: reference/self-hosted/troubleshooting.md
+              - Bucket Migration: reference/self-hosted/bucket-migration.md
               - Examples: reference/self-hosted/examples.md
               - Usage Report: reference/self-hosted/usage-report.md
       - Resources:
@@ -297,6 +302,7 @@ markdown_extensions:
   - pymdownx.tasklist:
       custom_checkbox: true
   - sane_lists # this means you can start a list from any number
+  - pydantic_docs.mdext
 
 watch:
   - logfire
@@ -330,8 +336,10 @@ plugins:
             - url: https://faststream.ag2.ai/latest/objects.inv
             - url: https://redis.readthedocs.io/en/stable/objects.inv
             - url: https://pymongo.readthedocs.io/en/stable/objects.inv
+            - url: https://ai.pydantic.dev/objects.inv
   - redirects:
       redirect_maps:
+        "evaluate/datasets/sdk-reference.md": "reference/api/datasets.md"
         "guides/first_steps/index.md": "index.md"
         "guides/onboarding_checklist/index.md": "guides/onboarding-checklist/index.md"
         "guides/onboarding_checklist/integrate.md": "guides/onboarding-checklist/integrate.md"
@@ -451,6 +459,7 @@ plugins:
           - guides/web-ui/alerts.md
           - guides/web-ui/saved-searches.md
           - guides/web-ui/public-traces.md
+          - guides/web-ui/prompt-playground.md
           - how-to-guides/write-dashboard-queries.md
           - how-to-guides/setup-slack-alerts.md
           - how-to-guides/detect-service-is-down.md
@@ -470,6 +479,7 @@ plugins:
           - how-to-guides/query-api.md
           - how-to-guides/client-side-feature-flags.md
           - how-to-guides/convert-to-organization.md
+          - gateway-migration.md
         Guides:
           - how-to-guides/link-to-code-source.md
           - how-to-guides/alternative-clients.md
@@ -488,6 +498,7 @@ plugins:
           - reference/advanced/migrate-to-new-project.md
         Deploy & Scale:
           - enterprise.md
+          - enterprise-single-tenant.md
           - how-to-guides/sso-setup.md
           - compliance.md
           - reference/self-hosted/*.md

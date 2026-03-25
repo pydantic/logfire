@@ -118,7 +118,10 @@ async def optimize_variable_async(
     if api_key is None:
         # Try to get from the variable's logfire instance
         config = variable.logfire_instance._config  # pyright: ignore[reportPrivateUsage]
-        api_key = config.token
+        token = config.token
+        if isinstance(token, list):
+            token = token[0]
+        api_key = token
         if api_key is None:
             raise ValueError('api_key must be provided or the variable must be connected to a Logfire instance')
 

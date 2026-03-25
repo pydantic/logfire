@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "4.27.0"
+version = "4.30.0"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.9"
 authors = [
@@ -208,6 +208,7 @@ docs = [
     "griffe",
     "algoliasearch>=3,<4",
     "mkdocs-llmstxt>=0.2.0",
+    "pydantic-docs",
 ]
 
 [tool.inline-snapshot]
@@ -216,6 +217,7 @@ format-command = "ruff format --stdin-filename {filename}"
 
 [tool.uv.sources]
 logfire-api = { workspace = true }
+pydantic-docs = { git = "https://github.com/pydantic/pydantic-docs/" }
 
 [tool.uv]
 default-groups = ["dev", "docs"]

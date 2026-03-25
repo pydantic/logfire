@@ -186,6 +186,24 @@ class UserTokenCollection:
         self._dump()
         return user_token
 
+    def logout(self, base_url: str | None = None) -> list[str]:
+        """Remove user token(s) from the collection."""
+        if not self.user_tokens:
+            raise LogfireConfigError('You are not logged into Logfire. Please run `logfire auth` to authenticate.')
+
+        if base_url is not None and base_url not in self.user_tokens:
+            raise LogfireConfigError(
+                f'No user token was found matching the {base_url} Logfire URL. '
+                'Please run `logfire auth` to authenticate.'
+            )
+
+        removed = [base_url] if base_url is not None else list(self.user_tokens.keys())
+        for url in removed:
+            del self.user_tokens[url]
+
+        self._dump()
+        return removed
+
     def _dump(self) -> None:
         """Dump the user token collection as TOML to the provided path."""
         # There's no standard library package to write TOML files, so we'll write it manually.
