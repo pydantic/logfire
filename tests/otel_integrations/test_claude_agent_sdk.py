@@ -45,10 +45,12 @@ from logfire._internal.integrations.claude_agent_sdk import (
 )
 from logfire.testing import TestExporter
 
-# The SDK doesn't close anyio MemoryObjectStreams in Query.close(). They get GC'd during
-# pytest cleanup, triggering ResourceWarning via __del__. We can't force earlier collection
-# with del+gc.collect() because the SDK's internal reference chain keeps them alive until
-# the test function's frame is destroyed by pytest.
+# Both this pytestmark AND _force_gc() below are needed:
+#  - _force_gc() forces GC inside the fixture teardown, suppressing ResourceWarning via
+#    a temporary sys.unraisablehook so that warnings don't fire during gc.collect().
+#  - Some anyio MemoryObjectStreams survive past the fixture and only get collected during
+#    pytest's own final cleanup, where _force_gc() has no effect. This filterwarnings
+#    suppresses the resulting PytestUnraisableExceptionWarning from those late collections.
 pytestmark = pytest.mark.filterwarnings('ignore::pytest.PytestUnraisableExceptionWarning')
 
 
