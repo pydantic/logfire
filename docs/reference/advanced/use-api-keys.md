@@ -64,6 +64,7 @@ Available scopes depend on whether you're creating an organization or project AP
 | Notification channels                | ✓                    | —               |
 | Audit logs                           | ✓                    | —               |
 | SCIM provisioning                    | ✓                    | —               |
+| Billing usage                        | ✓                    | —               |
 | Project settings                     | ✓                    | ✓               |
 | Write tokens management              | ✓                    | ✓               |
 | Read tokens management               | ✓                    | ✓               |
