@@ -802,10 +802,6 @@ class _LogfireConfigData:
 
         self.additional_span_processors = additional_span_processors
         self.project_url: str | None = None
-        if hasattr(self, '_check_tokens_thread') and self._check_tokens_thread is not None:
-            self._check_tokens_thread.join(timeout=0)
-        self._check_tokens_thread: Thread | None = None
-        self._config_generation: int = getattr(self, '_config_generation', 0) + 1
 
         if metrics is None:
             metrics = MetricsOptions()
@@ -1062,21 +1058,18 @@ class LogfireConfig(_LogfireConfigData):
             if isinstance(self.metrics, MetricsOptions):
                 metric_readers = list(self.metrics.additional_readers)
 
-            # Try loading credentials from a file.
-            # We do this before checking send_to_logfire so that project_url
-            # is available for url_from_eval even when not sending data.
-            try:
-                credentials = LogfireCredentials.load_creds_file(self.data_dir)
-            except Exception:
-                # If we have tokens configured by other means, e.g. the env, no need to worry about the creds file.
-                if self.send_to_logfire and not self.token:
-                    raise
-                credentials = None
-            if credentials is not None:
-                self.project_url = self.project_url or credentials.project_url
-
             if self.send_to_logfire:
                 show_project_link: bool = self.console and self.console.show_project_link or False
+
+                # Try loading credentials from a file.
+                # If that works, we can use it to immediately print the project link.
+                try:
+                    credentials = LogfireCredentials.load_creds_file(self.data_dir)
+                except Exception:
+                    # If we have tokens configured by other means, e.g. the env, no need to worry about the creds file.
+                    if not self.token:
+                        raise
+                    credentials = None
 
                 if not self.token and self.send_to_logfire is True and credentials is None:
                     # If we don't have tokens or credentials from a file,
@@ -1113,25 +1106,22 @@ class LogfireConfig(_LogfireConfigData):
                     # This may happen some time later in a background thread which can be annoying,
                     # hence we try to print it eagerly above.
                     # But we only have the link if we have a creds file, otherwise we only know the token at this point.
-                    generation = self._config_generation
-
                     def check_tokens():
                         with suppress_instrumentation():
                             for token in token_list:
-                                if self._config_generation != generation:
-                                    return
                                 validated_credentials = self._initialize_credentials_from_token(token)
-                                if validated_credentials is not None:
-                                    if self._config_generation == generation:
-                                        self.project_url = self.project_url or validated_credentials.project_url
-                                    if show_project_link and token not in printed_tokens:
-                                        validated_credentials.print_token_summary()
+                                if (
+                                    validated_credentials is not None
+                                    and show_project_link
+                                    and token not in printed_tokens
+                                ):
+                                    validated_credentials.print_token_summary()
 
                     if emscripten:  # pragma: no cover
                         check_tokens()
                     else:
-                        self._check_tokens_thread = Thread(target=check_tokens, name='check_logfire_token')
-                        self._check_tokens_thread.start()
+                        thread = Thread(target=check_tokens, name='check_logfire_token')
+                        thread.start()
 
                     # Create exporters for each token
                     for token in token_list:
@@ -1425,16 +1415,6 @@ class LogfireConfig(_LogfireConfigData):
                 f'Set the environment variable LOGFIRE_IGNORE_NO_CONFIG=1 or add ignore_no_config=true in pyproject.toml to suppress this warning.',
                 category=LogfireNotConfiguredWarning,
             )
-
-    def wait_for_token_validation(self) -> None:
-        """Wait for the background token validation thread to complete.
-
-        This ensures that `project_url` is populated when the token is provided
-        via environment variable rather than a credentials file.
-        """
-        thread = self._check_tokens_thread
-        if thread is not None:
-            thread.join()
 
     def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
         return LogfireCredentials.from_token(token, requests.Session(), self.advanced.generate_base_url(token))
