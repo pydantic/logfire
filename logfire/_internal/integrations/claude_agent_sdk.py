@@ -277,7 +277,7 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> None:
         return
     cls._is_instrumented_by_logfire = True
 
-    logfire_claude = logfire_instance.with_settings(custom_scope_suffix='claude-agent-sdk', tags=['LLM'])
+    logfire_claude = logfire_instance.with_settings(custom_scope_suffix='claude_agent_sdk')
 
     # --- Patch __init__ ---
     original_init = cls.__init__
