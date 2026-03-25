@@ -1,3 +1,5 @@
+import warnings
+
 from inline_snapshot import snapshot
 from opentelemetry.trace import get_current_span
 
@@ -15,21 +17,23 @@ def test_get_traceparent(exporter: TestExporter):
             == snapshot('00-00000000000000000000000000000001-0000000000000001-01')
         )
 
-    raw_annotate_span(traceparent, 'my_span_name', 'my_message', {'key': 'value'})
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', DeprecationWarning)
+        raw_annotate_span(traceparent, 'my_span_name', 'my_message', {'key': 'value'})
 
-    record_feedback(
-        traceparent,
-        'factuality',
-        0.1,
-        comment='the mock agent lied',
-        extra={'agent_name': 'mock'},
-    )
+        record_feedback(
+            traceparent,
+            'factuality',
+            0.1,
+            comment='the mock agent lied',
+            extra={'agent_name': 'mock'},
+        )
 
-    record_feedback(
-        traceparent,
-        'rudeness',
-        'very',
-    )
+        record_feedback(
+            traceparent,
+            'rudeness',
+            'very',
+        )
 
     assert exporter.exported_spans_as_dict(_include_pending_spans=True) == snapshot(
         [

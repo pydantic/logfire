@@ -612,7 +612,34 @@ def configure(
     if config.variables is not None:
         config.get_variable_provider().start(logfire_instance if config.variables.instrument else None)
 
+    if config.send_to_logfire and config.token:
+        _try_configure_online_evals(config.token, config.advanced)
+
     return logfire_instance
+
+
+def _try_configure_online_evals(token: str | list[str], advanced: AdvancedOptions | None) -> None:
+    """Auto-configure pydantic-evals LogfireSink if pydantic-evals is installed."""
+    try:
+        _online_mod = __import__('pydantic_evals.online', fromlist=['DEFAULT_CONFIG'])
+    except ImportError:
+        return  # pydantic-evals not installed
+
+    evals_config: Any = _online_mod.DEFAULT_CONFIG
+
+    # Don't override if the user has already configured a sink
+    if evals_config.default_sink is not None:
+        return
+
+    from logfire._internal.annotations_client import AnnotationsClient
+    from logfire.experimental.evaluation import LogfireSink
+
+    write_token = token[0] if isinstance(token, list) else token
+    base_url = advanced.base_url if advanced and advanced.base_url else get_base_url_from_token(write_token)
+
+    client = AnnotationsClient(base_url=base_url, token=write_token)
+    sink = LogfireSink(client=client)
+    evals_config.default_sink = sink
 
 
 @dataclasses.dataclass
