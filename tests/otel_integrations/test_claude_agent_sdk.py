@@ -8,7 +8,9 @@ with instrumented methods, making them resilient to import refactoring.
 
 from __future__ import annotations
 
+import gc
 import json
+import warnings
 from collections.abc import AsyncIterator
 from typing import Any
 from unittest.mock import Mock
@@ -113,6 +115,12 @@ def _reset_instrumentation():
     """Instrument and reset SDK class patching between tests."""
     with logfire.instrument_claude_agent_sdk():
         yield
+    # The SDK's Query.close() doesn't explicitly close anyio memory streams.
+    # Force GC here so they're collected while we can suppress the warning,
+    # rather than leaking ResourceWarnings into the next test module.
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', ResourceWarning)
+        gc.collect()
 
 
 # ---------------------------------------------------------------------------
