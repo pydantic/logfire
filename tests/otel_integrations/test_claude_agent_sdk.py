@@ -25,6 +25,7 @@ import pytest
 pytest.importorskip('claude_agent_sdk', reason='claude_agent_sdk requires Python 3.10+')
 
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, HookMatcher, Transport
+from claude_agent_sdk.types import HookContext
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
 
@@ -700,18 +701,20 @@ def test_clear_orphaned_tool_spans_error() -> None:
 @pytest.mark.anyio
 async def test_hook_edge_cases() -> None:
     """Hooks return empty dict for edge cases: None tool_use_id, no parent span, missing entry."""
+    ctx: HookContext = {'signal': None}
+
     # None tool_use_id
-    assert await pre_tool_use_hook({}, None, {}) == {}
-    assert await post_tool_use_hook({}, None, {}) == {}
-    assert await post_tool_use_failure_hook({}, None, {}) == {}
+    assert await pre_tool_use_hook({}, None, ctx) == {}
+    assert await post_tool_use_hook({}, None, ctx) == {}
+    assert await post_tool_use_failure_hook({}, None, ctx) == {}
 
     # No parent span set
     _clear_parent_span()
-    assert await pre_tool_use_hook({'tool_name': 'Bash', 'tool_input': {}}, 'tool_1', {}) == {}
+    assert await pre_tool_use_hook({'tool_name': 'Bash', 'tool_input': {}}, 'tool_1', ctx) == {}
 
     # Post hooks with no matching pre entry
-    assert await post_tool_use_hook({'tool_response': 'test'}, 'nonexistent', {}) == {}
-    assert await post_tool_use_failure_hook({'error': 'test'}, 'nonexistent', {}) == {}
+    assert await post_tool_use_hook({'tool_response': 'test'}, 'nonexistent', ctx) == {}
+    assert await post_tool_use_failure_hook({'error': 'test'}, 'nonexistent', ctx) == {}
 
 
 # ---------------------------------------------------------------------------

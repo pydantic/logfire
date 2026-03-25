@@ -9,6 +9,7 @@ from contextvars import Token
 from typing import TYPE_CHECKING, Any, cast
 
 import claude_agent_sdk
+from claude_agent_sdk.types import HookContext, SyncHookJSONOutput
 from opentelemetry import context as context_api, trace as trace_api
 from opentelemetry.context import Context
 
@@ -189,8 +190,8 @@ def _extract_usage(usage: Any) -> dict[str, int]:
 async def pre_tool_use_hook(
     input_data: Any,
     tool_use_id: str | None,
-    _context: Any,
-) -> Any:
+    _context: HookContext,
+) -> SyncHookJSONOutput:
     """Create a child span when a tool execution starts."""
     if not tool_use_id:
         return {}
@@ -225,8 +226,8 @@ async def pre_tool_use_hook(
 async def post_tool_use_hook(
     input_data: Any,
     tool_use_id: str | None,
-    _context: Any,
-) -> Any:
+    _context: HookContext,
+) -> SyncHookJSONOutput:
     """End the tool span after successful execution."""
     if not tool_use_id:
         return {}
@@ -249,8 +250,8 @@ async def post_tool_use_hook(
 async def post_tool_use_failure_hook(
     input_data: Any,
     tool_use_id: str | None,
-    _context: Any,
-) -> Any:
+    _context: HookContext,
+) -> SyncHookJSONOutput:
     """End the tool span with an error after failed execution."""
     if not tool_use_id:
         return {}
