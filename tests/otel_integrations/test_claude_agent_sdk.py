@@ -449,6 +449,7 @@ async def test_tool_use_hooks(exporter: TestExporter) -> None:
     _set_logfire_instance(logfire_instance)
 
     with logfire_instance.span('root') as root_span:
+        assert root_span._span is not None
         _set_parent_span(root_span._span)
         try:
             # Successful tool call
@@ -619,6 +620,7 @@ async def test_clear_orphaned_tool_spans(exporter: TestExporter) -> None:
     _set_logfire_instance(logfire_instance)
 
     with logfire_instance.span('root') as root_span:
+        assert root_span._span is not None
         _set_parent_span(root_span._span)
         try:
             # Start a tool span but never call post_tool_use_hook

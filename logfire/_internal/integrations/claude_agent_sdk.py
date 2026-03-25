@@ -46,11 +46,11 @@ _thread_local = threading.local()
 _active_tool_spans: dict[str, tuple[LogfireSpan, Token[Context]]] = {}
 
 
-def _set_parent_span(span: Any) -> None:
+def _set_parent_span(span: trace_api.Span) -> None:
     _thread_local.parent_span = span
 
 
-def _get_parent_span() -> Any:
+def _get_parent_span() -> trace_api.Span | None:
     return getattr(_thread_local, 'parent_span', None)
 
 
@@ -341,7 +341,9 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> AbstractContextMan
                 span_data[SYSTEM_INSTRUCTIONS] = [TextPart(type='text', content=text)]
 
         with logfire_claude.span('invoke_agent', **span_data) as root_span:
-            _set_parent_span(root_span._span)  # pyright: ignore[reportPrivateUsage]
+            otel_span = root_span._span  # pyright: ignore[reportPrivateUsage]
+            if otel_span is not None:
+                _set_parent_span(otel_span)
             _set_logfire_instance(logfire_claude)
             turn_tracker = _TurnTracker(logfire_claude)
 
