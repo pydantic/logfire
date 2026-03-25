@@ -7,6 +7,7 @@ import threading
 from collections.abc import AsyncGenerator, AsyncIterable
 from typing import TYPE_CHECKING, Any
 
+import claude_agent_sdk
 from opentelemetry import context as context_api, trace as trace_api
 
 from logfire._internal.utils import handle_internal_errors
@@ -270,8 +271,6 @@ async def post_tool_use_failure_hook(
 
 def instrument_claude_agent_sdk(logfire_instance: Logfire) -> None:
     """Instrument the Claude Agent SDK by monkey-patching ClaudeSDKClient."""
-    import claude_agent_sdk
-
     cls = claude_agent_sdk.ClaudeSDKClient
 
     if getattr(cls, '_is_instrumented_by_logfire', False):
@@ -365,11 +364,11 @@ def _inject_tracing_hooks(options: Any) -> None:
         return
 
     with handle_internal_errors:
-        from claude_agent_sdk import HookMatcher
-
-        options.hooks['PreToolUse'].insert(0, HookMatcher(matcher=None, hooks=[pre_tool_use_hook]))
-        options.hooks['PostToolUse'].insert(0, HookMatcher(matcher=None, hooks=[post_tool_use_hook]))
-        options.hooks['PostToolUseFailure'].insert(0, HookMatcher(matcher=None, hooks=[post_tool_use_failure_hook]))
+        options.hooks['PreToolUse'].insert(0, claude_agent_sdk.HookMatcher(matcher=None, hooks=[pre_tool_use_hook]))
+        options.hooks['PostToolUse'].insert(0, claude_agent_sdk.HookMatcher(matcher=None, hooks=[post_tool_use_hook]))
+        options.hooks['PostToolUseFailure'].insert(
+            0, claude_agent_sdk.HookMatcher(matcher=None, hooks=[post_tool_use_failure_hook])
+        )
         options._logfire_hooks_injected = True
 
 
