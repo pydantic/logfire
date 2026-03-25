@@ -18,35 +18,34 @@ Consequence of class-level patching: `query()`/`receive_response()` patches affe
 **Subagent nesting is out of scope.** *(from "The Claude Agent SDK gets first-party OTel instrumentation")*
 Task tool calls appear as flat tool spans like any other tool. Nested subagent span hierarchies can be added later.
 
-**Span structure is a practical flat tree, not full OTel GenAI semantic conventions.** *(from "The Claude Agent SDK gets first-party OTel instrumentation", "Subagent nesting is out of scope")*
+**Spans follow OTel GenAI semantic conventions for names, hierarchy, and attributes.** *(from "The Claude Agent SDK gets first-party OTel instrumentation")*
+See [otel-genai-spans.md](otel-genai-spans.md) and [otel-genai-agent-spans.md](otel-genai-agent-spans.md) for the full semconv reference. Attributes use constants and part dict types from `logfire/_internal/integrations/llm_providers/semconv.py`. The hierarchy is `invoke_agent` → `chat` + `execute_tool`:
 
 ```
-claude.conversation                      # root, wraps receive_response()
-├── claude.assistant.turn                # per AssistantMessage
-├── <tool_name>                          # per tool call (via hooks)
-├── claude.assistant.turn
+invoke_agent                         # root, wraps receive_response()
+├── chat {model}                     # per AssistantMessage
+├── execute_tool {tool_name}         # per tool call (via hooks)
+├── chat {model}                     # next turn
+├── execute_tool {tool_name}
 └── ...
 ```
 
-**Span attributes are bare keys, not namespaced.** *(from "Span structure is a practical flat tree")*
-Attribute names like `prompt`, `tool_input`, `usage.input_tokens` are the literal OTel attribute keys — no `logfire.claude.*` or GenAI semantic convention prefix.
+**The root span is `invoke_agent`.** *(from "Spans follow OTel GenAI semantic conventions")*
+Span name: `invoke_agent`. Attributes set at span creation: `gen_ai.operation.name` = `invoke_agent`, `gen_ai.provider.name` = `anthropic`. On start: `gen_ai.input.messages` (prompt as `InputMessages` with part dicts), `gen_ai.system_instructions` (system prompt as `SystemInstructions` with part dicts). On completion (from `ResultMessage`): `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`, `gen_ai.usage.cache_creation.input_tokens`, `gen_ai.usage.cache_read.input_tokens`, `gen_ai.response.model`. Non-semconv attributes from the SDK's result metadata: `total_cost_usd`, `num_turns`, `session_id`, `duration_ms`, `is_error`.
 
-**The patched `receive_response` drives span lifecycle by inspecting messages from the stream.** *(from "Instrumentation is via monkey-patching", "Span structure is a practical flat tree")*
-It wraps the original async generator: opens a `claude.conversation` root span for the entire iteration, then inspects each yielded message. On `AssistantMessage`: closes the previous turn span (if any) and opens a new `claude.assistant.turn` sibling. On `ResultMessage`: records usage/cost on the root span. Each message is yielded through unchanged. If `query` was not called before `receive_response`, the prompt attribute is simply omitted.
+**Chat spans represent each assistant turn.** *(from "Spans follow OTel GenAI semantic conventions")*
+Span name: `chat {model}`. One per `AssistantMessage`. Attributes: `gen_ai.operation.name` = `chat`, `gen_ai.response.model` (from `AssistantMessage.model`), `gen_ai.output.messages` (the assistant's content as `OutputMessages` using `TextPart`, `ToolCallPart`, etc. from semconv).
 
-**The root span `claude.conversation` captures prompt, usage, and cost.** *(from "The patched `receive_response` drives span lifecycle")*
-On start: `prompt`, `system_prompt`. On completion (from `ResultMessage`): `usage.input_tokens`, `usage.output_tokens`, `usage.total_tokens`, cache token details, `total_cost_usd`, `num_turns`, `session_id`, `duration_ms`, `is_error`. If the stream raises an exception, the root span records it via OTel's standard span exception/status mechanism (the `LogfireSpan` context manager handles this).
+**Tool spans use `execute_tool` and semconv tool attributes.** *(from "Spans follow OTel GenAI semantic conventions")*
+Span name: `execute_tool {tool_name}`. Created by `PreToolUse` hook, ended by `PostToolUse`/`PostToolUseFailure`. Attributes: `gen_ai.operation.name` = `execute_tool`, `gen_ai.tool.name`, `gen_ai.tool.call.id` (the `tool_use_id`), `gen_ai.tool.call.arguments` (tool input), `gen_ai.tool.call.result` (tool output on success), `error.type` (on failure).
 
-**Turn spans capture the assistant's message content and model.** *(from "Span structure is a practical flat tree")*
-`content` (flattened content blocks as dicts), `model` (from `AssistantMessage.model`).
-
-**Tool spans use the tool name as span name and capture input/output.** *(from "Span structure is a practical flat tree")*
-On start: `tool_input`. On success: `tool_response`. On failure: `error`.
+**The patched `receive_response` drives span lifecycle by inspecting messages from the stream.** *(from "Instrumentation is via monkey-patching", "Spans follow OTel GenAI semantic conventions")*
+It wraps the original async generator: opens an `invoke_agent` root span for the entire iteration, then inspects each yielded message. On `AssistantMessage`: closes the previous chat span (if any) and opens a new `chat {model}` sibling. On `ResultMessage`: records usage/cost on the root span. Each message is yielded through unchanged. If `query` was not called before `receive_response`, the prompt attribute is simply omitted.
 
 **Hooks run in isolated async contexts, so context propagation uses `threading.local()`.** *(from "Instrumentation is via monkey-patching")*
 The SDK uses anyio internally, and anyio tasks don't propagate contextvars from the parent. We store the current parent span and logfire instance in `threading.local()` so hooks can create child spans under the correct parent, attaching context explicitly via `trace_api.set_span_in_context` + `context_api.attach`. This relies on all async tasks running on the same thread — if the SDK ever used threaded execution, this approach would need revisiting.
 
-**Active tool spans are tracked by `tool_use_id` to correlate pre/post hooks.** *(from "Tool spans use the tool name as span name", "Hooks run in isolated async contexts")*
+**Active tool spans are tracked by `tool_use_id` to correlate pre/post hooks.** *(from "Tool spans use `execute_tool`", "Hooks run in isolated async contexts")*
 `PreToolUse` creates and stores `(span, context_token)`. `PostToolUse`/`PostToolUseFailure` retrieves, sets attributes, ends the span, detaches context. Orphaned spans are cleaned up when the conversation ends.
 
 **Tests use a `MockTransport` implementing the SDK's `Transport` protocol.** *(from "The Claude Agent SDK gets first-party OTel instrumentation")*
