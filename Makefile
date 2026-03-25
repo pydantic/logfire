@@ -30,7 +30,7 @@ typecheck:
 
 .PHONY: test  # Run the tests
 test:
-	uv run --no-sync coverage run -m pytest -n auto --dist=loadgroup
+	uv run --no-sync pytest -n auto --dist=loadgroup
 
 .PHONY: test-update-examples  # Update the examples in the documentation
 test-update-examples:
@@ -46,7 +46,8 @@ generate-stubs:
 	uv run pytest ./tests/test_logfire_api.py::test_override_init_pyi
 
 .PHONY: testcov  # Run tests and generate a coverage report
-testcov: test
+testcov:
+	uv run --no-sync coverage run -m pytest -n auto --dist=loadgroup
 	@echo "building coverage html"
 	uv run coverage html --show-contexts
 
