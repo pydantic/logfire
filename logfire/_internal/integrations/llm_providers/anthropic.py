@@ -1,16 +1,20 @@
 from __future__ import annotations
 
+import contextlib
 import json
 from typing import TYPE_CHECKING, Any, cast
 
 import anthropic
-from anthropic.types import Message, TextBlock, TextDelta
+from anthropic.types import Message, TextBlock, TextDelta, ToolUseBlock
+from anthropic.types.beta import BetaMessage, BetaTextBlock, BetaTextDelta, BetaToolUseBlock
 
 from logfire._internal.utils import handle_internal_errors
 
 from .semconv import (
+    INPUT_MESSAGES,
     INPUT_TOKENS,
     OPERATION_NAME,
+    OUTPUT_MESSAGES,
     OUTPUT_TOKENS,
     PROVIDER_NAME,
     REQUEST_MAX_TOKENS,
@@ -22,7 +26,19 @@ from .semconv import (
     RESPONSE_FINISH_REASONS,
     RESPONSE_ID,
     RESPONSE_MODEL,
+    SYSTEM_INSTRUCTIONS,
     TOOL_DEFINITIONS,
+    BlobPart,
+    ChatMessage,
+    InputMessages,
+    MessagePart,
+    OutputMessage,
+    SemconvVersion,
+    SystemInstructions,
+    TextPart,
+    ToolCallPart,
+    ToolCallResponsePart,
+    UriPart,
 )
 from .types import EndpointConfig, StreamState
 
@@ -60,8 +76,20 @@ def _extract_request_parameters(json_data: dict[str, Any], span_data: dict[str, 
         span_data[TOOL_DEFINITIONS] = json.dumps(tools)
 
 
-def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
+def _versioned_stream_cls(base_cls: type[StreamState], versions: frozenset[SemconvVersion]) -> type[StreamState]:
+    """Create a version-aware stream state subclass."""
+
+    class VersionedStreamState(base_cls):
+        _versions = versions
+
+    return VersionedStreamState
+
+
+def get_endpoint_config(
+    options: FinalRequestOptions, *, version: SemconvVersion | frozenset[SemconvVersion] = 1
+) -> EndpointConfig:
     """Returns the endpoint config for Anthropic or Bedrock depending on the url."""
+    versions: frozenset[SemconvVersion] = version if isinstance(version, frozenset) else frozenset({version})
     url = options.url
     raw_json_data = options.json_data
     if not isinstance(raw_json_data, dict):  # pragma: no cover
@@ -69,24 +97,36 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         raw_json_data = {}
     json_data = cast('dict[str, Any]', raw_json_data)
 
-    if url == '/v1/messages':
+    if url in ('/v1/messages', '/v1/messages?beta=true'):
         span_data: dict[str, Any] = {
-            'request_data': json_data,
+            'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
+            'gen_ai.system': 'anthropic',
             PROVIDER_NAME: 'anthropic',
             OPERATION_NAME: 'chat',
             REQUEST_MODEL: json_data.get('model'),
         }
         _extract_request_parameters(json_data, span_data)
 
+        if 'latest' in versions:
+            # Convert messages to semantic convention format
+            messages: list[dict[str, Any]] = json_data.get('messages', [])
+            system: str | list[dict[str, Any]] | None = json_data.get('system')
+            if messages or system:
+                input_messages, system_instructions = convert_messages_to_semconv(messages, system)
+                span_data[INPUT_MESSAGES] = input_messages
+                if system_instructions:
+                    span_data[SYSTEM_INSTRUCTIONS] = system_instructions
+
         return EndpointConfig(
             message_template='Message with {request_data[model]!r}',
             span_data=span_data,
-            stream_state_cls=AnthropicMessageStreamState,
+            stream_state_cls=_versioned_stream_cls(AnthropicMessageStreamState, versions),
         )
     else:
         span_data = {
-            'request_data': json_data,
+            'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
             'url': url,
+            'gen_ai.system': 'anthropic',
             PROVIDER_NAME: 'anthropic',
         }
         if 'model' in json_data:  # pragma: no branch
@@ -97,15 +137,148 @@ def get_endpoint_config(options: FinalRequestOptions) -> EndpointConfig:
         )
 
 
+def _convert_content_part_or_parts(content: object) -> list[MessagePart]:
+    if not content:
+        return []
+
+    if isinstance(content, list):
+        return [_convert_content_part(part) for part in cast(list[Any], content)]
+    else:
+        return [_convert_content_part(content)]
+
+
+def _convert_content_part(part: object) -> MessagePart:  # pragma: no cover
+    """Convert a single Anthropic content part to semconv format."""
+    if not isinstance(part, dict):
+        return TextPart(type='text', content=str(part))
+
+    part = cast('dict[str, Any]', part)
+    part_type = part.get('type', 'text')
+    if part_type == 'text':
+        return TextPart(type='text', content=part.get('text', ''))
+    elif part_type == 'image':  # pragma: no cover
+        source = part.get('source', {})
+        if source.get('type') == 'base64':
+            blob_part = BlobPart(
+                type='blob',
+                modality='image',
+                content=source.get('data', ''),
+            )
+            if (media_type := source.get('media_type')) is not None:
+                blob_part['media_type'] = media_type
+            return blob_part
+        elif source.get('type') == 'url':
+            return UriPart(type='uri', uri=source.get('url', ''), modality='image')
+        else:
+            return {'type': 'image', **part}
+    elif part_type == 'tool_use':
+        return make_tool_call_part(
+            tool_call_id=part.get('id', ''),
+            name=part.get('name', ''),
+            arguments=part.get('input'),
+        )
+    elif part_type == 'tool_result':  # pragma: no cover
+        result_content = part.get('content')
+        if isinstance(result_content, list):
+            # Extract text from tool result content
+            text_parts: list[str] = []
+            for p in cast('list[dict[str, Any] | str]', result_content):
+                if isinstance(p, dict) and p.get('type') == 'text':
+                    text_parts.append(str(p.get('text', '')))
+                elif isinstance(p, str):
+                    text_parts.append(p)
+            result_text = ' '.join(text_parts)
+        else:
+            result_text = str(result_content) if result_content else ''
+        return ToolCallResponsePart(
+            type='tool_call_response',
+            id=part.get('tool_use_id', ''),
+            response=result_text,
+        )
+    else:  # pragma: no cover
+        # Return as generic dict for unknown types
+        return {**part, 'type': part_type}
+
+
+def make_tool_call_part(
+    tool_call_id: str,
+    name: str,
+    arguments: Any,
+) -> ToolCallPart:
+    """Helper function to create a ToolCallPart."""
+    if isinstance(arguments, str):  # pragma: no cover
+        with contextlib.suppress(json.JSONDecodeError):
+            arguments = json.loads(arguments)
+    return ToolCallPart(
+        type='tool_call',
+        id=tool_call_id,
+        name=name,
+        arguments=arguments,
+    )
+
+
+def convert_messages_to_semconv(
+    messages: list[dict[str, Any]],
+    system: str | list[dict[str, Any]] | None = None,
+) -> tuple[InputMessages, SystemInstructions]:
+    """Convert Anthropic messages format to OTel Gen AI Semantic Convention format.
+
+    Returns a tuple of (input_messages, system_instructions).
+    """
+    system_instructions: SystemInstructions = _convert_content_part_or_parts(system)
+
+    input_messages: InputMessages = [
+        ChatMessage(
+            role=msg.get('role') or 'user',
+            parts=_convert_content_part_or_parts(msg.get('content')),
+        )
+        for msg in messages
+    ]
+
+    return input_messages, system_instructions
+
+
+def convert_response_to_semconv(message: Message | BetaMessage) -> OutputMessage:
+    """Convert an Anthropic response message to OTel Gen AI Semantic Convention format."""
+    parts: list[MessagePart] = []
+
+    for block in message.content:
+        if isinstance(block, (TextBlock, BetaTextBlock)):
+            parts.append(TextPart(type='text', content=block.text))
+        elif isinstance(block, (ToolUseBlock, BetaToolUseBlock)):
+            parts.append(
+                make_tool_call_part(
+                    tool_call_id=block.id,
+                    name=block.name,
+                    arguments=block.input,
+                )
+            )
+        elif hasattr(block, 'type'):  # pragma: no cover
+            # Handle other block types generically
+            block_dict = block.model_dump() if hasattr(block, 'model_dump') else dict(block)
+            parts.append(block_dict)
+
+    result = OutputMessage(
+        role=message.role,
+        parts=parts,
+    )
+    if message.stop_reason:
+        result['finish_reason'] = message.stop_reason
+
+    return result
+
+
 def content_from_messages(chunk: anthropic.types.MessageStreamEvent) -> str | None:
     if hasattr(chunk, 'content_block'):
-        return chunk.content_block.text if isinstance(chunk.content_block, TextBlock) else None  # type: ignore
+        return chunk.content_block.text if isinstance(chunk.content_block, (TextBlock, BetaTextBlock)) else None  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
     if hasattr(chunk, 'delta'):
-        return chunk.delta.text if isinstance(chunk.delta, TextDelta) else None  # type: ignore
+        return chunk.delta.text if isinstance(chunk.delta, (TextDelta, BetaTextDelta)) else None  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
     return None
 
 
 class AnthropicMessageStreamState(StreamState):
+    _versions: frozenset[SemconvVersion] = frozenset({1})
+
     def __init__(self):
         self._content: list[str] = []
 
@@ -117,40 +290,73 @@ class AnthropicMessageStreamState(StreamState):
     def get_response_data(self) -> Any:
         return {'combined_chunk_content': ''.join(self._content), 'chunk_count': len(self._content)}
 
+    def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
+        versions = self._versions
+        result = dict(**span_data)
+        if 1 in versions:
+            result['response_data'] = self.get_response_data()
+        if 'latest' in versions and self._content:
+            combined = ''.join(self._content)
+            result[OUTPUT_MESSAGES] = [
+                OutputMessage(
+                    role='assistant',
+                    parts=[TextPart(type='text', content=combined)],
+                )
+            ]
+        return result
+
 
 @handle_internal_errors
-def on_response(response: ResponseT, span: LogfireSpan) -> ResponseT:
+def on_response(
+    response: ResponseT, span: LogfireSpan, *, version: SemconvVersion | frozenset[SemconvVersion] = 1
+) -> ResponseT:
     """Updates the span based on the type of response."""
-    if isinstance(response, Message):  # pragma: no branch
-        # Keep response_data for backward compatibility
-        message: dict[str, Any] = {'role': 'assistant'}
-        for block in response.content:
-            if block.type == 'text':
-                message['content'] = block.text
-            elif block.type == 'tool_use':  # pragma: no branch
-                message.setdefault('tool_calls', []).append(
-                    {
-                        'id': block.id,
-                        'function': {
-                            'arguments': block.model_dump_json(include={'input'}),
-                            'name': block.name,
-                        },
-                    }
-                )
-        span.set_attribute('response_data', {'message': message, 'usage': response.usage})
+    versions: frozenset[SemconvVersion] = version if isinstance(version, frozenset) else frozenset({version})
 
-        # Add semantic convention attributes
+    if isinstance(response, (Message, BetaMessage)):
+        if 1 in versions:
+            message: dict[str, Any] = {'role': 'assistant'}
+            for block in response.content:
+                if block.type == 'text':
+                    message['content'] = block.text
+                elif block.type == 'tool_use':
+                    message.setdefault('tool_calls', []).append(
+                        {
+                            'id': block.id,
+                            'function': {
+                                'arguments': block.model_dump_json(include={'input'}),
+                                'name': block.name,
+                            },
+                        }
+                    )
+            span.set_attribute('response_data', {'message': message, 'usage': response.usage})
+
+        if 'latest' in versions:
+            output_message = convert_response_to_semconv(response)
+            span.set_attribute(OUTPUT_MESSAGES, [output_message])
+
+        # Always set scalar semconv attributes
         span.set_attribute(RESPONSE_MODEL, response.model)
         span.set_attribute(RESPONSE_ID, response.id)
 
-        # Add token usage
         if response.usage:  # pragma: no branch
             span.set_attribute(INPUT_TOKENS, response.usage.input_tokens)
             span.set_attribute(OUTPUT_TOKENS, response.usage.output_tokens)
 
-        # Add finish reason
         if response.stop_reason:
             span.set_attribute(RESPONSE_FINISH_REASONS, [response.stop_reason])
+
+        try:
+            from genai_prices import calc_price, extract_usage
+
+            response_data = response.model_dump()
+            usage_data = extract_usage(response_data, provider_id='anthropic')
+            span.set_attribute(
+                'operation.cost',
+                float(calc_price(usage_data.usage, model_ref=response.model, provider_id='anthropic').total_price),
+            )
+        except Exception:
+            pass
 
     return response
 

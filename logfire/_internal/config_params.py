@@ -59,7 +59,9 @@ SEND_TO_LOGFIRE = ConfigParam(env_vars=['LOGFIRE_SEND_TO_LOGFIRE'], allow_file_c
 MIN_LEVEL = ConfigParam(env_vars=['LOGFIRE_MIN_LEVEL'], allow_file_config=True, default=None, tp=LevelName)
 """Minimum log level for logs and spans to be created. By default, all logs and spans are created."""
 TOKEN = ConfigParam(env_vars=['LOGFIRE_TOKEN'], tp=list[str])
-"""Token for the Logfire API. Can be a comma-separated list for multi-project export."""
+"""Token for sending application telemetry data to Logfire, also known as a "write token". Can be a comma-separated list for multi-project export."""
+API_KEY = ConfigParam(env_vars=['LOGFIRE_API_KEY'])
+"""API key for Logfire API access (used for managed variables and other public APIs)."""
 SERVICE_NAME = ConfigParam(env_vars=['LOGFIRE_SERVICE_NAME', OTEL_SERVICE_NAME], allow_file_config=True, default='')
 """Name of the service emitting spans. For further details, please refer to the [Service section](https://opentelemetry.io/docs/specs/semconv/resource/#service)."""
 SERVICE_VERSION = ConfigParam(env_vars=['LOGFIRE_SERVICE_VERSION', 'OTEL_SERVICE_VERSION'], allow_file_config=True)
@@ -118,6 +120,7 @@ CONFIG_PARAMS = {
     'send_to_logfire': SEND_TO_LOGFIRE,
     'min_level': MIN_LEVEL,
     'token': TOKEN,
+    'api_key': API_KEY,
     'service_name': SERVICE_NAME,
     'service_version': SERVICE_VERSION,
     'environment': ENVIRONMENT,
@@ -213,15 +216,15 @@ class ParamManager:
                     pass
             raise LogfireConfigError(f'Expected {name} to be an instance of one of {get_args(tp)}, got {value!r}')
         if tp is bool:
-            return _check_bool(value, name)  # type: ignore
+            return _check_bool(value, name)  # pyright: ignore[reportReturnType]
         if tp is float:
-            return float(value)  # type: ignore
+            return float(value)  # pyright: ignore[reportReturnType]
         if tp is Path:
-            return Path(value)  # type: ignore
+            return Path(value)  # pyright: ignore[reportReturnType]
         if get_origin(tp) is set and get_args(tp) == (str,):  # pragma: no branch
-            return _extract_set_of_str(value)  # type: ignore
+            return _extract_set_of_str(value)  # pyright: ignore[reportReturnType]
         if get_origin(tp) is list and get_args(tp) == (str,):
-            return extract_list_of_str(value)  # type: ignore
+            return extract_list_of_str(value)  # pyright: ignore[reportReturnType]
         raise RuntimeError(f'Unexpected type {tp}')  # pragma: no cover
 
 

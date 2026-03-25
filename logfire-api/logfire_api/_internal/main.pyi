@@ -13,6 +13,7 @@ from ..integrations.psycopg import CommenterOptions as PsycopgCommenterOptions
 from ..integrations.redis import RequestHook as RedisRequestHook, ResponseHook as RedisResponseHook
 from ..integrations.sqlalchemy import CommenterOptions as SQLAlchemyCommenterOptions
 from ..integrations.wsgi import RequestHook as WSGIRequestHook, ResponseHook as WSGIResponseHook
+from ..variables import ResolveFunction as ResolveFunction, ValidationReport as ValidationReport, Variable as Variable, VariablesConfig as VariablesConfig
 from ..version import VERSION as VERSION
 from .auto_trace import AutoTraceModule as AutoTraceModule, install_auto_tracing as install_auto_tracing
 from .config import GLOBAL_CONFIG as GLOBAL_CONFIG, LogfireConfig as LogfireConfig
@@ -22,6 +23,7 @@ from .formatter import logfire_format as logfire_format, logfire_format_with_mag
 from .instrument import instrument as instrument
 from .integrations.asgi import ASGIApp as ASGIApp, ASGIInstrumentKwargs as ASGIInstrumentKwargs
 from .integrations.aws_lambda import LambdaEvent as LambdaEvent, LambdaHandler as LambdaHandler
+from .integrations.llm_providers.semconv import SemconvVersion as SemconvVersion
 from .integrations.mysql import MySQLConnection as MySQLConnection
 from .integrations.psycopg import Psycopg2Connection as Psycopg2Connection, PsycopgConnection as PsycopgConnection
 from .integrations.sqlite3 import SQLite3Connection as SQLite3Connection
@@ -32,7 +34,7 @@ from .metrics import ProxyMeterProvider as ProxyMeterProvider
 from .stack_info import get_user_stack_info as get_user_stack_info
 from .tracer import ProxyTracerProvider as ProxyTracerProvider, _ProxyTracer, set_exception_status as set_exception_status
 from .utils import SysExcInfo as SysExcInfo, get_version as get_version, handle_internal_errors as handle_internal_errors, log_internal_error as log_internal_error, uniquify_sequence as uniquify_sequence
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from contextlib import AbstractContextManager
 from django.http import HttpRequest as HttpRequest, HttpResponse as HttpResponse
 from fastapi import FastAPI
@@ -57,12 +59,15 @@ from typing_extensions import LiteralString, ParamSpec, Unpack
 from wsgiref.types import WSGIApplication
 
 ExcInfo = SysExcInfo | BaseException | bool | None
+T = TypeVar('T')
 
 class Logfire:
     """The main logfire class."""
     def __init__(self, *, config: LogfireConfig = ..., sample_rate: float | None = None, tags: Sequence[str] = (), console_log: bool = True, otel_scope: str = 'logfire') -> None: ...
     @property
     def config(self) -> LogfireConfig: ...
+    @property
+    def resource_attributes(self) -> Mapping[str, Any]: ...
     def trace(self, msg_template: str, /, *, _tags: Sequence[str] | None = None, _exc_info: ExcInfo = False, **attributes: Any) -> None:
         """Log a trace message.
 
@@ -493,7 +498,7 @@ class Logfire:
                 without waiting for the context manager to be opened,
                 i.e. it's not necessary to use this as a context manager.
         """
-    def instrument_openai(self, openai_client: openai.OpenAI | openai.AsyncOpenAI | type[openai.OpenAI] | type[openai.AsyncOpenAI] | None = None, *, suppress_other_instrumentation: bool = True) -> AbstractContextManager[None]:
+    def instrument_openai(self, openai_client: openai.OpenAI | openai.AsyncOpenAI | type[openai.OpenAI] | type[openai.AsyncOpenAI] | None = None, *, suppress_other_instrumentation: bool = True, version: SemconvVersion | Sequence[SemconvVersion] = 1) -> AbstractContextManager[None]:
         '''Instrument an OpenAI client so that spans are automatically created for each request.
 
         This instruments the [standard OpenAI SDK](https://pypi.org/project/openai/) package, for instrumentation
@@ -542,6 +547,17 @@ class Logfire:
                 enabled. In reality, this means the HTTPX instrumentation, which could otherwise be called since
                 OpenAI uses HTTPX to make HTTP requests.
 
+            version: The version(s) of the span attribute format to use:
+
+                - `1` (the default): Uses `request_data` and `response_data` attributes.
+                - `\'latest\'`: Uses OpenTelemetry Gen AI semantic convention attributes
+                  (`gen_ai.input.messages`, `gen_ai.output.messages`, etc.) and omits the full
+                  `response_data` attribute. A minimal `request_data` (e.g. `{"model": ...}`) is
+                  still recorded for message template compatibility. This format may change between
+                  releases.
+                - `[1, \'latest\']`: Emits both the full legacy attributes and the semantic convention
+                  attributes simultaneously, useful for migration and testing.
+
         Returns:
             A context manager that will revert the instrumentation when exited.
                 Use of this context manager is optional.
@@ -552,7 +568,7 @@ class Logfire:
         For instrumentation of the standard OpenAI SDK package,
         see [`instrument_openai()`][logfire.Logfire.instrument_openai].
         """
-    def instrument_anthropic(self, anthropic_client: anthropic.Anthropic | anthropic.AsyncAnthropic | anthropic.AnthropicBedrock | anthropic.AsyncAnthropicBedrock | type[anthropic.Anthropic] | type[anthropic.AsyncAnthropic] | type[anthropic.AnthropicBedrock] | type[anthropic.AsyncAnthropicBedrock] | None = None, *, suppress_other_instrumentation: bool = True) -> AbstractContextManager[None]:
+    def instrument_anthropic(self, anthropic_client: anthropic.Anthropic | anthropic.AsyncAnthropic | anthropic.AnthropicBedrock | anthropic.AsyncAnthropicBedrock | type[anthropic.Anthropic] | type[anthropic.AsyncAnthropic] | type[anthropic.AnthropicBedrock] | type[anthropic.AsyncAnthropicBedrock] | None = None, *, suppress_other_instrumentation: bool = True, version: SemconvVersion | Sequence[SemconvVersion] = 1) -> AbstractContextManager[None]:
         '''Instrument an Anthropic client so that spans are automatically created for each request.
 
         The following methods are instrumented for both the sync and async clients:
@@ -595,6 +611,17 @@ class Logfire:
             suppress_other_instrumentation: If True, suppress any other OTEL instrumentation that may be otherwise
                 enabled. In reality, this means the HTTPX instrumentation, which could otherwise be called since
                 OpenAI uses HTTPX to make HTTP requests.
+
+            version: The version(s) of the span attribute format to use:
+
+                - `1` (the default): Uses `request_data` and `response_data` attributes.
+                - `\'latest\'`: Uses OpenTelemetry Gen AI semantic convention attributes
+                  (`gen_ai.input.messages`, `gen_ai.output.messages`, etc.) and omits the full
+                  `response_data` attribute. A minimal `request_data` (e.g. `{"model": ...}`) is
+                  still recorded for message template compatibility. This format may change between
+                  releases.
+                - `[1, \'latest\']`: Emits both the full legacy attributes and the semantic convention
+                  attributes simultaneously, useful for migration and testing.
 
         Returns:
             A context manager that will revert the instrumentation when exited.
@@ -1149,6 +1176,216 @@ class Logfire:
         Returns:
             `False` if the timeout was reached before the shutdown was completed, `True` otherwise.
         """
+    @overload
+    def var(self, name: str, *, default: T, description: str | None = None) -> Variable[T]: ...
+    @overload
+    def var(self, name: str, *, type: type[T], default: T | ResolveFunction[T], description: str | None = None) -> Variable[T]: ...
+    def variables_clear(self) -> None:
+        """Clear all registered variables from this Logfire instance.
+
+        This removes all variables previously registered via [`var()`][logfire.Logfire.var],
+        allowing them to be re-registered. This is primarily intended for use in tests
+        to ensure a clean state between test cases.
+        """
+    def variables_get(self) -> list[Variable[Any]]:
+        """Get all variables registered with this Logfire instance."""
+    def variables_push(self, variables: list[Variable[Any]] | None = None, *, dry_run: bool = False, yes: bool = False, strict: bool = False) -> bool:
+        """Push variable definitions (metadata only) to the configured variable provider.
+
+        This method syncs local variable definitions with the provider:
+        - Creates new variables that don't exist in the provider
+        - Updates JSON schemas for existing variables if they've changed
+        - Warns about existing label values that are incompatible with new schemas
+
+        The provider is determined by the Logfire configuration. For remote providers,
+        this requires proper authentication (via VariablesOptions or LOGFIRE_API_KEY).
+
+        Args:
+            variables: Variable instances to push. If None, all variables
+                registered with this Logfire instance will be pushed.
+            dry_run: If True, only show what would change without applying.
+            yes: If True, skip confirmation prompt.
+            strict: If True, fail if any existing label values are incompatible with new schemas.
+
+        Returns:
+            True if changes were applied (or would be applied in dry_run mode), False otherwise.
+
+        Example:
+            ```python
+            import logfire
+
+            feature_enabled = logfire.var(name='feature_enabled', type=bool, default=False)
+            max_retries = logfire.var(name='max_retries', type=int, default=3)
+
+            if __name__ == '__main__':
+                # Push all registered variables
+                logfire.variables_push()
+
+                # Or push specific variables only
+                logfire.variables_push([feature_enabled])
+            ```
+        """
+    def variables_push_types(self, types: Sequence[type[Any] | tuple[type[Any], str]], *, dry_run: bool = False, yes: bool = False, strict: bool = False) -> bool:
+        """Push variable type definitions to the configured variable provider.
+
+        Variable types are reusable schema definitions that can be referenced by variables.
+        They help organize and standardize variable schemas across your project.
+
+        This method syncs local Python types with the provider:
+        - Creates new types that don't exist in the provider
+        - Updates schemas for existing types if they've changed
+        - Shows a diff of changes before applying
+        - Checks if existing variable label values are compatible with the new schemas
+
+        The provider is determined by the Logfire configuration. For remote providers,
+        this requires proper authentication (via VariablesOptions or LOGFIRE_API_KEY).
+
+        Args:
+            types: Types to push. Items can be:
+                - A type (name defaults to __name__ or str(type))
+                - A tuple of (type, name) for explicit naming
+            dry_run: If True, only show what would change without applying.
+            yes: If True, skip confirmation prompt.
+            strict: If True, abort when existing label values are incompatible with
+                the new type schema.
+
+        Returns:
+            True if changes were applied (or would be applied in dry_run mode), False otherwise.
+
+        Example:
+            ```python
+            import logfire
+            from pydantic import BaseModel
+
+
+            class FeatureConfig(BaseModel):
+                enabled: bool = False
+                max_retries: int = 3
+                timeout_seconds: float = 30.0
+
+
+            class UserSettings(BaseModel):
+                theme: str = 'light'
+                notifications_enabled: bool = True
+
+
+            if __name__ == '__main__':
+                # Push type definitions using their class names
+                logfire.variables_push_types([FeatureConfig, UserSettings])
+
+                # Or push with explicit names
+                logfire.variables_push_types(
+                    [
+                        (FeatureConfig, 'my-feature-config'),
+                        (UserSettings, 'my-user-settings'),
+                    ]
+                )
+            ```
+        """
+    def variables_validate(self, variables: list[Variable[Any]] | None = None) -> ValidationReport:
+        """Validate that provider-side variable label values match local type definitions.
+
+        This method fetches the current variable configuration from the provider and
+        validates that all label values can be deserialized to the expected types
+        defined in the local Variable instances.
+
+        Args:
+            variables: Variable instances to validate. If None, all variables
+                registered with this Logfire instance will be validated.
+
+        Returns:
+            A ValidationReport containing any errors found. Use `report.is_valid` to check
+            if validation passed, and `report.format()` to get a human-readable summary.
+
+        Example:
+            ```python
+            import logfire
+
+            feature_enabled = logfire.var(name='feature_enabled', type=bool, default=False)
+            max_retries = logfire.var(name='max_retries', type=int, default=3)
+
+            if __name__ == '__main__':
+                # Validate all registered variables
+                logfire.variables_validate()
+
+                # Or validate specific variables only
+                report = logfire.variables_validate([feature_enabled])
+                assert report.is_valid
+            ```
+        """
+    def variables_push_config(self, config: VariablesConfig, *, mode: Literal['merge', 'replace'] = 'merge', dry_run: bool = False, yes: bool = False) -> bool:
+        '''Push a VariablesConfig to the configured provider.
+
+        This method pushes a complete VariablesConfig (including labels and rollouts)
+        to the provider. It\'s useful for:
+        - Pushing configs generated or modified locally
+        - Pushing configs read from files
+        - Partial updates (merge mode) or full replacement (replace mode)
+
+        Args:
+            config: The VariablesConfig to sync.
+            mode: \'merge\' updates/creates only variables in config (leaves others unchanged).
+                  \'replace\' makes the server match the config exactly (deletes missing variables).
+            dry_run: If True, only show what would change without applying.
+            yes: If True, skip confirmation prompt.
+
+        Returns:
+            True if changes were applied (or would be applied in dry_run mode), False otherwise.
+
+        Example:
+            ```python skip="true"
+            import logfire
+            from logfire.variables import VariablesConfig
+
+            # Push config to server
+            logfire.variables_push_config(config)
+
+            # Or merge just a subset of variables
+            logfire.variables_push_config(config, mode=\'merge\')
+            ```
+        '''
+    def variables_pull_config(self) -> VariablesConfig:
+        '''Pull the current variable configuration from the provider.
+
+        This method fetches the complete configuration from the provider,
+        useful for generating local copies of the config that can be modified.
+
+        Returns:
+            The current VariablesConfig from the provider.
+
+        Example:
+            ```python skip="true"
+            import logfire
+
+            # Pull config from the provider
+            config = logfire.variables_pull_config()
+            print(config.model_dump_json(indent=2))
+            ```
+        '''
+    def variables_build_config(self, variables: list[Variable[Any]] | None = None) -> VariablesConfig:
+        '''Build a VariablesConfig from registered Variable instances.
+
+        This creates a minimal config with just the name, schema, and example for each variable.
+        No labels or versions are created - use this to build a template config that can be edited.
+
+        Args:
+            variables: Variable instances to include. If None, uses all registered variables.
+
+        Returns:
+            A VariablesConfig with minimal configs for each variable.
+
+        Example:
+            ```python skip="true"
+            import logfire
+
+            feature_enabled = logfire.var(name=\'feature_enabled\', type=bool, default=False)
+            max_retries = logfire.var(name=\'max_retries\', type=int, default=3)
+
+            # Build config from registered variables
+            config = logfire.variables_build_config()
+            print(config.model_dump_json(indent=2))
+            ```
+        '''
 
 class FastLogfireSpan:
     """A simple version of `LogfireSpan` optimized for auto-tracing."""

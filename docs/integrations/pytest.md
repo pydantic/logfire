@@ -166,6 +166,7 @@ import logfire
 # Override the default pytest behavior to send spans when a token is available
 logfire.configure(send_to_logfire='if-token-present')
 
+
 def perform_operation():
     with logfire.span('performing operation'):
         # Simulate some work

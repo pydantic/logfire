@@ -20,7 +20,7 @@ Sentry is a mature error monitoring platform. Logfire is an AI-native observabil
 - **Full observability:** You want logs, traces, AND error tracking in one tool
 - **AI/LLM applications:** You need to observe prompts, responses, token usage
 - **Real-time debugging:** You want to see what's happening right now, not just errors
-- **Frontend + backend debugging:** Use Logfire's  [JavaScript SDK](https://logfire.pydantic.dev/docs/integrations/javascript/?utm_source=sentry_comparison_docs) to trace and debug your entire application 
+- **Frontend + backend debugging:** Use Logfire's  [JavaScript SDK](https://logfire.pydantic.dev/docs/integrations/javascript/?utm_source=sentry_comparison_docs) to trace and debug your entire application
 - **SQL analysis:** You want to query your data with familiar SQL
 - **Unified tooling:** You don't want to juggle Sentry + logging service + APM tool
 - **One-click AI-assisted debugging via MCP**

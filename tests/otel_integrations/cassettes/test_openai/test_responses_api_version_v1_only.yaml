@@ -1,0 +1,64 @@
+interactions:
+- request:
+    body: '{"input": "What is four plus five?", "model": "gpt-4.1"}'
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate, zstd
+      connection:
+      - keep-alive
+      content-length:
+      - '56'
+      content-type:
+      - application/json
+      host:
+      - api.openai.com
+      user-agent:
+      - OpenAI/Python 1.109.1
+      x-stainless-arch:
+      - arm64
+      x-stainless-async:
+      - 'false'
+      x-stainless-lang:
+      - python
+      x-stainless-os:
+      - MacOS
+      x-stainless-package-version:
+      - 1.109.1
+      x-stainless-read-timeout:
+      - '600'
+      x-stainless-retry-count:
+      - '0'
+      x-stainless-runtime:
+      - CPython
+      x-stainless-runtime-version:
+      - 3.12.9
+    method: POST
+    uri: https://api.openai.com/v1/responses
+  response:
+    body:
+      string: !!binary |
+        H4sIABxAjWkC/3VTQW7jMAz8iqFzE8Rugm73AfuJYmEoMu1qK4uCSAUtDP+9lGLXSYC9WTMUhzOU
+        J2U79btSESi0DMR186zPRj1VCs//wPBKoifIqImgGbpWZ6Z+Ob2eDs3p9UUYYs2Jcr3BMTiQqnzh
+        rM3HEDH5rNNrRyAgxIhRzj45J0fr1yttB6yto1uOOCbDVibY0FF/tpg4JG4ZP+CRYkTXGu1uG43Y
+        gcvjDYF3x329a2Ty3eG4q4/Fbukm/Nu0ZDLS8BAJfwUoDBDpoeTxH9cGPYNf2q3X1oHhk3ON9h7l
+        9mLs7W8WyJRU/sEUq+ASVb29QGWp8tbDXs25KKIr7TSRFXlRKXDQUQyDuzcv2eXAQ4SLxUTtusu2
+        eFyikZ0SisIg0KSg7zHyxlIaRx2/FmDOCMSLNdCyhbxF1UGvk+NrHhhh02UYA0SJqID1/rCZnJTI
+        jPr6uUZUuDlrXF28o+gUs4lRLfAWF4Y2bH1j8qbkWWaypM/uuo1UtpV1rL97MnVTXtiG3by/SRlt
+        3uWp/1Qf5qdtiSv46xG7a/GT7EMXls27DWsKmAhufopR2nSade4zz9/4YxFAqQMAAA==
+    headers:
+      Connection:
+      - keep-alive
+      Content-Encoding:
+      - gzip
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 11 Feb 2026 23:43:50 GMT
+      Server:
+      - cloudflare
+    status:
+      code: 200
+      message: OK
+version: 1

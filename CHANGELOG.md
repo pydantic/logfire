@@ -1,5 +1,50 @@
 # Release Notes
 
+## [v4.30.0] (2026-03-23)
+
+* Add `logfire auth logout` command by @ai-man-codes in [#1781](https://github.com/pydantic/logfire/pull/1781)
+* Remove Rich link styling from project URL output by @ameenalkhaldi in [#1784](https://github.com/pydantic/logfire/pull/1784)
+* Fix push_config() to push labels and versions by @dmontagu in [#1785](https://github.com/pydantic/logfire/pull/1785)
+* Merge `export_dataset` into `get_dataset` with `include_cases` parameter by @Kludex in [#1792](https://github.com/pydantic/logfire/pull/1792)
+
+## [v4.29.0] (2026-03-13)
+
+* Add `gen_ai.usage.raw` attribute to OpenAI Responses spans by @alexmojaki in [#1777](https://github.com/pydantic/logfire/pull/1777)
+
+## [v4.28.0] (2026-03-11)
+
+* Handle anthropic beta messages and refactor by @alexmojaki in [#1774](https://github.com/pydantic/logfire/pull/1774)
+* Delete redundant `logfire.experimental.datasets` package by @alexmojaki in [#1763](https://github.com/pydantic/logfire/pull/1763)
+* Change `logfire_pytest` fixture scope to session by @jirikuncar in [#1758](https://github.com/pydantic/logfire/pull/1758)
+
+## [v4.27.0] (2026-03-06)
+
+* Add `gen_ai.system` attribute to anthropic spans, enabling token/cost badges by @alexmojaki in [#1760](https://github.com/pydantic/logfire/pull/1760)
+* Set `operation.cost` attribute on anthropic spans when `genai-prices` is installed by @alexmojaki in [#1761](https://github.com/pydantic/logfire/pull/1761)
+
+## [v4.26.0] (2026-03-06)
+
+* feat: add browser proxy helpers: `forward_export_request` and `logfire_proxy` by @AlanPonnachan in [#1697](https://github.com/pydantic/logfire/pull/1697)
+* Handle pickling errors in `dataclasses.asdict` by @alexmojaki in [#1756](https://github.com/pydantic/logfire/pull/1756)
+* Use additionalProperties for homogeneous dict schemas by @adriangb in [#1738](https://github.com/pydantic/logfire/pull/1738)
+
+## [v4.25.0] (2026-02-19)
+
+* Add experimental datasets package by @dmontagu in [#1711](https://github.com/pydantic/logfire/pull/1711)
+* Extract langsmith provider name by @alexmojaki in [#1720](https://github.com/pydantic/logfire/pull/1720)
+
+## [v4.24.0] (2026-02-13)
+
+* Add managed variables by @dmontagu in [#1691](https://github.com/pydantic/logfire/pull/1691)
+
+## [v4.23.0] (2026-02-12)
+
+* feat: Add `logfire.db_api` — PEP 249 DB API 2.0 interface by @dmontagu in [#1692](https://github.com/pydantic/logfire/pull/1692)
+* Add semantic convention message attributes to LLM integrations by @dmontagu in [#1705](https://github.com/pydantic/logfire/pull/1705)
+* Fix some attributes in langsmith and openai_agents spans @alexmojaki in [#1696](https://github.com/pydantic/logfire/pull/1696)
+* feat: support for pytest-xdist traceparent propagation by @jirikuncar in [#1701](https://github.com/pydantic/logfire/pull/1701)
+* fix: re-attach OTel span context in pytest async test functions by @jirikuncar in [#1693](https://github.com/pydantic/logfire/pull/1693)
+
 ## [v4.22.0] (2026-02-04)
 
 * feat: Add multi-token support for project migration by @adriangb in [#1672](https://github.com/pydantic/logfire/pull/1672)
@@ -1028,3 +1073,11 @@ First release from new repo!
 [v4.20.0]: https://github.com/pydantic/logfire/compare/v4.19.0...v4.20.0
 [v4.21.0]: https://github.com/pydantic/logfire/compare/v4.20.0...v4.21.0
 [v4.22.0]: https://github.com/pydantic/logfire/compare/v4.21.0...v4.22.0
+[v4.23.0]: https://github.com/pydantic/logfire/compare/v4.22.0...v4.23.0
+[v4.24.0]: https://github.com/pydantic/logfire/compare/v4.23.0...v4.24.0
+[v4.25.0]: https://github.com/pydantic/logfire/compare/v4.24.0...v4.25.0
+[v4.26.0]: https://github.com/pydantic/logfire/compare/v4.25.0...v4.26.0
+[v4.27.0]: https://github.com/pydantic/logfire/compare/v4.26.0...v4.27.0
+[v4.28.0]: https://github.com/pydantic/logfire/compare/v4.27.0...v4.28.0
+[v4.29.0]: https://github.com/pydantic/logfire/compare/v4.28.0...v4.29.0
+[v4.30.0]: https://github.com/pydantic/logfire/compare/v4.29.0...v4.30.0

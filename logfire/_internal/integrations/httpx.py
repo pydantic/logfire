@@ -203,7 +203,7 @@ class LogfireHttpxRequestInfo(RequestInfo, LogfireHttpxInfoMixin):
             return False
 
         data = self.form_data
-        if not (data and isinstance(data, Mapping)):  # pragma: no cover  # type: ignore
+        if not (data and isinstance(data, Mapping)):  # pragma: no cover  # pyright: ignore[reportUnnecessaryIsInstance]
             return False
         self.set_complex_span_attributes({attr_name: data})
         return True
@@ -224,11 +224,11 @@ class LogfireHttpxRequestInfo(RequestInfo, LogfireHttpxInfoMixin):
     def content(self) -> bytes:
         if self.body_is_streaming:  # pragma: no cover
             raise ValueError('Cannot read content from a streaming body')
-        return list(self.stream)[0]  # type: ignore
+        return list(self.stream)[0]  # pyright: ignore[reportUnknownVariableType, reportArgumentType]
 
     @cached_property
     def form_data(self) -> Mapping[str, Any] | None:
-        frame = inspect.currentframe().f_back.f_back.f_back  # type: ignore
+        frame = inspect.currentframe().f_back.f_back.f_back  # pyright: ignore[reportOptionalMemberAccess]
         while frame:
             if frame.f_code in CODES_FOR_METHODS_WITH_DATA_PARAM:
                 break
@@ -239,7 +239,7 @@ class LogfireHttpxRequestInfo(RequestInfo, LogfireHttpxInfoMixin):
         return frame.f_locals.get('data')
 
     def set_complex_span_attributes(self, attributes: dict[str, Any]):
-        set_user_attributes_on_raw_span(self.span, attributes)  # type: ignore
+        set_user_attributes_on_raw_span(self.span, attributes)  # pyright: ignore[reportArgumentType]
 
 
 class LogfireHttpxResponseInfo(ResponseInfo, LogfireHttpxInfoMixin):
@@ -264,7 +264,7 @@ class LogfireHttpxResponseInfo(ResponseInfo, LogfireHttpxInfoMixin):
 
     @cached_property
     def response(self) -> httpx.Response:
-        frame = inspect.currentframe().f_back.f_back  # type: ignore
+        frame = inspect.currentframe().f_back.f_back  # pyright: ignore[reportOptionalMemberAccess]
         while frame:  # pragma: no branch
             response = frame.f_locals.get('response')
             frame = frame.f_back
@@ -328,7 +328,7 @@ class LogfireHttpxResponseInfo(ResponseInfo, LogfireHttpxInfoMixin):
     def capture_text_as_json(self, span: LogfireSpan, *, text: str, attr_name: str):
         span.set_attribute(attr_name, {})  # Set the JSON schema
         # Set the attribute to the raw text so that the backend can parse it
-        span._span.set_attribute(attr_name, text)  # type: ignore
+        span._span.set_attribute(attr_name, text)  # pyright: ignore[reportOptionalMemberAccess, reportPrivateUsage]
 
 
 def make_request_hook(hook: RequestHook | None, capture_headers: bool, capture_body: bool) -> RequestHook | None:

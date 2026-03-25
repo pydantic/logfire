@@ -43,7 +43,7 @@ def instrument_sqlalchemy(
         engine = _convert_to_sync_engine(engine)
 
         if engines is not None:
-            engines = [_convert_to_sync_engine(engine_entry) for engine_entry in engines]  # type: ignore
+            engines = [_convert_to_sync_engine(engine_entry) for engine_entry in engines]  # pyright: ignore[reportAssignmentType]
 
     return SQLAlchemyInstrumentor().instrument(
         engine=engine, engines=engines, enable_commenter=enable_commenter, commenter_options=commenter_options, **kwargs

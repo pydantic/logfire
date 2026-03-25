@@ -151,7 +151,7 @@ class LogfireTraceProviderWrapper:
             if isinstance(original, cls):
                 return
             wrapper = cls(original, logfire_instance)
-            set_trace_provider(wrapper)  # type: ignore
+            set_trace_provider(wrapper)  # pyright: ignore[reportArgumentType]
 
 
 @dataclass
@@ -166,17 +166,17 @@ class LogfireSpanHelper:
         ):
             cm = use_span(NonRecordingSpan(span_context))
         with cm:
-            self.span._start()  # type: ignore
+            self.span._start()  # pyright: ignore[reportPrivateUsage]
         if mark_as_current:
-            self.span._attach()  # type: ignore
+            self.span._attach()  # pyright: ignore[reportPrivateUsage]
 
     def end(self, reset_current: bool):
-        self.span._end()  # type: ignore
+        self.span._end()  # pyright: ignore[reportPrivateUsage]
         self.maybe_detach(reset_current)
 
     def maybe_detach(self, reset_current: bool):
         if reset_current:
-            self.span._detach()  # type: ignore
+            self.span._detach()  # pyright: ignore[reportPrivateUsage]
 
     def __enter__(self):
         self.start(True)
@@ -186,7 +186,7 @@ class LogfireSpanHelper:
         self.maybe_detach(exc_type is not GeneratorExit)
 
 
-T = TypeVar('T', Trace, Span[TSpanData])  # type: ignore
+T = TypeVar('T', Trace, Span[TSpanData])  # pyright: ignore[reportGeneralTypeIssues]
 
 
 @dataclass
@@ -425,7 +425,7 @@ def get_magic_response_attributes() -> dict[str, Any]:
 
 def get_response_span_events(span: ResponseSpanData):
     response = span.response
-    inputs: str | list[dict[str, Any]] | None = span.input  # type: ignore
+    inputs: str | list[dict[str, Any]] | None = span.input  # pyright: ignore[reportAssignmentType]
     instructions = getattr(response, 'instructions', None)
     events = inputs_to_events(inputs, instructions) or []
     if response:

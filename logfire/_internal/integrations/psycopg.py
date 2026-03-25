@@ -84,7 +84,7 @@ def _instrument_psycopg(
             import psycopg.pq
 
             # OTEL looks for __libpq_version__ which only exists in psycopg2.
-            mod.__libpq_version__ = psycopg.pq.version()  # type: ignore
+            mod.__libpq_version__ = psycopg.pq.version()  # pyright: ignore[reportAttributeAccessIssue]
 
         instrumentor.instrument(
             skip_dep_check=skip_dep_check,
@@ -96,7 +96,7 @@ def _instrument_psycopg(
         )
     else:
         # instrument_connection doesn't have a skip_dep_check argument.
-        instrumentor.instrument_connection(conn, tracer_provider=logfire_instance.config.get_tracer_provider())  # type: ignore[reportUnknownMemberType]
+        instrumentor.instrument_connection(conn, tracer_provider=logfire_instance.config.get_tracer_provider())  # pyright: ignore[reportUnknownMemberType]
 
 
 def check_version(name: str, version: str, instrumentor: Instrumentor) -> bool:

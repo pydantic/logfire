@@ -87,11 +87,11 @@ def _callback_attributes(callback: Any) -> _CallbackAttributes:
         # `callback` is a bound method of a Task.
         # This is the common case for typical user code.
         # In particular this method is usually for advancing an async function (coroutine) to the next `await`.
-        coro: Any = task.get_coro()  # type: ignore
+        coro: Any = task.get_coro()  # pyright: ignore[reportUnknownVariableType]
         result: _CallbackAttributes = {'name': f'task {task.get_name()}'}
         if not isinstance(coro, CoroutineType):  # pragma: no cover
             return result
-        stack_info = stack_info_from_coroutine(coro)  # type: ignore
+        stack_info = stack_info_from_coroutine(coro)  # pyright: ignore[reportUnknownArgumentType]
         result = {**result, **stack_info}
         if function_name := stack_info.get('code.function'):  # pragma: no branch
             result['name'] += f' ({function_name})'
@@ -99,7 +99,7 @@ def _callback_attributes(callback: Any) -> _CallbackAttributes:
         # Walk through the coroutines being awaited to create an 'async stacktrace'
         stack = [stack_info]
         while isinstance(coro := coro.cr_await, CoroutineType):
-            stack_info = stack_info_from_coroutine(coro)  # type: ignore
+            stack_info = stack_info_from_coroutine(coro)  # pyright: ignore[reportUnknownArgumentType]
             # Ignore frames from the stdlib asyncio
             if not stack_info.get('code.filepath', '').startswith(ASYNCIO_PATH):
                 stack.append(stack_info)
