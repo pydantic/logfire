@@ -1,3 +1,10 @@
+"""Tests for the LangSmith-based Claude SDK integration (logfire.instrument_claude_sdk).
+
+This tests the older approach that transforms LangSmith span attributes.
+For the native Claude Agent SDK integration (logfire.instrument_claude_agent_sdk),
+see test_claude_agent_sdk.py.
+"""
+
 from inline_snapshot import snapshot
 
 from logfire._internal.exporters.processor_wrapper import _transform_langsmith_span_attributes  # type: ignore
