@@ -1432,8 +1432,9 @@ class LogfireConfig(_LogfireConfigData):
         This ensures that `project_url` is populated when the token is provided
         via environment variable rather than a credentials file.
         """
-        if self._check_tokens_thread is not None:
-            self._check_tokens_thread.join()
+        thread = self._check_tokens_thread
+        if thread is not None:
+            thread.join()
 
     def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
         return LogfireCredentials.from_token(token, requests.Session(), self.advanced.generate_base_url(token))
