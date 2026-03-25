@@ -697,7 +697,10 @@ class _LogfireConfigData:
 
         self.additional_span_processors = additional_span_processors
         self.project_url: str | None = None
+        if hasattr(self, '_check_tokens_thread') and self._check_tokens_thread is not None:
+            self._check_tokens_thread.join(timeout=0)
         self._check_tokens_thread: Thread | None = None
+        self._config_generation: int = getattr(self, '_config_generation', 0) + 1
 
         if metrics is None:
             metrics = MetricsOptions()
@@ -996,12 +999,17 @@ class LogfireConfig(_LogfireConfigData):
                     # This may happen some time later in a background thread which can be annoying,
                     # hence we try to print it eagerly above.
                     # But we only have the link if we have a creds file, otherwise we only know the token at this point.
+                    generation = self._config_generation
+
                     def check_tokens():
                         with suppress_instrumentation():
                             for token in token_list:
+                                if self._config_generation != generation:
+                                    return
                                 validated_credentials = self._initialize_credentials_from_token(token)
                                 if validated_credentials is not None:
-                                    self.project_url = self.project_url or validated_credentials.project_url
+                                    if self._config_generation == generation:
+                                        self.project_url = self.project_url or validated_credentials.project_url
                                     if show_project_link and token not in printed_tokens:
                                         validated_credentials.print_token_summary()
 

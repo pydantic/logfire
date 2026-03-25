@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 import requests_mock
 
@@ -75,7 +77,7 @@ def test_url_from_eval_no_ids() -> None:
     assert result is None
 
 
-def test_url_from_eval_waits_for_token_validation() -> None:
+def test_url_from_eval_waits_for_token_validation(tmp_path: Path) -> None:
     """Test that url_from_eval waits for the background token validation thread
     to populate project_url when the token is provided directly (no creds file)."""
     with requests_mock.Mocker() as mocker:
@@ -90,6 +92,7 @@ def test_url_from_eval_waits_for_token_validation() -> None:
             send_to_logfire=True,
             token='fake-token',
             console=False,
+            data_dir=tmp_path,
         )
 
         report = _make_report(trace_id='abc123', span_id='def456')
