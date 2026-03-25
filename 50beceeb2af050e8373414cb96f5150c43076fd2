@@ -1,0 +1,23 @@
+specs/claude-agent-sdk-integration/spec.md
+  70a89903b5292196 4,6-7,9-10,12-13,15-16,18,21,24,28-29,31-32,34-35,37-38,40-41,43-44,46-47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.19",
+  "base_commit_sha": "50beceeb2af050e8373414cb96f5150c43076fd2",
+  "prompts": {
+    "70a89903b5292196": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0334ea9b-934c-4d73-a129-8bf1331cc42c",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>",
+      "messages": [],
+      "total_additions": 26,
+      "total_deletions": 80,
+      "accepted_lines": 26,
+      "overriden_lines": 0
+    }
+  }
+}
