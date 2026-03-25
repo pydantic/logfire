@@ -209,6 +209,7 @@ docs = [
     "griffe",
     "algoliasearch>=3,<4",
     "mkdocs-llmstxt>=0.2.0",
+    "pydantic-docs",
 ]
 
 [tool.inline-snapshot]
@@ -217,6 +218,7 @@ format-command = "ruff format --stdin-filename {filename}"
 
 [tool.uv.sources]
 logfire-api = { workspace = true }
+pydantic-docs = { git = "https://github.com/pydantic/pydantic-docs/" }
 
 [tool.uv]
 default-groups = ["dev", "docs"]
