@@ -345,19 +345,19 @@ def _make_block(class_name: str, **attrs: object) -> Mock:
 class TestContentBlocksToOutputMessages:
     def test_text_block(self) -> None:
         block = _make_block('TextBlock', text='hello world')
-        result = _content_blocks_to_output_messages([block], 'claude-3')
+        result = _content_blocks_to_output_messages([block])
         assert result == [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'hello world'}]}]
 
     def test_thinking_block(self) -> None:
         block = _make_block('ThinkingBlock', thinking='let me think...', signature='sig123')
-        result = _content_blocks_to_output_messages([block], None)
+        result = _content_blocks_to_output_messages([block])
         assert result == [
             {'role': 'assistant', 'parts': [{'type': 'thinking', 'content': 'let me think...', 'signature': 'sig123'}]}
         ]
 
     def test_tool_use_block(self) -> None:
         block = _make_block('ToolUseBlock', id='tool_1', name='Bash', input={'command': 'ls'})
-        result = _content_blocks_to_output_messages([block], None)
+        result = _content_blocks_to_output_messages([block])
         assert result == [
             {
                 'role': 'assistant',
@@ -369,17 +369,17 @@ class TestContentBlocksToOutputMessages:
         text_item = Mock()
         text_item.text = 'output text'
         block = _make_block('ToolResultBlock', tool_use_id='tool_1', content=[text_item], is_error=False)
-        result = _content_blocks_to_output_messages([block], None)
+        result = _content_blocks_to_output_messages([block])
         assert result == [
             {'role': 'assistant', 'parts': [{'type': 'tool_call_response', 'id': 'tool_1', 'response': 'output text'}]}
         ]
 
     def test_non_list_returns_empty(self) -> None:
-        assert _content_blocks_to_output_messages('just a string', None) == []
+        assert _content_blocks_to_output_messages('just a string') == []
 
     def test_unknown_block_type(self) -> None:
         block = _make_block('UnknownBlock', data='test')
-        result = _content_blocks_to_output_messages([block], None)
+        result = _content_blocks_to_output_messages([block])
         assert len(result) == 1
         assert result[0]['parts'][0] is block
 

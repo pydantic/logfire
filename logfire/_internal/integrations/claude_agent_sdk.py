@@ -9,6 +9,7 @@ from contextvars import Token
 from typing import TYPE_CHECKING, Any, cast
 
 import claude_agent_sdk
+from claude_agent_sdk import AssistantMessage, ResultMessage
 from claude_agent_sdk.types import HookContext, SyncHookJSONOutput
 from opentelemetry import context as context_api, trace as trace_api
 from opentelemetry.context import Context
@@ -84,7 +85,7 @@ def _clear_active_tool_spans() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _content_blocks_to_output_messages(content: Any, model: str | None) -> list[OutputMessage]:
+def _content_blocks_to_output_messages(content: Any) -> list[OutputMessage]:
     """Convert SDK content block objects into semconv OutputMessages."""
     parts: list[Any] = []
     if not isinstance(content, list):
@@ -350,12 +351,10 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> AbstractContextMan
 
             try:
                 async for msg in original_receive_response(self):
-                    msg_type = msg.__class__.__name__
-
                     with handle_internal_errors:
-                        if msg_type == 'AssistantMessage':
+                        if isinstance(msg, AssistantMessage):
                             turn_tracker.start_turn(msg)
-                        elif msg_type == 'ResultMessage':  # pragma: no branch
+                        elif isinstance(msg, ResultMessage):  # pragma: no branch
                             _record_result(root_span, msg)
 
                     yield msg
@@ -416,14 +415,14 @@ class _TurnTracker:
         self._logfire = logfire_instance
         self._current_span: LogfireSpan | None = None
 
-    def start_turn(self, message: Any) -> None:
+    def start_turn(self, message: AssistantMessage) -> None:
         """Close previous turn span if open, open a new one."""
         if self._current_span is not None:
             self._current_span.__exit__(None, None, None)
 
         model = getattr(message, 'model', None)
         content = getattr(message, 'content', [])
-        output_messages = _content_blocks_to_output_messages(content, model)
+        output_messages = _content_blocks_to_output_messages(content)
 
         span_data: dict[str, Any] = {OPERATION_NAME: 'chat'}
         if model:  # pragma: no branch
@@ -441,7 +440,7 @@ class _TurnTracker:
             self._current_span = None
 
 
-def _record_result(span: LogfireSpan, msg: Any) -> None:
+def _record_result(span: LogfireSpan, msg: ResultMessage) -> None:
     """Record ResultMessage data onto the root span."""
     if hasattr(msg, 'usage') and msg.usage:
         usage = _extract_usage(msg.usage)
