@@ -333,7 +333,6 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> AbstractContextMan
         span_data: dict[str, Any] = {
             OPERATION_NAME: 'invoke_agent',
             PROVIDER_NAME: 'anthropic',
-            'gen_ai.system': 'anthropic',
         }
         if prompt:  # pragma: no branch
             span_data[INPUT_MESSAGES] = [{'role': 'user', 'parts': [TextPart(type='text', content=prompt)]}]
@@ -423,29 +422,15 @@ class _TurnTracker:
         content = getattr(message, 'content', [])
         output_messages = _content_blocks_to_output_messages(content)
 
-        span_data: dict[str, Any] = {
-            OPERATION_NAME: 'chat',
-            PROVIDER_NAME: 'anthropic',
-        }
+        span_data: dict[str, Any] = {OPERATION_NAME: 'chat'}
         if model:  # pragma: no branch
             span_data[RESPONSE_MODEL] = model
         if output_messages:  # pragma: no branch
             span_data[OUTPUT_MESSAGES] = output_messages
 
-        # Per-turn token usage from AssistantMessage.usage
-        usage = getattr(message, 'usage', None)
-        if usage:
-            for key, value in _extract_usage(usage).items():
-                span_data[key] = value
-
         span_name = f'chat {model}' if model else 'chat'
         self._current_span = self._logfire.span(span_name, **span_data)
         self._current_span.__enter__()
-
-        # Set error if the assistant message indicates an error
-        error = getattr(message, 'error', None)
-        if error:
-            self._current_span.set_attribute('error.type', str(error))
 
     def close(self) -> None:
         if self._current_span is not None:
