@@ -565,6 +565,16 @@ async def test_clear_orphaned_tool_spans(exporter: TestExporter) -> None:
     assert len(orphan_spans) == 1
 
 
+def test_clear_orphaned_tool_spans_error() -> None:
+    """_clear_active_tool_spans handles exceptions during cleanup gracefully."""
+    broken_span = Mock()
+    broken_span.__exit__ = Mock(side_effect=RuntimeError('span already ended'))
+    broken_token = Mock()
+    _active_tool_spans['broken_1'] = (broken_span, broken_token)
+    _clear_active_tool_spans()
+    assert len(_active_tool_spans) == 0
+
+
 @pytest.mark.anyio
 async def test_hook_edge_cases() -> None:
     """Hooks return empty dict for edge cases: None tool_use_id, no parent span, missing entry."""
