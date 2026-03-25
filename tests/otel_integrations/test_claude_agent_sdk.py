@@ -1,5 +1,10 @@
 # pyright: reportPrivateUsage=false
-"""Tests for Claude Agent SDK instrumentation.
+"""Tests for Claude Agent SDK (native) instrumentation.
+
+This tests the native ``claude_agent_sdk`` integration
+(``logfire.instrument_claude_agent_sdk``), which hooks into the SDK's
+transport layer directly.  ``test_claude_sdk.py`` tests the separate
+LangSmith-based integration.
 
 Integration tests use a mock transport to exercise the real SDK client
 with instrumented methods, making them resilient to import refactoring.
