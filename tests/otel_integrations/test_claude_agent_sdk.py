@@ -79,7 +79,7 @@ class MockTransport(Transport):
         self.written: list[dict[str, Any]] = []
         self._init_request_id: str | None = None
         self._hook_callback_ids: dict[str, str] = {}
-        self._control_response_events: dict[str, Any] = {}  # request_id -> anyio.Event
+        self._control_response_events: dict[str, anyio.Event] = {}
         self._tool_failure_ids = tool_failure_ids or set()
 
     async def connect(self) -> None:
