@@ -506,22 +506,119 @@ async def test_tool_use_hooks(exporter: TestExporter) -> None:
         finally:
             _clear_parent_span()
 
-    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-    tool_spans = [s for s in spans if s['name'] in ('Bash', 'Read', 'Write')]
-    assert len(tool_spans) == 3
-    # All are children of the root span
-    root = [s for s in spans if s['name'] == 'root'][0]
-    for ts in tool_spans:
-        assert ts['parent'] == root['context']
-    # Successful tool has response attribute
-    bash_span = [s for s in spans if s['name'] == 'Bash'][0]
-    assert bash_span['attributes']['tool_response'] == 'file1.txt'
-    # Tool with no response has no tool_response attribute
-    read_span = [s for s in spans if s['name'] == 'Read'][0]
-    assert 'tool_response' not in read_span['attributes']
-    # Failed tool has error attribute
-    write_span = [s for s in spans if s['name'] == 'Write'][0]
-    assert write_span['attributes']['error'] == 'Permission denied'
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'execute_tool {tool_name}',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'code.filepath': 'test_claude_agent_sdk.py',
+                    'code.function': 'test_tool_use_hooks',
+                    'code.lineno': 123,
+                    'tool_name': 'Bash',
+                    'logfire.msg_template': 'execute_tool {tool_name}',
+                    'logfire.msg': 'execute_tool Bash',
+                    'gen_ai.operation.name': 'execute_tool',
+                    'gen_ai.tool.name': 'Bash',
+                    'gen_ai.tool.call.id': 'tool_1',
+                    'gen_ai.tool.call.arguments': {'command': 'ls'},
+                    'logfire.span_type': 'span',
+                    'gen_ai.tool.call.result': 'file1.txt',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'tool_name': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.tool.name': {},
+                            'gen_ai.tool.call.id': {},
+                            'gen_ai.tool.call.arguments': {'type': 'object'},
+                            'gen_ai.tool.call.result': {},
+                        },
+                    },
+                },
+            },
+            {
+                'name': 'execute_tool {tool_name}',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 4000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'code.filepath': 'test_claude_agent_sdk.py',
+                    'code.function': 'test_tool_use_hooks',
+                    'code.lineno': 123,
+                    'tool_name': 'Read',
+                    'logfire.msg_template': 'execute_tool {tool_name}',
+                    'logfire.msg': 'execute_tool Read',
+                    'gen_ai.operation.name': 'execute_tool',
+                    'gen_ai.tool.name': 'Read',
+                    'gen_ai.tool.call.id': 'tool_no_resp',
+                    'gen_ai.tool.call.arguments': {'path': '/tmp'},
+                    'logfire.span_type': 'span',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'tool_name': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.tool.name': {},
+                            'gen_ai.tool.call.id': {},
+                            'gen_ai.tool.call.arguments': {'type': 'object'},
+                        },
+                    },
+                },
+            },
+            {
+                'name': 'execute_tool {tool_name}',
+                'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 6000000000,
+                'end_time': 7000000000,
+                'attributes': {
+                    'code.filepath': 'test_claude_agent_sdk.py',
+                    'code.function': 'test_tool_use_hooks',
+                    'code.lineno': 123,
+                    'tool_name': 'Write',
+                    'logfire.msg_template': 'execute_tool {tool_name}',
+                    'logfire.msg': 'execute_tool Write',
+                    'gen_ai.operation.name': 'execute_tool',
+                    'gen_ai.tool.name': 'Write',
+                    'gen_ai.tool.call.id': 'tool_2',
+                    'gen_ai.tool.call.arguments': {'path': '/tmp/test'},
+                    'logfire.span_type': 'span',
+                    'error.type': 'Permission denied',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'tool_name': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.tool.name': {},
+                            'gen_ai.tool.call.id': {},
+                            'gen_ai.tool.call.arguments': {'type': 'object'},
+                            'error.type': {},
+                        },
+                    },
+                },
+            },
+            {
+                'name': 'root',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 8000000000,
+                'attributes': {
+                    'code.filepath': 'test_claude_agent_sdk.py',
+                    'code.function': 'test_tool_use_hooks',
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'root',
+                    'logfire.msg': 'root',
+                    'logfire.span_type': 'span',
+                },
+            },
+        ]
+    )
 
 
 @pytest.mark.anyio
@@ -547,7 +644,7 @@ async def test_clear_orphaned_tool_spans(exporter: TestExporter) -> None:
             _clear_parent_span()
 
     spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-    orphan_spans = [s for s in spans if s['name'] == 'OrphanTool']
+    orphan_spans = [s for s in spans if s['name'] == 'execute_tool OrphanTool']
     assert len(orphan_spans) == 1
 
 
@@ -645,7 +742,7 @@ async def test_basic_conversation(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
-                'name': 'claude.assistant.turn',
+                'name': 'chat claude-sonnet-4-20250514',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
@@ -654,19 +751,26 @@ async def test_basic_conversation(exporter: TestExporter) -> None:
                     'code.filepath': 'test_claude_agent_sdk.py',
                     'code.function': 'test_basic_conversation',
                     'code.lineno': 123,
-                    'content': [{'type': 'text', 'text': 'Hello! How can I help?'}],
-                    'model': 'claude-sonnet-4-20250514',
-                    'logfire.msg_template': 'claude.assistant.turn',
-                    'logfire.msg': 'claude.assistant.turn',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.response.model': 'claude-sonnet-4-20250514',
+                    'gen_ai.output.messages': [
+                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Hello! How can I help?'}]}
+                    ],
+                    'logfire.msg_template': 'chat claude-sonnet-4-20250514',
+                    'logfire.msg': 'chat claude-sonnet-4-20250514',
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {'content': {'type': 'array'}, 'model': {}},
+                        'properties': {
+                            'gen_ai.operation.name': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.output.messages': {'type': 'array'},
+                        },
                     },
                     'logfire.span_type': 'span',
                 },
             },
             {
-                'name': 'claude.conversation',
+                'name': 'invoke_agent',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
@@ -675,35 +779,34 @@ async def test_basic_conversation(exporter: TestExporter) -> None:
                     'code.filepath': 'test_claude_agent_sdk.py',
                     'code.function': 'test_basic_conversation',
                     'code.lineno': 123,
-                    'prompt': 'What is 2+2?',
-                    'system_prompt': 'Be helpful',
-                    'logfire.msg_template': 'claude.conversation',
-                    'logfire.msg': 'claude.conversation',
+                    'gen_ai.operation.name': 'invoke_agent',
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'What is 2+2?'}]}],
+                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'Be helpful'}],
+                    'logfire.msg_template': 'invoke_agent',
+                    'gen_ai.usage.input_tokens': 100,
+                    'gen_ai.usage.output_tokens': 50,
+                    'operation.cost': 0.01,
+                    'gen_ai.conversation.id': 'sess_123',
+                    'logfire.msg': 'invoke_agent',
                     'logfire.span_type': 'span',
-                    'usage.input_tokens': 100,
-                    'usage.output_tokens': 50,
-                    'usage.total_tokens': 150,
-                    'total_cost_usd': 0.01,
                     'num_turns': 1,
-                    'session_id': "[Scrubbed due to 'session']",
                     'duration_ms': 500,
-                    'is_error': False,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
-                            'prompt': {},
-                            'system_prompt': {},
-                            'usage.input_tokens': {},
-                            'usage.output_tokens': {},
-                            'usage.total_tokens': {},
-                            'total_cost_usd': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'gen_ai.system_instructions': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'operation.cost': {},
+                            'gen_ai.conversation.id': {},
                             'num_turns': {},
-                            'session_id': {},
                             'duration_ms': {},
-                            'is_error': {},
                         },
                     },
-                    'logfire.scrubbed': [{'path': ['attributes', 'session_id'], 'matched_substring': 'session'}],
                 },
             },
         ]
@@ -726,7 +829,7 @@ async def test_conversation_with_two_turns(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
-                'name': 'Bash',
+                'name': 'execute_tool {tool_name}',
                 'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 3000000000,
@@ -734,19 +837,30 @@ async def test_conversation_with_two_turns(exporter: TestExporter) -> None:
                 'attributes': {
                     'code.filepath': IsStr(),
                     'code.lineno': 123,
-                    'tool_input': {'command': 'ls'},
-                    'logfire.msg_template': 'Bash',
-                    'logfire.msg': 'Bash',
+                    'tool_name': 'Bash',
+                    'logfire.msg_template': 'execute_tool {tool_name}',
+                    'gen_ai.operation.name': 'execute_tool',
+                    'gen_ai.tool.name': 'Bash',
+                    'gen_ai.tool.call.id': 'tool_1',
+                    'gen_ai.tool.call.arguments': {'command': 'ls'},
+                    'logfire.msg': 'execute_tool Bash',
+                    'gen_ai.tool.call.result': 'mock_response',
                     'logfire.span_type': 'span',
-                    'tool_response': 'mock_response',
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {'tool_input': {'type': 'object'}, 'tool_response': {}},
+                        'properties': {
+                            'tool_name': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.tool.name': {},
+                            'gen_ai.tool.call.id': {},
+                            'gen_ai.tool.call.arguments': {'type': 'object'},
+                            'gen_ai.tool.call.result': {},
+                        },
                     },
                 },
             },
             {
-                'name': 'claude.assistant.turn',
+                'name': 'chat claude-sonnet-4-20250514',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
@@ -755,19 +869,31 @@ async def test_conversation_with_two_turns(exporter: TestExporter) -> None:
                     'code.filepath': 'test_claude_agent_sdk.py',
                     'code.function': 'test_conversation_with_two_turns',
                     'code.lineno': 123,
-                    'content': [{'type': 'tool_use', 'id': 'tool_1', 'name': 'Bash', 'input': {'command': 'ls'}}],
-                    'model': 'claude-sonnet-4-20250514',
-                    'logfire.msg_template': 'claude.assistant.turn',
-                    'logfire.msg': 'claude.assistant.turn',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.response.model': 'claude-sonnet-4-20250514',
+                    'gen_ai.output.messages': [
+                        {
+                            'role': 'assistant',
+                            'parts': [
+                                {'type': 'tool_call', 'id': 'tool_1', 'name': 'Bash', 'arguments': {'command': 'ls'}}
+                            ],
+                        }
+                    ],
+                    'logfire.msg_template': 'chat claude-sonnet-4-20250514',
+                    'logfire.msg': 'chat claude-sonnet-4-20250514',
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {'content': {'type': 'array'}, 'model': {}},
+                        'properties': {
+                            'gen_ai.operation.name': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.output.messages': {'type': 'array'},
+                        },
                     },
                     'logfire.span_type': 'span',
                 },
             },
             {
-                'name': 'claude.assistant.turn',
+                'name': 'chat claude-sonnet-4-20250514',
                 'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 6000000000,
@@ -776,19 +902,29 @@ async def test_conversation_with_two_turns(exporter: TestExporter) -> None:
                     'code.filepath': 'test_claude_agent_sdk.py',
                     'code.function': 'test_conversation_with_two_turns',
                     'code.lineno': 123,
-                    'content': [{'type': 'text', 'text': 'Here are the files: file1.txt, file2.txt'}],
-                    'model': 'claude-sonnet-4-20250514',
-                    'logfire.msg_template': 'claude.assistant.turn',
-                    'logfire.msg': 'claude.assistant.turn',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.response.model': 'claude-sonnet-4-20250514',
+                    'gen_ai.output.messages': [
+                        {
+                            'role': 'assistant',
+                            'parts': [{'type': 'text', 'content': 'Here are the files: file1.txt, file2.txt'}],
+                        }
+                    ],
+                    'logfire.msg_template': 'chat claude-sonnet-4-20250514',
+                    'logfire.msg': 'chat claude-sonnet-4-20250514',
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {'content': {'type': 'array'}, 'model': {}},
+                        'properties': {
+                            'gen_ai.operation.name': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.output.messages': {'type': 'array'},
+                        },
                     },
                     'logfire.span_type': 'span',
                 },
             },
             {
-                'name': 'claude.conversation',
+                'name': 'invoke_agent',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
@@ -797,35 +933,34 @@ async def test_conversation_with_two_turns(exporter: TestExporter) -> None:
                     'code.filepath': 'test_claude_agent_sdk.py',
                     'code.function': 'test_conversation_with_two_turns',
                     'code.lineno': 123,
-                    'prompt': 'List files',
-                    'system_prompt': 'Be helpful',
-                    'logfire.msg_template': 'claude.conversation',
-                    'logfire.msg': 'claude.conversation',
+                    'gen_ai.operation.name': 'invoke_agent',
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'List files'}]}],
+                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'Be helpful'}],
+                    'logfire.msg_template': 'invoke_agent',
+                    'gen_ai.usage.input_tokens': 100,
+                    'gen_ai.usage.output_tokens': 50,
+                    'operation.cost': 0.01,
+                    'gen_ai.conversation.id': 'sess_123',
+                    'logfire.msg': 'invoke_agent',
                     'logfire.span_type': 'span',
-                    'usage.input_tokens': 100,
-                    'usage.output_tokens': 50,
-                    'usage.total_tokens': 150,
-                    'total_cost_usd': 0.01,
                     'num_turns': 1,
-                    'session_id': "[Scrubbed due to 'session']",
                     'duration_ms': 500,
-                    'is_error': False,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
-                            'prompt': {},
-                            'system_prompt': {},
-                            'usage.input_tokens': {},
-                            'usage.output_tokens': {},
-                            'usage.total_tokens': {},
-                            'total_cost_usd': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'gen_ai.system_instructions': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'operation.cost': {},
+                            'gen_ai.conversation.id': {},
                             'num_turns': {},
-                            'session_id': {},
                             'duration_ms': {},
-                            'is_error': {},
                         },
                     },
-                    'logfire.scrubbed': [{'path': ['attributes', 'session_id'], 'matched_substring': 'session'}],
                 },
             },
         ]
@@ -853,7 +988,7 @@ async def test_usage_and_cost_attributes(exporter: TestExporter) -> None:
     assert spans == snapshot(
         [
             {
-                'name': 'claude.assistant.turn',
+                'name': 'chat claude-sonnet-4-20250514',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
@@ -862,19 +997,26 @@ async def test_usage_and_cost_attributes(exporter: TestExporter) -> None:
                     'code.filepath': 'test_claude_agent_sdk.py',
                     'code.function': 'test_usage_and_cost_attributes',
                     'code.lineno': 123,
-                    'content': [{'type': 'text', 'text': 'Hello! How can I help?'}],
-                    'model': 'claude-sonnet-4-20250514',
-                    'logfire.msg_template': 'claude.assistant.turn',
-                    'logfire.msg': 'claude.assistant.turn',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.response.model': 'claude-sonnet-4-20250514',
+                    'gen_ai.output.messages': [
+                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Hello! How can I help?'}]}
+                    ],
+                    'logfire.msg_template': 'chat claude-sonnet-4-20250514',
+                    'logfire.msg': 'chat claude-sonnet-4-20250514',
                     'logfire.json_schema': {
                         'type': 'object',
-                        'properties': {'content': {'type': 'array'}, 'model': {}},
+                        'properties': {
+                            'gen_ai.operation.name': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.output.messages': {'type': 'array'},
+                        },
                     },
                     'logfire.span_type': 'span',
                 },
             },
             {
-                'name': 'claude.conversation',
+                'name': 'invoke_agent',
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
@@ -883,37 +1025,36 @@ async def test_usage_and_cost_attributes(exporter: TestExporter) -> None:
                     'code.filepath': 'test_claude_agent_sdk.py',
                     'code.function': 'test_usage_and_cost_attributes',
                     'code.lineno': 123,
-                    'prompt': 'Hi',
-                    'logfire.msg_template': 'claude.conversation',
-                    'logfire.msg': 'claude.conversation',
+                    'gen_ai.operation.name': 'invoke_agent',
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hi'}]}],
+                    'logfire.msg_template': 'invoke_agent',
+                    'logfire.msg': 'invoke_agent',
+                    'gen_ai.usage.input_tokens': 100,
+                    'gen_ai.usage.output_tokens': 50,
+                    'gen_ai.usage.cache_read.input_tokens': 20,
+                    'gen_ai.usage.cache_creation.input_tokens': 10,
+                    'operation.cost': 0.01,
+                    'gen_ai.conversation.id': 'sess_123',
                     'logfire.span_type': 'span',
-                    'usage.input_tokens': 130,
-                    'usage.output_tokens': 50,
-                    'usage.total_tokens': 180,
-                    'usage.input_token_details.cache_read': 20,
-                    'usage.input_token_details.cache_creation': 10,
-                    'total_cost_usd': 0.01,
                     'num_turns': 1,
-                    'session_id': "[Scrubbed due to 'session']",
                     'duration_ms': 500,
-                    'is_error': False,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
-                            'prompt': {},
-                            'usage.input_tokens': {},
-                            'usage.output_tokens': {},
-                            'usage.total_tokens': {},
-                            'usage.input_token_details.cache_read': {},
-                            'usage.input_token_details.cache_creation': {},
-                            'total_cost_usd': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.cache_read.input_tokens': {},
+                            'gen_ai.usage.cache_creation.input_tokens': {},
+                            'operation.cost': {},
+                            'gen_ai.conversation.id': {},
                             'num_turns': {},
-                            'session_id': {},
                             'duration_ms': {},
-                            'is_error': {},
                         },
                     },
-                    'logfire.scrubbed': [{'path': ['attributes', 'session_id'], 'matched_substring': 'session'}],
                 },
             },
         ]
