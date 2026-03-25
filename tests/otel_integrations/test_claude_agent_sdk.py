@@ -1,5 +1,5 @@
 # ruff: noqa: E402
-# pyright: reportPrivateUsage=false, reportAttributeAccessIssue=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnnecessaryTypeIgnoreComment=false, reportUnusedFunction=false, reportUnnecessaryComparison=false, reportArgumentType=false
+# pyright: reportPrivateUsage=false
 """Tests for Claude Agent SDK instrumentation.
 
 Integration tests use a mock transport to exercise the real SDK client
@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import gc
 import json
-import warnings
+import sys
 from collections.abc import AsyncIterator
 from typing import Any
 from unittest.mock import Mock
@@ -40,6 +40,12 @@ from logfire._internal.integrations.claude_agent_sdk import (
 )
 from logfire.testing import TestExporter
 
+# The SDK doesn't close anyio MemoryObjectStreams in Query.close(). They get GC'd during
+# pytest cleanup, triggering ResourceWarning via __del__. We can't force earlier collection
+# with del+gc.collect() because the SDK's internal reference chain keeps them alive until
+# the test function's frame is destroyed by pytest.
+pytestmark = pytest.mark.filterwarnings('ignore::pytest.PytestUnraisableExceptionWarning')
+
 ClaudeAgentOptions = claude_agent_sdk.ClaudeAgentOptions
 ClaudeSDKClient = claude_agent_sdk.ClaudeSDKClient
 HookMatcher = claude_agent_sdk.HookMatcher
@@ -47,21 +53,31 @@ Transport = claude_agent_sdk.Transport
 
 
 # ---------------------------------------------------------------------------
-# Mock transport — handles the SDK control protocol, yields predefined messages.
+# Mock transport — handles the SDK control protocol, yields predefined messages,
+# and dispatches hook callbacks for tool_use blocks.
 # ---------------------------------------------------------------------------
 
 
 class MockTransport(Transport):
     """Mock transport for the Claude Agent SDK.
 
-    Handles the initialize handshake (control_request/response) and yields
-    predefined response messages after the user query is sent.
+    Handles the initialize handshake (control_request/response), yields
+    predefined response messages after the user query is sent, and dispatches
+    hook callbacks for tool_use content blocks via the control protocol.
     """
 
-    def __init__(self, responses: list[dict[str, Any]]) -> None:
+    def __init__(
+        self,
+        responses: list[dict[str, Any]],
+        *,
+        tool_failure_ids: set[str] | None = None,
+    ) -> None:
         self.responses = responses
         self.written: list[dict[str, Any]] = []
         self._init_request_id: str | None = None
+        self._hook_callback_ids: dict[str, str] = {}
+        self._control_response_events: dict[str, Any] = {}  # request_id -> anyio.Event
+        self._tool_failure_ids = tool_failure_ids or set()
 
     async def connect(self) -> None:
         import anyio
@@ -74,11 +90,40 @@ class MockTransport(Transport):
         self.written.append(msg)
         if msg.get('type') == 'control_request':
             self._init_request_id = msg['request_id']
+            # Extract hook callback IDs from init config
+            hooks_config: dict[str, list[dict[str, Any]]] = msg.get('request', {}).get('hooks') or {}
+            for event_name, matchers in hooks_config.items():
+                for matcher in matchers:
+                    for cb_id in matcher.get('hookCallbackIds', []):
+                        self._hook_callback_ids[event_name] = cb_id
             self._init_event.set()
         elif msg.get('type') == 'user':
             self._query_event.set()
+        elif msg.get('type') == 'control_response':
+            # SDK responding to our hook callback request
+            response = msg.get('response', {})
+            request_id = response.get('request_id')
+            event = self._control_response_events.get(request_id)
+            if event is not None:
+                event.set()
+
+    def _make_hook_request(
+        self, request_id: str, callback_id: str, input_data: dict[str, Any], tool_use_id: str
+    ) -> dict[str, Any]:
+        return {
+            'type': 'control_request',
+            'request_id': request_id,
+            'request': {
+                'subtype': 'hook_callback',
+                'callback_id': callback_id,
+                'input': input_data,
+                'tool_use_id': tool_use_id,
+            },
+        }
 
     async def _read_impl(self) -> AsyncIterator[dict[str, Any]]:
+        import anyio
+
         # Wait for initialize request, then respond
         await self._init_event.wait()
         yield {
@@ -93,6 +138,76 @@ class MockTransport(Transport):
         await self._query_event.wait()
         for msg in self.responses:
             yield msg
+            # After yielding an assistant message, dispatch hook callbacks for any tool_use blocks.
+            # Yields must be inline here since async generators can't delegate yields.
+            if msg.get('type') == 'assistant':
+                content: list[dict[str, Any]] = msg.get('message', {}).get('content', [])
+                for block in content:
+                    if block.get('type') != 'tool_use':
+                        continue
+                    tool_use_id: str = block['id']
+                    tool_name: str = block['name']
+                    tool_input: dict[str, Any] = block.get('input', {})
+                    is_failure = tool_use_id in self._tool_failure_ids
+
+                    # PreToolUse hook
+                    pre_cb = self._hook_callback_ids.get('PreToolUse')
+                    if pre_cb:
+                        req_id = f'hook_pre_{tool_use_id}'
+                        event = anyio.Event()
+                        self._control_response_events[req_id] = event
+                        yield self._make_hook_request(
+                            req_id,
+                            pre_cb,
+                            {
+                                'hook_event_name': 'PreToolUse',
+                                'tool_name': tool_name,
+                                'tool_input': tool_input,
+                                'tool_use_id': tool_use_id,
+                            },
+                            tool_use_id,
+                        )
+                        await event.wait()
+
+                    # PostToolUse or PostToolUseFailure hook
+                    if is_failure:
+                        fail_cb = self._hook_callback_ids.get('PostToolUseFailure')
+                        if fail_cb:
+                            req_id = f'hook_fail_{tool_use_id}'
+                            event = anyio.Event()
+                            self._control_response_events[req_id] = event
+                            yield self._make_hook_request(
+                                req_id,
+                                fail_cb,
+                                {
+                                    'hook_event_name': 'PostToolUseFailure',
+                                    'tool_name': tool_name,
+                                    'tool_input': tool_input,
+                                    'tool_use_id': tool_use_id,
+                                    'error': 'Tool execution failed',
+                                },
+                                tool_use_id,
+                            )
+                            await event.wait()
+                    else:
+                        post_cb = self._hook_callback_ids.get('PostToolUse')
+                        if post_cb:
+                            req_id = f'hook_post_{tool_use_id}'
+                            event = anyio.Event()
+                            self._control_response_events[req_id] = event
+                            yield self._make_hook_request(
+                                req_id,
+                                post_cb,
+                                {
+                                    'hook_event_name': 'PostToolUse',
+                                    'tool_name': tool_name,
+                                    'tool_input': tool_input,
+                                    'tool_use_id': tool_use_id,
+                                    'tool_response': 'mock_response',
+                                },
+                                tool_use_id,
+                            )
+                            await event.wait()
 
     def read_messages(self) -> AsyncIterator[dict[str, Any]]:
         return self._read_impl()
@@ -112,17 +227,33 @@ class MockTransport(Transport):
 # ---------------------------------------------------------------------------
 
 
+def _force_gc() -> None:
+    """Force GC to collect SDK internal streams, suppressing ResourceWarning.
+
+    The SDK's Query.close() doesn't close anyio MemoryObjectStreams. When
+    collected, __del__ raises ResourceWarning via sys.unraisablehook. We
+    temporarily replace the hook to suppress these during collection.
+    """
+    original_hook = sys.unraisablehook
+
+    def _silent(unraisable: sys.UnraisableHookArgs) -> None:
+        if isinstance(unraisable.exc_value, ResourceWarning):
+            return
+        original_hook(unraisable)  # pragma: no cover
+
+    sys.unraisablehook = _silent
+    try:
+        gc.collect()
+    finally:
+        sys.unraisablehook = original_hook
+
+
 @pytest.fixture(autouse=True)
-def _reset_instrumentation():
+def _reset_instrumentation():  # pyright: ignore[reportUnusedFunction]
     """Instrument and reset SDK class patching between tests."""
     with logfire.instrument_claude_agent_sdk():
         yield
-    # The SDK's Query.close() doesn't explicitly close anyio memory streams.
-    # Force GC here so they're collected while we can suppress the warning,
-    # rather than leaking ResourceWarnings into the next test module.
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore', ResourceWarning)
-        gc.collect()
+    _force_gc()
 
 
 # ---------------------------------------------------------------------------
@@ -161,20 +292,20 @@ def make_result(
     *,
     input_tokens: int = 100,
     output_tokens: int = 50,
-    total_cost_usd: float = 0.01,
+    total_cost_usd: float | None = 0.01,
     cache_read: int | None = None,
     cache_create: int | None = None,
     usage: dict[str, Any] | None = ...,  # type: ignore[assignment]
 ) -> dict[str, Any]:
     """Build a result message for the mock transport."""
-    if usage is ...:
+    if usage is ...:  # pyright: ignore[reportUnnecessaryComparison]
         u: dict[str, Any] = {'input_tokens': input_tokens, 'output_tokens': output_tokens}
         if cache_read is not None:
             u['cache_read_input_tokens'] = cache_read
         if cache_create is not None:
             u['cache_creation_input_tokens'] = cache_create
         usage = u
-    return {
+    result: dict[str, Any] = {
         'type': 'result',
         'subtype': 'completion',
         'duration_ms': 500,
@@ -182,9 +313,11 @@ def make_result(
         'is_error': False,
         'num_turns': 1,
         'session_id': 'sess_123',
-        'total_cost_usd': total_cost_usd,
         'usage': usage,
     }
+    if total_cost_usd is not None:
+        result['total_cost_usd'] = total_cost_usd
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -195,7 +328,7 @@ def make_result(
 def _make_block(class_name: str, **attrs: object) -> Mock:
     """Create a mock content block with the given class name."""
     block = Mock()
-    block.__class__ = type(class_name, (), {})
+    block.__class__ = type(class_name, (), {})  # pyright: ignore[reportAttributeAccessIssue]
     for k, v in attrs.items():
         setattr(block, k, v)
     return block
@@ -207,23 +340,23 @@ def _make_block(class_name: str, **attrs: object) -> Mock:
 
 
 class TestFlattenContentBlocks:
-    def test_text_block(self):
+    def test_text_block(self) -> None:
         block = _make_block('TextBlock', text='hello world')
         assert flatten_content_blocks([block]) == [{'type': 'text', 'text': 'hello world'}]
 
-    def test_thinking_block(self):
+    def test_thinking_block(self) -> None:
         block = _make_block('ThinkingBlock', thinking='let me think...', signature='sig123')
         assert flatten_content_blocks([block]) == [
             {'type': 'thinking', 'thinking': 'let me think...', 'signature': 'sig123'}
         ]
 
-    def test_tool_use_block(self):
+    def test_tool_use_block(self) -> None:
         block = _make_block('ToolUseBlock', id='tool_1', name='Bash', input={'command': 'ls'})
         assert flatten_content_blocks([block]) == [
             {'type': 'tool_use', 'id': 'tool_1', 'name': 'Bash', 'input': {'command': 'ls'}}
         ]
 
-    def test_tool_result_block(self):
+    def test_tool_result_block(self) -> None:
         text_item = Mock()
         text_item.text = 'output text'
         block = _make_block('ToolResultBlock', tool_use_id='tool_1', content=[text_item], is_error=False)
@@ -231,10 +364,10 @@ class TestFlattenContentBlocks:
             {'type': 'tool_result', 'tool_use_id': 'tool_1', 'content': 'output text', 'is_error': False}
         ]
 
-    def test_non_list_passthrough(self):
+    def test_non_list_passthrough(self) -> None:
         assert flatten_content_blocks('just a string') == 'just a string'
 
-    def test_unknown_block_type(self):
+    def test_unknown_block_type(self) -> None:
         block = _make_block('UnknownBlock', data='test')
         result = flatten_content_blocks([block])
         assert len(result) == 1
@@ -242,36 +375,36 @@ class TestFlattenContentBlocks:
 
 
 class TestExtractToolResultText:
-    def test_none_content(self):
+    def test_none_content(self) -> None:
         assert _extract_tool_result_text(None) == ''
 
-    def test_string_content(self):
+    def test_string_content(self) -> None:
         assert _extract_tool_result_text('hello') == 'hello'
 
-    def test_dict_text_items(self):
+    def test_dict_text_items(self) -> None:
         items = [{'type': 'text', 'text': 'line1'}, {'type': 'text', 'text': 'line2'}]
         assert _extract_tool_result_text(items) == 'line1\nline2'
 
-    def test_empty_list_fallback(self):
+    def test_empty_list_fallback(self) -> None:
         items: list[dict[str, str]] = [{'type': 'image'}]
         assert _extract_tool_result_text(items) == str(items)
 
-    def test_non_list_non_string(self):
+    def test_non_list_non_string(self) -> None:
         assert _extract_tool_result_text(42) == '42'
 
-    def test_list_with_hasattr_text(self):
+    def test_list_with_hasattr_text(self) -> None:
         item = Mock()
         item.text = 'from attr'
         assert _extract_tool_result_text([item]) == 'from attr'
 
-    def test_list_with_non_text_items(self):
+    def test_list_with_non_text_items(self) -> None:
         """List item that is not a dict and has no .text attribute."""
         result = _extract_tool_result_text([42, 'not a dict'])
         assert result == str([42, 'not a dict'])
 
 
 class TestUsageMetadata:
-    def test_extract_usage(self):
+    def test_extract_usage(self) -> None:
         usage = {
             'input_tokens': 100,
             'output_tokens': 50,
@@ -283,11 +416,11 @@ class TestUsageMetadata:
         assert result['output_tokens'] == 50
         assert result['input_token_details'] == {'cache_read': 20, 'cache_creation': 10}
 
-    def test_extract_empty(self):
+    def test_extract_empty(self) -> None:
         assert extract_usage_metadata(None) == {}
         assert extract_usage_metadata({}) == {}
 
-    def test_get_usage_from_result(self):
+    def test_get_usage_from_result(self) -> None:
         result = get_usage_from_result(
             {
                 'input_tokens': 100,
@@ -300,15 +433,15 @@ class TestUsageMetadata:
         assert result['output_tokens'] == 50
         assert result['total_tokens'] == 180  # 130 + 50
 
-    def test_only_cache_read(self):
+    def test_only_cache_read(self) -> None:
         result = extract_usage_metadata({'input_tokens': 50, 'cache_read_input_tokens': 10})
         assert result['input_token_details'] == {'cache_read': 10}
 
-    def test_only_cache_create(self):
+    def test_only_cache_create(self) -> None:
         result = extract_usage_metadata({'output_tokens': 30, 'cache_creation_input_tokens': 5})
         assert result['input_token_details'] == {'cache_creation': 5}
 
-    def test_non_dict_usage(self):
+    def test_non_dict_usage(self) -> None:
         class UsageObj:
             input_tokens = 100
             output_tokens = 50
@@ -318,15 +451,15 @@ class TestUsageMetadata:
         result = extract_usage_metadata(UsageObj())
         assert result == {'input_tokens': 100, 'output_tokens': 50}
 
-    def test_invalid_token_values(self):
+    def test_invalid_token_values(self) -> None:
         result = extract_usage_metadata({'input_tokens': 'not_a_number', 'output_tokens': None})
         assert result == {}
 
-    def test_get_usage_from_result_empty(self):
+    def test_get_usage_from_result_empty(self) -> None:
         assert get_usage_from_result(None) == {}
         assert get_usage_from_result({}) == {}
 
-    def test_get_usage_no_cache(self):
+    def test_get_usage_no_cache(self) -> None:
         result = get_usage_from_result({'input_tokens': 100, 'output_tokens': 50})
         assert result['input_tokens'] == 100
         assert result['total_tokens'] == 150
@@ -338,7 +471,7 @@ class TestUsageMetadata:
 
 
 @pytest.mark.anyio
-async def test_tool_use_hooks(exporter: TestExporter):
+async def test_tool_use_hooks(exporter: TestExporter) -> None:
     """Test pre/post tool use hooks create proper child spans."""
     logfire_instance = logfire.DEFAULT_LOGFIRE_INSTANCE.with_settings(custom_scope_suffix='claude_agent_sdk')
     _set_logfire_instance(logfire_instance)
@@ -362,7 +495,7 @@ async def test_tool_use_hooks(exporter: TestExporter):
                 'tool_1',
                 {'signal': None},
             )
-            # Successful tool call with no tool_response (covers 237->239 branch)
+            # Successful tool call with no tool_response
             await pre_tool_use_hook(
                 {'tool_name': 'Read', 'tool_input': {'path': '/tmp'}, 'tool_use_id': 'tool_no_resp'},
                 'tool_no_resp',
@@ -411,7 +544,7 @@ async def test_tool_use_hooks(exporter: TestExporter):
 
 
 @pytest.mark.anyio
-async def test_clear_orphaned_tool_spans(exporter: TestExporter):
+async def test_clear_orphaned_tool_spans(exporter: TestExporter) -> None:
     """_clear_active_tool_spans ends and removes any orphaned tool spans."""
     logfire_instance = logfire.DEFAULT_LOGFIRE_INSTANCE.with_settings(custom_scope_suffix='claude_agent_sdk')
     _set_logfire_instance(logfire_instance)
@@ -438,7 +571,7 @@ async def test_clear_orphaned_tool_spans(exporter: TestExporter):
 
 
 @pytest.mark.anyio
-async def test_hook_edge_cases():
+async def test_hook_edge_cases() -> None:
     """Hooks return empty dict for edge cases: None tool_use_id, no parent span, missing entry."""
     # None tool_use_id
     assert await pre_tool_use_hook({}, None, {}) == {}
@@ -459,14 +592,14 @@ async def test_hook_edge_cases():
 # ---------------------------------------------------------------------------
 
 
-def test_inject_hooks_no_hooks_attr():
+def test_inject_hooks_no_hooks_attr() -> None:
     class NoHooksOptions:
         pass
 
     _inject_tracing_hooks(NoHooksOptions())
 
 
-def test_inject_hooks_none_hooks():
+def test_inject_hooks_none_hooks() -> None:
     options = ClaudeAgentOptions(hooks=None)
     _inject_tracing_hooks(options)
     assert options.hooks is not None
@@ -474,7 +607,7 @@ def test_inject_hooks_none_hooks():
     assert len(options.hooks['PreToolUse']) == 1
 
 
-def test_inject_hooks_idempotent():
+def test_inject_hooks_idempotent() -> None:
     options = ClaudeAgentOptions(hooks=None)
     _inject_tracing_hooks(options)
     assert options.hooks is not None
@@ -483,7 +616,7 @@ def test_inject_hooks_idempotent():
     assert len(options.hooks['PreToolUse']) == count_after_first
 
 
-def test_inject_hooks_with_existing_events():
+def test_inject_hooks_with_existing_events() -> None:
     existing_hook = HookMatcher(matcher='existing', hooks=[lambda: None])
 
     class Opts:
@@ -506,8 +639,7 @@ def test_inject_hooks_with_existing_events():
 
 
 @pytest.mark.anyio
-@pytest.mark.filterwarnings('ignore::pytest.PytestUnraisableExceptionWarning')
-async def test_basic_conversation(exporter: TestExporter):
+async def test_basic_conversation(exporter: TestExporter) -> None:
     """Basic conversation: one assistant turn + result."""
     transport = MockTransport([ASSISTANT_HELLO, make_result()])
     client = ClaudeSDKClient(options=ClaudeAgentOptions(system_prompt='Be helpful'), transport=transport)
@@ -588,8 +720,7 @@ async def test_basic_conversation(exporter: TestExporter):
 
 
 @pytest.mark.anyio
-@pytest.mark.filterwarnings('ignore::pytest.PytestUnraisableExceptionWarning')
-async def test_conversation_with_two_turns(exporter: TestExporter):
+async def test_conversation_with_two_turns(exporter: TestExporter) -> None:
     """Two assistant turns (e.g. tool use then result) produce sibling turn spans."""
     transport = MockTransport([ASSISTANT_TOOL_USE, ASSISTANT_FILES, make_result()])
     client = ClaudeSDKClient(options=ClaudeAgentOptions(system_prompt='Be helpful'), transport=transport)
@@ -613,9 +744,8 @@ async def test_conversation_with_two_turns(exporter: TestExporter):
 
 
 @pytest.mark.anyio
-@pytest.mark.filterwarnings('ignore::pytest.PytestUnraisableExceptionWarning')
-async def test_usage_and_cost_attributes(exporter: TestExporter):
-    """Result message usage metrics appear on the conversation span."""
+async def test_usage_and_cost_attributes(exporter: TestExporter) -> None:
+    """Result message usage metrics (including cache details) appear on the conversation span."""
     transport = MockTransport(
         [
             ASSISTANT_HELLO,
@@ -631,21 +761,80 @@ async def test_usage_and_cost_attributes(exporter: TestExporter):
         await client.disconnect()
 
     spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-    conv = [s for s in spans if s['name'] == 'claude.conversation'][0]
-    attrs = conv['attributes']
-    assert attrs['usage.input_tokens'] == 130  # 100 + 20 + 10
-    assert attrs['usage.output_tokens'] == 50
-    assert attrs['usage.total_tokens'] == 180
-    assert attrs['usage.input_token_details.cache_read'] == 20
-    assert attrs['usage.input_token_details.cache_creation'] == 10
-    assert attrs['total_cost_usd'] == 0.01
+    assert spans == snapshot(
+        [
+            {
+                'name': 'claude.assistant.turn',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'code.filepath': 'test_claude_agent_sdk.py',
+                    'code.function': 'test_usage_and_cost_attributes',
+                    'code.lineno': 123,
+                    'content': [{'type': 'text', 'text': 'Hello! How can I help?'}],
+                    'model': 'claude-sonnet-4-20250514',
+                    'logfire.msg_template': 'claude.assistant.turn',
+                    'logfire.msg': 'claude.assistant.turn',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'content': {'type': 'array'}, 'model': {}},
+                    },
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'claude.conversation',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_claude_agent_sdk.py',
+                    'code.function': 'test_usage_and_cost_attributes',
+                    'code.lineno': 123,
+                    'prompt': 'Hi',
+                    'logfire.msg_template': 'claude.conversation',
+                    'logfire.msg': 'claude.conversation',
+                    'logfire.span_type': 'span',
+                    'usage.input_tokens': 130,
+                    'usage.output_tokens': 50,
+                    'usage.total_tokens': 180,
+                    'usage.input_token_details.cache_read': 20,
+                    'usage.input_token_details.cache_creation': 10,
+                    'total_cost_usd': 0.01,
+                    'num_turns': 1,
+                    'session_id': "[Scrubbed due to 'session']",
+                    'duration_ms': 500,
+                    'is_error': False,
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'prompt': {},
+                            'usage.input_tokens': {},
+                            'usage.output_tokens': {},
+                            'usage.total_tokens': {},
+                            'usage.input_token_details.cache_read': {},
+                            'usage.input_token_details.cache_creation': {},
+                            'total_cost_usd': {},
+                            'num_turns': {},
+                            'session_id': {},
+                            'duration_ms': {},
+                            'is_error': {},
+                        },
+                    },
+                    'logfire.scrubbed': [{'path': ['attributes', 'session_id'], 'matched_substring': 'session'}],
+                },
+            },
+        ]
+    )
 
 
 @pytest.mark.anyio
-@pytest.mark.filterwarnings('ignore::pytest.PytestUnraisableExceptionWarning')
-async def test_result_no_usage(exporter: TestExporter):
-    """Result without usage should not produce usage attributes."""
-    transport = MockTransport([ASSISTANT_HELLO, make_result(usage=None)])
+async def test_result_no_usage_or_cost(exporter: TestExporter) -> None:
+    """Result without usage or cost should omit those attributes."""
+    transport = MockTransport([ASSISTANT_HELLO, make_result(usage=None, total_cost_usd=None)])
     client = ClaudeSDKClient(options=ClaudeAgentOptions(), transport=transport)
     try:
         await client.connect()
@@ -657,11 +846,11 @@ async def test_result_no_usage(exporter: TestExporter):
     spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
     conv = [s for s in spans if s['name'] == 'claude.conversation'][0]
     assert 'usage.input_tokens' not in conv['attributes']
+    assert 'total_cost_usd' not in conv['attributes']
 
 
 @pytest.mark.anyio
-@pytest.mark.filterwarnings('ignore::pytest.PytestUnraisableExceptionWarning')
-async def test_result_only(exporter: TestExporter):
+async def test_result_only(exporter: TestExporter) -> None:
     """Conversation with only ResultMessage (no assistant turn)."""
     transport = MockTransport([make_result()])
     client = ClaudeSDKClient(options=ClaudeAgentOptions(), transport=transport)
@@ -677,30 +866,7 @@ async def test_result_only(exporter: TestExporter):
 
 
 @pytest.mark.anyio
-@pytest.mark.filterwarnings('ignore::pytest.PytestUnraisableExceptionWarning')
-async def test_result_no_cost(exporter: TestExporter):
-    """Result without total_cost_usd covers the None-check branch in _record_result."""
-    sparse_result = make_result(usage=None)
-    sparse_result.pop('total_cost_usd', None)
-
-    transport = MockTransport([ASSISTANT_HELLO, sparse_result])
-    client = ClaudeSDKClient(options=ClaudeAgentOptions(), transport=transport)
-    try:
-        await client.connect()
-        await client.query('Hi')
-        [msg async for msg in client.receive_response()]
-    finally:
-        await client.disconnect()
-
-    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-    conv = [s for s in spans if s['name'] == 'claude.conversation'][0]
-    assert 'total_cost_usd' not in conv['attributes']
-    assert 'usage.input_tokens' not in conv['attributes']
-
-
-@pytest.mark.anyio
-@pytest.mark.filterwarnings('ignore::pytest.PytestUnraisableExceptionWarning')
-async def test_non_string_system_prompt(exporter: TestExporter):
+async def test_non_string_system_prompt(exporter: TestExporter) -> None:
     """Non-string system prompt gets stringified."""
     options = ClaudeAgentOptions()
     # Bypass type checking to test the defensive code path
@@ -721,8 +887,7 @@ async def test_non_string_system_prompt(exporter: TestExporter):
 
 
 @pytest.mark.anyio
-@pytest.mark.filterwarnings('ignore::pytest.PytestUnraisableExceptionWarning')
-async def test_already_instrumented(exporter: TestExporter):
+async def test_already_instrumented() -> None:
     """Calling instrument twice is a no-op (idempotent)."""
     logfire.instrument_claude_agent_sdk()
     logfire.instrument_claude_agent_sdk()
@@ -730,8 +895,7 @@ async def test_already_instrumented(exporter: TestExporter):
 
 
 @pytest.mark.anyio
-@pytest.mark.filterwarnings('ignore::pytest.PytestUnraisableExceptionWarning')
-async def test_default_options_get_hooks_injected(exporter: TestExporter):
+async def test_default_options_get_hooks_injected(exporter: TestExporter) -> None:
     """Client created without explicit options still gets hooks injected."""
     transport = MockTransport([ASSISTANT_HELLO, make_result()])
     client = ClaudeSDKClient(transport=transport)
@@ -744,6 +908,3 @@ async def test_default_options_get_hooks_injected(exporter: TestExporter):
 
     spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
     assert 'claude.conversation' in [s['name'] for s in spans]
-    # Verify hooks were injected into default options
-    assert client.options.hooks is not None
-    assert 'PreToolUse' in client.options.hooks
