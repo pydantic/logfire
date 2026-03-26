@@ -1,0 +1,162 @@
+{
+  "metadata": {
+    "cli_version": "1.0.100",
+    "description": "Two-turn conversation: assistant uses a tool (Bash ls), gets result, then responds with text."
+  },
+  "messages": [
+    {
+      "direction": "send",
+      "message": {
+        "type": "control_request",
+        "request_id": "req_1_init001",
+        "request": {
+          "subtype": "initialize",
+          "hooks": {
+            "PreToolUse": [{"hookCallbackIds": ["hook_pre_1"], "matchers": [{"tool_name": "*"}]}],
+            "PostToolUse": [{"hookCallbackIds": ["hook_post_1"], "matchers": [{"tool_name": "*"}]}],
+            "PostToolUseFailure": [{"hookCallbackIds": ["hook_fail_1"], "matchers": [{"tool_name": "*"}]}]
+          }
+        }
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "control_response",
+        "response": {
+          "subtype": "success",
+          "request_id": "req_1_init001",
+          "response": {}
+        }
+      }
+    },
+    {
+      "direction": "send",
+      "message": {
+        "type": "user",
+        "session_id": "default",
+        "message": {"role": "user", "content": "List files in the current directory"},
+        "parent_tool_use_id": null
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {"type": "tool_use", "id": "toolu_01ABC", "name": "Bash", "input": {"command": "ls"}}
+          ],
+          "model": "claude-sonnet-4-20250514",
+          "usage": {"input_tokens": 20, "output_tokens": 15}
+        },
+        "parent_tool_use_id": null,
+        "error": null
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "control_request",
+        "request_id": "hook_pre_toolu_01ABC",
+        "request": {
+          "subtype": "hook_callback",
+          "callback_id": "hook_pre_1",
+          "input": {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Bash",
+            "tool_input": {"command": "ls"},
+            "tool_use_id": "toolu_01ABC"
+          },
+          "tool_use_id": "toolu_01ABC"
+        }
+      }
+    },
+    {
+      "direction": "send",
+      "message": {
+        "type": "control_response",
+        "response": {
+          "subtype": "success",
+          "request_id": "hook_pre_toolu_01ABC",
+          "response": {}
+        }
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {"type": "tool_result", "tool_use_id": "toolu_01ABC", "content": "file1.txt\nfile2.txt\nREADME.md", "is_error": false}
+          ]
+        },
+        "parent_tool_use_id": null,
+        "tool_use_result": "file1.txt\nfile2.txt\nREADME.md"
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "control_request",
+        "request_id": "hook_post_toolu_01ABC",
+        "request": {
+          "subtype": "hook_callback",
+          "callback_id": "hook_post_1",
+          "input": {
+            "hook_event_name": "PostToolUse",
+            "tool_name": "Bash",
+            "tool_input": {"command": "ls"},
+            "tool_use_id": "toolu_01ABC",
+            "tool_response": "file1.txt\nfile2.txt\nREADME.md"
+          },
+          "tool_use_id": "toolu_01ABC"
+        }
+      }
+    },
+    {
+      "direction": "send",
+      "message": {
+        "type": "control_response",
+        "response": {
+          "subtype": "success",
+          "request_id": "hook_post_toolu_01ABC",
+          "response": {}
+        }
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [{"type": "text", "text": "The directory contains: file1.txt, file2.txt, and README.md."}],
+          "model": "claude-sonnet-4-20250514",
+          "usage": {"input_tokens": 35, "output_tokens": 20}
+        },
+        "parent_tool_use_id": null,
+        "error": null
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "result",
+        "subtype": "success",
+        "duration_ms": 2500,
+        "duration_api_ms": 2200,
+        "is_error": false,
+        "num_turns": 2,
+        "session_id": "sess_tool123",
+        "total_cost_usd": 0.003,
+        "usage": {"input_tokens": 55, "output_tokens": 35},
+        "result": "The directory contains: file1.txt, file2.txt, and README.md.",
+        "stop_reason": "end_turn"
+      }
+    }
+  ]
+}

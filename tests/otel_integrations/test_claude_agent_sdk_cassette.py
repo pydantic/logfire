@@ -179,3 +179,161 @@ async def test_basic_conversation_cassette(exporter: TestExporter) -> None:
             },
         ]
     )
+
+
+@pytest.mark.anyio
+async def test_tool_use_conversation_cassette(exporter: TestExporter) -> None:
+    """Tool use conversation: assistant calls Bash, gets result, then responds."""
+    client = _make_client('tool_use_conversation.json')
+    try:
+        await client.connect()
+        await client.query('List files in the current directory')
+        collected = [msg async for msg in client.receive_response()]
+    finally:
+        await client.disconnect()
+
+    # assistant (tool_use) + user (tool_result) + assistant (text) + result
+    assert len(collected) >= 3
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'chat claude-sonnet-4-20250514',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 3000000000,
+                'attributes': {
+                    'code.filepath': 'test_claude_agent_sdk_cassette.py',
+                    'code.function': 'test_tool_use_conversation_cassette',
+                    'code.lineno': 123,
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.system': 'anthropic',
+                    'gen_ai.response.model': 'claude-sonnet-4-20250514',
+                    'gen_ai.output.messages': [
+                        {
+                            'role': 'assistant',
+                            'parts': [
+                                {
+                                    'type': 'tool_call',
+                                    'id': 'toolu_01ABC',
+                                    'name': 'Bash',
+                                    'arguments': {'command': 'ls'},
+                                }
+                            ],
+                        }
+                    ],
+                    'gen_ai.input.messages': [
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'List files in the current directory'}]}
+                    ],
+                    'gen_ai.usage.input_tokens': 20,
+                    'gen_ai.usage.output_tokens': 15,
+                    'logfire.msg_template': 'chat claude-sonnet-4-20250514',
+                    'logfire.msg': 'chat claude-sonnet-4-20250514',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'gen_ai.operation.name': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                        },
+                    },
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'chat claude-sonnet-4-20250514',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 4000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'code.filepath': 'test_claude_agent_sdk_cassette.py',
+                    'code.function': 'test_tool_use_conversation_cassette',
+                    'code.lineno': 123,
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.system': 'anthropic',
+                    'gen_ai.response.model': 'claude-sonnet-4-20250514',
+                    'gen_ai.output.messages': [
+                        {
+                            'role': 'assistant',
+                            'parts': [
+                                {
+                                    'type': 'text',
+                                    'content': 'The directory contains: file1.txt, file2.txt, and README.md.',
+                                }
+                            ],
+                        }
+                    ],
+                    'gen_ai.usage.input_tokens': 35,
+                    'gen_ai.usage.output_tokens': 20,
+                    'logfire.msg_template': 'chat claude-sonnet-4-20250514',
+                    'logfire.msg': 'chat claude-sonnet-4-20250514',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'gen_ai.operation.name': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                        },
+                    },
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'invoke_agent',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'code.filepath': 'test_claude_agent_sdk_cassette.py',
+                    'code.function': 'test_tool_use_conversation_cassette',
+                    'code.lineno': 123,
+                    'gen_ai.operation.name': 'invoke_agent',
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.system': 'anthropic',
+                    'gen_ai.input.messages': [
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'List files in the current directory'}]}
+                    ],
+                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'Be helpful'}],
+                    'logfire.msg_template': 'invoke_agent',
+                    'logfire.msg': 'invoke_agent',
+                    'logfire.span_type': 'span',
+                    'gen_ai.usage.input_tokens': 55,
+                    'gen_ai.usage.output_tokens': 35,
+                    'operation.cost': 0.003,
+                    'gen_ai.conversation.id': 'sess_tool123',
+                    'num_turns': 2,
+                    'duration_ms': 2500,
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'gen_ai.operation.name': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'gen_ai.system_instructions': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'operation.cost': {},
+                            'gen_ai.conversation.id': {},
+                            'num_turns': {},
+                            'duration_ms': {},
+                        },
+                    },
+                },
+            },
+        ]
+    )
