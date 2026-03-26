@@ -1,30 +1,31 @@
 # pyright: reportPrivateUsage=false
-"""Tests for Claude Agent SDK (native) instrumentation.
+"""Tests for Claude Agent SDK instrumentation.
 
-This tests the native ``claude_agent_sdk`` integration
-(``logfire.instrument_claude_agent_sdk``), which hooks into the SDK's
-transport layer directly.  ``test_claude_sdk.py`` tests the separate
-LangSmith-based integration.
+Unit tests for helper functions (content block conversion, usage extraction,
+hook functions, hook injection) plus cassette-based integration tests that
+replay recorded sessions through the real SubprocessCLITransport.
 
-Integration tests use a mock transport to exercise the real SDK client
-with instrumented methods, making them resilient to import refactoring.
+Recording cassettes (requires a real `claude` CLI with valid credentials):
+    uv run pytest tests/otel_integrations/test_claude_agent_sdk.py --record-cassettes
+
+Replaying (default, no real CLI needed):
+    uv run pytest tests/otel_integrations/test_claude_agent_sdk.py
 """
 
 from __future__ import annotations
 
-import gc
-import json
-import sys
-from collections.abc import AsyncIterator
-from typing import Any
+import os
+import shutil
+import stat
+from contextlib import suppress
+from pathlib import Path
 from unittest.mock import Mock
 
-import anyio
 import pytest
 
 pytest.importorskip('claude_agent_sdk', reason='claude_agent_sdk requires Python 3.10+')
 
-from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, HookMatcher, Transport
+from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, HookMatcher
 from claude_agent_sdk.types import HookContext
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
@@ -46,205 +47,16 @@ from logfire._internal.integrations.claude_agent_sdk import (
 )
 from logfire.testing import TestExporter
 
-# Both this pytestmark AND _force_gc() below are needed:
-#  - _force_gc() forces GC inside the fixture teardown, suppressing ResourceWarning via
-#    a temporary sys.unraisablehook so that warnings don't fire during gc.collect().
-#  - Some anyio MemoryObjectStreams survive past the fixture and only get collected during
-#    pytest's own final cleanup, where _force_gc() has no effect. This filterwarnings
-#    suppresses the resulting PytestUnraisableExceptionWarning from those late collections.
-pytestmark = pytest.mark.filterwarnings('ignore::pytest.PytestUnraisableExceptionWarning')
-
-
 # ---------------------------------------------------------------------------
-# Mock transport — handles the SDK control protocol, yields predefined messages,
-# and dispatches hook callbacks for tool_use blocks.
+# Constants
 # ---------------------------------------------------------------------------
 
-
-class MockTransport(Transport):
-    """Mock transport for the Claude Agent SDK.
-
-    Handles the initialize handshake (control_request/response), yields
-    predefined response messages after the user query is sent, and dispatches
-    hook callbacks for tool_use content blocks via the control protocol.
-    """
-
-    def __init__(
-        self,
-        responses: list[dict[str, Any]],
-        *,
-        tool_failure_ids: set[str] | None = None,
-    ) -> None:
-        self.responses = responses
-        self.written: list[dict[str, Any]] = []
-        self._init_request_id: str | None = None
-        self._hook_callback_ids: dict[str, str] = {}
-        self._control_response_events: dict[str, anyio.Event] = {}
-        self._tool_failure_ids = tool_failure_ids or set()
-
-    async def connect(self) -> None:
-        self._init_event = anyio.Event()
-        self._query_event = anyio.Event()
-
-    async def write(self, data: str) -> None:
-        msg = json.loads(data)
-        self.written.append(msg)
-        if msg.get('type') == 'control_request':
-            self._init_request_id = msg['request_id']
-            # Extract hook callback IDs from init config
-            hooks_config: dict[str, list[dict[str, Any]]] = msg.get('request', {}).get('hooks') or {}
-            for event_name, matchers in hooks_config.items():
-                for matcher in matchers:
-                    for cb_id in matcher.get('hookCallbackIds', []):
-                        self._hook_callback_ids[event_name] = cb_id
-            self._init_event.set()
-        elif msg.get('type') == 'user':
-            self._query_event.set()
-        elif msg.get('type') == 'control_response':
-            # SDK responding to our hook callback request
-            response = msg.get('response', {})
-            request_id = response.get('request_id')
-            event = self._control_response_events.get(request_id)
-            if event is not None:
-                event.set()
-
-    def _make_hook_request(
-        self, request_id: str, callback_id: str, input_data: dict[str, Any], tool_use_id: str
-    ) -> dict[str, Any]:
-        return {
-            'type': 'control_request',
-            'request_id': request_id,
-            'request': {
-                'subtype': 'hook_callback',
-                'callback_id': callback_id,
-                'input': input_data,
-                'tool_use_id': tool_use_id,
-            },
-        }
-
-    async def _read_impl(self) -> AsyncIterator[dict[str, Any]]:
-        # Wait for initialize request, then respond
-        await self._init_event.wait()
-        yield {
-            'type': 'control_response',
-            'response': {
-                'subtype': 'success',
-                'request_id': self._init_request_id,
-                'response': {},
-            },
-        }
-        # Wait for user query, then yield responses
-        await self._query_event.wait()
-        for msg in self.responses:
-            yield msg
-            # After yielding an assistant message, dispatch hook callbacks for any tool_use blocks.
-            # Yields must be inline here since async generators can't delegate yields.
-            if msg.get('type') == 'assistant':
-                content: list[dict[str, Any]] = msg.get('message', {}).get('content', [])
-                for block in content:
-                    if block.get('type') != 'tool_use':
-                        continue
-                    tool_use_id: str = block['id']
-                    tool_name: str = block['name']
-                    tool_input: dict[str, Any] = block.get('input', {})
-                    is_failure = tool_use_id in self._tool_failure_ids
-
-                    # PreToolUse hook
-                    pre_cb = self._hook_callback_ids.get('PreToolUse')
-                    if pre_cb:
-                        req_id = f'hook_pre_{tool_use_id}'
-                        event = anyio.Event()
-                        self._control_response_events[req_id] = event
-                        yield self._make_hook_request(
-                            req_id,
-                            pre_cb,
-                            {
-                                'hook_event_name': 'PreToolUse',
-                                'tool_name': tool_name,
-                                'tool_input': tool_input,
-                                'tool_use_id': tool_use_id,
-                            },
-                            tool_use_id,
-                        )
-                        await event.wait()
-
-                    # PostToolUse or PostToolUseFailure hook
-                    if is_failure:
-                        fail_cb = self._hook_callback_ids.get('PostToolUseFailure')
-                        if fail_cb:
-                            req_id = f'hook_fail_{tool_use_id}'
-                            event = anyio.Event()
-                            self._control_response_events[req_id] = event
-                            yield self._make_hook_request(
-                                req_id,
-                                fail_cb,
-                                {
-                                    'hook_event_name': 'PostToolUseFailure',
-                                    'tool_name': tool_name,
-                                    'tool_input': tool_input,
-                                    'tool_use_id': tool_use_id,
-                                    'error': 'Tool execution failed',
-                                },
-                                tool_use_id,
-                            )
-                            await event.wait()
-                    else:
-                        post_cb = self._hook_callback_ids.get('PostToolUse')
-                        if post_cb:
-                            req_id = f'hook_post_{tool_use_id}'
-                            event = anyio.Event()
-                            self._control_response_events[req_id] = event
-                            yield self._make_hook_request(
-                                req_id,
-                                post_cb,
-                                {
-                                    'hook_event_name': 'PostToolUse',
-                                    'tool_name': tool_name,
-                                    'tool_input': tool_input,
-                                    'tool_use_id': tool_use_id,
-                                    'tool_response': 'mock_response',
-                                },
-                                tool_use_id,
-                            )
-                            await event.wait()
-
-    def read_messages(self) -> AsyncIterator[dict[str, Any]]:
-        return self._read_impl()
-
-    async def close(self) -> None:
-        pass
-
-    def is_ready(self) -> bool:
-        return True
-
-    async def end_input(self) -> None:
-        pass
-
+FAKE_CLAUDE = Path(__file__).parent / 'fake_claude.py'
+CASSETTES_DIR = Path(__file__).parent / 'cassettes' / 'test_claude_agent_sdk'
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
-
-
-def _force_gc() -> None:
-    """Force GC to collect SDK internal streams, suppressing ResourceWarning.
-
-    The SDK's Query.close() doesn't close anyio MemoryObjectStreams. When
-    collected, __del__ raises ResourceWarning via sys.unraisablehook. We
-    temporarily replace the hook to suppress these during collection.
-    """
-    original_hook = sys.unraisablehook
-
-    def _silent(unraisable: sys.UnraisableHookArgs) -> None:
-        if isinstance(unraisable.exc_value, ResourceWarning):
-            return
-        original_hook(unraisable)  # pragma: no cover
-
-    sys.unraisablehook = _silent
-    try:
-        gc.collect()
-    finally:
-        sys.unraisablehook = original_hook
 
 
 @pytest.fixture(autouse=True)
@@ -252,79 +64,10 @@ def _reset_instrumentation():  # pyright: ignore[reportUnusedFunction]
     """Instrument and reset SDK class patching between tests."""
     with logfire.instrument_claude_agent_sdk():
         yield
-    _force_gc()
 
 
 # ---------------------------------------------------------------------------
-# Helpers for building transport response messages.
-# ---------------------------------------------------------------------------
-
-ASSISTANT_HELLO = {
-    'type': 'assistant',
-    'message': {
-        'role': 'assistant',
-        'content': [{'type': 'text', 'text': 'Hello! How can I help?'}],
-        'model': 'claude-sonnet-4-20250514',
-    },
-}
-
-ASSISTANT_TOOL_USE = {
-    'type': 'assistant',
-    'message': {
-        'role': 'assistant',
-        'content': [{'type': 'tool_use', 'id': 'tool_1', 'name': 'Bash', 'input': {'command': 'ls'}}],
-        'model': 'claude-sonnet-4-20250514',
-    },
-}
-
-ASSISTANT_FILES = {
-    'type': 'assistant',
-    'message': {
-        'role': 'assistant',
-        'content': [{'type': 'text', 'text': 'Here are the files: file1.txt, file2.txt'}],
-        'model': 'claude-sonnet-4-20250514',
-    },
-}
-
-
-_UNSET = object()
-
-
-def make_result(
-    *,
-    input_tokens: int = 100,
-    output_tokens: int = 50,
-    total_cost_usd: float | None = 0.01,
-    cache_read: int | None = None,
-    cache_create: int | None = None,
-    is_error: bool = False,
-    usage: dict[str, Any] | None | object = _UNSET,
-) -> dict[str, Any]:
-    """Build a result message for the mock transport."""
-    if usage is _UNSET:
-        u: dict[str, Any] = {'input_tokens': input_tokens, 'output_tokens': output_tokens}
-        if cache_read is not None:
-            u['cache_read_input_tokens'] = cache_read
-        if cache_create is not None:
-            u['cache_creation_input_tokens'] = cache_create
-        usage = u
-    result: dict[str, Any] = {
-        'type': 'result',
-        'subtype': 'completion',
-        'duration_ms': 500,
-        'duration_api_ms': 400,
-        'is_error': is_error,
-        'num_turns': 1,
-        'session_id': 'sess_123',
-        'usage': usage,
-    }
-    if total_cost_usd is not None:
-        result['total_cost_usd'] = total_cost_usd
-    return result
-
-
-# ---------------------------------------------------------------------------
-# Helpers for unit tests that don't need the SDK.
+# Helpers
 # ---------------------------------------------------------------------------
 
 
@@ -335,6 +78,76 @@ def _make_block(class_name: str, **attrs: object) -> Mock:
     for k, v in attrs.items():
         setattr(block, k, v)
     return block
+
+
+async def _close_sdk_streams(client: ClaudeSDKClient) -> None:
+    """Close streams the SDK neglects to close, preventing ResourceWarning on GC.
+
+    The SDK's Query.close() doesn't close its internal MemoryObject streams,
+    and SubprocessCLITransport.close() doesn't close stdout. Close them
+    explicitly before disconnect() sets _query/_transport to None.
+    """
+    query = client._query
+    if query is not None:
+        with suppress(Exception):
+            await query._message_send.aclose()
+        with suppress(Exception):
+            await query._message_receive.aclose()
+    transport = client._transport
+    if transport is not None:
+        stdout = getattr(transport, '_stdout_stream', None)
+        if stdout is not None:
+            with suppress(Exception):
+                await stdout.aclose()
+
+
+def _make_client(
+    cassette_name: str,
+    *,
+    monkeypatch: pytest.MonkeyPatch,
+    system_prompt: str = 'Be helpful',
+    record: bool = False,
+) -> ClaudeSDKClient:
+    """Create a ClaudeSDKClient backed by a cassette file.
+
+    In replay mode (default), uses fake_claude.py to replay a recorded session.
+    In record mode, uses fake_claude.py as a proxy to the real claude CLI,
+    recording the session to the cassette file.
+    """
+    cassette_path = CASSETTES_DIR / cassette_name
+
+    if not record and not cassette_path.exists():
+        raise FileNotFoundError(
+            f'Cassette not found: {cassette_path}\n'
+            f'Record it with: uv run pytest {__file__} --record-cassettes -k <test_name>'
+        )
+
+    # Ensure fake_claude.py is executable
+    fake_claude_path = str(FAKE_CLAUDE)
+    st = os.stat(fake_claude_path)
+    if not (st.st_mode & stat.S_IEXEC):
+        os.chmod(fake_claude_path, st.st_mode | stat.S_IEXEC)
+
+    monkeypatch.setenv('CASSETTE_PATH', str(cassette_path))
+
+    if record:
+        real_claude = shutil.which('claude')
+        if not real_claude:
+            pytest.skip('Real claude CLI not found on PATH; cannot record cassette')
+        monkeypatch.setenv('CASSETTE_MODE', 'record')
+        monkeypatch.setenv('REAL_CLAUDE_PATH', real_claude)
+    else:
+        monkeypatch.setenv('CASSETTE_MODE', 'replay')
+        monkeypatch.delenv('REAL_CLAUDE_PATH', raising=False)
+
+    monkeypatch.setenv('CLAUDE_AGENT_SDK_SKIP_VERSION_CHECK', '1')
+
+    return ClaudeSDKClient(
+        options=ClaudeAgentOptions(
+            system_prompt=system_prompt,
+            cli_path=fake_claude_path,
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -767,46 +580,60 @@ def test_inject_hooks_with_existing_events() -> None:
     assert options.hooks['PreToolUse'][1] is existing_hook
 
 
+@pytest.mark.anyio
+async def test_already_instrumented() -> None:
+    """Calling instrument twice is a no-op (idempotent)."""
+    logfire.instrument_claude_agent_sdk()
+    logfire.instrument_claude_agent_sdk()
+    # No error, and only one layer of patching
+
+
 # ---------------------------------------------------------------------------
-# Integration tests with mock transport and real SDK client.
+# Cassette-based integration tests (replay through real transport).
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.anyio
-async def test_basic_conversation(exporter: TestExporter) -> None:
-    """Basic conversation: one assistant turn + result."""
-    transport = MockTransport([ASSISTANT_HELLO, make_result()])
-    client = ClaudeSDKClient(options=ClaudeAgentOptions(system_prompt='Be helpful'), transport=transport)
+async def test_basic_conversation_cassette(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch, exporter: TestExporter
+) -> None:
+    """Basic conversation replayed from cassette produces correct spans."""
+    record = request.config.getoption('--record-cassettes', default=False)
+    client = _make_client('basic_conversation.json', monkeypatch=monkeypatch, record=bool(record))
     try:
         await client.connect()
         await client.query('What is 2+2?')
         collected = [msg async for msg in client.receive_response()]
     finally:
+        await _close_sdk_streams(client)
         await client.disconnect()
 
-    assert len(collected) == 2
+    assert len(collected) >= 2  # system + assistant + result
+
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
-                'name': 'chat claude-sonnet-4-20250514',
+                'name': 'chat claude-sonnet-4-6',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
                 'end_time': 3000000000,
                 'attributes': {
                     'code.filepath': 'test_claude_agent_sdk.py',
-                    'code.function': 'test_basic_conversation',
+                    'code.function': 'test_basic_conversation_cassette',
                     'code.lineno': 123,
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.system': 'anthropic',
-                    'gen_ai.response.model': 'claude-sonnet-4-20250514',
-                    'gen_ai.output.messages': [
-                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Hello! How can I help?'}]}
-                    ],
+                    'gen_ai.response.model': 'claude-sonnet-4-6',
+                    'gen_ai.output.messages': [{'role': 'assistant', 'parts': [{'type': 'text', 'content': '4'}]}],
                     'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'What is 2+2?'}]}],
-                    'logfire.msg_template': 'chat claude-sonnet-4-20250514',
-                    'logfire.msg': 'chat claude-sonnet-4-20250514',
+                    'gen_ai.usage.input_tokens': 3,
+                    'gen_ai.usage.output_tokens': 1,
+                    'gen_ai.usage.cache_read.input_tokens': 7166,
+                    'gen_ai.usage.cache_creation.input_tokens': 2175,
+                    'logfire.msg_template': 'chat claude-sonnet-4-6',
+                    'logfire.msg': 'chat claude-sonnet-4-6',
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -816,6 +643,10 @@ async def test_basic_conversation(exporter: TestExporter) -> None:
                             'gen_ai.response.model': {},
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.input.messages': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.cache_read.input_tokens': {},
+                            'gen_ai.usage.cache_creation.input_tokens': {},
                         },
                     },
                     'logfire.span_type': 'span',
@@ -829,7 +660,7 @@ async def test_basic_conversation(exporter: TestExporter) -> None:
                 'end_time': 4000000000,
                 'attributes': {
                     'code.filepath': 'test_claude_agent_sdk.py',
-                    'code.function': 'test_basic_conversation',
+                    'code.function': 'test_basic_conversation_cassette',
                     'code.lineno': 123,
                     'gen_ai.operation.name': 'invoke_agent',
                     'gen_ai.provider.name': 'anthropic',
@@ -837,14 +668,16 @@ async def test_basic_conversation(exporter: TestExporter) -> None:
                     'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'What is 2+2?'}]}],
                     'gen_ai.system_instructions': [{'type': 'text', 'content': 'Be helpful'}],
                     'logfire.msg_template': 'invoke_agent',
-                    'gen_ai.usage.input_tokens': 100,
-                    'gen_ai.usage.output_tokens': 50,
-                    'operation.cost': 0.01,
-                    'gen_ai.conversation.id': 'sess_123',
                     'logfire.msg': 'invoke_agent',
                     'logfire.span_type': 'span',
+                    'gen_ai.usage.input_tokens': 3,
+                    'gen_ai.usage.output_tokens': 5,
+                    'gen_ai.usage.cache_read.input_tokens': 7166,
+                    'gen_ai.usage.cache_creation.input_tokens': 2175,
+                    'operation.cost': 0.01039005,
+                    'gen_ai.conversation.id': '7ed3c21d-374b-491a-8c66-05e191f6a0be',
                     'num_turns': 1,
-                    'duration_ms': 500,
+                    'duration_ms': 2263,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -853,449 +686,6 @@ async def test_basic_conversation(exporter: TestExporter) -> None:
                             'gen_ai.system': {},
                             'gen_ai.input.messages': {'type': 'array'},
                             'gen_ai.system_instructions': {'type': 'array'},
-                            'gen_ai.usage.input_tokens': {},
-                            'gen_ai.usage.output_tokens': {},
-                            'operation.cost': {},
-                            'gen_ai.conversation.id': {},
-                            'num_turns': {},
-                            'duration_ms': {},
-                        },
-                    },
-                },
-            },
-        ]
-    )
-
-
-@pytest.mark.anyio
-async def test_conversation_with_two_turns(exporter: TestExporter) -> None:
-    """Two assistant turns (e.g. tool use then result) produce sibling turn spans."""
-    transport = MockTransport([ASSISTANT_TOOL_USE, ASSISTANT_FILES, make_result()])
-    client = ClaudeSDKClient(options=ClaudeAgentOptions(system_prompt='Be helpful'), transport=transport)
-    try:
-        await client.connect()
-        await client.query('List files')
-        collected = [msg async for msg in client.receive_response()]
-    finally:
-        await client.disconnect()
-
-    assert len(collected) == 3
-    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
-        [
-            {
-                'name': 'execute_tool {tool_name}',
-                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 3000000000,
-                'end_time': 4000000000,
-                'attributes': {
-                    'code.filepath': IsStr(),
-                    'code.lineno': 123,
-                    'tool_name': 'Bash',
-                    'logfire.msg_template': 'execute_tool {tool_name}',
-                    'gen_ai.operation.name': 'execute_tool',
-                    'gen_ai.tool.name': 'Bash',
-                    'gen_ai.tool.call.id': 'tool_1',
-                    'gen_ai.tool.call.arguments': {'command': 'ls'},
-                    'logfire.msg': 'execute_tool Bash',
-                    'gen_ai.tool.call.result': 'mock_response',
-                    'logfire.span_type': 'span',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'tool_name': {},
-                            'gen_ai.operation.name': {},
-                            'gen_ai.tool.name': {},
-                            'gen_ai.tool.call.id': {},
-                            'gen_ai.tool.call.arguments': {'type': 'object'},
-                            'gen_ai.tool.call.result': {},
-                        },
-                    },
-                },
-            },
-            {
-                'name': 'chat claude-sonnet-4-20250514',
-                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 2000000000,
-                'end_time': 5000000000,
-                'attributes': {
-                    'code.filepath': 'test_claude_agent_sdk.py',
-                    'code.function': 'test_conversation_with_two_turns',
-                    'code.lineno': 123,
-                    'gen_ai.operation.name': 'chat',
-                    'gen_ai.provider.name': 'anthropic',
-                    'gen_ai.system': 'anthropic',
-                    'gen_ai.response.model': 'claude-sonnet-4-20250514',
-                    'gen_ai.output.messages': [
-                        {
-                            'role': 'assistant',
-                            'parts': [
-                                {'type': 'tool_call', 'id': 'tool_1', 'name': 'Bash', 'arguments': {'command': 'ls'}}
-                            ],
-                        }
-                    ],
-                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'List files'}]}],
-                    'logfire.msg_template': 'chat claude-sonnet-4-20250514',
-                    'logfire.msg': 'chat claude-sonnet-4-20250514',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'gen_ai.operation.name': {},
-                            'gen_ai.provider.name': {},
-                            'gen_ai.system': {},
-                            'gen_ai.response.model': {},
-                            'gen_ai.output.messages': {'type': 'array'},
-                            'gen_ai.input.messages': {'type': 'array'},
-                        },
-                    },
-                    'logfire.span_type': 'span',
-                },
-            },
-            {
-                'name': 'chat claude-sonnet-4-20250514',
-                'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 6000000000,
-                'end_time': 7000000000,
-                'attributes': {
-                    'code.filepath': 'test_claude_agent_sdk.py',
-                    'code.function': 'test_conversation_with_two_turns',
-                    'code.lineno': 123,
-                    'gen_ai.operation.name': 'chat',
-                    'gen_ai.provider.name': 'anthropic',
-                    'gen_ai.system': 'anthropic',
-                    'gen_ai.response.model': 'claude-sonnet-4-20250514',
-                    'gen_ai.output.messages': [
-                        {
-                            'role': 'assistant',
-                            'parts': [{'type': 'text', 'content': 'Here are the files: file1.txt, file2.txt'}],
-                        }
-                    ],
-                    'gen_ai.input.messages': [
-                        {
-                            'role': 'tool',
-                            'name': 'Bash',
-                            'parts': [{'type': 'tool_call_response', 'id': 'tool_1', 'response': 'mock_response'}],
-                        }
-                    ],
-                    'logfire.msg_template': 'chat claude-sonnet-4-20250514',
-                    'logfire.msg': 'chat claude-sonnet-4-20250514',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'gen_ai.operation.name': {},
-                            'gen_ai.provider.name': {},
-                            'gen_ai.system': {},
-                            'gen_ai.response.model': {},
-                            'gen_ai.output.messages': {'type': 'array'},
-                            'gen_ai.input.messages': {'type': 'array'},
-                        },
-                    },
-                    'logfire.span_type': 'span',
-                },
-            },
-            {
-                'name': 'invoke_agent',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 8000000000,
-                'attributes': {
-                    'code.filepath': 'test_claude_agent_sdk.py',
-                    'code.function': 'test_conversation_with_two_turns',
-                    'code.lineno': 123,
-                    'gen_ai.operation.name': 'invoke_agent',
-                    'gen_ai.provider.name': 'anthropic',
-                    'gen_ai.system': 'anthropic',
-                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'List files'}]}],
-                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'Be helpful'}],
-                    'logfire.msg_template': 'invoke_agent',
-                    'gen_ai.usage.input_tokens': 100,
-                    'gen_ai.usage.output_tokens': 50,
-                    'operation.cost': 0.01,
-                    'gen_ai.conversation.id': 'sess_123',
-                    'logfire.msg': 'invoke_agent',
-                    'logfire.span_type': 'span',
-                    'num_turns': 1,
-                    'duration_ms': 500,
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'gen_ai.operation.name': {},
-                            'gen_ai.provider.name': {},
-                            'gen_ai.system': {},
-                            'gen_ai.input.messages': {'type': 'array'},
-                            'gen_ai.system_instructions': {'type': 'array'},
-                            'gen_ai.usage.input_tokens': {},
-                            'gen_ai.usage.output_tokens': {},
-                            'operation.cost': {},
-                            'gen_ai.conversation.id': {},
-                            'num_turns': {},
-                            'duration_ms': {},
-                        },
-                    },
-                },
-            },
-        ]
-    )
-
-
-@pytest.mark.anyio
-async def test_tool_use_failure(exporter: TestExporter) -> None:
-    """Tool failure via PostToolUseFailure hook sets error.type on the tool span."""
-    transport = MockTransport(
-        [ASSISTANT_TOOL_USE, ASSISTANT_FILES, make_result()],
-        tool_failure_ids={'tool_1'},
-    )
-    client = ClaudeSDKClient(options=ClaudeAgentOptions(system_prompt='Be helpful'), transport=transport)
-    try:
-        await client.connect()
-        await client.query('List files')
-        collected = [msg async for msg in client.receive_response()]
-    finally:
-        await client.disconnect()
-
-    assert len(collected) == 3
-    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
-        [
-            {
-                'name': 'execute_tool {tool_name}',
-                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 3000000000,
-                'end_time': 4000000000,
-                'attributes': {
-                    'code.filepath': IsStr(),
-                    'code.lineno': 123,
-                    'tool_name': 'Bash',
-                    'logfire.msg_template': 'execute_tool {tool_name}',
-                    'logfire.msg': 'execute_tool Bash',
-                    'gen_ai.operation.name': 'execute_tool',
-                    'gen_ai.tool.name': 'Bash',
-                    'gen_ai.tool.call.id': 'tool_1',
-                    'gen_ai.tool.call.arguments': {'command': 'ls'},
-                    'logfire.span_type': 'span',
-                    'error.type': 'Tool execution failed',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'tool_name': {},
-                            'gen_ai.operation.name': {},
-                            'gen_ai.tool.name': {},
-                            'gen_ai.tool.call.id': {},
-                            'gen_ai.tool.call.arguments': {'type': 'object'},
-                            'error.type': {},
-                        },
-                    },
-                },
-            },
-            {
-                'name': 'chat claude-sonnet-4-20250514',
-                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 2000000000,
-                'end_time': 5000000000,
-                'attributes': {
-                    'code.filepath': 'test_claude_agent_sdk.py',
-                    'code.function': 'test_tool_use_failure',
-                    'code.lineno': 123,
-                    'gen_ai.operation.name': 'chat',
-                    'gen_ai.provider.name': 'anthropic',
-                    'gen_ai.system': 'anthropic',
-                    'gen_ai.response.model': 'claude-sonnet-4-20250514',
-                    'gen_ai.output.messages': [
-                        {
-                            'role': 'assistant',
-                            'parts': [
-                                {'type': 'tool_call', 'id': 'tool_1', 'name': 'Bash', 'arguments': {'command': 'ls'}}
-                            ],
-                        }
-                    ],
-                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'List files'}]}],
-                    'logfire.msg_template': 'chat claude-sonnet-4-20250514',
-                    'logfire.msg': 'chat claude-sonnet-4-20250514',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'gen_ai.operation.name': {},
-                            'gen_ai.provider.name': {},
-                            'gen_ai.system': {},
-                            'gen_ai.response.model': {},
-                            'gen_ai.output.messages': {'type': 'array'},
-                            'gen_ai.input.messages': {'type': 'array'},
-                        },
-                    },
-                    'logfire.span_type': 'span',
-                },
-            },
-            {
-                'name': 'chat claude-sonnet-4-20250514',
-                'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 6000000000,
-                'end_time': 7000000000,
-                'attributes': {
-                    'code.filepath': 'test_claude_agent_sdk.py',
-                    'code.function': 'test_tool_use_failure',
-                    'code.lineno': 123,
-                    'gen_ai.operation.name': 'chat',
-                    'gen_ai.provider.name': 'anthropic',
-                    'gen_ai.system': 'anthropic',
-                    'gen_ai.response.model': 'claude-sonnet-4-20250514',
-                    'gen_ai.output.messages': [
-                        {
-                            'role': 'assistant',
-                            'parts': [{'type': 'text', 'content': 'Here are the files: file1.txt, file2.txt'}],
-                        }
-                    ],
-                    'logfire.msg_template': 'chat claude-sonnet-4-20250514',
-                    'logfire.msg': 'chat claude-sonnet-4-20250514',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'gen_ai.operation.name': {},
-                            'gen_ai.provider.name': {},
-                            'gen_ai.system': {},
-                            'gen_ai.response.model': {},
-                            'gen_ai.output.messages': {'type': 'array'},
-                        },
-                    },
-                    'logfire.span_type': 'span',
-                },
-            },
-            {
-                'name': 'invoke_agent',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 8000000000,
-                'attributes': {
-                    'code.filepath': 'test_claude_agent_sdk.py',
-                    'code.function': 'test_tool_use_failure',
-                    'code.lineno': 123,
-                    'gen_ai.operation.name': 'invoke_agent',
-                    'gen_ai.provider.name': 'anthropic',
-                    'gen_ai.system': 'anthropic',
-                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'List files'}]}],
-                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'Be helpful'}],
-                    'logfire.msg_template': 'invoke_agent',
-                    'logfire.msg': 'invoke_agent',
-                    'logfire.span_type': 'span',
-                    'gen_ai.usage.input_tokens': 100,
-                    'gen_ai.usage.output_tokens': 50,
-                    'operation.cost': 0.01,
-                    'gen_ai.conversation.id': 'sess_123',
-                    'num_turns': 1,
-                    'duration_ms': 500,
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'gen_ai.operation.name': {},
-                            'gen_ai.provider.name': {},
-                            'gen_ai.system': {},
-                            'gen_ai.input.messages': {'type': 'array'},
-                            'gen_ai.system_instructions': {'type': 'array'},
-                            'gen_ai.usage.input_tokens': {},
-                            'gen_ai.usage.output_tokens': {},
-                            'operation.cost': {},
-                            'gen_ai.conversation.id': {},
-                            'num_turns': {},
-                            'duration_ms': {},
-                        },
-                    },
-                },
-            },
-        ]
-    )
-
-
-@pytest.mark.anyio
-async def test_usage_and_cost_attributes(exporter: TestExporter) -> None:
-    """Result message usage metrics (including cache details) appear on the conversation span."""
-    transport = MockTransport(
-        [
-            ASSISTANT_HELLO,
-            make_result(input_tokens=100, output_tokens=50, total_cost_usd=0.01, cache_read=20, cache_create=10),
-        ]
-    )
-    client = ClaudeSDKClient(options=ClaudeAgentOptions(), transport=transport)
-    try:
-        await client.connect()
-        await client.query('Hi')
-        [msg async for msg in client.receive_response()]
-    finally:
-        await client.disconnect()
-
-    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-    assert spans == snapshot(
-        [
-            {
-                'name': 'chat claude-sonnet-4-20250514',
-                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 2000000000,
-                'end_time': 3000000000,
-                'attributes': {
-                    'code.filepath': 'test_claude_agent_sdk.py',
-                    'code.function': 'test_usage_and_cost_attributes',
-                    'code.lineno': 123,
-                    'gen_ai.operation.name': 'chat',
-                    'gen_ai.provider.name': 'anthropic',
-                    'gen_ai.system': 'anthropic',
-                    'gen_ai.response.model': 'claude-sonnet-4-20250514',
-                    'gen_ai.output.messages': [
-                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Hello! How can I help?'}]}
-                    ],
-                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hi'}]}],
-                    'logfire.msg_template': 'chat claude-sonnet-4-20250514',
-                    'logfire.msg': 'chat claude-sonnet-4-20250514',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'gen_ai.operation.name': {},
-                            'gen_ai.provider.name': {},
-                            'gen_ai.system': {},
-                            'gen_ai.response.model': {},
-                            'gen_ai.output.messages': {'type': 'array'},
-                            'gen_ai.input.messages': {'type': 'array'},
-                        },
-                    },
-                    'logfire.span_type': 'span',
-                },
-            },
-            {
-                'name': 'invoke_agent',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 4000000000,
-                'attributes': {
-                    'code.filepath': 'test_claude_agent_sdk.py',
-                    'code.function': 'test_usage_and_cost_attributes',
-                    'code.lineno': 123,
-                    'gen_ai.operation.name': 'invoke_agent',
-                    'gen_ai.provider.name': 'anthropic',
-                    'gen_ai.system': 'anthropic',
-                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hi'}]}],
-                    'logfire.msg_template': 'invoke_agent',
-                    'logfire.msg': 'invoke_agent',
-                    'gen_ai.usage.input_tokens': 100,
-                    'gen_ai.usage.output_tokens': 50,
-                    'gen_ai.usage.cache_read.input_tokens': 20,
-                    'gen_ai.usage.cache_creation.input_tokens': 10,
-                    'operation.cost': 0.01,
-                    'gen_ai.conversation.id': 'sess_123',
-                    'logfire.span_type': 'span',
-                    'num_turns': 1,
-                    'duration_ms': 500,
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'gen_ai.operation.name': {},
-                            'gen_ai.provider.name': {},
-                            'gen_ai.system': {},
-                            'gen_ai.input.messages': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.cache_read.input_tokens': {},
@@ -1313,39 +703,63 @@ async def test_usage_and_cost_attributes(exporter: TestExporter) -> None:
 
 
 @pytest.mark.anyio
-async def test_result_no_usage_or_cost(exporter: TestExporter) -> None:
-    """Result without usage or cost should omit those attributes."""
-    transport = MockTransport([ASSISTANT_HELLO, make_result(usage=None, total_cost_usd=None)])
-    client = ClaudeSDKClient(options=ClaudeAgentOptions(), transport=transport)
+async def test_tool_use_conversation_cassette(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch, exporter: TestExporter
+) -> None:
+    """Tool use conversation: assistant calls Bash, gets result, then responds."""
+    record = request.config.getoption('--record-cassettes', default=False)
+    client = _make_client('tool_use_conversation.json', monkeypatch=monkeypatch, record=bool(record))
     try:
         await client.connect()
-        await client.query('Hi')
-        [msg async for msg in client.receive_response()]
+        await client.query('List files in the current directory')
+        collected = [msg async for msg in client.receive_response()]
     finally:
+        await _close_sdk_streams(client)
         await client.disconnect()
+
+    # assistant (tool_use) + user (tool_result) + assistant (text) + result
+    assert len(collected) >= 3
 
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
-                'name': 'chat claude-sonnet-4-20250514',
+                'name': 'chat claude-sonnet-4-6',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
                 'end_time': 3000000000,
                 'attributes': {
                     'code.filepath': 'test_claude_agent_sdk.py',
-                    'code.function': 'test_result_no_usage_or_cost',
+                    'code.function': 'test_tool_use_conversation_cassette',
                     'code.lineno': 123,
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.system': 'anthropic',
-                    'gen_ai.response.model': 'claude-sonnet-4-20250514',
+                    'gen_ai.response.model': 'claude-sonnet-4-6',
                     'gen_ai.output.messages': [
-                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Hello! How can I help?'}]}
+                        {
+                            'role': 'assistant',
+                            'parts': [
+                                {
+                                    'type': 'thinking',
+                                    'content': 'Let me list the files in the current directory.',
+                                    'signature': 'EuoBClkIDBgCKkASXqZcani1cS2F0io8DhUZtOWls/UWUA6bZT1K3rfAItRtZNk2mY7QJlEXq/45nQ31If9WpgVb/W9hWond2BSVMhFjbGF1ZGUtc29ubmV0LTQtNhIMo+SLoTXu/es6+jKxGgzhGqGCjpe87cObsPoiMM1hGKFBHv/PenktJb+hzvA/EGZRy5MR4b0+VJz/iDgkXhp7j0LcjJrD4BeFEeeFlio/kvJLtts/vOiMgrO3lD1XzJC0hX3hTCxDV3Ye6oMoanejZW5bGZoJNGbhFBqMG8pJog7gkLEPOpeZoyZlhMmsGAE=',
+                                }
+                            ],
+                        }
                     ],
-                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hi'}]}],
-                    'logfire.msg_template': 'chat claude-sonnet-4-20250514',
-                    'logfire.msg': 'chat claude-sonnet-4-20250514',
+                    'gen_ai.input.messages': [
+                        {
+                            'role': 'user',
+                            'parts': [{'type': 'text', 'content': 'List files in the current directory'}],
+                        }
+                    ],
+                    'gen_ai.usage.input_tokens': 3,
+                    'gen_ai.usage.output_tokens': 0,
+                    'gen_ai.usage.cache_read.input_tokens': 8313,
+                    'gen_ai.usage.cache_creation.input_tokens': 1027,
+                    'logfire.msg_template': 'chat claude-sonnet-4-6',
+                    'logfire.msg': 'chat claude-sonnet-4-6',
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -1354,142 +768,86 @@ async def test_result_no_usage_or_cost(exporter: TestExporter) -> None:
                             'gen_ai.system': {},
                             'gen_ai.response.model': {},
                             'gen_ai.output.messages': {'type': 'array'},
-                            'gen_ai.input.messages': {'type': 'array'},
-                        },
-                    },
-                    'logfire.span_type': 'span',
-                },
-            },
-            {
-                'name': 'invoke_agent',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 4000000000,
-                'attributes': {
-                    'code.filepath': 'test_claude_agent_sdk.py',
-                    'code.function': 'test_result_no_usage_or_cost',
-                    'code.lineno': 123,
-                    'gen_ai.operation.name': 'invoke_agent',
-                    'gen_ai.provider.name': 'anthropic',
-                    'gen_ai.system': 'anthropic',
-                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hi'}]}],
-                    'logfire.msg_template': 'invoke_agent',
-                    'logfire.msg': 'invoke_agent',
-                    'logfire.span_type': 'span',
-                    'gen_ai.conversation.id': 'sess_123',
-                    'num_turns': 1,
-                    'duration_ms': 500,
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'gen_ai.operation.name': {},
-                            'gen_ai.provider.name': {},
-                            'gen_ai.system': {},
-                            'gen_ai.input.messages': {'type': 'array'},
-                            'gen_ai.conversation.id': {},
-                            'num_turns': {},
-                            'duration_ms': {},
-                        },
-                    },
-                },
-            },
-        ]
-    )
-
-
-@pytest.mark.anyio
-async def test_result_only(exporter: TestExporter) -> None:
-    """Conversation with only ResultMessage (no assistant turn)."""
-    transport = MockTransport([make_result()])
-    client = ClaudeSDKClient(options=ClaudeAgentOptions(), transport=transport)
-    try:
-        await client.connect()
-        await client.query('Hi')
-        [msg async for msg in client.receive_response()]
-    finally:
-        await client.disconnect()
-
-    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
-        [
-            {
-                'name': 'invoke_agent',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 2000000000,
-                'attributes': {
-                    'code.filepath': 'test_claude_agent_sdk.py',
-                    'code.function': 'test_result_only',
-                    'code.lineno': 123,
-                    'gen_ai.operation.name': 'invoke_agent',
-                    'gen_ai.provider.name': 'anthropic',
-                    'gen_ai.system': 'anthropic',
-                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hi'}]}],
-                    'logfire.msg_template': 'invoke_agent',
-                    'logfire.msg': 'invoke_agent',
-                    'logfire.span_type': 'span',
-                    'gen_ai.usage.input_tokens': 100,
-                    'gen_ai.usage.output_tokens': 50,
-                    'operation.cost': 0.01,
-                    'gen_ai.conversation.id': 'sess_123',
-                    'num_turns': 1,
-                    'duration_ms': 500,
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'gen_ai.operation.name': {},
-                            'gen_ai.provider.name': {},
-                            'gen_ai.system': {},
                             'gen_ai.input.messages': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
-                            'operation.cost': {},
-                            'gen_ai.conversation.id': {},
-                            'num_turns': {},
-                            'duration_ms': {},
+                            'gen_ai.usage.cache_read.input_tokens': {},
+                            'gen_ai.usage.cache_creation.input_tokens': {},
+                        },
+                    },
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'execute_tool {tool_name}',
+                'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 5000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'code.filepath': IsStr(),
+                    'code.lineno': 123,
+                    'tool_name': 'Bash',
+                    'logfire.msg_template': 'execute_tool {tool_name}',
+                    'logfire.msg': 'execute_tool Bash',
+                    'gen_ai.operation.name': 'execute_tool',
+                    'gen_ai.tool.name': 'Bash',
+                    'gen_ai.tool.call.id': 'toolu_01MRdgcFhYNo1LHvRQKvKckg',
+                    'gen_ai.tool.call.arguments': {
+                        'command': 'ls',
+                        'description': 'List files in current directory',
+                    },
+                    'logfire.span_type': 'span',
+                    'gen_ai.tool.call.result': "{'stdout': 'CHANGELOG.md\\nCLAUDE.md\\nCONTRIBUTING.md\\nLICENSE\\nMakefile\\nREADME.md\\ndist\\ndocs\\nexamples\\nignoreme\\nlogfire\\nlogfire-api\\nmkdocs.yml\\nplans\\npyodide_test\\npyproject.toml\\nrelease\\nscratch\\nsite\\nspecs\\ntests\\nuv.lock', 'stderr': '', 'interrupted': False, 'isImage': False, 'noOutputExpected': False}",
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'tool_name': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.tool.name': {},
+                            'gen_ai.tool.call.id': {},
+                            'gen_ai.tool.call.arguments': {'type': 'object'},
+                            'gen_ai.tool.call.result': {},
                         },
                     },
                 },
-            }
-        ]
-    )
-
-
-@pytest.mark.anyio
-async def test_error_result(exporter: TestExporter) -> None:
-    """Result with is_error=True sets span level to error."""
-    transport = MockTransport([ASSISTANT_HELLO, make_result(is_error=True)])
-    client = ClaudeSDKClient(options=ClaudeAgentOptions(), transport=transport)
-    try:
-        await client.connect()
-        await client.query('Hi')
-        [msg async for msg in client.receive_response()]
-    finally:
-        await client.disconnect()
-
-    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
-        [
+            },
             {
-                'name': 'chat claude-sonnet-4-20250514',
-                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'name': 'chat claude-sonnet-4-6',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 2000000000,
-                'end_time': 3000000000,
+                'start_time': 4000000000,
+                'end_time': 7000000000,
                 'attributes': {
                     'code.filepath': 'test_claude_agent_sdk.py',
-                    'code.function': 'test_error_result',
+                    'code.function': 'test_tool_use_conversation_cassette',
                     'code.lineno': 123,
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.system': 'anthropic',
-                    'gen_ai.response.model': 'claude-sonnet-4-20250514',
+                    'gen_ai.response.model': 'claude-sonnet-4-6',
                     'gen_ai.output.messages': [
-                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Hello! How can I help?'}]}
+                        {
+                            'role': 'assistant',
+                            'parts': [
+                                {
+                                    'type': 'tool_call',
+                                    'id': 'toolu_01MRdgcFhYNo1LHvRQKvKckg',
+                                    'name': 'Bash',
+                                    'arguments': {
+                                        'command': 'ls',
+                                        'description': 'List files in current directory',
+                                    },
+                                }
+                            ],
+                        }
                     ],
-                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hi'}]}],
-                    'logfire.msg_template': 'chat claude-sonnet-4-20250514',
-                    'logfire.msg': 'chat claude-sonnet-4-20250514',
+                    'gen_ai.usage.input_tokens': 3,
+                    'gen_ai.usage.output_tokens': 0,
+                    'gen_ai.usage.cache_read.input_tokens': 8313,
+                    'gen_ai.usage.cache_creation.input_tokens': 1027,
+                    'logfire.msg_template': 'chat claude-sonnet-4-6',
+                    'logfire.msg': 'chat claude-sonnet-4-6',
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -1498,104 +856,101 @@ async def test_error_result(exporter: TestExporter) -> None:
                             'gen_ai.system': {},
                             'gen_ai.response.model': {},
                             'gen_ai.output.messages': {'type': 'array'},
-                            'gen_ai.input.messages': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.cache_read.input_tokens': {},
+                            'gen_ai.usage.cache_creation.input_tokens': {},
                         },
                     },
                     'logfire.span_type': 'span',
                 },
             },
             {
-                'name': 'invoke_agent',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 4000000000,
+                'name': 'chat claude-sonnet-4-6',
+                'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 8000000000,
+                'end_time': 9000000000,
                 'attributes': {
                     'code.filepath': 'test_claude_agent_sdk.py',
-                    'code.function': 'test_error_result',
+                    'code.function': 'test_tool_use_conversation_cassette',
                     'code.lineno': 123,
-                    'gen_ai.operation.name': 'invoke_agent',
+                    'gen_ai.operation.name': 'chat',
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.system': 'anthropic',
-                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hi'}]}],
-                    'logfire.msg_template': 'invoke_agent',
-                    'logfire.msg': 'invoke_agent',
-                    'logfire.span_type': 'span',
-                    'gen_ai.usage.input_tokens': 100,
-                    'gen_ai.usage.output_tokens': 50,
-                    'operation.cost': 0.01,
-                    'gen_ai.conversation.id': 'sess_123',
-                    'num_turns': 1,
-                    'duration_ms': 500,
-                    'logfire.level_num': 17,
+                    'gen_ai.response.model': 'claude-sonnet-4-6',
+                    'gen_ai.output.messages': [
+                        {
+                            'role': 'assistant',
+                            'parts': [
+                                {
+                                    'type': 'text',
+                                    'content': """\
+Here are the files and directories in the current directory:
+
+| Name | Type |
+|------|------|
+| `CHANGELOG.md` | File |
+| `CLAUDE.md` | File |
+| `CONTRIBUTING.md` | File |
+| `LICENSE` | File |
+| `Makefile` | File |
+| `README.md` | File |
+| `mkdocs.yml` | File |
+| `pyproject.toml` | File |
+| `uv.lock` | File |
+| `dist/` | Directory |
+| `docs/` | Directory |
+| `examples/` | Directory |
+| `ignoreme/` | Directory |
+| `logfire/` | Directory |
+| `logfire-api/` | Directory |
+| `plans/` | Directory |
+| `pyodide_test/` | Directory |
+| `release/` | Directory |
+| `scratch/` | Directory |
+| `site/` | Directory |
+| `specs/` | Directory |
+| `tests/` | Directory |
+
+There are **9 files** and **12 directories** in the current directory. It looks like a Python project (given `pyproject.toml`, `uv.lock`) — likely the **Logfire** SDK or library based on the `logfire/` and `logfire-api/` directories.\
+""",
+                                }
+                            ],
+                        }
+                    ],
+                    'gen_ai.input.messages': [
+                        {
+                            'role': 'tool',
+                            'name': 'Bash',
+                            'parts': [
+                                {
+                                    'type': 'tool_call_response',
+                                    'id': 'toolu_01MRdgcFhYNo1LHvRQKvKckg',
+                                    'response': "{'stdout': 'CHANGELOG.md\\nCLAUDE.md\\nCONTRIBUTING.md\\nLICENSE\\nMakefile\\nREADME.md\\ndist\\ndocs\\nexamples\\nignoreme\\nlogfire\\nlogfire-api\\nmkdocs.yml\\nplans\\npyodide_test\\npyproject.toml\\nrelease\\nscratch\\nsite\\nspecs\\ntests\\nuv.lock', 'stderr': '', 'interrupted': False, 'isImage': False, 'noOutputExpected': False}",
+                                }
+                            ],
+                        }
+                    ],
+                    'gen_ai.usage.input_tokens': 1,
+                    'gen_ai.usage.output_tokens': 1,
+                    'gen_ai.usage.cache_read.input_tokens': 9340,
+                    'gen_ai.usage.cache_creation.input_tokens': 188,
+                    'logfire.msg_template': 'chat claude-sonnet-4-6',
+                    'logfire.msg': 'chat claude-sonnet-4-6',
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
                             'gen_ai.operation.name': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.system': {},
+                            'gen_ai.response.model': {},
+                            'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.input.messages': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
-                            'operation.cost': {},
-                            'gen_ai.conversation.id': {},
-                            'num_turns': {},
-                            'duration_ms': {},
-                        },
-                    },
-                },
-            },
-        ]
-    )
-
-
-@pytest.mark.anyio
-async def test_non_string_system_prompt(exporter: TestExporter) -> None:
-    """Non-string system prompt gets stringified."""
-    options = ClaudeAgentOptions()
-    # Bypass type checking to test the defensive code path
-    object.__setattr__(options, 'system_prompt', ['Be helpful', 'Be concise'])
-
-    transport = MockTransport([ASSISTANT_HELLO, make_result()])
-    client = ClaudeSDKClient(options=options, transport=transport)
-    try:
-        await client.connect()
-        await client.query('Hi')
-        [msg async for msg in client.receive_response()]
-    finally:
-        await client.disconnect()
-
-    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
-        [
-            {
-                'name': 'chat claude-sonnet-4-20250514',
-                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 2000000000,
-                'end_time': 3000000000,
-                'attributes': {
-                    'code.filepath': 'test_claude_agent_sdk.py',
-                    'code.function': 'test_non_string_system_prompt',
-                    'code.lineno': 123,
-                    'gen_ai.operation.name': 'chat',
-                    'gen_ai.provider.name': 'anthropic',
-                    'gen_ai.system': 'anthropic',
-                    'gen_ai.response.model': 'claude-sonnet-4-20250514',
-                    'gen_ai.output.messages': [
-                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Hello! How can I help?'}]}
-                    ],
-                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hi'}]}],
-                    'logfire.msg_template': 'chat claude-sonnet-4-20250514',
-                    'logfire.msg': 'chat claude-sonnet-4-20250514',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'gen_ai.operation.name': {},
-                            'gen_ai.provider.name': {},
-                            'gen_ai.system': {},
-                            'gen_ai.response.model': {},
-                            'gen_ai.output.messages': {'type': 'array'},
-                            'gen_ai.input.messages': {'type': 'array'},
+                            'gen_ai.usage.cache_read.input_tokens': {},
+                            'gen_ai.usage.cache_creation.input_tokens': {},
                         },
                     },
                     'logfire.span_type': 'span',
@@ -1606,25 +961,32 @@ async def test_non_string_system_prompt(exporter: TestExporter) -> None:
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
-                'end_time': 4000000000,
+                'end_time': 10000000000,
                 'attributes': {
                     'code.filepath': 'test_claude_agent_sdk.py',
-                    'code.function': 'test_non_string_system_prompt',
+                    'code.function': 'test_tool_use_conversation_cassette',
                     'code.lineno': 123,
                     'gen_ai.operation.name': 'invoke_agent',
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.system': 'anthropic',
-                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hi'}]}],
-                    'gen_ai.system_instructions': [{'type': 'text', 'content': "['Be helpful', 'Be concise']"}],
+                    'gen_ai.input.messages': [
+                        {
+                            'role': 'user',
+                            'parts': [{'type': 'text', 'content': 'List files in the current directory'}],
+                        }
+                    ],
+                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'Be helpful'}],
                     'logfire.msg_template': 'invoke_agent',
                     'logfire.msg': 'invoke_agent',
                     'logfire.span_type': 'span',
-                    'gen_ai.usage.input_tokens': 100,
-                    'gen_ai.usage.output_tokens': 50,
-                    'operation.cost': 0.01,
-                    'gen_ai.conversation.id': 'sess_123',
-                    'num_turns': 1,
-                    'duration_ms': 500,
+                    'gen_ai.usage.input_tokens': 4,
+                    'gen_ai.usage.output_tokens': 415,
+                    'gen_ai.usage.cache_read.input_tokens': 17653,
+                    'gen_ai.usage.cache_creation.input_tokens': 1215,
+                    'operation.cost': 0.01608915,
+                    'gen_ai.conversation.id': 'ca03765b-a7e1-483b-9629-448c7aba5e7a',
+                    'num_turns': 2,
+                    'duration_ms': 9352,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -1635,106 +997,8 @@ async def test_non_string_system_prompt(exporter: TestExporter) -> None:
                             'gen_ai.system_instructions': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
-                            'operation.cost': {},
-                            'gen_ai.conversation.id': {},
-                            'num_turns': {},
-                            'duration_ms': {},
-                        },
-                    },
-                },
-            },
-        ]
-    )
-
-
-@pytest.mark.anyio
-async def test_already_instrumented() -> None:
-    """Calling instrument twice is a no-op (idempotent)."""
-    logfire.instrument_claude_agent_sdk()
-    logfire.instrument_claude_agent_sdk()
-    # No error, and only one layer of patching
-
-
-@pytest.mark.anyio
-async def test_default_options_get_hooks_injected(exporter: TestExporter) -> None:
-    """Client created without explicit options still gets hooks injected."""
-    transport = MockTransport([ASSISTANT_HELLO, make_result()])
-    client = ClaudeSDKClient(transport=transport)
-    try:
-        await client.connect()
-        await client.query('Hi')
-        [msg async for msg in client.receive_response()]
-    finally:
-        await client.disconnect()
-
-    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
-        [
-            {
-                'name': 'chat claude-sonnet-4-20250514',
-                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 2000000000,
-                'end_time': 3000000000,
-                'attributes': {
-                    'code.filepath': 'test_claude_agent_sdk.py',
-                    'code.function': 'test_default_options_get_hooks_injected',
-                    'code.lineno': 123,
-                    'gen_ai.operation.name': 'chat',
-                    'gen_ai.provider.name': 'anthropic',
-                    'gen_ai.system': 'anthropic',
-                    'gen_ai.response.model': 'claude-sonnet-4-20250514',
-                    'gen_ai.output.messages': [
-                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Hello! How can I help?'}]}
-                    ],
-                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hi'}]}],
-                    'logfire.msg_template': 'chat claude-sonnet-4-20250514',
-                    'logfire.msg': 'chat claude-sonnet-4-20250514',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'gen_ai.operation.name': {},
-                            'gen_ai.provider.name': {},
-                            'gen_ai.system': {},
-                            'gen_ai.response.model': {},
-                            'gen_ai.output.messages': {'type': 'array'},
-                            'gen_ai.input.messages': {'type': 'array'},
-                        },
-                    },
-                    'logfire.span_type': 'span',
-                },
-            },
-            {
-                'name': 'invoke_agent',
-                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'parent': None,
-                'start_time': 1000000000,
-                'end_time': 4000000000,
-                'attributes': {
-                    'code.filepath': 'test_claude_agent_sdk.py',
-                    'code.function': 'test_default_options_get_hooks_injected',
-                    'code.lineno': 123,
-                    'gen_ai.operation.name': 'invoke_agent',
-                    'gen_ai.provider.name': 'anthropic',
-                    'gen_ai.system': 'anthropic',
-                    'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'Hi'}]}],
-                    'logfire.msg_template': 'invoke_agent',
-                    'logfire.msg': 'invoke_agent',
-                    'logfire.span_type': 'span',
-                    'gen_ai.usage.input_tokens': 100,
-                    'gen_ai.usage.output_tokens': 50,
-                    'operation.cost': 0.01,
-                    'gen_ai.conversation.id': 'sess_123',
-                    'num_turns': 1,
-                    'duration_ms': 500,
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'gen_ai.operation.name': {},
-                            'gen_ai.provider.name': {},
-                            'gen_ai.system': {},
-                            'gen_ai.input.messages': {'type': 'array'},
-                            'gen_ai.usage.input_tokens': {},
-                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.cache_read.input_tokens': {},
+                            'gen_ai.usage.cache_creation.input_tokens': {},
                             'operation.cost': {},
                             'gen_ai.conversation.id': {},
                             'num_turns': {},
