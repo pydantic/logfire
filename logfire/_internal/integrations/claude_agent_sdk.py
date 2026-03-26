@@ -360,7 +360,7 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> AbstractContextMan
         if hasattr(self, 'options') and self.options:  # pragma: no branch
             system_prompt = getattr(self.options, 'system_prompt', None)
             if system_prompt:
-                text = system_prompt if isinstance(system_prompt, str) else str(system_prompt)
+                text = str(system_prompt)
                 span_data[SYSTEM_INSTRUCTIONS] = [TextPart(type='text', content=text)]
 
         with logfire_claude.span('invoke_agent', **span_data) as root_span:
