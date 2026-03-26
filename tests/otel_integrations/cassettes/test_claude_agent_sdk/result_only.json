@@ -1,0 +1,375 @@
+{
+  "metadata": {
+    "cli_version": "1.0.100"
+  },
+  "messages": [
+    {
+      "direction": "send",
+      "message": {
+        "type": "control_request",
+        "request_id": "req_1_632f6b22",
+        "request": {
+          "subtype": "initialize",
+          "hooks": {
+            "PreToolUse": [
+              {
+                "matcher": null,
+                "hookCallbackIds": [
+                  "hook_0"
+                ]
+              }
+            ],
+            "PostToolUse": [
+              {
+                "matcher": null,
+                "hookCallbackIds": [
+                  "hook_1"
+                ]
+              }
+            ],
+            "PostToolUseFailure": [
+              {
+                "matcher": null,
+                "hookCallbackIds": [
+                  "hook_2"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "control_response",
+        "response": {
+          "subtype": "success",
+          "request_id": "req_1_632f6b22",
+          "response": {
+            "commands": [
+              {
+                "name": "update-config",
+                "description": "Use this skill to configure the Claude Code harness via settings.json. Automated behaviors (\"from now on when X\", \"each time X\", \"whenever X\", \"before/after X\") require hooks configured in settings.json - the harness executes these, not Claude, so memory/preferences cannot fulfill them. Also use for: permissions (\"allow X\", \"add permission\", \"move permission to\"), env vars (\"set X=Y\"), hook troubleshooting, or any changes to settings.json/settings.local.json files. Examples: \"allow npm commands\", \"add bq permission to global settings\", \"move permission to user settings\", \"set DEBUG=true\", \"when claude stops show X\". For simple settings like theme/model, use Config tool. (bundled)",
+                "argumentHint": ""
+              },
+              {
+                "name": "debug",
+                "description": "Enable debug logging for this session and help diagnose issues (bundled)",
+                "argumentHint": "[issue description]"
+              },
+              {
+                "name": "simplify",
+                "description": "Review changed code for reuse, quality, and efficiency, then fix any issues found. (bundled)",
+                "argumentHint": ""
+              },
+              {
+                "name": "batch",
+                "description": "Research and plan a large-scale change, then execute it in parallel across 5\u201330 isolated worktree agents that each open a PR. (bundled)",
+                "argumentHint": "<instruction>"
+              },
+              {
+                "name": "loop",
+                "description": "Run a prompt or slash command on a recurring interval (e.g. /loop 5m /foo, defaults to 10m) (bundled)",
+                "argumentHint": "[interval] <prompt>"
+              },
+              {
+                "name": "schedule",
+                "description": "Create, update, list, or run scheduled remote agents (triggers) that execute on a cron schedule. (bundled)",
+                "argumentHint": ""
+              },
+              {
+                "name": "claude-api",
+                "description": "Build apps with the Claude API or Anthropic SDK.\nTRIGGER when: code imports `anthropic`/`@anthropic-ai/sdk`/`claude_agent_sdk`, or user asks to use Claude API, Anthropic SDKs, or Agent SDK.\nDO NOT TRIGGER when: code imports `openai`/other AI SDK, general programming, or ML/data-science tasks. (bundled)",
+                "argumentHint": ""
+              },
+              {
+                "name": "compact",
+                "description": "Clear conversation history but keep a summary in context. Optional: /compact [instructions for summarization]",
+                "argumentHint": "<optional custom summarization instructions>"
+              },
+              {
+                "name": "context",
+                "description": "Show current context usage",
+                "argumentHint": ""
+              },
+              {
+                "name": "cost",
+                "description": "Show the total cost and duration of the current session",
+                "argumentHint": ""
+              },
+              {
+                "name": "heapdump",
+                "description": "Dump the JS heap to ~/Desktop",
+                "argumentHint": ""
+              },
+              {
+                "name": "init",
+                "description": "Initialize a new CLAUDE.md file with codebase documentation",
+                "argumentHint": ""
+              },
+              {
+                "name": "pr-comments",
+                "description": "Get comments from a GitHub pull request",
+                "argumentHint": ""
+              },
+              {
+                "name": "release-notes",
+                "description": "View release notes",
+                "argumentHint": ""
+              },
+              {
+                "name": "reload-plugins",
+                "description": "Activate pending plugin changes in the current session",
+                "argumentHint": ""
+              },
+              {
+                "name": "review",
+                "description": "Review a pull request",
+                "argumentHint": ""
+              },
+              {
+                "name": "security-review",
+                "description": "Complete a security review of the pending changes on the current branch",
+                "argumentHint": ""
+              },
+              {
+                "name": "insights",
+                "description": "Generate a report analyzing your Claude Code sessions",
+                "argumentHint": ""
+              }
+            ],
+            "agents": [
+              {
+                "name": "general-purpose",
+                "description": "General-purpose agent for researching complex questions, searching for code, and executing multi-step tasks. When you are searching for a keyword or file and are not confident that you will find the right match in the first few tries use this agent to perform the search for you."
+              },
+              {
+                "name": "statusline-setup",
+                "description": "Use this agent to configure the user's Claude Code status line setting.",
+                "model": "sonnet"
+              },
+              {
+                "name": "Explore",
+                "description": "Fast agent specialized for exploring codebases. Use this when you need to quickly find files by patterns (eg. \"src/components/**/*.tsx\"), search code for keywords (eg. \"API endpoints\"), or answer questions about the codebase (eg. \"how do API endpoints work?\"). When calling this agent, specify the desired thoroughness level: \"quick\" for basic searches, \"medium\" for moderate exploration, or \"very thorough\" for comprehensive analysis across multiple locations and naming conventions.",
+                "model": "haiku"
+              },
+              {
+                "name": "Plan",
+                "description": "Software architect agent for designing implementation plans. Use this when you need to plan the implementation strategy for a task. Returns step-by-step plans, identifies critical files, and considers architectural trade-offs."
+              }
+            ],
+            "output_style": "default",
+            "available_output_styles": [
+              "default",
+              "Explanatory",
+              "Learning"
+            ],
+            "models": [
+              {
+                "value": "default",
+                "displayName": "Default (recommended)",
+                "description": "Use the default model (currently Sonnet 4.6) \u00b7 $3/$15 per Mtok",
+                "supportsEffort": true,
+                "supportedEffortLevels": [
+                  "low",
+                  "medium",
+                  "high"
+                ],
+                "supportsAdaptiveThinking": true,
+                "supportsAutoMode": true
+              },
+              {
+                "value": "sonnet[1m]",
+                "displayName": "Sonnet (1M context)",
+                "description": "Sonnet 4.6 for long sessions \u00b7 $3/$15 per Mtok",
+                "supportsEffort": true,
+                "supportedEffortLevels": [
+                  "low",
+                  "medium",
+                  "high"
+                ],
+                "supportsAdaptiveThinking": true,
+                "supportsAutoMode": true
+              },
+              {
+                "value": "opus[1m]",
+                "displayName": "Opus (1M context)",
+                "description": "Opus 4.6 with 1M context \u00b7 Most capable for complex work",
+                "supportsEffort": true,
+                "supportedEffortLevels": [
+                  "low",
+                  "medium",
+                  "high",
+                  "max"
+                ],
+                "supportsAdaptiveThinking": true,
+                "supportsFastMode": true,
+                "supportsAutoMode": true
+              },
+              {
+                "value": "haiku",
+                "displayName": "Haiku",
+                "description": "Haiku 4.5 \u00b7 Fastest for quick answers \u00b7 $1/$5 per Mtok"
+              }
+            ],
+            "account": {
+              "tokenSource": "claude.ai",
+              "apiKeySource": "ANTHROPIC_API_KEY",
+              "apiProvider": "firstParty"
+            },
+            "pid": 69806
+          }
+        }
+      }
+    },
+    {
+      "direction": "send",
+      "message": {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": "What is 2+2?"
+        },
+        "parent_tool_use_id": null,
+        "session_id": "default"
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "system",
+        "subtype": "init",
+        "cwd": "/Users/alex/work/logfire",
+        "session_id": "7ed3c21d-374b-491a-8c66-05e191f6a0be",
+        "tools": [
+          "Task",
+          "AskUserQuestion",
+          "Bash",
+          "CronCreate",
+          "CronDelete",
+          "CronList",
+          "Edit",
+          "EnterPlanMode",
+          "EnterWorktree",
+          "ExitPlanMode",
+          "ExitWorktree",
+          "Glob",
+          "Grep",
+          "NotebookEdit",
+          "Read",
+          "RemoteTrigger",
+          "Skill",
+          "TaskOutput",
+          "TaskStop",
+          "TodoWrite",
+          "ToolSearch",
+          "WebFetch",
+          "WebSearch",
+          "Write"
+        ],
+        "mcp_servers": [
+          {
+            "name": "claude.ai Gmail",
+            "status": "needs-auth"
+          },
+          {
+            "name": "claude.ai Google Calendar",
+            "status": "needs-auth"
+          }
+        ],
+        "model": "claude-sonnet-4-6",
+        "permissionMode": "default",
+        "slash_commands": [
+          "update-config",
+          "debug",
+          "simplify",
+          "batch",
+          "loop",
+          "schedule",
+          "claude-api",
+          "compact",
+          "context",
+          "cost",
+          "heapdump",
+          "init",
+          "pr-comments",
+          "release-notes",
+          "reload-plugins",
+          "review",
+          "security-review",
+          "insights"
+        ],
+        "apiKeySource": "ANTHROPIC_API_KEY",
+        "claude_code_version": "2.1.84",
+        "output_style": "default",
+        "agents": [
+          "general-purpose",
+          "statusline-setup",
+          "Explore",
+          "Plan"
+        ],
+        "skills": [
+          "update-config",
+          "debug",
+          "simplify",
+          "batch",
+          "loop",
+          "schedule",
+          "claude-api"
+        ],
+        "plugins": [],
+        "uuid": "04efccad-5aa3-4768-9679-daf6f99c3dd7",
+        "fast_mode_state": "off"
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "result",
+        "subtype": "success",
+        "is_error": false,
+        "duration_ms": 2263,
+        "duration_api_ms": 2257,
+        "num_turns": 1,
+        "result": "4",
+        "stop_reason": "end_turn",
+        "session_id": "7ed3c21d-374b-491a-8c66-05e191f6a0be",
+        "total_cost_usd": 0.01039005,
+        "usage": {
+          "input_tokens": 3,
+          "cache_creation_input_tokens": 2175,
+          "cache_read_input_tokens": 7166,
+          "output_tokens": 5,
+          "server_tool_use": {
+            "web_search_requests": 0,
+            "web_fetch_requests": 0
+          },
+          "service_tier": "standard",
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 2175
+          },
+          "inference_geo": "",
+          "iterations": [],
+          "speed": "standard"
+        },
+        "modelUsage": {
+          "claude-sonnet-4-6": {
+            "inputTokens": 3,
+            "outputTokens": 5,
+            "cacheReadInputTokens": 7166,
+            "cacheCreationInputTokens": 2175,
+            "webSearchRequests": 0,
+            "costUSD": 0.01039005,
+            "contextWindow": 200000,
+            "maxOutputTokens": 32000
+          }
+        },
+        "permission_denials": [],
+        "fast_mode_state": "off",
+        "uuid": "2e5b4c65-96d5-4474-a425-77830ab6f23a"
+      }
+    }
+  ]
+}
