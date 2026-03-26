@@ -34,6 +34,15 @@ from typing import cast
 def main() -> None:
     # Handle version check: the SDK runs `cli_path -v` before the main session.
     if '-v' in sys.argv:
+        mode = os.environ.get('CASSETTE_MODE', 'replay')
+        if mode == 'record':
+            # In record mode, proxy -v to the real CLI for an accurate version
+            real_claude = os.environ.get('REAL_CLAUDE_PATH', '')
+            if real_claude:
+                result = subprocess.run([real_claude, '-v'], capture_output=True, text=True)
+                print(result.stdout.strip())
+                sys.exit(result.returncode)
+        # In replay mode, read version from the cassette metadata
         cassette_path = os.environ.get('CASSETTE_PATH', '')
         if cassette_path and os.path.exists(cassette_path):
             with open(cassette_path) as f:
@@ -85,22 +94,34 @@ def _replay(cassette_path: str) -> None:
             return id_map[msg]
         return msg
 
-    def _learn_ids(recorded: object, live: object) -> None:
-        """Learn ID mappings by comparing recorded vs live 'send' messages."""
+    # Keys whose string values are dynamic IDs that need remapping
+    _ID_KEYS = frozenset(
+        {
+            'request_id',
+            'session_id',
+            'uuid',
+            'id',
+            'hookCallbackIds',  # list of strings, handled via recursion
+        }
+    )
+
+    def _learn_ids(recorded: object, live: object, *, key: str | None = None) -> None:
+        """Learn ID mappings by comparing recorded vs live 'send' messages.
+
+        Only remaps string values under known ID keys, to avoid accidentally
+        rewriting non-ID message content.
+        """
         if isinstance(recorded, dict) and isinstance(live, dict):
             rec_dict = cast(dict[str, object], recorded)
             live_dict = cast(dict[str, object], live)
-            for key in rec_dict:
-                if key in live_dict:
-                    rec_val = rec_dict[key]
-                    live_val = live_dict[key]
-                    if isinstance(rec_val, str) and isinstance(live_val, str) and rec_val != live_val:
-                        id_map[rec_val] = live_val
-                    elif isinstance(rec_val, (dict, list)):
-                        _learn_ids(cast(object, rec_val), live_val)
+            for k in rec_dict:
+                if k in live_dict:
+                    _learn_ids(rec_dict[k], live_dict[k], key=k)
         elif isinstance(recorded, list) and isinstance(live, list):
             for rec_item, live_item in zip(cast(list[object], recorded), cast(list[object], live)):
-                _learn_ids(rec_item, live_item)
+                _learn_ids(rec_item, live_item, key=key)
+        elif key in _ID_KEYS and isinstance(recorded, str) and isinstance(live, str) and recorded != live:
+            id_map[recorded] = live
 
     while i < len(messages):
         entry = messages[i]
@@ -154,7 +175,13 @@ def _record(cassette_path: str) -> None:
     )
 
     messages: list[dict[str, object]] = []
-    cli_version = '1.0.100'  # Will be overridden if we can detect it
+
+    # Detect real CLI version by running -v
+    try:
+        ver_result = subprocess.run([real_claude, '-v'], capture_output=True, text=True, timeout=10)
+        cli_version = ver_result.stdout.strip() or '1.0.100'
+    except Exception:
+        cli_version = '1.0.100'
 
     def _proxy_stderr() -> None:
         """Pass stderr through without recording."""
