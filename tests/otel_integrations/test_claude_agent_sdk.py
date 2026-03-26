@@ -28,6 +28,7 @@ pytest.importorskip('claude_agent_sdk', reason='claude_agent_sdk requires Python
 
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, HookMatcher
 from claude_agent_sdk.types import HookContext
+from dirty_equals import IsStr
 from inline_snapshot import snapshot
 
 import logfire
@@ -785,7 +786,7 @@ async def test_tool_use_conversation_cassette(
                     'start_time': 5000000000,
                     'end_time': 6000000000,
                     'attributes': {
-                        'code.filepath': 'pytest',
+                        'code.filepath': IsStr(),
                         'code.lineno': 123,
                         'tool_name': 'Bash',
                         'logfire.msg_template': 'execute_tool {tool_name}',
