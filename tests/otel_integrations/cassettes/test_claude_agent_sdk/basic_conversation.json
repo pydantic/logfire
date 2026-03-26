@@ -1,0 +1,73 @@
+{
+  "metadata": {
+    "cli_version": "1.0.100",
+    "description": "Simple one-turn conversation: user asks a question, assistant responds with text."
+  },
+  "messages": [
+    {
+      "direction": "send",
+      "message": {
+        "type": "control_request",
+        "request_id": "req_1_abcd1234",
+        "request": {
+          "subtype": "initialize",
+          "hooks": {
+            "PreToolUse": [{"hookCallbackIds": ["hook_pre_1"], "matchers": [{"tool_name": "*"}]}],
+            "PostToolUse": [{"hookCallbackIds": ["hook_post_1"], "matchers": [{"tool_name": "*"}]}],
+            "PostToolUseFailure": [{"hookCallbackIds": ["hook_fail_1"], "matchers": [{"tool_name": "*"}]}]
+          }
+        }
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "control_response",
+        "response": {
+          "subtype": "success",
+          "request_id": "req_1_abcd1234",
+          "response": {}
+        }
+      }
+    },
+    {
+      "direction": "send",
+      "message": {
+        "type": "user",
+        "session_id": "default",
+        "message": {"role": "user", "content": "What is 2+2?"},
+        "parent_tool_use_id": null
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [{"type": "text", "text": "2 + 2 = 4."}],
+          "model": "claude-sonnet-4-20250514",
+          "usage": {"input_tokens": 12, "output_tokens": 8}
+        },
+        "parent_tool_use_id": null,
+        "error": null
+      }
+    },
+    {
+      "direction": "recv",
+      "message": {
+        "type": "result",
+        "subtype": "success",
+        "duration_ms": 1234,
+        "duration_api_ms": 1100,
+        "is_error": false,
+        "num_turns": 1,
+        "session_id": "sess_abc123",
+        "total_cost_usd": 0.001,
+        "usage": {"input_tokens": 12, "output_tokens": 8},
+        "result": "2 + 2 = 4.",
+        "stop_reason": "end_turn"
+      }
+    }
+  ]
+}
