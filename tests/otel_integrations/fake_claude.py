@@ -39,7 +39,7 @@ def main() -> None:
             # In record mode, proxy -v to the real CLI for an accurate version
             real_claude = os.environ.get('REAL_CLAUDE_PATH', '')
             if real_claude:
-                result = subprocess.run([real_claude, '-v'], capture_output=True, text=True)
+                result = subprocess.run([real_claude, '-v'], capture_output=True, text=True, timeout=10)
                 print(result.stdout.strip())
                 sys.exit(result.returncode)
         # In replay mode, read version from the cassette metadata
