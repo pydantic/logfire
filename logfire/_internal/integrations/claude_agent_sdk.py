@@ -119,7 +119,7 @@ def _content_blocks_to_output_messages(content: Any) -> list[OutputMessage]:
                 name=getattr(block, 'name', '') or '',
             )
             tool_input = getattr(block, 'input', None)
-            if tool_input is not None:
+            if tool_input is not None:  # pragma: no branch
                 part['arguments'] = tool_input
             parts.append(part)
         elif block_type == 'ToolResultBlock':
@@ -365,7 +365,7 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> AbstractContextMan
 
         with logfire_claude.span('invoke_agent', **span_data) as root_span:
             otel_span = root_span._span  # pyright: ignore[reportPrivateUsage]
-            if otel_span is not None:
+            if otel_span is not None:  # pragma: no branch
                 _set_parent_span(otel_span)
             _set_logfire_instance(logfire_claude)
             turn_tracker = _TurnTracker(logfire_claude, input_messages)
@@ -504,15 +504,11 @@ def _record_result(span: LogfireSpan, msg: ResultMessage) -> None:
         for key, value in usage.items():
             span.set_attribute(key, value)
 
-    model = getattr(msg, 'model', None)
-    if model:
-        span.set_attribute(RESPONSE_MODEL, model)
-
     if hasattr(msg, 'total_cost_usd') and msg.total_cost_usd is not None:
         span.set_attribute('operation.cost', float(msg.total_cost_usd))
 
     session_id = getattr(msg, 'session_id', None)
-    if session_id is not None:
+    if session_id is not None:  # pragma: no branch
         span.set_attribute(CONVERSATION_ID, session_id)
 
     for attr in ('num_turns', 'duration_ms'):
