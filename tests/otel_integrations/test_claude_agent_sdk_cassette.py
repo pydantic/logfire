@@ -64,6 +64,7 @@ def _reset_instrumentation():  # pyright: ignore[reportUnusedFunction]
 def _make_client(
     cassette_name: str,
     *,
+    monkeypatch: pytest.MonkeyPatch,
     system_prompt: str = 'Be helpful',
     record: bool = False,
 ) -> ClaudeSDKClient:
@@ -87,19 +88,19 @@ def _make_client(
     if not (st.st_mode & stat.S_IEXEC):
         os.chmod(fake_claude_path, st.st_mode | stat.S_IEXEC)
 
-    os.environ['CASSETTE_PATH'] = str(cassette_path)
+    monkeypatch.setenv('CASSETTE_PATH', str(cassette_path))
 
     if record:
         real_claude = shutil.which('claude')
         if not real_claude:
             pytest.skip('Real claude CLI not found on PATH; cannot record cassette')
-        os.environ['CASSETTE_MODE'] = 'record'
-        os.environ['REAL_CLAUDE_PATH'] = real_claude
+        monkeypatch.setenv('CASSETTE_MODE', 'record')
+        monkeypatch.setenv('REAL_CLAUDE_PATH', real_claude)
     else:
-        os.environ['CASSETTE_MODE'] = 'replay'
-        os.environ.pop('REAL_CLAUDE_PATH', None)
+        monkeypatch.setenv('CASSETTE_MODE', 'replay')
+        monkeypatch.delenv('REAL_CLAUDE_PATH', raising=False)
 
-    os.environ['CLAUDE_AGENT_SDK_SKIP_VERSION_CHECK'] = '1'
+    monkeypatch.setenv('CLAUDE_AGENT_SDK_SKIP_VERSION_CHECK', '1')
 
     return ClaudeSDKClient(
         options=ClaudeAgentOptions(
@@ -110,10 +111,12 @@ def _make_client(
 
 
 @pytest.mark.anyio
-async def test_basic_conversation_cassette(request: pytest.FixtureRequest, exporter: TestExporter) -> None:
+async def test_basic_conversation_cassette(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch, exporter: TestExporter
+) -> None:
     """Basic conversation replayed from cassette produces correct spans."""
     record = request.config.getoption('--record-cassettes', default=False)
-    client = _make_client('basic_conversation.json', record=bool(record))
+    client = _make_client('basic_conversation.json', monkeypatch=monkeypatch, record=bool(record))
     try:
         await client.connect()
         await client.query('What is 2+2?')
@@ -221,10 +224,12 @@ async def test_basic_conversation_cassette(request: pytest.FixtureRequest, expor
 
 
 @pytest.mark.anyio
-async def test_tool_use_conversation_cassette(request: pytest.FixtureRequest, exporter: TestExporter) -> None:
+async def test_tool_use_conversation_cassette(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch, exporter: TestExporter
+) -> None:
     """Tool use conversation: assistant calls Bash, gets result, then responds."""
     record = request.config.getoption('--record-cassettes', default=False)
-    client = _make_client('tool_use_conversation.json', record=bool(record))
+    client = _make_client('tool_use_conversation.json', monkeypatch=monkeypatch, record=bool(record))
     try:
         await client.connect()
         await client.query('List files in the current directory')
