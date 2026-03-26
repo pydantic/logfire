@@ -221,6 +221,7 @@ pydantic-docs = { git = "https://github.com/pydantic/pydantic-docs/" }
 
 [tool.uv]
 default-groups = ["dev", "docs"]
+exclude-newer = "1 week"
 
 [tool.uv.workspace]
 members = ["logfire-api"]
