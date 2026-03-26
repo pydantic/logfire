@@ -18,7 +18,7 @@ Remove from `tests/otel_integrations/cassettes/test_claude_agent_sdk/`: `error_r
 **Add `# pragma: no cover` to the affected defensive branches.** *(from "Defensive code for rare server-side conditions", "Delete all 5 synthetic cassettes")*
 All in `logfire/_internal/integrations/claude_agent_sdk.py`. The pragma goes on the `if` line to exclude the branch body:
 - `_record_result`: `if hasattr(msg, 'usage') and msg.usage:` — usage is optional, rarely None
-- `_record_result`: `if hasattr(msg, 'total_cost_usd') and msg.total_cost_usd is not None:` — same
+- `_record_result`: `if hasattr(msg, 'total_cost_usd') and msg.total_cost_usd is not None:` — cost is optional, rarely None
 - `_record_result`: `if is_error:` — requires session-level failure
 - `_TurnTracker.start_turn`: `if error:` for `AssistantMessage.error` — requires server error
 
