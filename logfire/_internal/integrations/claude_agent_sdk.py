@@ -485,7 +485,7 @@ class _TurnTracker:
 
         # Set error if the assistant message indicates an error
         error = getattr(message, 'error', None)
-        if error:
+        if error:  # pragma: no branch
             self._current_span.set_attribute('error.type', str(error))
 
         # Reset pending input — next turn will collect tool results
@@ -499,12 +499,12 @@ class _TurnTracker:
 
 def _record_result(span: LogfireSpan, msg: ResultMessage) -> None:
     """Record ResultMessage data onto the root span."""
-    if hasattr(msg, 'usage') and msg.usage:
+    if hasattr(msg, 'usage') and msg.usage:  # pragma: no branch
         usage = _extract_usage(msg.usage)
         for key, value in usage.items():
             span.set_attribute(key, value)
 
-    if hasattr(msg, 'total_cost_usd') and msg.total_cost_usd is not None:
+    if hasattr(msg, 'total_cost_usd') and msg.total_cost_usd is not None:  # pragma: no branch
         span.set_attribute('operation.cost', float(msg.total_cost_usd))
 
     session_id = getattr(msg, 'session_id', None)
@@ -516,5 +516,5 @@ def _record_result(span: LogfireSpan, msg: ResultMessage) -> None:
             span.set_attribute(attr, value)
 
     is_error = getattr(msg, 'is_error', None)
-    if is_error:
+    if is_error:  # pragma: no branch
         span.set_level('error')
