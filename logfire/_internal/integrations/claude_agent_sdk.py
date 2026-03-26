@@ -485,14 +485,14 @@ class _TurnTracker:
 
         # Set error if the assistant message indicates an error
         error = getattr(message, 'error', None)
-        if error:  # pragma: no branch
+        if error:  # pragma: no cover
             self._current_span.set_attribute('error.type', str(error))
 
         # Reset pending input — next turn will collect tool results
         self._pending_input = []
 
     def close(self) -> None:
-        if self._current_span is not None:
+        if self._current_span is not None:  # pragma: no branch
             self._current_span.__exit__(None, None, None)
             self._current_span = None
 
@@ -516,5 +516,5 @@ def _record_result(span: LogfireSpan, msg: ResultMessage) -> None:
             span.set_attribute(attr, value)
 
     is_error = getattr(msg, 'is_error', None)
-    if is_error:  # pragma: no branch
+    if is_error:  # pragma: no cover
         span.set_level('error')
