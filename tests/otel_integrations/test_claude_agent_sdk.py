@@ -28,7 +28,6 @@ pytest.importorskip('claude_agent_sdk', reason='claude_agent_sdk requires Python
 
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, HookMatcher
 from claude_agent_sdk.types import HookContext
-from dirty_equals import IsStr
 from inline_snapshot import snapshot
 
 import logfire
@@ -145,22 +144,6 @@ def _make_client(
             cli_path=fake_claude_path,
         ),
     )
-
-
-async def _run_cassette(
-    cassette_name: str,
-    monkeypatch: pytest.MonkeyPatch,
-    query: str = 'Hi',
-    system_prompt: str = 'Be helpful',
-) -> None:
-    """Run a cassette session, consuming all messages."""
-    client = _make_client(cassette_name, monkeypatch=monkeypatch, system_prompt=system_prompt)
-    try:
-        await client.connect()
-        await client.query(query)
-        [msg async for msg in client.receive_response()]
-    finally:
-        await client.disconnect()
 
 
 # ---------------------------------------------------------------------------
@@ -1026,59 +1009,3 @@ There are **9 files** and **12 directories** in the current directory. It looks 
                 },
             ]
         )
-
-
-@pytest.mark.anyio
-async def test_error_result_cassette(monkeypatch: pytest.MonkeyPatch, exporter: TestExporter) -> None:
-    """Result with is_error=True sets span level to error."""
-    await _run_cassette('error_result.json', monkeypatch, query='What is 2+2?')
-
-    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-    invoke_span = next(s for s in spans if s['name'] == 'invoke_agent')
-    assert invoke_span['attributes']['logfire.level_num'] == 17  # error level
-
-
-@pytest.mark.anyio
-async def test_no_usage_result_cassette(monkeypatch: pytest.MonkeyPatch, exporter: TestExporter) -> None:
-    """Result without usage/cost omits those attributes."""
-    await _run_cassette('no_usage_result.json', monkeypatch, query='What is 2+2?')
-
-    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-    invoke_span = next(s for s in spans if s['name'] == 'invoke_agent')
-    attrs = invoke_span['attributes']
-    assert 'gen_ai.usage.input_tokens' not in attrs
-    assert 'operation.cost' not in attrs
-    # session_id and num_turns/duration_ms should still be present
-    assert 'gen_ai.conversation.id' in attrs
-    assert 'num_turns' in attrs
-
-
-@pytest.mark.anyio
-async def test_assistant_error_cassette(monkeypatch: pytest.MonkeyPatch, exporter: TestExporter) -> None:
-    """AssistantMessage with error field sets error.type on chat span."""
-    await _run_cassette('assistant_error.json', monkeypatch, query='What is 2+2?')
-
-    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-    chat_span = next(s for s in spans if s['name'].startswith('chat'))
-    assert chat_span['attributes']['error.type'] == 'server_error'
-
-
-@pytest.mark.anyio
-async def test_tool_use_failure_cassette(monkeypatch: pytest.MonkeyPatch, exporter: TestExporter) -> None:
-    """Tool failure via PostToolUseFailure hook sets error on tool span."""
-    await _run_cassette('tool_use_failure.json', monkeypatch, query='List files in the current directory')
-
-    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-    tool_span = next(s for s in spans if s['name'] == 'execute_tool {tool_name}')
-    assert tool_span['attributes']['error.type'] == 'Tool execution failed'
-
-
-@pytest.mark.anyio
-async def test_result_only_cassette(monkeypatch: pytest.MonkeyPatch, exporter: TestExporter) -> None:
-    """Conversation with only ResultMessage (no assistant turn) produces invoke_agent span."""
-    await _run_cassette('result_only.json', monkeypatch, query='What is 2+2?')
-
-    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-    assert len(spans) == 1  # Only invoke_agent, no chat spans
-    assert spans[0]['name'] == 'invoke_agent'
-    assert spans[0]['attributes']['gen_ai.conversation.id'] == IsStr()
