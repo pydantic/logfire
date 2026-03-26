@@ -14,11 +14,10 @@ Replaying (default, no real CLI needed):
 
 from __future__ import annotations
 
-import gc
 import os
 import shutil
 import stat
-import sys
+from contextlib import suppress
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -60,28 +59,11 @@ CASSETTES_DIR = Path(__file__).parent / 'cassettes' / 'test_claude_agent_sdk'
 # ---------------------------------------------------------------------------
 
 
-def _force_gc() -> None:
-    """Force GC to collect SDK internal streams, suppressing ResourceWarning."""
-    original_hook = sys.unraisablehook
-
-    def _silent(unraisable: sys.UnraisableHookArgs) -> None:
-        if isinstance(unraisable.exc_value, ResourceWarning):
-            return
-        original_hook(unraisable)  # pragma: no cover
-
-    sys.unraisablehook = _silent
-    try:
-        gc.collect()
-    finally:
-        sys.unraisablehook = original_hook
-
-
 @pytest.fixture(autouse=True)
 def _reset_instrumentation():  # pyright: ignore[reportUnusedFunction]
     """Instrument and reset SDK class patching between tests."""
     with logfire.instrument_claude_agent_sdk():
         yield
-    _force_gc()
 
 
 # ---------------------------------------------------------------------------
@@ -96,6 +78,27 @@ def _make_block(class_name: str, **attrs: object) -> Mock:
     for k, v in attrs.items():
         setattr(block, k, v)
     return block
+
+
+async def _close_sdk_streams(client: ClaudeSDKClient) -> None:
+    """Close streams the SDK neglects to close, preventing ResourceWarning on GC.
+
+    The SDK's Query.close() doesn't close its internal MemoryObject streams,
+    and SubprocessCLITransport.close() doesn't close stdout. Close them
+    explicitly before disconnect() sets _query/_transport to None.
+    """
+    query = client._query
+    if query is not None:
+        with suppress(Exception):
+            await query._message_send.aclose()
+        with suppress(Exception):
+            await query._message_receive.aclose()
+    transport = client._transport
+    if transport is not None:
+        stdout = getattr(transport, '_stdout_stream', None)
+        if stdout is not None:
+            with suppress(Exception):
+                await stdout.aclose()
 
 
 def _make_client(
@@ -602,6 +605,7 @@ async def test_basic_conversation_cassette(
         await client.query('What is 2+2?')
         collected = [msg async for msg in client.receive_response()]
     finally:
+        await _close_sdk_streams(client)
         await client.disconnect()
 
     assert len(collected) >= 2  # system + assistant + result
@@ -710,6 +714,7 @@ async def test_tool_use_conversation_cassette(
         await client.query('List files in the current directory')
         collected = [msg async for msg in client.receive_response()]
     finally:
+        await _close_sdk_streams(client)
         await client.disconnect()
 
     # assistant (tool_use) + user (tool_result) + assistant (text) + result
