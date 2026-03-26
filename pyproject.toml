@@ -222,6 +222,13 @@ pydantic-docs = { git = "https://github.com/pydantic/pydantic-docs/" }
 
 [tool.uv]
 default-groups = ["dev", "docs"]
+exclude-newer = "1 week"
+
+[tool.uv.exclude-newer-package]
+# These are installed from our private PyPI server which is missing upload dates and that causes problems
+# when building docs in CI, so we exclude them from the exclude-newer check.
+mkdocstrings_python = false
+mkdocs_material = false
 
 [tool.uv.workspace]
 members = ["logfire-api"]
