@@ -4,7 +4,7 @@ import pytest
 
 try:
     from pydantic_evals.reporting import EvaluationReport
-except Exception:
+except ImportError:
     pytest.skip('pydantic_evals not importable (likely pydantic < 2.8)', allow_module_level=True)
 
 import logfire
