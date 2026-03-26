@@ -1,0 +1,21 @@
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.19",
+  "base_commit_sha": "143a957a6c638ba911848d4a8ccbb77b85af614a",
+  "prompts": {
+    "70a89903b5292196": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0334ea9b-934c-4d73-a129-8bf1331cc42c",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>",
+      "messages": [],
+      "total_additions": 3,
+      "total_deletions": 21,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    }
+  }
+}
