@@ -87,9 +87,10 @@ def _replay(cassette_path: str) -> None:
     2. Before writing each 'recv' message to stdout, replace any recorded IDs with
        the live IDs so the SDK sees its own IDs reflected back.
 
-    This remapping is specific to the subprocess replay approach. A custom in-process
-    Transport (the mock approach) wouldn't need it because it constructs response
-    objects directly in Python and can use whatever IDs the SDK provides.
+    This remapping would be needed by any replay-based approach — including a
+    Transport wrapper that records/replays `read_messages()` output. The only way
+    to avoid it would be a mock Transport that constructs responses on the fly,
+    reading the SDK's actual request_id from each `write()` call.
     """
     debug = os.environ.get('FAKE_CLAUDE_DEBUG', '')
 
