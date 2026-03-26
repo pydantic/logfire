@@ -1549,6 +1549,35 @@ async def test_error_result(exporter: TestExporter) -> None:
     )
 
 
+ASSISTANT_ERROR = {
+    'type': 'assistant',
+    'message': {
+        'role': 'assistant',
+        'content': [{'type': 'text', 'text': 'Server error occurred'}],
+        'model': 'claude-sonnet-4-20250514',
+    },
+    'error': 'server_error',
+}
+
+
+@pytest.mark.anyio
+async def test_assistant_message_error(exporter: TestExporter) -> None:
+    """AssistantMessage with error sets error.type on the chat span."""
+    transport = MockTransport([ASSISTANT_ERROR, make_result()])
+    client = ClaudeSDKClient(options=ClaudeAgentOptions(), transport=transport)
+    try:
+        await client.connect()
+        await client.query('Hi')
+        [msg async for msg in client.receive_response()]
+    finally:
+        await client.disconnect()
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    chat_span = spans[0]
+    assert chat_span['name'] == 'chat claude-sonnet-4-20250514'
+    assert chat_span['attributes']['error.type'] == 'server_error'
+
+
 @pytest.mark.anyio
 async def test_non_string_system_prompt(exporter: TestExporter) -> None:
     """Non-string system prompt gets stringified."""
