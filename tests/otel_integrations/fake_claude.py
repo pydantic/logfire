@@ -218,7 +218,10 @@ def _record(cassette_path: str) -> None:
         """Read from our stdin (SDK), forward to real process, record as 'send'."""
         assert proc.stdin is not None
         for line in sys.stdin:
-            messages.append({'direction': 'send', 'message': json.loads(line)})
+            try:
+                messages.append({'direction': 'send', 'message': json.loads(line)})
+            except json.JSONDecodeError:
+                pass  # Non-JSON input — forward but don't record
             proc.stdin.write(line.encode() if isinstance(line, str) else line)
             proc.stdin.flush()
         # stdin closed — close the child's stdin too
