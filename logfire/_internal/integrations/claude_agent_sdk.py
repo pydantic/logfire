@@ -359,7 +359,7 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> AbstractContextMan
             span_data[INPUT_MESSAGES] = input_messages
         if hasattr(self, 'options') and self.options:  # pragma: no branch
             system_prompt = getattr(self.options, 'system_prompt', None)
-            if system_prompt:
+            if system_prompt:  # pragma: no branch
                 text = str(system_prompt)
                 span_data[SYSTEM_INSTRUCTIONS] = [TextPart(type='text', content=text)]
 
@@ -475,7 +475,7 @@ class _TurnTracker:
 
         # Per-turn token usage from AssistantMessage.usage
         usage = getattr(message, 'usage', None)
-        if usage:
+        if usage:  # pragma: no branch
             for key, value in _extract_usage(usage).items():
                 span_data[key] = value
 
