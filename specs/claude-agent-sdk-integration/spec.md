@@ -73,14 +73,14 @@ The SDK communicates via subprocess, so real calls can't be used in CI. Instead 
 **`fake_claude.py` acts as both recorder and replayer.** *(from "Integration tests use cassette-based record/replay")*
 Controlled by environment variables (`CASSETTE_MODE`, `CASSETTE_PATH`, `REAL_CLAUDE_PATH`):
 
-- **Record mode** (`--record-cassettes` pytest flag): Spawns the real `claude` CLI as a child, proxies stdin/stdout, and tees every message to a cassette file. ID fields are normalized during recording so cassettes are deterministic.
+- **Record mode** (`--record-claude-cassettes` pytest flag): Spawns the real `claude` CLI as a child, proxies stdin/stdout, and tees every message to a cassette file. ID fields are normalized during recording so cassettes are deterministic.
 - **Replay mode** (default): Reads the cassette file, replays stdout messages, and consumes stdin at the correct points to maintain protocol timing. Also handles the `-v` version check that `SubprocessCLITransport` runs before the main conversation.
 
 **Cassette files are JSON with ordered message entries.** *(from "fake_claude.py acts as both recorder and replayer")*
 Format: `{"metadata": {...}, "messages": [{"direction": "send"|"recv", "message": <JSON>}, ...]}`. Stored in `tests/otel_integrations/cassettes/test_claude_agent_sdk/`. Each cassette is recorded from a real Claude session and committed to the repo. CI always runs in replay mode.
 
 **Only real cassettes are allowed — no hand-crafted or synthetic fixtures.** *(from "Cassette files are JSON with ordered message entries")*
-All cassette files must be producible via `--record-cassettes`. Defensive code paths that handle rare server-side conditions (e.g. `AssistantMessage.error`, `ResultMessage.is_error=True`, missing usage) use `# pragma: no cover` or `# pragma: no branch` instead of fabricated test data.
+All cassette files must be producible via `--record-claude-cassettes`. Defensive code paths that handle rare server-side conditions (e.g. `AssistantMessage.error`, `ResultMessage.is_error=True`, missing usage) use `# pragma: no cover` or `# pragma: no branch` instead of fabricated test data.
 
 **Unit tests for pure helper functions use Mock objects, not cassettes.** *(from "Integration tests use cassette-based record/replay")*
 Tests for `_content_blocks_to_output_messages`, `_extract_usage`, `_extract_tool_result_text`, hook functions, and hook injection are standalone unit tests with no dependency on the SDK transport.

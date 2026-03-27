@@ -6,7 +6,7 @@ hook functions, hook injection) plus cassette-based integration tests that
 replay recorded sessions through the real SubprocessCLITransport.
 
 Recording cassettes (requires a real `claude` CLI with valid credentials):
-    uv run pytest tests/otel_integrations/test_claude_agent_sdk.py --record-cassettes
+    uv run pytest tests/otel_integrations/test_claude_agent_sdk.py --record-claude-cassettes
 
 Replaying (default, no real CLI needed):
     uv run pytest tests/otel_integrations/test_claude_agent_sdk.py
@@ -119,7 +119,7 @@ def _make_client(
     if not record and not cassette_path.exists():
         raise FileNotFoundError(
             f'Cassette not found: {cassette_path}\n'
-            f'Record it with: uv run pytest {__file__} --record-cassettes -k <test_name>'
+            f'Record it with: uv run pytest {__file__} --record-claude-cassettes -k <test_name>'
         )
 
     # Ensure fake_claude.py is executable
@@ -598,7 +598,7 @@ async def test_basic_conversation_cassette(
     request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch, exporter: TestExporter
 ) -> None:
     """Basic conversation replayed from cassette produces correct spans."""
-    record = request.config.getoption('--record-cassettes', default=False)
+    record = request.config.getoption('--record-claude-cassettes', default=False)
     client = _make_client('basic_conversation.json', monkeypatch=monkeypatch, record=bool(record))
     try:
         await client.connect()
@@ -707,7 +707,7 @@ async def test_tool_use_conversation_cassette(
     request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch, exporter: TestExporter
 ) -> None:
     """Tool use conversation: assistant calls Bash, gets result, then responds."""
-    record = request.config.getoption('--record-cassettes', default=False)
+    record = request.config.getoption('--record-claude-cassettes', default=False)
     client = _make_client('tool_use_conversation.json', monkeypatch=monkeypatch, record=bool(record))
     try:
         await client.connect()
