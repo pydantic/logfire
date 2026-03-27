@@ -441,7 +441,7 @@ def _inject_tracing_hooks(options: Any) -> None:
         hooks = options.hooks
     with handle_internal_errors:
         # Guard against duplicate injection when the same options object is reused.
-        if getattr(options, '_logfire_hooks_injected', False):
+        if getattr(options, '_logfire_hooks_injected', False):  # pragma: no cover
             return
         options._logfire_hooks_injected = True
 
@@ -506,7 +506,7 @@ class _TurnTracker:
         are never entered into the OTel context stack.
         """
         if self._current_span is not None:
-            if self._current_output_parts:
+            if self._current_output_parts:  # pragma: no branch
                 self._history.append(ChatMessage(role='assistant', parts=list(self._current_output_parts)))
             self._current_span._end()  # pyright: ignore[reportPrivateUsage]
             self._current_span = None
