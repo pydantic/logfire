@@ -871,11 +871,11 @@ There are **9 files** and **12 directories** in the current directory. It looks 
                     'gen_ai.input.messages': [
                         {
                             'role': 'tool',
-                            'name': 'Bash',
                             'parts': [
                                 {
                                     'type': 'tool_call_response',
                                     'id': 'toolu_01MRdgcFhYNo1LHvRQKvKckg',
+                                    'name': 'Bash',
                                     'response': "{'stdout': 'CHANGELOG.md\\nCLAUDE.md\\nCONTRIBUTING.md\\nLICENSE\\nMakefile\\nREADME.md\\ndist\\ndocs\\nexamples\\nignoreme\\nlogfire\\nlogfire-api\\nmkdocs.yml\\nplans\\npyodide_test\\npyproject.toml\\nrelease\\nscratch\\nsite\\nspecs\\ntests\\nuv.lock', 'stderr': '', 'interrupted': False, 'isImage': False, 'noOutputExpected': False}",
                                 }
                             ],
