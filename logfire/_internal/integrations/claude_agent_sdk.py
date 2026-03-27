@@ -212,6 +212,11 @@ async def pre_tool_use_hook(
     tool_input = input_data.get('tool_input', {})
 
     with handle_internal_errors:
+        # Close the current chat span so it doesn't overlap with tool execution.
+        turn_tracker = _get_turn_tracker()
+        if turn_tracker is not None:
+            turn_tracker.close_chat_span()
+
         parent_span = _get_parent_span()
         logfire_instance = _get_logfire_instance()
         if not parent_span or not logfire_instance:
@@ -468,11 +473,7 @@ class _TurnTracker:
 
     def open_chat_span(self) -> None:
         """Open a new chat span — call when the LLM starts processing."""
-        if self._current_span is not None:
-            # Append current output to history before closing.
-            if self._current_output_parts:
-                self._history.append(ChatMessage(role='assistant', parts=list(self._current_output_parts)))
-            self._current_span.__exit__(None, None, None)
+        self.close_chat_span()
 
         span_data: dict[str, Any] = {
             OPERATION_NAME: 'chat',
@@ -483,11 +484,27 @@ class _TurnTracker:
             span_data[INPUT_MESSAGES] = list(self._history)
 
         self._current_span = self._logfire.span('chat', **span_data)
-        self._current_span.__enter__()
+        # Start without entering context — chat spans don't need to be on the
+        # context stack, and this allows close_chat_span() to be called safely
+        # from hooks running in different async contexts.
+        self._current_span._start()  # pyright: ignore[reportPrivateUsage]
         self._current_output_parts = []
 
+    def close_chat_span(self) -> None:
+        """Close the current chat span without opening a new one.
+
+        Safe to call from hooks (different async contexts) because chat spans
+        are never entered into the OTel context stack.
+        """
+        if self._current_span is not None:
+            if self._current_output_parts:
+                self._history.append(ChatMessage(role='assistant', parts=list(self._current_output_parts)))
+            self._current_span._end()  # pyright: ignore[reportPrivateUsage]
+            self._current_span = None
+            self._current_output_parts = []
+
     def handle_user_message(self) -> None:
-        """Handle UserMessage: close current span and open a new one for the next LLM call."""
+        """Handle UserMessage: open a new chat span for the next LLM call."""
         self.open_chat_span()
 
     def handle_assistant_message(self, message: AssistantMessage) -> None:
@@ -520,9 +537,7 @@ class _TurnTracker:
             self._current_span.set_level('error')
 
     def close(self) -> None:
-        if self._current_span is not None:  # pragma: no branch
-            self._current_span.__exit__(None, None, None)
-            self._current_span = None
+        self.close_chat_span()
 
 
 def _record_result(span: LogfireSpan, msg: ResultMessage) -> None:
