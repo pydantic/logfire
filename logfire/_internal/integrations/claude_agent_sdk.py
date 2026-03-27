@@ -278,6 +278,12 @@ async def post_tool_use_failure_hook(
         span.__exit__(None, None, None)
         context_api.detach(token)
 
+        # Record the error as a tool result so the next turn's input is complete.
+        turn_tracker = _get_turn_tracker()
+        if turn_tracker is not None:
+            tool_name = str(input_data.get('tool_name', 'unknown_tool'))
+            turn_tracker.add_tool_result(tool_use_id, tool_name, error)
+
     return {}
 
 
@@ -411,7 +417,12 @@ def _inject_tracing_hooks(options: Any) -> None:
 
 
 class _TurnTracker:
-    """Track assistant turn spans so consecutive turns are recorded as siblings.
+    """Track assistant turn spans, merging consecutive AssistantMessages from the same API call.
+
+    The Claude Agent SDK can split a single model response across multiple
+    AssistantMessage objects (e.g. ThinkingBlock then ToolUseBlock). When
+    _pending_input is empty and a span is already open, the new message is
+    merged into the existing span rather than creating a new one.
 
     Also tracks input messages for each turn: the first turn gets the user prompt,
     subsequent turns get tool result messages accumulated between turns.
@@ -423,6 +434,8 @@ class _TurnTracker:
         # Input messages for the next chat span.
         # Starts with the user prompt; after each turn, accumulates tool results.
         self._pending_input: list[ChatMessage] = list(initial_input_messages)
+        # Track current span's output parts for merging consecutive messages.
+        self._current_output_parts: list[MessagePart] = []
 
     def add_tool_result(self, tool_use_id: str, tool_name: str, result: str) -> None:
         """Record a tool result to include in the next chat span's input messages."""
@@ -433,13 +446,29 @@ class _TurnTracker:
         self._pending_input.append(msg)
 
     def start_turn(self, message: AssistantMessage) -> None:
-        """Close previous turn span if open, open a new one."""
+        """Handle an AssistantMessage: merge into current span or open a new one."""
+        content = getattr(message, 'content', [])
+        output_messages = _content_blocks_to_output_messages(content)
+        new_parts = output_messages[0]['parts'] if output_messages else []
+
+        # Merge into existing span if this is a consecutive message from the same API call:
+        # no tool results arrived between messages (_pending_input empty) and span is open.
+        if self._current_span is not None and not self._pending_input:
+            self._current_output_parts.extend(new_parts)
+            self._current_span.set_attribute(
+                OUTPUT_MESSAGES, [OutputMessage(role='assistant', parts=self._current_output_parts)]
+            )
+            # Overwrite usage (consecutive messages carry identical usage).
+            usage = getattr(message, 'usage', None)
+            if usage:  # pragma: no branch
+                self._current_span.set_attributes(_extract_usage(usage))
+            return
+
+        # Otherwise close the old span and open a new one.
         if self._current_span is not None:
             self._current_span.__exit__(None, None, None)
 
         model = getattr(message, 'model', None)
-        content = getattr(message, 'content', [])
-        output_messages = _content_blocks_to_output_messages(content)
 
         span_data: dict[str, Any] = {
             OPERATION_NAME: 'chat',
@@ -462,6 +491,7 @@ class _TurnTracker:
         span_name = f'chat {model}' if model else 'chat'
         self._current_span = self._logfire.span(span_name, **span_data)
         self._current_span.__enter__()
+        self._current_output_parts = list(new_parts)
 
         # Set error if the assistant message indicates an error
         error = getattr(message, 'error', None)
