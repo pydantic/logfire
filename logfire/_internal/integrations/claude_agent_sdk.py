@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import functools
-import logging
 import threading
 from collections.abc import AsyncGenerator, AsyncIterable
 from contextlib import AbstractContextManager, contextmanager, nullcontext
@@ -49,68 +48,29 @@ from logfire._internal.utils import handle_internal_errors
 if TYPE_CHECKING:
     from logfire._internal.main import Logfire, LogfireSpan
 
-logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Thread-local storage for parent span and logfire instance.
+# Thread-local storage for per-conversation state.
 #
 # The Claude Agent SDK uses anyio internally, and anyio tasks don't propagate
 # contextvars from the parent. This means OTel's context propagation breaks
-# for hook callbacks. We use threading.local() as a workaround.
+# for hook callbacks. We use threading.local() as a workaround — storing a
+# single _ConversationState object that hooks retrieve.
 # ---------------------------------------------------------------------------
 _thread_local = threading.local()
 
-# Active tool spans, keyed by tool_use_id.
-_active_tool_spans: dict[str, LogfireSpan] = {}
+
+def _get_state() -> _ConversationState | None:
+    return getattr(_thread_local, 'state', None)
 
 
-def _set_parent_span(span: LogfireSpan) -> None:
-    _thread_local.parent_span = span
+def _set_state(state: _ConversationState) -> None:
+    _thread_local.state = state
 
 
-def _get_parent_span() -> LogfireSpan | None:
-    return getattr(_thread_local, 'parent_span', None)
-
-
-def _clear_parent_span() -> None:
-    if hasattr(_thread_local, 'parent_span'):
-        delattr(_thread_local, 'parent_span')
-
-
-def _set_logfire_instance(instance: Logfire) -> None:
-    _thread_local.logfire_instance = instance
-
-
-def _get_logfire_instance() -> Logfire | None:
-    return getattr(_thread_local, 'logfire_instance', None)
-
-
-def _clear_logfire_instance() -> None:
-    if hasattr(_thread_local, 'logfire_instance'):  # pragma: no branch
-        delattr(_thread_local, 'logfire_instance')
-
-
-def _set_turn_tracker(tracker: _TurnTracker) -> None:
-    _thread_local.turn_tracker = tracker
-
-
-def _get_turn_tracker() -> _TurnTracker | None:
-    return getattr(_thread_local, 'turn_tracker', None)
-
-
-def _clear_turn_tracker() -> None:
-    if hasattr(_thread_local, 'turn_tracker'):  # pragma: no branch
-        delattr(_thread_local, 'turn_tracker')
-
-
-def _clear_active_tool_spans() -> None:
-    """End any orphaned tool spans and clear the dict."""
-    for tool_use_id, span in _active_tool_spans.items():
-        try:
-            span._end()  # pyright: ignore[reportPrivateUsage]
-        except Exception:
-            logger.debug('Failed to clean up orphaned tool span %s', tool_use_id, exc_info=True)
-    _active_tool_spans.clear()
+def _clear_state() -> None:
+    if hasattr(_thread_local, 'state'):  # pragma: no branch
+        delattr(_thread_local, 'state')
 
 
 # ---------------------------------------------------------------------------
@@ -215,29 +175,26 @@ async def pre_tool_use_hook(
         return {}
 
     with handle_internal_errors:
+        state = _get_state()
+        if state is None:
+            return {}
+
         tool_name = str(input_data.get('tool_name', 'unknown_tool'))
         tool_input = input_data.get('tool_input', {})
         # Close the current chat span so it doesn't overlap with tool execution.
-        turn_tracker = _get_turn_tracker()
-        if turn_tracker is not None:
-            turn_tracker.close_chat_span()
-
-        parent_span = _get_parent_span()
-        logfire_instance = _get_logfire_instance()
-        if not parent_span or not logfire_instance:
-            return {}
+        state.close_chat_span()
 
         # Temporarily attach root span context so the new span is parented correctly,
         # then immediately detach. We can't keep the context attached because hooks
         # run in different async contexts (anyio tasks) and detaching later would fail.
-        otel_span = parent_span._span  # pyright: ignore[reportPrivateUsage]
+        otel_span = state.root_span._span  # pyright: ignore[reportPrivateUsage]
         if otel_span is None:  # pragma: no cover
             return {}
         parent_ctx = trace_api.set_span_in_context(otel_span)
         token = context_api.attach(parent_ctx)
         try:
             span_name = f'execute_tool {tool_name}'
-            span = logfire_instance.span(span_name)
+            span = state.logfire.span(span_name)
             span.set_attributes(
                 {
                     OPERATION_NAME: 'execute_tool',
@@ -247,7 +204,7 @@ async def pre_tool_use_hook(
                 }
             )
             span._start()  # pyright: ignore[reportPrivateUsage]
-            _active_tool_spans[tool_use_id] = span
+            state.active_tool_spans[tool_use_id] = span
         finally:
             context_api.detach(token)
 
@@ -264,7 +221,11 @@ async def post_tool_use_hook(
         return {}
 
     with handle_internal_errors:
-        span = _active_tool_spans.pop(tool_use_id, None)
+        state = _get_state()
+        if state is None:
+            return {}
+
+        span = state.active_tool_spans.pop(tool_use_id, None)
         if not span:
             return {}
 
@@ -274,10 +235,8 @@ async def post_tool_use_hook(
         span._end()  # pyright: ignore[reportPrivateUsage]
 
         # Record tool result for the next chat span's input messages
-        turn_tracker = _get_turn_tracker()
-        if turn_tracker is not None:
-            tool_name = str(input_data.get('tool_name', 'unknown_tool'))
-            turn_tracker.add_tool_result(tool_use_id, tool_name, tool_response if tool_response is not None else '')
+        tool_name = str(input_data.get('tool_name', 'unknown_tool'))
+        state.add_tool_result(tool_use_id, tool_name, tool_response if tool_response is not None else '')
 
     return {}
 
@@ -292,7 +251,11 @@ async def post_tool_use_failure_hook(
         return {}
 
     with handle_internal_errors:
-        span = _active_tool_spans.pop(tool_use_id, None)
+        state = _get_state()
+        if state is None:  # pragma: no cover
+            return {}
+
+        span = state.active_tool_spans.pop(tool_use_id, None)
         if not span:
             return {}
 
@@ -302,10 +265,8 @@ async def post_tool_use_failure_hook(
         span._end()  # pyright: ignore[reportPrivateUsage]
 
         # Record the error as a tool result so the next turn's input is complete.
-        turn_tracker = _get_turn_tracker()
-        if turn_tracker is not None:  # pragma: no cover
-            tool_name = str(input_data.get('tool_name', 'unknown_tool'))
-            turn_tracker.add_tool_result(tool_use_id, tool_name, error)
+        tool_name = str(input_data.get('tool_name', 'unknown_tool'))
+        state.add_tool_result(tool_use_id, tool_name, error)
 
     return {}
 
@@ -387,34 +348,33 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> AbstractContextMan
                 span_data[SYSTEM_INSTRUCTIONS] = [TextPart(type='text', content=text)]
 
         with logfire_claude.span('invoke_agent', **span_data) as root_span:
-            _set_parent_span(root_span)
-            _set_logfire_instance(logfire_claude)
-            system_instructions = span_data.get(SYSTEM_INSTRUCTIONS)
-            turn_tracker = _TurnTracker(logfire_claude, input_messages, system_instructions)
-            _set_turn_tracker(turn_tracker)
+            state = _ConversationState(
+                logfire=logfire_claude,
+                root_span=root_span,
+                input_messages=input_messages,
+                system_instructions=span_data.get(SYSTEM_INSTRUCTIONS),
+            )
+            _set_state(state)
             # Open the first chat span now — the LLM call starts at query time.
-            turn_tracker.open_chat_span()
+            state.open_chat_span()
 
             try:
                 async for msg in original_receive_response(self):
                     with handle_internal_errors:
                         if isinstance(msg, AssistantMessage):
-                            turn_tracker.handle_assistant_message(msg)
+                            state.handle_assistant_message(msg)
                         elif isinstance(msg, UserMessage):
-                            turn_tracker.handle_user_message()
+                            state.handle_user_message()
                         elif isinstance(msg, ResultMessage):  # pragma: no branch
                             _record_result(root_span, msg)
-                            if turn_tracker.model:  # pragma: no branch
-                                root_span.set_attribute(REQUEST_MODEL, turn_tracker.model)
-                                root_span.set_attribute(RESPONSE_MODEL, turn_tracker.model)
+                            if state.model:  # pragma: no branch
+                                root_span.set_attribute(REQUEST_MODEL, state.model)
+                                root_span.set_attribute(RESPONSE_MODEL, state.model)
 
                     yield msg
             finally:
-                turn_tracker.close()
-                _clear_parent_span()
-                _clear_logfire_instance()
-                _clear_turn_tracker()
-                _clear_active_tool_spans()
+                state.close()
+                _clear_state()
 
     cls.receive_response = patched_receive_response
 
@@ -458,28 +418,28 @@ def _inject_tracing_hooks(options: Any) -> None:
         hooks['PostToolUseFailure'].insert(0, HookMatcher(matcher=None, hooks=[post_tool_use_failure_hook]))
 
 
-class _TurnTracker:
-    """Track chat spans whose lifetime approximates the LLM API call duration.
+class _ConversationState:
+    """Per-conversation state stored in thread-local during a receive_response iteration.
 
-    Span lifecycle:
-    - **Open** when the LLM call starts: at query time (first turn) or when a
-      UserMessage arrives (subsequent turns — tool results sent back to model).
-    - **Populated** when AssistantMessage(s) arrive with output content and usage.
-      Consecutive AssistantMessages from the same API call are merged into the
-      open span rather than creating new ones.
-    - **Closed** when the next turn opens, or at close().
+    Holds everything hooks need: the root span, logfire instance, active tool spans,
+    chat span lifecycle, and conversation history. This keeps all mutable state in one
+    object instead of scattered across globals and thread-local attributes.
     """
 
     def __init__(
         self,
-        logfire_instance: Logfire,
-        initial_input_messages: list[ChatMessage],
+        *,
+        logfire: Logfire,
+        root_span: LogfireSpan,
+        input_messages: list[ChatMessage],
         system_instructions: list[TextPart] | None = None,
     ) -> None:
-        self._logfire = logfire_instance
+        self.logfire = logfire
+        self.root_span = root_span
+        self.active_tool_spans: dict[str, LogfireSpan] = {}
         self._current_span: LogfireSpan | None = None
         # Running conversation history — each chat span gets the full history as input.
-        self._history: list[ChatMessage] = list(initial_input_messages)
+        self._history: list[ChatMessage] = list(input_messages)
         # Track current span's output parts for merging consecutive messages.
         self._current_output_parts: list[MessagePart] = []
         self._system_instructions = system_instructions
@@ -507,7 +467,7 @@ class _TurnTracker:
         if self._system_instructions:  # pragma: no branch
             span_data[SYSTEM_INSTRUCTIONS] = self._system_instructions
 
-        self._current_span = self._logfire.span('chat', **span_data)
+        self._current_span = self.logfire.span('chat', **span_data)
         # Start without entering context — chat spans don't need to be on the
         # context stack, and this allows close_chat_span() to be called safely
         # from hooks running in different async contexts.
@@ -564,7 +524,11 @@ class _TurnTracker:
             self._current_span.set_level('error')
 
     def close(self) -> None:
+        """Close chat span and end any orphaned tool spans."""
         self.close_chat_span()
+        for span in self.active_tool_spans.values():
+            span._end()  # pyright: ignore[reportPrivateUsage]
+        self.active_tool_spans.clear()
 
 
 def _record_result(span: LogfireSpan, msg: ResultMessage) -> None:

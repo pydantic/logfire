@@ -40,14 +40,12 @@ from inline_snapshot import snapshot
 
 import logfire
 from logfire._internal.integrations.claude_agent_sdk import (
-    _active_tool_spans,
-    _clear_active_tool_spans,
-    _clear_parent_span,
+    _clear_state,
     _content_blocks_to_output_messages,
+    _ConversationState,
     _extract_usage,
     _inject_tracing_hooks,
-    _set_logfire_instance,
-    _set_parent_span,
+    _set_state,
     post_tool_use_failure_hook,
     post_tool_use_hook,
     pre_tool_use_hook,
@@ -246,10 +244,10 @@ class TestExtractUsage:
 async def test_tool_use_hooks(exporter: TestExporter) -> None:
     """Test pre/post tool use hooks create proper child spans."""
     logfire_instance = logfire.DEFAULT_LOGFIRE_INSTANCE.with_settings(custom_scope_suffix='claude_agent_sdk')
-    _set_logfire_instance(logfire_instance)
 
     with logfire_instance.span('root') as root_span:
-        _set_parent_span(root_span)
+        state = _ConversationState(logfire=logfire_instance, root_span=root_span, input_messages=[])
+        _set_state(state)
         try:
             # Successful tool call
             await pre_tool_use_hook(
@@ -295,7 +293,7 @@ async def test_tool_use_hooks(exporter: TestExporter) -> None:
                 {'signal': None},
             )
         finally:
-            _clear_parent_span()
+            _clear_state()
 
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
@@ -409,12 +407,12 @@ async def test_tool_use_hooks(exporter: TestExporter) -> None:
 
 @pytest.mark.anyio
 async def test_clear_orphaned_tool_spans(exporter: TestExporter) -> None:
-    """_clear_active_tool_spans ends and removes any orphaned tool spans."""
+    """state.close() ends and removes any orphaned tool spans."""
     logfire_instance = logfire.DEFAULT_LOGFIRE_INSTANCE.with_settings(custom_scope_suffix='claude_agent_sdk')
-    _set_logfire_instance(logfire_instance)
 
     with logfire_instance.span('root') as root_span:
-        _set_parent_span(root_span)
+        state = _ConversationState(logfire=logfire_instance, root_span=root_span, input_messages=[])
+        _set_state(state)
         try:
             # Start a tool span but never call post_tool_use_hook
             await pre_tool_use_hook(
@@ -422,12 +420,12 @@ async def test_clear_orphaned_tool_spans(exporter: TestExporter) -> None:
                 'orphan_1',
                 {'signal': None},
             )
-            assert 'orphan_1' in _active_tool_spans
-            _clear_active_tool_spans()
-            assert 'orphan_1' not in _active_tool_spans
-            assert len(_active_tool_spans) == 0
+            assert 'orphan_1' in state.active_tool_spans
+            state.close()
+            assert 'orphan_1' not in state.active_tool_spans
+            assert len(state.active_tool_spans) == 0
         finally:
-            _clear_parent_span()
+            _clear_state()
 
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
@@ -478,15 +476,6 @@ async def test_clear_orphaned_tool_spans(exporter: TestExporter) -> None:
     )
 
 
-def test_clear_orphaned_tool_spans_error() -> None:
-    """_clear_active_tool_spans handles exceptions during cleanup gracefully."""
-    broken_span = Mock()
-    broken_span._end = Mock(side_effect=RuntimeError('span already ended'))
-    _active_tool_spans['broken_1'] = broken_span
-    _clear_active_tool_spans()
-    assert len(_active_tool_spans) == 0
-
-
 @pytest.mark.anyio
 async def test_hook_edge_cases() -> None:
     """Hooks return empty dict for edge cases: None tool_use_id, no parent span, missing entry."""
@@ -497,11 +486,9 @@ async def test_hook_edge_cases() -> None:
     assert await post_tool_use_hook({}, None, ctx) == {}
     assert await post_tool_use_failure_hook({}, None, ctx) == {}
 
-    # No parent span set
-    _clear_parent_span()
+    # No state set — hooks bail out
+    _clear_state()
     assert await pre_tool_use_hook({'tool_name': 'Bash', 'tool_input': {}}, 'tool_1', ctx) == {}
-
-    # Post hooks with no matching pre entry
     assert await post_tool_use_hook({'tool_response': 'test'}, 'nonexistent', ctx) == {}
     assert await post_tool_use_failure_hook({'error': 'test'}, 'nonexistent', ctx) == {}
 
