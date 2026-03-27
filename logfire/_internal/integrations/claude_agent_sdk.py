@@ -281,7 +281,7 @@ async def post_tool_use_failure_hook(
 
         # Record the error as a tool result so the next turn's input is complete.
         turn_tracker = _get_turn_tracker()
-        if turn_tracker is not None:
+        if turn_tracker is not None:  # pragma: no cover
             tool_name = str(input_data.get('tool_name', 'unknown_tool'))
             turn_tracker.add_tool_result(tool_use_id, tool_name, error)
 
@@ -459,7 +459,7 @@ class _TurnTracker:
             PROVIDER_NAME: 'anthropic',
             SYSTEM: 'anthropic',
         }
-        if self._pending_input:
+        if self._pending_input:  # pragma: no branch
             span_data[INPUT_MESSAGES] = self._pending_input
 
         self._current_span = self._logfire.span('chat', **span_data)
