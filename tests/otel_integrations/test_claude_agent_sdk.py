@@ -685,53 +685,21 @@ async def test_tool_use_conversation_cassette(
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
-                'name': 'execute_tool Bash',
-                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 3000000000,
-                'end_time': 4000000000,
-                'attributes': {
-                    'code.filepath': IsStr(),
-                    'code.lineno': 123,
-                    'gen_ai.operation.name': 'execute_tool',
-                    'gen_ai.tool.name': 'Bash',
-                    'gen_ai.tool.call.id': 'toolu_01MRdgcFhYNo1LHvRQKvKckg',
-                    'gen_ai.tool.call.arguments': {'command': 'ls', 'description': 'List files in current directory'},
-                    'gen_ai.tool.call.result': "{'stdout': 'CHANGELOG.md\\nCLAUDE.md\\nCONTRIBUTING.md\\nLICENSE\\nMakefile\\nREADME.md\\ndist\\ndocs\\nexamples\\nignoreme\\nlogfire\\nlogfire-api\\nmkdocs.yml\\nplans\\npyodide_test\\npyproject.toml\\nrelease\\nscratch\\nsite\\nspecs\\ntests\\nuv.lock', 'stderr': '', 'interrupted': False, 'isImage': False, 'noOutputExpected': False}",
-                    'logfire.msg_template': 'execute_tool Bash',
-                    'logfire.msg': 'execute_tool Bash',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'gen_ai.operation.name': {},
-                            'gen_ai.tool.name': {},
-                            'gen_ai.tool.call.id': {},
-                            'gen_ai.tool.call.arguments': {'type': 'object'},
-                            'gen_ai.tool.call.result': {},
-                        },
-                    },
-                    'logfire.span_type': 'span',
-                },
-            },
-            {
                 'name': 'chat',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
-                'end_time': 5000000000,
+                'end_time': 3000000000,
                 'attributes': {
                     'code.filepath': IsStr(),
                     'code.function': 'test_tool_use_conversation_cassette',
                     'code.lineno': 123,
-                    'logfire.msg_template': 'chat',
+                    'gen_ai.operation.name': 'chat',
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.system': 'anthropic',
-                    'gen_ai.response.model': 'claude-sonnet-4-6',
                     'gen_ai.input.messages': [
                         {'role': 'user', 'parts': [{'type': 'text', 'content': 'List files in the current directory'}]}
                     ],
-                    'logfire.msg': 'chat claude-sonnet-4-6',
-                    'gen_ai.operation.name': 'chat',
                     'gen_ai.output.messages': [
                         {
                             'role': 'assistant',
@@ -746,22 +714,54 @@ async def test_tool_use_conversation_cassette(
                             ],
                         }
                     ],
+                    'gen_ai.response.model': 'claude-sonnet-4-6',
                     'gen_ai.usage.input_tokens': 9343,
                     'gen_ai.usage.cache_read.input_tokens': 8313,
                     'gen_ai.usage.cache_creation.input_tokens': 1027,
-                    'logfire.span_type': 'span',
+                    'logfire.msg_template': 'chat',
+                    'logfire.msg': 'chat claude-sonnet-4-6',
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
                             'gen_ai.operation.name': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.system': {},
-                            'gen_ai.response.model': {},
-                            'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.input.messages': {'type': 'array'},
+                            'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.cache_read.input_tokens': {},
                             'gen_ai.usage.cache_creation.input_tokens': {},
+                        },
+                    },
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'execute_tool Bash',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 4000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'code.filepath': IsStr(),
+                    'code.lineno': 123,
+                    'logfire.msg_template': 'execute_tool Bash',
+                    'gen_ai.tool.name': 'Bash',
+                    'gen_ai.tool.call.id': 'toolu_01MRdgcFhYNo1LHvRQKvKckg',
+                    'gen_ai.tool.call.arguments': {'command': 'ls', 'description': 'List files in current directory'},
+                    'gen_ai.tool.call.result': "{'stdout': 'CHANGELOG.md\\nCLAUDE.md\\nCONTRIBUTING.md\\nLICENSE\\nMakefile\\nREADME.md\\ndist\\ndocs\\nexamples\\nignoreme\\nlogfire\\nlogfire-api\\nmkdocs.yml\\nplans\\npyodide_test\\npyproject.toml\\nrelease\\nscratch\\nsite\\nspecs\\ntests\\nuv.lock', 'stderr': '', 'interrupted': False, 'isImage': False, 'noOutputExpected': False}",
+                    'logfire.msg': 'execute_tool Bash',
+                    'gen_ai.operation.name': 'execute_tool',
+                    'logfire.span_type': 'span',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'gen_ai.operation.name': {},
+                            'gen_ai.tool.name': {},
+                            'gen_ai.tool.call.id': {},
+                            'gen_ai.tool.call.arguments': {'type': 'object'},
+                            'gen_ai.tool.call.result': {},
                         },
                     },
                 },
@@ -826,17 +826,6 @@ There are **9 files** and **12 directories** in the current directory. It looks 
                             'parts': [{'type': 'text', 'content': 'List files in the current directory'}],
                         },
                         {
-                            'role': 'tool',
-                            'parts': [
-                                {
-                                    'type': 'tool_call_response',
-                                    'id': 'toolu_01MRdgcFhYNo1LHvRQKvKckg',
-                                    'name': 'Bash',
-                                    'response': "{'stdout': 'CHANGELOG.md\\nCLAUDE.md\\nCONTRIBUTING.md\\nLICENSE\\nMakefile\\nREADME.md\\ndist\\ndocs\\nexamples\\nignoreme\\nlogfire\\nlogfire-api\\nmkdocs.yml\\nplans\\npyodide_test\\npyproject.toml\\nrelease\\nscratch\\nsite\\nspecs\\ntests\\nuv.lock', 'stderr': '', 'interrupted': False, 'isImage': False, 'noOutputExpected': False}",
-                                }
-                            ],
-                        },
-                        {
                             'role': 'assistant',
                             'parts': [
                                 {'type': 'reasoning', 'content': 'Let me list the files in the current directory.'},
@@ -846,6 +835,17 @@ There are **9 files** and **12 directories** in the current directory. It looks 
                                     'name': 'Bash',
                                     'arguments': {'command': 'ls', 'description': 'List files in current directory'},
                                 },
+                            ],
+                        },
+                        {
+                            'role': 'tool',
+                            'parts': [
+                                {
+                                    'type': 'tool_call_response',
+                                    'id': 'toolu_01MRdgcFhYNo1LHvRQKvKckg',
+                                    'name': 'Bash',
+                                    'response': "{'stdout': 'CHANGELOG.md\\nCLAUDE.md\\nCONTRIBUTING.md\\nLICENSE\\nMakefile\\nREADME.md\\ndist\\ndocs\\nexamples\\nignoreme\\nlogfire\\nlogfire-api\\nmkdocs.yml\\nplans\\npyodide_test\\npyproject.toml\\nrelease\\nscratch\\nsite\\nspecs\\ntests\\nuv.lock', 'stderr': '', 'interrupted': False, 'isImage': False, 'noOutputExpected': False}",
+                                }
                             ],
                         },
                     ],
