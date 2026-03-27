@@ -110,8 +110,6 @@ class ToolCallResponsePart(TypedDict):
     type: Literal['tool_call_response']
     id: str
     response: NotRequired[str | dict[str, Any] | None]
-    # Note: OTel spec may use 'result' instead of 'response',
-    # but we use 'response' for consistency
 
 
 class UriPart(TypedDict):
@@ -157,7 +155,6 @@ class ChatMessage(TypedDict):
     role: Role
     parts: list[MessagePart]
     name: NotRequired[str]
-    # Optional name for the message (e.g., function name for tool messages).
 
 
 InputMessages: TypeAlias = list[ChatMessage]
