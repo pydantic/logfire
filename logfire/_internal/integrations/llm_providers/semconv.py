@@ -155,6 +155,7 @@ class ChatMessage(TypedDict):
 
     role: Role
     parts: list[MessagePart]
+    name: NotRequired[str]
 
 
 InputMessages: TypeAlias = list[ChatMessage]
