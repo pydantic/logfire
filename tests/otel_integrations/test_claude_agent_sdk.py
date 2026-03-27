@@ -325,7 +325,7 @@ async def test_tool_use_hooks(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
-                'name': 'execute_tool {tool_name}',
+                'name': 'execute_tool Bash',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
@@ -334,8 +334,7 @@ async def test_tool_use_hooks(exporter: TestExporter) -> None:
                     'code.filepath': 'test_claude_agent_sdk.py',
                     'code.function': 'test_tool_use_hooks',
                     'code.lineno': 123,
-                    'tool_name': 'Bash',
-                    'logfire.msg_template': 'execute_tool {tool_name}',
+                    'logfire.msg_template': 'execute_tool Bash',
                     'logfire.msg': 'execute_tool Bash',
                     'gen_ai.operation.name': 'execute_tool',
                     'gen_ai.tool.name': 'Bash',
@@ -346,7 +345,6 @@ async def test_tool_use_hooks(exporter: TestExporter) -> None:
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
-                            'tool_name': {},
                             'gen_ai.operation.name': {},
                             'gen_ai.tool.name': {},
                             'gen_ai.tool.call.id': {},
@@ -357,7 +355,7 @@ async def test_tool_use_hooks(exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': 'execute_tool {tool_name}',
+                'name': 'execute_tool Read',
                 'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 4000000000,
@@ -366,8 +364,7 @@ async def test_tool_use_hooks(exporter: TestExporter) -> None:
                     'code.filepath': 'test_claude_agent_sdk.py',
                     'code.function': 'test_tool_use_hooks',
                     'code.lineno': 123,
-                    'tool_name': 'Read',
-                    'logfire.msg_template': 'execute_tool {tool_name}',
+                    'logfire.msg_template': 'execute_tool Read',
                     'logfire.msg': 'execute_tool Read',
                     'gen_ai.operation.name': 'execute_tool',
                     'gen_ai.tool.name': 'Read',
@@ -377,7 +374,6 @@ async def test_tool_use_hooks(exporter: TestExporter) -> None:
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
-                            'tool_name': {},
                             'gen_ai.operation.name': {},
                             'gen_ai.tool.name': {},
                             'gen_ai.tool.call.id': {},
@@ -387,7 +383,7 @@ async def test_tool_use_hooks(exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': 'execute_tool {tool_name}',
+                'name': 'execute_tool Write',
                 'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 6000000000,
@@ -396,8 +392,7 @@ async def test_tool_use_hooks(exporter: TestExporter) -> None:
                     'code.filepath': 'test_claude_agent_sdk.py',
                     'code.function': 'test_tool_use_hooks',
                     'code.lineno': 123,
-                    'tool_name': 'Write',
-                    'logfire.msg_template': 'execute_tool {tool_name}',
+                    'logfire.msg_template': 'execute_tool Write',
                     'logfire.msg': 'execute_tool Write',
                     'gen_ai.operation.name': 'execute_tool',
                     'gen_ai.tool.name': 'Write',
@@ -408,7 +403,6 @@ async def test_tool_use_hooks(exporter: TestExporter) -> None:
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
-                            'tool_name': {},
                             'gen_ai.operation.name': {},
                             'gen_ai.tool.name': {},
                             'gen_ai.tool.call.id': {},
@@ -463,7 +457,7 @@ async def test_clear_orphaned_tool_spans(exporter: TestExporter) -> None:
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
-                'name': 'execute_tool {tool_name}',
+                'name': 'execute_tool OrphanTool',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
@@ -472,8 +466,7 @@ async def test_clear_orphaned_tool_spans(exporter: TestExporter) -> None:
                     'code.filepath': 'test_claude_agent_sdk.py',
                     'code.function': 'test_clear_orphaned_tool_spans',
                     'code.lineno': 123,
-                    'tool_name': 'OrphanTool',
-                    'logfire.msg_template': 'execute_tool {tool_name}',
+                    'logfire.msg_template': 'execute_tool OrphanTool',
                     'logfire.msg': 'execute_tool OrphanTool',
                     'gen_ai.operation.name': 'execute_tool',
                     'gen_ai.tool.name': 'OrphanTool',
@@ -483,7 +476,6 @@ async def test_clear_orphaned_tool_spans(exporter: TestExporter) -> None:
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
-                            'tool_name': {},
                             'gen_ai.operation.name': {},
                             'gen_ai.tool.name': {},
                             'gen_ai.tool.call.id': {},
@@ -781,7 +773,7 @@ async def test_tool_use_conversation_cassette(
                 },
             },
             {
-                'name': 'execute_tool {tool_name}',
+                'name': 'execute_tool Bash',
                 'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 5000000000,
@@ -789,8 +781,7 @@ async def test_tool_use_conversation_cassette(
                 'attributes': {
                     'code.filepath': IsStr(),
                     'code.lineno': 123,
-                    'tool_name': 'Bash',
-                    'logfire.msg_template': 'execute_tool {tool_name}',
+                    'logfire.msg_template': 'execute_tool Bash',
                     'logfire.msg': 'execute_tool Bash',
                     'gen_ai.operation.name': 'execute_tool',
                     'gen_ai.tool.name': 'Bash',
@@ -804,7 +795,6 @@ async def test_tool_use_conversation_cassette(
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
-                            'tool_name': {},
                             'gen_ai.operation.name': {},
                             'gen_ai.tool.name': {},
                             'gen_ai.tool.call.id': {},

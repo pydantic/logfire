@@ -23,7 +23,10 @@ from opentelemetry import context as context_api, trace as trace_api
 from opentelemetry.context import Context
 
 from logfire._internal.integrations.llm_providers.semconv import (
+    CACHE_CREATION_INPUT_TOKENS,
+    CACHE_READ_INPUT_TOKENS,
     CONVERSATION_ID,
+    ERROR_TYPE,
     INPUT_MESSAGES,
     INPUT_TOKENS,
     OPERATION_NAME,
@@ -31,7 +34,12 @@ from logfire._internal.integrations.llm_providers.semconv import (
     OUTPUT_TOKENS,
     PROVIDER_NAME,
     RESPONSE_MODEL,
+    SYSTEM,
     SYSTEM_INSTRUCTIONS,
+    TOOL_CALL_ARGUMENTS,
+    TOOL_CALL_ID,
+    TOOL_CALL_RESULT,
+    TOOL_NAME,
     OutputMessage,
     ReasoningPart,
     TextPart,
@@ -182,9 +190,9 @@ def _extract_usage(usage: Any) -> dict[str, int]:
     cache_read = to_int(get('cache_read_input_tokens'))
     cache_create = to_int(get('cache_creation_input_tokens'))
     if cache_read is not None:
-        result['gen_ai.usage.cache_read.input_tokens'] = cache_read
+        result[CACHE_READ_INPUT_TOKENS] = cache_read
     if cache_create is not None:
-        result['gen_ai.usage.cache_creation.input_tokens'] = cache_create
+        result[CACHE_CREATION_INPUT_TOKENS] = cache_create
 
     return result
 
@@ -216,11 +224,16 @@ async def pre_tool_use_hook(
         parent_ctx = trace_api.set_span_in_context(parent_span)
         token = context_api.attach(parent_ctx)
         try:
-            span = logfire_instance.span(f'execute_tool {tool_name}')
-            span.set_attribute(OPERATION_NAME, 'execute_tool')
-            span.set_attribute('gen_ai.tool.name', tool_name)
-            span.set_attribute('gen_ai.tool.call.id', tool_use_id)
-            span.set_attribute('gen_ai.tool.call.arguments', tool_input)
+            span_name = f'execute_tool {tool_name}'
+            span = logfire_instance.span(span_name)
+            span.set_attributes(
+                {
+                    OPERATION_NAME: 'execute_tool',
+                    TOOL_NAME: tool_name,
+                    TOOL_CALL_ID: tool_use_id,
+                    TOOL_CALL_ARGUMENTS: tool_input,
+                }
+            )
             span.__enter__()
             _active_tool_spans[tool_use_id] = (span, token)
         except Exception:  # pragma: no cover
@@ -247,7 +260,7 @@ async def post_tool_use_hook(
         span, token = entry
         tool_response = input_data.get('tool_response')
         if tool_response is not None:
-            span.set_attribute('gen_ai.tool.call.result', str(tool_response))
+            span.set_attribute(TOOL_CALL_RESULT, str(tool_response))
         span.__exit__(None, None, None)
         context_api.detach(token)
 
@@ -278,7 +291,7 @@ async def post_tool_use_failure_hook(
 
         span, token = entry
         error = str(input_data.get('error', 'Unknown error'))
-        span.set_attribute('error.type', error)
+        span.set_attribute(ERROR_TYPE, error)
         span.__exit__(None, None, None)
         context_api.detach(token)
 
@@ -351,7 +364,7 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> AbstractContextMan
         span_data: dict[str, Any] = {
             OPERATION_NAME: 'invoke_agent',
             PROVIDER_NAME: 'anthropic',
-            'gen_ai.system': 'anthropic',
+            SYSTEM: 'anthropic',
         }
         if input_messages:  # pragma: no branch
             span_data[INPUT_MESSAGES] = input_messages
@@ -462,7 +475,7 @@ class _TurnTracker:
         span_data: dict[str, Any] = {
             OPERATION_NAME: 'chat',
             PROVIDER_NAME: 'anthropic',
-            'gen_ai.system': 'anthropic',
+            SYSTEM: 'anthropic',
         }
         if model:  # pragma: no branch
             span_data[RESPONSE_MODEL] = model
@@ -484,7 +497,7 @@ class _TurnTracker:
         # Set error if the assistant message indicates an error
         error = getattr(message, 'error', None)
         if error:  # pragma: no cover
-            self._current_span.set_attribute('error.type', str(error))
+            self._current_span.set_attribute(ERROR_TYPE, str(error))
 
         # Reset pending input — next turn will collect tool results
         self._pending_input = []
