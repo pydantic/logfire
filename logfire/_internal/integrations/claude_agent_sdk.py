@@ -40,6 +40,7 @@ from logfire._internal.integrations.llm_providers.semconv import (
     TOOL_CALL_ID,
     TOOL_CALL_RESULT,
     TOOL_NAME,
+    ChatMessage,
     MessagePart,
     OutputMessage,
     ReasoningPart,
@@ -339,9 +340,9 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> AbstractContextMan
     @functools.wraps(original_receive_response)
     async def patched_receive_response(self: Any) -> AsyncGenerator[Any, None]:
         prompt = getattr(self, '_logfire_prompt', None)
-        input_messages: list[dict[str, Any]] = []
+        input_messages: list[ChatMessage] = []
         if prompt:  # pragma: no branch
-            input_messages = [{'role': 'user', 'parts': [TextPart(type='text', content=prompt)]}]
+            input_messages = [ChatMessage(role='user', parts=[TextPart(type='text', content=prompt)])]
 
         span_data: dict[str, Any] = {
             OPERATION_NAME: 'invoke_agent',
@@ -401,17 +402,12 @@ def _inject_tracing_hooks(options: Any) -> None:
         hooks = options.hooks = {}
     else:
         hooks = options.hooks
-    for event in ('PreToolUse', 'PostToolUse', 'PostToolUseFailure'):
-        hooks.setdefault(event, [])
-
-    if getattr(options, '_logfire_hooks_injected', False):
-        return
-
     with handle_internal_errors:
+        for event in ('PreToolUse', 'PostToolUse', 'PostToolUseFailure'):
+            hooks.setdefault(event, [])
         hooks['PreToolUse'].insert(0, HookMatcher(matcher=None, hooks=[pre_tool_use_hook]))
         hooks['PostToolUse'].insert(0, HookMatcher(matcher=None, hooks=[post_tool_use_hook]))
         hooks['PostToolUseFailure'].insert(0, HookMatcher(matcher=None, hooks=[post_tool_use_failure_hook]))
-        options._logfire_hooks_injected = True
 
 
 class _TurnTracker:
@@ -421,22 +417,21 @@ class _TurnTracker:
     subsequent turns get tool result messages accumulated between turns.
     """
 
-    def __init__(self, logfire_instance: Logfire, initial_input_messages: list[dict[str, Any]]) -> None:
+    def __init__(self, logfire_instance: Logfire, initial_input_messages: list[ChatMessage]) -> None:
         self._logfire = logfire_instance
         self._current_span: LogfireSpan | None = None
         # Input messages for the next chat span.
         # Starts with the user prompt; after each turn, accumulates tool results.
-        self._pending_input: list[dict[str, Any]] = list(initial_input_messages)
+        self._pending_input: list[ChatMessage] = list(initial_input_messages)
 
     def add_tool_result(self, tool_use_id: str, tool_name: str, result: str) -> None:
         """Record a tool result to include in the next chat span's input messages."""
-        self._pending_input.append(
-            {
-                'role': 'tool',
-                'name': tool_name,
-                'parts': [{'type': 'tool_call_response', 'id': tool_use_id, 'response': result}],
-            }
+        msg = ChatMessage(
+            role='tool',
+            name=tool_name,
+            parts=[ToolCallResponsePart(type='tool_call_response', id=tool_use_id, response=result)],
         )
+        self._pending_input.append(msg)
 
     def start_turn(self, message: AssistantMessage) -> None:
         """Close previous turn span if open, open a new one."""
@@ -473,6 +468,7 @@ class _TurnTracker:
         error = getattr(message, 'error', None)
         if error:  # pragma: no cover
             self._current_span.set_attribute(ERROR_TYPE, str(error))
+            self._current_span.set_level('error')
 
         # Reset pending input — next turn will collect tool results
         self._pending_input = []
@@ -485,21 +481,24 @@ class _TurnTracker:
 
 def _record_result(span: LogfireSpan, msg: ResultMessage) -> None:
     """Record ResultMessage data onto the root span."""
+    attrs: dict[str, Any] = {}
+
     if hasattr(msg, 'usage') and msg.usage:  # pragma: no branch
-        usage = _extract_usage(msg.usage)
-        for key, value in usage.items():
-            span.set_attribute(key, value)
+        attrs.update(_extract_usage(msg.usage))
 
     if hasattr(msg, 'total_cost_usd') and msg.total_cost_usd is not None:  # pragma: no branch
-        span.set_attribute('operation.cost', float(msg.total_cost_usd))
+        attrs['operation.cost'] = float(msg.total_cost_usd)
 
     session_id = getattr(msg, 'session_id', None)
     if session_id is not None:  # pragma: no branch
-        span.set_attribute(CONVERSATION_ID, session_id)
+        attrs[CONVERSATION_ID] = session_id
 
     for attr in ('num_turns', 'duration_ms'):
         if (value := getattr(msg, attr, None)) is not None:  # pragma: no branch
-            span.set_attribute(attr, value)
+            attrs[attr] = value
+
+    if attrs:
+        span.set_attributes(attrs)
 
     is_error = getattr(msg, 'is_error', None)
     if is_error:  # pragma: no cover

@@ -518,15 +518,6 @@ def test_inject_hooks_none_hooks() -> None:
     assert len(options.hooks['PreToolUse']) == 1
 
 
-def test_inject_hooks_idempotent() -> None:
-    options = ClaudeAgentOptions(hooks=None)
-    _inject_tracing_hooks(options)
-    assert options.hooks is not None
-    count_after_first = len(options.hooks['PreToolUse'])
-    _inject_tracing_hooks(options)
-    assert len(options.hooks['PreToolUse']) == count_after_first
-
-
 def test_inject_hooks_with_existing_events() -> None:
     existing_hook = HookMatcher(matcher='existing', hooks=[pre_tool_use_hook])
 
