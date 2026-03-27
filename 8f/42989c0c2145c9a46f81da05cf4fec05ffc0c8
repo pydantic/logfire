@@ -1,0 +1,25 @@
+logfire/_internal/integrations/llm_providers/semconv.py
+  70a89903b5292196 158
+logfire/_internal/integrations/llm_providers/openai.py
+  70a89903b5292196 259-264,285-290,360-369,371-372
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.19",
+  "base_commit_sha": "8f42989c0c2145c9a46f81da05cf4fec05ffc0c8",
+  "prompts": {
+    "70a89903b5292196": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0334ea9b-934c-4d73-a129-8bf1331cc42c",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>",
+      "messages": [],
+      "total_additions": 25,
+      "total_deletions": 15,
+      "accepted_lines": 25,
+      "overriden_lines": 0
+    }
+  }
+}
