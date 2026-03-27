@@ -6,7 +6,7 @@ on:
       - main
     tags:
       - "**"
-  pull_request: {}
+  pull_request: { }
 
 env:
   CI: true
@@ -22,7 +22,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
-          version: "0.9.22"
+          version: "0.11.1"
           enable-cache: true
 
       - name: Install dependencies
@@ -39,7 +39,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
-          version: "0.9.22"
+          version: "0.11.1"
           enable-cache: true
 
       - run: uv sync --python 3.12 --frozen --group docs
@@ -73,9 +73,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
-        pydantic-version: ["2"] # i.e. the latest
-        otel-version: ["1"] # i.e. the latest
+        python-version: [ "3.9", "3.10", "3.11", "3.12", "3.13", "3.14" ]
+        pydantic-version: [ "2" ] # i.e. the latest
+        otel-version: [ "1" ] # i.e. the latest
         include:
           - python-version: "3.12"
             pydantic-version: "2.4"
@@ -99,7 +99,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
-          version: "0.9.22"
+          version: "0.11.1"
           enable-cache: true
 
       - run: uv sync --python ${{ matrix.python-version }}
@@ -127,14 +127,14 @@ jobs:
 
   coverage:
     runs-on: ubuntu-latest
-    needs: [test]
+    needs: [ test ]
     steps:
       - uses: actions/checkout@v6
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
-          version: "0.9.22"
+          version: "0.11.1"
           enable-cache: true
 
       - name: Create venv
@@ -168,7 +168,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
-          version: "0.9.22"
+          version: "0.11.1"
           enable-cache: true
 
       - uses: actions/setup-node@v4
@@ -182,7 +182,7 @@ jobs:
   # https://github.com/marketplace/actions/alls-green#why used for branch protection checks
   check:
     if: always()
-    needs: [lint, docs, test, coverage, test-pyodide]
+    needs: [ lint, docs, test, coverage, test-pyodide ]
     runs-on: ubuntu-latest
     steps:
       - name: Decide whether the needed jobs succeeded or failed
@@ -191,7 +191,7 @@ jobs:
           jobs: ${{ toJSON(needs) }}
 
   release:
-    needs: [check]
+    needs: [ check ]
     if: "success() && startsWith(github.ref, 'refs/tags/')"
     runs-on: ubuntu-latest
     environment: release
@@ -205,7 +205,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
-          version: "0.9.22"
+          version: "0.11.1"
           enable-cache: true
 
       - name: Set up Python 3.12
