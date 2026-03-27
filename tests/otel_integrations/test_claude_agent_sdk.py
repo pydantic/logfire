@@ -154,45 +154,40 @@ def _make_client(
 # ---------------------------------------------------------------------------
 
 
-class TestContentBlocksToOutputMessages:
-    def test_text_block(self) -> None:
-        block = TextBlock(text='hello world')
-        result = _content_blocks_to_output_messages([block])
-        assert result == [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'hello world'}]}]
+def test_content_blocks_to_output_messages() -> None:
+    # Non-list returns empty
+    assert _content_blocks_to_output_messages('just a string') == []
 
-    def test_thinking_block(self) -> None:
-        block = ThinkingBlock(thinking='let me think...', signature='sig123')
-        result = _content_blocks_to_output_messages([block])
-        assert result == [{'role': 'assistant', 'parts': [{'type': 'reasoning', 'content': 'let me think...'}]}]
+    # TextBlock
+    assert _content_blocks_to_output_messages([TextBlock(text='hello world')]) == [
+        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'hello world'}]}
+    ]
 
-    def test_tool_use_block(self) -> None:
-        block = ToolUseBlock(id='tool_1', name='Bash', input={'command': 'ls'})
-        result = _content_blocks_to_output_messages([block])
-        assert result == [
-            {
-                'role': 'assistant',
-                'parts': [{'type': 'tool_call', 'id': 'tool_1', 'name': 'Bash', 'arguments': {'command': 'ls'}}],
-            }
-        ]
+    # ThinkingBlock → ReasoningPart
+    assert _content_blocks_to_output_messages([ThinkingBlock(thinking='let me think...', signature='sig123')]) == [
+        {'role': 'assistant', 'parts': [{'type': 'reasoning', 'content': 'let me think...'}]}
+    ]
 
-    def test_tool_result_block(self) -> None:
-        text_item = Mock()
-        text_item.text = 'output text'
-        block = ToolResultBlock(tool_use_id='tool_1', content=[text_item], is_error=False)
-        result = _content_blocks_to_output_messages([block])
-        assert result == [
-            {'role': 'assistant', 'parts': [{'type': 'tool_call_response', 'id': 'tool_1', 'response': 'output text'}]}
-        ]
+    # ToolUseBlock
+    assert _content_blocks_to_output_messages([ToolUseBlock(id='tool_1', name='Bash', input={'command': 'ls'})]) == [
+        {
+            'role': 'assistant',
+            'parts': [{'type': 'tool_call', 'id': 'tool_1', 'name': 'Bash', 'arguments': {'command': 'ls'}}],
+        }
+    ]
 
-    def test_non_list_returns_empty(self) -> None:
-        assert _content_blocks_to_output_messages('just a string') == []
+    # ToolResultBlock
+    text_item = Mock()
+    text_item.text = 'output text'
+    assert _content_blocks_to_output_messages([ToolResultBlock(tool_use_id='tool_1', content=[text_item])]) == [
+        {'role': 'assistant', 'parts': [{'type': 'tool_call_response', 'id': 'tool_1', 'response': 'output text'}]}
+    ]
 
-    def test_unknown_block_type(self) -> None:
-        block = Mock()
-        block.data = 'test'
-        result = _content_blocks_to_output_messages([block])
-        assert len(result) == 1
-        assert result[0]['parts'][0] is block
+    # Unknown block type passes through
+    block = Mock()
+    result = _content_blocks_to_output_messages([block])
+    assert len(result) == 1
+    assert result[0]['parts'][0] is block
 
 
 def test_extract_tool_result_text() -> None:
