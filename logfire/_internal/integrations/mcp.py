@@ -32,7 +32,9 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
 
     @functools.wraps(original_send_request)  # pyright: ignore[reportUnknownArgumentType]
     async def send_request(self: Any, request: Any, *args: Any, **kwargs: Any):
-        root = request.root
+        # Use getattr to handle both RootModel wrappers (e.g. ClientRequest) and bare request types.
+        # fastmcp 3.x can send bare request types directly when OTel context propagation is active.
+        root = getattr(request, 'root', request)
         attributes: dict[str, Any] = {
             'request': root,
             # https://opentelemetry.io/docs/specs/semconv/rpc/json-rpc/
@@ -61,7 +63,7 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
 
     @functools.wraps(original_send_notification)  # pyright: ignore[reportUnknownArgumentType]
     async def send_notification(self: Any, notification: Any, *args: Any, **kwargs: Any):
-        _attach_context_to_request(notification.root)
+        _attach_context_to_request(getattr(notification, 'root', notification))
         return await original_send_notification(self, notification, *args, **kwargs)
 
     BaseSession.send_notification = send_notification
@@ -91,7 +93,7 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
 
     @functools.wraps(original_handle_client_request)
     async def _received_request_client(self: Any, responder: RequestResponder[ServerRequest, ClientResult]) -> None:
-        request = responder.request.root
+        request = getattr(responder.request, 'root', responder.request)
         span_name = 'MCP client handle request'
         with _handle_request_with_context(request, responder, span_name):
             await original_handle_client_request(self, responder)
