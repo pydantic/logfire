@@ -37,8 +37,9 @@ def normalize_versions(version: SemconvVersion | Sequence[SemconvVersion]) -> fr
     return versions
 
 
-# Provider and operation
+# Provider, system, and operation
 PROVIDER_NAME = 'gen_ai.provider.name'
+SYSTEM = 'gen_ai.system'
 OPERATION_NAME = 'gen_ai.operation.name'
 
 # Model information
@@ -62,6 +63,8 @@ RESPONSE_FINISH_REASONS = 'gen_ai.response.finish_reasons'
 # Token usage
 INPUT_TOKENS = 'gen_ai.usage.input_tokens'
 OUTPUT_TOKENS = 'gen_ai.usage.output_tokens'
+CACHE_READ_INPUT_TOKENS = 'gen_ai.usage.cache_read.input_tokens'
+CACHE_CREATION_INPUT_TOKENS = 'gen_ai.usage.cache_creation.input_tokens'
 USAGE_RAW = 'gen_ai.usage.raw'
 
 # Message content
@@ -69,11 +72,18 @@ INPUT_MESSAGES = 'gen_ai.input.messages'
 OUTPUT_MESSAGES = 'gen_ai.output.messages'
 SYSTEM_INSTRUCTIONS = 'gen_ai.system_instructions'
 
-# Tool definitions
+# Tool execution
 TOOL_DEFINITIONS = 'gen_ai.tool.definitions'
+TOOL_NAME = 'gen_ai.tool.name'
+TOOL_CALL_ID = 'gen_ai.tool.call.id'
+TOOL_CALL_ARGUMENTS = 'gen_ai.tool.call.arguments'
+TOOL_CALL_RESULT = 'gen_ai.tool.call.result'
 
 # Conversation tracking
 CONVERSATION_ID = 'gen_ai.conversation.id'
+
+# Error
+ERROR_TYPE = 'error.type'
 
 # Type definitions for message parts and messages
 
