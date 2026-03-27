@@ -33,6 +33,7 @@ from logfire._internal.integrations.llm_providers.semconv import (
     RESPONSE_MODEL,
     SYSTEM_INSTRUCTIONS,
     OutputMessage,
+    ReasoningPart,
     TextPart,
     ToolCallPart,
 )
@@ -111,13 +112,7 @@ def _content_blocks_to_output_messages(content: Any) -> list[OutputMessage]:
         if isinstance(block, TextBlock):
             parts.append(TextPart(type='text', content=getattr(block, 'text', '')))
         elif isinstance(block, ThinkingBlock):
-            parts.append(
-                {
-                    'type': 'thinking',
-                    'content': getattr(block, 'thinking', ''),
-                    'signature': getattr(block, 'signature', ''),
-                }
-            )
+            parts.append(ReasoningPart(type='reasoning', content=getattr(block, 'thinking', '')))
         elif isinstance(block, ToolUseBlock):
             part = ToolCallPart(
                 type='tool_call',

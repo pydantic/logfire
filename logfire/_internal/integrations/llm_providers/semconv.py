@@ -121,7 +121,16 @@ class BlobPart(TypedDict):
     modality: NotRequired[Literal['image', 'audio', 'video', 'document']]
 
 
-MessagePart: TypeAlias = Union[TextPart, ToolCallPart, ToolCallResponsePart, UriPart, BlobPart, dict[str, Any]]
+class ReasoningPart(TypedDict):
+    """Reasoning/thinking content part."""
+
+    type: Literal['reasoning']
+    content: str
+
+
+MessagePart: TypeAlias = Union[
+    TextPart, ToolCallPart, ToolCallResponsePart, UriPart, BlobPart, ReasoningPart, dict[str, Any]
+]
 """A message part.
 
 Can be any of the defined part types or a generic dict for extensibility.

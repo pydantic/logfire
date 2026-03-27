@@ -172,9 +172,7 @@ class TestContentBlocksToOutputMessages:
     def test_thinking_block(self) -> None:
         block = ThinkingBlock(thinking='let me think...', signature='sig123')
         result = _content_blocks_to_output_messages([block])
-        assert result == [
-            {'role': 'assistant', 'parts': [{'type': 'thinking', 'content': 'let me think...', 'signature': 'sig123'}]}
-        ]
+        assert result == [{'role': 'assistant', 'parts': [{'type': 'reasoning', 'content': 'let me think...'}]}]
 
     def test_tool_use_block(self) -> None:
         block = ToolUseBlock(id='tool_1', name='Bash', input={'command': 'ls'})
@@ -748,11 +746,7 @@ async def test_tool_use_conversation_cassette(
                         {
                             'role': 'assistant',
                             'parts': [
-                                {
-                                    'type': 'thinking',
-                                    'content': 'Let me list the files in the current directory.',
-                                    'signature': 'EuoBClkIDBgCKkASXqZcani1cS2F0io8DhUZtOWls/UWUA6bZT1K3rfAItRtZNk2mY7QJlEXq/45nQ31If9WpgVb/W9hWond2BSVMhFjbGF1ZGUtc29ubmV0LTQtNhIMo+SLoTXu/es6+jKxGgzhGqGCjpe87cObsPoiMM1hGKFBHv/PenktJb+hzvA/EGZRy5MR4b0+VJz/iDgkXhp7j0LcjJrD4BeFEeeFlio/kvJLtts/vOiMgrO3lD1XzJC0hX3hTCxDV3Ye6oMoanejZW5bGZoJNGbhFBqMG8pJog7gkLEPOpeZoyZlhMmsGAE=',
-                                }
+                                {'type': 'reasoning', 'content': 'Let me list the files in the current directory.'}
                             ],
                         }
                     ],
