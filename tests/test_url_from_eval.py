@@ -17,7 +17,7 @@ def _make_report(trace_id: str | None = None, span_id: str | None = None) -> Eva
 
 def test_url_from_eval_with_project_url() -> None:
     config = LogfireConfig(send_to_logfire=False, console=False)
-    config.project_url = 'https://logfire.pydantic.dev/my-org/my-project'
+    config._project_url = 'https://logfire.pydantic.dev/my-org/my-project'  # type: ignore[reportPrivateUsage]
     instance = logfire.Logfire(config=config)
 
     report = _make_report(trace_id='abc123', span_id='def456')
@@ -36,7 +36,7 @@ def test_url_from_eval_no_project_url() -> None:
 
 def test_url_from_eval_no_trace_id() -> None:
     config = LogfireConfig(send_to_logfire=False, console=False)
-    config.project_url = 'https://logfire.pydantic.dev/my-org/my-project'
+    config._project_url = 'https://logfire.pydantic.dev/my-org/my-project'  # type: ignore[reportPrivateUsage]
     instance = logfire.Logfire(config=config)
 
     report = _make_report(span_id='def456')
@@ -46,7 +46,7 @@ def test_url_from_eval_no_trace_id() -> None:
 
 def test_url_from_eval_no_span_id() -> None:
     config = LogfireConfig(send_to_logfire=False, console=False)
-    config.project_url = 'https://logfire.pydantic.dev/my-org/my-project'
+    config._project_url = 'https://logfire.pydantic.dev/my-org/my-project'  # type: ignore[reportPrivateUsage]
     instance = logfire.Logfire(config=config)
 
     report = _make_report(trace_id='abc123')
@@ -56,7 +56,7 @@ def test_url_from_eval_no_span_id() -> None:
 
 def test_url_from_eval_trailing_slash() -> None:
     config = LogfireConfig(send_to_logfire=False, console=False)
-    config.project_url = 'https://logfire.pydantic.dev/my-org/my-project/'
+    config._project_url = 'https://logfire.pydantic.dev/my-org/my-project/'  # type: ignore[reportPrivateUsage]
     instance = logfire.Logfire(config=config)
 
     report = _make_report(trace_id='abc123', span_id='def456')
@@ -66,7 +66,7 @@ def test_url_from_eval_trailing_slash() -> None:
 
 def test_url_from_eval_no_ids() -> None:
     config = LogfireConfig(send_to_logfire=False, console=False)
-    config.project_url = 'https://logfire.pydantic.dev/my-org/my-project'
+    config._project_url = 'https://logfire.pydantic.dev/my-org/my-project'  # type: ignore[reportPrivateUsage]
     instance = logfire.Logfire(config=config)
 
     report = _make_report()
