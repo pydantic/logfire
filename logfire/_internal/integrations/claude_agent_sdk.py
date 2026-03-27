@@ -110,26 +110,23 @@ def _content_blocks_to_output_messages(content: Any) -> list[OutputMessage]:
 
     for block in cast(list[Any], content):
         if isinstance(block, TextBlock):
-            parts.append(TextPart(type='text', content=getattr(block, 'text', '')))
+            parts.append(TextPart(type='text', content=block.text))
         elif isinstance(block, ThinkingBlock):
-            parts.append(ReasoningPart(type='reasoning', content=getattr(block, 'thinking', '')))
+            parts.append(ReasoningPart(type='reasoning', content=block.thinking))
         elif isinstance(block, ToolUseBlock):
             part = ToolCallPart(
                 type='tool_call',
-                id=getattr(block, 'id', '') or '',
-                name=getattr(block, 'name', '') or '',
+                id=block.id or '',
+                name=block.name or '',
             )
-            tool_input = getattr(block, 'input', None)
-            if tool_input is not None:  # pragma: no branch
-                part['arguments'] = tool_input
+            part['arguments'] = block.input
             parts.append(part)
         elif isinstance(block, ToolResultBlock):
-            tool_content = getattr(block, 'content', None)
-            content_text = _extract_tool_result_text(tool_content)
+            content_text = _extract_tool_result_text(block.content)
             parts.append(
                 {
                     'type': 'tool_call_response',
-                    'id': getattr(block, 'tool_use_id', '') or '',
+                    'id': block.tool_use_id or '',
                     'response': content_text,
                 }
             )
