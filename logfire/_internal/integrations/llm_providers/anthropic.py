@@ -340,7 +340,15 @@ def on_response(
         span.set_attribute(RESPONSE_ID, response.id)
 
         if response.usage:  # pragma: no branch
-            span.set_attribute(INPUT_TOKENS, response.usage.input_tokens)
+            # Anthropic's input_tokens only counts uncached tokens.
+            # Per OTel GenAI semconv, gen_ai.usage.input_tokens should be the total,
+            # so we add cache_read_input_tokens and cache_creation_input_tokens.
+            span.set_attribute(
+                INPUT_TOKENS,
+                response.usage.input_tokens
+                + (response.usage.cache_read_input_tokens or 0)
+                + (response.usage.cache_creation_input_tokens or 0),
+            )
             span.set_attribute(OUTPUT_TOKENS, response.usage.output_tokens)
 
         if response.stop_reason:
