@@ -206,10 +206,9 @@ async def pre_tool_use_hook(
     if not tool_use_id:
         return {}
 
-    tool_name = str(input_data.get('tool_name', 'unknown_tool'))
-    tool_input = input_data.get('tool_input', {})
-
     with handle_internal_errors:
+        tool_name = str(input_data.get('tool_name', 'unknown_tool'))
+        tool_input = input_data.get('tool_input', {})
         # Close the current chat span so it doesn't overlap with tool execution.
         turn_tracker = _get_turn_tracker()
         if turn_tracker is not None:
