@@ -226,7 +226,7 @@ async def post_tool_use_hook(
             return {}
 
         span = state.active_tool_spans.pop(tool_use_id, None)
-        if not span:
+        if not span:  # pragma: no cover
             return {}
 
         tool_response = input_data.get('tool_response')
@@ -256,7 +256,7 @@ async def post_tool_use_failure_hook(
             return {}
 
         span = state.active_tool_spans.pop(tool_use_id, None)
-        if not span:
+        if not span:  # pragma: no cover
             return {}
 
         error = str(input_data.get('error', 'Unknown error'))
