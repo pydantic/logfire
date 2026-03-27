@@ -40,6 +40,7 @@ from logfire._internal.integrations.llm_providers.semconv import (
     TOOL_CALL_ID,
     TOOL_CALL_RESULT,
     TOOL_NAME,
+    MessagePart,
     OutputMessage,
     ReasoningPart,
     TextPart,
@@ -112,11 +113,11 @@ def _clear_active_tool_spans() -> None:
 
 def _content_blocks_to_output_messages(content: Any) -> list[OutputMessage]:
     """Convert SDK content block objects into semconv OutputMessages."""
-    parts: list[Any] = []
+    parts: list[MessagePart] = []
     if not isinstance(content, list):
         return []
 
-    for block in cast(list[Any], content):
+    for block in cast('list[TextBlock | ThinkingBlock | ToolUseBlock | ToolResultBlock | Any]', content):
         if isinstance(block, TextBlock):
             parts.append(TextPart(type='text', content=block.text))
         elif isinstance(block, ThinkingBlock):
