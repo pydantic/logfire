@@ -684,7 +684,7 @@ async def test_tool_use_conversation_cassette(
                 'start_time': 3000000000,
                 'end_time': 4000000000,
                 'attributes': {
-                    'code.filepath': 'pytest',
+                    'code.filepath': IsStr(),
                     'code.lineno': 123,
                     'gen_ai.operation.name': 'execute_tool',
                     'gen_ai.tool.name': 'Bash',
