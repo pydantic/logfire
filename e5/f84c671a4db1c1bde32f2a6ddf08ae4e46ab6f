@@ -1,0 +1,23 @@
+tests/otel_integrations/test_claude_agent_sdk.py
+  70a89903b5292196 157-162,166-167,171-172,179,182,186-187
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.19",
+  "base_commit_sha": "e5f84c671a4db1c1bde32f2a6ddf08ae4e46ab6f",
+  "prompts": {
+    "70a89903b5292196": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0334ea9b-934c-4d73-a129-8bf1331cc42c",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>",
+      "messages": [],
+      "total_additions": 31,
+      "total_deletions": 39,
+      "accepted_lines": 14,
+      "overriden_lines": 0
+    }
+  }
+}
