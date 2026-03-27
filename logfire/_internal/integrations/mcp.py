@@ -73,8 +73,11 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
     @functools.wraps(original_received_notification)
     async def _received_notification(self: Any, notification: Any, *args: Any, **kwargs: Any):
         with handle_internal_errors:
-            if isinstance(notification.root, LoggingMessageNotification):  # pragma: no branch
-                params = notification.root.params
+            # Use getattr to handle both RootModel wrappers and bare notification types,
+            # consistent with the pattern used in send_request, send_notification, and _received_request_client.
+            root = getattr(notification, 'root', notification)
+            if isinstance(root, LoggingMessageNotification):  # pragma: no branch
+                params = root.params
                 level: LevelName
                 if params.level in ('critical', 'alert', 'emergency'):
                     level = 'fatal'
@@ -83,7 +86,7 @@ def instrument_mcp(logfire_instance: Logfire, propagate_otel_context: bool):
                 span_name = 'MCP server log'
                 if params.logger:
                     span_name += f' from {params.logger}'
-                with _request_context(notification.root):
+                with _request_context(root):
                     logfire_instance.log(level, span_name, attributes=dict(data=params.data))
         await original_received_notification(self, notification, *args, **kwargs)
 
