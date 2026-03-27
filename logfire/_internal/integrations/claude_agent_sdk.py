@@ -86,7 +86,7 @@ def _get_logfire_instance() -> Logfire | None:
 
 
 def _clear_logfire_instance() -> None:
-    if hasattr(_thread_local, 'logfire_instance'):
+    if hasattr(_thread_local, 'logfire_instance'):  # pragma: no branch
         delattr(_thread_local, 'logfire_instance')
 
 
@@ -99,7 +99,7 @@ def _get_turn_tracker() -> _TurnTracker | None:
 
 
 def _clear_turn_tracker() -> None:
-    if hasattr(_thread_local, 'turn_tracker'):
+    if hasattr(_thread_local, 'turn_tracker'):  # pragma: no branch
         delattr(_thread_local, 'turn_tracker')
 
 
