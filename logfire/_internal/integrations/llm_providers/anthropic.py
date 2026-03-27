@@ -343,12 +343,12 @@ def on_response(
             # Anthropic's input_tokens only counts uncached tokens.
             # Per OTel GenAI semconv, gen_ai.usage.input_tokens should be the total,
             # so we add cache_read_input_tokens and cache_creation_input_tokens.
-            total_input_tokens = response.usage.input_tokens
-            if response.usage.cache_read_input_tokens:
-                total_input_tokens += response.usage.cache_read_input_tokens
-            if response.usage.cache_creation_input_tokens:
-                total_input_tokens += response.usage.cache_creation_input_tokens
-            span.set_attribute(INPUT_TOKENS, total_input_tokens)
+            span.set_attribute(
+                INPUT_TOKENS,
+                response.usage.input_tokens
+                + (response.usage.cache_read_input_tokens or 0)
+                + (response.usage.cache_creation_input_tokens or 0),
+            )
             span.set_attribute(OUTPUT_TOKENS, response.usage.output_tokens)
 
         if response.stop_reason:
