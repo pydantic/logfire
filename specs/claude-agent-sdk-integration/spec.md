@@ -67,5 +67,23 @@ The SDK uses anyio internally, and anyio tasks don't propagate contextvars from 
 **Active tool spans are tracked by `tool_use_id` to correlate pre/post hooks.** *(from "Tool spans use `execute_tool`", "Hooks run in isolated async contexts")*
 `PreToolUse` creates and stores `(span, context_token)`. `PostToolUse`/`PostToolUseFailure` retrieves, sets attributes, ends the span, detaches context. Orphaned spans are cleaned up when the conversation ends.
 
-**Tests mock at the transport layer to exercise real monkey-patched methods.** *(from "Instrumentation is via monkey-patching")*
-Context: The SDK communicates via subprocess, so real calls can't be used in tests. A `MockTransport` implementing the SDK's `Transport` protocol handles the initialize handshake, yields predefined messages, and dispatches hook callbacks for tool_use blocks. Mocking at the transport layer (rather than patching SDK methods) ensures the actual monkey-patched `__init__`, `query`, and `receive_response` are exercised. Note: the SDK's `Query.close()` doesn't close anyio `MemoryObjectStreams`, causing ResourceWarning during GC — tests suppress this via `pytestmark` and a `_force_gc()` teardown helper.
+**Integration tests use cassette-based record/replay through the real `SubprocessCLITransport`.** *(from "Instrumentation is via monkey-patching")*
+The SDK communicates via subprocess, so real calls can't be used in CI. Instead of mocking the transport layer, we replace the subprocess itself: `ClaudeAgentOptions.cli_path` points to `fake_claude.py`, a Python script that replays recorded I/O. This means the real transport's pipe handling, JSON parsing, and process lifecycle all execute during tests.
+
+**`fake_claude.py` acts as both recorder and replayer.** *(from "Integration tests use cassette-based record/replay")*
+Controlled by environment variables (`CASSETTE_MODE`, `CASSETTE_PATH`, `REAL_CLAUDE_PATH`):
+
+- **Record mode** (`--record-cassettes` pytest flag): Spawns the real `claude` CLI as a child, proxies stdin/stdout, and tees every message to a cassette file. ID fields are normalized during recording so cassettes are deterministic.
+- **Replay mode** (default): Reads the cassette file, replays stdout messages, and consumes stdin at the correct points to maintain protocol timing. Also handles the `-v` version check that `SubprocessCLITransport` runs before the main conversation.
+
+**Cassette files are JSON with ordered message entries.** *(from "fake_claude.py acts as both recorder and replayer")*
+Format: `{"metadata": {...}, "messages": [{"direction": "send"|"recv", "message": <JSON>}, ...]}`. Stored in `tests/otel_integrations/cassettes/test_claude_agent_sdk/`. Each cassette is recorded from a real Claude session and committed to the repo. CI always runs in replay mode.
+
+**Only real cassettes are allowed — no hand-crafted or synthetic fixtures.** *(from "Cassette files are JSON with ordered message entries")*
+All cassette files must be producible via `--record-cassettes`. Defensive code paths that handle rare server-side conditions (e.g. `AssistantMessage.error`, `ResultMessage.is_error=True`, missing usage) use `# pragma: no cover` or `# pragma: no branch` instead of fabricated test data.
+
+**Unit tests for pure helper functions use Mock objects, not cassettes.** *(from "Integration tests use cassette-based record/replay")*
+Tests for `_content_blocks_to_output_messages`, `_extract_usage`, `_extract_tool_result_text`, hook functions, and hook injection are standalone unit tests with no dependency on the SDK transport.
+
+**Test teardown closes streams the SDK neglects.** *(from "Integration tests use cassette-based record/replay")*
+The SDK's `Query.close()` doesn't close its internal `MemoryObjectSendStream` / `MemoryObjectReceiveStream`, and `SubprocessCLITransport.close()` doesn't close stdout. Tests explicitly close these before `client.disconnect()` via `_close_sdk_streams()` to prevent `ResourceWarning` on GC — no warning suppression or forced GC needed.
