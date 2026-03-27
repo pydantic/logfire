@@ -404,6 +404,9 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> AbstractContextMan
                             turn_tracker.handle_user_message()
                         elif isinstance(msg, ResultMessage):  # pragma: no branch
                             _record_result(root_span, msg)
+                            if turn_tracker.model:  # pragma: no branch
+                                root_span.set_attribute(REQUEST_MODEL, turn_tracker.model)
+                                root_span.set_attribute(RESPONSE_MODEL, turn_tracker.model)
 
                     yield msg
             finally:
@@ -480,6 +483,7 @@ class _TurnTracker:
         # Track current span's output parts for merging consecutive messages.
         self._current_output_parts: list[MessagePart] = []
         self._system_instructions = system_instructions
+        self.model: str | None = None
 
     def add_tool_result(self, tool_use_id: str, tool_name: str, result: Any) -> None:
         """Record a tool result to include in the next chat span's input messages."""
@@ -543,6 +547,7 @@ class _TurnTracker:
 
         model = getattr(message, 'model', None)
         if model:  # pragma: no branch
+            self.model = model
             self._current_span.set_attribute(REQUEST_MODEL, model)
             self._current_span.set_attribute(RESPONSE_MODEL, model)
             # Update span name to include model.
@@ -571,11 +576,6 @@ def _record_result(span: LogfireSpan, msg: ResultMessage) -> None:
 
     if hasattr(msg, 'total_cost_usd') and msg.total_cost_usd is not None:  # pragma: no branch
         attrs['operation.cost'] = float(msg.total_cost_usd)
-
-    model = getattr(msg, 'model', None)
-    if model:
-        attrs[REQUEST_MODEL] = model
-        attrs[RESPONSE_MODEL] = model
 
     session_id = getattr(msg, 'session_id', None)
     if session_id is not None:  # pragma: no branch
