@@ -86,7 +86,8 @@ async def _close_sdk_streams(client: ClaudeSDKClient) -> None:
     query = client._query
     if query is not None:
         # Closing a query may use the streams, so that has to be done first.
-        await query.close()
+        with suppress(Exception):
+            await query.close()
         with suppress(Exception):
             await query._message_send.aclose()
         with suppress(Exception):
