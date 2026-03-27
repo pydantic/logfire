@@ -45,6 +45,7 @@ from logfire._internal.integrations.llm_providers.semconv import (
     ReasoningPart,
     TextPart,
     ToolCallPart,
+    ToolCallResponsePart,
 )
 from logfire._internal.utils import handle_internal_errors
 
@@ -133,11 +134,11 @@ def _content_blocks_to_output_messages(content: Any) -> list[OutputMessage]:
         elif isinstance(block, ToolResultBlock):
             content_text = _extract_tool_result_text(block.content)
             parts.append(
-                {
-                    'type': 'tool_call_response',
-                    'id': block.tool_use_id or '',
-                    'response': content_text,
-                }
+                ToolCallResponsePart(
+                    type='tool_call_response',
+                    id=block.tool_use_id or '',
+                    response=content_text,
+                )
             )
         else:
             parts.append(block)
