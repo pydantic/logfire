@@ -24,15 +24,11 @@ from opentelemetry import context as context_api, trace as trace_api
 from opentelemetry.context import Context
 
 from logfire._internal.integrations.llm_providers.semconv import (
-    CACHE_CREATION_INPUT_TOKENS,
-    CACHE_READ_INPUT_TOKENS,
     CONVERSATION_ID,
     ERROR_TYPE,
     INPUT_MESSAGES,
-    INPUT_TOKENS,
     OPERATION_NAME,
     OUTPUT_MESSAGES,
-    OUTPUT_TOKENS,
     PROVIDER_NAME,
     RESPONSE_MODEL,
     SYSTEM,
@@ -148,13 +144,14 @@ def _content_blocks_to_output_messages(content: Any) -> list[OutputMessage]:
     return [msg]
 
 
-def _extract_usage(usage: Any, *, include_output_tokens: bool = True) -> dict[str, int]:
+def _extract_usage(usage: Any, *, partial: bool = False) -> dict[str, int]:
     """Extract usage metrics from a Claude usage object or dict.
 
     Args:
         usage: A usage object or dict from the SDK.
-        include_output_tokens: Whether to include output_tokens. Set to False for
-            chat spans where the SDK reports unreliable per-message output_tokens.
+        partial: If True, prefix attribute names with ``gen_ai.usage.partial.``
+            instead of ``gen_ai.usage.``. Used for chat spans where per-message
+            usage from the SDK is unreliable.
     """
     if not usage:
         return {}
@@ -170,9 +167,11 @@ def _extract_usage(usage: Any, *, include_output_tokens: bool = True) -> dict[st
         except (ValueError, TypeError):
             return None
 
+    prefix = 'gen_ai.usage.partial.' if partial else 'gen_ai.usage.'
+
     result: dict[str, int] = {}
 
-    # gen_ai.usage.input_tokens is the *total* input token count.
+    # input_tokens is the *total* input token count.
     # The Anthropic API's input_tokens only counts uncached tokens,
     # so we sum input + cache_read + cache_creation to get the actual total.
     input_tokens = to_int(get('input_tokens')) or 0
@@ -180,16 +179,15 @@ def _extract_usage(usage: Any, *, include_output_tokens: bool = True) -> dict[st
     cache_creation = to_int(get('cache_creation_input_tokens')) or 0
     total_input = input_tokens + cache_read + cache_creation
     if total_input:
-        result[INPUT_TOKENS] = total_input
+        result[f'{prefix}input_tokens'] = total_input
 
-    if include_output_tokens:
-        if (v := to_int(get('output_tokens'))) is not None:
-            result[OUTPUT_TOKENS] = v
+    if (v := to_int(get('output_tokens'))) is not None:
+        result[f'{prefix}output_tokens'] = v
 
     if cache_read:
-        result[CACHE_READ_INPUT_TOKENS] = cache_read
+        result[f'{prefix}cache_read.input_tokens'] = cache_read
     if cache_creation:
-        result[CACHE_CREATION_INPUT_TOKENS] = cache_creation
+        result[f'{prefix}cache_creation.input_tokens'] = cache_creation
 
     return result
 
@@ -538,7 +536,7 @@ class _TurnTracker:
 
         usage = getattr(message, 'usage', None)
         if usage:  # pragma: no branch
-            self._current_span.set_attributes(_extract_usage(usage, include_output_tokens=False))
+            self._current_span.set_attributes(_extract_usage(usage, partial=True))
 
         error = getattr(message, 'error', None)
         if error:  # pragma: no cover

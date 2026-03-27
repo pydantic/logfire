@@ -227,10 +227,10 @@ class TestExtractUsage:
         result = _extract_usage(UsageObj())
         assert result == {'gen_ai.usage.input_tokens': 100, 'gen_ai.usage.output_tokens': 50}
 
-    def test_no_output_tokens(self) -> None:
-        result = _extract_usage({'input_tokens': 100, 'output_tokens': 50}, include_output_tokens=False)
-        assert result == {'gen_ai.usage.input_tokens': 100}
-        assert 'gen_ai.usage.output_tokens' not in result
+    def test_partial_usage(self) -> None:
+        result = _extract_usage({'input_tokens': 100, 'output_tokens': 50}, partial=True)
+        assert result == {'gen_ai.usage.partial.input_tokens': 100, 'gen_ai.usage.partial.output_tokens': 50}
+        assert 'gen_ai.usage.input_tokens' not in result
 
     def test_invalid_token_values(self) -> None:
         result = _extract_usage({'input_tokens': 'not_a_number', 'output_tokens': None})
@@ -592,9 +592,10 @@ async def test_basic_conversation_cassette(
                     'gen_ai.response.model': 'claude-sonnet-4-6',
                     'gen_ai.output.messages': [{'role': 'assistant', 'parts': [{'type': 'text', 'content': '4'}]}],
                     'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'What is 2+2?'}]}],
-                    'gen_ai.usage.input_tokens': 9344,
-                    'gen_ai.usage.cache_read.input_tokens': 7166,
-                    'gen_ai.usage.cache_creation.input_tokens': 2175,
+                    'gen_ai.usage.partial.input_tokens': 9344,
+                    'gen_ai.usage.partial.output_tokens': 1,
+                    'gen_ai.usage.partial.cache_read.input_tokens': 7166,
+                    'gen_ai.usage.partial.cache_creation.input_tokens': 2175,
                     'logfire.msg_template': 'chat',
                     'logfire.msg': 'chat claude-sonnet-4-6',
                     'logfire.json_schema': {
@@ -606,9 +607,10 @@ async def test_basic_conversation_cassette(
                             'gen_ai.response.model': {},
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.input.messages': {'type': 'array'},
-                            'gen_ai.usage.input_tokens': {},
-                            'gen_ai.usage.cache_read.input_tokens': {},
-                            'gen_ai.usage.cache_creation.input_tokens': {},
+                            'gen_ai.usage.partial.input_tokens': {},
+                            'gen_ai.usage.partial.output_tokens': {},
+                            'gen_ai.usage.partial.cache_read.input_tokens': {},
+                            'gen_ai.usage.partial.cache_creation.input_tokens': {},
                         },
                     },
                     'logfire.span_type': 'span',
@@ -715,9 +717,10 @@ async def test_tool_use_conversation_cassette(
                         }
                     ],
                     'gen_ai.response.model': 'claude-sonnet-4-6',
-                    'gen_ai.usage.input_tokens': 9343,
-                    'gen_ai.usage.cache_read.input_tokens': 8313,
-                    'gen_ai.usage.cache_creation.input_tokens': 1027,
+                    'gen_ai.usage.partial.input_tokens': 9343,
+                    'gen_ai.usage.partial.output_tokens': 0,
+                    'gen_ai.usage.partial.cache_read.input_tokens': 8313,
+                    'gen_ai.usage.partial.cache_creation.input_tokens': 1027,
                     'logfire.msg_template': 'chat',
                     'logfire.msg': 'chat claude-sonnet-4-6',
                     'logfire.json_schema': {
@@ -729,9 +732,10 @@ async def test_tool_use_conversation_cassette(
                             'gen_ai.input.messages': {'type': 'array'},
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.response.model': {},
-                            'gen_ai.usage.input_tokens': {},
-                            'gen_ai.usage.cache_read.input_tokens': {},
-                            'gen_ai.usage.cache_creation.input_tokens': {},
+                            'gen_ai.usage.partial.input_tokens': {},
+                            'gen_ai.usage.partial.output_tokens': {},
+                            'gen_ai.usage.partial.cache_read.input_tokens': {},
+                            'gen_ai.usage.partial.cache_creation.input_tokens': {},
                         },
                     },
                     'logfire.span_type': 'span',
@@ -849,9 +853,10 @@ There are **9 files** and **12 directories** in the current directory. It looks 
                             ],
                         },
                     ],
-                    'gen_ai.usage.input_tokens': 9529,
-                    'gen_ai.usage.cache_read.input_tokens': 9340,
-                    'gen_ai.usage.cache_creation.input_tokens': 188,
+                    'gen_ai.usage.partial.input_tokens': 9529,
+                    'gen_ai.usage.partial.output_tokens': 1,
+                    'gen_ai.usage.partial.cache_read.input_tokens': 9340,
+                    'gen_ai.usage.partial.cache_creation.input_tokens': 188,
                     'logfire.msg_template': 'chat',
                     'logfire.msg': 'chat claude-sonnet-4-6',
                     'logfire.json_schema': {
@@ -863,9 +868,10 @@ There are **9 files** and **12 directories** in the current directory. It looks 
                             'gen_ai.response.model': {},
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.input.messages': {'type': 'array'},
-                            'gen_ai.usage.input_tokens': {},
-                            'gen_ai.usage.cache_read.input_tokens': {},
-                            'gen_ai.usage.cache_creation.input_tokens': {},
+                            'gen_ai.usage.partial.input_tokens': {},
+                            'gen_ai.usage.partial.output_tokens': {},
+                            'gen_ai.usage.partial.cache_read.input_tokens': {},
+                            'gen_ai.usage.partial.cache_creation.input_tokens': {},
                         },
                     },
                     'logfire.span_type': 'span',
