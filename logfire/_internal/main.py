@@ -1000,7 +1000,7 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         instrument_mcp(self, propagate_otel_context)
 
-    def instrument_claude_agent_sdk(self) -> AbstractContextManager[None]:  # pragma: no cover
+    def instrument_claude_agent_sdk(self) -> AbstractContextManager[None]:
         """Instrument the [Claude Agent SDK](https://platform.claude.com/docs/en/agent-sdk/overview).
 
         All `ClaudeSDKClient` instances created after this call will be automatically traced.
