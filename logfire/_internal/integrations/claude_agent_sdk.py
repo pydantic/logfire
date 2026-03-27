@@ -572,6 +572,11 @@ def _record_result(span: LogfireSpan, msg: ResultMessage) -> None:
     if hasattr(msg, 'total_cost_usd') and msg.total_cost_usd is not None:  # pragma: no branch
         attrs['operation.cost'] = float(msg.total_cost_usd)
 
+    model = getattr(msg, 'model', None)
+    if model:
+        attrs[REQUEST_MODEL] = model
+        attrs[RESPONSE_MODEL] = model
+
     session_id = getattr(msg, 'session_id', None)
     if session_id is not None:  # pragma: no branch
         attrs[CONVERSATION_ID] = session_id
