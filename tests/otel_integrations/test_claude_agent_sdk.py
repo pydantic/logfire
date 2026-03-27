@@ -568,7 +568,7 @@ async def test_basic_conversation_cassette(
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
-                'name': 'chat claude-sonnet-4-6',
+                'name': 'chat',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
@@ -587,7 +587,7 @@ async def test_basic_conversation_cassette(
                     'gen_ai.usage.output_tokens': 1,
                     'gen_ai.usage.cache_read.input_tokens': 7166,
                     'gen_ai.usage.cache_creation.input_tokens': 2175,
-                    'logfire.msg_template': 'chat claude-sonnet-4-6',
+                    'logfire.msg_template': 'chat',
                     'logfire.msg': 'chat claude-sonnet-4-6',
                     'logfire.json_schema': {
                         'type': 'object',
@@ -707,7 +707,7 @@ async def test_tool_use_conversation_cassette(
                 },
             },
             {
-                'name': 'chat claude-sonnet-4-6',
+                'name': 'chat',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
@@ -716,7 +716,7 @@ async def test_tool_use_conversation_cassette(
                     'code.filepath': IsStr(),
                     'code.function': 'test_tool_use_conversation_cassette',
                     'code.lineno': 123,
-                    'logfire.msg_template': 'chat claude-sonnet-4-6',
+                    'logfire.msg_template': 'chat',
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.system': 'anthropic',
                     'gen_ai.response.model': 'claude-sonnet-4-6',
@@ -762,7 +762,7 @@ async def test_tool_use_conversation_cassette(
                 },
             },
             {
-                'name': 'chat claude-sonnet-4-6',
+                'name': 'chat',
                 'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 6000000000,
@@ -832,7 +832,7 @@ There are **9 files** and **12 directories** in the current directory. It looks 
                     'gen_ai.usage.output_tokens': 1,
                     'gen_ai.usage.cache_read.input_tokens': 9340,
                     'gen_ai.usage.cache_creation.input_tokens': 188,
-                    'logfire.msg_template': 'chat claude-sonnet-4-6',
+                    'logfire.msg_template': 'chat',
                     'logfire.msg': 'chat claude-sonnet-4-6',
                     'logfire.json_schema': {
                         'type': 'object',
