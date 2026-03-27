@@ -366,6 +366,7 @@ async def test_tool_use_hooks(exporter: TestExporter) -> None:
                     'gen_ai.tool.call.arguments': {'path': '/tmp/test'},
                     'logfire.span_type': 'span',
                     'error.type': 'Permission denied',
+                    'logfire.level_num': 17,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
