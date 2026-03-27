@@ -678,39 +678,72 @@ async def test_tool_use_conversation_cassette(
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
+                'name': 'execute_tool Bash',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'pytest',
+                    'code.lineno': 123,
+                    'gen_ai.operation.name': 'execute_tool',
+                    'gen_ai.tool.name': 'Bash',
+                    'gen_ai.tool.call.id': 'toolu_01MRdgcFhYNo1LHvRQKvKckg',
+                    'gen_ai.tool.call.arguments': {'command': 'ls', 'description': 'List files in current directory'},
+                    'gen_ai.tool.call.result': "{'stdout': 'CHANGELOG.md\\nCLAUDE.md\\nCONTRIBUTING.md\\nLICENSE\\nMakefile\\nREADME.md\\ndist\\ndocs\\nexamples\\nignoreme\\nlogfire\\nlogfire-api\\nmkdocs.yml\\nplans\\npyodide_test\\npyproject.toml\\nrelease\\nscratch\\nsite\\nspecs\\ntests\\nuv.lock', 'stderr': '', 'interrupted': False, 'isImage': False, 'noOutputExpected': False}",
+                    'logfire.msg_template': 'execute_tool Bash',
+                    'logfire.msg': 'execute_tool Bash',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'gen_ai.operation.name': {},
+                            'gen_ai.tool.name': {},
+                            'gen_ai.tool.call.id': {},
+                            'gen_ai.tool.call.arguments': {'type': 'object'},
+                            'gen_ai.tool.call.result': {},
+                        },
+                    },
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
                 'name': 'chat claude-sonnet-4-6',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
-                'end_time': 3000000000,
+                'end_time': 5000000000,
                 'attributes': {
-                    'code.filepath': 'test_claude_agent_sdk.py',
+                    'code.filepath': IsStr(),
                     'code.function': 'test_tool_use_conversation_cassette',
                     'code.lineno': 123,
-                    'gen_ai.operation.name': 'chat',
+                    'logfire.msg_template': 'chat claude-sonnet-4-6',
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.system': 'anthropic',
                     'gen_ai.response.model': 'claude-sonnet-4-6',
+                    'gen_ai.input.messages': [
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'List files in the current directory'}]}
+                    ],
+                    'logfire.msg': 'chat claude-sonnet-4-6',
+                    'gen_ai.operation.name': 'chat',
                     'gen_ai.output.messages': [
                         {
                             'role': 'assistant',
                             'parts': [
-                                {'type': 'reasoning', 'content': 'Let me list the files in the current directory.'}
+                                {'type': 'reasoning', 'content': 'Let me list the files in the current directory.'},
+                                {
+                                    'type': 'tool_call',
+                                    'id': 'toolu_01MRdgcFhYNo1LHvRQKvKckg',
+                                    'name': 'Bash',
+                                    'arguments': {'command': 'ls', 'description': 'List files in current directory'},
+                                },
                             ],
-                        }
-                    ],
-                    'gen_ai.input.messages': [
-                        {
-                            'role': 'user',
-                            'parts': [{'type': 'text', 'content': 'List files in the current directory'}],
                         }
                     ],
                     'gen_ai.usage.input_tokens': 3,
                     'gen_ai.usage.output_tokens': 0,
                     'gen_ai.usage.cache_read.input_tokens': 8313,
                     'gen_ai.usage.cache_creation.input_tokens': 1027,
-                    'logfire.msg_template': 'chat claude-sonnet-4-6',
-                    'logfire.msg': 'chat claude-sonnet-4-6',
+                    'logfire.span_type': 'span',
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -726,100 +759,14 @@ async def test_tool_use_conversation_cassette(
                             'gen_ai.usage.cache_creation.input_tokens': {},
                         },
                     },
-                    'logfire.span_type': 'span',
                 },
             },
             {
-                'name': 'execute_tool Bash',
+                'name': 'chat claude-sonnet-4-6',
                 'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 5000000000,
-                'end_time': 6000000000,
-                'attributes': {
-                    'code.filepath': IsStr(),
-                    'code.lineno': 123,
-                    'logfire.msg_template': 'execute_tool Bash',
-                    'logfire.msg': 'execute_tool Bash',
-                    'gen_ai.operation.name': 'execute_tool',
-                    'gen_ai.tool.name': 'Bash',
-                    'gen_ai.tool.call.id': 'toolu_01MRdgcFhYNo1LHvRQKvKckg',
-                    'gen_ai.tool.call.arguments': {
-                        'command': 'ls',
-                        'description': 'List files in current directory',
-                    },
-                    'logfire.span_type': 'span',
-                    'gen_ai.tool.call.result': "{'stdout': 'CHANGELOG.md\\nCLAUDE.md\\nCONTRIBUTING.md\\nLICENSE\\nMakefile\\nREADME.md\\ndist\\ndocs\\nexamples\\nignoreme\\nlogfire\\nlogfire-api\\nmkdocs.yml\\nplans\\npyodide_test\\npyproject.toml\\nrelease\\nscratch\\nsite\\nspecs\\ntests\\nuv.lock', 'stderr': '', 'interrupted': False, 'isImage': False, 'noOutputExpected': False}",
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'gen_ai.operation.name': {},
-                            'gen_ai.tool.name': {},
-                            'gen_ai.tool.call.id': {},
-                            'gen_ai.tool.call.arguments': {'type': 'object'},
-                            'gen_ai.tool.call.result': {},
-                        },
-                    },
-                },
-            },
-            {
-                'name': 'chat claude-sonnet-4-6',
-                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 4000000000,
+                'start_time': 6000000000,
                 'end_time': 7000000000,
-                'attributes': {
-                    'code.filepath': 'test_claude_agent_sdk.py',
-                    'code.function': 'test_tool_use_conversation_cassette',
-                    'code.lineno': 123,
-                    'gen_ai.operation.name': 'chat',
-                    'gen_ai.provider.name': 'anthropic',
-                    'gen_ai.system': 'anthropic',
-                    'gen_ai.response.model': 'claude-sonnet-4-6',
-                    'gen_ai.output.messages': [
-                        {
-                            'role': 'assistant',
-                            'parts': [
-                                {
-                                    'type': 'tool_call',
-                                    'id': 'toolu_01MRdgcFhYNo1LHvRQKvKckg',
-                                    'name': 'Bash',
-                                    'arguments': {
-                                        'command': 'ls',
-                                        'description': 'List files in current directory',
-                                    },
-                                }
-                            ],
-                        }
-                    ],
-                    'gen_ai.usage.input_tokens': 3,
-                    'gen_ai.usage.output_tokens': 0,
-                    'gen_ai.usage.cache_read.input_tokens': 8313,
-                    'gen_ai.usage.cache_creation.input_tokens': 1027,
-                    'logfire.msg_template': 'chat claude-sonnet-4-6',
-                    'logfire.msg': 'chat claude-sonnet-4-6',
-                    'logfire.json_schema': {
-                        'type': 'object',
-                        'properties': {
-                            'gen_ai.operation.name': {},
-                            'gen_ai.provider.name': {},
-                            'gen_ai.system': {},
-                            'gen_ai.response.model': {},
-                            'gen_ai.output.messages': {'type': 'array'},
-                            'gen_ai.usage.input_tokens': {},
-                            'gen_ai.usage.output_tokens': {},
-                            'gen_ai.usage.cache_read.input_tokens': {},
-                            'gen_ai.usage.cache_creation.input_tokens': {},
-                        },
-                    },
-                    'logfire.span_type': 'span',
-                },
-            },
-            {
-                'name': 'chat claude-sonnet-4-6',
-                'context': {'trace_id': 1, 'span_id': 9, 'is_remote': False},
-                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
-                'start_time': 8000000000,
-                'end_time': 9000000000,
                 'attributes': {
                     'code.filepath': 'test_claude_agent_sdk.py',
                     'code.function': 'test_tool_use_conversation_cassette',
@@ -910,7 +857,7 @@ There are **9 files** and **12 directories** in the current directory. It looks 
                 'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'parent': None,
                 'start_time': 1000000000,
-                'end_time': 10000000000,
+                'end_time': 8000000000,
                 'attributes': {
                     'code.filepath': 'test_claude_agent_sdk.py',
                     'code.function': 'test_tool_use_conversation_cassette',
@@ -918,32 +865,31 @@ There are **9 files** and **12 directories** in the current directory. It looks 
                     'gen_ai.operation.name': 'invoke_agent',
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.system': 'anthropic',
+                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'Be helpful'}],
                     'gen_ai.input.messages': [
                         {
                             'role': 'user',
                             'parts': [{'type': 'text', 'content': 'List files in the current directory'}],
                         }
                     ],
-                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'Be helpful'}],
-                    'logfire.msg_template': 'invoke_agent',
-                    'logfire.msg': 'invoke_agent',
-                    'logfire.span_type': 'span',
                     'gen_ai.usage.input_tokens': 4,
                     'gen_ai.usage.output_tokens': 415,
                     'gen_ai.usage.cache_read.input_tokens': 17653,
                     'gen_ai.usage.cache_creation.input_tokens': 1215,
+                    'logfire.msg_template': 'invoke_agent',
                     'operation.cost': 0.01608915,
                     'gen_ai.conversation.id': 'ca03765b-a7e1-483b-9629-448c7aba5e7a',
                     'num_turns': 2,
                     'duration_ms': 9352,
+                    'logfire.msg': 'invoke_agent',
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
                             'gen_ai.operation.name': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.system': {},
-                            'gen_ai.input.messages': {'type': 'array'},
                             'gen_ai.system_instructions': {'type': 'array'},
+                            'gen_ai.input.messages': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.cache_read.input_tokens': {},
@@ -954,6 +900,7 @@ There are **9 files** and **12 directories** in the current directory. It looks 
                             'duration_ms': {},
                         },
                     },
+                    'logfire.span_type': 'span',
                 },
             },
         ]
