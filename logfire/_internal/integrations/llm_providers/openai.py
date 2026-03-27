@@ -256,13 +256,14 @@ def convert_chat_completions_to_semconv(
 
         if role == 'tool' and tool_call_id:  # pragma: no cover
             # Tool messages: content is the tool response
-            parts.append(
-                ToolCallResponsePart(
-                    type='tool_call_response',
-                    id=tool_call_id,
-                    response=content,
-                )
+            part = ToolCallResponsePart(
+                type='tool_call_response',
+                id=tool_call_id,
+                response=content,
             )
+            if name := msg.get('name'):
+                part['name'] = name
+            parts.append(part)
         else:
             # Regular messages: build parts from content and tool calls
             # Add content parts
@@ -282,12 +283,7 @@ def convert_chat_completions_to_semconv(
                     )
 
         # Build message structure
-        message: ChatMessage = {
-            'role': role,
-            'parts': parts,
-        }
-        if name := msg.get('name'):  # pragma: no cover
-            message['name'] = name
+        message = ChatMessage(role=role, parts=parts)
 
         # All messages (including system) go to input_messages since they're part of chat history
         input_messages.append(message)
@@ -357,19 +353,14 @@ def convert_responses_inputs_to_semconv(
                         )
                     )
                 elif typ == 'function_call_output':
-                    msg: ChatMessage = {
-                        'role': 'tool',
-                        'parts': [
-                            ToolCallResponsePart(
-                                type='tool_call_response',
-                                id=inp.get('call_id', ''),
-                                response=inp.get('output'),
-                            )
-                        ],
-                    }
+                    part = ToolCallResponsePart(
+                        type='tool_call_response',
+                        id=inp.get('call_id', ''),
+                        response=inp.get('output'),
+                    )
                     if 'name' in inp:  # pragma: no cover - optional field
-                        msg['name'] = inp['name']
-                    input_messages.append(msg)
+                        part['name'] = inp['name']
+                    input_messages.append(ChatMessage(role='tool', parts=[part]))
     return input_messages, system_instructions
 
 

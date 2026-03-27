@@ -109,6 +109,7 @@ class ToolCallResponsePart(TypedDict):
 
     type: Literal['tool_call_response']
     id: str
+    name: NotRequired[str]
     response: NotRequired[str | dict[str, Any] | None]
 
 
@@ -154,7 +155,6 @@ class ChatMessage(TypedDict):
 
     role: Role
     parts: list[MessagePart]
-    name: NotRequired[str]
 
 
 InputMessages: TypeAlias = list[ChatMessage]

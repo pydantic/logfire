@@ -428,7 +428,7 @@ class _TurnTracker:
         """Record a tool result to include in the next chat span's input messages."""
         msg = ChatMessage(
             role='tool',
-            parts=[ToolCallResponsePart(type='tool_call_response', id=tool_use_id, response=result)],
+            parts=[ToolCallResponsePart(type='tool_call_response', id=tool_use_id, name=tool_name, response=result)],
         )
         self._pending_input.append(msg)
 
