@@ -50,7 +50,7 @@ Attributes set at span creation:
 - `gen_ai.provider.name` = `anthropic`
 - `gen_ai.response.model` (from `AssistantMessage.model`)
 - `gen_ai.output.messages` (the assistant's content as `OutputMessages` using `TextPart`, `ToolCallPart`, etc. from semconv)
-- `gen_ai.input.messages` — constructed from available context: on the first turn, this is the user prompt (from `query()`); on subsequent turns, this is a list containing tool result messages built from the preceding tool calls' results (from `PostToolUse` hooks). This gives each chat span its input context, mirroring what was sent to the API for that turn. The `_TurnTracker` accumulates tool results between turns to build this.
+- `gen_ai.input.messages` — the full accumulated conversation history up to this turn. Each chat span should be independently readable: a user looking at a single span should see the complete set of messages the model received. The first turn has the user prompt. Subsequent turns include the user prompt, all prior assistant outputs (as assistant `ChatMessage`s), and all tool results. The `_TurnTracker` maintains a running `_history` list: after each turn, the current output is appended as an assistant message; tool results from hooks are appended as they arrive. The next turn's `INPUT_MESSAGES` is this full history. This means later spans repeat earlier content, but it makes each span self-contained for debugging.
 - `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens` (from `AssistantMessage.usage`)
 - `gen_ai.usage.cache_read.input_tokens`, `gen_ai.usage.cache_creation.input_tokens` (from `AssistantMessage.usage`, when present)
 - `error.type` (when `AssistantMessage.error` is set — e.g. `'rate_limit'`, `'server_error'`)

@@ -33,8 +33,21 @@ The span is already open and its output_messages attribute was set at creation. 
 **`_TurnTracker` needs to track the current span's output parts for merging.** *(from "Merging uses set_attribute to append output parts")*
 Add a `_current_output_parts: list[MessagePart]` field, populated on span creation, extended on merge. This avoids reading back from OTel span attributes (which isn't reliably supported).
 
-**How LangSmith handles this differently (for reference, not to copy).** *(from "The current implementation creates a separate chat span")*
-LangSmith creates a new LLM run for every `AssistantMessage` (same as current logfire behavior) but accumulates all messages in a `collected` list. Each LLM run receives the full conversation history as input (prompt + all prior assistant messages + tool results). This means the second run's input includes the original prompt and the first assistant's thinking block. We don't copy this approach because repeating the full history on every span is redundant — merging consecutive messages into one span is cleaner and more accurate (one span = one API call).
+**Each chat span's input messages should include the full accumulated conversation history.** *(from "The fix: merge consecutive AssistantMessages")*
+Currently, `_pending_input` only contains incremental messages since the last turn — the first turn gets the user prompt, subsequent turns get only tool results. This means later spans lack context: chat span 2 shows `input=[tool result]` but the model actually saw `[user prompt, assistant(reasoning + tool_call), tool result]`. Each chat span should be self-contained with its full input context so that a reader can understand what the model saw without correlating across siblings.
+
+The `_TurnTracker` should accumulate a running `_history` list. After each turn's span is opened, append the current turn's output (as an assistant `ChatMessage`) to `_history`. When tool results arrive via `add_tool_result`, append those too. The next turn's `INPUT_MESSAGES` is then the full `_history`. This matches what LangSmith does with its `collected` list, where each LLM run receives `prompt + all prior messages`.
+
+```
+chat 1: input=[user prompt],
+        output=[reasoning, tool_call]
+  → append to history: assistant(reasoning, tool_call)
+  → tool result arrives → append to history: tool(result)
+chat 2: input=[user prompt, assistant(reasoning, tool_call), tool result],
+        output=[text]
+```
+
+The trade-off is redundant data across spans (each repeats the full history), but this is what makes each span independently readable — essential for debugging and for the Logfire UI where users click into individual spans.
 
 **The `post_tool_use_failure_hook` should also feed results into `_pending_input`.** *(from "The fix: merge consecutive AssistantMessages")*
 Currently only `post_tool_use_hook` calls `turn_tracker.add_tool_result()`. When a tool fails, `post_tool_use_failure_hook` sets `error.type` on the tool span but doesn't record the error as a tool result for the next turn. This means the next chat span's input messages are incomplete after a tool failure — the model received the error as a `ToolResultBlock`, but the span doesn't show it. The failure hook should call `add_tool_result` with the error text so the next turn's input is complete.
