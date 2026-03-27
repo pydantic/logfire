@@ -89,7 +89,7 @@ Format: `{"metadata": {...}, "messages": [{"direction": "send"|"recv", "message"
 All cassette files must be producible via `--record-claude-cassettes`. Defensive code paths that handle rare server-side conditions (e.g. `AssistantMessage.error`, `ResultMessage.is_error=True`, missing usage) use `# pragma: no cover` or `# pragma: no branch` instead of fabricated test data.
 
 **Unit tests for pure helper functions use Mock objects, not cassettes.** *(from "Integration tests use cassette-based record/replay")*
-Tests for `_content_blocks_to_output_messages`, `_extract_usage`, `_extract_tool_result_text`, hook functions, and hook injection are standalone unit tests with no dependency on the SDK transport.
+Tests for `_content_blocks_to_output_messages`, `_extract_usage`, hook functions, and hook injection are standalone unit tests with no dependency on the SDK transport.
 
 **Test teardown closes streams the SDK neglects.** *(from "Integration tests use cassette-based record/replay")*
 The SDK's `Query.close()` doesn't close its internal `MemoryObjectSendStream` / `MemoryObjectReceiveStream`, and `SubprocessCLITransport.close()` doesn't close stdout. Tests explicitly close these before `client.disconnect()` via `_close_sdk_streams()` to prevent `ResourceWarning` on GC — no warning suppression or forced GC needed.
