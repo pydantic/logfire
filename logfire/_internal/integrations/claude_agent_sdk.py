@@ -86,12 +86,22 @@ def _get_logfire_instance() -> Logfire | None:
     return getattr(_thread_local, 'logfire_instance', None)
 
 
+def _clear_logfire_instance() -> None:
+    if hasattr(_thread_local, 'logfire_instance'):
+        delattr(_thread_local, 'logfire_instance')
+
+
 def _set_turn_tracker(tracker: _TurnTracker) -> None:
     _thread_local.turn_tracker = tracker
 
 
 def _get_turn_tracker() -> _TurnTracker | None:
     return getattr(_thread_local, 'turn_tracker', None)
+
+
+def _clear_turn_tracker() -> None:
+    if hasattr(_thread_local, 'turn_tracker'):
+        delattr(_thread_local, 'turn_tracker')
 
 
 def _clear_active_tool_spans() -> None:
@@ -403,6 +413,8 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> AbstractContextMan
             finally:
                 turn_tracker.close()
                 _clear_parent_span()
+                _clear_logfire_instance()
+                _clear_turn_tracker()
                 _clear_active_tool_spans()
 
     cls.receive_response = patched_receive_response
