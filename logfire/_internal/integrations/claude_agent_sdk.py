@@ -263,7 +263,7 @@ async def post_tool_use_hook(
         span, token = entry
         tool_response = input_data.get('tool_response')
         if tool_response is not None:
-            span.set_attribute(TOOL_CALL_RESULT, str(tool_response))
+            span.set_attribute(TOOL_CALL_RESULT, tool_response)
         span.__exit__(None, None, None)
         context_api.detach(token)
 
@@ -271,9 +271,7 @@ async def post_tool_use_hook(
         turn_tracker = _get_turn_tracker()
         if turn_tracker is not None:
             tool_name = str(input_data.get('tool_name', 'unknown_tool'))
-            turn_tracker.add_tool_result(
-                tool_use_id, tool_name, str(tool_response) if tool_response is not None else ''
-            )
+            turn_tracker.add_tool_result(tool_use_id, tool_name, tool_response if tool_response is not None else '')
 
     return {}
 
@@ -470,7 +468,7 @@ class _TurnTracker:
         # Track current span's output parts for merging consecutive messages.
         self._current_output_parts: list[MessagePart] = []
 
-    def add_tool_result(self, tool_use_id: str, tool_name: str, result: str) -> None:
+    def add_tool_result(self, tool_use_id: str, tool_name: str, result: Any) -> None:
         """Record a tool result to include in the next chat span's input messages."""
         msg = ChatMessage(
             role='tool',

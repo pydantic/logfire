@@ -754,7 +754,36 @@ async def test_tool_use_conversation_cassette(
                     'gen_ai.tool.name': 'Bash',
                     'gen_ai.tool.call.id': 'toolu_01MRdgcFhYNo1LHvRQKvKckg',
                     'gen_ai.tool.call.arguments': {'command': 'ls', 'description': 'List files in current directory'},
-                    'gen_ai.tool.call.result': "{'stdout': 'CHANGELOG.md\\nCLAUDE.md\\nCONTRIBUTING.md\\nLICENSE\\nMakefile\\nREADME.md\\ndist\\ndocs\\nexamples\\nignoreme\\nlogfire\\nlogfire-api\\nmkdocs.yml\\nplans\\npyodide_test\\npyproject.toml\\nrelease\\nscratch\\nsite\\nspecs\\ntests\\nuv.lock', 'stderr': '', 'interrupted': False, 'isImage': False, 'noOutputExpected': False}",
+                    'gen_ai.tool.call.result': {
+                        'stdout': """\
+CHANGELOG.md
+CLAUDE.md
+CONTRIBUTING.md
+LICENSE
+Makefile
+README.md
+dist
+docs
+examples
+ignoreme
+logfire
+logfire-api
+mkdocs.yml
+plans
+pyodide_test
+pyproject.toml
+release
+scratch
+site
+specs
+tests
+uv.lock\
+""",
+                        'stderr': '',
+                        'interrupted': False,
+                        'isImage': False,
+                        'noOutputExpected': False,
+                    },
                     'logfire.msg': 'execute_tool Bash',
                     'gen_ai.operation.name': 'execute_tool',
                     'logfire.span_type': 'span',
@@ -765,7 +794,7 @@ async def test_tool_use_conversation_cassette(
                             'gen_ai.tool.name': {},
                             'gen_ai.tool.call.id': {},
                             'gen_ai.tool.call.arguments': {'type': 'object'},
-                            'gen_ai.tool.call.result': {},
+                            'gen_ai.tool.call.result': {'type': 'object'},
                         },
                     },
                 },
@@ -848,7 +877,36 @@ There are **9 files** and **12 directories** in the current directory. It looks 
                                     'type': 'tool_call_response',
                                     'id': 'toolu_01MRdgcFhYNo1LHvRQKvKckg',
                                     'name': 'Bash',
-                                    'response': "{'stdout': 'CHANGELOG.md\\nCLAUDE.md\\nCONTRIBUTING.md\\nLICENSE\\nMakefile\\nREADME.md\\ndist\\ndocs\\nexamples\\nignoreme\\nlogfire\\nlogfire-api\\nmkdocs.yml\\nplans\\npyodide_test\\npyproject.toml\\nrelease\\nscratch\\nsite\\nspecs\\ntests\\nuv.lock', 'stderr': '', 'interrupted': False, 'isImage': False, 'noOutputExpected': False}",
+                                    'response': {
+                                        'stdout': """\
+CHANGELOG.md
+CLAUDE.md
+CONTRIBUTING.md
+LICENSE
+Makefile
+README.md
+dist
+docs
+examples
+ignoreme
+logfire
+logfire-api
+mkdocs.yml
+plans
+pyodide_test
+pyproject.toml
+release
+scratch
+site
+specs
+tests
+uv.lock\
+""",
+                                        'stderr': '',
+                                        'interrupted': False,
+                                        'isImage': False,
+                                        'noOutputExpected': False,
+                                    },
                                 }
                             ],
                         },
