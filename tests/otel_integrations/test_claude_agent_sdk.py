@@ -481,9 +481,8 @@ async def test_clear_orphaned_tool_spans(exporter: TestExporter) -> None:
 def test_clear_orphaned_tool_spans_error() -> None:
     """_clear_active_tool_spans handles exceptions during cleanup gracefully."""
     broken_span = Mock()
-    broken_span.__exit__ = Mock(side_effect=RuntimeError('span already ended'))
-    broken_token = Mock()
-    _active_tool_spans['broken_1'] = (broken_span, broken_token)
+    broken_span._end = Mock(side_effect=RuntimeError('span already ended'))
+    _active_tool_spans['broken_1'] = broken_span
     _clear_active_tool_spans()
     assert len(_active_tool_spans) == 0
 

@@ -5,7 +5,6 @@ import logging
 import threading
 from collections.abc import AsyncGenerator, AsyncIterable
 from contextlib import AbstractContextManager, contextmanager, nullcontext
-from contextvars import Token
 from typing import TYPE_CHECKING, Any, cast
 
 import claude_agent_sdk
@@ -21,7 +20,6 @@ from claude_agent_sdk import (
 )
 from claude_agent_sdk.types import HookContext, SyncHookJSONOutput
 from opentelemetry import context as context_api, trace as trace_api
-from opentelemetry.context import Context
 
 from logfire._internal.integrations.llm_providers.semconv import (
     CONVERSATION_ID,
@@ -63,7 +61,7 @@ logger = logging.getLogger(__name__)
 _thread_local = threading.local()
 
 # Active tool spans, keyed by tool_use_id.
-_active_tool_spans: dict[str, tuple[LogfireSpan, Token[Context]]] = {}
+_active_tool_spans: dict[str, LogfireSpan] = {}
 
 
 def _set_parent_span(span: LogfireSpan) -> None:
@@ -107,10 +105,9 @@ def _clear_turn_tracker() -> None:
 
 def _clear_active_tool_spans() -> None:
     """End any orphaned tool spans and clear the dict."""
-    for tool_use_id, (span, token) in _active_tool_spans.items():
+    for tool_use_id, span in _active_tool_spans.items():
         try:
-            span.__exit__(None, None, None)
-            context_api.detach(token)
+            span._end()  # pyright: ignore[reportPrivateUsage]
         except Exception:
             logger.debug('Failed to clean up orphaned tool span %s', tool_use_id, exc_info=True)
     _active_tool_spans.clear()
@@ -230,7 +227,9 @@ async def pre_tool_use_hook(
         if not parent_span or not logfire_instance:
             return {}
 
-        # Create a context with the parent span so the child is properly nested.
+        # Temporarily attach root span context so the new span is parented correctly,
+        # then immediately detach. We can't keep the context attached because hooks
+        # run in different async contexts (anyio tasks) and detaching later would fail.
         otel_span = parent_span._span  # pyright: ignore[reportPrivateUsage]
         if otel_span is None:  # pragma: no cover
             return {}
@@ -247,11 +246,10 @@ async def pre_tool_use_hook(
                     TOOL_CALL_ARGUMENTS: tool_input,
                 }
             )
-            span.__enter__()
-            _active_tool_spans[tool_use_id] = (span, token)
-        except Exception:  # pragma: no cover
+            span._start()  # pyright: ignore[reportPrivateUsage]
+            _active_tool_spans[tool_use_id] = span
+        finally:
             context_api.detach(token)
-            raise
 
     return {}
 
@@ -266,16 +264,14 @@ async def post_tool_use_hook(
         return {}
 
     with handle_internal_errors:
-        entry = _active_tool_spans.pop(tool_use_id, None)
-        if not entry:
+        span = _active_tool_spans.pop(tool_use_id, None)
+        if not span:
             return {}
 
-        span, token = entry
         tool_response = input_data.get('tool_response')
         if tool_response is not None:
             span.set_attribute(TOOL_CALL_RESULT, tool_response)
-        span.__exit__(None, None, None)
-        context_api.detach(token)
+        span._end()  # pyright: ignore[reportPrivateUsage]
 
         # Record tool result for the next chat span's input messages
         turn_tracker = _get_turn_tracker()
@@ -296,16 +292,14 @@ async def post_tool_use_failure_hook(
         return {}
 
     with handle_internal_errors:
-        entry = _active_tool_spans.pop(tool_use_id, None)
-        if not entry:
+        span = _active_tool_spans.pop(tool_use_id, None)
+        if not span:
             return {}
 
-        span, token = entry
         error = str(input_data.get('error', 'Unknown error'))
         span.set_attribute(ERROR_TYPE, error)
         span.set_level('error')
-        span.__exit__(None, None, None)
-        context_api.detach(token)
+        span._end()  # pyright: ignore[reportPrivateUsage]
 
         # Record the error as a tool result so the next turn's input is complete.
         turn_tracker = _get_turn_tracker()
