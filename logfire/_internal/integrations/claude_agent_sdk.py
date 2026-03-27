@@ -30,6 +30,7 @@ from logfire._internal.integrations.llm_providers.semconv import (
     OPERATION_NAME,
     OUTPUT_MESSAGES,
     PROVIDER_NAME,
+    REQUEST_MODEL,
     RESPONSE_MODEL,
     SYSTEM,
     SYSTEM_INSTRUCTIONS,
@@ -548,6 +549,7 @@ class _TurnTracker:
 
         model = getattr(message, 'model', None)
         if model:  # pragma: no branch
+            self._current_span.set_attribute(REQUEST_MODEL, model)
             self._current_span.set_attribute(RESPONSE_MODEL, model)
             # Update span name to include model.
             self._current_span.message = f'chat {model}'
