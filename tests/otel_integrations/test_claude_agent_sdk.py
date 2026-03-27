@@ -196,7 +196,8 @@ class TestExtractUsage:
             'cache_creation_input_tokens': 10,
         }
         result = _extract_usage(usage)
-        assert result['gen_ai.usage.input_tokens'] == 100
+        # input_tokens is the total: 100 + 20 + 10 = 130
+        assert result['gen_ai.usage.input_tokens'] == 130
         assert result['gen_ai.usage.output_tokens'] == 50
         assert result['gen_ai.usage.cache_read.input_tokens'] == 20
         assert result['gen_ai.usage.cache_creation.input_tokens'] == 10
@@ -207,10 +208,13 @@ class TestExtractUsage:
 
     def test_only_cache_read(self) -> None:
         result = _extract_usage({'input_tokens': 50, 'cache_read_input_tokens': 10})
+        assert result['gen_ai.usage.input_tokens'] == 60  # total: 50 + 10
         assert result['gen_ai.usage.cache_read.input_tokens'] == 10
 
     def test_only_cache_create(self) -> None:
         result = _extract_usage({'output_tokens': 30, 'cache_creation_input_tokens': 5})
+        assert result['gen_ai.usage.input_tokens'] == 5  # total: 0 + 0 + 5
+        assert result['gen_ai.usage.output_tokens'] == 30
         assert result['gen_ai.usage.cache_creation.input_tokens'] == 5
 
     def test_non_dict_usage(self) -> None:
@@ -222,6 +226,11 @@ class TestExtractUsage:
 
         result = _extract_usage(UsageObj())
         assert result == {'gen_ai.usage.input_tokens': 100, 'gen_ai.usage.output_tokens': 50}
+
+    def test_no_output_tokens(self) -> None:
+        result = _extract_usage({'input_tokens': 100, 'output_tokens': 50}, include_output_tokens=False)
+        assert result == {'gen_ai.usage.input_tokens': 100}
+        assert 'gen_ai.usage.output_tokens' not in result
 
     def test_invalid_token_values(self) -> None:
         result = _extract_usage({'input_tokens': 'not_a_number', 'output_tokens': None})
@@ -583,8 +592,7 @@ async def test_basic_conversation_cassette(
                     'gen_ai.response.model': 'claude-sonnet-4-6',
                     'gen_ai.output.messages': [{'role': 'assistant', 'parts': [{'type': 'text', 'content': '4'}]}],
                     'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'What is 2+2?'}]}],
-                    'gen_ai.usage.input_tokens': 3,
-                    'gen_ai.usage.output_tokens': 1,
+                    'gen_ai.usage.input_tokens': 9344,
                     'gen_ai.usage.cache_read.input_tokens': 7166,
                     'gen_ai.usage.cache_creation.input_tokens': 2175,
                     'logfire.msg_template': 'chat',
@@ -599,7 +607,6 @@ async def test_basic_conversation_cassette(
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.input.messages': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
-                            'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.cache_read.input_tokens': {},
                             'gen_ai.usage.cache_creation.input_tokens': {},
                         },
@@ -625,7 +632,7 @@ async def test_basic_conversation_cassette(
                     'logfire.msg_template': 'invoke_agent',
                     'logfire.msg': 'invoke_agent',
                     'logfire.span_type': 'span',
-                    'gen_ai.usage.input_tokens': 3,
+                    'gen_ai.usage.input_tokens': 9344,
                     'gen_ai.usage.output_tokens': 5,
                     'gen_ai.usage.cache_read.input_tokens': 7166,
                     'gen_ai.usage.cache_creation.input_tokens': 2175,
@@ -739,8 +746,7 @@ async def test_tool_use_conversation_cassette(
                             ],
                         }
                     ],
-                    'gen_ai.usage.input_tokens': 3,
-                    'gen_ai.usage.output_tokens': 0,
+                    'gen_ai.usage.input_tokens': 9343,
                     'gen_ai.usage.cache_read.input_tokens': 8313,
                     'gen_ai.usage.cache_creation.input_tokens': 1027,
                     'logfire.span_type': 'span',
@@ -754,7 +760,6 @@ async def test_tool_use_conversation_cassette(
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.input.messages': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
-                            'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.cache_read.input_tokens': {},
                             'gen_ai.usage.cache_creation.input_tokens': {},
                         },
@@ -817,6 +822,10 @@ There are **9 files** and **12 directories** in the current directory. It looks 
                     ],
                     'gen_ai.input.messages': [
                         {
+                            'role': 'user',
+                            'parts': [{'type': 'text', 'content': 'List files in the current directory'}],
+                        },
+                        {
                             'role': 'tool',
                             'parts': [
                                 {
@@ -826,10 +835,21 @@ There are **9 files** and **12 directories** in the current directory. It looks 
                                     'response': "{'stdout': 'CHANGELOG.md\\nCLAUDE.md\\nCONTRIBUTING.md\\nLICENSE\\nMakefile\\nREADME.md\\ndist\\ndocs\\nexamples\\nignoreme\\nlogfire\\nlogfire-api\\nmkdocs.yml\\nplans\\npyodide_test\\npyproject.toml\\nrelease\\nscratch\\nsite\\nspecs\\ntests\\nuv.lock', 'stderr': '', 'interrupted': False, 'isImage': False, 'noOutputExpected': False}",
                                 }
                             ],
-                        }
+                        },
+                        {
+                            'role': 'assistant',
+                            'parts': [
+                                {'type': 'reasoning', 'content': 'Let me list the files in the current directory.'},
+                                {
+                                    'type': 'tool_call',
+                                    'id': 'toolu_01MRdgcFhYNo1LHvRQKvKckg',
+                                    'name': 'Bash',
+                                    'arguments': {'command': 'ls', 'description': 'List files in current directory'},
+                                },
+                            ],
+                        },
                     ],
-                    'gen_ai.usage.input_tokens': 1,
-                    'gen_ai.usage.output_tokens': 1,
+                    'gen_ai.usage.input_tokens': 9529,
                     'gen_ai.usage.cache_read.input_tokens': 9340,
                     'gen_ai.usage.cache_creation.input_tokens': 188,
                     'logfire.msg_template': 'chat',
@@ -844,7 +864,6 @@ There are **9 files** and **12 directories** in the current directory. It looks 
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.input.messages': {'type': 'array'},
                             'gen_ai.usage.input_tokens': {},
-                            'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.cache_read.input_tokens': {},
                             'gen_ai.usage.cache_creation.input_tokens': {},
                         },
@@ -872,7 +891,7 @@ There are **9 files** and **12 directories** in the current directory. It looks 
                             'parts': [{'type': 'text', 'content': 'List files in the current directory'}],
                         }
                     ],
-                    'gen_ai.usage.input_tokens': 4,
+                    'gen_ai.usage.input_tokens': 18872,
                     'gen_ai.usage.output_tokens': 415,
                     'gen_ai.usage.cache_read.input_tokens': 17653,
                     'gen_ai.usage.cache_creation.input_tokens': 1215,
