@@ -1,6 +1,7 @@
 ---
 title: "Logfire Integrations: Claude Agent SDK"
 description: "Guide for using Logfire with the Claude Agent SDK, including setup instructions and example trace output."
+integration: logfire
 ---
 # Claude Agent SDK
 
