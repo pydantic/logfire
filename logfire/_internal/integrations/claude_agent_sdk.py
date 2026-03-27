@@ -496,8 +496,7 @@ def _record_result(span: LogfireSpan, msg: ResultMessage) -> None:
         if (value := getattr(msg, attr, None)) is not None:  # pragma: no branch
             attrs[attr] = value
 
-    if attrs:
-        span.set_attributes(attrs)
+    span.set_attributes(attrs)
 
     is_error = getattr(msg, 'is_error', None)
     if is_error:  # pragma: no cover
