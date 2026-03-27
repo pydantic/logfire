@@ -426,7 +426,11 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> AbstractContextMan
 
 
 def _inject_tracing_hooks(options: Any) -> None:
-    """Inject logfire tracing hooks into ClaudeAgentOptions."""
+    """Inject logfire tracing hooks into ClaudeAgentOptions.
+
+    Guards against duplicate injection when the same options object is reused
+    across multiple ClaudeSDKClient instances.
+    """
     if not hasattr(options, 'hooks'):
         return
 
@@ -436,6 +440,11 @@ def _inject_tracing_hooks(options: Any) -> None:
     else:
         hooks = options.hooks
     with handle_internal_errors:
+        # Guard against duplicate injection when the same options object is reused.
+        if getattr(options, '_logfire_hooks_injected', False):
+            return
+        options._logfire_hooks_injected = True
+
         for event in ('PreToolUse', 'PostToolUse', 'PostToolUseFailure'):
             hooks.setdefault(event, [])
         hooks['PreToolUse'].insert(0, HookMatcher(matcher=None, hooks=[pre_tool_use_hook]))
