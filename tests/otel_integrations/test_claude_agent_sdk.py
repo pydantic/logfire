@@ -44,7 +44,6 @@ from logfire._internal.integrations.claude_agent_sdk import (
     _clear_active_tool_spans,
     _clear_parent_span,
     _content_blocks_to_output_messages,
-    _extract_tool_result_text,
     _extract_usage,
     _inject_tracing_hooks,
     _set_logfire_instance,
@@ -176,10 +175,8 @@ def test_content_blocks_to_output_messages() -> None:
         }
     ]
 
-    # ToolResultBlock
-    text_item = Mock()
-    text_item.text = 'output text'
-    assert _content_blocks_to_output_messages([ToolResultBlock(tool_use_id='tool_1', content=[text_item])]) == [
+    # ToolResultBlock — content passed through directly
+    assert _content_blocks_to_output_messages([ToolResultBlock(tool_use_id='tool_1', content='output text')]) == [
         {'role': 'assistant', 'parts': [{'type': 'tool_call_response', 'id': 'tool_1', 'response': 'output text'}]}
     ]
 
@@ -188,23 +185,6 @@ def test_content_blocks_to_output_messages() -> None:
     result = _content_blocks_to_output_messages([block])
     assert len(result) == 1
     assert result[0]['parts'][0] is block
-
-
-def test_extract_tool_result_text() -> None:
-    assert _extract_tool_result_text(None) == ''
-    assert _extract_tool_result_text('hello') == 'hello'
-    assert (
-        _extract_tool_result_text([{'type': 'text', 'text': 'line1'}, {'type': 'text', 'text': 'line2'}])
-        == 'line1\nline2'
-    )
-    assert _extract_tool_result_text([{'type': 'image'}]) == str([{'type': 'image'}])
-    assert _extract_tool_result_text(42) == '42'
-    # Object with .text attribute
-    item = Mock()
-    item.text = 'from attr'
-    assert _extract_tool_result_text([item]) == 'from attr'
-    # List items that are not dicts and have no .text attribute
-    assert _extract_tool_result_text([42, 'not a dict']) == str([42, 'not a dict'])
 
 
 class TestExtractUsage:

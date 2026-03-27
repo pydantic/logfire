@@ -132,12 +132,11 @@ def _content_blocks_to_output_messages(content: Any) -> list[OutputMessage]:
             part['arguments'] = block.input
             parts.append(part)
         elif isinstance(block, ToolResultBlock):
-            content_text = _extract_tool_result_text(block.content)
             parts.append(
                 ToolCallResponsePart(
                     type='tool_call_response',
                     id=block.tool_use_id or '',
-                    response=content_text,
+                    response=block.content,  # type: ignore
                 )
             )
         else:
@@ -145,26 +144,6 @@ def _content_blocks_to_output_messages(content: Any) -> list[OutputMessage]:
 
     msg = OutputMessage(role='assistant', parts=parts)
     return [msg]
-
-
-def _extract_tool_result_text(content: Any) -> str:
-    """Extract text content from tool result content blocks."""
-    if content is None:
-        return ''
-    if isinstance(content, str):
-        return content
-    if isinstance(content, list):
-        items = cast(list[Any], content)
-        texts: list[str] = []
-        for item in items:
-            if isinstance(item, dict):
-                d = cast(dict[str, Any], item)
-                if d.get('type') == 'text':
-                    texts.append(d.get('text', ''))
-            elif hasattr(item, 'text'):
-                texts.append(getattr(item, 'text', ''))
-        return '\n'.join(texts) if texts else str(items)
-    return str(content)
 
 
 def _extract_usage(usage: Any) -> dict[str, int]:
