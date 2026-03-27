@@ -79,15 +79,6 @@ def _reset_instrumentation():  # pyright: ignore[reportUnusedFunction]
 # ---------------------------------------------------------------------------
 
 
-def _make_block(class_name: str, **attrs: object) -> Mock:
-    """Create a mock content block with the given class name."""
-    block = Mock()
-    block.__class__ = type(class_name, (), {})  # pyright: ignore[reportAttributeAccessIssue]
-    for k, v in attrs.items():
-        setattr(block, k, v)
-    return block
-
-
 async def _close_sdk_streams(client: ClaudeSDKClient) -> None:
     """Close streams the SDK neglects to close, preventing ResourceWarning on GC.
 
@@ -197,7 +188,8 @@ class TestContentBlocksToOutputMessages:
         assert _content_blocks_to_output_messages('just a string') == []
 
     def test_unknown_block_type(self) -> None:
-        block = _make_block('UnknownBlock', data='test')
+        block = Mock()
+        block.data = 'test'
         result = _content_blocks_to_output_messages([block])
         assert len(result) == 1
         assert result[0]['parts'][0] is block
