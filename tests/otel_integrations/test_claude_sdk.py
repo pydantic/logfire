@@ -1,4 +1,4 @@
-"""Tests for the LangSmith-based Claude SDK integration (logfire.instrument_claude_sdk).
+"""Tests for the LangSmith-based Claude SDK integration
 
 This tests the older approach that transforms LangSmith span attributes.
 For the native Claude Agent SDK integration (logfire.instrument_claude_agent_sdk),
