@@ -17,6 +17,7 @@ from claude_agent_sdk import (
     ThinkingBlock,
     ToolResultBlock,
     ToolUseBlock,
+    UserMessage,
 )
 from claude_agent_sdk.types import HookContext, SyncHookJSONOutput
 from opentelemetry import context as context_api, trace as trace_api
@@ -368,12 +369,16 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> AbstractContextMan
             _set_logfire_instance(logfire_claude)
             turn_tracker = _TurnTracker(logfire_claude, input_messages)
             _set_turn_tracker(turn_tracker)
+            # Open the first chat span now — the LLM call starts at query time.
+            turn_tracker.open_chat_span()
 
             try:
                 async for msg in original_receive_response(self):
                     with handle_internal_errors:
                         if isinstance(msg, AssistantMessage):
-                            turn_tracker.start_turn(msg)
+                            turn_tracker.handle_assistant_message(msg)
+                        elif isinstance(msg, UserMessage):
+                            turn_tracker.handle_user_message()
                         elif isinstance(msg, ResultMessage):  # pragma: no branch
                             _record_result(root_span, msg)
 
@@ -417,22 +422,21 @@ def _inject_tracing_hooks(options: Any) -> None:
 
 
 class _TurnTracker:
-    """Track assistant turn spans, merging consecutive AssistantMessages from the same API call.
+    """Track chat spans whose lifetime approximates the LLM API call duration.
 
-    The Claude Agent SDK can split a single model response across multiple
-    AssistantMessage objects (e.g. ThinkingBlock then ToolUseBlock). When
-    _pending_input is empty and a span is already open, the new message is
-    merged into the existing span rather than creating a new one.
-
-    Also tracks input messages for each turn: the first turn gets the user prompt,
-    subsequent turns get tool result messages accumulated between turns.
+    Span lifecycle:
+    - **Open** when the LLM call starts: at query time (first turn) or when a
+      UserMessage arrives (subsequent turns — tool results sent back to model).
+    - **Populated** when AssistantMessage(s) arrive with output content and usage.
+      Consecutive AssistantMessages from the same API call are merged into the
+      open span rather than creating new ones.
+    - **Closed** when the next turn opens, or at close().
     """
 
     def __init__(self, logfire_instance: Logfire, initial_input_messages: list[ChatMessage]) -> None:
         self._logfire = logfire_instance
         self._current_span: LogfireSpan | None = None
         # Input messages for the next chat span.
-        # Starts with the user prompt; after each turn, accumulates tool results.
         self._pending_input: list[ChatMessage] = list(initial_input_messages)
         # Track current span's output parts for merging consecutive messages.
         self._current_output_parts: list[MessagePart] = []
@@ -445,62 +449,56 @@ class _TurnTracker:
         )
         self._pending_input.append(msg)
 
-    def start_turn(self, message: AssistantMessage) -> None:
-        """Handle an AssistantMessage: merge into current span or open a new one."""
-        content = getattr(message, 'content', [])
-        output_messages = _content_blocks_to_output_messages(content)
-        new_parts = output_messages[0]['parts'] if output_messages else []
-
-        # Merge into existing span if this is a consecutive message from the same API call:
-        # no tool results arrived between messages (_pending_input empty) and span is open.
-        if self._current_span is not None and not self._pending_input:
-            self._current_output_parts.extend(new_parts)
-            self._current_span.set_attribute(
-                OUTPUT_MESSAGES, [OutputMessage(role='assistant', parts=self._current_output_parts)]
-            )
-            # Overwrite usage (consecutive messages carry identical usage).
-            usage = getattr(message, 'usage', None)
-            if usage:  # pragma: no branch
-                self._current_span.set_attributes(_extract_usage(usage))
-            return
-
-        # Otherwise close the old span and open a new one.
+    def open_chat_span(self) -> None:
+        """Open a new chat span — call when the LLM starts processing."""
         if self._current_span is not None:
             self._current_span.__exit__(None, None, None)
-
-        model = getattr(message, 'model', None)
 
         span_data: dict[str, Any] = {
             OPERATION_NAME: 'chat',
             PROVIDER_NAME: 'anthropic',
             SYSTEM: 'anthropic',
         }
-        if model:  # pragma: no branch
-            span_data[RESPONSE_MODEL] = model
-        if output_messages:  # pragma: no branch
-            span_data[OUTPUT_MESSAGES] = output_messages
         if self._pending_input:
             span_data[INPUT_MESSAGES] = self._pending_input
 
-        # Per-turn token usage from AssistantMessage.usage
+        self._current_span = self._logfire.span('chat', **span_data)
+        self._current_span.__enter__()
+        self._current_output_parts = []
+        self._pending_input = []
+
+    def handle_user_message(self) -> None:
+        """Handle UserMessage: close current span and open a new one for the next LLM call."""
+        self.open_chat_span()
+
+    def handle_assistant_message(self, message: AssistantMessage) -> None:
+        """Handle AssistantMessage: add output and usage to the current chat span."""
+        if self._current_span is None:  # pragma: no cover
+            return
+
+        content = getattr(message, 'content', [])
+        output_messages = _content_blocks_to_output_messages(content)
+        new_parts = output_messages[0]['parts'] if output_messages else []
+
+        self._current_output_parts.extend(new_parts)
+        self._current_span.set_attribute(
+            OUTPUT_MESSAGES, [OutputMessage(role='assistant', parts=self._current_output_parts)]
+        )
+
+        model = getattr(message, 'model', None)
+        if model:  # pragma: no branch
+            self._current_span.set_attribute(RESPONSE_MODEL, model)
+            # Update span name to include model.
+            self._current_span.message = f'chat {model}'
+
         usage = getattr(message, 'usage', None)
         if usage:  # pragma: no branch
-            for key, value in _extract_usage(usage).items():
-                span_data[key] = value
+            self._current_span.set_attributes(_extract_usage(usage))
 
-        span_name = f'chat {model}' if model else 'chat'
-        self._current_span = self._logfire.span(span_name, **span_data)
-        self._current_span.__enter__()
-        self._current_output_parts = list(new_parts)
-
-        # Set error if the assistant message indicates an error
         error = getattr(message, 'error', None)
         if error:  # pragma: no cover
             self._current_span.set_attribute(ERROR_TYPE, str(error))
             self._current_span.set_level('error')
-
-        # Reset pending input — next turn will collect tool results
-        self._pending_input = []
 
     def close(self) -> None:
         if self._current_span is not None:  # pragma: no branch
