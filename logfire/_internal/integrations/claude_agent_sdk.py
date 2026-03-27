@@ -65,11 +65,11 @@ _thread_local = threading.local()
 _active_tool_spans: dict[str, tuple[LogfireSpan, Token[Context]]] = {}
 
 
-def _set_parent_span(span: trace_api.Span) -> None:
+def _set_parent_span(span: LogfireSpan) -> None:
     _thread_local.parent_span = span
 
 
-def _get_parent_span() -> trace_api.Span | None:
+def _get_parent_span() -> LogfireSpan | None:
     return getattr(_thread_local, 'parent_span', None)
 
 
@@ -221,7 +221,10 @@ async def pre_tool_use_hook(
             return {}
 
         # Create a context with the parent span so the child is properly nested.
-        parent_ctx = trace_api.set_span_in_context(parent_span)
+        otel_span = parent_span._span  # pyright: ignore[reportPrivateUsage]
+        if otel_span is None:  # pragma: no cover
+            return {}
+        parent_ctx = trace_api.set_span_in_context(otel_span)
         token = context_api.attach(parent_ctx)
         try:
             span_name = f'execute_tool {tool_name}'
@@ -375,9 +378,7 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> AbstractContextMan
                 span_data[SYSTEM_INSTRUCTIONS] = [TextPart(type='text', content=text)]
 
         with logfire_claude.span('invoke_agent', **span_data) as root_span:
-            otel_span = root_span._span  # pyright: ignore[reportPrivateUsage]
-            if otel_span is not None:  # pragma: no branch
-                _set_parent_span(otel_span)
+            _set_parent_span(root_span)
             _set_logfire_instance(logfire_claude)
             turn_tracker = _TurnTracker(logfire_claude, input_messages)
             _set_turn_tracker(turn_tracker)
