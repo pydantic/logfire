@@ -148,8 +148,14 @@ def _content_blocks_to_output_messages(content: Any) -> list[OutputMessage]:
     return [msg]
 
 
-def _extract_usage(usage: Any) -> dict[str, int]:
-    """Extract usage metrics from a Claude usage object or dict."""
+def _extract_usage(usage: Any, *, include_output_tokens: bool = True) -> dict[str, int]:
+    """Extract usage metrics from a Claude usage object or dict.
+
+    Args:
+        usage: A usage object or dict from the SDK.
+        include_output_tokens: Whether to include output_tokens. Set to False for
+            chat spans where the SDK reports unreliable per-message output_tokens.
+    """
     if not usage:
         return {}
 
@@ -164,16 +170,27 @@ def _extract_usage(usage: Any) -> dict[str, int]:
         except (ValueError, TypeError):
             return None
 
-    mapping = {
-        'input_tokens': INPUT_TOKENS,
-        'output_tokens': OUTPUT_TOKENS,
-        'cache_read_input_tokens': CACHE_READ_INPUT_TOKENS,
-        'cache_creation_input_tokens': CACHE_CREATION_INPUT_TOKENS,
-    }
     result: dict[str, int] = {}
-    for source_key, attr_name in mapping.items():
-        if (v := to_int(get(source_key))) is not None:
-            result[attr_name] = v
+
+    # gen_ai.usage.input_tokens is the *total* input token count.
+    # The Anthropic API's input_tokens only counts uncached tokens,
+    # so we sum input + cache_read + cache_creation to get the actual total.
+    input_tokens = to_int(get('input_tokens')) or 0
+    cache_read = to_int(get('cache_read_input_tokens')) or 0
+    cache_creation = to_int(get('cache_creation_input_tokens')) or 0
+    total_input = input_tokens + cache_read + cache_creation
+    if total_input:
+        result[INPUT_TOKENS] = total_input
+
+    if include_output_tokens:
+        if (v := to_int(get('output_tokens'))) is not None:
+            result[OUTPUT_TOKENS] = v
+
+    if cache_read:
+        result[CACHE_READ_INPUT_TOKENS] = cache_read
+    if cache_creation:
+        result[CACHE_CREATION_INPUT_TOKENS] = cache_creation
+
     return result
 
 
@@ -436,8 +453,8 @@ class _TurnTracker:
     def __init__(self, logfire_instance: Logfire, initial_input_messages: list[ChatMessage]) -> None:
         self._logfire = logfire_instance
         self._current_span: LogfireSpan | None = None
-        # Input messages for the next chat span.
-        self._pending_input: list[ChatMessage] = list(initial_input_messages)
+        # Running conversation history — each chat span gets the full history as input.
+        self._history: list[ChatMessage] = list(initial_input_messages)
         # Track current span's output parts for merging consecutive messages.
         self._current_output_parts: list[MessagePart] = []
 
@@ -447,11 +464,14 @@ class _TurnTracker:
             role='tool',
             parts=[ToolCallResponsePart(type='tool_call_response', id=tool_use_id, name=tool_name, response=result)],
         )
-        self._pending_input.append(msg)
+        self._history.append(msg)
 
     def open_chat_span(self) -> None:
         """Open a new chat span — call when the LLM starts processing."""
         if self._current_span is not None:
+            # Append current output to history before closing.
+            if self._current_output_parts:
+                self._history.append(ChatMessage(role='assistant', parts=list(self._current_output_parts)))
             self._current_span.__exit__(None, None, None)
 
         span_data: dict[str, Any] = {
@@ -459,13 +479,12 @@ class _TurnTracker:
             PROVIDER_NAME: 'anthropic',
             SYSTEM: 'anthropic',
         }
-        if self._pending_input:  # pragma: no branch
-            span_data[INPUT_MESSAGES] = self._pending_input
+        if self._history:  # pragma: no branch
+            span_data[INPUT_MESSAGES] = list(self._history)
 
         self._current_span = self._logfire.span('chat', **span_data)
         self._current_span.__enter__()
         self._current_output_parts = []
-        self._pending_input = []
 
     def handle_user_message(self) -> None:
         """Handle UserMessage: close current span and open a new one for the next LLM call."""
@@ -493,7 +512,7 @@ class _TurnTracker:
 
         usage = getattr(message, 'usage', None)
         if usage:  # pragma: no branch
-            self._current_span.set_attributes(_extract_usage(usage))
+            self._current_span.set_attributes(_extract_usage(usage, include_output_tokens=False))
 
         error = getattr(message, 'error', None)
         if error:  # pragma: no cover
