@@ -1000,6 +1000,24 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         instrument_mcp(self, propagate_otel_context)
 
+    def instrument_claude_agent_sdk(self) -> AbstractContextManager[None]:
+        """Instrument the [Claude Agent SDK](https://platform.claude.com/docs/en/agent-sdk/overview).
+
+        All `ClaudeSDKClient` instances created after this call will be automatically traced.
+        Existing instances created before this call will not have tool call tracing.
+
+        Returns:
+            A context manager that will revert the instrumentation when exited.
+                This context manager doesn't take into account threads or other concurrency.
+                Calling this method will immediately apply the instrumentation
+                without waiting for the context manager to be opened,
+                i.e. it's not necessary to use this as a context manager.
+        """
+        from .integrations.claude_agent_sdk import instrument_claude_agent_sdk
+
+        self._warn_if_not_initialized_for_instrumentation()
+        return instrument_claude_agent_sdk(self)
+
     def instrument_pydantic(
         self,
         record: PydanticPluginRecordValues = 'all',

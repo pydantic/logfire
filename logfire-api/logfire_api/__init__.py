@@ -201,6 +201,9 @@ except ImportError:
 
             def instrument_mcp(self, *args, **kwargs) -> None: ...
 
+            def instrument_claude_agent_sdk(self, *args, **kwargs) -> ContextManager[None]:
+                return nullcontext()
+
             def url_from_eval(self, *args, **kwargs) -> str | None: ...
 
             def shutdown(self, *args, **kwargs) -> None: ...
@@ -255,6 +258,7 @@ except ImportError:
         instrument_mysql = DEFAULT_LOGFIRE_INSTANCE.instrument_mysql
         instrument_system_metrics = DEFAULT_LOGFIRE_INSTANCE.instrument_system_metrics
         instrument_mcp = DEFAULT_LOGFIRE_INSTANCE.instrument_mcp
+        instrument_claude_agent_sdk = DEFAULT_LOGFIRE_INSTANCE.instrument_claude_agent_sdk
         shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
         suppress_scopes = DEFAULT_LOGFIRE_INSTANCE.suppress_scopes
         url_from_eval = DEFAULT_LOGFIRE_INSTANCE.url_from_eval
