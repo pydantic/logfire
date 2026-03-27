@@ -394,7 +394,8 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> AbstractContextMan
         with logfire_claude.span('invoke_agent', **span_data) as root_span:
             _set_parent_span(root_span)
             _set_logfire_instance(logfire_claude)
-            turn_tracker = _TurnTracker(logfire_claude, input_messages)
+            system_instructions = span_data.get(SYSTEM_INSTRUCTIONS)
+            turn_tracker = _TurnTracker(logfire_claude, input_messages, system_instructions)
             _set_turn_tracker(turn_tracker)
             # Open the first chat span now — the LLM call starts at query time.
             turn_tracker.open_chat_span()
@@ -471,13 +472,19 @@ class _TurnTracker:
     - **Closed** when the next turn opens, or at close().
     """
 
-    def __init__(self, logfire_instance: Logfire, initial_input_messages: list[ChatMessage]) -> None:
+    def __init__(
+        self,
+        logfire_instance: Logfire,
+        initial_input_messages: list[ChatMessage],
+        system_instructions: list[TextPart] | None = None,
+    ) -> None:
         self._logfire = logfire_instance
         self._current_span: LogfireSpan | None = None
         # Running conversation history — each chat span gets the full history as input.
         self._history: list[ChatMessage] = list(initial_input_messages)
         # Track current span's output parts for merging consecutive messages.
         self._current_output_parts: list[MessagePart] = []
+        self._system_instructions = system_instructions
 
     def add_tool_result(self, tool_use_id: str, tool_name: str, result: Any) -> None:
         """Record a tool result to include in the next chat span's input messages."""
@@ -498,6 +505,8 @@ class _TurnTracker:
         }
         if self._history:  # pragma: no branch
             span_data[INPUT_MESSAGES] = list(self._history)
+        if self._system_instructions:  # pragma: no branch
+            span_data[SYSTEM_INSTRUCTIONS] = self._system_instructions
 
         self._current_span = self._logfire.span('chat', **span_data)
         # Start without entering context — chat spans don't need to be on the
@@ -542,6 +551,7 @@ class _TurnTracker:
             self._current_span.set_attribute(RESPONSE_MODEL, model)
             # Update span name to include model.
             self._current_span.message = f'chat {model}'
+            self._current_span.update_name(f'chat {model}')  # pyright: ignore[reportAttributeAccessIssue,reportUnknownMemberType]
 
         usage = getattr(message, 'usage', None)
         if usage:  # pragma: no branch

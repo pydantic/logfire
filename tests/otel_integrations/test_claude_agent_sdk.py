@@ -577,7 +577,7 @@ async def test_basic_conversation_cassette(
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
-                'name': 'chat',
+                'name': 'chat claude-sonnet-4-6',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
@@ -590,6 +590,7 @@ async def test_basic_conversation_cassette(
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.system': 'anthropic',
                     'gen_ai.response.model': 'claude-sonnet-4-6',
+                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'Be helpful'}],
                     'gen_ai.output.messages': [{'role': 'assistant', 'parts': [{'type': 'text', 'content': '4'}]}],
                     'gen_ai.input.messages': [{'role': 'user', 'parts': [{'type': 'text', 'content': 'What is 2+2?'}]}],
                     'gen_ai.usage.partial.input_tokens': 9344,
@@ -605,6 +606,7 @@ async def test_basic_conversation_cassette(
                             'gen_ai.provider.name': {},
                             'gen_ai.system': {},
                             'gen_ai.response.model': {},
+                            'gen_ai.system_instructions': {'type': 'array'},
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.input.messages': {'type': 'array'},
                             'gen_ai.usage.partial.input_tokens': {},
@@ -687,7 +689,7 @@ async def test_tool_use_conversation_cassette(
     assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
         [
             {
-                'name': 'chat',
+                'name': 'chat claude-sonnet-4-6',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 2000000000,
@@ -702,6 +704,7 @@ async def test_tool_use_conversation_cassette(
                     'gen_ai.input.messages': [
                         {'role': 'user', 'parts': [{'type': 'text', 'content': 'List files in the current directory'}]}
                     ],
+                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'Be helpful'}],
                     'gen_ai.output.messages': [
                         {
                             'role': 'assistant',
@@ -730,6 +733,7 @@ async def test_tool_use_conversation_cassette(
                             'gen_ai.provider.name': {},
                             'gen_ai.system': {},
                             'gen_ai.input.messages': {'type': 'array'},
+                            'gen_ai.system_instructions': {'type': 'array'},
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.response.model': {},
                             'gen_ai.usage.partial.input_tokens': {},
@@ -800,7 +804,7 @@ uv.lock\
                 },
             },
             {
-                'name': 'chat',
+                'name': 'chat claude-sonnet-4-6',
                 'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
                 'start_time': 6000000000,
@@ -813,6 +817,7 @@ uv.lock\
                     'gen_ai.provider.name': 'anthropic',
                     'gen_ai.system': 'anthropic',
                     'gen_ai.response.model': 'claude-sonnet-4-6',
+                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'Be helpful'}],
                     'gen_ai.output.messages': [
                         {
                             'role': 'assistant',
@@ -924,6 +929,7 @@ uv.lock\
                             'gen_ai.provider.name': {},
                             'gen_ai.system': {},
                             'gen_ai.response.model': {},
+                            'gen_ai.system_instructions': {'type': 'array'},
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.input.messages': {'type': 'array'},
                             'gen_ai.usage.partial.input_tokens': {},
