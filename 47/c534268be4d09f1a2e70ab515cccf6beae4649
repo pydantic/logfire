@@ -1,0 +1,23 @@
+logfire/_internal/integrations/mcp.py
+  59c642e0f23d0d44 76-80,89
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.20",
+  "base_commit_sha": "47c534268be4d09f1a2e70ab515cccf6beae4649",
+  "prompts": {
+    "59c642e0f23d0d44": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1e41b7ba-11f6-404e-8617-ceefb5ca38e4",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Alex Hall <alex.mojaki@gmail.com>",
+      "messages": [],
+      "total_additions": 6,
+      "total_deletions": 3,
+      "accepted_lines": 6,
+      "overriden_lines": 0
+    }
+  }
+}
