@@ -25,7 +25,15 @@ import pytest
 
 pytest.importorskip('claude_agent_sdk', reason='claude_agent_sdk requires Python 3.10+')
 
-from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, HookMatcher
+from claude_agent_sdk import (
+    ClaudeAgentOptions,
+    ClaudeSDKClient,
+    HookMatcher,
+    TextBlock,
+    ThinkingBlock,
+    ToolResultBlock,
+    ToolUseBlock,
+)
 from claude_agent_sdk.types import HookContext
 from dirty_equals import IsStr
 from inline_snapshot import snapshot
@@ -157,19 +165,19 @@ def _make_client(
 
 class TestContentBlocksToOutputMessages:
     def test_text_block(self) -> None:
-        block = _make_block('TextBlock', text='hello world')
+        block = TextBlock(text='hello world')
         result = _content_blocks_to_output_messages([block])
         assert result == [{'role': 'assistant', 'parts': [{'type': 'text', 'content': 'hello world'}]}]
 
     def test_thinking_block(self) -> None:
-        block = _make_block('ThinkingBlock', thinking='let me think...', signature='sig123')
+        block = ThinkingBlock(thinking='let me think...', signature='sig123')
         result = _content_blocks_to_output_messages([block])
         assert result == [
             {'role': 'assistant', 'parts': [{'type': 'thinking', 'content': 'let me think...', 'signature': 'sig123'}]}
         ]
 
     def test_tool_use_block(self) -> None:
-        block = _make_block('ToolUseBlock', id='tool_1', name='Bash', input={'command': 'ls'})
+        block = ToolUseBlock(id='tool_1', name='Bash', input={'command': 'ls'})
         result = _content_blocks_to_output_messages([block])
         assert result == [
             {
@@ -181,7 +189,7 @@ class TestContentBlocksToOutputMessages:
     def test_tool_result_block(self) -> None:
         text_item = Mock()
         text_item.text = 'output text'
-        block = _make_block('ToolResultBlock', tool_use_id='tool_1', content=[text_item], is_error=False)
+        block = ToolResultBlock(tool_use_id='tool_1', content=[text_item], is_error=False)
         result = _content_blocks_to_output_messages([block])
         assert result == [
             {'role': 'assistant', 'parts': [{'type': 'tool_call_response', 'id': 'tool_1', 'response': 'output text'}]}

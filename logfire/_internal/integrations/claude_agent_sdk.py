@@ -9,7 +9,15 @@ from contextvars import Token
 from typing import TYPE_CHECKING, Any, cast
 
 import claude_agent_sdk
-from claude_agent_sdk import AssistantMessage, HookMatcher, ResultMessage
+from claude_agent_sdk import (
+    AssistantMessage,
+    HookMatcher,
+    ResultMessage,
+    TextBlock,
+    ThinkingBlock,
+    ToolResultBlock,
+    ToolUseBlock,
+)
 from claude_agent_sdk.types import HookContext, SyncHookJSONOutput
 from opentelemetry import context as context_api, trace as trace_api
 from opentelemetry.context import Context
@@ -100,11 +108,9 @@ def _content_blocks_to_output_messages(content: Any) -> list[OutputMessage]:
         return []
 
     for block in cast(list[Any], content):
-        block_type: str = block.__class__.__name__
-
-        if block_type == 'TextBlock':
+        if isinstance(block, TextBlock):
             parts.append(TextPart(type='text', content=getattr(block, 'text', '')))
-        elif block_type == 'ThinkingBlock':
+        elif isinstance(block, ThinkingBlock):
             parts.append(
                 {
                     'type': 'thinking',
@@ -112,7 +118,7 @@ def _content_blocks_to_output_messages(content: Any) -> list[OutputMessage]:
                     'signature': getattr(block, 'signature', ''),
                 }
             )
-        elif block_type == 'ToolUseBlock':
+        elif isinstance(block, ToolUseBlock):
             part = ToolCallPart(
                 type='tool_call',
                 id=getattr(block, 'id', '') or '',
@@ -122,7 +128,7 @@ def _content_blocks_to_output_messages(content: Any) -> list[OutputMessage]:
             if tool_input is not None:  # pragma: no branch
                 part['arguments'] = tool_input
             parts.append(part)
-        elif block_type == 'ToolResultBlock':
+        elif isinstance(block, ToolResultBlock):
             tool_content = getattr(block, 'content', None)
             content_text = _extract_tool_result_text(tool_content)
             parts.append(
