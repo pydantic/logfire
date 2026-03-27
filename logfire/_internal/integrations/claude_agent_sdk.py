@@ -4,7 +4,7 @@ import functools
 import logging
 import threading
 from collections.abc import AsyncGenerator, AsyncIterable
-from contextlib import AbstractContextManager, contextmanager
+from contextlib import AbstractContextManager, contextmanager, nullcontext
 from contextvars import Token
 from typing import TYPE_CHECKING, Any, cast
 
@@ -162,19 +162,16 @@ def _extract_usage(usage: Any) -> dict[str, int]:
         except (ValueError, TypeError):
             return None
 
+    mapping = {
+        'input_tokens': INPUT_TOKENS,
+        'output_tokens': OUTPUT_TOKENS,
+        'cache_read_input_tokens': CACHE_READ_INPUT_TOKENS,
+        'cache_creation_input_tokens': CACHE_CREATION_INPUT_TOKENS,
+    }
     result: dict[str, int] = {}
-    if (v := to_int(get('input_tokens'))) is not None:
-        result[INPUT_TOKENS] = v
-    if (v := to_int(get('output_tokens'))) is not None:
-        result[OUTPUT_TOKENS] = v
-
-    cache_read = to_int(get('cache_read_input_tokens'))
-    cache_create = to_int(get('cache_creation_input_tokens'))
-    if cache_read is not None:
-        result[CACHE_READ_INPUT_TOKENS] = cache_read
-    if cache_create is not None:
-        result[CACHE_CREATION_INPUT_TOKENS] = cache_create
-
+    for source_key, attr_name in mapping.items():
+        if (v := to_int(get(source_key))) is not None:
+            result[attr_name] = v
     return result
 
 
@@ -276,6 +273,7 @@ async def post_tool_use_failure_hook(
         span, token = entry
         error = str(input_data.get('error', 'Unknown error'))
         span.set_attribute(ERROR_TYPE, error)
+        span.set_level('error')
         span.__exit__(None, None, None)
         context_api.detach(token)
 
@@ -300,7 +298,7 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> AbstractContextMan
     cls = claude_agent_sdk.ClaudeSDKClient
 
     if getattr(cls, '_is_instrumented_by_logfire', False):
-        return _noop_context()
+        return nullcontext()
 
     original_init = cls.__init__
     original_query = cls.query
@@ -391,11 +389,6 @@ def instrument_claude_agent_sdk(logfire_instance: Logfire) -> AbstractContextMan
             cls._is_instrumented_by_logfire = False  # pyright: ignore[reportAttributeAccessIssue]
 
     return uninstrument_context()
-
-
-@contextmanager
-def _noop_context():  # pragma: no cover
-    yield
 
 
 def _inject_tracing_hooks(options: Any) -> None:
