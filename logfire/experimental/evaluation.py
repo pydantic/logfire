@@ -83,11 +83,12 @@ class LogfireSink:
                 'annotation_type': 'eval',
                 'name': failure.name,
                 'value': json.dumps({'error': True, 'error_message': failure.error_message}),
-                'comment': failure.error_stacktrace[:1000] if failure.error_stacktrace else None,
                 'source': 'online_eval',
                 'source_name': source_name,
                 'idempotency_key': _idempotency_key(trace_id, span_id, source_name, failure.name),
             }
+            if failure.error_stacktrace:
+                annotation['comment'] = failure.error_stacktrace[:1000]
             if context.metadata is not None:
                 annotation['metadata'] = context.metadata
             annotations.append(annotation)

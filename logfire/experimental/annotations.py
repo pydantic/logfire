@@ -31,6 +31,19 @@ def get_traceparent(span: Span | logfire.LogfireSpan) -> str:
     return carrier.get(TRACEPARENT_NAME, '')
 
 
+def _raw_annotate_span_impl(traceparent: str, span_name: str, message: str, attributes: dict[str, Any]) -> None:
+    """Create a span of kind 'annotation' as a child of the span with the given traceparent."""
+    with attach_context({TRACEPARENT_NAME: traceparent}, propagator=TRACEPARENT_PROPAGATOR):
+        feedback_logfire.info(
+            span_name,
+            **attributes,  # pyright: ignore[reportArgumentType]
+            **{
+                ATTRIBUTES_MESSAGE_KEY: message,
+                ATTRIBUTES_SPAN_TYPE_KEY: 'annotation',
+            },
+        )
+
+
 def raw_annotate_span(traceparent: str, span_name: str, message: str, attributes: dict[str, Any]) -> None:
     """Create a span of kind 'annotation' as a child of the span with the given traceparent.
 
@@ -44,15 +57,7 @@ def raw_annotate_span(traceparent: str, span_name: str, message: str, attributes
         DeprecationWarning,
         stacklevel=2,
     )
-    with attach_context({TRACEPARENT_NAME: traceparent}, propagator=TRACEPARENT_PROPAGATOR):
-        feedback_logfire.info(
-            span_name,
-            **attributes,  # pyright: ignore[reportArgumentType]
-            **{
-                ATTRIBUTES_MESSAGE_KEY: message,
-                ATTRIBUTES_SPAN_TYPE_KEY: 'annotation',
-            },
-        )
+    _raw_annotate_span_impl(traceparent, span_name, message, attributes)
 
 
 def record_feedback(
@@ -94,7 +99,7 @@ def record_feedback(
     if comment:
         attributes['logfire.feedback.comment'] = comment
 
-    raw_annotate_span(
+    _raw_annotate_span_impl(
         traceparent,
         f'feedback: {name}',
         f'feedback: {name} = {value!r}',
