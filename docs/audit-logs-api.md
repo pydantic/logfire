@@ -154,6 +154,7 @@ curl "https://api-us.pydantic.dev/api/v1/audit-logs/c1cc14dc-a124-405f-aab4-603d
 | `record_id` | string \| null | ID of the resource affected. |
 | `ip_address` | string \| null | IP address of the actor, if recorded. |
 | `downgrade_patches` | array \| null | Details of what changed, i.e. the diff. |
+| `metadata` | object \| null | Additional metadata associated with the log entry. |
 
 ---
 
