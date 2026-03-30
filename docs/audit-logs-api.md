@@ -109,7 +109,7 @@ curl "https://api-us.pydantic.dev/api/v1/audit-logs/c1cc14dc-a124-405f-aab4-603d
 
 ```json
 {
-  "id": "ef702ba6-6250-4e16-8b6a-84b557ebdca6",
+  "id": "c1cc14dc-a124-405f-aab4-603dbde4b6af",
   "created_at": "2025-09-17T16:32:25.355252Z",
   "organization_name": "christophergs",
   "project_name": "pai-streaming-example-update",
