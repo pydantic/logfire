@@ -501,6 +501,7 @@ plugins:
           - enterprise.md
           - enterprise-single-tenant.md
           - how-to-guides/sso-setup.md
+          - audit-logs-api.md
           - compliance.md
           - reference/self-hosted/*.md
         Comparisons:
