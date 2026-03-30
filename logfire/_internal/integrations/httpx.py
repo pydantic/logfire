@@ -340,6 +340,9 @@ def make_request_hook(hook: RequestHook | None, capture_headers: bool, capture_b
             request = capture_request(span, request, capture_headers, capture_body)
             run_hook(hook, span, request)
 
+    if hook is not None:
+        new_hook = functools.wraps(hook)(new_hook)
+
     return new_hook
 
 
@@ -355,6 +358,9 @@ def make_async_request_hook(
         with handle_internal_errors:
             request = capture_request(span, request, should_capture_headers, should_capture_body)
             await run_async_hook(hook, span, request)
+
+    if hook is not None:
+        new_hook = functools.wraps(hook)(new_hook)
 
     return new_hook
 
@@ -381,6 +387,9 @@ def make_response_hook(
             )
             run_hook(hook, span, request, response)
 
+    if hook is not None:
+        new_hook = functools.wraps(hook)(new_hook)
+
     return new_hook
 
 
@@ -405,6 +414,9 @@ def make_async_response_hook(
                 is_async=True,
             )
             await run_async_hook(hook, span, request, response)
+
+    if hook is not None:
+        new_hook = functools.wraps(hook)(new_hook)
 
     return new_hook
 

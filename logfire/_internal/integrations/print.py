@@ -32,6 +32,7 @@ def instrument_print(logfire_instance: Logfire) -> AbstractContextManager[None]:
     scrubber = logfire_instance.config.scrubber
     inspect_args = logfire_instance.config.inspect_arguments
 
+    @functools.wraps(original_print)
     def _instrumented_print(*args: Any, sep: str | None = None, **kwargs: Any) -> None:
         """The wrapper function that will replace builtins.print."""
         original_print(*args, sep=sep, **kwargs)
