@@ -1,27 +1,11 @@
 from __future__ import annotations
 
-import hashlib
 import json
 from collections.abc import Sequence
 from typing import Any
 
 import logfire
 from logfire._internal.annotations_client import AnnotationsClient
-
-
-def _idempotency_key(trace_id: str, span_id: str, source_name: str, name: str) -> str:
-    """Compute a deterministic idempotency key for an annotation."""
-    payload = f'{trace_id}:{span_id}:{source_name}:{name}'
-    return hashlib.sha256(payload.encode()).hexdigest()
-
-
-def _serialize_value(value: bool | int | float | str) -> Any:
-    """Serialize an evaluation result value for the annotations API."""
-    if isinstance(value, bool):
-        return {'type': 'assertion', 'value': value}
-    if isinstance(value, (int, float)):
-        return {'type': 'score', 'value': value}
-    return {'type': 'label', 'value': value}
 
 
 class LogfireSink:
@@ -55,48 +39,34 @@ class LogfireSink:
 
         trace_id: str = span_reference.trace_id
         span_id: str = span_reference.span_id
-        annotations: list[dict[str, Any]] = []
+        values: dict[str, Any] = {}
 
         for result in results:
-            source_name: str = f'{result.source.name}:{result.name}'
-            annotation: dict[str, Any] = {
-                'trace_id': trace_id,
-                'span_id': span_id,
-                'annotation_type': 'eval',
-                'name': result.name,
-                'value': _serialize_value(result.value),
-                'source': 'online_eval',
-                'source_name': source_name,
-                'idempotency_key': _idempotency_key(trace_id, span_id, source_name, result.name),
-            }
+            value: Any = result.value
             if result.reason is not None:
-                annotation['comment'] = result.reason
-            if context.metadata is not None:
-                annotation['metadata'] = context.metadata
-            annotations.append(annotation)
+                value = {'value': value, 'reason': result.reason}
+            values[result.name] = value
 
         for failure in failures:
-            source_name = f'{failure.source.name}:{failure.name}'
-            annotation = {
-                'trace_id': trace_id,
-                'span_id': span_id,
-                'annotation_type': 'eval',
-                'name': failure.name,
-                'value': json.dumps({'error': True, 'error_message': failure.error_message}),
-                'source': 'online_eval',
-                'source_name': source_name,
-                'idempotency_key': _idempotency_key(trace_id, span_id, source_name, failure.name),
-            }
+            error_value = json.dumps({'error': True, 'error_message': failure.error_message})
             if failure.error_stacktrace:
-                annotation['comment'] = failure.error_stacktrace[:1000]
-            if context.metadata is not None:
-                annotation['metadata'] = context.metadata
-            annotations.append(annotation)
+                values[failure.name] = {'value': error_value, 'reason': failure.error_stacktrace[:1000]}
+            else:
+                values[failure.name] = error_value
 
-        if not annotations:
+        if not values:
             return
 
+        annotation: dict[str, Any] = {
+            'trace_id': trace_id,
+            'span_id': span_id,
+            'values': values,
+            'source': 'automated',
+        }
+        if context.metadata is not None:
+            annotation['metadata'] = context.metadata
+
         try:
-            await self._client.create_annotations_batch(annotations)
+            await self._client.create_annotations_batch([annotation])
         except Exception as exc:
             logfire.warn('LogfireSink submit failed: {error}', error=str(exc))
