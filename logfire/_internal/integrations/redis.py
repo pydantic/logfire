@@ -51,4 +51,7 @@ def _capture_statement_hook(request_hook: RequestHook | None = None) -> RequestH
         if request_hook is not None:
             request_hook(span, instance, command, *args, **kwargs)
 
+    if request_hook is not None:
+        _capture_statement = functools.wraps(request_hook)(_capture_statement)
+
     return _capture_statement
