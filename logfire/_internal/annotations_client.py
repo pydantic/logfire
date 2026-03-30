@@ -41,7 +41,7 @@ class AnnotationsClient:
                     response = await self._client.post('/v1/annotations', json={'annotations': annotations})
                     response.raise_for_status()
                 except Exception as retry_exc:
-                    logfire.error('Annotations batch retry failed: {error}', _exc_info=retry_exc)
+                    logfire.error('Annotations batch retry failed: {error}', error=str(retry_exc), _exc_info=retry_exc)
             else:
                 logfire.error(
                     'Annotations batch request failed: {status} {error}',
