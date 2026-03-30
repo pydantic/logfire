@@ -117,7 +117,7 @@ curl "https://api-us.pydantic.dev/api/v1/audit-logs/c1cc14dc-a124-405f-aab4-603d
   "action": "UPDATE",
   "resource_type": "projects",
   "record_id": "7b05bb15-b3ca-446b-94ea-e83396e0be15",
-  "ip_address": "87.74.230.173",
+  "ip_address": "123.123.123.123",
   "downgrade_patches": [
     {
       "op": "replace",
