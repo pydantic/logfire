@@ -4,8 +4,10 @@ import json
 from collections.abc import Sequence
 from typing import Any
 
+import httpx
+
 import logfire
-from logfire._internal.annotations_client import AnnotationsClient
+from logfire.experimental.api_client import AsyncLogfireAPIClient
 
 
 class LogfireSink:
@@ -15,7 +17,7 @@ class LogfireSink:
     (no import of pydantic-evals at module level).
     """
 
-    def __init__(self, client: AnnotationsClient) -> None:
+    def __init__(self, client: AsyncLogfireAPIClient) -> None:
         self._client = client
 
     async def submit(
@@ -67,6 +69,23 @@ class LogfireSink:
             annotation['metadata'] = context.metadata
 
         try:
-            await self._client.create_annotations_batch([annotation])
+            await self._client.create_annotations([annotation])
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code >= 500:
+                try:
+                    await self._client.create_annotations([annotation])
+                except Exception as retry_exc:
+                    logfire.error('Annotations batch retry failed: {error}', error=str(retry_exc), _exc_info=retry_exc)
+            else:
+                logfire.error(
+                    'Annotations batch request failed: {status} {error}',
+                    status=exc.response.status_code,
+                    error=str(exc),
+                )
+        except httpx.TimeoutException:
+            try:
+                await self._client.create_annotations([annotation])
+            except Exception as retry_exc:
+                logfire.error('Annotations batch retry after timeout failed: {error}', error=str(retry_exc))
         except Exception as exc:
-            logfire.warn('LogfireSink submit failed: {error}', error=str(exc))
+            logfire.error('LogfireSink submit failed: {error}', error=str(exc))

@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 import pytest
 from inline_snapshot import snapshot
 
-from logfire._internal.annotations_client import AnnotationsClient
+from logfire.experimental.api_client import AsyncLogfireAPIClient
 from logfire.experimental.evaluation import LogfireSink
 
 
@@ -54,7 +54,7 @@ class FakeContext:
 @pytest.mark.anyio
 async def test_submit_results() -> None:
     """Results are correctly mapped to annotation payloads."""
-    mock_client = AsyncMock(spec=AnnotationsClient)
+    mock_client = AsyncMock(spec=AsyncLogfireAPIClient)
     sink = LogfireSink(client=mock_client)
 
     results = [
@@ -69,8 +69,8 @@ async def test_submit_results() -> None:
         span_reference=FakeSpanReference(trace_id='a' * 32, span_id='b' * 16),
     )
 
-    mock_client.create_annotations_batch.assert_called_once()
-    annotations = mock_client.create_annotations_batch.call_args[0][0]
+    mock_client.create_annotations.assert_called_once()
+    annotations = mock_client.create_annotations.call_args[0][0]
     assert len(annotations) == 1
 
     assert annotations[0] == snapshot(
@@ -90,7 +90,7 @@ async def test_submit_results() -> None:
 @pytest.mark.anyio
 async def test_submit_failures() -> None:
     """Failures are correctly mapped to annotation payloads."""
-    mock_client = AsyncMock(spec=AnnotationsClient)
+    mock_client = AsyncMock(spec=AsyncLogfireAPIClient)
     sink = LogfireSink(client=mock_client)
 
     failures = [
@@ -109,8 +109,8 @@ async def test_submit_failures() -> None:
         span_reference=FakeSpanReference(trace_id='a' * 32, span_id='b' * 16),
     )
 
-    mock_client.create_annotations_batch.assert_called_once()
-    annotations = mock_client.create_annotations_batch.call_args[0][0]
+    mock_client.create_annotations.assert_called_once()
+    annotations = mock_client.create_annotations.call_args[0][0]
     assert len(annotations) == 1
     failure_value = annotations[0]['values']['broken_eval']
     assert failure_value['reason'] == 'Traceback...\nKeyError: missing_key'
@@ -120,7 +120,7 @@ async def test_submit_failures() -> None:
 @pytest.mark.anyio
 async def test_submit_none_span_reference_is_noop() -> None:
     """When span_reference is None, nothing is sent."""
-    mock_client = AsyncMock(spec=AnnotationsClient)
+    mock_client = AsyncMock(spec=AsyncLogfireAPIClient)
     sink = LogfireSink(client=mock_client)
 
     await sink.submit(
@@ -130,13 +130,13 @@ async def test_submit_none_span_reference_is_noop() -> None:
         span_reference=None,
     )
 
-    mock_client.create_annotations_batch.assert_not_called()
+    mock_client.create_annotations.assert_not_called()
 
 
 @pytest.mark.anyio
 async def test_submit_empty_results_and_failures_is_noop() -> None:
     """When there are no results or failures, nothing is sent."""
-    mock_client = AsyncMock(spec=AnnotationsClient)
+    mock_client = AsyncMock(spec=AsyncLogfireAPIClient)
     sink = LogfireSink(client=mock_client)
 
     await sink.submit(
@@ -146,14 +146,14 @@ async def test_submit_empty_results_and_failures_is_noop() -> None:
         span_reference=FakeSpanReference(trace_id='a' * 32, span_id='b' * 16),
     )
 
-    mock_client.create_annotations_batch.assert_not_called()
+    mock_client.create_annotations.assert_not_called()
 
 
 @pytest.mark.anyio
 async def test_submit_catches_exceptions() -> None:
     """Exceptions from the client are caught and logged, not raised."""
-    mock_client = AsyncMock(spec=AnnotationsClient)
-    mock_client.create_annotations_batch.side_effect = RuntimeError('connection failed')
+    mock_client = AsyncMock(spec=AsyncLogfireAPIClient)
+    mock_client.create_annotations.side_effect = RuntimeError('connection failed')
     sink = LogfireSink(client=mock_client)
 
     # Should not raise
@@ -168,7 +168,7 @@ async def test_submit_catches_exceptions() -> None:
 @pytest.mark.anyio
 async def test_submit_failure_without_stacktrace() -> None:
     """Failures without stacktrace don't include reason in value."""
-    mock_client = AsyncMock(spec=AnnotationsClient)
+    mock_client = AsyncMock(spec=AsyncLogfireAPIClient)
     sink = LogfireSink(client=mock_client)
 
     failures = [
@@ -187,8 +187,8 @@ async def test_submit_failure_without_stacktrace() -> None:
         span_reference=FakeSpanReference(trace_id='a' * 32, span_id='b' * 16),
     )
 
-    mock_client.create_annotations_batch.assert_called_once()
-    annotations = mock_client.create_annotations_batch.call_args[0][0]
+    mock_client.create_annotations.assert_called_once()
+    annotations = mock_client.create_annotations.call_args[0][0]
     failure_value = annotations[0]['values']['broken_eval']
     # When no stacktrace, value is a bare string (no reason dict)
     assert isinstance(failure_value, str)

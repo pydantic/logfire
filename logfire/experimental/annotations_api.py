@@ -2,21 +2,21 @@ from __future__ import annotations
 
 from typing import Any
 
-import httpx
-
-from logfire._internal.annotations_client import DEFAULT_TIMEOUT, AnnotationsClient
 from logfire._internal.config import GLOBAL_CONFIG, get_base_url_from_token
+from logfire.experimental.api_client import AsyncLogfireAPIClient, LogfireAPIClient
 
 
-def _get_token_and_base_url() -> tuple[str, str]:
-    """Get write token and base URL from the global config."""
-    token = GLOBAL_CONFIG.token
-    if not token:
-        raise ValueError('Logfire is not configured with a token. Call logfire.configure() first.')
-    write_token = token[0] if isinstance(token, list) else token
+def _get_api_key_and_base_url() -> tuple[str, str]:
+    """Get API key and base URL from the global config."""
+    api_key = GLOBAL_CONFIG.api_key
+    if not api_key:
+        raise ValueError(
+            'Logfire is not configured with an API key. '
+            'Set the LOGFIRE_API_KEY environment variable or pass api_key to logfire.configure().'
+        )
     advanced = GLOBAL_CONFIG.advanced
-    base_url = advanced.base_url if advanced and advanced.base_url else get_base_url_from_token(write_token)
-    return write_token, base_url
+    base_url = advanced.base_url if advanced and advanced.base_url else get_base_url_from_token(api_key)
+    return api_key, base_url
 
 
 def _build_annotation_body(
@@ -75,12 +75,9 @@ async def create_annotation(
         source=source,
         metadata=metadata,
     )
-    write_token, base_url = _get_token_and_base_url()
-    client = AnnotationsClient(base_url=base_url, token=write_token)
-    try:
-        await client.create_annotations_batch([body])
-    finally:
-        await client.close()
+    api_key, base_url = _get_api_key_and_base_url()
+    async with AsyncLogfireAPIClient(api_key=api_key, base_url=base_url) as client:
+        await client.create_annotations([body])
 
 
 def create_annotation_sync(
@@ -115,11 +112,6 @@ def create_annotation_sync(
         source=source,
         metadata=metadata,
     )
-    write_token, base_url = _get_token_and_base_url()
-    with httpx.Client(
-        base_url=base_url,
-        headers={'Authorization': write_token},
-        timeout=DEFAULT_TIMEOUT,
-    ) as client:
-        response = client.post('/v1/annotations', json={'annotations': [body]})
-        response.raise_for_status()
+    api_key, base_url = _get_api_key_and_base_url()
+    with LogfireAPIClient(api_key=api_key, base_url=base_url) as client:
+        client.create_annotations([body])

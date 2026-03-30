@@ -237,8 +237,9 @@ class _BaseLogfireAPIClient(Generic[T]):
 
 
 class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
-    """Synchronous client for managing Logfire datasets.
+    """Synchronous client for the Logfire API.
 
+    Supports datasets, annotations, and other Logfire API operations.
     The client supports typed datasets that integrate with pydantic-evals.
 
     Example usage:
@@ -287,10 +288,10 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         *,
         client: Client | None = None,
     ):
-        """Create a new datasets client.
+        """Create a new Logfire API client.
 
         Args:
-            api_key: A Logfire API key with datasets scopes (project:read_datasets, project:write_datasets).
+            api_key: A Logfire API key with appropriate scopes.
             base_url: The base URL of the Logfire API. If not provided, inferred from API key.
             timeout: Request timeout configuration.
             client: A pre-configured httpx.Client. If provided, api_key/base_url/timeout are ignored.
@@ -709,9 +710,24 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         typed_dataset_cls: type[Dataset[InputsT, OutputT, MetadataT]] = Dataset[input_type, output_type, metadata_type]  # pyright: ignore[reportIndexIssue, reportUnknownVariableType]
         return typed_dataset_cls.from_dict(data, custom_evaluator_types=list(custom_evaluator_types))  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
 
+    # --- Annotation operations ---
+
+    def create_annotations(self, annotations: list[dict[str, Any]]) -> Any:
+        """Create annotations on spans.
+
+        Args:
+            annotations: List of annotation dicts, each with `trace_id`, `span_id`,
+                `values` (dict mapping name to value), and optional `source`/`metadata`.
+
+        Returns:
+            The API response.
+        """
+        response = self.client.post('/v1/annotations', json={'annotations': annotations})
+        return self._handle_response(response)
+
 
 class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
-    """Asynchronous client for managing Logfire datasets.
+    """Asynchronous client for the Logfire API.
 
     See `LogfireAPIClient` for full documentation.
     """
@@ -952,3 +968,13 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         Dataset, _ = _import_pydantic_evals()
         typed_dataset_cls: type[Dataset[InputsT, OutputT, MetadataT]] = Dataset[input_type, output_type, metadata_type]  # pyright: ignore[reportIndexIssue, reportUnknownVariableType]
         return typed_dataset_cls.from_dict(data, custom_evaluator_types=list(custom_evaluator_types))  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
+
+    # --- Annotation operations ---
+
+    async def create_annotations(self, annotations: list[dict[str, Any]]) -> Any:
+        """Create annotations on spans.
+
+        See `LogfireAPIClient.create_annotations` for full documentation.
+        """
+        response = await self.client.post('/v1/annotations', json={'annotations': annotations})
+        return self._handle_response(response)
