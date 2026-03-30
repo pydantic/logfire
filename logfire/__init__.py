@@ -68,11 +68,13 @@ instrument_mysql = DEFAULT_LOGFIRE_INSTANCE.instrument_mysql
 instrument_surrealdb = DEFAULT_LOGFIRE_INSTANCE.instrument_surrealdb
 instrument_system_metrics = DEFAULT_LOGFIRE_INSTANCE.instrument_system_metrics
 instrument_mcp = DEFAULT_LOGFIRE_INSTANCE.instrument_mcp
+instrument_claude_agent_sdk = DEFAULT_LOGFIRE_INSTANCE.instrument_claude_agent_sdk
 suppress_scopes = DEFAULT_LOGFIRE_INSTANCE.suppress_scopes
 shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
 with_tags = DEFAULT_LOGFIRE_INSTANCE.with_tags
 # with_trace_sample_rate = DEFAULT_LOGFIRE_INSTANCE.with_trace_sample_rate
 with_settings = DEFAULT_LOGFIRE_INSTANCE.with_settings
+url_from_eval = DEFAULT_LOGFIRE_INSTANCE.url_from_eval
 
 # Logging
 log = DEFAULT_LOGFIRE_INSTANCE.log
@@ -175,6 +177,7 @@ __all__ = (
     'instrument_surrealdb',
     'instrument_system_metrics',
     'instrument_mcp',
+    'instrument_claude_agent_sdk',
     'AutoTraceModule',
     'with_tags',
     'with_settings',
@@ -209,4 +212,5 @@ __all__ = (
     'set_baggage',
     'get_context',
     'attach_context',
+    'url_from_eval',
 )

@@ -1,5 +1,12 @@
 # Release Notes
 
+## [v4.31.0] (2026-03-27)
+
+* Add `logfire.instrument_claude_agent_sdk()` by @alexmojaki in [#1799](https://github.com/pydantic/logfire/pull/1799)
+* feat: add `logfire.url_from_eval(report)` method by @Kludex in [#1694](https://github.com/pydantic/logfire/pull/1694)
+* fix: include cached tokens in `gen_ai.usage.input_tokens` for Anthropic by @alexmojaki in [#1812](https://github.com/pydantic/logfire/pull/1812)
+* fix: handle bare MCP request types for fastmcp 3.x compatibility by @alexmojaki in [#1813](https://github.com/pydantic/logfire/pull/1813)
+
 ## [v4.30.0] (2026-03-23)
 
 * Add `logfire auth logout` command by @ai-man-codes in [#1781](https://github.com/pydantic/logfire/pull/1781)
@@ -1081,3 +1088,4 @@ First release from new repo!
 [v4.28.0]: https://github.com/pydantic/logfire/compare/v4.27.0...v4.28.0
 [v4.29.0]: https://github.com/pydantic/logfire/compare/v4.28.0...v4.29.0
 [v4.30.0]: https://github.com/pydantic/logfire/compare/v4.29.0...v4.30.0
+[v4.31.0]: https://github.com/pydantic/logfire/compare/v4.30.0...v4.31.0

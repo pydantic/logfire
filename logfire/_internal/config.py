@@ -828,6 +828,7 @@ class _LogfireConfigData:
         self.advanced = advanced
 
         self.additional_span_processors = additional_span_processors
+        self._project_url: str | None = None
 
         if metrics is None:
             metrics = MetricsOptions()
@@ -1110,6 +1111,7 @@ class LogfireConfig(_LogfireConfigData):
                     # This means that e.g. a token in an env var takes priority over a token in a creds file.
                     self.token = self.token or credentials.token
                     self.advanced.base_url = self.advanced.base_url or credentials.logfire_api_url
+                    self._project_url = self._project_url or credentials.project_url
 
                 if self.token:
                     # Convert to list for iteration (handles both str and list[str])
@@ -1135,12 +1137,10 @@ class LogfireConfig(_LogfireConfigData):
                         with suppress_instrumentation():
                             for token in token_list:
                                 validated_credentials = self._initialize_credentials_from_token(token)
-                                if (
-                                    validated_credentials is not None
-                                    and show_project_link
-                                    and token not in printed_tokens
-                                ):
-                                    validated_credentials.print_token_summary()
+                                if validated_credentials is not None:
+                                    self._project_url = self._project_url or validated_credentials.project_url
+                                    if show_project_link and token not in printed_tokens:
+                                        validated_credentials.print_token_summary()
 
                     if emscripten:  # pragma: no cover
                         check_tokens()
