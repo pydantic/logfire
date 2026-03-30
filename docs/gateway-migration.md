@@ -11,7 +11,7 @@ We're consolidating the AI Gateway into Logfire. This means [gateway.pydantic.de
 
 | Date | Event |
 |------|-------|
-| **15 March 2026** | Self-service refunds available in the Logfire platform |
+| **15 March 2026** | Self-service refunds available in the legacy gateway platform |
 | **8 April 2026 at 3pm UTC** | Legacy gateway fully shut down (end of life) |
 | **By end of April 2026** | Automatic refunds processed for any remaining balances |
 
@@ -32,7 +32,7 @@ Moving the gateway into Logfire unlocks a number of improvements:
 
 ### What happens to my current balance?
 
-From **15 March 2026**, you can request a refund of your remaining balance via the button in the [Logfire platform](https://logfire.pydantic.dev). The refund will be issued to the original payment method you used.
+From **15 March 2026**, you can request a refund of your remaining balance via the button in the [legacy gateway platform](https://gateway.pydantic.dev). The refund will be issued to the original payment method you used.
 
 If you do not request a refund manually, any outstanding credits will be refunded automatically before the end of April 2026.
 
