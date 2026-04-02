@@ -195,13 +195,22 @@ jobs:
     if: "success() && github.ref == 'refs/heads/main'"
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger unified-docs rebuild
-        uses: peter-evans/repository-dispatch@v3
+      - name: Generate app token
+        uses: actions/create-github-app-token@v3
+        id: app-token
         with:
-          token: ${{ secrets.DOCS_DISPATCH_TOKEN }}
-          repository: pydantic/unified-docs
-          event-type: docs-update
-          client-payload: '{"source": "pydantic/logfire@${{ github.sha }}"}'
+          app-id: ${{ vars.DOCS_APP_ID }}
+          private-key: ${{ secrets.DOCS_APP_PRIVATE_KEY }}
+          repositories: unified-docs
+
+      - name: Trigger unified-docs deployment
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          gh api repos/pydantic/unified-docs/dispatches \
+            --method POST \
+            -f event_type=docs-update \
+            -f "client_payload[source]=pydantic/logfire@${{ github.sha }}"
 
   release:
     needs: [ check ]
