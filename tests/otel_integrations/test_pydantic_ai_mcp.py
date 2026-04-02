@@ -221,7 +221,7 @@ Because it found something more "sole-ful!"\
                     'server.address': 'api.openai.com',
                     'model_request_parameters': IsPartialDict(),
                     'gen_ai.agent.name': 'agent',
-                    'gen_ai.agent.call.id': '019d4dda-79c2-767c-8fc2-66f1146709de',
+                    'gen_ai.agent.call.id': IsStr(),
                     'gen_ai.request.max_tokens': 16384,
                     'logfire.span_type': 'span',
                     'logfire.msg': 'chat gpt-4o',
@@ -266,7 +266,7 @@ Because it found something more "sole-ful!"\
                             'meta': {
                                 'progressToken': None,
                                 'traceparent': '00-00000000000000000000000000000002-0000000000000015-01',
-                                'baggage': 'gen_ai.agent.name=agent,gen_ai.agent.call.id=019d4dda-79c2-767c-8fc2-66f1146709de',
+                                'baggage': IsStr(),
                             },
                             'messages': [
                                 {
@@ -386,7 +386,7 @@ Because it found something more "sole-ful!"\
                     'gen_ai.request.model': 'mcp-sampling',
                     'model_request_parameters': IsPartialDict(),
                     'gen_ai.agent.name': 'agent',
-                    'gen_ai.agent.call.id': '019d4dda-79c2-767c-8fc2-66f1146709de',
+                    'gen_ai.agent.call.id': IsStr(),
                     'logfire.span_type': 'span',
                     'logfire.msg': 'chat mcp-sampling',
                     'gen_ai.input.messages': [
@@ -421,7 +421,7 @@ Because it found something more "sole-ful!"\
                     'model_name': 'mcp-sampling',
                     'agent_name': 'agent',
                     'gen_ai.agent.name': 'agent',
-                    'gen_ai.agent.call.id': '019d4dda-79c2-767c-8fc2-66f1146709de',
+                    'gen_ai.agent.call.id': IsStr(),
                     'gen_ai.operation.name': 'invoke_agent',
                     'logfire.msg': 'agent run',
                     'logfire.span_type': 'span',
