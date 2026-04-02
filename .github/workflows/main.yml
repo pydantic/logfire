@@ -190,6 +190,19 @@ jobs:
         with:
           jobs: ${{ toJSON(needs) }}
 
+  trigger-docs:
+    needs: [ check ]
+    if: "success() && github.ref == 'refs/heads/main'"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger unified-docs rebuild
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.DOCS_DISPATCH_TOKEN }}
+          repository: pydantic/unified-docs
+          event-type: docs-update
+          client-payload: '{"source": "pydantic/logfire@${{ github.sha }}"}'
+
   release:
     needs: [ check ]
     if: "success() && startsWith(github.ref, 'refs/tags/')"
