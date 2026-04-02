@@ -229,6 +229,10 @@ exclude-newer = "1 week"
 # when building docs in CI, so we exclude them from the exclude-newer check.
 mkdocstrings_python = false
 mkdocs_material = false
+pydantic_ai_slim = false
+pydantic-graph = false
+pydantic-evals = false
+pydantic = false
 
 [tool.uv.workspace]
 members = ["logfire-api"]
