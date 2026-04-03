@@ -563,6 +563,9 @@ def test_tail_sampling_no_warning_on_ended_span(
     warnings = [r for r in caplog.records if 'Setting attribute on ended span' in r.message]
     assert warnings == [], f'Unexpected warnings: {[r.message for r in warnings]}'
 
+    # Exercise force_flush with deferred_processor present (via PendingSpanProcessor)
+    logfire.DEFAULT_LOGFIRE_INSTANCE.config._tracer_provider.force_flush()
+
 
 def test_on_start_attribute_set_by_processor(
     exporter: TestExporter,
