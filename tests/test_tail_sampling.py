@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import inline_snapshot.extra
 import pytest
 from inline_snapshot import snapshot
 from opentelemetry.context import Context
+from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.sampling import ALWAYS_OFF, ALWAYS_ON, Sampler, SamplingResult
 
 import logfire
@@ -514,3 +517,219 @@ def test_both_trace_and_head():
         )
     ):
         logfire.configure(trace_sample_rate=0.5, sampling=logfire.SamplingOptions())  # type: ignore
+
+
+def test_tail_sampling_no_warning_on_ended_span(
+    exporter: TestExporter,
+    id_generator: Any,
+    time_generator: TimeGenerator,
+    caplog: pytest.LogCaptureFixture,
+):
+    """Test that tail sampling with baggage doesn't trigger 'Setting attribute on ended span' warnings.
+
+    With the redesigned TailSamplingProcessor, on_start is called immediately on the main processor
+    (including DirectBaggageAttributesSpanProcessor), so attributes are set before the span ends.
+    """
+    from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
+
+    from logfire._internal.exporters.test import TestLogExporter
+
+    config_kwargs = dict(
+        send_to_logfire=False,
+        console=False,
+        advanced=logfire.AdvancedOptions(
+            id_generator=id_generator,
+            ns_timestamp_generator=time_generator,
+            log_record_processors=[SimpleLogRecordProcessor(TestLogExporter(time_generator))],
+        ),
+        additional_span_processors=[SimpleSpanProcessor(exporter)],
+        add_baggage_to_attributes=True,
+    )
+
+    logfire.configure(
+        **config_kwargs,  # type: ignore
+        sampling=logfire.SamplingOptions(tail=lambda info: 1.0 if info.level >= 'error' else 0.0),
+    )
+
+    caplog.set_level(logging.WARNING, logger='opentelemetry.sdk.trace')
+
+    with logfire.span('root'):
+        with logfire.span('child_1'):
+            pass
+        with logfire.span('child_2'):
+            pass
+        logfire.error('Trigger sampling')
+
+    warnings = [r for r in caplog.records if 'Setting attribute on ended span' in r.message]
+    assert warnings == [], f'Unexpected warnings: {[r.message for r in warnings]}'
+
+    # Exercise force_flush with deferred_processor present (via PendingSpanProcessor)
+    logfire.force_flush()
+
+
+def test_on_start_attribute_set_by_processor(
+    exporter: TestExporter,
+    id_generator: Any,
+    time_generator: TimeGenerator,
+):
+    """Test that a custom processor's on_start attribute-setting works during tail sampling.
+
+    The attribute should be set immediately (before the span ends) and appear on exported spans.
+    """
+
+    class AttributeSettingProcessor(SpanProcessor):
+        def on_start(self, span: Span, parent_context: Any = None) -> None:
+            span.set_attribute('custom.from_on_start', 'hello')
+
+    config_kwargs = dict(
+        send_to_logfire=False,
+        console=False,
+        advanced=logfire.AdvancedOptions(
+            id_generator=id_generator,
+            ns_timestamp_generator=time_generator,
+        ),
+        additional_span_processors=[
+            SimpleSpanProcessor(exporter),
+            AttributeSettingProcessor(),
+        ],
+    )
+
+    logfire.configure(
+        **config_kwargs,  # type: ignore
+        sampling=logfire.SamplingOptions(tail=lambda info: 1.0 if info.level >= 'error' else 0.0),
+    )
+
+    with logfire.span('root'):
+        logfire.error('trigger')
+
+    spans = exporter.exported_spans_as_dict()
+    for span in spans:
+        assert span['attributes'].get('custom.from_on_start') == 'hello', (
+            f"Expected 'custom.from_on_start' attribute on span {span['name']}"
+        )
+
+
+def test_deferred_processor_marker(
+    exporter: TestExporter,
+    id_generator: Any,
+    time_generator: TimeGenerator,
+):
+    """Test that a processor with tail_sampling_defer_on_start=True has on_start deferred."""
+    on_start_order: list[str] = []
+
+    class DeferredProcessor(SpanProcessor):
+        tail_sampling_defer_on_start = True
+
+        def on_start(self, span: Span, parent_context: Any = None) -> None:
+            on_start_order.append(f'deferred:{span.name}')
+
+        def on_end(self, span: ReadableSpan) -> None:
+            pass
+
+    class ImmediateProcessor(SpanProcessor):
+        def on_start(self, span: Span, parent_context: Any = None) -> None:
+            on_start_order.append(f'immediate:{span.name}')
+
+        def on_end(self, span: ReadableSpan) -> None:
+            pass
+
+    config_kwargs = dict(
+        send_to_logfire=False,
+        console=False,
+        advanced=logfire.AdvancedOptions(
+            id_generator=id_generator,
+            ns_timestamp_generator=time_generator,
+        ),
+        additional_span_processors=[
+            SimpleSpanProcessor(exporter),
+            DeferredProcessor(),
+            ImmediateProcessor(),
+        ],
+    )
+
+    logfire.configure(
+        **config_kwargs,  # type: ignore
+        sampling=logfire.SamplingOptions(tail=lambda info: 1.0 if info.level >= 'error' else 0.0),
+    )
+
+    # Create a span that doesn't trigger sampling — immediate processor gets on_start,
+    # but deferred processor does NOT get on_start yet.
+    on_start_order.clear()
+    with logfire.span('buffered'):
+        # At this point, immediate processor should have received on_start
+        assert 'immediate:buffered' in on_start_order
+        assert 'deferred:buffered' not in on_start_order
+
+    # Now create a trace that triggers sampling
+    on_start_order.clear()
+    with logfire.span('root'):
+        logfire.error('trigger')
+
+    # Both processors should have received on_start for the sampled trace
+    assert any('immediate:' in s for s in on_start_order)
+    assert any('deferred:' in s for s in on_start_order)
+
+
+def test_tail_sampling_processor_without_deferred():
+    """Test TailSamplingProcessor directly without a deferred_processor.
+
+    Covers the deferred_processor-is-None branches in on_start, on_end,
+    push_buffer, shutdown, and force_flush.
+    """
+    from opentelemetry.sdk.trace import TracerProvider
+
+    from logfire.sampling._tail_sampling import TailSamplingProcessor
+
+    on_end_spans: list[str] = []
+
+    class CollectorProcessor(SpanProcessor):
+        def on_start(self, span: Span, parent_context: Any = None) -> None:
+            pass
+
+        def on_end(self, span: ReadableSpan) -> None:
+            on_end_spans.append(span.name)
+
+        def shutdown(self) -> None:
+            pass
+
+        def force_flush(self, timeout_millis: int = 30000) -> bool:
+            return True
+
+    collector = CollectorProcessor()
+    processor = TailSamplingProcessor(
+        collector,
+        get_tail_sample_rate=lambda info: 1.0,  # Always sample
+    )
+
+    assert processor.deferred_processor is None
+
+    provider = TracerProvider()
+    provider.add_span_processor(processor)
+    tracer = provider.get_tracer('test')
+
+    # The root span triggers sampling (rate=1.0), dropping the buffer.
+    # The child span then arrives with buffer=None, covering the
+    # deferred_processor-is-None branch in on_start and on_end.
+    with tracer.start_as_current_span('parent'):
+        with tracer.start_as_current_span('child'):
+            pass
+
+    assert 'parent' in on_end_spans
+    assert 'child' in on_end_spans
+
+    # Exercise shutdown and force_flush with no deferred_processor
+    processor.force_flush()
+    processor.shutdown()
+
+
+def test_tail_sampling_config_without_pending_span_processors():
+    """Test config.py wiring when tail sampling is active but no processors have pending spans.
+
+    Covers the deferred_processors-is-empty branch in config.py.
+    """
+    logfire.configure(
+        send_to_logfire=False,
+        console=False,
+        sampling=logfire.SamplingOptions(tail=lambda info: 1.0),
+    )
+    logfire.info('test')

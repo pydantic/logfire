@@ -1008,17 +1008,14 @@ class LogfireConfig(_LogfireConfigData):
             self._tracer_provider.set_provider(tracer_provider)  # do we need to shut down the existing one???
 
             processors_with_pending_spans: list[SpanProcessor] = []
-            root_processor = main_multiprocessor = SynchronousMultiSpanProcessor()
-            if self.sampling.tail:
-                root_processor = TailSamplingProcessor(root_processor, self.sampling.tail)
-            tracer_provider.add_span_processor(
-                CheckSuppressInstrumentationProcessorWrapper(
-                    MainSpanProcessorWrapper(root_processor, self.scrubber),
-                )
-            )
+            user_deferred_processors: list[SpanProcessor] = []
+            main_multiprocessor = SynchronousMultiSpanProcessor()
 
             def add_span_processor(span_processor: SpanProcessor) -> None:
-                main_multiprocessor.add_span_processor(span_processor)
+                if self.sampling.tail and getattr(span_processor, 'tail_sampling_defer_on_start', False):
+                    user_deferred_processors.append(span_processor)
+                else:
+                    main_multiprocessor.add_span_processor(span_processor)
                 has_pending = isinstance(
                     getattr(span_processor, 'span_exporter', None),
                     (TestExporter, RemovePendingSpansExporter, SimpleConsoleSpanExporter),
@@ -1183,16 +1180,39 @@ class LogfireConfig(_LogfireConfigData):
                         # This line is just to make sure.
                         session.headers.update(headers)
 
+            deferred_processors: list[SpanProcessor] = []
             if processors_with_pending_spans:
                 pending_multiprocessor = SynchronousMultiSpanProcessor()
                 for processor in processors_with_pending_spans:
                     pending_multiprocessor.add_span_processor(processor)
-
-                main_multiprocessor.add_span_processor(
+                deferred_processors.append(
                     PendingSpanProcessor(
                         self.advanced.id_generator, MainSpanProcessorWrapper(pending_multiprocessor, self.scrubber)
                     )
                 )
+            deferred_processors.extend(user_deferred_processors)
+
+            root_processor: SpanProcessor = main_multiprocessor
+            if self.sampling.tail:
+                deferred_multi: SpanProcessor | None = None
+                if deferred_processors:
+                    deferred_multi = SynchronousMultiSpanProcessor()
+                    for p in deferred_processors:
+                        deferred_multi.add_span_processor(p)
+                root_processor = TailSamplingProcessor(
+                    main_multiprocessor,
+                    self.sampling.tail,
+                    deferred_processor=deferred_multi,
+                )
+            else:
+                for p in deferred_processors:
+                    main_multiprocessor.add_span_processor(p)
+
+            tracer_provider.add_span_processor(
+                CheckSuppressInstrumentationProcessorWrapper(
+                    MainSpanProcessorWrapper(root_processor, self.scrubber),
+                )
+            )
 
             otlp_endpoint = os.getenv(OTEL_EXPORTER_OTLP_ENDPOINT)
             otlp_traces_endpoint = os.getenv(OTEL_EXPORTER_OTLP_TRACES_ENDPOINT)
