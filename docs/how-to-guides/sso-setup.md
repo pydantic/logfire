@@ -91,7 +91,7 @@ A request will be sent to your Azure admin for approval. The Azure admin should 
 1. Log out of Logfire.
 2. Navigate to your organization's SSO login URL:
    ```
-   https://logfire.pydantic.dev/{org-name}/login
+   https://logfire.pydantic.dev/login/{org-name}
    ```
    *(replace `{org-name}` with your organization's handle)*
 3. Click **Continue with Entra ID** and verify you can log in successfully with your corporate credentials.
@@ -140,7 +140,7 @@ Users who joined the organization before SSO was configured need to connect thei
 | 4 | Collect Client ID, Client Secret, and Tenant ID |
 | 5 | Add Azure OIDC provider in Logfire with Issuer URL `https://login.microsoftonline.com/{tenant-id}/v2.0` |
 | 6 | Connect Entra ID and approve the request in Azure |
-| 7 | Test SSO login via `https://logfire.pydantic.dev/{org-name}/login` |
+| 7 | Test SSO login via `https://logfire.pydantic.dev/login/{org-name}` |
 | 8 | Share the invite link with your team (redirects to SSO login if unauthenticated) |
 
 ---
