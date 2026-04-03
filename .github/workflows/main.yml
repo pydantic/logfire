@@ -201,6 +201,7 @@ jobs:
         with:
           app-id: ${{ vars.DOCS_APP_ID }}
           private-key: ${{ secrets.DOCS_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
           repositories: unified-docs
 
       - name: Trigger unified-docs deployment
