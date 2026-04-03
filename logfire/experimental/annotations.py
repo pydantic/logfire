@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from typing import Any
 
 from opentelemetry.trace import Span, set_span_in_context
@@ -30,7 +31,7 @@ def get_traceparent(span: Span | logfire.LogfireSpan) -> str:
     return carrier.get(TRACEPARENT_NAME, '')
 
 
-def raw_annotate_span(traceparent: str, span_name: str, message: str, attributes: dict[str, Any]) -> None:
+def _raw_annotate_span_impl(traceparent: str, span_name: str, message: str, attributes: dict[str, Any]) -> None:
     """Create a span of kind 'annotation' as a child of the span with the given traceparent."""
     with attach_context({TRACEPARENT_NAME: traceparent}, propagator=TRACEPARENT_PROPAGATOR):
         feedback_logfire.info(
@@ -41,6 +42,22 @@ def raw_annotate_span(traceparent: str, span_name: str, message: str, attributes
                 ATTRIBUTES_SPAN_TYPE_KEY: 'annotation',
             },
         )
+
+
+def raw_annotate_span(traceparent: str, span_name: str, message: str, attributes: dict[str, Any]) -> None:
+    """Create a span of kind 'annotation' as a child of the span with the given traceparent.
+
+    .. deprecated::
+        Use `logfire.experimental.annotations_api.create_annotation()` or
+        `logfire.experimental.annotations_api.create_annotation_sync()` instead.
+    """
+    warnings.warn(
+        'raw_annotate_span() is deprecated. '
+        'Use logfire.experimental.annotations_api.create_annotation() or create_annotation_sync() instead.',
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    _raw_annotate_span_impl(traceparent, span_name, message, attributes)
 
 
 def record_feedback(
@@ -55,6 +72,10 @@ def record_feedback(
     This is a more structured version of `raw_annotate_span`
     with special attributes recognized by the Logfire UI.
 
+    .. deprecated::
+        Use `logfire.experimental.annotations_api.create_annotation()` or
+        `logfire.experimental.annotations_api.create_annotation_sync()` instead.
+
     Args:
         traceparent: The traceparent string.
         name: The name of the evaluation.
@@ -63,6 +84,12 @@ def record_feedback(
         comment: An optional reason for the evaluation.
         extra: Optional additional attributes to include in the span.
     """
+    warnings.warn(
+        'record_feedback() is deprecated. '
+        'Use logfire.experimental.annotations_api.create_annotation() or create_annotation_sync() instead.',
+        DeprecationWarning,
+        stacklevel=2,
+    )
     attributes: dict[str, Any] = {'logfire.feedback.name': name, name: value}
 
     if extra:
@@ -72,7 +99,7 @@ def record_feedback(
     if comment:
         attributes['logfire.feedback.comment'] = comment
 
-    raw_annotate_span(
+    _raw_annotate_span_impl(
         traceparent,
         f'feedback: {name}',
         f'feedback: {name} = {value!r}',
