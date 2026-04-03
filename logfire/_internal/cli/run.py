@@ -23,6 +23,32 @@ import logfire
 
 STANDARD_LIBRARY_PACKAGES = {'urllib', 'sqlite3'}
 
+# Map of OpenTelemetry instrumentation packages to logfire optional dependency group names.
+# When a package has a corresponding logfire extra, we recommend `logfire[extra]` instead
+# of the raw `opentelemetry-instrumentation-*` package.
+OTEL_PACKAGE_TO_LOGFIRE_EXTRA: dict[str, str] = {
+    'opentelemetry-instrumentation-aiohttp-client': 'aiohttp-client',
+    'opentelemetry-instrumentation-aiohttp-server': 'aiohttp-server',
+    'opentelemetry-instrumentation-asyncpg': 'asyncpg',
+    'opentelemetry-instrumentation-aws-lambda': 'aws-lambda',
+    'opentelemetry-instrumentation-celery': 'celery',
+    'opentelemetry-instrumentation-django': 'django',
+    'opentelemetry-instrumentation-fastapi': 'fastapi',
+    'opentelemetry-instrumentation-flask': 'flask',
+    'opentelemetry-instrumentation-google-genai': 'google-genai',
+    'opentelemetry-instrumentation-httpx': 'httpx',
+    'opentelemetry-instrumentation-mysql': 'mysql',
+    'opentelemetry-instrumentation-psycopg': 'psycopg',
+    'opentelemetry-instrumentation-psycopg2': 'psycopg2',
+    'opentelemetry-instrumentation-pymongo': 'pymongo',
+    'opentelemetry-instrumentation-redis': 'redis',
+    'opentelemetry-instrumentation-requests': 'requests',
+    'opentelemetry-instrumentation-sqlalchemy': 'sqlalchemy',
+    'opentelemetry-instrumentation-sqlite3': 'sqlite3',
+    'opentelemetry-instrumentation-starlette': 'starlette',
+    'opentelemetry-instrumentation-system-metrics': 'system-metrics',
+}
+
 # Map of instrumentation packages to the packages they instrument
 OTEL_INSTRUMENTATION_MAP = {
     'opentelemetry-instrumentation-aio_pika': 'aio_pika',
@@ -237,7 +263,11 @@ def get_recommendation_texts(recommendations: set[tuple[str, str]]) -> tuple[Tex
     sorted_recommendations = sorted(recommendations)
     recommended_text = Text()
     for pkg_name, instrumented_pkg in sorted_recommendations:
-        recommended_text.append(f'☐ {instrumented_pkg} (need to install {pkg_name})\n', style='grey50')
+        extra = OTEL_PACKAGE_TO_LOGFIRE_EXTRA.get(pkg_name)
+        if extra:
+            recommended_text.append(f'☐ {instrumented_pkg} (need to install logfire[{extra}])\n', style='grey50')
+        else:
+            recommended_text.append(f'☐ {instrumented_pkg} (need to install {pkg_name})\n', style='grey50')
     recommended_text.append('\n')
 
     install_text = Text()
@@ -308,18 +338,37 @@ def installed_packages() -> set[str]:
 
 
 def _full_install_command(recommendations: list[tuple[str, str]]) -> str:
-    """Generate a command to install all recommended packages at once."""
+    """Generate a command to install all recommended packages at once.
+
+    When a recommended package has a corresponding logfire optional dependency group,
+    we suggest installing via ``logfire[extra1,extra2,...]`` instead of the raw
+    OpenTelemetry instrumentation package names.  Packages without a logfire extra
+    are listed separately.
+    """
     if not recommendations:
         return ''  # pragma: no cover
 
-    package_names = [pkg_name for pkg_name, _ in recommendations]
+    logfire_extras: list[str] = []
+    standalone_packages: list[str] = []
+
+    for pkg_name, _ in recommendations:
+        extra = OTEL_PACKAGE_TO_LOGFIRE_EXTRA.get(pkg_name)
+        if extra:
+            logfire_extras.append(extra)
+        else:
+            standalone_packages.append(pkg_name)
+
+    parts: list[str] = []
+    if logfire_extras:
+        parts.append(f'logfire[{",".join(sorted(logfire_extras))}]')
+    parts.extend(sorted(standalone_packages))
 
     # TODO(Marcelo): We should customize this. If the user uses poetry, they'd use `poetry add`.
     # Something like `--install-format` with options like `requirements`, `poetry`, `uv`, `pip`.
     if is_uv_installed():
-        return f'uv add {" ".join(package_names)}'
+        return f'uv add {" ".join(parts)}'
     else:
-        return f'pip install {" ".join(package_names)}'  # pragma: no cover
+        return f'pip install {" ".join(parts)}'  # pragma: no cover
 
 
 def collect_instrumentation_context(exclude: set[str]) -> InstrumentationContext:
