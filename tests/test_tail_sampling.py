@@ -665,3 +665,68 @@ def test_deferred_processor_marker(
     # Both processors should have received on_start for the sampled trace
     assert any('immediate:' in s for s in on_start_order)
     assert any('deferred:' in s for s in on_start_order)
+
+
+def test_tail_sampling_processor_without_deferred():
+    """Test TailSamplingProcessor directly without a deferred_processor.
+
+    Covers the deferred_processor-is-None branches in on_start, on_end,
+    push_buffer, shutdown, and force_flush.
+    """
+    from opentelemetry.sdk.trace import TracerProvider
+
+    from logfire.sampling._tail_sampling import TailSamplingProcessor
+
+    on_end_spans: list[str] = []
+
+    class CollectorProcessor(SpanProcessor):
+        def on_start(self, span: Span, parent_context: Any = None) -> None:
+            pass
+
+        def on_end(self, span: ReadableSpan) -> None:
+            on_end_spans.append(span.name)
+
+        def shutdown(self) -> None:
+            pass
+
+        def force_flush(self, timeout_millis: int = 30000) -> bool:
+            return True
+
+    collector = CollectorProcessor()
+    processor = TailSamplingProcessor(
+        collector,
+        get_tail_sample_rate=lambda info: 1.0,  # Always sample
+    )
+
+    assert processor.deferred_processor is None
+
+    provider = TracerProvider()
+    provider.add_span_processor(processor)
+    tracer = provider.get_tracer('test')
+
+    # The root span triggers sampling (rate=1.0), dropping the buffer.
+    # The child span then arrives with buffer=None, covering the
+    # deferred_processor-is-None branch in on_start and on_end.
+    with tracer.start_as_current_span('parent'):
+        with tracer.start_as_current_span('child'):
+            pass
+
+    assert 'parent' in on_end_spans
+    assert 'child' in on_end_spans
+
+    # Exercise shutdown and force_flush with no deferred_processor
+    processor.force_flush()
+    processor.shutdown()
+
+
+def test_tail_sampling_config_without_pending_span_processors():
+    """Test config.py wiring when tail sampling is active but no processors have pending spans.
+
+    Covers the deferred_processors-is-empty branch in config.py.
+    """
+    logfire.configure(
+        send_to_logfire=False,
+        console=False,
+        sampling=logfire.SamplingOptions(tail=lambda info: 1.0),
+    )
+    logfire.info('test')
