@@ -1,0 +1,78 @@
+interactions:
+- request:
+    body: ''
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      connection:
+      - keep-alive
+      host:
+      - localhost:8000
+      user-agent:
+      - python-httpx/0.27.2
+    method: GET
+    uri: http://localhost:8000/v1/query?sql=SELECT+kind%2C+message%2C+start_timestamp%2C+trace_id%2C+span_id+FROM+records+ORDER+BY+start_timestamp%2C+trace_id%2C+span_id+LIMIT+5&json_rows=true
+  response:
+    body:
+      string: '{"columns":[{"name":"kind","nullable":false,"datatype":"Utf8"},{"name":"message","nullable":true,"datatype":"Utf8"},{"name":"start_timestamp","nullable":true,"datatype":"Utf8"},{"name":"trace_id","nullable":true,"datatype":"Utf8"},{"name":"span_id","nullable":true,"datatype":"Utf8"}],"rows":[{"kind":"log","message":"row1","start_timestamp":"2024-09-27T15:19:42.000000Z","trace_id":"e1742e366c5ed4c2917b4034042b3550","span_id":"53a7a41b2c077626"},{"kind":"log","message":"row2","start_timestamp":"2024-09-27T15:19:42.100000Z","trace_id":"18164ae14fd72cdba5125727713231b5","span_id":"b84f2ad111165ca"},{"kind":"log","message":"row3","start_timestamp":"2024-09-27T15:19:42.200000Z","trace_id":"18164ae14fd72cdba5125727713231b5","span_id":"c94f2ad111165cb"},{"kind":"log","message":"row4","start_timestamp":"2024-09-27T15:19:42.300000Z","trace_id":"28164ae14fd72cdba5125727713231b5","span_id":"d94f2ad111165cc"},{"kind":"log","message":"row5","start_timestamp":"2024-09-27T15:19:42.400000Z","trace_id":"28164ae14fd72cdba5125727713231b5","span_id":"e94f2ad111165cd"}]}'
+    headers:
+      access-control-expose-headers:
+      - traceresponse
+      content-length:
+      - '450'
+      content-type:
+      - application/json
+      date:
+      - Fri, 27 Sep 2024 15:19:43 GMT
+      server:
+      - uvicorn
+      traceresponse:
+      - 00-e1742e366c5ed4c2917b4034042b3550-53a7a41b2c077626-01
+      x-api-version:
+      - 1flTOwUHOSSJqmjknvZl4Cphg4j7R1eYX7kz5RICs/4=
+      x-logfire-context:
+      - e2e-test/test-e2e-project
+    status:
+      code: 200
+      message: OK
+- request:
+    body: ''
+    headers:
+      accept:
+      - application/json
+      accept-encoding:
+      - gzip, deflate
+      connection:
+      - keep-alive
+      host:
+      - localhost:8000
+      user-agent:
+      - python-httpx/0.27.2
+    method: GET
+    uri: http://localhost:8000/v1/query?sql=SELECT+kind%2C+message%2C+start_timestamp%2C+trace_id%2C+span_id+FROM+records+WHERE+%28start_timestamp%2C+trace_id%2C+span_id%29+%3E+%28%272024-09-27T15%3A19%3A42.400000Z%27%2C+%2728164ae14fd72cdba5125727713231b5%27%2C+%27e94f2ad111165cd%27%29+ORDER+BY+start_timestamp%2C+trace_id%2C+span_id+LIMIT+5&json_rows=true
+  response:
+    body:
+      string: '{"columns":[{"name":"kind","nullable":false,"datatype":"Utf8"},{"name":"message","nullable":true,"datatype":"Utf8"},{"name":"start_timestamp","nullable":true,"datatype":"Utf8"},{"name":"trace_id","nullable":true,"datatype":"Utf8"},{"name":"span_id","nullable":true,"datatype":"Utf8"}],"rows":[{"kind":"log","message":"row6","start_timestamp":"2024-09-27T15:19:42.500000Z","trace_id":"38164ae14fd72cdba5125727713231b5","span_id":"f94f2ad111165ce"}]}'
+    headers:
+      access-control-expose-headers:
+      - traceresponse
+      content-length:
+      - '200'
+      content-type:
+      - application/json
+      date:
+      - Fri, 27 Sep 2024 15:19:43 GMT
+      server:
+      - uvicorn
+      traceresponse:
+      - 00-e1742e366c5ed4c2917b4034042b3550-53a7a41b2c077626-01
+      x-api-version:
+      - 1flTOwUHOSSJqmjknvZl4Cphg4j7R1eYX7kz5RICs/4=
+      x-logfire-context:
+      - e2e-test/test-e2e-project
+    status:
+      code: 200
+      message: OK
+version: 1
