@@ -267,10 +267,23 @@ def test_clean_default_dir_is_not_a_directory(
 
 
 def test_inspect(
-    tmp_dir_cwd: Path, logfire_credentials: LogfireCredentials, capsys: pytest.CaptureFixture[str]
+    tmp_dir_cwd: Path,
+    logfire_credentials: LogfireCredentials,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    os.environ['COLUMNS'] = '150'
+    monkeypatch.setitem(os.environ, 'COLUMNS', '150')
     logfire_credentials.write_creds_file(tmp_dir_cwd / '.logfire')
+
+    # Mock distributions so the test is environment-independent
+    class MockDist:
+        def __init__(self, metadata: dict[str, str]):
+            self.metadata = metadata
+
+    mock_pkgs = ['django', 'fastapi', 'flask', 'httpx', 'pymongo', 'redis', 'requests', 'sqlalchemy']
+    monkeypatch.setattr('importlib.metadata.distributions', lambda: [MockDist({'Name': p}) for p in mock_pkgs])
+    monkeypatch.setattr('logfire._internal.cli.run.is_uv_installed', lambda: True)
+
     with pytest.raises(SystemExit):
         main(['inspect'])
     assert capsys.readouterr().err == snapshot("""\
@@ -278,24 +291,23 @@ def test_inspect(
 
 ╭───────────────────────────────────────────────────────────────── Logfire Summary ──────────────────────────────────────────────────────────────────╮
 │                                                                                                                                                    │
-│  ☐ botocore (need to install opentelemetry-instrumentation-botocore)                                                                               │
 │  ☐ django (need to install logfire[django])                                                                                                        │
 │  ☐ fastapi (need to install logfire[fastapi])                                                                                                      │
 │  ☐ flask (need to install logfire[flask])                                                                                                          │
 │  ☐ httpx (need to install logfire[httpx])                                                                                                          │
-│  ☐ jinja2 (need to install opentelemetry-instrumentation-jinja2)                                                                                   │
 │  ☐ pymongo (need to install logfire[pymongo])                                                                                                      │
 │  ☐ redis (need to install logfire[redis])                                                                                                          │
 │  ☐ requests (need to install logfire[requests])                                                                                                    │
 │  ☐ sqlalchemy (need to install logfire[sqlalchemy])                                                                                                │
 │  ☐ sqlite3 (need to install logfire[sqlite3])                                                                                                      │
-│  ☐ urllib (need to install opentelemetry-instrumentation-urllib)                                                                                   │
+│  ☐ urllib (need to install logfire[urllib])                                                                                                        │
 │                                                                                                                                                    │
 │                                                                                                                                                    │
 │  To install all recommended packages at once, run:                                                                                                 │
 │                                                                                                                                                    │
-│  pip install 'logfire[django,fastapi,flask,httpx,pymongo,redis,requests,sqlalchemy,sqlite3]' opentelemetry-instrumentation-botocore                │
-│  opentelemetry-instrumentation-jinja2 opentelemetry-instrumentation-urllib                                                                         │
+│  uv add 'logfire[django,fastapi,flask,httpx,pymongo,redis,requests,sqlalchemy,sqlite3,urllib]'                                                     │
+│    # or                                                                                                                                            │
+│    pip install 'logfire[django,fastapi,flask,httpx,pymongo,redis,requests,sqlalchemy,sqlite3,urllib]'                                              │
 │                                                                                                                                                    │
 │  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────  │
 │                                                                                                                                                    │

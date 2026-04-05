@@ -369,7 +369,7 @@ def _full_install_command(recommendations: list[tuple[str, str]]) -> str:
         logfire_target = f'logfire{extras_str}'
 
         # Heuristic to detect `uvx` (uv tool run)
-        if 'tools' in sys.executable or '.cache/uv/tools' in sys.executable:
+        if '/uv/tools/' in sys.executable:
             with_args = [f'--with {shlex.quote(p)}' for p in standalone_packages]
             return f'uvx --from {shlex.quote(logfire_target)} {" ".join(with_args)} logfire {shlex.join(sys.argv[1:])}'.replace(
                 '  ', ' '
