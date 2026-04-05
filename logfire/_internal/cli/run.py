@@ -69,6 +69,35 @@ OTEL_INSTRUMENTATION_MAP = {
     'openai-agents': 'openai_agents',
 }
 
+# Map of instrumentation packages to the Logfire extras that install them
+OTEL_PACKAGE_TO_LOGFIRE_EXTRA = {
+    'opentelemetry-instrumentation-aiohttp-client': 'aiohttp',
+    'opentelemetry-instrumentation-aiohttp-server': 'aiohttp-server',
+    'opentelemetry-instrumentation-asyncpg': 'asyncpg',
+    'opentelemetry-instrumentation-aws-lambda': 'aws-lambda',
+    'opentelemetry-instrumentation-celery': 'celery',
+    'opentelemetry-instrumentation-django': 'django',
+    'opentelemetry-instrumentation-fastapi': 'fastapi',
+    'opentelemetry-instrumentation-flask': 'flask',
+    'opentelemetry-instrumentation-google-genai': 'google-genai',
+    'opentelemetry-instrumentation-httpx': 'httpx',
+    'opentelemetry-instrumentation-mysql': 'mysql',
+    'opentelemetry-instrumentation-psycopg': 'psycopg',
+    'opentelemetry-instrumentation-psycopg2': 'psycopg2',
+    'opentelemetry-instrumentation-pymongo': 'pymongo',
+    'opentelemetry-instrumentation-redis': 'redis',
+    'opentelemetry-instrumentation-requests': 'requests',
+    'opentelemetry-instrumentation-sqlalchemy': 'sqlalchemy',
+    'opentelemetry-instrumentation-sqlite3': 'sqlite3',
+    'opentelemetry-instrumentation-starlette': 'starlette',
+    'opentelemetry-instrumentation-system-metrics': 'system-metrics',
+    'opentelemetry-instrumentation-urllib': 'urllib',
+    'opentelemetry-instrumentation-asgi': 'asgi',
+    'opentelemetry-instrumentation-wsgi': 'wsgi',
+    'openinference-instrumentation-litellm': 'litellm',
+    'openinference-instrumentation-dspy': 'dspy',
+}
+
 
 @dataclass
 class InstrumentationContext:
@@ -232,12 +261,30 @@ def instrumented_packages_text(
     return text
 
 
+def _get_logfire_extras(recommendations: list[tuple[str, str]]) -> tuple[list[str], list[str]]:
+    """Convert OTel packages to Logfire extras where possible."""
+    extras: set[str] = set()
+    standalone: list[str] = []
+    for pkg_name, _ in recommendations:
+        extra = OTEL_PACKAGE_TO_LOGFIRE_EXTRA.get(pkg_name)
+        if extra:
+            extras.add(extra)
+        else:
+            standalone.append(pkg_name)
+    return sorted(extras), sorted(standalone)
+
+
 def get_recommendation_texts(recommendations: set[tuple[str, str]]) -> tuple[Text, Text]:
     """Return (recommended_packages_text, install_all_text) as Text objects."""
     sorted_recommendations = sorted(recommendations)
     recommended_text = Text()
     for pkg_name, instrumented_pkg in sorted_recommendations:
-        recommended_text.append(f'☐ {instrumented_pkg} (need to install {pkg_name})\n', style='grey50')
+        extra = OTEL_PACKAGE_TO_LOGFIRE_EXTRA.get(pkg_name)
+        if extra:
+            suggestion = f'logfire[{extra}]'
+        else:
+            suggestion = pkg_name
+        recommended_text.append(f'☐ {instrumented_pkg} (need to install {suggestion})\n', style='grey50')
     recommended_text.append('\n')
 
     install_text = Text()
@@ -312,14 +359,38 @@ def _full_install_command(recommendations: list[tuple[str, str]]) -> str:
     if not recommendations:
         return ''  # pragma: no cover
 
-    package_names = [pkg_name for pkg_name, _ in recommendations]
+    logfire_extras, standalone_packages = _get_logfire_extras(recommendations)
+    extras_str = f'[{",".join(logfire_extras)}]' if logfire_extras else ''
 
-    # TODO(Marcelo): We should customize this. If the user uses poetry, they'd use `poetry add`.
-    # Something like `--install-format` with options like `requirements`, `poetry`, `uv`, `pip`.
+    import shlex
+
+    # If run via `uvx logfire run` or `uv run --with logfire logfire run`
+    if os.environ.get('UV') == '1':
+        logfire_target = f'logfire{extras_str}'
+
+        # Heuristic to detect `uvx` (uv tool run)
+        if 'tools' in sys.executable or '.cache/uv/tools' in sys.executable:
+            with_args = [f'--with {shlex.quote(p)}' for p in standalone_packages]
+            return f'uvx --from {shlex.quote(logfire_target)} {" ".join(with_args)} logfire {shlex.join(sys.argv[1:])}'.replace(
+                '  ', ' '
+            ).strip()
+
+        # Heuristic for `uv run --with logfire`
+        # We assume if it's run via uv and not as a tool, it's either `uv run` or `uv run --with`.
+        # Providing the `--with` version is safer for ephemeral environments.
+        all_with = [f'--with {shlex.quote(p)}' for p in [logfire_target] + standalone_packages]
+        return f'uv run {" ".join(all_with)} logfire {shlex.join(sys.argv[1:])}'.replace('  ', ' ').strip()
+
+    parts: list[str] = []
+    if logfire_extras:
+        parts.append(f'logfire{extras_str}')
+    parts.extend(standalone_packages)
+    all_packages = ' '.join(shlex.quote(p) for p in parts)
+
     if is_uv_installed():
-        return f'uv add {" ".join(package_names)}'
+        return f'uv add {all_packages}\n  # or\n  pip install {all_packages}'
     else:
-        return f'pip install {" ".join(package_names)}'  # pragma: no cover
+        return f'pip install {all_packages}'  # pragma: no cover
 
 
 def collect_instrumentation_context(exclude: set[str]) -> InstrumentationContext:
