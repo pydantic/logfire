@@ -360,7 +360,7 @@ def _full_install_command(recommendations: list[tuple[str, str]]) -> str:
         return ''  # pragma: no cover
 
     logfire_extras, standalone_packages = _get_logfire_extras(recommendations)
-    extras_str = f"[{','.join(logfire_extras)}]" if logfire_extras else ""
+    extras_str = f'[{",".join(logfire_extras)}]' if logfire_extras else ''
 
     import shlex
 
@@ -371,7 +371,7 @@ def _full_install_command(recommendations: list[tuple[str, str]]) -> str:
         # Heuristic to detect `uvx` (uv tool run)
         if 'tools' in sys.executable or '.cache/uv/tools' in sys.executable:
             with_args = [f'--with {shlex.quote(p)}' for p in standalone_packages]
-            return f"uvx --from {shlex.quote(logfire_target)} {' '.join(with_args)} logfire {shlex.join(sys.argv[1:])}".replace(
+            return f'uvx --from {shlex.quote(logfire_target)} {" ".join(with_args)} logfire {shlex.join(sys.argv[1:])}'.replace(
                 '  ', ' '
             ).strip()
 
@@ -379,7 +379,7 @@ def _full_install_command(recommendations: list[tuple[str, str]]) -> str:
         # We assume if it's run via uv and not as a tool, it's either `uv run` or `uv run --with`.
         # Providing the `--with` version is safer for ephemeral environments.
         all_with = [f'--with {shlex.quote(p)}' for p in [logfire_target] + standalone_packages]
-        return f"uv run {' '.join(all_with)} logfire {shlex.join(sys.argv[1:])}".replace('  ', ' ').strip()
+        return f'uv run {" ".join(all_with)} logfire {shlex.join(sys.argv[1:])}'.replace('  ', ' ').strip()
 
     parts: list[str] = []
     if logfire_extras:
