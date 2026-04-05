@@ -279,15 +279,23 @@ def test_inspect(
 ╭───────────────────────────────────────────────────────────────── Logfire Summary ──────────────────────────────────────────────────────────────────╮
 │                                                                                                                                                    │
 │  ☐ botocore (need to install opentelemetry-instrumentation-botocore)                                                                               │
+│  ☐ django (need to install logfire[django])                                                                                                        │
+│  ☐ fastapi (need to install logfire[fastapi])                                                                                                      │
+│  ☐ flask (need to install logfire[flask])                                                                                                          │
+│  ☐ httpx (need to install logfire[httpx])                                                                                                          │
 │  ☐ jinja2 (need to install opentelemetry-instrumentation-jinja2)                                                                                   │
-│  ☐ pymysql (need to install opentelemetry-instrumentation-pymysql)                                                                                 │
+│  ☐ pymongo (need to install logfire[pymongo])                                                                                                      │
+│  ☐ redis (need to install logfire[redis])                                                                                                          │
+│  ☐ requests (need to install logfire[requests])                                                                                                    │
+│  ☐ sqlalchemy (need to install logfire[sqlalchemy])                                                                                                │
+│  ☐ sqlite3 (need to install logfire[sqlite3])                                                                                                      │
 │  ☐ urllib (need to install opentelemetry-instrumentation-urllib)                                                                                   │
 │                                                                                                                                                    │
 │                                                                                                                                                    │
 │  To install all recommended packages at once, run:                                                                                                 │
 │                                                                                                                                                    │
-│  uv add opentelemetry-instrumentation-botocore opentelemetry-instrumentation-jinja2 opentelemetry-instrumentation-pymysql                          │
-│  opentelemetry-instrumentation-urllib                                                                                                              │
+│  pip install 'logfire[django,fastapi,flask,httpx,pymongo,redis,requests,sqlalchemy,sqlite3]' opentelemetry-instrumentation-botocore                │
+│  opentelemetry-instrumentation-jinja2 opentelemetry-instrumentation-urllib                                                                         │
 │                                                                                                                                                    │
 │  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────  │
 │                                                                                                                                                    │
@@ -1625,9 +1633,50 @@ def test_instrumented_packages_text_basic():
 def test_get_recommendation_texts():
     recs = {('opentelemetry-instrumentation-foo', 'foo'), ('opentelemetry-instrumentation-bar', 'bar')}
     recommended, install = get_recommendation_texts(recs)
-    assert 'uv add opentelemetry-instrumentation-bar opentelemetry-instrumentation-foo' in install
-    assert 'need to install opentelemetry-instrumentation-bar' in recommended
-    assert 'need to install opentelemetry-instrumentation-foo' in recommended
+    assert 'pip install opentelemetry-instrumentation-bar opentelemetry-instrumentation-foo' in str(install)
+    assert 'need to install opentelemetry-instrumentation-bar' in str(recommended)
+    assert 'need to install opentelemetry-instrumentation-foo' in str(recommended)
+
+
+def test_get_recommendation_texts_with_extras():
+    recs = {
+        ('opentelemetry-instrumentation-requests', 'requests'),
+        ('opentelemetry-instrumentation-sqlite3', 'sqlite3'),
+    }
+    recommended, install = get_recommendation_texts(recs)
+    assert "pip install 'logfire[requests,sqlite3]'" in str(install)
+    assert 'need to install logfire[requests]' in str(recommended)
+    assert 'need to install logfire[sqlite3]' in str(recommended)
+
+
+def test_get_recommendation_texts_uv(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr('logfire._internal.cli.run.is_uv_installed', lambda: True)
+    recs = {('opentelemetry-instrumentation-requests', 'requests')}
+    _, install = get_recommendation_texts(recs)
+    assert "uv add 'logfire[requests]'\n  # or\n  pip install 'logfire[requests]'" in str(install)
+
+
+def test_get_recommendation_texts_uv_run(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv('UV', '1')
+    monkeypatch.setattr('sys.executable', '/path/to/venv/bin/python')
+    recs = {
+        ('opentelemetry-instrumentation-requests', 'requests'),
+        ('opentelemetry-instrumentation-jinja2', 'jinja2'),
+    }
+    monkeypatch.setattr(sys, 'argv', ['logfire', 'run', 'myapp.py'])
+    _, install = get_recommendation_texts(recs)
+    assert "uv run --with 'logfire[requests]' --with opentelemetry-instrumentation-jinja2 logfire run myapp.py" in str(
+        install
+    )
+
+
+def test_get_recommendation_texts_uvx(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv('UV', '1')
+    monkeypatch.setattr('sys.executable', '/Users/user/.cache/uv/tools/logfire/bin/python')
+    recs = {('opentelemetry-instrumentation-requests', 'requests')}
+    monkeypatch.setattr(sys, 'argv', ['logfire', 'run', 'myapp.py'])
+    _, install = get_recommendation_texts(recs)
+    assert "uvx --from 'logfire[requests]' logfire run myapp.py" in str(install)
 
 
 def test_instrument_packages_openai() -> None:
