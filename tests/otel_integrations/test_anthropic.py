@@ -1172,6 +1172,68 @@ def test_convert_messages_content_none() -> None:
     assert (input_messages, system_instructions) == snapshot(([{'role': 'user', 'parts': []}], []))
 
 
+def test_convert_messages_tool_use_conversation() -> None:
+    """Test that tool result messages (role='user' in Anthropic) are stored as role='tool' in semconv.
+
+    Anthropic uses role='user' for tool_result blocks, but semconv uses role='tool'.
+    Normalizing this ensures the playground can correctly reconstruct conversations
+    with tool use without hitting a 400 error about missing tool_use blocks.
+    """
+    from logfire._internal.integrations.llm_providers.anthropic import convert_messages_to_semconv
+
+    messages = [
+        {'role': 'user', 'content': 'What is the weather in London?'},
+        {
+            'role': 'assistant',
+            'content': [
+                {
+                    'type': 'tool_use',
+                    'id': 'toolu_abc123',
+                    'name': 'get_weather',
+                    'input': {'location': 'London'},
+                }
+            ],
+        },
+        {
+            'role': 'user',
+            'content': [
+                {
+                    'type': 'tool_result',
+                    'tool_use_id': 'toolu_abc123',
+                    'content': 'Sunny, 22°C',
+                }
+            ],
+        },
+    ]
+
+    input_messages, system_instructions = convert_messages_to_semconv(messages, None)
+
+    assert (input_messages, system_instructions) == snapshot(
+        (
+            [
+                {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is the weather in London?'}]},
+                {
+                    'role': 'assistant',
+                    'parts': [
+                        {
+                            'type': 'tool_call',
+                            'id': 'toolu_abc123',
+                            'name': 'get_weather',
+                            'arguments': {'location': 'London'},
+                        }
+                    ],
+                },
+                # role is 'tool' (not 'user') so the playground can reconstruct the conversation correctly
+                {
+                    'role': 'tool',
+                    'parts': [{'type': 'tool_call_response', 'id': 'toolu_abc123', 'response': 'Sunny, 22°C'}],
+                },
+            ],
+            [],
+        )
+    )
+
+
 def test_on_response_unknown_block_type() -> None:
     """Test on_response with a block that's neither text nor tool_use."""
     from logfire._internal.integrations.llm_providers.anthropic import on_response

@@ -227,13 +227,15 @@ def convert_messages_to_semconv(
     """
     system_instructions: SystemInstructions = _convert_content_part_or_parts(system)
 
-    input_messages: InputMessages = [
-        ChatMessage(
-            role=msg.get('role') or 'user',
-            parts=_convert_content_part_or_parts(msg.get('content')),
-        )
-        for msg in messages
-    ]
+    input_messages: InputMessages = []
+    for msg in messages:
+        role: str = msg.get('role') or 'user'
+        parts = _convert_content_part_or_parts(msg.get('content'))
+        # Anthropic uses role='user' for tool result messages, but semconv uses role='tool'.
+        # Normalize so the playground can correctly reconstruct conversations with tool use.
+        if role == 'user' and parts and all(p.get('type') == 'tool_call_response' for p in parts):
+            role = 'tool'
+        input_messages.append(ChatMessage(role=role, parts=parts))  # type: ignore[arg-type]
 
     return input_messages, system_instructions
 
