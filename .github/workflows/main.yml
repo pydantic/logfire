@@ -32,8 +32,11 @@ jobs:
       - name: Install dependencies
         run: uv sync --python 3.12 --frozen
 
-      - run: make lint
-      - run: make typecheck
+      - uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd  # v3.0.1
+        with:
+          extra_args: --all-files --verbose
+        env:
+          SKIP: no-commit-to-branch
 
   docs:
     runs-on: ubuntu-latest
