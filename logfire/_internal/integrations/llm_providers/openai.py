@@ -517,6 +517,7 @@ class OpenaiResponsesStreamState(StreamState):
                 span_data[OUTPUT_MESSAGES] = output_messages
             if 1 in versions:
                 span_data['events'] = (span_data.get('events') or []) + responses_output_events(response)
+            span_data.update(get_openai_usage_attributes(response))
         return span_data
 
 
@@ -566,10 +567,39 @@ try:
                         output_messages.append(convert_openai_response_to_semconv(choice.message, choice.finish_reason))
                     if output_messages:
                         result[OUTPUT_MESSAGES] = output_messages
+            try:
+                final_completion = self._stream_state.current_completion_snapshot
+            except AssertionError:
+                pass
+            else:
+                result.update(get_openai_usage_attributes(final_completion))
             return result
 
 except ImportError:  # pragma: no cover
     OpenaiChatCompletionStreamState = OpenaiCompletionStreamState  # pyright: ignore[reportAssignmentType]
+
+
+def get_openai_usage_attributes(response: Any) -> dict[str, Any]:
+    """Extract usage attributes from any OpenAI response object.
+
+    Works for ChatCompletion, Response, CreateEmbeddingResponse —
+    both from non-streaming on_response() and streaming get_attributes().
+    Returns an empty dict when usage is None.
+    """
+    usage = getattr(response, 'usage', None)
+    if usage is None:
+        return {}
+    input_tokens = getattr(usage, 'prompt_tokens', getattr(usage, 'input_tokens', None))
+    output_tokens = getattr(usage, 'completion_tokens', getattr(usage, 'output_tokens', None))
+    if isinstance(response, Response):
+        api_flavor = 'responses'
+    elif isinstance(response, CreateEmbeddingResponse):
+        api_flavor = 'embeddings'
+    else:
+        api_flavor = 'chat'
+    return get_usage_attributes(
+        response, usage, input_tokens, output_tokens, provider_id='openai', api_flavor=api_flavor
+    )
 
 
 @handle_internal_errors
@@ -593,20 +623,7 @@ def on_response(
         span.set_attribute(RESPONSE_ID, response_id)
 
     usage = getattr(response, 'usage', None)
-    if usage is not None:
-        input_tokens = getattr(usage, 'prompt_tokens', getattr(usage, 'input_tokens', None))
-        output_tokens = getattr(usage, 'completion_tokens', getattr(usage, 'output_tokens', None))
-        if isinstance(response, Response):
-            api_flavor = 'responses'
-        elif isinstance(response, CreateEmbeddingResponse):
-            api_flavor = 'embeddings'
-        else:
-            api_flavor = 'chat'
-        span.set_attributes(
-            get_usage_attributes(
-                response, usage, input_tokens, output_tokens, provider_id='openai', api_flavor=api_flavor
-            )
-        )
+    span.set_attributes(get_openai_usage_attributes(response))
 
     if isinstance(response, ChatCompletion) and response.choices:
         if 1 in versions:
