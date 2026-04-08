@@ -38,7 +38,7 @@ No behavioral change — same logic, just moved into the shared function.
 
 ## Modified: `OpenaiChatCompletionStreamState.get_attributes()` in `openai.py`
 
-*(implements "Every OpenAI streaming span", "The reconstructed response object is the same type")*
+*(implements "Every OpenAI streaming span", "The usage extraction logic must not be duplicated")*
 
 Add after the existing version-specific blocks:
 
@@ -55,7 +55,7 @@ The `try/except AssertionError` is narrow — it only catches the known case whe
 
 ## Modified: `OpenaiResponsesStreamState.get_attributes()` in `openai.py`
 
-*(implements "Every OpenAI streaming span", "The reconstructed response object is the same type")*
+*(implements "Every OpenAI streaming span", "The usage extraction logic must not be duplicated")*
 
 Add inside the existing `if response:` guard, after the version-specific blocks:
 
