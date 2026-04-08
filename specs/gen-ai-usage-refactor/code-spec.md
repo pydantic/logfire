@@ -18,23 +18,28 @@ def get_usage_attributes(
     Callers extract input/output tokens themselves (API-surface-specific).
     response is the full API response object, passed to genai_prices for cost calculation
     (genai_prices extracts both model and usage from it). usage is the usage sub-object,
-    used for USAGE_RAW. api_flavor is only needed for OpenAI ('chat' or 'responses').
+    used for USAGE_RAW. api_flavor is needed for OpenAI ('chat', 'responses', or 'embeddings').
     Returns only attributes that have values.
+
+    Token/raw-usage and cost fail independently — a cost error does not prevent tokens
+    from being set. Cost errors are silently caught (expected for unknown models etc.).
     """
 ```
 
-**Call site — `openai.py` `on_response()`, replacing lines 594–622:** *(implements "This spec covers only the refactoring step")*
+**Call site — `openai.py` `on_response()`, replacing the cost block (lines 594–608) and token/usage block (lines 614–622):** *(implements "This spec covers only the refactoring step", "Embeddings cost calculation is currently broken")*
+
+The `response_id` handling between these two blocks (lines 610–613) is unchanged.
 
 ```python
 usage = getattr(response, 'usage', None)
 if usage is not None:
+    input_tokens = getattr(usage, 'prompt_tokens', getattr(usage, 'input_tokens', None))
+    output_tokens = getattr(usage, 'completion_tokens', getattr(usage, 'output_tokens', None))
     if isinstance(response, Response):
-        input_tokens = getattr(usage, 'input_tokens', None)
-        output_tokens = getattr(usage, 'output_tokens', None)
         api_flavor = 'responses'
+    elif isinstance(response, CreateEmbeddingResponse):
+        api_flavor = 'embeddings'
     else:
-        input_tokens = getattr(usage, 'prompt_tokens', None)
-        output_tokens = getattr(usage, 'completion_tokens', None)
         api_flavor = 'chat'
     span.set_attributes(
         get_usage_attributes(response, usage, input_tokens, output_tokens,
@@ -42,7 +47,7 @@ if usage is not None:
     )
 ```
 
-This replaces the inline token-setting code and the `genai_prices` try/except block. The `getattr` chain for extracting the usage object from the response stays. Response-type-specific logic (`response_data`, `OUTPUT_MESSAGES`, `RESPONSE_FINISH_REASONS`) is unchanged.
+Token extraction uses the existing fallback `getattr` pattern, which works safely across all OpenAI API surfaces. The `api_flavor` is determined by response type — this fixes the current bug where embeddings get `api_flavor='chat'`. Response-type-specific logic (`response_data`, `OUTPUT_MESSAGES`, `RESPONSE_FINISH_REASONS`) is unchanged.
 
 **Not changed in this PR:**
 
