@@ -212,6 +212,15 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         logfire_api.instrument_mcp()
     logfire__all__.remove('instrument_mcp')
 
+    assert hasattr(logfire_api, 'instrument_claude_agent_sdk')
+    try:
+        importlib.import_module('claude_agent_sdk')
+    except ImportError:
+        pass
+    else:
+        logfire_api.instrument_claude_agent_sdk()
+    logfire__all__.remove('instrument_claude_agent_sdk')
+
     assert hasattr(logfire_api, 'instrument_google_genai')
     if get_version(pydantic_version) >= get_version('2.7.0'):
         with warnings.catch_warnings():
@@ -311,6 +320,10 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
     with logfire_api.attach_context({'traceparent': '00-d1b9e555b056907ee20b0daebf62282c-7dcd821387246e1c-01'}):
         pass
     logfire__all__.remove('attach_context')
+
+    assert hasattr(logfire_api, 'url_from_eval')
+    logfire_api.url_from_eval(MagicMock(trace_id='abc', span_id='def'))
+    logfire__all__.remove('url_from_eval')
 
     # If it's not empty, it means that some of the __all__ members are not tested.
     assert logfire__all__ == set(), logfire__all__

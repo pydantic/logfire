@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "4.30.0"
+version = "4.31.0"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.9"
 authors = [
@@ -197,6 +197,7 @@ dev = [
     "pytest-examples>=0.0.18",
     "pytest-timeout>=2.4.0",
     "pytest-asyncio>=0.24.0",
+    "claude-agent-sdk>=0 ; python_full_version >= '3.10'",
 ]
 docs = [
     "black>=23.12.0",
@@ -221,6 +222,18 @@ pydantic-docs = { git = "https://github.com/pydantic/pydantic-docs/" }
 
 [tool.uv]
 default-groups = ["dev", "docs"]
+exclude-newer = "1 week"
+
+[tool.uv.exclude-newer-package]
+# These are installed from our private PyPI server which is missing upload dates and that causes problems
+# when building docs in CI, so we exclude them from the exclude-newer check.
+mkdocstrings_python = false
+mkdocs_material = false
+# These are our own packages, not worth defending from supply chain attacks on them.
+pydantic_ai_slim = false
+pydantic-graph = false
+pydantic-evals = false
+pydantic = false
 
 [tool.uv.workspace]
 members = ["logfire-api"]

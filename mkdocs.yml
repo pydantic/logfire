@@ -254,6 +254,7 @@ nav:
           - Enterprise: enterprise.md
           - Single Tenant: enterprise-single-tenant.md
           - SSO Setup: how-to-guides/sso-setup.md
+          - Audit logs API: audit-logs-api.md
           - Compliance: compliance.md
           - Self-Hosted Deployment:
               - Overview: reference/self-hosted/overview.md
@@ -500,6 +501,7 @@ plugins:
           - enterprise.md
           - enterprise-single-tenant.md
           - how-to-guides/sso-setup.md
+          - audit-logs-api.md
           - compliance.md
           - reference/self-hosted/*.md
         Comparisons:

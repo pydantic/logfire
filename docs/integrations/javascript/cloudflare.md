@@ -56,24 +56,24 @@ export default instrument(handler, {
 A complete working example is available in the [examples/cf-worker](https://github.com/pydantic/logfire-js/tree/main/examples/cf-worker) directory.
 
 !!! info
-If you're testing your Worker with Vitest, add the following configuration to your `vitest.config.mts` to ensure proper module loading:
+    If you're testing your Worker with Vitest, add the following configuration to your `vitest.config.mts` to ensure proper module loading:
 
-    ```ts
-    export default defineWorkersConfig({
-      test: {
-        deps: {
-          optimizer: {
-            ssr: {
-              enabled: true,
-              include: ['@pydantic/logfire-cf-workers'],
+        ```ts
+        export default defineWorkersConfig({
+          test: {
+            deps: {
+              optimizer: {
+                ssr: {
+                  enabled: true,
+                  include: ['@pydantic/logfire-cf-workers'],
+                },
+              },
+            },
+            poolOptions: {
+              workers: {
+                // ...
+              },
             },
           },
-        },
-        poolOptions: {
-          workers: {
-            // ...
-          },
-        },
-      },
-    });
-    ```
+        });
+      ```

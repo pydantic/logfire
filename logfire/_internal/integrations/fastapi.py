@@ -5,7 +5,7 @@ import inspect
 from collections.abc import Awaitable, Iterable
 from contextlib import AbstractContextManager, contextmanager
 from datetime import datetime, timezone
-from functools import lru_cache
+from functools import lru_cache, wraps
 from typing import Any, Callable
 from weakref import WeakKeyDictionary
 
@@ -122,6 +122,9 @@ def patch_fastapi():
     """Globally monkeypatch fastapi functions and return a dictionary for recording instrumentation config per app."""
     registry: WeakKeyDictionary[FastAPI, FastAPIInstrumentation] = WeakKeyDictionary()
 
+    original_solve_dependencies = fastapi.routing.solve_dependencies  # pyright: ignore[reportPrivateImportUsage]
+
+    @wraps(original_solve_dependencies)
     async def patched_solve_dependencies(*, request: Request | WebSocket, **kwargs: Any) -> Any:
         original = original_solve_dependencies(request=request, **kwargs)
         if instrumentation := registry.get(request.app):
@@ -133,9 +136,11 @@ def patch_fastapi():
     # but it's imported into `fastapi.routing`, which is where we need to patch it.
     # It also calls itself recursively, but for now we don't want to intercept those calls,
     # so we don't patch it back into the original module.
-    original_solve_dependencies = fastapi.routing.solve_dependencies  # pyright: ignore[reportPrivateImportUsage]
     fastapi.routing.solve_dependencies = patched_solve_dependencies  # pyright: ignore[reportPrivateImportUsage]
 
+    original_run_endpoint_function = fastapi.routing.run_endpoint_function
+
+    @wraps(original_run_endpoint_function)
     async def patched_run_endpoint_function(*, dependant: Any, values: dict[str, Any], **kwargs: Any) -> Any:
         if isinstance(values, _InstrumentedValues):
             request = values.request
@@ -145,7 +150,6 @@ def patch_fastapi():
                 )
         return await original_run_endpoint_function(dependant=dependant, values=values, **kwargs)  # pragma: no cover
 
-    original_run_endpoint_function = fastapi.routing.run_endpoint_function
     fastapi.routing.run_endpoint_function = patched_run_endpoint_function
 
     return registry
@@ -322,5 +326,8 @@ def _server_request_hook(user_hook: ServerRequestHook | None):
         scope[LOGFIRE_SPAN_SCOPE_KEY] = span
         if user_hook:
             user_hook(span, scope)
+
+    if user_hook is not None:
+        hook = wraps(user_hook)(hook)
 
     return hook
