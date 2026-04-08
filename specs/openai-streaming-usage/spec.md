@@ -15,7 +15,7 @@ For chat completions, usage is only present when the caller passes `stream_optio
 Chat completions streaming uses `api_flavor='chat'`; Responses streaming uses `api_flavor='responses'`. Both use `provider_id='openai'`. Token field extraction uses the same `getattr` fallback pattern as `on_response()`.
 
 **The reconstructed response object serves as the `response` parameter to `get_usage_attributes()`.** *(from "Each streaming state's `get_attributes()` calls `get_usage_attributes()`")*
-For chat completions, `self._stream_state.current_completion_snapshot` is a `ChatCompletion` — the same type `on_response()` handles. For Responses, `self._state._completed_response` is a `Response` — same. Both have `model_dump()` for cost calculation via `genai_prices`, and `.usage` for raw usage.
+For chat completions, `self._stream_state.current_completion_snapshot` is a `ChatCompletion` — the same type `on_response()` handles. For Responses, `get_response_data()` returns `self._state._completed_response`, a `Response` — same type as non-streaming. Both have `model_dump()` for cost calculation via `genai_prices`, and `.usage` for raw usage.
 
 **Errors in usage extraction must not break streaming attribute collection.** *(from "Each streaming state's `get_attributes()` calls `get_usage_attributes()`")*
 `get_usage_attributes()` already handles internal error isolation (tokens, raw usage, and cost fail independently). The `get_attributes()` call sites should catch any error from usage extraction (e.g., `current_completion_snapshot` raising `AssertionError` when there's no snapshot) so that other attributes (output messages, response_data, events) are still set.
