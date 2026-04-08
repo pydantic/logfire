@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import pydantic
+from anthropic.types import Message as AnthropicMessage, Usage as AnthropicUsage
 from inline_snapshot import snapshot
 from openai.types.create_embedding_response import CreateEmbeddingResponse, Usage as EmbeddingUsage
 from openai.types.responses import Response
 from openai.types.responses.response_usage import InputTokensDetails, OutputTokensDetails, ResponseUsage
 
+from logfire._internal.integrations.llm_providers.anthropic import get_anthropic_usage_attributes
 from logfire._internal.integrations.llm_providers.openai import get_openai_usage_attributes
 from logfire._internal.integrations.llm_providers.usage import get_usage_attributes
 
@@ -221,3 +223,63 @@ def test_openai_usage_none() -> None:
     response = FakeOpenAIResponse(model='gpt-4', usage=None)
     result = get_openai_usage_attributes(response)
     assert result == snapshot({})
+
+
+# --- Tests for get_anthropic_usage_attributes ---
+
+
+def test_anthropic_usage_basic() -> None:
+    """Basic Anthropic usage with no cache tokens."""
+    usage = AnthropicUsage.model_construct(input_tokens=10, output_tokens=5)
+    response = AnthropicMessage.model_construct(
+        model='claude-3-haiku-20240307',
+        usage=usage,
+    )
+    result = get_anthropic_usage_attributes(response)
+    if GENAI_PRICES_AVAILABLE:
+        result.pop('operation.cost')
+    assert result == snapshot(
+        {
+            'gen_ai.usage.input_tokens': 10,
+            'gen_ai.usage.output_tokens': 5,
+            'gen_ai.usage.raw': {'input_tokens': 10, 'output_tokens': 5},
+        }
+    )
+
+
+def test_anthropic_usage_with_cache_tokens() -> None:
+    """Anthropic usage with cache_read and cache_creation tokens adds to input_tokens."""
+    usage = AnthropicUsage.model_construct(
+        input_tokens=10,
+        output_tokens=5,
+        cache_read_input_tokens=3,
+        cache_creation_input_tokens=2,
+    )
+    response = AnthropicMessage.model_construct(
+        model='claude-3-haiku-20240307',
+        usage=usage,
+    )
+    result = get_anthropic_usage_attributes(response)
+    if GENAI_PRICES_AVAILABLE:
+        result.pop('operation.cost')
+    assert result == snapshot(
+        {
+            'gen_ai.usage.input_tokens': 15,
+            'gen_ai.usage.output_tokens': 5,
+            'gen_ai.usage.raw': {
+                'input_tokens': 10,
+                'output_tokens': 5,
+                'cache_read_input_tokens': 3,
+                'cache_creation_input_tokens': 2,
+            },
+        }
+    )
+
+
+def test_anthropic_usage_none() -> None:
+    """When usage is None, returns empty dict."""
+    response = AnthropicMessage.model_construct(
+        model='claude-3-haiku-20240307',
+        usage=None,
+    )
+    assert get_anthropic_usage_attributes(response) == snapshot({})
