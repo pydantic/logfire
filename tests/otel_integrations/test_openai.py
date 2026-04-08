@@ -2706,6 +2706,16 @@ def test_responses_stream(exporter: TestExporter) -> None:
                     'gen_ai.output.messages': [
                         {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Four plus five equals **nine**.'}]}
                     ],
+                    'gen_ai.usage.input_tokens': 13,
+                    'gen_ai.usage.output_tokens': 9,
+                    'gen_ai.usage.raw': {
+                        'input_tokens': 13,
+                        'input_tokens_details': {'cached_tokens': 0},
+                        'output_tokens': 9,
+                        'output_tokens_details': {'reasoning_tokens': 0},
+                        'total_tokens': 22,
+                    },
+                    'operation.cost': 9.8e-05,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -2718,6 +2728,10 @@ def test_responses_stream(exporter: TestExporter) -> None:
                             'gen_ai.input.messages': {'type': 'array'},
                             'duration': {},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
                         },
                     },
                     'logfire.tags': ('LLM',),

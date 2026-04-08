@@ -517,6 +517,7 @@ class OpenaiResponsesStreamState(StreamState):
                 span_data[OUTPUT_MESSAGES] = output_messages
             if 1 in versions:
                 span_data['events'] = (span_data.get('events') or []) + responses_output_events(response)
+            span_data.update(get_openai_usage_attributes(response))
         return span_data
 
 
