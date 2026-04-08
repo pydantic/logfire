@@ -1,0 +1,23 @@
+tests/otel_integrations/test_usage.py
+  b42cfadab6801bfc 1-110
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.5",
+  "base_commit_sha": "348f59c86e0e7a071a48ec8ad5b10a7463f5df56",
+  "prompts": {
+    "b42cfadab6801bfc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ccffc55b-78b8-4fbe-9db6-35d738cfe657",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Alex Hall",
+      "messages": [],
+      "total_additions": 125,
+      "total_deletions": 15,
+      "accepted_lines": 113,
+      "overriden_lines": 0
+    }
+  }
+}
