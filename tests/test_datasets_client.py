@@ -24,12 +24,15 @@ from logfire.experimental.api_client import (
     DatasetApiError,
     DatasetNotFoundError,
     LogfireAPIClient,
+    _build_push_dataset_kwargs,
+    _get_dataset_type_args,
     _import_pydantic_evals,
     _serialize_case,
     _serialize_evaluators,
     _serialize_value,
     _type_to_schema,
     _validate_dataset_name,
+    _validate_push_dataset,
 )
 
 # --- Test types ---
@@ -327,6 +330,41 @@ class TestValidateDatasetName:
             _validate_dataset_name('has spaces')
         with pytest.raises(ValueError, match='Invalid dataset name'):
             _validate_dataset_name('special/chars')
+
+
+class TestPushDatasetHelpers:
+    def test_get_dataset_type_args_typed_dataset(self):
+        assert _get_dataset_type_args(make_local_dataset()) == (MyInput, MyOutput, MyMetadata)
+
+    def test_get_dataset_type_args_missing_metadata(self):
+        class DatasetLike:
+            __pydantic_generic_metadata__ = None
+
+        assert _get_dataset_type_args(cast(Any, DatasetLike())) == (None, None, None)
+
+    def test_get_dataset_type_args_non_tuple_args(self):
+        class DatasetLike:
+            __pydantic_generic_metadata__ = {'args': [MyInput, MyOutput, MyMetadata]}
+
+        assert _get_dataset_type_args(cast(Any, DatasetLike())) == (None, None, None)
+
+    def test_get_dataset_type_args_wrong_number_of_args(self):
+        dataset = Dataset(name='test-dataset', cases=[])
+        assert _get_dataset_type_args(cast(Any, dataset)) == (None, None, None)
+
+    def test_build_push_dataset_kwargs_minimal(self):
+        create_kwargs, update_kwargs = _build_push_dataset_kwargs(
+            target_name='test-dataset', input_type=None, output_type=None, metadata_type=None
+        )
+        assert create_kwargs == {'name': 'test-dataset'}
+        assert update_kwargs == {}
+
+    def test_validate_push_dataset_report_evaluators(self):
+        dataset = make_local_dataset()
+        dataset.report_evaluators = cast(Any, [object()])
+
+        with pytest.raises(ValueError, match='dataset-level evaluators or report_evaluators'):
+            _validate_push_dataset(dataset)
 
 
 # =============================================================================
@@ -718,6 +756,43 @@ class TestLogfireAPIClient:
 
         with pytest.raises(ValueError, match='dataset-level evaluators or report_evaluators'):
             client.push_dataset(dataset)
+
+    def test_push_dataset_propagates_non_conflict_error(self):
+        client = make_client(
+            {
+                ('POST', '/v1/datasets/'): httpx.Response(500, json={'detail': 'boom'}),
+            }
+        )
+
+        with pytest.raises(DatasetApiError) as exc_info:
+            client.push_dataset(make_local_dataset())
+
+        assert exc_info.value.status_code == 500
+
+    def test_push_dataset_without_cases_skips_import(self):
+        requests_seen: list[httpx.Request] = []
+        empty_dataset = Dataset[MyInput, MyOutput, MyMetadata](name='empty-dataset', cases=[])
+        hosted_dataset = {**FAKE_DATASET, 'name': 'empty-dataset'}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests_seen.append(request)
+            if request.method == 'POST' and request.url.path == '/v1/datasets/':
+                return httpx.Response(200, json=hosted_dataset)
+            if request.method == 'GET' and request.url.path == '/v1/datasets/empty-dataset/':
+                return httpx.Response(200, json=hosted_dataset)
+            return httpx.Response(404, json={'detail': 'Not found'})
+
+        transport = httpx.MockTransport(handler)
+        client = LogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
+        client.client = httpx.Client(transport=transport, base_url='https://test.logfire.dev')
+
+        result = client.push_dataset(empty_dataset)
+
+        assert result == hosted_dataset
+        assert [(request.method, request.url.path) for request in requests_seen] == [
+            ('POST', '/v1/datasets/'),
+            ('GET', '/v1/datasets/empty-dataset/'),
+        ]
 
     def test_add_cases_with_tags(self):
         requests_seen: list[httpx.Request] = []
@@ -1173,6 +1248,54 @@ class TestAsyncLogfireAPIClient:
         assert 'metadata_schema' in update_body
 
         assert requests_seen[2].url.params['on_conflict'] == 'error'
+
+    @pytest.mark.anyio
+    async def test_push_dataset_requires_name(self):
+        client = make_async_client()
+        dataset = make_local_dataset()
+        dataset.name = None
+
+        with pytest.raises(ValueError, match='requires a dataset name'):
+            await client.push_dataset(dataset)
+
+    @pytest.mark.anyio
+    async def test_push_dataset_propagates_non_conflict_error(self):
+        client = make_async_client(
+            {
+                ('POST', '/v1/datasets/'): httpx.Response(500, json={'detail': 'boom'}),
+            }
+        )
+
+        with pytest.raises(DatasetApiError) as exc_info:
+            await client.push_dataset(make_local_dataset())
+
+        assert exc_info.value.status_code == 500
+
+    @pytest.mark.anyio
+    async def test_push_dataset_without_cases_skips_import(self):
+        requests_seen: list[httpx.Request] = []
+        empty_dataset = Dataset[MyInput, MyOutput, MyMetadata](name='empty-dataset', cases=[])
+        hosted_dataset = {**FAKE_DATASET, 'name': 'empty-dataset'}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests_seen.append(request)
+            if request.method == 'POST' and request.url.path == '/v1/datasets/':
+                return httpx.Response(200, json=hosted_dataset)
+            if request.method == 'GET' and request.url.path == '/v1/datasets/empty-dataset/':
+                return httpx.Response(200, json=hosted_dataset)
+            return httpx.Response(404, json={'detail': 'Not found'})
+
+        transport = httpx.MockTransport(handler)
+        client = AsyncLogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
+        client.client = httpx.AsyncClient(transport=transport, base_url='https://test.logfire.dev')
+
+        result = await client.push_dataset(empty_dataset)
+
+        assert result == hosted_dataset
+        assert [(request.method, request.url.path) for request in requests_seen] == [
+            ('POST', '/v1/datasets/'),
+            ('GET', '/v1/datasets/empty-dataset/'),
+        ]
 
     @pytest.mark.anyio
     async def test_add_cases_with_tags(self):
