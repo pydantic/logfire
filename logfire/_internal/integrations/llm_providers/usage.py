@@ -43,7 +43,7 @@ def get_usage_attributes(
         usage_data = extract_usage(response_data, **extract_kwargs)
         if usage_data.model is not None:
             result['operation.cost'] = float(
-                calc_price(usage_data.usage, model_ref=str(usage_data.model), provider_id=provider_id).total_price
+                calc_price(usage_data.usage, model_ref=usage_data.model.id, provider_id=provider_id).total_price
             )
     except Exception:
         pass
