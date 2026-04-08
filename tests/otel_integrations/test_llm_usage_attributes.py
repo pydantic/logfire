@@ -117,5 +117,7 @@ def test_model_none_from_extract_usage() -> None:
         def model_dump(self) -> dict[str, object]:
             return {'usage': {'prompt_tokens': 10}}  # no 'model' key
 
-    result = get_usage_attributes(NoModelResponse(), usage, 10, None, provider_id='openai', api_flavor='chat')
+    # Use embeddings flavor so extract_usage succeeds (doesn't require completion_tokens)
+    # but returns model=None due to missing 'model' key
+    result = get_usage_attributes(NoModelResponse(), usage, 10, None, provider_id='openai', api_flavor='embeddings')
     assert result == snapshot({'gen_ai.usage.input_tokens': 10, 'gen_ai.usage.raw': {'prompt_tokens': 10}})
