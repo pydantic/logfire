@@ -41,6 +41,7 @@ from .semconv import (
     UriPart,
 )
 from .types import EndpointConfig, StreamState
+from .usage import get_usage_attributes
 
 if TYPE_CHECKING:
     from anthropic._models import FinalRequestOptions
@@ -49,6 +50,7 @@ if TYPE_CHECKING:
     from ...main import LogfireSpan
 
 __all__ = (
+    'get_anthropic_usage_attributes',
     'get_endpoint_config',
     'on_response',
     'is_async_client',
@@ -304,6 +306,20 @@ class AnthropicMessageStreamState(StreamState):
                 )
             ]
         return result
+
+
+def get_anthropic_usage_attributes(response: Any) -> dict[str, Any]:
+    """Extract usage attributes from an Anthropic response.
+
+    Computes cache-adjusted input_tokens by adding cache_read_input_tokens
+    and cache_creation_input_tokens to the base input_tokens count.
+    """
+    usage = getattr(response, 'usage', None)
+    if usage is None:
+        return {}
+    input_tokens = usage.input_tokens + (usage.cache_read_input_tokens or 0) + (usage.cache_creation_input_tokens or 0)
+    output_tokens = usage.output_tokens
+    return get_usage_attributes(response, usage, input_tokens, output_tokens, provider_id='anthropic')
 
 
 @handle_internal_errors
