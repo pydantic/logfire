@@ -433,11 +433,11 @@ def test_sync_chat_completions(instrumented_client: openai.Client, exporter: Tes
                     'logfire.span_type': 'span',
                     'logfire.tags': ('LLM',),
                     'gen_ai.response.model': 'gpt-4',
+                    'operation.cost': 0.00012,
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 1,
                     'gen_ai.usage.raw': {'completion_tokens': 1, 'prompt_tokens': 2, 'total_tokens': 3},
-                    'operation.cost': 0.00012,
                     'response_data': {
                         'message': {
                             'content': 'Nine',
@@ -471,11 +471,11 @@ def test_sync_chat_completions(instrumented_client: openai.Client, exporter: Tes
                             'gen_ai.system': {},
                             'async': {},
                             'gen_ai.response.model': {},
+                            'operation.cost': {},
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
-                            'operation.cost': {},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
