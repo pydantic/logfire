@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import pydantic
 from inline_snapshot import snapshot
-from packaging.version import Version as get_version
 
 from logfire._internal.integrations.llm_providers.usage import get_usage_attributes
 
-GENAI_PRICES_AVAILABLE = get_version(pydantic.__version__) >= get_version('2.10')
+try:
+    import genai_prices  # noqa: F401  # pyright: ignore[reportUnusedImport]
+
+    GENAI_PRICES_AVAILABLE = True
+except ImportError:
+    GENAI_PRICES_AVAILABLE = False  # pyright: ignore[reportConstantRedefinition]
 
 
 class FakeUsage(pydantic.BaseModel):
