@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 from unittest.mock import patch
 
 import httpx
@@ -14,7 +14,7 @@ import pytest
 from pydantic import BaseModel
 
 try:
-    from pydantic_evals import Case
+    from pydantic_evals import Case, Dataset
 except Exception:
     pytest.skip('pydantic_evals not compatible with this environment', allow_module_level=True)
 
@@ -80,6 +80,20 @@ FAKE_EXPORT = {
         }
     ],
 }
+
+
+def make_local_dataset(name: str | None = 'local-dataset') -> Dataset[MyInput, MyOutput, MyMetadata]:
+    return Dataset[MyInput, MyOutput, MyMetadata](
+        name=name,
+        cases=[
+            Case(
+                name='local-case',
+                inputs=MyInput(question='What is 2+2?'),
+                expected_output=MyOutput(answer='4'),
+                metadata=MyMetadata(source='seed'),
+            )
+        ],
+    )
 
 
 def make_mock_transport(responses: dict[tuple[str, str], httpx.Response | None] | None = None) -> httpx.MockTransport:
@@ -582,6 +596,129 @@ class TestLogfireAPIClient:
         result = client.add_cases('test-dataset', cases)
         assert result == [FAKE_CASE]
 
+    def test_push_dataset_create_new(self):
+        requests_seen: list[httpx.Request] = []
+        hosted_dataset = {**FAKE_DATASET, 'name': 'local-dataset'}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests_seen.append(request)
+            if request.method == 'POST' and request.url.path == '/v1/datasets/':
+                return httpx.Response(200, json=hosted_dataset)
+            if request.method == 'POST' and request.url.path == '/v1/datasets/local-dataset/import/':
+                return httpx.Response(200, json=[FAKE_CASE])
+            if request.method == 'GET' and request.url.path == '/v1/datasets/local-dataset/':
+                return httpx.Response(200, json=hosted_dataset)
+            return httpx.Response(404, json={'detail': 'Not found'})
+
+        transport = httpx.MockTransport(handler)
+        client = LogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
+        client.client = httpx.Client(transport=transport, base_url='https://test.logfire.dev')
+
+        result = client.push_dataset(
+            make_local_dataset(),
+            description='Hosted copy',
+            guidance='Be accurate',
+            ai_managed_guidance=True,
+            tags=['bulk'],
+        )
+
+        assert result == hosted_dataset
+        assert [(request.method, request.url.path) for request in requests_seen] == [
+            ('POST', '/v1/datasets/'),
+            ('POST', '/v1/datasets/local-dataset/import/'),
+            ('GET', '/v1/datasets/local-dataset/'),
+        ]
+
+        create_body = json.loads(requests_seen[0].content)
+        assert create_body['name'] == 'local-dataset'
+        assert create_body['description'] == 'Hosted copy'
+        assert create_body['guidance'] == 'Be accurate'
+        assert create_body['ai_managed_guidance'] is True
+        assert 'input_schema' in create_body
+        assert 'output_schema' in create_body
+        assert 'metadata_schema' in create_body
+
+        import_body = json.loads(requests_seen[1].content)
+        assert requests_seen[1].url.params['on_conflict'] == 'update'
+        assert import_body['cases'] == [
+            {
+                'name': 'local-case',
+                'inputs': {'question': 'What is 2+2?'},
+                'expected_output': {'answer': '4'},
+                'metadata': {'source': 'seed'},
+                'evaluators': [],
+                'tags': ['bulk'],
+            }
+        ]
+
+    def test_push_dataset_updates_existing_dataset_on_conflict(self):
+        requests_seen: list[httpx.Request] = []
+        hosted_dataset = {**FAKE_DATASET, 'name': 'hosted-dataset'}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests_seen.append(request)
+            if request.method == 'POST' and request.url.path == '/v1/datasets/':
+                return httpx.Response(409, json={'detail': 'Dataset already exists'})
+            if request.method == 'PATCH' and request.url.path == '/v1/datasets/hosted-dataset/':
+                return httpx.Response(200, json=hosted_dataset)
+            if request.method == 'POST' and request.url.path == '/v1/datasets/hosted-dataset/import/':
+                return httpx.Response(200, json=[FAKE_CASE])
+            if request.method == 'GET' and request.url.path == '/v1/datasets/hosted-dataset/':
+                return httpx.Response(200, json=hosted_dataset)
+            return httpx.Response(404, json={'detail': 'Not found'})
+
+        transport = httpx.MockTransport(handler)
+        client = LogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
+        client.client = httpx.Client(transport=transport, base_url='https://test.logfire.dev')
+
+        result = client.push_dataset(
+            make_local_dataset(),
+            name='hosted-dataset',
+            description=None,
+            guidance=None,
+            on_case_conflict='error',
+        )
+
+        assert result == hosted_dataset
+        assert [(request.method, request.url.path) for request in requests_seen] == [
+            ('POST', '/v1/datasets/'),
+            ('PATCH', '/v1/datasets/hosted-dataset/'),
+            ('POST', '/v1/datasets/hosted-dataset/import/'),
+            ('GET', '/v1/datasets/hosted-dataset/'),
+        ]
+
+        create_body = json.loads(requests_seen[0].content)
+        assert create_body['name'] == 'hosted-dataset'
+        assert 'input_schema' in create_body
+        assert 'output_schema' in create_body
+        assert 'metadata_schema' in create_body
+
+        update_body = json.loads(requests_seen[1].content)
+        assert update_body['description'] is None
+        assert update_body['guidance'] is None
+        assert 'name' not in update_body
+        assert 'input_schema' in update_body
+        assert 'output_schema' in update_body
+        assert 'metadata_schema' in update_body
+
+        assert requests_seen[2].url.params['on_conflict'] == 'error'
+
+    def test_push_dataset_requires_name(self):
+        client = make_client()
+        dataset = make_local_dataset()
+        dataset.name = None
+
+        with pytest.raises(ValueError, match='requires a dataset name'):
+            client.push_dataset(dataset)
+
+    def test_push_dataset_rejects_dataset_level_evaluators(self):
+        client = make_client()
+        dataset = make_local_dataset()
+        dataset.evaluators = cast(Any, [object()])
+
+        with pytest.raises(ValueError, match='dataset-level evaluators or report_evaluators'):
+            client.push_dataset(dataset)
+
     def test_add_cases_with_tags(self):
         requests_seen: list[httpx.Request] = []
 
@@ -927,6 +1064,115 @@ class TestAsyncLogfireAPIClient:
         cases: list[Case[MyInput, MyOutput, Any]] = [Case(inputs=MyInput(question='q1'))]
         result = await client.add_cases('test-dataset', cases)
         assert result == [FAKE_CASE]
+
+    @pytest.mark.anyio
+    async def test_push_dataset_create_new(self):
+        requests_seen: list[httpx.Request] = []
+        hosted_dataset = {**FAKE_DATASET, 'name': 'local-dataset'}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests_seen.append(request)
+            if request.method == 'POST' and request.url.path == '/v1/datasets/':
+                return httpx.Response(200, json=hosted_dataset)
+            if request.method == 'POST' and request.url.path == '/v1/datasets/local-dataset/import/':
+                return httpx.Response(200, json=[FAKE_CASE])
+            if request.method == 'GET' and request.url.path == '/v1/datasets/local-dataset/':
+                return httpx.Response(200, json=hosted_dataset)
+            return httpx.Response(404, json={'detail': 'Not found'})
+
+        transport = httpx.MockTransport(handler)
+        client = AsyncLogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
+        client.client = httpx.AsyncClient(transport=transport, base_url='https://test.logfire.dev')
+
+        result = await client.push_dataset(
+            make_local_dataset(),
+            description='Hosted copy',
+            guidance='Be accurate',
+            ai_managed_guidance=True,
+            tags=['bulk'],
+        )
+
+        assert result == hosted_dataset
+        assert [(request.method, request.url.path) for request in requests_seen] == [
+            ('POST', '/v1/datasets/'),
+            ('POST', '/v1/datasets/local-dataset/import/'),
+            ('GET', '/v1/datasets/local-dataset/'),
+        ]
+
+        create_body = json.loads(requests_seen[0].content)
+        assert create_body['name'] == 'local-dataset'
+        assert create_body['description'] == 'Hosted copy'
+        assert create_body['guidance'] == 'Be accurate'
+        assert create_body['ai_managed_guidance'] is True
+        assert 'input_schema' in create_body
+        assert 'output_schema' in create_body
+        assert 'metadata_schema' in create_body
+
+        import_body = json.loads(requests_seen[1].content)
+        assert requests_seen[1].url.params['on_conflict'] == 'update'
+        assert import_body['cases'] == [
+            {
+                'name': 'local-case',
+                'inputs': {'question': 'What is 2+2?'},
+                'expected_output': {'answer': '4'},
+                'metadata': {'source': 'seed'},
+                'evaluators': [],
+                'tags': ['bulk'],
+            }
+        ]
+
+    @pytest.mark.anyio
+    async def test_push_dataset_updates_existing_dataset_on_conflict(self):
+        requests_seen: list[httpx.Request] = []
+        hosted_dataset = {**FAKE_DATASET, 'name': 'hosted-dataset'}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests_seen.append(request)
+            if request.method == 'POST' and request.url.path == '/v1/datasets/':
+                return httpx.Response(409, json={'detail': 'Dataset already exists'})
+            if request.method == 'PATCH' and request.url.path == '/v1/datasets/hosted-dataset/':
+                return httpx.Response(200, json=hosted_dataset)
+            if request.method == 'POST' and request.url.path == '/v1/datasets/hosted-dataset/import/':
+                return httpx.Response(200, json=[FAKE_CASE])
+            if request.method == 'GET' and request.url.path == '/v1/datasets/hosted-dataset/':
+                return httpx.Response(200, json=hosted_dataset)
+            return httpx.Response(404, json={'detail': 'Not found'})
+
+        transport = httpx.MockTransport(handler)
+        client = AsyncLogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
+        client.client = httpx.AsyncClient(transport=transport, base_url='https://test.logfire.dev')
+
+        result = await client.push_dataset(
+            make_local_dataset(),
+            name='hosted-dataset',
+            description=None,
+            guidance=None,
+            on_case_conflict='error',
+        )
+
+        assert result == hosted_dataset
+        assert [(request.method, request.url.path) for request in requests_seen] == [
+            ('POST', '/v1/datasets/'),
+            ('PATCH', '/v1/datasets/hosted-dataset/'),
+            ('POST', '/v1/datasets/hosted-dataset/import/'),
+            ('GET', '/v1/datasets/hosted-dataset/'),
+        ]
+
+        create_body = json.loads(requests_seen[0].content)
+        assert create_body['name'] == 'hosted-dataset'
+        assert 'input_schema' in create_body
+        assert 'output_schema' in create_body
+        assert 'metadata_schema' in create_body
+
+        update_body = json.loads(requests_seen[1].content)
+        assert update_body['description'] is None
+        assert update_body['guidance'] is None
+        assert 'name' not in update_body
+        assert 'input_schema' in update_body
+        assert 'output_schema' in update_body
+        assert 'metadata_schema' in update_body
+
+        assert requests_seen[2].url.params['on_conflict'] == 'error'
 
     @pytest.mark.anyio
     async def test_add_cases_with_tags(self):

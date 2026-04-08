@@ -51,7 +51,7 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, cast, overload
 
 from pydantic import TypeAdapter
 from typing_extensions import Self
@@ -213,6 +213,70 @@ def _is_case_error(detail: Any) -> bool:
         message: Any = cast(dict[str, Any], detail).get('detail', '')
         return isinstance(message, str) and 'case' in message.lower()
     return False
+
+
+def _get_dataset_type_args(dataset: Dataset[Any, Any, Any]) -> tuple[Any | None, Any | None, Any | None]:
+    """Extract generic input/output/metadata types from a typed pydantic-evals Dataset."""
+    generic_metadata = getattr(type(dataset), '__pydantic_generic_metadata__', None)
+    if not isinstance(generic_metadata, dict):
+        return None, None, None
+
+    metadata = cast(dict[str, Any], generic_metadata)
+    args = metadata.get('args')
+    if not isinstance(args, tuple):
+        return None, None, None
+
+    typed_args = cast(tuple[Any, ...], args)
+    if len(typed_args) != 3:
+        return None, None, None
+
+    input_type, output_type, metadata_type = typed_args
+    return input_type, output_type, metadata_type
+
+
+def _validate_push_dataset(dataset: Dataset[Any, Any, Any]) -> None:
+    """Reject dataset-level features that hosted datasets do not yet support."""
+    if getattr(dataset, 'evaluators', ()) or getattr(dataset, 'report_evaluators', ()):
+        raise ValueError(
+            'push_dataset() does not support dataset-level evaluators or report_evaluators yet. '
+            'Only case-level evaluators are uploaded.'
+        )
+
+
+def _build_push_dataset_kwargs(
+    *,
+    target_name: str,
+    input_type: Any | None,
+    output_type: Any | None,
+    metadata_type: Any | None,
+    description: str | None = _UNSET,
+    guidance: str | None = _UNSET,
+    ai_managed_guidance: bool | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Build the create/update kwargs used by push_dataset()."""
+    create_kwargs: dict[str, Any] = {'name': target_name}
+    update_kwargs: dict[str, Any] = {}
+
+    if input_type is not None:
+        create_kwargs['input_type'] = input_type
+        update_kwargs['input_type'] = input_type
+    if output_type is not None:
+        create_kwargs['output_type'] = output_type
+        update_kwargs['output_type'] = output_type
+    if metadata_type is not None:
+        create_kwargs['metadata_type'] = metadata_type
+        update_kwargs['metadata_type'] = metadata_type
+    if description is not _UNSET:
+        create_kwargs['description'] = description
+        update_kwargs['description'] = description
+    if guidance is not _UNSET:
+        create_kwargs['guidance'] = guidance
+        update_kwargs['guidance'] = guidance
+    if ai_managed_guidance is not None:
+        create_kwargs['ai_managed_guidance'] = ai_managed_guidance
+        update_kwargs['ai_managed_guidance'] = ai_managed_guidance
+
+    return create_kwargs, update_kwargs
 
 
 class _BaseLogfireAPIClient(Generic[T]):
@@ -499,6 +563,59 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         """
         response = self.client.get(f'/v1/datasets/{dataset_id_or_name}/cases/{case_id}/')
         return self._handle_response(response, is_case_endpoint=True)
+
+    def push_dataset(
+        self,
+        dataset: Dataset[InputsT, OutputT, MetadataT],
+        *,
+        name: str | None = None,
+        input_type: type[InputsT] | None = None,
+        output_type: type[OutputT] | None = None,
+        metadata_type: type[MetadataT] | None = None,
+        description: str | None = _UNSET,
+        guidance: str | None = _UNSET,
+        ai_managed_guidance: bool | None = None,
+        tags: list[str] | None = None,
+        on_case_conflict: Literal['update', 'error'] = 'update',
+    ) -> dict[str, Any]:
+        """Create or update a hosted dataset, then upload all local cases."""
+        _validate_push_dataset(dataset)
+
+        target_name = dataset.name if name is None else name
+        if not target_name:
+            raise ValueError('push_dataset() requires a dataset name either on dataset.name or via name=')
+
+        inferred_input_type, inferred_output_type, inferred_metadata_type = _get_dataset_type_args(dataset)
+        resolved_input_type = input_type if input_type is not None else inferred_input_type
+        resolved_output_type = output_type if output_type is not None else inferred_output_type
+        resolved_metadata_type = metadata_type if metadata_type is not None else inferred_metadata_type
+
+        create_kwargs, update_kwargs = _build_push_dataset_kwargs(
+            target_name=target_name,
+            input_type=resolved_input_type,
+            output_type=resolved_output_type,
+            metadata_type=resolved_metadata_type,
+            description=description,
+            guidance=guidance,
+            ai_managed_guidance=ai_managed_guidance,
+        )
+
+        try:
+            self.create_dataset(**create_kwargs)
+        except DatasetApiError as e:
+            if e.status_code != 409:
+                raise
+            self.update_dataset(target_name, **update_kwargs)
+
+        if dataset.cases:
+            self.add_cases(
+                target_name,
+                cast(Sequence[Any], dataset.cases),
+                tags=tags,
+                on_conflict=on_case_conflict,
+            )
+
+        return self.get_dataset(target_name, include_cases=False)
 
     def add_cases(
         self,
@@ -835,6 +952,59 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         """Get a specific case from a dataset."""
         response = await self.client.get(f'/v1/datasets/{dataset_id_or_name}/cases/{case_id}/')
         return self._handle_response(response, is_case_endpoint=True)
+
+    async def push_dataset(
+        self,
+        dataset: Dataset[InputsT, OutputT, MetadataT],
+        *,
+        name: str | None = None,
+        input_type: type[InputsT] | None = None,
+        output_type: type[OutputT] | None = None,
+        metadata_type: type[MetadataT] | None = None,
+        description: str | None = _UNSET,
+        guidance: str | None = _UNSET,
+        ai_managed_guidance: bool | None = None,
+        tags: list[str] | None = None,
+        on_case_conflict: Literal['update', 'error'] = 'update',
+    ) -> dict[str, Any]:
+        """Create or update a hosted dataset, then upload all local cases."""
+        _validate_push_dataset(dataset)
+
+        target_name = dataset.name if name is None else name
+        if not target_name:
+            raise ValueError('push_dataset() requires a dataset name either on dataset.name or via name=')
+
+        inferred_input_type, inferred_output_type, inferred_metadata_type = _get_dataset_type_args(dataset)
+        resolved_input_type = input_type if input_type is not None else inferred_input_type
+        resolved_output_type = output_type if output_type is not None else inferred_output_type
+        resolved_metadata_type = metadata_type if metadata_type is not None else inferred_metadata_type
+
+        create_kwargs, update_kwargs = _build_push_dataset_kwargs(
+            target_name=target_name,
+            input_type=resolved_input_type,
+            output_type=resolved_output_type,
+            metadata_type=resolved_metadata_type,
+            description=description,
+            guidance=guidance,
+            ai_managed_guidance=ai_managed_guidance,
+        )
+
+        try:
+            await self.create_dataset(**create_kwargs)
+        except DatasetApiError as e:
+            if e.status_code != 409:
+                raise
+            await self.update_dataset(target_name, **update_kwargs)
+
+        if dataset.cases:
+            await self.add_cases(
+                target_name,
+                cast(Sequence[Any], dataset.cases),
+                tags=tags,
+                on_conflict=on_case_conflict,
+            )
+
+        return await self.get_dataset(target_name, include_cases=False)
 
     async def add_cases(
         self,
