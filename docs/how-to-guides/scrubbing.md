@@ -138,7 +138,7 @@ Scrubbing is **disabled** for LLM message attributes such as `gen_ai.input.messa
 
 Because of these limitations, if your LLM interactions might contain sensitive data, the recommended approach is to **exclude message content from logging entirely** rather than relying on scrubbing. For example, with [Pydantic AI](../integrations/llms/pydanticai.md):
 
-```python
+```python skip-run="true" skip-reason="external-connection"
 import logfire
 
 logfire.configure()
