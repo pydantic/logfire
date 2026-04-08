@@ -45,8 +45,7 @@ print(result.data)
 
 The above example displays like this in **Logfire**:
 
-![Logfire Pydantic AI Instrumentation](../../images/integrations/pydantic-ai/pydanticai-instrumentation-screenshot.
-png)
+![Logfire Pydantic AI Instrumentation](../../images/integrations/pydantic-ai/pydanticai-instrumentation-screenshot.png)
 
 You can use Pydantic AI with a [large variety of LLMs](https://ai.pydantic.dev/api/models/base/#pydantic_ai.models.KnownModelName), the example
 just happens to show `gpt-4o`.
