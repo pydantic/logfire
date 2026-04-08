@@ -15,6 +15,7 @@ from logfire._internal.constants import (
     LevelName,
 )
 from logfire._internal.exporters.wrapper import WrapperSpanProcessor
+from logfire._internal.utils import suppress_instrumentation
 from logfire.types import SpanLevel
 
 
@@ -256,16 +257,12 @@ class TailSamplingProcessor(WrapperSpanProcessor):
     def shutdown(self) -> None:
         super().shutdown()
         if self.deferred_processor is not None:
-            import logfire
-
-            with logfire.suppress_instrumentation():
+            with suppress_instrumentation():
                 self.deferred_processor.shutdown()
 
     def force_flush(self, timeout_millis: int = 30000) -> bool:
         result = super().force_flush(timeout_millis)
         if self.deferred_processor is not None:
-            import logfire
-
-            with logfire.suppress_instrumentation():
+            with suppress_instrumentation():
                 result = self.deferred_processor.force_flush(timeout_millis) and result
         return result

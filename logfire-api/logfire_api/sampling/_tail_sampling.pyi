@@ -18,8 +18,7 @@ class TraceBuffer:
     """
     started: list[tuple[Span, context.Context | None]]
     ended: list[ReadableSpan]
-    @cached_property
-    def first_span(self) -> Span: ...
+    first_span: Span
     @cached_property
     def trace_id(self) -> int: ...
 
