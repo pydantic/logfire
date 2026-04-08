@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pydantic
-import pytest
 from inline_snapshot import snapshot
 from packaging.version import Version as get_version
 
@@ -27,22 +26,14 @@ def test_tokens_and_raw() -> None:
     response = FakeResponse(model='gpt-4', usage={'prompt_tokens': 10, 'completion_tokens': 5})
     result = get_usage_attributes(response, usage, 10, 5, provider_id='openai', api_flavor='chat')
     if GENAI_PRICES_AVAILABLE:
-        assert result == snapshot(
-            {
-                'gen_ai.usage.input_tokens': 10,
-                'gen_ai.usage.output_tokens': 5,
-                'gen_ai.usage.raw': {'prompt_tokens': 10, 'completion_tokens': 5},
-                'operation.cost': 0.0006,
-            }
-        )
-    else:
-        assert result == snapshot(
-            {
-                'gen_ai.usage.input_tokens': 10,
-                'gen_ai.usage.output_tokens': 5,
-                'gen_ai.usage.raw': {'prompt_tokens': 10, 'completion_tokens': 5},
-            }
-        )
+        assert result.pop('operation.cost') == snapshot(0.0006)
+    assert result == snapshot(
+        {
+            'gen_ai.usage.input_tokens': 10,
+            'gen_ai.usage.output_tokens': 5,
+            'gen_ai.usage.raw': {'prompt_tokens': 10, 'completion_tokens': 5},
+        }
+    )
 
 
 def test_none_tokens() -> None:
@@ -67,22 +58,14 @@ def test_api_flavor_none() -> None:
     response = FakeResponse(model='claude-3-haiku-20240307', usage={'input_tokens': 10, 'output_tokens': 5})
     result = get_usage_attributes(response, usage, 10, 5, provider_id='anthropic')
     if GENAI_PRICES_AVAILABLE:
-        assert result == snapshot(
-            {
-                'gen_ai.usage.input_tokens': 10,
-                'gen_ai.usage.output_tokens': 5,
-                'gen_ai.usage.raw': {'input_tokens': 10, 'output_tokens': 5},
-                'operation.cost': 8.75e-06,
-            }
-        )
-    else:
-        assert result == snapshot(
-            {
-                'gen_ai.usage.input_tokens': 10,
-                'gen_ai.usage.output_tokens': 5,
-                'gen_ai.usage.raw': {'input_tokens': 10, 'output_tokens': 5},
-            }
-        )
+        assert result.pop('operation.cost') == snapshot(8.75e-06)
+    assert result == snapshot(
+        {
+            'gen_ai.usage.input_tokens': 10,
+            'gen_ai.usage.output_tokens': 5,
+            'gen_ai.usage.raw': {'input_tokens': 10, 'output_tokens': 5},
+        }
+    )
 
 
 def test_cost_failure_does_not_prevent_tokens() -> None:
@@ -113,20 +96,13 @@ def test_raw_usage_failure_does_not_prevent_cost() -> None:
     response = FakeResponse(model='gpt-4', usage={'prompt_tokens': 10, 'completion_tokens': 5})
     result = get_usage_attributes(response, BadUsage(), 10, 5, provider_id='openai', api_flavor='chat')
     if GENAI_PRICES_AVAILABLE:
-        assert result == snapshot(
-            {
-                'gen_ai.usage.input_tokens': 10,
-                'gen_ai.usage.output_tokens': 5,
-                'operation.cost': 0.0006,
-            }
-        )
-    else:
-        assert result == snapshot(
-            {
-                'gen_ai.usage.input_tokens': 10,
-                'gen_ai.usage.output_tokens': 5,
-            }
-        )
+        assert result.pop('operation.cost') == snapshot(0.0006)
+    assert result == snapshot(
+        {
+            'gen_ai.usage.input_tokens': 10,
+            'gen_ai.usage.output_tokens': 5,
+        }
+    )
 
 
 def test_unknown_model_no_cost() -> None:
@@ -143,10 +119,6 @@ def test_unknown_model_no_cost() -> None:
     )
 
 
-@pytest.mark.skipif(
-    not GENAI_PRICES_AVAILABLE,
-    reason='genai_prices requires pydantic >= 2.10',
-)
 def test_model_none_from_extract_usage() -> None:
     """When extract_usage returns model=None, cost is skipped."""
     usage = FakeUsage(prompt_tokens=10)
