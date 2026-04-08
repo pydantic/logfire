@@ -12,10 +12,10 @@ No new attributes are added to streaming spans. The refactoring produces shared 
 There are 3 API surfaces (OpenAI chat completions, OpenAI Responses, Anthropic Messages) x 2 modes (streaming, non-streaming) that eventually need these attributes. Today the logic is duplicated between `openai.py` and `anthropic.py` `on_response()` functions, and adding streaming would triple it. A shared function avoids this.
 
 **Each API surface has two provider-specific concerns: token extraction and `genai_prices` parameters.** *(from "The usage attribute logic must not be duplicated")*
-Token field names differ per API surface: OpenAI chat uses `prompt_tokens`/`completion_tokens`, OpenAI Responses uses `input_tokens`/`output_tokens`, Anthropic needs `input_tokens + cache_read_input_tokens + cache_creation_input_tokens`. For cost, `genai_prices` needs `provider_id` (`'openai'`/`'anthropic'`) and for OpenAI also `api_flavor` (`'chat'`/`'responses'`). Callers handle these differences; the shared code handles everything else.
+Token field names differ per API surface: OpenAI chat uses `prompt_tokens`/`completion_tokens`, OpenAI Responses uses `input_tokens`/`output_tokens`, Anthropic needs `input_tokens + cache_read_input_tokens + cache_creation_input_tokens`. For cost, `genai_prices` needs the full response object (it extracts both model and usage internally), `provider_id` (`'openai'`/`'anthropic'`), and for OpenAI also `api_flavor` (`'chat'`/`'responses'`). Callers handle these differences; the shared code handles everything else.
 
 **Everything else about setting usage attributes is the same and belongs in shared code.** *(from "Each API surface has two provider-specific concerns")*
-Given the extracted token counts, the usage object, and the pricing parameters, the shared code: sets `INPUT_TOKENS` and `OUTPUT_TOKENS`, sets `USAGE_RAW` via `model_dump(exclude_none=True)`, and computes `operation.cost` via `genai_prices` (try/except since it's optional).
+Given the extracted token counts, the usage object, the full response, and the pricing parameters, the shared code: sets `INPUT_TOKENS` and `OUTPUT_TOKENS`, sets `USAGE_RAW` from the usage object via `model_dump(exclude_none=True)`, and computes `operation.cost` from the full response via `genai_prices` (try/except since it's optional).
 
 **`genai_prices` is an optional dependency.** *(from "Everything else about setting usage attributes")*
 It must not be imported at module level. Cost calculation uses it when available; failures are silently caught. Token extraction cannot depend on it.

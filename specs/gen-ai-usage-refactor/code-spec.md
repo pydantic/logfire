@@ -6,17 +6,19 @@
 
 ```python
 def get_usage_attributes(
+    response: Any,
     usage: Any,
     input_tokens: int | None,
     output_tokens: int | None,
-    model: str | None = None,
-    provider_id: str | None = None,
+    provider_id: str,
     api_flavor: str | None = None,
 ) -> dict[str, Any]:
     """Build usage attributes: INPUT_TOKENS, OUTPUT_TOKENS, USAGE_RAW, operation.cost.
 
     Callers extract input/output tokens themselves (API-surface-specific).
-    model, provider_id, and api_flavor are only used for genai_prices cost calculation.
+    response is the full API response object, passed to genai_prices for cost calculation
+    (genai_prices extracts both model and usage from it). usage is the usage sub-object,
+    used for USAGE_RAW. api_flavor is only needed for OpenAI ('chat' or 'responses').
     Returns only attributes that have values.
     """
 ```
@@ -35,8 +37,8 @@ if usage is not None:
         output_tokens = getattr(usage, 'completion_tokens', None)
         api_flavor = 'chat'
     span.set_attributes(
-        get_usage_attributes(usage, input_tokens, output_tokens,
-                             model=response_model, provider_id='openai', api_flavor=api_flavor)
+        get_usage_attributes(response, usage, input_tokens, output_tokens,
+                             provider_id='openai', api_flavor=api_flavor)
     )
 ```
 
