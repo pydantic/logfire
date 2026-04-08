@@ -27,10 +27,7 @@ class TraceBuffer:
 
     started: list[tuple[Span, context.Context | None]]
     ended: list[ReadableSpan]
-
-    @cached_property
-    def first_span(self) -> Span:
-        return self.started[0][0]
+    first_span: Span
 
     @cached_property
     def trace_id(self) -> int:
@@ -186,12 +183,13 @@ class TailSamplingProcessor(WrapperSpanProcessor):
                 trace_id = span.context.trace_id
                 # If span.parent is None, it's the root span of a trace.
                 if span.parent is None:
-                    self.traces[trace_id] = TraceBuffer([], [])
+                    self.traces[trace_id] = TraceBuffer(started=[], ended=[], first_span=span)
 
                 buffer = self.traces.get(trace_id)
                 if buffer is not None:
-                    # This trace's spans haven't met the criteria yet, so add this span to the buffer.
-                    buffer.started.append((span, parent_context))
+                    # Only track started spans if there's a deferred processor that needs replay.
+                    if self.deferred_processor is not None:
+                        buffer.started.append((span, parent_context))
                     dropped = self.check_span(TailSamplingSpanInfo(span, parent_context, 'start', buffer))
 
         # Always call the main processor's on_start immediately.
@@ -258,10 +256,16 @@ class TailSamplingProcessor(WrapperSpanProcessor):
     def shutdown(self) -> None:
         super().shutdown()
         if self.deferred_processor is not None:
-            self.deferred_processor.shutdown()
+            import logfire
+
+            with logfire.suppress_instrumentation():
+                self.deferred_processor.shutdown()
 
     def force_flush(self, timeout_millis: int = 30000) -> bool:
         result = super().force_flush(timeout_millis)
         if self.deferred_processor is not None:
-            result = self.deferred_processor.force_flush(timeout_millis) and result
+            import logfire
+
+            with logfire.suppress_instrumentation():
+                result = self.deferred_processor.force_flush(timeout_millis) and result
         return result
