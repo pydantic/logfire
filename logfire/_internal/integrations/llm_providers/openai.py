@@ -63,9 +63,31 @@ if TYPE_CHECKING:
 
 __all__ = (
     'get_endpoint_config',
+    'get_openai_usage_attributes',
     'on_response',
     'is_async_client',
 )
+
+
+def get_openai_usage_attributes(response: Any) -> dict[str, Any]:
+    """Extract usage attributes from an OpenAI response object.
+
+    Returns a dict of usage attributes, or {} if usage is None.
+    """
+    usage = getattr(response, 'usage', None)
+    if usage is None:
+        return {}
+    input_tokens = getattr(usage, 'prompt_tokens', getattr(usage, 'input_tokens', None))
+    output_tokens = getattr(usage, 'completion_tokens', getattr(usage, 'output_tokens', None))
+    if isinstance(response, Response):
+        api_flavor = 'responses'
+    elif isinstance(response, CreateEmbeddingResponse):
+        api_flavor = 'embeddings'
+    else:
+        api_flavor = 'chat'
+    return get_usage_attributes(
+        response, usage, input_tokens, output_tokens, provider_id='openai', api_flavor=api_flavor
+    )
 
 
 def _extract_request_parameters(json_data: dict[str, Any], span_data: dict[str, Any]) -> None:
@@ -593,20 +615,9 @@ def on_response(
         span.set_attribute(RESPONSE_ID, response_id)
 
     usage = getattr(response, 'usage', None)
-    if usage is not None:
-        input_tokens = getattr(usage, 'prompt_tokens', getattr(usage, 'input_tokens', None))
-        output_tokens = getattr(usage, 'completion_tokens', getattr(usage, 'output_tokens', None))
-        if isinstance(response, Response):
-            api_flavor = 'responses'
-        elif isinstance(response, CreateEmbeddingResponse):
-            api_flavor = 'embeddings'
-        else:
-            api_flavor = 'chat'
-        span.set_attributes(
-            get_usage_attributes(
-                response, usage, input_tokens, output_tokens, provider_id='openai', api_flavor=api_flavor
-            )
-        )
+    usage_attrs = get_openai_usage_attributes(response)
+    if usage_attrs:
+        span.set_attributes(usage_attrs)
 
     if isinstance(response, ChatCompletion) and response.choices:
         if 1 in versions:
