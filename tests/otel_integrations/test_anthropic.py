@@ -223,6 +223,7 @@ def test_sync_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 3,
+                    'gen_ai.usage.raw': {'input_tokens': 2, 'output_tokens': 3},
                     'gen_ai.response.finish_reasons': ['end_turn'],
                     'operation.cost': 4.25e-06,
                     'logfire.json_schema': {
@@ -252,6 +253,7 @@ def test_sync_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                             'operation.cost': {},
                         },
@@ -327,6 +329,7 @@ async def test_async_messages(instrumented_async_client: anthropic.AsyncAnthropi
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 3,
+                    'gen_ai.usage.raw': {'input_tokens': 2, 'output_tokens': 3},
                     'gen_ai.response.finish_reasons': ['end_turn'],
                     'operation.cost': 4.25e-06,
                     'logfire.json_schema': {
@@ -352,6 +355,7 @@ async def test_async_messages(instrumented_async_client: anthropic.AsyncAnthropi
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                             'operation.cost': {},
                         },
@@ -801,6 +805,7 @@ def test_tool_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 3,
+                    'gen_ai.usage.raw': {'input_tokens': 2, 'output_tokens': 3},
                     'gen_ai.response.finish_reasons': ['tool_use'],
                     'operation.cost': 4.25e-06,
                     'logfire.json_schema': {
@@ -826,6 +831,7 @@ def test_tool_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                             'operation.cost': {},
                         },
@@ -898,6 +904,7 @@ def test_messages_without_stop_reason(instrumented_client: anthropic.Anthropic, 
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 3,
+                    'gen_ai.usage.raw': {'input_tokens': 2, 'output_tokens': 3},
                     'operation.cost': 4.25e-06,
                     'logfire.json_schema': {
                         'type': 'object',
@@ -922,6 +929,7 @@ def test_messages_without_stop_reason(instrumented_client: anthropic.Anthropic, 
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'operation.cost': {},
                         },
                     },
@@ -1088,6 +1096,7 @@ def test_request_parameters(instrumented_client: anthropic.Anthropic, exporter: 
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 3,
+                    'gen_ai.usage.raw': {'input_tokens': 2, 'output_tokens': 3},
                     'gen_ai.response.finish_reasons': ['end_turn'],
                     'operation.cost': 4.25e-06,
                     'logfire.json_schema': {
@@ -1118,6 +1127,7 @@ def test_request_parameters(instrumented_client: anthropic.Anthropic, exporter: 
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                             'operation.cost': {},
                         },
@@ -1198,6 +1208,10 @@ def test_on_response_unknown_block_type() -> None:
 
         def set_attribute(self, key: str, value: Any) -> None:
             self.attributes[key] = value
+
+        def set_attributes(self, attributes: dict[str, Any]) -> None:
+            for key, value in attributes.items():
+                self.set_attribute(key, value)
 
     span = MockSpan()
     on_response(message, span, version=1)  # type: ignore
@@ -1287,6 +1301,15 @@ def test_sync_messages_version_latest(exporter: TestExporter) -> None:
                     'gen_ai.response.id': IsStr(),
                     'gen_ai.usage.input_tokens': IsInt(),
                     'gen_ai.usage.output_tokens': IsInt(),
+                    'gen_ai.usage.raw': {
+                        'cache_creation': {'ephemeral_1h_input_tokens': 0, 'ephemeral_5m_input_tokens': 0},
+                        'cache_creation_input_tokens': 0,
+                        'cache_read_input_tokens': 0,
+                        'inference_geo': 'not_available',
+                        'input_tokens': 19,
+                        'output_tokens': 9,
+                        'service_tier': 'standard',
+                    },
                     'gen_ai.response.finish_reasons': ['end_turn'],
                     'operation.cost': 0.000192,
                     'logfire.json_schema': {
@@ -1306,6 +1329,7 @@ def test_sync_messages_version_latest(exporter: TestExporter) -> None:
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                             'operation.cost': {},
                         },
@@ -1377,6 +1401,15 @@ def test_sync_messages_version_v1_only(exporter: TestExporter) -> None:
                     'gen_ai.response.id': IsStr(),
                     'gen_ai.usage.input_tokens': IsInt(),
                     'gen_ai.usage.output_tokens': IsInt(),
+                    'gen_ai.usage.raw': {
+                        'cache_creation': {'ephemeral_1h_input_tokens': 0, 'ephemeral_5m_input_tokens': 0},
+                        'cache_creation_input_tokens': 0,
+                        'cache_read_input_tokens': 0,
+                        'inference_geo': 'not_available',
+                        'input_tokens': 19,
+                        'output_tokens': 9,
+                        'service_tier': 'standard',
+                    },
                     'gen_ai.response.finish_reasons': ['end_turn'],
                     'operation.cost': 0.000192,
                     'logfire.json_schema': {
@@ -1410,6 +1443,7 @@ def test_sync_messages_version_v1_only(exporter: TestExporter) -> None:
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                             'operation.cost': {},
                         },
@@ -1858,6 +1892,15 @@ async def test_async_beta_messages(exporter: TestExporter) -> None:
                     'gen_ai.response.id': 'msg_01HJB23z1SCp7SjLxmybeqgF',
                     'gen_ai.usage.input_tokens': 19,
                     'gen_ai.usage.output_tokens': 14,
+                    'gen_ai.usage.raw': {
+                        'cache_creation': {'ephemeral_1h_input_tokens': 0, 'ephemeral_5m_input_tokens': 0},
+                        'cache_creation_input_tokens': 0,
+                        'cache_read_input_tokens': 0,
+                        'inference_geo': 'not_available',
+                        'input_tokens': 19,
+                        'output_tokens': 14,
+                        'service_tier': 'standard',
+                    },
                     'gen_ai.response.finish_reasons': ['end_turn'],
                     'operation.cost': 2.225e-05,
                     'logfire.json_schema': {
@@ -1894,6 +1937,7 @@ async def test_async_beta_messages(exporter: TestExporter) -> None:
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                             'operation.cost': {},
                         },
