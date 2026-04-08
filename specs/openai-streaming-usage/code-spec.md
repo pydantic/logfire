@@ -2,7 +2,7 @@
 
 **This implements the prose spec in [spec](spec.md), which is the primary source of truth.**
 
-## New: `get_openai_usage_attributes()` in `usage.py`
+## New: `get_openai_usage_attributes()` in `openai.py`
 
 *(implements "The usage extraction logic must not be duplicated")*
 
@@ -22,7 +22,7 @@ This function encapsulates the logic currently inline in `on_response()` (lines 
 3. Determine `api_flavor` from response type: `isinstance(response, Response)` → `'responses'`, `isinstance(response, CreateEmbeddingResponse)` → `'embeddings'`, else `'chat'`
 4. Return `get_usage_attributes(response, usage, input_tokens, output_tokens, provider_id='openai', api_flavor=api_flavor)`
 
-No try/except — errors surface normally. `get_usage_attributes()` handles its own error isolation internally.
+Lives in `openai.py` rather than `usage.py` to keep `usage.py` provider-agnostic — the `isinstance` checks against OpenAI types are OpenAI-specific. No try/except — errors surface normally. `get_usage_attributes()` handles its own error isolation internally.
 
 ## Modified: `on_response()` in `openai.py`
 
