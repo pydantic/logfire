@@ -36,7 +36,13 @@ def test_tokens_and_raw() -> None:
             }
         )
     else:
-        assert result == snapshot()
+        assert result == snapshot(
+            {
+                'gen_ai.usage.input_tokens': 10,
+                'gen_ai.usage.output_tokens': 5,
+                'gen_ai.usage.raw': {'prompt_tokens': 10, 'completion_tokens': 5},
+            }
+        )
 
 
 def test_none_tokens() -> None:
@@ -70,7 +76,13 @@ def test_api_flavor_none() -> None:
             }
         )
     else:
-        assert result == snapshot()
+        assert result == snapshot(
+            {
+                'gen_ai.usage.input_tokens': 10,
+                'gen_ai.usage.output_tokens': 5,
+                'gen_ai.usage.raw': {'input_tokens': 10, 'output_tokens': 5},
+            }
+        )
 
 
 def test_cost_failure_does_not_prevent_tokens() -> None:
