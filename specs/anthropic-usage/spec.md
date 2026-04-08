@@ -15,6 +15,9 @@ The raw dict (from `usage.model_dump(exclude_none=True)`) retains `cache_read_in
 **`on_response()` replaces inline usage logic with a call to the shared function.** *(from "A shared get_anthropic_usage_attributes() function")*
 The inline token-setting block and cost calculation block are replaced by `span.set_attributes(get_anthropic_usage_attributes(response))`. This is a behavioral change: non-streaming spans gain `gen_ai.usage.raw`. The `response.usage` reference in the version 1 `response_data` dict remains unchanged — it's separate from the usage attributes.
 
+**Existing non-streaming behavior (response_data, output messages, response model/id, finish reasons) must not change.** *(from "Anthropic non-streaming on_response() must use the shared get_usage_attributes()")*
+This is additive — the only new attribute is `gen_ai.usage.raw`. Existing attributes continue to be set by `on_response()` as before.
+
 **Cost calculation behavior changes slightly: the shared function skips cost when `genai_prices` cannot extract a model.** *(from "on_response() replaces inline usage logic", "Existing non-streaming behavior must not change")*
 This goes against "Existing non-streaming behavior must not change" in the strict sense, but the change is practically invisible:
 The current inline code always attempts `calc_price(usage_data.usage, model_ref=response.model, ...)`. The shared `get_usage_attributes()` calls `genai_prices.extract_usage()` which returns `usage_data.model`, and skips cost if `usage_data.model is None`. `extract_usage` extracts the model from `response.model_dump()`, which will find Anthropic's `model` field, so `usage_data.model` is never `None` in practice. The difference is that the shared function uses `usage_data.model.id` as `model_ref` instead of `response.model` directly; these are the same value since `extract_usage` reads it from the response dict (this equivalence was verified during phase 1 implementation). Both paths silently catch all exceptions.
@@ -24,9 +27,6 @@ The current inline code always attempts `calc_price(usage_data.usage, model_ref=
 
 **Usage attributes are set regardless of semconv version.** *(from "Anthropic non-streaming on_response() must use the shared get_usage_attributes()")*
 Context: The Anthropic code has version branching (`SemconvVersion`) — version 1 sets `response_data`, `'latest'` sets `OUTPUT_MESSAGES`. Usage attributes are set unconditionally, outside version-specific branches. This matches the pattern established in phases 1 and 2.
-
-**Existing non-streaming behavior (response_data, output messages, response model/id, finish reasons) must not change.** *(from "Anthropic non-streaming on_response() must use the shared get_usage_attributes()")*
-This is additive — the only new attribute is `gen_ai.usage.raw`. Existing attributes continue to be set by `on_response()` as before.
 
 **Existing tests will gain `gen_ai.usage.raw` in snapshots.** *(from "gen_ai.usage.raw preserves the full provider usage object", "Existing non-streaming behavior must not change")*
 Non-streaming tests that assert on span attributes will show the new `gen_ai.usage.raw` dict in their snapshots. No other snapshot changes are expected.
