@@ -2515,6 +2515,7 @@ def test_embeddings_version_latest(exporter: TestExporter) -> None:
                     'gen_ai.response.model': 'text-embedding-3-small',
                     'gen_ai.usage.input_tokens': IsInt(),
                     'gen_ai.usage.raw': {'prompt_tokens': 1, 'total_tokens': 1},
+                    'operation.cost': 2e-08,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -2527,6 +2528,7 @@ def test_embeddings_version_latest(exporter: TestExporter) -> None:
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
                         },
                     },
                 },
@@ -2569,6 +2571,7 @@ def test_embeddings_version_v1_only(exporter: TestExporter) -> None:
                     'gen_ai.response.model': 'text-embedding-3-small',
                     'gen_ai.usage.input_tokens': IsInt(),
                     'gen_ai.usage.raw': {'prompt_tokens': 1, 'total_tokens': 1},
+                    'operation.cost': 2e-08,
                     'response_data': {'usage': {'prompt_tokens': IsInt(), 'total_tokens': IsInt()}},
                     'logfire.json_schema': {
                         'type': 'object',
@@ -2582,6 +2585,7 @@ def test_embeddings_version_v1_only(exporter: TestExporter) -> None:
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
@@ -2868,6 +2872,7 @@ def test_embeddings(instrumented_client: openai.Client, exporter: TestExporter) 
                     'gen_ai.response.model': 'text-embedding-3-small',
                     'gen_ai.usage.input_tokens': 1,
                     'gen_ai.usage.raw': {'prompt_tokens': 1, 'total_tokens': 2},
+                    'operation.cost': 2e-08,
                     'response_data': {'usage': {'prompt_tokens': 1, 'total_tokens': 2}},
                     'logfire.json_schema': {
                         'type': 'object',
@@ -2881,6 +2886,7 @@ def test_embeddings(instrumented_client: openai.Client, exporter: TestExporter) 
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
