@@ -30,8 +30,11 @@ def get_usage_attributes(
         result[INPUT_TOKENS] = input_tokens
     if isinstance(output_tokens, int):
         result[OUTPUT_TOKENS] = output_tokens
-    if hasattr(usage, 'model_dump'):
-        result[USAGE_RAW] = usage.model_dump(exclude_none=True)
+    try:
+        if hasattr(usage, 'model_dump'):
+            result[USAGE_RAW] = usage.model_dump(exclude_none=True)
+    except Exception:
+        pass
 
     try:
         from genai_prices import calc_price, extract_usage

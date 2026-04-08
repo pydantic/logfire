@@ -103,6 +103,32 @@ def test_cost_failure_does_not_prevent_tokens() -> None:
     )
 
 
+def test_raw_usage_failure_does_not_prevent_cost() -> None:
+    """Raw usage failure must not prevent cost from being calculated."""
+
+    class BadUsage:
+        def model_dump(self) -> dict[str, object]:
+            raise RuntimeError('model_dump exploded')
+
+    response = FakeResponse(model='gpt-4', usage={'prompt_tokens': 10, 'completion_tokens': 5})
+    result = get_usage_attributes(response, BadUsage(), 10, 5, provider_id='openai', api_flavor='chat')
+    if GENAI_PRICES_AVAILABLE:
+        assert result == snapshot(
+            {
+                'gen_ai.usage.input_tokens': 10,
+                'gen_ai.usage.output_tokens': 5,
+                'operation.cost': 0.0006,
+            }
+        )
+    else:
+        assert result == snapshot(
+            {
+                'gen_ai.usage.input_tokens': 10,
+                'gen_ai.usage.output_tokens': 5,
+            }
+        )
+
+
 def test_unknown_model_no_cost() -> None:
     """Unknown model should silently skip cost."""
     usage = FakeUsage(prompt_tokens=10, completion_tokens=5)
