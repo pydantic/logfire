@@ -1323,6 +1323,10 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                             'finish_reason': 'stop',
                         }
                     ],
+                    'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.usage.output_tokens': 1,
+                    'gen_ai.usage.raw': {'completion_tokens': 1, 'prompt_tokens': 2, 'total_tokens': 3},
+                    'operation.cost': 0.00012,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -1367,6 +1371,10 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                                 },
                             },
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
                         },
                     },
                     'logfire.tags': ('LLM',),
@@ -1616,6 +1624,10 @@ async def test_async_chat_tool_call_stream(
                             'finish_reason': 'stop',
                         }
                     ],
+                    'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.usage.output_tokens': 1,
+                    'gen_ai.usage.raw': {'completion_tokens': 1, 'prompt_tokens': 2, 'total_tokens': 3},
+                    'operation.cost': 0.00012,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -1660,6 +1672,10 @@ async def test_async_chat_tool_call_stream(
                                 },
                             },
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
                         },
                     },
                     'logfire.tags': ('LLM',),
@@ -3888,6 +3904,9 @@ So, while I can't genuinely answer it for myself, how are *you* doing today, and
                             'finish_reason': 'stop',
                         }
                     ],
+                    'gen_ai.usage.input_tokens': 13,
+                    'gen_ai.usage.output_tokens': 1003,
+                    'gen_ai.usage.raw': {'completion_tokens': 1003, 'prompt_tokens': 13, 'total_tokens': 1016},
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -3914,6 +3933,9 @@ So, while I can't genuinely answer it for myself, how are *you* doing today, and
                                 },
                             },
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                         },
                     },
                     'logfire.tags': ('LLM',),

@@ -566,6 +566,12 @@ try:
                         output_messages.append(convert_openai_response_to_semconv(choice.message, choice.finish_reason))
                     if output_messages:
                         result[OUTPUT_MESSAGES] = output_messages
+            try:
+                final_completion = self._stream_state.current_completion_snapshot
+            except AssertionError:
+                pass
+            else:
+                result.update(get_openai_usage_attributes(final_completion))
             return result
 
 except ImportError:  # pragma: no cover
