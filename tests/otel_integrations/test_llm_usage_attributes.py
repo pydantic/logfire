@@ -9,7 +9,7 @@ try:
     import genai_prices  # noqa: F401  # pyright: ignore[reportUnusedImport]
 
     GENAI_PRICES_AVAILABLE = True
-except ImportError:
+except Exception:
     GENAI_PRICES_AVAILABLE = False  # pyright: ignore[reportConstantRedefinition]
 
 
