@@ -128,3 +128,21 @@ The `"db.statement"` attribute which is recorded by OpenTelemetry database instr
 
 Use parameterized queries (e.g. prepared statements) so that sensitive data is not interpolated directly into the query string, even if
 you use an interpolation method that's safe from SQL injection.
+
+### LLM and AI messages
+
+Scrubbing is **disabled** for LLM message attributes such as `gen_ai.input.messages`, `gen_ai.output.messages`, and `pydantic_ai.all_messages`. This is intentional because:
+
+1. **False positives**: LLMs frequently produce content containing words like "password" or "secret" in normal conversation (e.g., "Your password has been reset" or "The secret to success is..."), which would trigger false positives.
+2. **Ineffective detection**: LLMs might output sensitive data without using any keywords that regex-based scrubbing could detect.
+
+Because of these limitations, if your LLM interactions might contain sensitive data, the recommended approach is to **exclude message content from logging entirely** rather than relying on scrubbing. For example, with [Pydantic AI](../integrations/llms/pydanticai.md):
+
+```python
+import logfire
+
+logfire.configure()
+logfire.instrument_pydantic_ai(include_content=False)
+```
+
+This will still log spans for LLM calls and agent runs with timing and metadata, but will exclude the actual prompts, completions, and tool call arguments/responses.
