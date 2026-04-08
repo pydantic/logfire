@@ -11,28 +11,28 @@ Context: Phase 1 (pydantic/logfire#1843) extracted usage logic into `get_usage_a
 **Usage may be None in streaming responses.** *(from "The OpenAI SDK already reconstructs usage")*
 For chat completions, usage is only present when the caller passes `stream_options={"include_usage": True}`. For Responses API, usage is always present in the `response.completed` event. When usage is None, the usage attributes are simply omitted — the same behavior as non-streaming when a response has no usage.
 
+**The usage extraction logic (getting usage from a response, extracting tokens, determining api_flavor, calling `get_usage_attributes()`) must not be duplicated across OpenAI code paths.** *(from "Every OpenAI streaming span")*
+Today, `on_response()` has this logic inline (lines 595–609 of `openai.py`). Adding streaming would duplicate it twice more. Instead, a single shared function handles all OpenAI response objects — streaming and non-streaming, chat and Responses and embeddings. Given any OpenAI response object, the steps are always the same: get `.usage`, extract token counts via `getattr` fallback, determine `api_flavor` from the response type, call `get_usage_attributes()`. The only thing that varies is where the response object comes from, which the caller provides.
+
 **In the streaming path, usage attributes go on the log span created by `record_streaming()`.** *(from "Every OpenAI streaming span")*
 Context: `record_streaming()` in `llm_provider.py` calls `stream_state.get_attributes(span_data)` and passes the result as kwargs to `logfire_llm.info()`, creating a log span. This differs from non-streaming where `on_response()` calls `span.set_attributes()` on the main span. No changes to `record_streaming()` are needed — it already passes through whatever `get_attributes()` returns.
 
-**Each streaming state's `get_attributes()` calls `get_usage_attributes()` with the same parameters as the corresponding non-streaming `on_response()` path.** *(from "Every OpenAI streaming span", "The OpenAI SDK already reconstructs usage", "In the streaming path")*
-Chat completions streaming uses `api_flavor='chat'`; Responses streaming uses `api_flavor='responses'`. Both use `provider_id='openai'`. Token field extraction uses the same `getattr` fallback pattern as `on_response()`.
+**The reconstructed response object is the same type as non-streaming, so the shared function works for both.** *(from "The usage extraction logic must not be duplicated", "The OpenAI SDK already reconstructs usage")*
+For chat completions, `current_completion_snapshot` is a `ChatCompletion`. For Responses, `get_response_data()` returns a `Response`. These are the same types `on_response()` handles. The `isinstance` checks for `api_flavor` determination work unchanged.
 
-**The reconstructed response object serves as the `response` parameter to `get_usage_attributes()`.** *(from "Each streaming state's `get_attributes()` calls `get_usage_attributes()`")*
-For chat completions, `self._stream_state.current_completion_snapshot` is a `ChatCompletion` — the same type `on_response()` handles. For Responses, `get_response_data()` returns `self._state._completed_response`, a `Response` — same type as non-streaming. Both have `model_dump()` for cost calculation via `genai_prices`, and `.usage` for raw usage.
-
-**Errors in usage extraction must not break streaming attribute collection.** *(from "Each streaming state's `get_attributes()` calls `get_usage_attributes()`")*
-`get_usage_attributes()` already handles internal error isolation (tokens, raw usage, and cost fail independently). The `get_attributes()` call sites should catch any error from usage extraction (e.g., `current_completion_snapshot` raising `AssertionError` when there's no snapshot) so that other attributes (output messages, response_data, events) are still set.
+**No broad try/except around usage extraction at call sites.** *(from "The usage extraction logic must not be duplicated")*
+`get_usage_attributes()` already has fine-grained error isolation internally (tokens, raw usage, and cost each fail independently). Wrapping the entire usage call in a silent `try/except Exception: pass` at the call site would hide real bugs (e.g., a broken `getattr` chain, a wrong type). Errors in the shared function's callers should surface normally via `handle_internal_errors` (which already decorates `on_response()`). In streaming `get_attributes()`, errors are not currently decorated with `handle_internal_errors`, but that's pre-existing — the usage code should not add its own silent suppression.
 
 **Usage attributes are set regardless of semconv version.** *(from "Every OpenAI streaming span")*
 Context: The streaming code has version branching (`SemconvVersion`) — version 1 sets `response_data`, `'latest'` sets `OUTPUT_MESSAGES`. Usage attributes are small scalar/dict values that should be set unconditionally, outside version-specific branches. This matches the non-streaming behavior in `on_response()`.
 
-**`genai_prices` is an optional dependency; cost failures are silently caught.** *(from "Each streaming state's `get_attributes()` calls `get_usage_attributes()`")*
+**`genai_prices` is an optional dependency; cost failures are silently caught.** *(from "The usage extraction logic must not be duplicated")*
 This is inherited from `get_usage_attributes()` and requires no new code — the shared function already handles it. Restated here because it's a key architectural constraint: token extraction must never depend on `genai_prices`, and cost errors (missing library, unsupported model) must not surface to users.
 
 **Existing streaming behavior (response_data, output messages, events) must not change.** *(from "Every OpenAI streaming span")*
 This is additive — new attributes are added alongside existing ones. The `response_data` dict in version 1 chat completions streaming already includes `'usage': <usage_or_None>` and must continue to do so. The new semconv attributes are separate.
 
-**Known issue: `response.model_dump()` for cost calculation serializes the full response.** *(from "Each streaming state's `get_attributes()` calls `get_usage_attributes()`")*
+**Known issue: `response.model_dump()` for cost calculation serializes the full response.** *(from "The usage extraction logic must not be duplicated")*
 For streaming, this means serializing the full reconstructed response object. This is the same issue as pydantic/logfire#1844 (filed during phase 1 for embeddings). No mitigation in this spec — the issue tracks it separately.
 
 **Existing tests with VCR cassettes will show new usage attributes in snapshots.** *(from "Existing streaming behavior must not change")*
