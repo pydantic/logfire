@@ -53,6 +53,16 @@ Project API keys are limited to the project where they were created.
 !!! warning
     Copy your API key when it's displayed—it won't be shown again.
 
+### Personal API Keys
+
+When creating an API key, it can be marked as **personal**. A personal API key is tied to your user account rather than being a shared project or organization key.
+
+- **Automatically deleted** when your account is removed from the project or organization.
+- **Only visible to you** — you can only view and delete your own personal API keys.
+- **Scoped to your permissions** — the key can only be granted scopes that your role allows.
+
+Organization and project admins can choose whether to create a personal or non-personal API key. Non-admin members always create personal API keys.
+
 ## API Key Scopes
 
 When creating an API key, set the scope to define which actions the key can perform.
