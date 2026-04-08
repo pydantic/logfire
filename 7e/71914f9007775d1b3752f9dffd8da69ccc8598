@@ -1,0 +1,23 @@
+specs/openai-streaming-usage/spec.md
+  b42cfadab6801bfc 6,14-17,26-31,35-36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.5",
+  "base_commit_sha": "7e71914f9007775d1b3752f9dffd8da69ccc8598",
+  "prompts": {
+    "b42cfadab6801bfc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ccffc55b-78b8-4fbe-9db6-35d738cfe657",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Alex Hall",
+      "messages": [],
+      "total_additions": 14,
+      "total_deletions": 2,
+      "accepted_lines": 17,
+      "overriden_lines": 0
+    }
+  }
+}
