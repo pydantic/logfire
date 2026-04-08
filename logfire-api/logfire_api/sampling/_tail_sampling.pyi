@@ -1,16 +1,14 @@
+from _typeshed import Incomplete
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Callable, Literal
-
-from _typeshed import Incomplete
+from logfire._internal.constants import LevelName as LevelName, ONE_SECOND_IN_NANOSECONDS as ONE_SECOND_IN_NANOSECONDS
+from logfire._internal.exporters.wrapper import WrapperSpanProcessor as WrapperSpanProcessor
+from logfire.types import SpanLevel as SpanLevel
 from opentelemetry import context
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
 from opentelemetry.sdk.trace.sampling import Sampler
+from typing import Callable, Literal
 from typing_extensions import Self
-
-from logfire._internal.constants import ONE_SECOND_IN_NANOSECONDS as ONE_SECOND_IN_NANOSECONDS, LevelName as LevelName
-from logfire._internal.exporters.wrapper import WrapperSpanProcessor as WrapperSpanProcessor
-from logfire.types import SpanLevel as SpanLevel
 
 @dataclass
 class TraceBuffer:
@@ -18,17 +16,16 @@ class TraceBuffer:
 
     These are stored until either the trace is included by tail sampling or it's completed and discarded.
     """
-
     started: list[tuple[Span, context.Context | None]]
     ended: list[ReadableSpan]
-    first_span: Span
+    @cached_property
+    def first_span(self) -> Span: ...
     @cached_property
     def trace_id(self) -> int: ...
 
 @dataclass
 class TailSamplingSpanInfo:
     """Argument passed to the [`SamplingOptions.tail`][logfire.sampling.SamplingOptions.tail] callback."""
-
     span: ReadableSpan
     context: context.Context | None
     event: Literal['start', 'end']
@@ -46,18 +43,10 @@ class SamplingOptions:
 
     See the [sampling guide](https://logfire.pydantic.dev/docs/guides/advanced/sampling/).
     """
-
     head: float | Sampler = ...
     tail: Callable[[TailSamplingSpanInfo], float] | None = ...
     @classmethod
-    def level_or_duration(
-        cls,
-        *,
-        head: float | Sampler = 1.0,
-        level_threshold: LevelName | None = 'notice',
-        duration_threshold: float | None = 5.0,
-        background_rate: float = 0.0,
-    ) -> Self:
+    def level_or_duration(cls, *, head: float | Sampler = 1.0, level_threshold: LevelName | None = 'notice', duration_threshold: float | None = 5.0, background_rate: float = 0.0) -> Self:
         """Returns a `SamplingOptions` instance that tail samples traces based on their log level and duration.
 
         If a trace has at least one span/log that has a log level greater than or equal to `level_threshold`,
@@ -81,17 +70,11 @@ class TailSamplingProcessor(WrapperSpanProcessor):
     Advanced users can mark their own processors for deferral by setting the
     `tail_sampling_defer_on_start` attribute to `True` on the processor class.
     """
-
     get_tail_sample_rate: Incomplete
     deferred_processor: SpanProcessor | None
     traces: dict[int, TraceBuffer]
     lock: Incomplete
-    def __init__(
-        self,
-        processor: SpanProcessor,
-        get_tail_sample_rate: Callable[[TailSamplingSpanInfo], float],
-        deferred_processor: SpanProcessor | None = None,
-    ) -> None: ...
+    def __init__(self, processor: SpanProcessor, get_tail_sample_rate: Callable[[TailSamplingSpanInfo], float], deferred_processor: SpanProcessor | None = None) -> None: ...
     def on_start(self, span: Span, parent_context: context.Context | None = None) -> None: ...
     def on_end(self, span: ReadableSpan) -> None: ...
     def check_span(self, span_info: TailSamplingSpanInfo) -> bool:
