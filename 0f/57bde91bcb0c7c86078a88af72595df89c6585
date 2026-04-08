@@ -1,0 +1,25 @@
+specs/gen-ai-usage-refactor/code-spec.md
+  b42cfadab6801bfc 9,13,19-21,40-41
+specs/gen-ai-usage-refactor/spec.md
+  b42cfadab6801bfc 15,18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.5",
+  "base_commit_sha": "0f57bde91bcb0c7c86078a88af72595df89c6585",
+  "prompts": {
+    "b42cfadab6801bfc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ccffc55b-78b8-4fbe-9db6-35d738cfe657",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Alex Hall",
+      "messages": [],
+      "total_additions": 12,
+      "total_deletions": 7,
+      "accepted_lines": 12,
+      "overriden_lines": 0
+    }
+  }
+}
