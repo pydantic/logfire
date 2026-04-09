@@ -6,8 +6,6 @@ from typing import TYPE_CHECKING, Any, cast
 
 import anthropic
 import httpx
-from anthropic.lib.streaming._beta_messages import accumulate_event as beta_accumulate_event
-from anthropic.lib.streaming._messages import accumulate_event
 from anthropic.types import Message, TextBlock, TextDelta, ToolUseBlock
 from anthropic.types.beta import BetaMessage, BetaTextBlock, BetaTextDelta, BetaToolUseBlock
 
@@ -278,6 +276,9 @@ class AnthropicMessageStreamState(StreamState):
         self._chunk_count: int = 0
 
     def record_chunk(self, chunk: anthropic.types.MessageStreamEvent) -> None:
+        from anthropic.lib.streaming._beta_messages import accumulate_event as beta_accumulate_event
+        from anthropic.lib.streaming._messages import accumulate_event
+
         if type(chunk).__module__.startswith('anthropic.types.beta'):
             self._message = beta_accumulate_event(
                 event=cast(Any, chunk), current_snapshot=self._message, request_headers=httpx.Headers()
