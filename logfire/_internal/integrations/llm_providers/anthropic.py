@@ -5,8 +5,10 @@ import json
 from typing import TYPE_CHECKING, Any, cast
 
 import anthropic
-from anthropic.types import Message, TextBlock, TextDelta, ToolUseBlock
-from anthropic.types.beta import BetaMessage, BetaTextBlock, BetaTextDelta, BetaToolUseBlock
+from anthropic.lib.streaming._messages import accumulate_event
+from anthropic.types import Message, TextBlock, ToolUseBlock
+from anthropic.types.beta import BetaMessage, BetaTextBlock, BetaToolUseBlock
+from anthropic.types.parsed_message import ParsedMessage
 
 from logfire._internal.utils import handle_internal_errors
 
@@ -267,41 +269,38 @@ def convert_response_to_semconv(message: Message | BetaMessage) -> OutputMessage
     return result
 
 
-def content_from_messages(chunk: anthropic.types.MessageStreamEvent) -> str | None:
-    if hasattr(chunk, 'content_block'):
-        return chunk.content_block.text if isinstance(chunk.content_block, (TextBlock, BetaTextBlock)) else None  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
-    if hasattr(chunk, 'delta'):
-        return chunk.delta.text if isinstance(chunk.delta, (TextDelta, BetaTextDelta)) else None  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
-    return None
-
-
 class AnthropicMessageStreamState(StreamState):
     _versions: frozenset[SemconvVersion] = frozenset({1})
 
     def __init__(self):
-        self._content: list[str] = []
+        self._message: ParsedMessage[object] | None = None
 
     def record_chunk(self, chunk: anthropic.types.MessageStreamEvent) -> None:
-        content = content_from_messages(chunk)
-        if content:
-            self._content.append(content)
+        self._message = accumulate_event(event=chunk, current_snapshot=self._message)
 
     def get_response_data(self) -> Any:
-        return {'combined_chunk_content': ''.join(self._content), 'chunk_count': len(self._content)}
+        if self._message is None:
+            return {'combined_chunk_content': '', 'chunk_count': 0}
+        texts = [block.text for block in self._message.content if isinstance(block, (TextBlock, BetaTextBlock))]
+        return {'combined_chunk_content': ''.join(texts), 'chunk_count': len(texts)}
 
     def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
         versions = self._versions
         result = dict(**span_data)
         if 1 in versions:
             result['response_data'] = self.get_response_data()
-        if 'latest' in versions and self._content:
-            combined = ''.join(self._content)
-            result[OUTPUT_MESSAGES] = [
-                OutputMessage(
-                    role='assistant',
-                    parts=[TextPart(type='text', content=combined)],
-                )
-            ]
+        if 'latest' in versions and self._message and self._message.content:
+            texts = [block.text for block in self._message.content if isinstance(block, (TextBlock, BetaTextBlock))]
+            if texts:
+                combined = ''.join(texts)
+                result[OUTPUT_MESSAGES] = [
+                    OutputMessage(
+                        role='assistant',
+                        parts=[TextPart(type='text', content=combined)],
+                    )
+                ]
+        if self._message is not None:
+            result.update(get_anthropic_usage_attributes(self._message))
         return result
 
 
