@@ -1158,8 +1158,11 @@ class Logfire:
         """Instrument AG2 conversations, turns, and tool executions.
 
         Args:
-            agent: Optional AG2 agent instance (or iterable of agents) to scope instrumentation.
-                If omitted, instrumentation is applied globally.
+            agent: Optional AG2 agent instance (or iterable of agents) to scope which conversations
+                are traced. When provided, only conversation-level spans are filtered to the given
+                agent(s); inner spans (agent turns, tool executions, group chat rounds) are still
+                emitted for all participants within a traced conversation.
+                If omitted, instrumentation is applied globally to all agents.
             record_content: If `True`, include message and tool payload content in span attributes.
                 Defaults to `False` to avoid recording potentially sensitive data.
             suppress_other_instrumentation: If `True`, suppress other OTEL instrumentation while AG2

@@ -12,14 +12,13 @@ This example runs a real AG2 multi-agent conversation and emits Logfire spans.
 ## Run
 
 ```bash
-cd /Users/faridunm/Documents/WORK/AG2/Opensource/logfire
-/Users/faridunm/.pyenv/versions/3.13.12/bin/python examples/python/ag2-openai-quickstart/main.py
+python examples/python/ag2-openai-quickstart/main.py
 ```
 
 Optional arguments:
 
 ```bash
-/Users/faridunm/.pyenv/versions/3.13.12/bin/python examples/python/ag2-openai-quickstart/main.py --model gpt-4o-mini --question "Plan a 2-day trip to Samarkand" --max-round 6
+python examples/python/ag2-openai-quickstart/main.py --model gpt-4o-mini --question "Plan a 2-day trip to Samarkand" --max-round 6
 ```
 
 ## Environment variables
