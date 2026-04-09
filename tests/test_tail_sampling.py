@@ -717,18 +717,28 @@ def test_tail_sampling_processor_without_deferred():
     processor.shutdown()
 
 
-def test_tail_sampling_config_without_pending_span_processors(exporter: TestExporter):
+def test_tail_sampling_config_without_pending_span_processors():
     """Test config.py wiring when tail sampling is active but no processors have pending spans.
 
-    Covers the deferred_processors-is-empty branch in config.py, which means
-    TailSamplingProcessor is constructed with deferred_processor=None.
+    Covers the deferred_processors-is-empty branch in config.py (if deferred_processors: → False),
+    which means TailSamplingProcessor is constructed with deferred_processor=None.
+
+    Must NOT use SimpleSpanProcessor(TestExporter) here — that would make has_pending=True,
+    populating processors_with_pending_spans and making deferred_processors non-empty,
+    which would cover the wrong branch.
     """
+    on_end_spans: list[str] = []
+
+    class CollectorProcessor(SpanProcessor):
+        def on_end(self, span: ReadableSpan) -> None:
+            on_end_spans.append(span.name)
+
     logfire.configure(
         send_to_logfire=False,
         console=False,
-        additional_span_processors=[SimpleSpanProcessor(exporter)],
+        additional_span_processors=[CollectorProcessor()],
         sampling=logfire.SamplingOptions(tail=lambda info: 1.0),
     )
     logfire.info('test')
-    assert len(exporter.exported_spans) == 1
-    assert exporter.exported_spans[0].name == 'test'
+    logfire.force_flush()
+    assert 'test' in on_end_spans
