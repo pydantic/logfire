@@ -1,7 +1,7 @@
 # Anthropic Streaming Usage Attributes
 
 **Every Anthropic streaming span must have the same usage attributes as non-streaming spans: `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`, `operation.cost`, and `gen_ai.usage.raw`.**
-Context: Non-streaming `on_response()` already uses `get_anthropic_usage_attributes()` (in `anthropic.py`) which delegates to the shared `get_usage_attributes()` (in `usage.py`). Anthropic streaming `get_attributes()` currently ignores usage entirely — the streaming log span has no token counts, no cost, and no raw usage. This spec adds usage attributes to the `AnthropicMessageStreamState` streaming code path. Non-streaming Anthropic and all OpenAI paths are already handled.
+Context: Non-streaming `on_response()` already uses `get_anthropic_usage_attributes()` (in `anthropic.py`) which delegates to the shared `get_usage_attributes()` (in `usage.py`). Anthropic streaming `get_attributes()` currently ignores usage entirely — the streaming log span has no token counts, no cost, and no raw usage. Non-streaming Anthropic and all OpenAI paths are already handled.
 
 **`AnthropicMessageStreamState.record_chunk()` must capture the `message_start` message and `message_delta` usage.** *(from "Every Anthropic streaming span")*
 In addition to extracting text content, `record_chunk()` must:
@@ -17,7 +17,7 @@ Computes final token counts from the captured events and delegates to the shared
 - `response`: the `message` from `message_start` — passed to `get_usage_attributes()` for cost calculation. Context: `genai_prices.extract_usage(response.model_dump())` will find the `model` field on the `Message` object.
 - `usage`: the `message.usage` object — used for `gen_ai.usage.raw` via `usage.model_dump(exclude_none=True)`.
 
-**`gen_ai.usage.raw` uses the `message_start` usage object, not a synthetic merge.** *(from "AnthropicMessageStreamState.record_chunk() must capture")*
+**`gen_ai.usage.raw` uses the `message_start` usage object, not a synthetic merge.** *(from "AnthropicMessageStreamState.record_chunk() must capture", "get_attributes() calls get_usage_attributes()")*
 The raw dict comes from `message.usage.model_dump(exclude_none=True)`, which is the `Usage` object from `message_start`. This preserves the full provider breakdown: `input_tokens`, `output_tokens`, `cache_read_input_tokens`, `cache_creation_input_tokens`, etc. The `message_delta` usage is NOT merged into this dict — it's a different type (`MessageDeltaUsage`), and merging would create a synthetic object that doesn't match any real API response. The `output_tokens` in the raw dict may differ from `gen_ai.usage.output_tokens` (which uses the final `message_delta` value) — this is acceptable because `gen_ai.usage.raw` represents the raw provider data as received, while the flat attributes represent computed final values.
 
 **The `get_anthropic_usage_attributes()` function is NOT reused for streaming.** *(from "get_attributes() calls get_usage_attributes()")*
@@ -27,7 +27,7 @@ That function takes a single response object with `response.usage` and reads eve
 `get_usage_attributes()` has fine-grained internal error isolation (tokens, raw, and cost each fail independently). In the streaming path, `get_attributes()` is called inside `record_streaming()` which creates a log span — errors propagate but don't crash the user's code. Adding a broad `try/except` would hide real bugs. This matches the non-streaming approach and the OpenAI streaming approach.
 
 **Existing streaming behavior (response_data, output messages, duration) must not change.** *(from "Every Anthropic streaming span")*
-This is additive — new usage attributes are added to the dict returned by `get_attributes()`. Context: The `response_data` dict (version 1) continues to contain `combined_chunk_content` and `chunk_count`. The `gen_ai.output.messages` (latest version) continues to contain the reconstructed assistant message. No existing attributes are modified. Existing streaming tests will gain the new usage attributes in their snapshots; Bedrock streaming tests follow the same pattern.
+This is purely additive — new usage attributes are added alongside existing ones in the dict returned by `get_attributes()`. Existing streaming tests will gain the new usage attributes in their snapshots; Bedrock streaming tests follow the same pattern.
 
 **Usage attributes are set regardless of semconv version.** *(from "Every Anthropic streaming span")*
 This matches the existing non-streaming pattern (where `on_response()` sets usage attributes outside version-specific branches) and the OpenAI streaming pattern. Context: The streaming code has version branching (`SemconvVersion`) — version 1 sets `response_data`, `'latest'` sets `OUTPUT_MESSAGES`. Usage attributes are set unconditionally, outside version-specific branches.
