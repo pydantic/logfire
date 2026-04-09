@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import inspect
 import json
-from collections.abc import Callable, Iterable, Iterator
-from contextlib import contextmanager, nullcontext
+from collections.abc import Callable, Iterable
+from contextlib import AbstractContextManager, contextmanager, nullcontext
 from functools import wraps
 from typing import TYPE_CHECKING, Any, cast
 
@@ -30,14 +30,13 @@ SPAN_AGENT_TURN = 'AG2 agent turn'
 SPAN_TOOL_EXECUTION = 'AG2 tool execution'
 
 
-@contextmanager
 def instrument_ag2(
     logfire_instance: Logfire,
     agent: ConversableAgent | Iterable[ConversableAgent] | None = None,
     *,
     record_content: bool = False,
     suppress_other_instrumentation: bool = False,
-) -> Iterator[None]:
+) -> AbstractContextManager[None]:
     """Instrument AG2 conversations, agent turns, and tool execution.
 
     See ``Logfire.instrument_ag2`` for full documentation.
@@ -97,10 +96,11 @@ def instrument_ag2(
         return _wrapped
 
     def wrap_generate_reply(original: Callable[..., Any]) -> Callable[..., Any]:
+        # generate_reply(self, messages=None, sender=None, exclude=())
         @wraps(original)
         def _wrapped(self: Any, *args: Any, **kwargs: Any) -> Any:
-            sender = kwargs.get('sender')
-            messages = kwargs.get('messages')
+            messages = args[0] if len(args) > 0 else kwargs.get('messages')
+            sender = args[1] if len(args) > 1 else kwargs.get('sender')
             attrs = _agent_turn_attrs(self, sender, messages, record_content)
             with logfire_instance.span(SPAN_AGENT_TURN, **attrs):
                 return original(self, *args, **kwargs)
@@ -108,10 +108,11 @@ def instrument_ag2(
         return _wrapped
 
     def wrap_a_generate_reply(original: Callable[..., Any]) -> Callable[..., Any]:
+        # a_generate_reply(self, messages=None, sender=None, exclude=())
         @wraps(original)
         async def _wrapped(self: Any, *args: Any, **kwargs: Any) -> Any:
-            sender = kwargs.get('sender')
-            messages = kwargs.get('messages')
+            messages = args[0] if len(args) > 0 else kwargs.get('messages')
+            sender = args[1] if len(args) > 1 else kwargs.get('sender')
             attrs = _agent_turn_attrs(self, sender, messages, record_content)
             with logfire_instance.span(SPAN_AGENT_TURN, **attrs):
                 return await original(self, *args, **kwargs)
@@ -119,9 +120,11 @@ def instrument_ag2(
         return _wrapped
 
     def wrap_execute_function(original: Callable[..., Any]) -> Callable[..., Any]:
+        # execute_function(self, func_call, call_id=None, verbose=False)
         @wraps(original)
         def _wrapped(self: Any, func_call: dict[str, Any], *args: Any, **kwargs: Any) -> Any:
-            attrs = _tool_call_attrs(self, func_call, kwargs.get('call_id'), record_content)
+            call_id = args[0] if len(args) > 0 else kwargs.get('call_id')
+            attrs = _tool_call_attrs(self, func_call, call_id, record_content)
             with logfire_instance.span(SPAN_TOOL_EXECUTION, **attrs) as span:
                 result = original(self, func_call, *args, **kwargs)
                 _set_tool_result_attributes(span, result, record_content)
@@ -130,9 +133,11 @@ def instrument_ag2(
         return _wrapped
 
     def wrap_a_execute_function(original: Callable[..., Any]) -> Callable[..., Any]:
+        # a_execute_function(self, func_call, call_id=None, verbose=False)
         @wraps(original)
         async def _wrapped(self: Any, func_call: dict[str, Any], *args: Any, **kwargs: Any) -> Any:
-            attrs = _tool_call_attrs(self, func_call, kwargs.get('call_id'), record_content)
+            call_id = args[0] if len(args) > 0 else kwargs.get('call_id')
+            attrs = _tool_call_attrs(self, func_call, call_id, record_content)
             with logfire_instance.span(SPAN_TOOL_EXECUTION, **attrs) as span:
                 result = await original(self, func_call, *args, **kwargs)
                 _set_tool_result_attributes(span, result, record_content)
@@ -141,9 +146,10 @@ def instrument_ag2(
         return _wrapped
 
     def wrap_run_chat(original: Callable[..., Any]) -> Callable[..., Any]:
+        # run_chat(self, messages=None, sender=None, config=None)
         @wraps(original)
         def _wrapped(self: Any, *args: Any, **kwargs: Any) -> Any:
-            groupchat = kwargs.get('config')
+            groupchat = args[2] if len(args) > 2 else kwargs.get('config')
             attrs = {
                 'ag2.manager_name': getattr(self, 'name', type(self).__name__),
                 'ag2.max_round': getattr(groupchat, 'max_round', None),
@@ -157,9 +163,10 @@ def instrument_ag2(
         return _wrapped
 
     def wrap_a_run_chat(original: Callable[..., Any]) -> Callable[..., Any]:
+        # a_run_chat(self, messages=None, sender=None, config=None)
         @wraps(original)
         async def _wrapped(self: Any, *args: Any, **kwargs: Any) -> Any:
-            groupchat = kwargs.get('config')
+            groupchat = args[2] if len(args) > 2 else kwargs.get('config')
             attrs = {
                 'ag2.manager_name': getattr(self, 'name', type(self).__name__),
                 'ag2.max_round': getattr(groupchat, 'max_round', None),
@@ -215,11 +222,18 @@ def instrument_ag2(
     patch(autogen.GroupChat, 'select_speaker', wrap_select_speaker)
     patch(autogen.GroupChat, 'a_select_speaker', wrap_a_select_speaker)
 
-    try:
-        yield
-    finally:
-        for cls_or_obj, method_name, original in reversed(originals):
-            setattr(cls_or_obj, method_name, original)
+    @contextmanager
+    def uninstrument_context():
+        # The user isn't required (or even expected) to use this context manager,
+        # which is why the instrumenting and patching has already happened before this point.
+        # It exists mostly for tests, and just in case users want it.
+        try:
+            yield
+        finally:
+            for cls_or_obj, method_name, orig in reversed(originals):
+                setattr(cls_or_obj, method_name, orig)
+
+    return uninstrument_context()
 
 
 def _wrap_response_process(
@@ -384,7 +398,8 @@ def _set_conversation_summary_attributes(span: Any, recipient: Any) -> None:
     typed_messages = cast(list[dict[str, Any]], messages)
     span.set_attribute('ag2.total_messages', len(typed_messages))
     if typed_messages:
-        span.set_attribute('ag2.total_rounds', len(typed_messages))
+        rounds = _count_rounds(typed_messages)
+        span.set_attribute('ag2.total_rounds', rounds)
         last = typed_messages[-1]
         role = last.get('role')
         if role is not None:
@@ -392,6 +407,15 @@ def _set_conversation_summary_attributes(span: Any, recipient: Any) -> None:
         content = last.get('content')
         if isinstance(content, str):
             span.set_attribute('ag2.termination_reason', 'TERMINATE' if 'TERMINATE' in content else 'unknown')
+
+
+def _count_rounds(messages: list[dict[str, Any]]) -> int:
+    """Count rounds as speaker transitions (consecutive messages from different 'name' fields)."""
+    rounds = 1 if messages else 0
+    for i in range(1, len(messages)):
+        if messages[i].get('name') != messages[i - 1].get('name'):
+            rounds += 1
+    return rounds
 
 
 def _last_message(messages: Any) -> dict[str, Any] | None:

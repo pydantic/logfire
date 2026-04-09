@@ -4,8 +4,10 @@ import warnings
 from dataclasses import dataclass
 from typing import Any, cast
 
+from inline_snapshot import snapshot
+
 import logfire
-from logfire._internal.exporters.test import TestExporter
+from logfire.testing import TestExporter
 
 warnings.filterwarnings(
     'ignore',
@@ -91,17 +93,126 @@ def test_instrument_ag2_conversation_groupchat_and_turn_spans(
     with logfire.instrument_ag2(record_content=True):
         proxy.run(manager, message='What is AG2?').process()
 
-    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-    names = [span['name'] for span in spans]
-    assert 'AG2 conversation' in names
-    assert 'AG2 group chat run' in names
-    assert 'AG2 group chat round' in names
-    assert 'AG2 agent turn' in names
-
-    conversation_span = next(span for span in spans if span['name'] == 'AG2 conversation')
-    assert conversation_span['attributes']['ag2.runner_name'] == 'user_proxy'
-    assert conversation_span['attributes']['ag2.recipient_name'] == manager.name
-    assert conversation_span['attributes']['ag2.user_message'] == 'What is AG2?'
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'AG2 group chat round',
+                'context': {'trace_id': 1, 'span_id': 5, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'start_time': 3000000000,
+                'end_time': 4000000000,
+                'attributes': {
+                    'code.filepath': 'test_ag2.py',
+                    'code.function': 'fake_run_chat',
+                    'code.lineno': 123,
+                    'ag2.round_number': 1,
+                    'ag2.last_speaker': 'user_proxy',
+                    'logfire.msg_template': 'AG2 group chat round',
+                    'logfire.msg': 'AG2 group chat round',
+                    'logfire.span_type': 'span',
+                    'ag2.next_speaker': 'assistant_agent',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'ag2.round_number': {}, 'ag2.last_speaker': {}, 'ag2.next_speaker': {}},
+                    },
+                },
+            },
+            {
+                'name': 'AG2 agent turn',
+                'context': {'trace_id': 1, 'span_id': 7, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'start_time': 5000000000,
+                'end_time': 6000000000,
+                'attributes': {
+                    'code.filepath': 'test_ag2.py',
+                    'code.function': 'fake_run_chat',
+                    'code.lineno': 123,
+                    'ag2.agent_name': 'assistant_agent',
+                    'ag2.sender_name': 'user_proxy',
+                    'ag2.message_role': 'user',
+                    'ag2.message_content': 'What is AG2?',
+                    'logfire.msg_template': 'AG2 agent turn',
+                    'logfire.msg': 'AG2 agent turn',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'ag2.agent_name': {},
+                            'ag2.sender_name': {},
+                            'ag2.message_role': {},
+                            'ag2.message_content': {},
+                        },
+                    },
+                    'logfire.span_type': 'span',
+                },
+            },
+            {
+                'name': 'AG2 group chat run',
+                'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
+                'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'start_time': 2000000000,
+                'end_time': 7000000000,
+                'attributes': {
+                    'code.filepath': 'test_ag2.py',
+                    'code.function': '_process',
+                    'code.lineno': 123,
+                    'ag2.manager_name': 'chat_manager',
+                    'ag2.max_round': 5,
+                    'logfire.msg_template': 'AG2 group chat run',
+                    'logfire.msg': 'AG2 group chat run',
+                    'logfire.span_type': 'span',
+                    'ag2.groupchat.message_count': 2,
+                    'ag2.groupchat.last_message_role': 'assistant',
+                    'ag2.groupchat.terminated': True,
+                    'ag2.groupchat.is_termination': True,
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'ag2.manager_name': {},
+                            'ag2.max_round': {},
+                            'ag2.groupchat.message_count': {},
+                            'ag2.groupchat.last_message_role': {},
+                            'ag2.groupchat.terminated': {},
+                            'ag2.groupchat.is_termination': {},
+                        },
+                    },
+                },
+            },
+            {
+                'name': 'AG2 conversation',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 8000000000,
+                'attributes': {
+                    'code.filepath': 'test_ag2.py',
+                    'code.function': 'test_instrument_ag2_conversation_groupchat_and_turn_spans',
+                    'code.lineno': 123,
+                    'ag2.runner_name': 'user_proxy',
+                    'ag2.recipient_name': 'chat_manager',
+                    'ag2.user_message': 'What is AG2?',
+                    'logfire.msg_template': 'AG2 conversation',
+                    'logfire.msg': 'AG2 conversation',
+                    'logfire.span_type': 'span',
+                    'ag2.total_messages': 2,
+                    'ag2.total_rounds': 2,
+                    'ag2.last_role': 'assistant',
+                    'ag2.termination_reason': 'TERMINATE',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'ag2.runner_name': {},
+                            'ag2.recipient_name': {},
+                            'ag2.user_message': {},
+                            'ag2.total_messages': {},
+                            'ag2.total_rounds': {},
+                            'ag2.last_role': {},
+                            'ag2.termination_reason': {},
+                        },
+                    },
+                },
+            },
+        ]
+    )
 
 
 def test_instrument_ag2_tool_spans(exporter: TestExporter) -> None:
@@ -124,12 +235,44 @@ def test_instrument_ag2_tool_spans(exporter: TestExporter) -> None:
     assert success is True
     assert payload['content'] == 'Results for AG2'
 
-    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-    tool_span = next(span for span in spans if span['name'] == 'AG2 tool execution')
-    assert tool_span['attributes']['ag2.tool_name'] == 'search_knowledge'
-    assert tool_span['attributes']['ag2.call_id'] == 'call-1'
-    assert tool_span['attributes']['ag2.tool_args'] == {'query': 'AG2'}
-    assert tool_span['attributes']['ag2.tool_result'] == 'Results for AG2'
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'AG2 tool execution',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_ag2.py',
+                    'code.function': 'test_instrument_ag2_tool_spans',
+                    'code.lineno': 123,
+                    'ag2.agent_name': 'tool_proxy',
+                    'ag2.tool_name': 'search_knowledge',
+                    'ag2.call_id': 'call-1',
+                    'ag2.tool_arg_names': ['query'],
+                    'ag2.tool_args': {'query': 'AG2'},
+                    'logfire.msg_template': 'AG2 tool execution',
+                    'logfire.msg': 'AG2 tool execution',
+                    'logfire.span_type': 'span',
+                    'ag2.execution.success': True,
+                    'ag2.tool_result': 'Results for AG2',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'ag2.agent_name': {},
+                            'ag2.tool_name': {},
+                            'ag2.call_id': {},
+                            'ag2.tool_arg_names': {'type': 'array'},
+                            'ag2.tool_args': {'type': 'object'},
+                            'ag2.execution.success': {},
+                            'ag2.tool_result': {},
+                        },
+                    },
+                },
+            }
+        ]
+    )
 
 
 def test_instrument_ag2_record_content_false_omits_message_content(
@@ -151,9 +294,31 @@ def test_instrument_ag2_record_content_false_omits_message_content(
     with logfire.instrument_ag2(record_content=False):
         assistant.generate_reply(messages=[{'role': 'user', 'content': 'secret prompt'}], sender=None)
 
-    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
-    turn_span = next(span for span in spans if span['name'] == 'AG2 agent turn')
-    assert 'ag2.message_content' not in turn_span['attributes']
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'AG2 agent turn',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_ag2.py',
+                    'code.function': 'test_instrument_ag2_record_content_false_omits_message_content',
+                    'code.lineno': 123,
+                    'ag2.agent_name': 'assistant_agent',
+                    'ag2.message_role': 'user',
+                    'logfire.msg_template': 'AG2 agent turn',
+                    'logfire.msg': 'AG2 agent turn',
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {'ag2.agent_name': {}, 'ag2.message_role': {}},
+                    },
+                    'logfire.span_type': 'span',
+                },
+            }
+        ]
+    )
 
 
 def test_instrument_ag2_unpatches_on_context_exit() -> None:
@@ -164,5 +329,23 @@ def test_instrument_ag2_unpatches_on_context_exit() -> None:
 
     with logfire.instrument_ag2():
         assert autogen.ConversableAgent.generate_reply is not original
+
+    assert autogen.ConversableAgent.generate_reply is original
+
+
+def test_instrument_ag2_eager_patching() -> None:
+    """Calling instrument_ag2() without `with` should still apply patches immediately."""
+    if autogen is None:  # pragma: no cover
+        return
+
+    original = autogen.ConversableAgent.generate_reply
+
+    ctx = logfire.instrument_ag2()
+    # Patches applied eagerly, before entering the context manager
+    assert autogen.ConversableAgent.generate_reply is not original
+
+    # Clean up by entering and exiting the context manager
+    with ctx:
+        pass
 
     assert autogen.ConversableAgent.generate_reply is original

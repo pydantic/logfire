@@ -209,7 +209,11 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
 
     assert hasattr(logfire_api, 'instrument_ag2')
     try:
-        importlib.import_module('autogen')
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                'ignore', message='jsonschema.RefResolver is deprecated.*', category=DeprecationWarning
+            )
+            importlib.import_module('autogen')
     except ImportError:
         pass
     else:
