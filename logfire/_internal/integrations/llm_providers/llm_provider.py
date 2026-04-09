@@ -205,7 +205,10 @@ def record_streaming(
 
     def record_chunk(chunk: Any) -> None:
         if chunk:
-            stream_state.record_chunk(chunk)
+            try:
+                stream_state.record_chunk(chunk)
+            except Exception:
+                pass
 
     timer = logire_llm._config.advanced.ns_timestamp_generator  # pyright: ignore[reportPrivateUsage]
     start = timer()
