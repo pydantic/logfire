@@ -9,12 +9,14 @@ description: "Fetch hosted datasets and run evaluations with pydantic-evals."
 
     The dataset management SDK is under `logfire.experimental.api_client`. The API may change in future releases.
 
-Once you have a hosted dataset (created via the [Web UI](ui.md) or [SDK](sdk.md)), you can fetch it as a
+Once you have a hosted dataset (typically published via [`push_dataset(...)`](sdk.md#publishing-a-local-typed-dataset-to-hosted) or created in the [Web UI](ui.md)), you can fetch it as a
 typed [`pydantic_evals.Dataset`][pydantic_evals.Dataset] and use it to evaluate your AI system.
+
+If your dataset only exists locally in code, first publish it with [`client.push_dataset(...)`](sdk.md#publishing-a-local-typed-dataset-to-hosted), then fetch it here to run evaluations against the hosted copy.
 
 ## Getting a typed pydantic-evals Dataset
 
-The `get_dataset` method fetches all cases and returns a typed
+The `get_dataset` method fetches all hosted cases and returns a typed
 [`pydantic_evals.Dataset`][pydantic_evals.Dataset] that you can use directly for evaluation:
 
 ```python skip-run="true" skip-reason="external-connection"

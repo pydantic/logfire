@@ -26,7 +26,7 @@ Click **+ New dataset** in the top right and enter a name for your dataset. If y
 Once created, you can edit the dataset to add a description and define schemas.
 
 !!! tip "Schema generation from code"
-    If you are using Python types (dataclasses, Pydantic models, etc.) for your schemas, it is easier to create the dataset via the SDK, which generates JSON schemas automatically from your type definitions. See [Creating a Dataset with Typed Schemas](sdk.md#creating-a-dataset-with-typed-schemas) in the SDK Guide.
+    If you are using Python types (dataclasses, Pydantic models, etc.) for your schemas, it is easier to publish the dataset via the SDK, which generates hosted JSON schemas automatically from your type definitions. See [Publishing a Local Typed Dataset to Hosted](sdk.md#publishing-a-local-typed-dataset-to-hosted) in the SDK Guide.
 
 ??? example "SDK equivalent"
 
@@ -34,6 +34,7 @@ Once created, you can edit the dataset to add a description and define schemas.
     from dataclasses import dataclass
 
     from logfire.experimental.api_client import LogfireAPIClient
+    from pydantic_evals import Case, Dataset
 
 
     @dataclass
@@ -48,12 +49,22 @@ Once created, you can edit the dataset to add a description and define schemas.
         confidence: float
 
 
+    local_dataset = Dataset[QuestionInput, AnswerOutput, None](
+        name='qa-golden-set',
+        cases=[
+            Case(
+                name='capital-question',
+                inputs=QuestionInput(question='What is the capital of France?'),
+                expected_output=AnswerOutput(answer='Paris', confidence=0.99),
+            ),
+        ],
+    )
+
+
     with LogfireAPIClient(api_key='your-api-key') as client:
-        dataset = client.create_dataset(
-            name='qa-golden-set',
+        dataset = client.push_dataset(
+            local_dataset,
             description='Golden test cases for the Q&A system',
-            input_type=QuestionInput,
-            output_type=AnswerOutput,
         )
     ```
 
@@ -91,7 +102,7 @@ From the dataset detail page, click the **Cases** tab to see all hosted cases fo
     )
     ```
 
-    See [Adding Cases](sdk.md#adding-cases) in the SDK Guide for more options.
+    See [Manual Dataset Management](sdk.md#manual-dataset-management) in the SDK Guide for more options.
 
 ## Adding Cases from Traces
 
@@ -123,7 +134,7 @@ This preserves a link back to the source trace, so you always know where a test 
     )
     ```
 
-    See [Adding Cases](sdk.md#adding-cases) in the SDK Guide for more details.
+    See [Manual Dataset Management](sdk.md#manual-dataset-management) in the SDK Guide for more details.
 
 ## Exporting a Dataset
 

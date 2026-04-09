@@ -20,21 +20,20 @@ Example usage:
         answer: str
 
 
-    with LogfireAPIClient(api_key='your-api-key') as client:
-        # Create a typed dataset
-        dataset_info = client.create_dataset(
-            name='my-dataset',
-            input_type=MyInput,
-            output_type=MyOutput,
-        )
+    local_dataset = Dataset[MyInput, MyOutput, None](
+        name='my-dataset',
+        cases=[
+            Case(name='q1', inputs=MyInput('What is 2+2?'), expected_output=MyOutput('4')),
+            Case(name='q2', inputs=MyInput('What is 3+3?'), expected_output=MyOutput('6')),
+        ],
+    )
 
-        # Add cases using pydantic-evals Case objects
-        client.add_cases(
-            dataset_info['id'],
-            cases=[
-                Case(name='q1', inputs=MyInput('What is 2+2?'), expected_output=MyOutput('4')),
-                Case(name='q2', inputs=MyInput('What is 3+3?'), expected_output=MyOutput('6')),
-            ],
+
+    with LogfireAPIClient(api_key='your-api-key') as client:
+        # Publish a local dataset to hosted
+        dataset_info = client.push_dataset(
+            local_dataset,
+            description='Golden test cases for arithmetic prompts',
         )
 
         # Get as pydantic-evals Dataset
@@ -309,7 +308,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         ```python skip-run="true" skip-reason="external-connection"
         from dataclasses import dataclass
         from logfire.experimental.api_client import LogfireAPIClient
-        from pydantic_evals import Case
+        from pydantic_evals import Case, Dataset
 
 
         @dataclass
@@ -322,21 +321,17 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             answer: str
 
 
-        with LogfireAPIClient(api_key='your-api-key') as client:
-            # Create typed dataset
-            dataset = client.create_dataset(
-                name='qa-dataset',
-                input_type=MyInput,
-                output_type=MyOutput,
-            )
+        local_dataset = Dataset[MyInput, MyOutput, None](
+            name='qa-dataset',
+            cases=[
+                Case(name='q1', inputs=MyInput('Hello?'), expected_output=MyOutput('Hi!')),
+            ],
+        )
 
-            # Add cases using pydantic-evals Case objects
-            client.add_cases(
-                dataset['id'],
-                cases=[
-                    Case(name='q1', inputs=MyInput('Hello?'), expected_output=MyOutput('Hi!')),
-                ],
-            )
+
+        with LogfireAPIClient(api_key='your-api-key') as client:
+            # Publish the local dataset to hosted
+            client.push_dataset(local_dataset)
 
             # Get as pydantic-evals Dataset
             dataset = client.get_dataset('qa-dataset', MyInput, MyOutput)
@@ -578,7 +573,94 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         tags: list[str] | None = None,
         on_case_conflict: Literal['update', 'error'] = 'update',
     ) -> dict[str, Any]:
-        """Create or update a hosted dataset, then upload all local cases."""
+        """Publish a local `pydantic_evals.Dataset` to the hosted datasets API.
+
+        This is the high-level "push my dataset to hosted" helper. It creates a
+        hosted dataset when one does not exist yet, updates the hosted dataset
+        when one already exists with the same name, uploads all local cases
+        through the existing import/upsert API, and finally returns hosted
+        dataset metadata.
+
+        When the provided dataset is typed, the JSON schemas for inputs,
+        expected outputs, and metadata are inferred from the
+        `Dataset[InputsT, OutputT, MetadataT]` generic parameters unless you
+        override them explicitly.
+
+        Args:
+            dataset: The local `pydantic_evals.Dataset` to publish. Case-level
+                evaluators are uploaded with their cases. Dataset-level
+                `evaluators` and `report_evaluators` are not supported yet and
+                will raise `ValueError`.
+            name: Optional hosted dataset name override. Defaults to
+                `dataset.name`.
+            input_type: Optional explicit input type override. When omitted, the
+                type is inferred from a typed `Dataset[...]` when possible.
+            output_type: Optional explicit expected-output type override. When
+                omitted, the type is inferred from a typed `Dataset[...]` when
+                possible.
+            metadata_type: Optional explicit metadata type override. When
+                omitted, the type is inferred from a typed `Dataset[...]` when
+                possible.
+            description: Hosted dataset description. Omit this argument to leave
+                the existing description unchanged when updating an existing
+                dataset. Pass `None` to clear the description on update. On
+                initial create, `None` means no description is set.
+            guidance: Hosted dataset guidance text. Omit this argument to leave
+                the existing guidance unchanged when updating an existing
+                dataset. Pass `None` to clear the guidance on update. On initial
+                create, `None` means no guidance is set.
+            ai_managed_guidance: Whether hosted guidance should be marked as
+                AI-managed. Omit this argument to leave the existing value
+                unchanged when updating an existing dataset.
+            tags: Optional tags to apply to every uploaded case.
+            on_case_conflict: Conflict behavior for uploaded cases. The default
+                `'update'` makes repeated pushes idempotent for named cases.
+                Pass `'error'` to fail instead of updating an existing case with
+                the same name.
+
+        Returns:
+            Hosted dataset metadata as returned by
+            `get_dataset(..., include_cases=False)`.
+
+        Raises:
+            ValueError: If neither `dataset.name` nor `name` is provided, or if
+                the dataset contains unsupported dataset-level evaluators.
+            DatasetApiError: If the API returns an error other than the expected
+                `409` conflict used to trigger an update flow.
+            DatasetNotFoundError: If the hosted dataset cannot be fetched after
+                the push completes.
+
+        Example:
+            ```python skip-run="true" skip-reason="external-connection"
+            from dataclasses import dataclass
+
+            from pydantic_evals import Case, Dataset
+
+
+            @dataclass
+            class MyInput:
+                question: str
+
+
+            @dataclass
+            class MyOutput:
+                answer: str
+
+
+            local_dataset = Dataset[MyInput, MyOutput, None](
+                name='qa-dataset',
+                cases=[
+                    Case(name='q1', inputs=MyInput('Hello?'), expected_output=MyOutput('Hi!')),
+                ],
+            )
+
+            dataset_info = client.push_dataset(
+                local_dataset,
+                description='Golden test cases for the Q&A task',
+                tags=['golden'],
+            )
+            ```
+        """
         _validate_push_dataset(dataset)
 
         target_name = dataset.name if name is None else name
@@ -967,7 +1049,52 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         tags: list[str] | None = None,
         on_case_conflict: Literal['update', 'error'] = 'update',
     ) -> dict[str, Any]:
-        """Create or update a hosted dataset, then upload all local cases."""
+        """Async version of `LogfireAPIClient.push_dataset`.
+
+        Args:
+            dataset: The local `pydantic_evals.Dataset` to publish. Case-level
+                evaluators are uploaded with their cases. Dataset-level
+                `evaluators` and `report_evaluators` are not supported yet and
+                will raise `ValueError`.
+            name: Optional hosted dataset name override. Defaults to
+                `dataset.name`.
+            input_type: Optional explicit input type override. When omitted, the
+                type is inferred from a typed `Dataset[...]` when possible.
+            output_type: Optional explicit expected-output type override. When
+                omitted, the type is inferred from a typed `Dataset[...]` when
+                possible.
+            metadata_type: Optional explicit metadata type override. When
+                omitted, the type is inferred from a typed `Dataset[...]` when
+                possible.
+            description: Hosted dataset description. Omit this argument to leave
+                the existing description unchanged when updating an existing
+                dataset. Pass `None` to clear the description on update. On
+                initial create, `None` means no description is set.
+            guidance: Hosted dataset guidance text. Omit this argument to leave
+                the existing guidance unchanged when updating an existing
+                dataset. Pass `None` to clear the guidance on update. On initial
+                create, `None` means no guidance is set.
+            ai_managed_guidance: Whether hosted guidance should be marked as
+                AI-managed. Omit this argument to leave the existing value
+                unchanged when updating an existing dataset.
+            tags: Optional tags to apply to every uploaded case.
+            on_case_conflict: Conflict behavior for uploaded cases. The default
+                `'update'` makes repeated pushes idempotent for named cases.
+                Pass `'error'` to fail instead of updating an existing case with
+                the same name.
+
+        Returns:
+            Hosted dataset metadata as returned by
+            `get_dataset(..., include_cases=False)`.
+
+        Raises:
+            ValueError: If neither `dataset.name` nor `name` is provided, or if
+                the dataset contains unsupported dataset-level evaluators.
+            DatasetApiError: If the API returns an error other than the expected
+                `409` conflict used to trigger an update flow.
+            DatasetNotFoundError: If the hosted dataset cannot be fetched after
+                the push completes.
+        """
         _validate_push_dataset(dataset)
 
         target_name = dataset.name if name is None else name
