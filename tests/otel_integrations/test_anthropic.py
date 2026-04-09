@@ -578,7 +578,11 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
                     'gen_ai.output.messages': [
-                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'The answer is secret'}]}
+                        {
+                            'role': 'assistant',
+                            'parts': [{'type': 'text', 'content': 'The answer is secret'}],
+                            'finish_reason': 'end_turn',
+                        }
                     ],
                     'gen_ai.usage.input_tokens': 25,
                     'gen_ai.usage.output_tokens': 55,
@@ -715,7 +719,11 @@ async def test_async_messages_stream(
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
                     'gen_ai.output.messages': [
-                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'The answer is secret'}]}
+                        {
+                            'role': 'assistant',
+                            'parts': [{'type': 'text', 'content': 'The answer is secret'}],
+                            'finish_reason': 'end_turn',
+                        }
                     ],
                     'gen_ai.usage.input_tokens': 25,
                     'gen_ai.usage.output_tokens': 55,
@@ -1563,6 +1571,7 @@ def test_sync_messages_stream_version_latest(exporter: TestExporter) -> None:
                         {
                             'role': 'assistant',
                             'parts': [{'type': 'text', 'content': 'Four plus five equals nine.'}],
+                            'finish_reason': 'end_turn',
                         }
                     ],
                     'gen_ai.usage.input_tokens': 19,
@@ -1844,6 +1853,7 @@ def test_sync_messages_beta_stream(exporter: TestExporter) -> None:
                         {
                             'role': 'assistant',
                             'parts': [{'type': 'text', 'content': 'Four plus five equals nine.'}],
+                            'finish_reason': 'end_turn',
                         }
                     ],
                     'gen_ai.usage.input_tokens': 19,
