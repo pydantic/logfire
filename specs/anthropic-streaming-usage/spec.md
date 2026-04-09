@@ -18,7 +18,7 @@ When both `message` and `message_delta_usage` are available:
 - `usage`: the `message.usage` object — used for `gen_ai.usage.raw` via `usage.model_dump(exclude_none=True)`.
 When `message` is `None` (no `message_start` was received), no usage attributes are set.
 
-**`gen_ai.usage.raw` uses the `message_start` usage object, not a synthetic merge.** *(from "get_attributes() calls get_usage_attributes()")*
+**`gen_ai.usage.raw` uses the `message_start` usage object, not a synthetic merge.** *(from "AnthropicMessageStreamState.record_chunk() must capture")*
 The raw dict comes from `message.usage.model_dump(exclude_none=True)`, which is the `Usage` object from `message_start`. This preserves the full provider breakdown: `input_tokens`, `output_tokens`, `cache_read_input_tokens`, `cache_creation_input_tokens`, etc. The `message_delta` usage is NOT merged into this dict — it's a different type (`MessageDeltaUsage`), and merging would create a synthetic object that doesn't match any real API response. The `output_tokens` in the raw dict may differ from `gen_ai.usage.output_tokens` (which uses the final `message_delta` value) — this is acceptable because `gen_ai.usage.raw` represents the raw provider data as received, while the flat attributes represent computed final values.
 
 **The `get_anthropic_usage_attributes()` function is NOT reused for streaming.** *(from "get_attributes() calls get_usage_attributes()")*
@@ -27,8 +27,8 @@ That function takes a single response object with `response.usage` and reads eve
 **No try/except around the usage call in `get_attributes()`.** *(from "get_attributes() calls get_usage_attributes()")*
 `get_usage_attributes()` has fine-grained internal error isolation (tokens, raw, and cost each fail independently). In the streaming path, `get_attributes()` is called inside `record_streaming()` which creates a log span — errors propagate but don't crash the user's code. Adding a broad `try/except` would hide real bugs. This matches the non-streaming approach and is consistent with phases 1–3a.
 
-**Usage attributes are set regardless of semconv version.** *(from "Every Anthropic streaming span", "Existing streaming behavior")*
-Context: The streaming code has version branching (`SemconvVersion`) — version 1 sets `response_data`, `'latest'` sets `OUTPUT_MESSAGES`. Usage attributes are set unconditionally, outside version-specific branches. This matches the non-streaming pattern established in phase 3a and the OpenAI streaming pattern from phase 2.
-
 **Existing streaming behavior (response_data, output messages, duration) must not change.** *(from "Every Anthropic streaming span")*
 This is additive — new usage attributes are added to the dict returned by `get_attributes()`. Context: The `response_data` dict (version 1) continues to contain `combined_chunk_content` and `chunk_count`. The `gen_ai.output.messages` (latest version) continues to contain the reconstructed assistant message. No existing attributes are modified. Existing streaming tests will gain the new usage attributes in their snapshots; Bedrock streaming tests follow the same pattern.
+
+**Usage attributes are set regardless of semconv version.** *(from "Every Anthropic streaming span", "Existing streaming behavior")*
+Context: The streaming code has version branching (`SemconvVersion`) — version 1 sets `response_data`, `'latest'` sets `OUTPUT_MESSAGES`. Usage attributes are set unconditionally, outside version-specific branches. This matches the non-streaming pattern established in phase 3a and the OpenAI streaming pattern from phase 2.
