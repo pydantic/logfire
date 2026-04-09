@@ -291,7 +291,7 @@ class AnthropicMessageStreamState(StreamState):
             result['response_data'] = self.get_response_data()
         if 'latest' in versions and self._message and self._message.content:
             texts = [block.text for block in self._message.content if isinstance(block, (TextBlock, BetaTextBlock))]
-            if texts:
+            if texts:  # pragma: no branch
                 combined = ''.join(texts)
                 result[OUTPUT_MESSAGES] = [
                     OutputMessage(
