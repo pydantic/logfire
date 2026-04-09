@@ -15,6 +15,7 @@ from logfire._internal.constants import (
     LevelName,
 )
 from logfire._internal.exporters.wrapper import WrapperSpanProcessor
+from logfire._internal.utils import suppress_instrumentation
 from logfire.types import SpanLevel
 
 
@@ -27,10 +28,7 @@ class TraceBuffer:
 
     started: list[tuple[Span, context.Context | None]]
     ended: list[ReadableSpan]
-
-    @cached_property
-    def first_span(self) -> Span:
-        return self.started[0][0]
+    first_span: Span
 
     @cached_property
     def trace_id(self) -> int:
@@ -146,15 +144,30 @@ def check_trace_id_ratio(trace_id: int, rate: float) -> bool:
 
 
 class TailSamplingProcessor(WrapperSpanProcessor):
-    """Passes spans to the wrapped processor if any span in a trace meets the sampling criteria."""
+    """Buffers spans until a span in the trace meets the sampling criteria.
 
-    def __init__(self, processor: SpanProcessor, get_tail_sample_rate: Callable[[TailSamplingSpanInfo], float]) -> None:
+    The wrapped `processor` receives `on_start` calls immediately (most processors just set attributes,
+    which is safe before the sampling decision). Only `on_end` is buffered.
+
+    The optional `deferred_processor` has both `on_start` and `on_end` buffered until the sampling
+    decision. Use this for processors like `PendingSpanProcessor` that create new spans in `on_start`.
+    Advanced users can mark their own processors for deferral by setting the
+    `tail_sampling_defer_on_start` attribute to `True` on the processor class.
+    """
+
+    def __init__(
+        self,
+        processor: SpanProcessor,
+        get_tail_sample_rate: Callable[[TailSamplingSpanInfo], float],
+        deferred_processor: SpanProcessor | None = None,
+    ) -> None:
         super().__init__(processor)
         self.get_tail_sample_rate = get_tail_sample_rate
+        self.deferred_processor = deferred_processor
 
         # A TraceBuffer is typically created for each new trace.
-        # If a span meets the sampling criteria, the buffer is dropped and all spans within are pushed
-        # to the wrapped processor.
+        # If a span meets the sampling criteria, the buffer is dropped and all buffered spans
+        # are pushed to the wrapped processor (and the deferred processor if present).
         # So when more spans arrive and there's no buffer, they get passed through immediately.
         self.traces: dict[int, TraceBuffer] = {}
 
@@ -171,25 +184,34 @@ class TailSamplingProcessor(WrapperSpanProcessor):
                 trace_id = span.context.trace_id
                 # If span.parent is None, it's the root span of a trace.
                 if span.parent is None:
-                    self.traces[trace_id] = TraceBuffer([], [])
+                    self.traces[trace_id] = TraceBuffer(started=[], ended=[], first_span=span)
 
                 buffer = self.traces.get(trace_id)
                 if buffer is not None:
                     # This trace's spans haven't met the criteria yet, so add this span to the buffer.
-                    buffer.started.append((span, parent_context))
+                    # Only track started spans if there's a deferred processor that needs replay.
+                    if self.deferred_processor is not None:
+                        buffer.started.append((span, parent_context))
                     dropped = self.check_span(TailSamplingSpanInfo(span, parent_context, 'start', buffer))
-                # The opposite case is handled outside the lock since it may take some time.
 
-        # This code may take longer since it calls the wrapped processor which might do anything.
+        # Always call the main processor's on_start immediately.
+        # Most processors just set attributes, which is safe before the sampling decision.
+        # This code may take longer since it calls processors which might do anything.
         # It shouldn't be inside the lock to avoid blocking other threads.
         # Since it's not in the lock, it shouldn't touch self.traces or its contents.
+        super().on_start(span, parent_context)
+
         if buffer is None:
-            super().on_start(span, parent_context)
+            # No buffer for this trace, meaning it was already sampled/discarded, or never tracked.
+            # Deferred processor also gets on_start immediately.
+            if self.deferred_processor is not None:
+                self.deferred_processor.on_start(span, parent_context)
         elif dropped:
             self.push_buffer(buffer)
 
     def on_end(self, span: ReadableSpan) -> None:
-        # This has a very similar structure and reasoning to on_start.
+        # Unlike on_start (where the main processor is called immediately),
+        # on_end is buffered for both the main processor and the deferred processor.
 
         dropped = False
         buffer = None
@@ -206,13 +228,23 @@ class TailSamplingProcessor(WrapperSpanProcessor):
                         # Delete the buffer to save memory.
                         self.traces.pop(trace_id, None)
 
+        # This code may take longer since it calls processors which might do anything.
+        # It shouldn't be inside the lock to avoid blocking other threads.
+        # Since it's not in the lock, it shouldn't touch self.traces or its contents.
         if buffer is None:
+            # No buffer for this trace, meaning it was already sampled/discarded, or never tracked.
+            # Pass on_end through immediately to both processors.
             super().on_end(span)
+            if self.deferred_processor is not None:
+                self.deferred_processor.on_end(span)
         elif dropped:
             self.push_buffer(buffer)
 
     def check_span(self, span_info: TailSamplingSpanInfo) -> bool:
-        """If the span meets the sampling criteria, drop the buffer and return True. Otherwise, return False."""
+        """If the span meets the sampling criteria, drop the buffer and return True. Otherwise, return False.
+
+        Must be called within self.lock since it modifies self.traces via drop_buffer.
+        """
         sample_rate = self.get_tail_sample_rate(span_info)
         if sampled := check_trace_id_ratio(span_info.buffer.trace_id, sample_rate):
             self.drop_buffer(span_info.buffer)
@@ -223,7 +255,31 @@ class TailSamplingProcessor(WrapperSpanProcessor):
         del self.traces[buffer.trace_id]
 
     def push_buffer(self, buffer: TraceBuffer) -> None:
-        for started in buffer.started:
-            super().on_start(*started)
+        # For the deferred processor, replay both on_start and on_end.
+        if self.deferred_processor is not None:
+            for started in buffer.started:
+                self.deferred_processor.on_start(*started)
+            for span in buffer.ended:
+                self.deferred_processor.on_end(span)
+
+        # For the main processor, on_start was already called immediately.
+        # Only replay on_end.
         for span in buffer.ended:
             super().on_end(span)
+
+    def shutdown(self) -> None:
+        super().shutdown()
+        if self.deferred_processor is not None:
+            # suppress_instrumentation prevents the deferred processor (e.g. PendingSpanProcessor)
+            # from creating new spans during shutdown, which would re-enter this processor
+            # and cause infinite recursion. The superclass already does this for the main processor.
+            with suppress_instrumentation():
+                self.deferred_processor.shutdown()
+
+    def force_flush(self, timeout_millis: int = 30000) -> bool:
+        result = super().force_flush(timeout_millis)
+        if self.deferred_processor is not None:
+            # Same reasoning as shutdown above.
+            with suppress_instrumentation():
+                result = self.deferred_processor.force_flush(timeout_millis) and result
+        return result
