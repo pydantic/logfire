@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 import pydantic
 import pytest
-from dirty_equals import IsPartialDict
+from dirty_equals import IsPartialDict, IsStr
 
 import logfire
 from logfire._internal.exporters.test import TestExporter
@@ -114,6 +114,7 @@ Because it found something more "sole-ful!"\
                             'meta': {
                                 'progressToken': None,
                                 'traceparent': '00-00000000000000000000000000000002-0000000000000005-01',
+                                'baggage': IsStr(),
                             },
                             'cursor': None,
                         },
@@ -164,6 +165,8 @@ Because it found something more "sole-ful!"\
                     'gen_ai.request.model': 'gpt-4o',
                     'server.address': 'api.openai.com',
                     'model_request_parameters': IsPartialDict(),
+                    'gen_ai.agent.name': 'agent',
+                    'gen_ai.agent.call.id': IsStr(),
                     'gen_ai.tool.definitions': [
                         {
                             'type': 'function',
@@ -217,6 +220,8 @@ Because it found something more "sole-ful!"\
                     'gen_ai.request.model': 'gpt-4o',
                     'server.address': 'api.openai.com',
                     'model_request_parameters': IsPartialDict(),
+                    'gen_ai.agent.name': 'agent',
+                    'gen_ai.agent.call.id': IsStr(),
                     'gen_ai.request.max_tokens': 16384,
                     'logfire.span_type': 'span',
                     'logfire.msg': 'chat gpt-4o',
@@ -261,6 +266,7 @@ Because it found something more "sole-ful!"\
                             'meta': {
                                 'progressToken': None,
                                 'traceparent': '00-00000000000000000000000000000002-0000000000000015-01',
+                                'baggage': IsStr(),
                             },
                             'messages': [
                                 {
@@ -379,6 +385,8 @@ Because it found something more "sole-ful!"\
                     'gen_ai.system': 'MCP',
                     'gen_ai.request.model': 'mcp-sampling',
                     'model_request_parameters': IsPartialDict(),
+                    'gen_ai.agent.name': 'agent',
+                    'gen_ai.agent.call.id': IsStr(),
                     'logfire.span_type': 'span',
                     'logfire.msg': 'chat mcp-sampling',
                     'gen_ai.input.messages': [
@@ -413,6 +421,8 @@ Because it found something more "sole-ful!"\
                     'model_name': 'mcp-sampling',
                     'agent_name': 'agent',
                     'gen_ai.agent.name': 'agent',
+                    'gen_ai.agent.call.id': IsStr(),
+                    'gen_ai.operation.name': 'invoke_agent',
                     'logfire.msg': 'agent run',
                     'logfire.span_type': 'span',
                     'final_result': """\
@@ -452,6 +462,7 @@ Because it found something more "sole-ful!"\
                             'meta': {
                                 'progressToken': None,
                                 'traceparent': '00-00000000000000000000000000000002-000000000000000d-01',
+                                'baggage': IsStr(),
                             },
                             'name': 'joker',
                             'arguments': {'theme': 'socks'},
@@ -539,6 +550,8 @@ Because it found something more "sole-ful!"\
                     'gen_ai.tool.name': 'joker',
                     'gen_ai.tool.call.id': 'call_YWeIZ4oGGwEnk9GIb443ZNys',
                     'gen_ai.tool.call.arguments': {'theme': 'socks'},
+                    'gen_ai.agent.name': 'agent',
+                    'gen_ai.agent.call.id': IsStr(),
                     'logfire.msg': 'running tool: joker',
                     'logfire.span_type': 'span',
                     'gen_ai.tool.call.result': """\
@@ -561,6 +574,8 @@ Because it found something more "sole-ful!"\
                     'gen_ai.request.model': 'gpt-4o',
                     'server.address': 'api.openai.com',
                     'model_request_parameters': IsPartialDict(),
+                    'gen_ai.agent.name': 'agent',
+                    'gen_ai.agent.call.id': IsStr(),
                     'gen_ai.tool.definitions': [
                         {
                             'type': 'function',
@@ -640,6 +655,8 @@ Because it found something more "sole-ful!"\
                     'model_name': 'gpt-4o',
                     'agent_name': 'agent',
                     'gen_ai.agent.name': 'agent',
+                    'gen_ai.agent.call.id': IsStr(),
+                    'gen_ai.operation.name': 'invoke_agent',
                     'logfire.msg': 'agent run',
                     'logfire.span_type': 'span',
                     'final_result': """\

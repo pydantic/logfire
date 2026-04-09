@@ -1323,6 +1323,10 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                             'finish_reason': 'stop',
                         }
                     ],
+                    'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.usage.output_tokens': 1,
+                    'gen_ai.usage.raw': {'completion_tokens': 1, 'prompt_tokens': 2, 'total_tokens': 3},
+                    'operation.cost': 0.00012,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -1367,6 +1371,10 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                                 },
                             },
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
                         },
                     },
                     'logfire.tags': ('LLM',),
@@ -1616,6 +1624,10 @@ async def test_async_chat_tool_call_stream(
                             'finish_reason': 'stop',
                         }
                     ],
+                    'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.usage.output_tokens': 1,
+                    'gen_ai.usage.raw': {'completion_tokens': 1, 'prompt_tokens': 2, 'total_tokens': 3},
+                    'operation.cost': 0.00012,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -1660,6 +1672,10 @@ async def test_async_chat_tool_call_stream(
                                 },
                             },
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
                         },
                     },
                     'logfire.tags': ('LLM',),
@@ -2515,6 +2531,7 @@ def test_embeddings_version_latest(exporter: TestExporter) -> None:
                     'gen_ai.response.model': 'text-embedding-3-small',
                     'gen_ai.usage.input_tokens': IsInt(),
                     'gen_ai.usage.raw': {'prompt_tokens': 1, 'total_tokens': 1},
+                    'operation.cost': 2e-08,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -2527,6 +2544,7 @@ def test_embeddings_version_latest(exporter: TestExporter) -> None:
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
                         },
                     },
                 },
@@ -2569,6 +2587,7 @@ def test_embeddings_version_v1_only(exporter: TestExporter) -> None:
                     'gen_ai.response.model': 'text-embedding-3-small',
                     'gen_ai.usage.input_tokens': IsInt(),
                     'gen_ai.usage.raw': {'prompt_tokens': 1, 'total_tokens': 1},
+                    'operation.cost': 2e-08,
                     'response_data': {'usage': {'prompt_tokens': IsInt(), 'total_tokens': IsInt()}},
                     'logfire.json_schema': {
                         'type': 'object',
@@ -2582,6 +2601,7 @@ def test_embeddings_version_v1_only(exporter: TestExporter) -> None:
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
@@ -2686,6 +2706,16 @@ def test_responses_stream(exporter: TestExporter) -> None:
                     'gen_ai.output.messages': [
                         {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Four plus five equals **nine**.'}]}
                     ],
+                    'gen_ai.usage.input_tokens': 13,
+                    'gen_ai.usage.output_tokens': 9,
+                    'gen_ai.usage.raw': {
+                        'input_tokens': 13,
+                        'input_tokens_details': {'cached_tokens': 0},
+                        'output_tokens': 9,
+                        'output_tokens_details': {'reasoning_tokens': 0},
+                        'total_tokens': 22,
+                    },
+                    'operation.cost': 9.8e-05,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -2698,6 +2728,10 @@ def test_responses_stream(exporter: TestExporter) -> None:
                             'gen_ai.input.messages': {'type': 'array'},
                             'duration': {},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
                         },
                     },
                     'logfire.tags': ('LLM',),
@@ -2868,6 +2902,7 @@ def test_embeddings(instrumented_client: openai.Client, exporter: TestExporter) 
                     'gen_ai.response.model': 'text-embedding-3-small',
                     'gen_ai.usage.input_tokens': 1,
                     'gen_ai.usage.raw': {'prompt_tokens': 1, 'total_tokens': 2},
+                    'operation.cost': 2e-08,
                     'response_data': {'usage': {'prompt_tokens': 1, 'total_tokens': 2}},
                     'logfire.json_schema': {
                         'type': 'object',
@@ -2881,6 +2916,7 @@ def test_embeddings(instrumented_client: openai.Client, exporter: TestExporter) 
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
@@ -3882,6 +3918,9 @@ So, while I can't genuinely answer it for myself, how are *you* doing today, and
                             'finish_reason': 'stop',
                         }
                     ],
+                    'gen_ai.usage.input_tokens': 13,
+                    'gen_ai.usage.output_tokens': 1003,
+                    'gen_ai.usage.raw': {'completion_tokens': 1003, 'prompt_tokens': 13, 'total_tokens': 1016},
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -3908,6 +3947,9 @@ So, while I can't genuinely answer it for myself, how are *you* doing today, and
                                 },
                             },
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                         },
                     },
                     'logfire.tags': ('LLM',),

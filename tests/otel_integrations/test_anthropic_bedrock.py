@@ -130,6 +130,7 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 3,
+                    'gen_ai.usage.raw': {'input_tokens': 2, 'output_tokens': 3},
                     'gen_ai.response.finish_reasons': ['end_turn'],
                     'logfire.json_schema': {
                         'type': 'object',
@@ -158,6 +159,7 @@ def test_sync_messages(mock_client: AnthropicBedrock, exporter: TestExporter):
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                         },
                     },

@@ -1,5 +1,14 @@
 # Release Notes
 
+## [v4.31.1] (2026-04-09)
+
+* Capture token usage and cost attributes in OpenAI streaming logs by @alexmojaki in [#1846](https://github.com/pydantic/logfire/pull/1846)
+* Capture token usage and cost attributes in Anthropic streaming logs by @alexmojaki in [#1850](https://github.com/pydantic/logfire/pull/1850)
+* Capture `operation.cost` for OpenAI embeddings by @alexmojaki in [#1843](https://github.com/pydantic/logfire/pull/1843)
+* Capture `gen_ai.usage.raw` for Anthropic by @alexmojaki in [#1847](https://github.com/pydantic/logfire/pull/1847)
+* fix: strip `cf-connecting-ip` header in `forward_export_request` by @BreytMN in [#1824](https://github.com/pydantic/logfire/pull/1824)
+* Handle patching of `sys.stdout` better by @alexmojaki in [#1840](https://github.com/pydantic/logfire/pull/1840)
+
 ## [v4.31.0] (2026-03-27)
 
 * Add `logfire.instrument_claude_agent_sdk()` by @alexmojaki in [#1799](https://github.com/pydantic/logfire/pull/1799)
@@ -1089,3 +1098,4 @@ First release from new repo!
 [v4.29.0]: https://github.com/pydantic/logfire/compare/v4.28.0...v4.29.0
 [v4.30.0]: https://github.com/pydantic/logfire/compare/v4.29.0...v4.30.0
 [v4.31.0]: https://github.com/pydantic/logfire/compare/v4.30.0...v4.31.0
+[v4.31.1]: https://github.com/pydantic/logfire/compare/v4.31.0...v4.31.1

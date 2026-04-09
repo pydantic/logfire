@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pickle
 from dataclasses import asdict
-from functools import partial
+from functools import partial, wraps
 from typing import Any, Callable
 
 from logfire.propagate import ContextCarrier, attach_context, get_context
@@ -27,12 +27,14 @@ try:
         if ProcessPoolExecutor.submit is submit_p_orig:
             ProcessPoolExecutor.submit = submit_p
 
+    @wraps(submit_t_orig)
     def submit_t(s: ThreadPoolExecutor, fn: Callable[..., Any], /, *args: Any, **kwargs: Any):
         """A wrapper around ThreadPoolExecutor.submit() that carries over OTEL context across threads."""
         fn = partial(fn, *args, **kwargs)
         carrier = get_context()
         return submit_t_orig(s, _run_with_context, carrier=carrier, func=fn, parent_config=None)
 
+    @wraps(submit_p_orig)
     def submit_p(s: ProcessPoolExecutor, fn: Callable[..., Any], /, *args: Any, **kwargs: Any):
         """A wrapper around ProcessPoolExecutor.submit() that carries over OTEL context across processes."""
         fn = partial(fn, *args, **kwargs)

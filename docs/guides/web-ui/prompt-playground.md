@@ -13,7 +13,7 @@ on the system prompt, and see if you can get better results by tweaking it. Taki
 
 Clicking **Open in Playground** will redirect you to the Agent Playground, prefilled with the agent run data:
 
-![Private button](../../images/guide/prompt-playground/prompt_playground.png)
+![Prompt playground](../../images/guide/prompt-playground/prompt_playground.png)
 
 You will then be able to modify parts of the agent run (e.g. the system prompt, but also the user requests and tool calls), and trigger another run
 to see the results.

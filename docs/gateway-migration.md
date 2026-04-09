@@ -7,6 +7,16 @@ description: "How to migrate from the legacy gateway.pydantic.dev to the AI Gate
 
 We're consolidating the AI Gateway into Logfire. This means [gateway.pydantic.dev](https://gateway.pydantic.dev/) is being deprecated, and the gateway is now managed through your Logfire account.
 
+## Shutdown Timeline
+
+| Date | Event |
+|------|-------|
+| **15 March 2026** | Self-service refunds available in the legacy gateway platform |
+| **13 April 2026 at 3pm UTC** | Legacy gateway fully shut down (end of life) |
+| **By end of April 2026** | Automatic refunds processed for any remaining balances |
+
+**Please migrate before 13 April 2026.** If you need help, email us at [engineering@pydantic.dev](mailto:engineering@pydantic.dev).
+
 ## Why We Made This Change
 
 Moving the gateway into Logfire unlocks a number of improvements:
@@ -22,7 +32,9 @@ Moving the gateway into Logfire unlocks a number of improvements:
 
 ### What happens to my current balance?
 
-Shortly we will roll out the ability to request a refund of your remaining balance, issued to the original payment method you used. <!-- TODO: Add link/instructions for requesting the refund once the feature is live -->
+From **15 March 2026**, you can request a refund of your remaining balance via the button in the [legacy gateway platform](https://gateway.pydantic.dev). The refund will be issued to the original payment method you used.
+
+If you do not request a refund manually, any outstanding credits will be refunded automatically before the end of April 2026.
 
 ### Do I need to create a new account?
 
@@ -49,7 +61,7 @@ It depends on your plan:
 
 ### I'm using Pydantic AI — what do I need to change?
 
-If you're using the `gateway/` provider prefix (e.g., `Agent('gateway/openai:gpt-4o')`), you just need to swap your API key for the one generated in Logfire:
+Make sure you have an up-to-date version of Pydantic AI installed, then swap your API key for the one generated in Logfire. If you're using the `gateway/` provider prefix (e.g., `Agent('gateway/openai:gpt-4o')`), this is all you need to change:
 
 ```bash
 export PYDANTIC_AI_GATEWAY_API_KEY="pylf_v..."

@@ -82,6 +82,7 @@ def forward_export_request(
         'trailer',
         'upgrade',
         'cookie',
+        'cf-connecting-ip',
     }
 
     new_headers = {k: v for k, v in headers.items() if k.lower() not in headers_to_remove}
