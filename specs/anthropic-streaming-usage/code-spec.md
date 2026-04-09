@@ -4,37 +4,40 @@
 
 ## Modified: `AnthropicMessageStreamState.__init__()` in `anthropic.py`
 
-*(implements "record_chunk() must capture the message_start message and message_delta usage")*
+*(implements "record_chunk() uses the Anthropic SDK's accumulate_event()")*
 
 ```python
 def __init__(self):
-    self._content: list[str] = []
-    self._message: Message | None = None
-    self._message_delta_usage: MessageDeltaUsage | None = None
+    self._message: ParsedMessage[object] | None = None
 ```
 
-Currently only has `self._content`. Add two fields to hold the captured event data.
+Replaces `self._content: list[str] = []`. The accumulated message holds both content and usage.
 
 ## Modified: `AnthropicMessageStreamState.record_chunk()` in `anthropic.py`
 
-*(implements "record_chunk() must capture the message_start message and message_delta usage")*
+*(implements "record_chunk() uses the Anthropic SDK's accumulate_event()")*
 
 ```python
 def record_chunk(self, chunk: anthropic.types.MessageStreamEvent) -> None:
-    content = content_from_messages(chunk)
-    if content:
-        self._content.append(content)
-    if isinstance(chunk, MessageStartEvent):
-        self._message = chunk.message
-    elif isinstance(chunk, MessageDeltaEvent):
-        self._message_delta_usage = chunk.usage
+    self._message = accumulate_event(event=chunk, current_snapshot=self._message)
 ```
 
-Adds `isinstance` checks after existing text extraction. `MessageStartEvent` and `MessageDeltaEvent` need to be imported from `anthropic.types`.
+Replaces the manual text extraction via `content_from_messages()`. Each chunk updates the accumulated message snapshot — content blocks, usage, stop reason, etc.
+
+## Modified: `AnthropicMessageStreamState.get_response_data()` in `anthropic.py`
+
+*(implements "The manual text accumulation is replaced by reading from the accumulated message")*
+
+```python
+def get_response_data(self) -> Any:
+    """Returns response data for the version 1 log format."""
+```
+
+Extracts `combined_chunk_content` and `chunk_count` from `self._message.content` (the accumulated content blocks) instead of from `self._content`. Must produce the same dict shape as before: `{'combined_chunk_content': str, 'chunk_count': int}`.
 
 ## Modified: `AnthropicMessageStreamState.get_attributes()` in `anthropic.py`
 
-*(implements "get_attributes() calls get_usage_attributes()", "Usage attributes are set regardless of semconv version", "Existing streaming behavior must not change")*
+*(implements "get_anthropic_usage_attributes() is reused for streaming", "Usage attributes are set regardless of semconv version", "Existing streaming behavior must not change")*
 
 ```python
 def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
@@ -42,44 +45,35 @@ def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
     result = dict(**span_data)
     if 1 in versions:
         result['response_data'] = self.get_response_data()
-    if 'latest' in versions and self._content:
-        combined = ''.join(self._content)
-        result[OUTPUT_MESSAGES] = [
-            OutputMessage(
-                role='assistant',
-                parts=[TextPart(type='text', content=combined)],
-            )
-        ]
+    if 'latest' in versions and self._message and self._message.content:
+        # extract text from self._message.content blocks
+        ...
+        result[OUTPUT_MESSAGES] = [OutputMessage(...)]
     # Usage attributes — outside version-specific branches
-    result.update(self._get_usage_attributes())
+    if self._message is not None:
+        result.update(get_anthropic_usage_attributes(self._message))
     return result
 ```
 
-Existing version-specific blocks are unchanged. The new `result.update()` call is appended after them, unconditionally.
+The `'latest'` version block reads from `self._message.content` instead of `self._content`. The usage call reuses `get_anthropic_usage_attributes()` — the same function used by non-streaming `on_response()`. This works because `accumulate_event` produces a `Message` with final accurate usage.
 
-## New: `AnthropicMessageStreamState._get_usage_attributes()` in `anthropic.py`
-
-*(implements "get_attributes() calls get_usage_attributes()", "gen_ai.usage.raw uses the message_start usage object", "The get_anthropic_usage_attributes() function is NOT reused")*
+## New import in `anthropic.py`
 
 ```python
-def _get_usage_attributes(self) -> dict[str, Any]:
-    """Compute usage attributes from accumulated streaming events."""
+from anthropic.lib.streaming._messages import accumulate_event
 ```
 
-Private helper on the stream state class. Returns `{}` when `self._message` is `None`. Otherwise:
-- Computes `input_tokens` from `self._message.usage` with cache adjustment (same formula as `get_anthropic_usage_attributes()`).
-- Takes `output_tokens` from `self._message_delta_usage.output_tokens` if available, otherwise falls back to `self._message.usage.output_tokens` (the `message_start` initial value — less accurate but better than omitting usage entirely).
-- Calls `get_usage_attributes(self._message, self._message.usage, input_tokens, output_tokens, provider_id='anthropic')`.
+Also `ParsedMessage` for the type annotation on `self._message`. No new imports from `anthropic.types` are needed (no `MessageStartEvent`/`MessageDeltaEvent` isinstance checks).
 
-Passes `self._message` as `response` (for cost calculation via `genai_prices`) and `self._message.usage` as `usage` (for `gen_ai.usage.raw`).
+## Possibly removed: `content_from_messages()` in `anthropic.py`
 
-## New imports in `anthropic.py`
+*(implements "The manual text accumulation is replaced by reading from the accumulated message")*
 
-`MessageDeltaEvent` and `MessageStartEvent` from `anthropic.types`. These are needed for the `isinstance` checks in `record_chunk()`.
+The helper that extracts text from `TextDelta`/`TextBlock` chunks is no longer called by `record_chunk()`. Check if any other code references it before removing.
 
 ## Not changed
 
-- `get_anthropic_usage_attributes()` — not reused for streaming; remains as-is for non-streaming.
+- `get_anthropic_usage_attributes()` — now reused for both streaming and non-streaming (no modifications needed).
 - `get_usage_attributes()` in `usage.py` — no changes needed.
 - `on_response()` — non-streaming path, unchanged.
 - `llm_provider.py` / `record_streaming()` — already passes through `get_attributes()` result.
