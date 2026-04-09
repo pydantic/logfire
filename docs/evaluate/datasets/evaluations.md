@@ -23,8 +23,9 @@ If your test cases live in code, you can run an evaluation without ever talking 
 ```python skip-run="true" skip-reason="example-ai-task"
 from dataclasses import dataclass
 
-import logfire
 from pydantic_evals import Case, Dataset
+
+import logfire
 
 # Configure Logfire so the evaluation shows up in the Evals tab in the Logfire UI.
 # Without this, the evaluation still runs but its results will not be sent to Logfire.
@@ -145,9 +146,9 @@ raw_data = client.get_dataset('qa-golden-set')
 Once fetched, a hosted dataset is just a `pydantic_evals.Dataset` --- use it exactly like the local example above:
 
 ```python skip="true" skip-reason="external-connection"
-import logfire
 from pydantic_evals import Dataset
 
+import logfire
 from logfire.experimental.api_client import LogfireAPIClient
 
 # Send evaluation results to the Logfire Evals tab.

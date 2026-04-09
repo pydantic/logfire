@@ -33,8 +33,9 @@ Once created, you can edit the dataset to add a description and define schemas.
     ```python skip-run="true" skip-reason="external-connection"
     from dataclasses import dataclass
 
-    from logfire.experimental.api_client import LogfireAPIClient
     from pydantic_evals import Case, Dataset
+
+    from logfire.experimental.api_client import LogfireAPIClient
 
 
     @dataclass
