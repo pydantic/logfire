@@ -1,5 +1,7 @@
 # Anthropic Streaming Usage Attributes
 
+**Code-level architecture is in [code-spec](code-spec.md).**
+
 **Every Anthropic streaming span must have the same usage attributes as non-streaming spans: `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`, `operation.cost`, and `gen_ai.usage.raw`.**
 Context: Non-streaming `on_response()` already uses `get_anthropic_usage_attributes()` (in `anthropic.py`) which delegates to the shared `get_usage_attributes()` (in `usage.py`). Anthropic streaming `get_attributes()` currently ignores usage entirely — the streaming log span has no token counts, no cost, and no raw usage. Non-streaming Anthropic and all OpenAI paths are already handled.
 
