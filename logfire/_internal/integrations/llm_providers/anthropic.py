@@ -5,6 +5,7 @@ import json
 from typing import TYPE_CHECKING, Any, cast
 
 import anthropic
+import httpx
 from anthropic.types import Message, TextBlock, TextDelta, ToolUseBlock
 from anthropic.types.beta import BetaMessage, BetaTextBlock, BetaTextDelta, BetaToolUseBlock
 
@@ -12,10 +13,8 @@ from logfire._internal.utils import handle_internal_errors
 
 from .semconv import (
     INPUT_MESSAGES,
-    INPUT_TOKENS,
     OPERATION_NAME,
     OUTPUT_MESSAGES,
-    OUTPUT_TOKENS,
     PROVIDER_NAME,
     REQUEST_MAX_TOKENS,
     REQUEST_MODEL,
@@ -41,6 +40,7 @@ from .semconv import (
     UriPart,
 )
 from .types import EndpointConfig, StreamState
+from .usage import get_usage_attributes
 
 if TYPE_CHECKING:
     from anthropic._models import FinalRequestOptions
@@ -268,42 +268,56 @@ def convert_response_to_semconv(message: Message | BetaMessage) -> OutputMessage
     return result
 
 
-def content_from_messages(chunk: anthropic.types.MessageStreamEvent) -> str | None:
-    if hasattr(chunk, 'content_block'):
-        return chunk.content_block.text if isinstance(chunk.content_block, (TextBlock, BetaTextBlock)) else None  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
-    if hasattr(chunk, 'delta'):
-        return chunk.delta.text if isinstance(chunk.delta, (TextDelta, BetaTextDelta)) else None  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
-    return None
-
-
 class AnthropicMessageStreamState(StreamState):
     _versions: frozenset[SemconvVersion] = frozenset({1})
 
     def __init__(self):
-        self._content: list[str] = []
+        self._message: Any = None
+        self._chunk_count: int = 0
 
     def record_chunk(self, chunk: anthropic.types.MessageStreamEvent) -> None:
-        content = content_from_messages(chunk)
-        if content:
-            self._content.append(content)
+        from anthropic.lib.streaming._beta_messages import accumulate_event as beta_accumulate_event
+        from anthropic.lib.streaming._messages import accumulate_event
+
+        if type(chunk).__module__.startswith('anthropic.types.beta'):
+            self._message = beta_accumulate_event(
+                event=cast(Any, chunk), current_snapshot=self._message, request_headers=httpx.Headers()
+            )
+        else:
+            self._message = accumulate_event(event=chunk, current_snapshot=self._message)
+        if isinstance(getattr(chunk, 'delta', None), (TextDelta, BetaTextDelta)):
+            self._chunk_count += 1
 
     def get_response_data(self) -> Any:
-        return {'combined_chunk_content': ''.join(self._content), 'chunk_count': len(self._content)}
+        if self._message is None:
+            return {'combined_chunk_content': '', 'chunk_count': 0}
+        texts = [block.text for block in self._message.content if isinstance(block, (TextBlock, BetaTextBlock))]
+        return {'combined_chunk_content': ''.join(texts), 'chunk_count': self._chunk_count}
 
     def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
         versions = self._versions
         result = dict(**span_data)
         if 1 in versions:
             result['response_data'] = self.get_response_data()
-        if 'latest' in versions and self._content:
-            combined = ''.join(self._content)
-            result[OUTPUT_MESSAGES] = [
-                OutputMessage(
-                    role='assistant',
-                    parts=[TextPart(type='text', content=combined)],
-                )
-            ]
+        if 'latest' in versions and self._message and self._message.content:
+            result[OUTPUT_MESSAGES] = [convert_response_to_semconv(self._message)]
+        if self._message is not None:
+            result.update(get_anthropic_usage_attributes(self._message))
         return result
+
+
+def get_anthropic_usage_attributes(response: Any) -> dict[str, Any]:
+    """Extract usage attributes from an Anthropic response object.
+
+    Works for Message and BetaMessage from non-streaming on_response().
+    Returns an empty dict when usage is None.
+    """
+    usage = getattr(response, 'usage', None)
+    if usage is None:
+        return {}
+    input_tokens = usage.input_tokens + (usage.cache_read_input_tokens or 0) + (usage.cache_creation_input_tokens or 0)
+    output_tokens = usage.output_tokens
+    return get_usage_attributes(response, usage, input_tokens, output_tokens, provider_id='anthropic')
 
 
 @handle_internal_errors
@@ -339,32 +353,10 @@ def on_response(
         span.set_attribute(RESPONSE_MODEL, response.model)
         span.set_attribute(RESPONSE_ID, response.id)
 
-        if response.usage:  # pragma: no branch
-            # Anthropic's input_tokens only counts uncached tokens.
-            # Per OTel GenAI semconv, gen_ai.usage.input_tokens should be the total,
-            # so we add cache_read_input_tokens and cache_creation_input_tokens.
-            span.set_attribute(
-                INPUT_TOKENS,
-                response.usage.input_tokens
-                + (response.usage.cache_read_input_tokens or 0)
-                + (response.usage.cache_creation_input_tokens or 0),
-            )
-            span.set_attribute(OUTPUT_TOKENS, response.usage.output_tokens)
+        span.set_attributes(get_anthropic_usage_attributes(response))
 
         if response.stop_reason:
             span.set_attribute(RESPONSE_FINISH_REASONS, [response.stop_reason])
-
-        try:
-            from genai_prices import calc_price, extract_usage
-
-            response_data = response.model_dump()
-            usage_data = extract_usage(response_data, provider_id='anthropic')
-            span.set_attribute(
-                'operation.cost',
-                float(calc_price(usage_data.usage, model_ref=response.model, provider_id='anthropic').total_price),
-            )
-        except Exception:
-            pass
 
     return response
 
