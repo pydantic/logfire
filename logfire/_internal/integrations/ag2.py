@@ -13,7 +13,6 @@ from logfire._internal.utils import suppress_instrumentation
 if TYPE_CHECKING:  # pragma: no cover
     from autogen import ConversableAgent
 
-
 try:
     import autogen
 except ImportError:  # pragma: no cover

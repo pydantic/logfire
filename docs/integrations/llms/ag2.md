@@ -4,7 +4,7 @@ description: Instrument AG2 multi-agent conversations with Logfire spans for con
 integration: logfire
 ---
 
-[AG2](https://docs.ag2.ai) supports multi-agent orchestration patterns such as two-agent chat and group chat.  
+[AG2](https://docs.ag2.ai) supports multi-agent orchestration patterns such as two-agent chat and group chat.
 Use [`logfire.instrument_ag2()`][logfire.Logfire.instrument_ag2] to trace conversation lifecycle events, agent turns, and tool execution.
 
 ## What gets traced
