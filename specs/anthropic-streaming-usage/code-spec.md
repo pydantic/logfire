@@ -8,10 +8,11 @@
 
 ```python
 def __init__(self):
-    self._message: ParsedMessage[object] | None = None
+    self._message: Any = None
+    self._chunk_count: int = 0
 ```
 
-Replaces `self._content: list[str] = []`. The accumulated message holds both content and usage.
+Replaces `self._content: list[str] = []`. The accumulated message holds both content and usage. `_message` is typed as `Any` because it can be either `ParsedMessage` or `ParsedBetaMessage`. `_chunk_count` tracks text delta events (not accumulated content blocks) to preserve the existing `chunk_count` semantics in `get_response_data()`.
 
 ## Modified: `AnthropicMessageStreamState.record_chunk()` in `anthropic.py`
 
@@ -19,10 +20,17 @@ Replaces `self._content: list[str] = []`. The accumulated message holds both con
 
 ```python
 def record_chunk(self, chunk: anthropic.types.MessageStreamEvent) -> None:
-    self._message = accumulate_event(event=chunk, current_snapshot=self._message)
+    if type(chunk).__module__.startswith('anthropic.types.beta'):
+        self._message = beta_accumulate_event(
+            event=cast(Any, chunk), current_snapshot=self._message, request_headers=httpx.Headers()
+        )
+    else:
+        self._message = accumulate_event(event=chunk, current_snapshot=self._message)
+    if isinstance(getattr(chunk, 'delta', None), (TextDelta, BetaTextDelta)):
+        self._chunk_count += 1
 ```
 
-Replaces the manual text extraction via `content_from_messages()`. Each chunk updates the accumulated message snapshot — content blocks, usage, stop reason, etc.
+Replaces the manual text extraction via `content_from_messages()`. Each chunk updates the accumulated message snapshot — content blocks, usage, stop reason, etc. Beta events are detected via module name (since `BetaRawMessageStreamEvent` is a Union type alias unusable with `isinstance`) and routed to `beta_accumulate_event`. Text delta events increment `_chunk_count` to track the number of streamed text chunks (distinct from accumulated content blocks).
 
 ## Modified: `AnthropicMessageStreamState.get_response_data()` in `anthropic.py`
 
@@ -33,7 +41,7 @@ def get_response_data(self) -> Any:
     """Returns response data for the version 1 log format."""
 ```
 
-Extracts `combined_chunk_content` and `chunk_count` from `self._message.content` (the accumulated content blocks) instead of from `self._content`. Must produce the same dict shape as before: `{'combined_chunk_content': str, 'chunk_count': int}`.
+Extracts `combined_chunk_content` from `self._message.content` (the accumulated content blocks) and `chunk_count` from `self._chunk_count` (the number of text delta stream events). Must produce the same dict shape as before: `{'combined_chunk_content': str, 'chunk_count': int}`. Note: `chunk_count` counts text delta events received during streaming, not the number of accumulated content blocks — `accumulate_event` merges deltas into blocks, so counting blocks would give a lower number.
 
 ## Modified: `AnthropicMessageStreamState.get_attributes()` in `anthropic.py`
 
@@ -46,30 +54,30 @@ def get_attributes(self, span_data: dict[str, Any]) -> dict[str, Any]:
     if 1 in versions:
         result['response_data'] = self.get_response_data()
     if 'latest' in versions and self._message and self._message.content:
-        # extract text from self._message.content blocks
-        ...
-        result[OUTPUT_MESSAGES] = [OutputMessage(...)]
+        result[OUTPUT_MESSAGES] = [convert_response_to_semconv(self._message)]
     # Usage attributes — outside version-specific branches
     if self._message is not None:
         result.update(get_anthropic_usage_attributes(self._message))
     return result
 ```
 
-The `'latest'` version block reads from `self._message.content` instead of `self._content`. The usage call reuses `get_anthropic_usage_attributes()` — the same function used by non-streaming `on_response()`. This works because `accumulate_event` produces a `Message` with final accurate usage.
+The `'latest'` version block uses `convert_response_to_semconv()` — the same function used by non-streaming `on_response()` — to produce output messages with full content (text + tool_use parts) and `finish_reason`. The usage call reuses `get_anthropic_usage_attributes()`, also shared with the non-streaming path. This works because `accumulate_event` produces a `Message` with final accurate usage.
 
 ## New import in `anthropic.py`
 
 ```python
+import httpx
+from anthropic.lib.streaming._beta_messages import accumulate_event as beta_accumulate_event
 from anthropic.lib.streaming._messages import accumulate_event
 ```
 
-Also `ParsedMessage` for the type annotation on `self._message`. No new imports from `anthropic.types` are needed (no `MessageStartEvent`/`MessageDeltaEvent` isinstance checks).
+`httpx` is needed for the `request_headers` parameter of `beta_accumulate_event`. `TextDelta`/`BetaTextDelta` imports are retained (were already present) for the `_chunk_count` logic. `_message` is typed as `Any` (not `ParsedMessage`) to accommodate both regular and beta message types.
 
-## Possibly removed: `content_from_messages()` in `anthropic.py`
+## Removed: `content_from_messages()` in `anthropic.py`
 
 *(implements "The manual text accumulation is replaced by reading from the accumulated message")*
 
-The helper that extracts text from `TextDelta`/`TextBlock` chunks is no longer called by `record_chunk()`. Check if any other code references it before removing.
+The helper that extracted text from `TextDelta`/`TextBlock` chunks was only called by `record_chunk()` and has no other references. Removed.
 
 ## Not changed
 
