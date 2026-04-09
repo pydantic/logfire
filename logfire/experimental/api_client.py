@@ -230,6 +230,14 @@ def _get_dataset_type_args(dataset: Dataset[Any, Any, Any]) -> tuple[Any | None,
         return None, None, None
 
     input_type, output_type, metadata_type = typed_args
+    # `Dataset[..., None]` stores `type(None)` in the generic args. Map it back to `None`
+    # so downstream code treats it as "no schema" instead of serializing a `{"type": "null"}` schema.
+    if input_type is type(None):
+        input_type = None
+    if output_type is type(None):
+        output_type = None
+    if metadata_type is type(None):
+        metadata_type = None
     return input_type, output_type, metadata_type
 
 
@@ -564,9 +572,6 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         dataset: Dataset[InputsT, OutputT, MetadataT],
         *,
         name: str | None = None,
-        input_type: type[InputsT] | None = None,
-        output_type: type[OutputT] | None = None,
-        metadata_type: type[MetadataT] | None = None,
         description: str | None = _UNSET,
         guidance: str | None = _UNSET,
         ai_managed_guidance: bool | None = None,
@@ -581,10 +586,10 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         through the existing import/upsert API, and finally returns hosted
         dataset metadata.
 
-        When the provided dataset is typed, the JSON schemas for inputs,
-        expected outputs, and metadata are inferred from the
-        `Dataset[InputsT, OutputT, MetadataT]` generic parameters unless you
-        override them explicitly.
+        The JSON schemas for inputs, expected outputs, and metadata are
+        inferred from the `Dataset[InputsT, OutputT, MetadataT]` generic
+        parameters of the dataset you pass in — instantiate your local dataset
+        with the types you want hosted.
 
         Args:
             dataset: The local `pydantic_evals.Dataset` to publish. Case-level
@@ -593,14 +598,6 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
                 will raise `ValueError`.
             name: Optional hosted dataset name override. Defaults to
                 `dataset.name`.
-            input_type: Optional explicit input type override. When omitted, the
-                type is inferred from a typed `Dataset[...]` when possible.
-            output_type: Optional explicit expected-output type override. When
-                omitted, the type is inferred from a typed `Dataset[...]` when
-                possible.
-            metadata_type: Optional explicit metadata type override. When
-                omitted, the type is inferred from a typed `Dataset[...]` when
-                possible.
             description: Hosted dataset description. Omit this argument to leave
                 the existing description unchanged when updating an existing
                 dataset. Pass `None` to clear the description on update. On
@@ -667,16 +664,12 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         if not target_name:
             raise ValueError('push_dataset() requires a dataset name either on dataset.name or via name=')
 
-        inferred_input_type, inferred_output_type, inferred_metadata_type = _get_dataset_type_args(dataset)
-        resolved_input_type = input_type if input_type is not None else inferred_input_type
-        resolved_output_type = output_type if output_type is not None else inferred_output_type
-        resolved_metadata_type = metadata_type if metadata_type is not None else inferred_metadata_type
-
+        input_type, output_type, metadata_type = _get_dataset_type_args(dataset)
         create_kwargs, update_kwargs = _build_push_dataset_kwargs(
             target_name=target_name,
-            input_type=resolved_input_type,
-            output_type=resolved_output_type,
-            metadata_type=resolved_metadata_type,
+            input_type=input_type,
+            output_type=output_type,
+            metadata_type=metadata_type,
             description=description,
             guidance=guidance,
             ai_managed_guidance=ai_managed_guidance,
@@ -1040,9 +1033,6 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         dataset: Dataset[InputsT, OutputT, MetadataT],
         *,
         name: str | None = None,
-        input_type: type[InputsT] | None = None,
-        output_type: type[OutputT] | None = None,
-        metadata_type: type[MetadataT] | None = None,
         description: str | None = _UNSET,
         guidance: str | None = _UNSET,
         ai_managed_guidance: bool | None = None,
@@ -1058,14 +1048,6 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
                 will raise `ValueError`.
             name: Optional hosted dataset name override. Defaults to
                 `dataset.name`.
-            input_type: Optional explicit input type override. When omitted, the
-                type is inferred from a typed `Dataset[...]` when possible.
-            output_type: Optional explicit expected-output type override. When
-                omitted, the type is inferred from a typed `Dataset[...]` when
-                possible.
-            metadata_type: Optional explicit metadata type override. When
-                omitted, the type is inferred from a typed `Dataset[...]` when
-                possible.
             description: Hosted dataset description. Omit this argument to leave
                 the existing description unchanged when updating an existing
                 dataset. Pass `None` to clear the description on update. On
@@ -1101,16 +1083,12 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         if not target_name:
             raise ValueError('push_dataset() requires a dataset name either on dataset.name or via name=')
 
-        inferred_input_type, inferred_output_type, inferred_metadata_type = _get_dataset_type_args(dataset)
-        resolved_input_type = input_type if input_type is not None else inferred_input_type
-        resolved_output_type = output_type if output_type is not None else inferred_output_type
-        resolved_metadata_type = metadata_type if metadata_type is not None else inferred_metadata_type
-
+        input_type, output_type, metadata_type = _get_dataset_type_args(dataset)
         create_kwargs, update_kwargs = _build_push_dataset_kwargs(
             target_name=target_name,
-            input_type=resolved_input_type,
-            output_type=resolved_output_type,
-            metadata_type=resolved_metadata_type,
+            input_type=input_type,
+            output_type=output_type,
+            metadata_type=metadata_type,
             description=description,
             guidance=guidance,
             ai_managed_guidance=ai_managed_guidance,

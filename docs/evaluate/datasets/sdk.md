@@ -61,7 +61,7 @@ async with AsyncLogfireAPIClient(api_key='your-api-key') as client:
     datasets = await client.list_datasets()
 ```
 
-## Publishing a Local Typed Dataset to Hosted
+## Publishing a Local Dataset to Hosted
 
 Define your input, output, and metadata types as dataclasses or Pydantic models, build a local [`pydantic_evals.Dataset`][pydantic_evals.Dataset], and publish it with `push_dataset`. The SDK infers hosted JSON schemas from the dataset's generic types:
 
@@ -128,11 +128,9 @@ with LogfireAPIClient(api_key='your-api-key') as client:
 - it uploads all cases through the existing import/upsert API
 - it uses `on_case_conflict='update'` by default, so named cases are updated on repeat pushes
 
-If you need explicit type overrides, pass `input_type=`, `output_type=`, or `metadata_type=`. This is useful when you want to publish an untyped local dataset but still store hosted schemas.
-
 !!! note "Dataset-level evaluators are not uploaded yet"
 
-    `push_dataset(...)` uploads case-level evaluators, but it currently rejects dataset-level `evaluators` and `report_evaluators` because hosted datasets do not store them yet.
+    `push_dataset(...)` uploads case-level evaluators with their cases, but it currently rejects dataset-level `evaluators` and `report_evaluators` because hosted datasets do not store them yet. Case-level evaluators are also not yet surfaced in the Logfire UI, so they round-trip through `get_dataset(..., custom_evaluator_types=[...])` but won't show up when browsing cases in the web app. We're working on this!
 
 ## Manual Dataset Management
 
@@ -200,7 +198,7 @@ datasets = client.list_datasets()
 for ds in datasets:
     print(f"{ds['name']}: {ds['case_count']} cases")
 
-# Get metadata for a specific dataset by name or ID
+# Retrieve only dataset-level metadata for a specific dataset by name or ID
 dataset_info = client.get_dataset('qa-golden-set', include_cases=False)
 ```
 

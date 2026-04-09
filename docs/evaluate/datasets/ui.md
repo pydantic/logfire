@@ -26,7 +26,7 @@ Click **+ New dataset** in the top right and enter a name for your dataset. If y
 Once created, you can edit the dataset to add a description and define schemas.
 
 !!! tip "Schema generation from code"
-    If you are using Python types (dataclasses, Pydantic models, etc.) for your schemas, it is easier to publish the dataset via the SDK, which generates hosted JSON schemas automatically from your type definitions. See [Publishing a Local Typed Dataset to Hosted](sdk.md#publishing-a-local-typed-dataset-to-hosted) in the SDK Guide.
+    If you are using Python types (dataclasses, Pydantic models, etc.) for your schemas, it is easier to publish the dataset via the SDK, which generates hosted JSON schemas automatically from your type definitions. See [Publishing a Local Dataset to Hosted](sdk.md#publishing-a-local-dataset-to-hosted) in the SDK Guide.
 
 ??? example "SDK equivalent"
 

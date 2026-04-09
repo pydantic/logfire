@@ -352,6 +352,11 @@ class TestPushDatasetHelpers:
         dataset = Dataset(name='test-dataset', cases=[])
         assert _get_dataset_type_args(cast(Any, dataset)) == (None, None, None)
 
+    def test_get_dataset_type_args_none_metadata(self):
+        """`Dataset[..., None]` should map NoneType back to None so we don't emit a {"type": "null"} schema."""
+        dataset = Dataset[MyInput, MyOutput, None](name='test-dataset', cases=[])
+        assert _get_dataset_type_args(dataset) == (MyInput, MyOutput, None)
+
     def test_build_push_dataset_kwargs_minimal(self):
         create_kwargs, update_kwargs = _build_push_dataset_kwargs(
             target_name='test-dataset', input_type=None, output_type=None, metadata_type=None
