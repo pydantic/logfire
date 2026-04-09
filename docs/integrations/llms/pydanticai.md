@@ -49,8 +49,6 @@ The above example displays like this in **Logfire**:
     title: 'Logfire instrumentation of the agent run'
 ///
 
-![Logfire Pydantic AI Instrumentation](../../images/integrations/pydantic-ai/pydanticai-instrumentation-screenshot.png)
-
 You can use Pydantic AI with a [large variety of LLMs][pydantic_ai.models.KnownModelName], the example
 just happens to show `gpt-5-mini`.
 
