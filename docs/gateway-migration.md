@@ -12,10 +12,10 @@ We're consolidating the AI Gateway into Logfire. This means [gateway.pydantic.de
 | Date | Event |
 |------|-------|
 | **15 March 2026** | Self-service refunds available in the legacy gateway platform |
-| **8 April 2026 at 3pm UTC** | Legacy gateway fully shut down (end of life) |
+| **13 April 2026 at 3pm UTC** | Legacy gateway fully shut down (end of life) |
 | **By end of April 2026** | Automatic refunds processed for any remaining balances |
 
-**Please migrate before 8 April 2026.** If you need help, email us at [engineering@pydantic.dev](mailto:engineering@pydantic.dev).
+**Please migrate before 13 April 2026.** If you need help, email us at [engineering@pydantic.dev](mailto:engineering@pydantic.dev).
 
 ## Why We Made This Change
 
