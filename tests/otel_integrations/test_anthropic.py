@@ -584,7 +584,7 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
                     'gen_ai.usage.output_tokens': 55,
                     'gen_ai.usage.raw': {'input_tokens': 25, 'output_tokens': 55},
                     'operation.cost': 7.5e-05,
-                    'response_data': {'combined_chunk_content': 'The answer is secret', 'chunk_count': 1},
+                    'response_data': {'combined_chunk_content': 'The answer is secret', 'chunk_count': 2},
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -721,7 +721,7 @@ async def test_async_messages_stream(
                     'gen_ai.usage.output_tokens': 55,
                     'gen_ai.usage.raw': {'input_tokens': 25, 'output_tokens': 55},
                     'operation.cost': 7.5e-05,
-                    'response_data': {'combined_chunk_content': 'The answer is secret', 'chunk_count': 1},
+                    'response_data': {'combined_chunk_content': 'The answer is secret', 'chunk_count': 2},
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -1839,7 +1839,7 @@ def test_sync_messages_beta_stream(exporter: TestExporter) -> None:
                     ],
                     'gen_ai.system_instructions': [{'type': 'text', 'content': 'You are a helpful assistant.'}],
                     'async': False,
-                    'response_data': {'combined_chunk_content': 'Four plus five equals nine.', 'chunk_count': 1},
+                    'response_data': {'combined_chunk_content': 'Four plus five equals nine.', 'chunk_count': 3},
                     'gen_ai.output.messages': [
                         {
                             'role': 'assistant',
