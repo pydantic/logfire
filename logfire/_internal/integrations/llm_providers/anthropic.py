@@ -12,10 +12,8 @@ from logfire._internal.utils import handle_internal_errors
 
 from .semconv import (
     INPUT_MESSAGES,
-    INPUT_TOKENS,
     OPERATION_NAME,
     OUTPUT_MESSAGES,
-    OUTPUT_TOKENS,
     PROVIDER_NAME,
     REQUEST_MAX_TOKENS,
     REQUEST_MODEL,
@@ -41,6 +39,7 @@ from .semconv import (
     UriPart,
 )
 from .types import EndpointConfig, StreamState
+from .usage import get_usage_attributes
 
 if TYPE_CHECKING:
     from anthropic._models import FinalRequestOptions
@@ -306,6 +305,20 @@ class AnthropicMessageStreamState(StreamState):
         return result
 
 
+def get_anthropic_usage_attributes(response: Any) -> dict[str, Any]:
+    """Extract usage attributes from an Anthropic response object.
+
+    Works for Message and BetaMessage from non-streaming on_response().
+    Returns an empty dict when usage is None.
+    """
+    usage = getattr(response, 'usage', None)
+    if usage is None:
+        return {}
+    input_tokens = usage.input_tokens + (usage.cache_read_input_tokens or 0) + (usage.cache_creation_input_tokens or 0)
+    output_tokens = usage.output_tokens
+    return get_usage_attributes(response, usage, input_tokens, output_tokens, provider_id='anthropic')
+
+
 @handle_internal_errors
 def on_response(
     response: ResponseT, span: LogfireSpan, *, version: SemconvVersion | frozenset[SemconvVersion] = 1
@@ -339,32 +352,10 @@ def on_response(
         span.set_attribute(RESPONSE_MODEL, response.model)
         span.set_attribute(RESPONSE_ID, response.id)
 
-        if response.usage:  # pragma: no branch
-            # Anthropic's input_tokens only counts uncached tokens.
-            # Per OTel GenAI semconv, gen_ai.usage.input_tokens should be the total,
-            # so we add cache_read_input_tokens and cache_creation_input_tokens.
-            span.set_attribute(
-                INPUT_TOKENS,
-                response.usage.input_tokens
-                + (response.usage.cache_read_input_tokens or 0)
-                + (response.usage.cache_creation_input_tokens or 0),
-            )
-            span.set_attribute(OUTPUT_TOKENS, response.usage.output_tokens)
+        span.set_attributes(get_anthropic_usage_attributes(response))
 
         if response.stop_reason:
             span.set_attribute(RESPONSE_FINISH_REASONS, [response.stop_reason])
-
-        try:
-            from genai_prices import calc_price, extract_usage
-
-            response_data = response.model_dump()
-            usage_data = extract_usage(response_data, provider_id='anthropic')
-            span.set_attribute(
-                'operation.cost',
-                float(calc_price(usage_data.usage, model_ref=response.model, provider_id='anthropic').total_price),
-            )
-        except Exception:
-            pass
 
     return response
 
