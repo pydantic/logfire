@@ -299,15 +299,7 @@ class AnthropicMessageStreamState(StreamState):
         if 1 in versions:
             result['response_data'] = self.get_response_data()
         if 'latest' in versions and self._message and self._message.content:
-            texts = [block.text for block in self._message.content if isinstance(block, (TextBlock, BetaTextBlock))]
-            if texts:  # pragma: no branch
-                combined = ''.join(texts)
-                result[OUTPUT_MESSAGES] = [
-                    OutputMessage(
-                        role='assistant',
-                        parts=[TextPart(type='text', content=combined)],
-                    )
-                ]
+            result[OUTPUT_MESSAGES] = [convert_response_to_semconv(self._message)]
         if self._message is not None:
             result.update(get_anthropic_usage_attributes(self._message))
         return result
