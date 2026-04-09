@@ -124,6 +124,7 @@ nav:
           - Integrations: integrations/index.md
           - AI & LLM Frameworks:
               - Pydantic AI: integrations/llms/pydanticai.md
+              - AG2: integrations/llms/ag2.md
               - OpenAI: integrations/llms/openai.md
               - Google Gen AI: integrations/llms/google-genai.md
               - Anthropic: integrations/llms/anthropic.md

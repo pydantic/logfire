@@ -207,6 +207,16 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
         logfire_api.instrument_pydantic_ai()
     logfire__all__.remove('instrument_pydantic_ai')
 
+    assert hasattr(logfire_api, 'instrument_ag2')
+    try:
+        importlib.import_module('autogen')
+    except ImportError:
+        pass
+    else:
+        with logfire_api.instrument_ag2():
+            ...
+    logfire__all__.remove('instrument_ag2')
+
     assert hasattr(logfire_api, 'instrument_mcp')
     if sys.version_info >= (3, 10) and get_version(pydantic_version) >= get_version('2.11.0'):
         logfire_api.instrument_mcp()

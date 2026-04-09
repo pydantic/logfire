@@ -75,6 +75,7 @@ if TYPE_CHECKING:
     from wsgiref.types import WSGIApplication
 
     import anthropic
+    import autogen
     import httpx
     import openai
     import pydantic_ai.models
@@ -1145,6 +1146,37 @@ class Logfire:
             include_content=include_content,
             include_binary_content=include_binary_content,
             **kwargs,
+        )
+
+    def instrument_ag2(
+        self,
+        agent: autogen.ConversableAgent | Iterable[autogen.ConversableAgent] | None = None,
+        *,
+        record_content: bool = False,
+        suppress_other_instrumentation: bool = False,
+    ) -> AbstractContextManager[None]:
+        """Instrument AG2 conversations, turns, and tool executions.
+
+        Args:
+            agent: Optional AG2 agent instance (or iterable of agents) to scope instrumentation.
+                If omitted, instrumentation is applied globally.
+            record_content: If `True`, include message and tool payload content in span attributes.
+                Defaults to `False` to avoid recording potentially sensitive data.
+            suppress_other_instrumentation: If `True`, suppress other OTEL instrumentation while AG2
+                conversation processing runs.
+
+        Returns:
+            A context manager that reverts the instrumentation when exited.
+                Use of this context manager is optional.
+        """
+        from .integrations.ag2 import instrument_ag2
+
+        self._warn_if_not_initialized_for_instrumentation()
+        return instrument_ag2(
+            self,
+            agent=agent,
+            record_content=record_content,
+            suppress_other_instrumentation=suppress_other_instrumentation,
         )
 
     def instrument_fastapi(

@@ -150,6 +150,9 @@ except ImportError:
 
             def instrument_pydantic_ai(self, *args, **kwargs) -> None: ...
 
+            def instrument_ag2(self, *args, **kwargs) -> ContextManager[None]:
+                return nullcontext()
+
             def instrument_pymongo(self, *args, **kwargs) -> None: ...
 
             def instrument_sqlalchemy(self, *args, **kwargs) -> None: ...
@@ -231,6 +234,7 @@ except ImportError:
         instrument_wsgi = DEFAULT_LOGFIRE_INSTANCE.instrument_wsgi
         instrument_pydantic = DEFAULT_LOGFIRE_INSTANCE.instrument_pydantic
         instrument_pydantic_ai = DEFAULT_LOGFIRE_INSTANCE.instrument_pydantic_ai
+        instrument_ag2 = DEFAULT_LOGFIRE_INSTANCE.instrument_ag2
         instrument_fastapi = DEFAULT_LOGFIRE_INSTANCE.instrument_fastapi
         instrument_openai = DEFAULT_LOGFIRE_INSTANCE.instrument_openai
         instrument_openai_agents = DEFAULT_LOGFIRE_INSTANCE.instrument_openai_agents
