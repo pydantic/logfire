@@ -39,6 +39,7 @@ log_slow_async_callbacks = DEFAULT_LOGFIRE_INSTANCE.log_slow_async_callbacks
 install_auto_tracing = DEFAULT_LOGFIRE_INSTANCE.install_auto_tracing
 instrument_pydantic = DEFAULT_LOGFIRE_INSTANCE.instrument_pydantic
 instrument_pydantic_ai = DEFAULT_LOGFIRE_INSTANCE.instrument_pydantic_ai
+instrument_ag2 = DEFAULT_LOGFIRE_INSTANCE.instrument_ag2
 instrument_asgi = DEFAULT_LOGFIRE_INSTANCE.instrument_asgi
 instrument_wsgi = DEFAULT_LOGFIRE_INSTANCE.instrument_wsgi
 instrument_fastapi = DEFAULT_LOGFIRE_INSTANCE.instrument_fastapi
@@ -150,6 +151,7 @@ __all__ = (
     'instrument_wsgi',
     'instrument_pydantic',
     'instrument_pydantic_ai',
+    'instrument_ag2',
     'instrument_fastapi',
     'instrument_openai',
     'instrument_openai_agents',

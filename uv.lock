@@ -20,7 +20,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-02T13:43:56.677963Z"
+exclude-newer = "2026-04-02T22:29:32.955013Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -35,6 +35,32 @@ pydantic = false
 members = [
     "logfire",
     "logfire-api",
+]
+
+[[package]]
+name = "ag2"
+version = "0.11.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio", version = "4.13.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "diskcache", marker = "python_full_version >= '3.10'" },
+    { name = "docker", marker = "python_full_version >= '3.10'" },
+    { name = "fast-depends", extra = ["pydantic"], marker = "python_full_version >= '3.10'" },
+    { name = "httpx", marker = "python_full_version >= '3.10'" },
+    { name = "packaging", version = "26.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "pydantic", marker = "python_full_version >= '3.10'" },
+    { name = "python-dotenv", version = "1.2.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "termcolor", marker = "python_full_version >= '3.10'" },
+    { name = "tiktoken", marker = "python_full_version >= '3.10'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/77/20/46159b56f9c6069ea2bc174f3ce3597febc4f4bbf467c2c1e003c84f0da7/ag2-0.11.4.tar.gz", hash = "sha256:1949d27e889a908a258ad4bcda4bfb33770763a2e8f9ea2da13eec342da8f493", size = 3818369, upload-time = "2026-03-17T23:47:50.308Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a6/14/0d226e5fbb02949ae1ded5bcaa695a1ca11bb9535c71b53dfbc6ff2c4b5e/ag2-0.11.4-py3-none-any.whl", hash = "sha256:182805d940271bd9cfea2a40f5dc1f3db351745b07135efdb015a7f0c0681fd4", size = 1080405, upload-time = "2026-03-17T23:47:48.15Z" },
+]
+
+[package.optional-dependencies]
+openai = [
+    { name = "openai", marker = "python_full_version >= '3.10'" },
 ]
 
 [[package]]
@@ -1636,6 +1662,24 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/cc/28/c14e053b6762b1044f34a13aab6859bbf40456d37d23aa286ac24cfd9a5d/executing-2.2.1.tar.gz", hash = "sha256:3632cc370565f6648cc328b32435bd120a1e4ebb20c77e3fdde9a13cd1e533c4", size = 1129488, upload-time = "2025-09-01T09:48:10.866Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c1/ea/53f2148663b321f21b5a606bd5f191517cf40b7072c0497d3c92c4a13b1e/executing-2.2.1-py2.py3-none-any.whl", hash = "sha256:760643d3452b4d777d295bb167ccc74c64a81df23fb5e08eff250c425a4b2017", size = 28317, upload-time = "2025-09-01T09:48:08.5Z" },
+]
+
+[[package]]
+name = "fast-depends"
+version = "3.0.8"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio", version = "4.13.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "typing-extensions", marker = "python_full_version >= '3.10'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f8/6d/787a21ca8043a8fdb737cf28f645e94a46fc30b44a31de54573299156bad/fast_depends-3.0.8.tar.gz", hash = "sha256:896b16f79a512b6ea1df721b0aa1708a192a06f964be6597e01fcf5412559101", size = 18382, upload-time = "2026-03-02T19:54:28.649Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1d/1d/e4843e4eeb65f51447b8c22d200d12d8f94f27c97e77bb7162515cc8d61f/fast_depends-3.0.8-py3-none-any.whl", hash = "sha256:4c52c8a3907bca46d43e70e4364d6d016872d9a3aae4bc0c1c85e72e0a6a21c7", size = 25507, upload-time = "2026-03-02T19:54:27.594Z" },
+]
+
+[package.optional-dependencies]
+pydantic = [
+    { name = "pydantic", marker = "python_full_version >= '3.10'" },
 ]
 
 [[package]]
@@ -3439,6 +3483,7 @@ wsgi = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "ag2", extra = ["openai"], marker = "python_full_version >= '3.10'" },
     { name = "aiohttp" },
     { name = "aiosqlite" },
     { name = "anthropic" },
@@ -3618,6 +3663,7 @@ provides-extras = ["system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client"
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "ag2", extras = ["openai"], marker = "python_full_version >= '3.10'", specifier = ">=0.11.4,<1.0" },
     { name = "aiohttp", specifier = ">=3.10.9" },
     { name = "aiosqlite", specifier = "!=0.22.*" },
     { name = "anthropic", specifier = ">=0.27.0" },
@@ -8752,6 +8798,15 @@ resolution-markers = [
 sdist = { url = "https://files.pythonhosted.org/packages/47/c6/ee486fd809e357697ee8a44d3d69222b344920433d3b6666ccd9b374630c/tenacity-9.1.4.tar.gz", hash = "sha256:adb31d4c263f2bd041081ab33b498309a57c77f9acf2db65aadf0898179cf93a", size = 49413, upload-time = "2026-02-07T10:45:33.841Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d7/c1/eb8f9debc45d3b7918a32ab756658a0904732f75e555402972246b0b8e71/tenacity-9.1.4-py3-none-any.whl", hash = "sha256:6095a360c919085f28c6527de529e76a06ad89b23659fa881ae0649b867a9d55", size = 28926, upload-time = "2026-02-07T10:45:32.24Z" },
+]
+
+[[package]]
+name = "termcolor"
+version = "3.3.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/46/79/cf31d7a93a8fdc6aa0fbb665be84426a8c5a557d9240b6239e9e11e35fc5/termcolor-3.3.0.tar.gz", hash = "sha256:348871ca648ec6a9a983a13ab626c0acce02f515b9e1983332b17af7979521c5", size = 14434, upload-time = "2025-12-29T12:55:21.882Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/33/d1/8bb87d21e9aeb323cc03034f5eaf2c8f69841e40e4853c2627edf8111ed3/termcolor-3.3.0-py3-none-any.whl", hash = "sha256:cf642efadaf0a8ebbbf4bc7a31cec2f9b5f21a9f726f4ccbb08192c9c26f43a5", size = 7734, upload-time = "2025-12-29T12:55:20.718Z" },
 ]
 
 [[package]]
