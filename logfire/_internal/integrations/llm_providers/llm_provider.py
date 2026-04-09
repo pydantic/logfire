@@ -207,7 +207,7 @@ def record_streaming(
         if chunk:
             try:
                 stream_state.record_chunk(chunk)
-            except Exception:
+            except Exception:  # pragma: no cover
                 pass
 
     timer = logire_llm._config.advanced.ns_timestamp_generator  # pyright: ignore[reportPrivateUsage]
