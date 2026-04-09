@@ -258,13 +258,13 @@ def _wrap_response_process(
 
         @wraps(process)
         async def wrapped_process_async(*args: Any, **kwargs: Any) -> Any:
-            cm = suppress_instrumentation() if suppress_other_instrumentation else nullcontext()
-            with cm:
-                attrs = _conversation_attrs(runner, recipient, message, record_content)
-                with logfire_instance.span(SPAN_CONVERSATION, **attrs) as span:
+            attrs = _conversation_attrs(runner, recipient, message, record_content)
+            with logfire_instance.span(SPAN_CONVERSATION, **attrs) as span:
+                cm = suppress_instrumentation() if suppress_other_instrumentation else nullcontext()
+                with cm:
                     result = await process(*args, **kwargs)
-                    _set_conversation_summary_attributes(span, recipient)
-                    return result
+                _set_conversation_summary_attributes(span, recipient)
+                return result
 
         wrapped = wrapped_process_async
 
@@ -272,13 +272,13 @@ def _wrap_response_process(
 
         @wraps(process)
         def wrapped_process_sync(*args: Any, **kwargs: Any) -> Any:
-            cm = suppress_instrumentation() if suppress_other_instrumentation else nullcontext()
-            with cm:
-                attrs = _conversation_attrs(runner, recipient, message, record_content)
-                with logfire_instance.span(SPAN_CONVERSATION, **attrs) as span:
+            attrs = _conversation_attrs(runner, recipient, message, record_content)
+            with logfire_instance.span(SPAN_CONVERSATION, **attrs) as span:
+                cm = suppress_instrumentation() if suppress_other_instrumentation else nullcontext()
+                with cm:
                     result = process(*args, **kwargs)
-                    _set_conversation_summary_attributes(span, recipient)
-                    return result
+                _set_conversation_summary_attributes(span, recipient)
+                return result
 
         wrapped = wrapped_process_sync
 
