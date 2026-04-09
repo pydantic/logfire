@@ -79,10 +79,24 @@ from anthropic.lib.streaming._messages import accumulate_event
 
 The helper that extracted text from `TextDelta`/`TextBlock` chunks was only called by `record_chunk()` and has no other references. Removed.
 
+## Modified: `record_chunk` wrapper in `record_streaming()` in `llm_provider.py`
+
+*(implements "Exceptions in record_chunk() are silently swallowed")*
+
+```python
+def record_chunk(chunk: Any) -> None:
+    if chunk:
+        try:
+            stream_state.record_chunk(chunk)
+        except Exception:
+            pass
+```
+
+Wraps `stream_state.record_chunk(chunk)` in a bare try/except to prevent logfire internals from crashing user stream iteration. Applies to all providers (Anthropic, OpenAI, etc.).
+
 ## Not changed
 
 - `get_anthropic_usage_attributes()` — now reused for both streaming and non-streaming (no modifications needed).
 - `get_usage_attributes()` in `usage.py` — no changes needed.
 - `on_response()` — non-streaming path, unchanged.
-- `llm_provider.py` / `record_streaming()` — already passes through `get_attributes()` result.
 - `types.py` / `StreamState` base class — no changes needed.
