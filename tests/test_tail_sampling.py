@@ -7,13 +7,16 @@ import inline_snapshot.extra
 import pytest
 from inline_snapshot import snapshot
 from opentelemetry.context import Context
-from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
+from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
+from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor, TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.sampling import ALWAYS_OFF, ALWAYS_ON, Sampler, SamplingResult
 
 import logfire
 from logfire._internal.constants import LEVEL_NUMBERS
+from logfire._internal.exporters.test import TestLogExporter
 from logfire.sampling import SpanLevel, TailSamplingSpanInfo
+from logfire.sampling._tail_sampling import TailSamplingProcessor
 from logfire.testing import SeededRandomIdGenerator, TestExporter, TimeGenerator
 
 
@@ -530,10 +533,6 @@ def test_tail_sampling_no_warning_on_ended_span(
     With the redesigned TailSamplingProcessor, on_start is called immediately on the main processor
     (including DirectBaggageAttributesSpanProcessor), so attributes are set before the span ends.
     """
-    from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
-
-    from logfire._internal.exporters.test import TestLogExporter
-
     config_kwargs = dict(
         send_to_logfire=False,
         console=False,
@@ -676,10 +675,6 @@ def test_tail_sampling_processor_without_deferred():
     Covers the deferred_processor-is-None branches in on_start, on_end,
     push_buffer, shutdown, and force_flush.
     """
-    from opentelemetry.sdk.trace import TracerProvider
-
-    from logfire.sampling._tail_sampling import TailSamplingProcessor
-
     on_end_spans: list[str] = []
 
     class CollectorProcessor(SpanProcessor):
@@ -722,14 +717,18 @@ def test_tail_sampling_processor_without_deferred():
     processor.shutdown()
 
 
-def test_tail_sampling_config_without_pending_span_processors():
+def test_tail_sampling_config_without_pending_span_processors(exporter: TestExporter):
     """Test config.py wiring when tail sampling is active but no processors have pending spans.
 
-    Covers the deferred_processors-is-empty branch in config.py.
+    Covers the deferred_processors-is-empty branch in config.py, which means
+    TailSamplingProcessor is constructed with deferred_processor=None.
     """
     logfire.configure(
         send_to_logfire=False,
         console=False,
+        additional_span_processors=[SimpleSpanProcessor(exporter)],
         sampling=logfire.SamplingOptions(tail=lambda info: 1.0),
     )
     logfire.info('test')
+    assert len(exporter.exported_spans) == 1
+    assert exporter.exported_spans[0].name == 'test'
