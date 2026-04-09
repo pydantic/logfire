@@ -13,9 +13,9 @@ These are the only two event types that carry usage data. The type checks use `i
 Context: `MessageStartEvent.message` is a full `Message` object with `model` and `usage` (type `Usage`, has `input_tokens`, `output_tokens`, cache fields). `MessageDeltaEvent.usage` is a `MessageDeltaUsage` with cumulative `output_tokens` and optional cumulative cache/input fields. Per the Anthropic SDK source, all `MessageDeltaUsage` fields are documented as "cumulative" — they replace (not add to) the corresponding `message_start` values. The `message_start.message` also carries `model`, needed for cost calculation.
 
 **`get_attributes()` calls `get_usage_attributes()` with tokens derived from the accumulated events.** *(from "AnthropicMessageStreamState.record_chunk() must capture")*
-Computes final token counts from the captured events and delegates to the shared `get_usage_attributes()`. When `message` is `None` (no `message_start` was received), no usage attributes are set. When both `message` and `message_delta_usage` are available:
+Computes final token counts from the captured events and delegates to the shared `get_usage_attributes()`. When `message` is `None` (no `message_start` was received), no usage attributes are set. When `message` is available:
 - `input_tokens`: from `message.usage` with cache adjustment — `usage.input_tokens + (usage.cache_read_input_tokens or 0) + (usage.cache_creation_input_tokens or 0)` — identical to the non-streaming `get_anthropic_usage_attributes()`.
-- `output_tokens`: from `message_delta_usage.output_tokens` (cumulative final value, replaces the `message_start` output count).
+- `output_tokens`: from `message_delta_usage.output_tokens` when available (cumulative final value, replaces the `message_start` output count), otherwise falls back to `message.usage.output_tokens`.
 - `response`: the `message` from `message_start` — passed to `get_usage_attributes()` for cost calculation. Context: `genai_prices.extract_usage(response.model_dump())` will find the `model` field on the `Message` object.
 - `usage`: the `message.usage` object — used for `gen_ai.usage.raw` via `usage.model_dump(exclude_none=True)`.
 

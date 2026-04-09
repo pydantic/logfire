@@ -66,9 +66,9 @@ def _get_usage_attributes(self) -> dict[str, Any]:
     """Compute usage attributes from accumulated streaming events."""
 ```
 
-Private helper on the stream state class. Returns `{}` when `self._message` is `None`. When both `_message` and `_message_delta_usage` are available:
+Private helper on the stream state class. Returns `{}` when `self._message` is `None`. Otherwise:
 - Computes `input_tokens` from `self._message.usage` with cache adjustment (same formula as `get_anthropic_usage_attributes()`).
-- Takes `output_tokens` from `self._message_delta_usage.output_tokens`.
+- Takes `output_tokens` from `self._message_delta_usage.output_tokens` if available, otherwise falls back to `self._message.usage.output_tokens` (the `message_start` initial value — less accurate but better than omitting usage entirely).
 - Calls `get_usage_attributes(self._message, self._message.usage, input_tokens, output_tokens, provider_id='anthropic')`.
 
 Passes `self._message` as `response` (for cost calculation via `genai_prices`) and `self._message.usage` as `usage` (for `gen_ai.usage.raw`).
