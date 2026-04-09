@@ -19,9 +19,9 @@ logfire.instrument_pydantic_ai()
 roulette_agent = Agent(
     'openai:gpt-5-mini',
     deps_type=int,
-    result_type=bool,
+    output_type=bool,
     system_prompt=(
-        'Use the `roulette_wheel` function to see if the ' 'customer has won based on the number they provide.'
+        'Use the `roulette_wheel` function to see if the customer has won based on the number they provide.'
     ),
 )
 
@@ -35,23 +35,24 @@ async def roulette_wheel(ctx: RunContext[int], square: int) -> str:
 # Run the agent
 success_number = 18
 result = roulette_agent.run_sync('Put my money on square eighteen', deps=success_number)
-print(result.data)
+print(result.output)
 #> True
 
 result = roulette_agent.run_sync('I bet five is the winner', deps=success_number)
-print(result.data)
+print(result.output)
 #> False
 ```
 
 The above example displays like this in **Logfire**:
 
-![Logfire Pydantic AI Instrumentation](../../images/integrations/pydantic-ai/pydanticai-instrumentation-screenshot.
-png)
+/// public-trace | https://logfire-eu.pydantic.dev/public-trace/953848ba-11a8-4368-a21b-c9bda69a7f58?spanId=9026260034697d53
+    title: 'Logfire instrumentation of the agent run'
+///
 
-You can use Pydantic AI with a [large variety of LLMs](https://ai.pydantic.dev/api/models/base/#pydantic_ai.models.KnownModelName), the example
-just happens to show `gpt-4o`.
+You can use Pydantic AI with a [large variety of LLMs][pydantic_ai.models.KnownModelName], the example
+just happens to show `gpt-5-mini`.
 
 You can also instrument a specific agent with `logfire.instrument_pydantic_ai(agent)`.
 
 For more information, see the [`logfire.instrument_pydantic_ai()`][logfire.Logfire.instrument_pydantic_ai]
-reference or the [Pydantic AI docs on instrumenting](https://ai.pydantic.dev/logfire/) with **Logfire**.
+reference or the [Pydantic AI docs on instrumenting](https://pydantic.dev/docs/ai/integrations/logfire/) with **Logfire**.
