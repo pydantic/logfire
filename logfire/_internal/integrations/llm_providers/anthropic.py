@@ -25,6 +25,7 @@ from .semconv import (
     RESPONSE_FINISH_REASONS,
     RESPONSE_ID,
     RESPONSE_MODEL,
+    SYSTEM,
     SYSTEM_INSTRUCTIONS,
     TOOL_DEFINITIONS,
     BlobPart,
@@ -100,7 +101,7 @@ def get_endpoint_config(
     if url in ('/v1/messages', '/v1/messages?beta=true'):
         span_data: dict[str, Any] = {
             'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
-            'gen_ai.system': 'anthropic',
+            SYSTEM: 'anthropic',
             PROVIDER_NAME: 'anthropic',
             OPERATION_NAME: 'chat',
             REQUEST_MODEL: json_data.get('model'),
@@ -126,7 +127,7 @@ def get_endpoint_config(
         span_data = {
             'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
             'url': url,
-            'gen_ai.system': 'anthropic',
+            SYSTEM: 'anthropic',
             PROVIDER_NAME: 'anthropic',
         }
         if 'model' in json_data:  # pragma: no branch

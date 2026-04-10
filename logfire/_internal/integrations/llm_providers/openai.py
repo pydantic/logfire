@@ -36,6 +36,7 @@ from .semconv import (
     RESPONSE_FINISH_REASONS,
     RESPONSE_ID,
     RESPONSE_MODEL,
+    SYSTEM,
     SYSTEM_INSTRUCTIONS,
     TOOL_DEFINITIONS,
     BlobPart,
@@ -128,7 +129,7 @@ def get_endpoint_config(
 
         span_data: dict[str, Any] = {
             'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
-            'gen_ai.system': 'openai',
+            SYSTEM: 'openai',
             PROVIDER_NAME: 'openai',
             OPERATION_NAME: 'chat',
             REQUEST_MODEL: json_data.get('model'),
@@ -154,7 +155,7 @@ def get_endpoint_config(
         stream = json_data.get('stream', False)
         span_data = {
             'request_data': {'model': json_data.get('model'), 'stream': stream},
-            'gen_ai.system': 'openai',
+            SYSTEM: 'openai',
             PROVIDER_NAME: 'openai',
             OPERATION_NAME: 'chat',
             REQUEST_MODEL: json_data.get('model'),
@@ -181,7 +182,7 @@ def get_endpoint_config(
     elif url == '/completions':
         span_data = {
             'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
-            'gen_ai.system': 'openai',
+            SYSTEM: 'openai',
             PROVIDER_NAME: 'openai',
             OPERATION_NAME: 'text_completion',
             REQUEST_MODEL: json_data.get('model'),
@@ -195,7 +196,7 @@ def get_endpoint_config(
     elif url == '/embeddings':
         span_data = {
             'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
-            'gen_ai.system': 'openai',
+            SYSTEM: 'openai',
             PROVIDER_NAME: 'openai',
             OPERATION_NAME: 'embeddings',
             REQUEST_MODEL: json_data.get('model'),
@@ -208,7 +209,7 @@ def get_endpoint_config(
     elif url == '/images/generations':
         span_data = {
             'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
-            'gen_ai.system': 'openai',
+            SYSTEM: 'openai',
             PROVIDER_NAME: 'openai',
             OPERATION_NAME: 'image_generation',
             REQUEST_MODEL: json_data.get('model'),
@@ -222,7 +223,7 @@ def get_endpoint_config(
         span_data = {
             'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
             'url': url,
-            'gen_ai.system': 'openai',
+            SYSTEM: 'openai',
             PROVIDER_NAME: 'openai',
         }
         if 'model' in json_data:
@@ -619,7 +620,7 @@ def on_response(
         on_response(response.parse(), span, version=versions)  # pyright: ignore[reportUnknownArgumentType]
         return cast('ResponseT', response)
 
-    span.set_attribute('gen_ai.system', 'openai')
+    span.set_attribute(SYSTEM, 'openai')
 
     if isinstance(response_model := getattr(response, 'model', None), str):
         span.set_attribute(RESPONSE_MODEL, response_model)
