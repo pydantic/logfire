@@ -620,8 +620,6 @@ def on_response(
         on_response(response.parse(), span, version=versions)  # pyright: ignore[reportUnknownArgumentType]
         return cast('ResponseT', response)
 
-    span.set_attribute(SYSTEM, 'openai')
-
     if isinstance(response_model := getattr(response, 'model', None), str):
         span.set_attribute(RESPONSE_MODEL, response_model)
 
