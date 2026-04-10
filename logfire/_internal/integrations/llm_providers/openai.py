@@ -24,7 +24,6 @@ from .semconv import (
     INPUT_MESSAGES,
     OPERATION_NAME,
     OUTPUT_MESSAGES,
-    PROVIDER_NAME,
     REQUEST_FREQUENCY_PENALTY,
     REQUEST_MAX_TOKENS,
     REQUEST_MODEL,
@@ -51,6 +50,7 @@ from .semconv import (
     ToolCallPart,
     ToolCallResponsePart,
     UriPart,
+    provider_attrs,
 )
 from .types import EndpointConfig, StreamState
 from .usage import get_usage_attributes
@@ -121,18 +121,26 @@ def get_endpoint_config(
         # Ensure that `{request_data[model]!r}` doesn't raise an error, just a warning about `model` missing.
         raw_json_data = {}
     json_data = cast('dict[str, Any]', raw_json_data)
+    model = json_data.get('model')
+    request_data = json_data if 1 in versions else {'model': model}
+
+    def common_attrs(operation: str = '') -> dict[str, Any]:
+        attrs: dict[str, Any] = {
+            'request_data': request_data,
+            **provider_attrs('openai'),
+        }
+        if model:
+            attrs[REQUEST_MODEL] = model
+        if operation:
+            attrs[OPERATION_NAME] = operation
+        _extract_request_parameters(json_data, attrs)
+        return attrs
 
     if url == '/chat/completions':
         if is_current_agent_span('Chat completion with {gen_ai.request.model!r}'):
             return EndpointConfig(message_template='', span_data={})
 
-        span_data: dict[str, Any] = {
-            'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
-            PROVIDER_NAME: 'openai',
-            OPERATION_NAME: 'chat',
-            REQUEST_MODEL: json_data.get('model'),
-        }
-        _extract_request_parameters(json_data, span_data)
+        span_data = common_attrs('chat')
 
         if 'latest' in versions:
             # Convert messages to semantic convention format
@@ -151,15 +159,9 @@ def get_endpoint_config(
             return EndpointConfig(message_template='', span_data={})
 
         stream = json_data.get('stream', False)
-        span_data = {
-            'request_data': {'model': json_data.get('model'), 'stream': stream},
-            PROVIDER_NAME: 'openai',
-            OPERATION_NAME: 'chat',
-            REQUEST_MODEL: json_data.get('model'),
-        }
+        span_data = {**common_attrs('chat'), 'request_data': {'model': model, 'stream': stream}}
         if 1 in versions:
             span_data['events'] = inputs_to_events(json_data.get('input'), json_data.get('instructions'))
-        _extract_request_parameters(json_data, span_data)
 
         if 'latest' in versions:
             # Convert inputs to semantic convention format
@@ -177,54 +179,25 @@ def get_endpoint_config(
             stream_state_cls=_versioned_stream_cls(OpenaiResponsesStreamState, versions),
         )
     elif url == '/completions':
-        span_data = {
-            'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
-            PROVIDER_NAME: 'openai',
-            OPERATION_NAME: 'text_completion',
-            REQUEST_MODEL: json_data.get('model'),
-        }
-        _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='Completion with {request_data[model]!r}',
-            span_data=span_data,
+            span_data=common_attrs('text_completion'),
             stream_state_cls=_versioned_stream_cls(OpenaiCompletionStreamState, versions),
         )
     elif url == '/embeddings':
-        span_data = {
-            'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
-            PROVIDER_NAME: 'openai',
-            OPERATION_NAME: 'embeddings',
-            REQUEST_MODEL: json_data.get('model'),
-        }
-        _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='Embedding Creation with {request_data[model]!r}',
-            span_data=span_data,
+            span_data=common_attrs('embeddings'),
         )
     elif url == '/images/generations':
-        span_data = {
-            'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
-            PROVIDER_NAME: 'openai',
-            OPERATION_NAME: 'image_generation',
-            REQUEST_MODEL: json_data.get('model'),
-        }
-        _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='Image Generation with {request_data[model]!r}',
-            span_data=span_data,
+            span_data=common_attrs('image_generation'),
         )
     else:
-        span_data = {
-            'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
-            'url': url,
-            PROVIDER_NAME: 'openai',
-        }
-        if 'model' in json_data:
-            span_data[REQUEST_MODEL] = json_data['model']
-        _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='OpenAI API call to {url!r}',
-            span_data=span_data,
+            span_data={'url': url, **common_attrs()},
         )
 
 
@@ -612,8 +585,6 @@ def on_response(
     if isinstance(response, LegacyAPIResponse):  # pragma: no cover
         on_response(response.parse(), span, version=versions)  # pyright: ignore[reportUnknownArgumentType]
         return cast('ResponseT', response)
-
-    span.set_attribute('gen_ai.system', 'openai')
 
     if isinstance(response_model := getattr(response, 'model', None), str):
         span.set_attribute(RESPONSE_MODEL, response_model)
