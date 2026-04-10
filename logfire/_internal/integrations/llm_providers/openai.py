@@ -24,7 +24,6 @@ from .semconv import (
     INPUT_MESSAGES,
     OPERATION_NAME,
     OUTPUT_MESSAGES,
-    PROVIDER_NAME,
     REQUEST_FREQUENCY_PENALTY,
     REQUEST_MAX_TOKENS,
     REQUEST_MODEL,
@@ -36,7 +35,6 @@ from .semconv import (
     RESPONSE_FINISH_REASONS,
     RESPONSE_ID,
     RESPONSE_MODEL,
-    SYSTEM,
     SYSTEM_INSTRUCTIONS,
     TOOL_DEFINITIONS,
     BlobPart,
@@ -52,6 +50,7 @@ from .semconv import (
     ToolCallPart,
     ToolCallResponsePart,
     UriPart,
+    provider_attrs,
 )
 from .types import EndpointConfig, StreamState
 from .usage import get_usage_attributes
@@ -129,8 +128,7 @@ def get_endpoint_config(
 
         span_data: dict[str, Any] = {
             'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
-            SYSTEM: 'openai',
-            PROVIDER_NAME: 'openai',
+            **provider_attrs('openai'),
             OPERATION_NAME: 'chat',
             REQUEST_MODEL: json_data.get('model'),
         }
@@ -155,8 +153,7 @@ def get_endpoint_config(
         stream = json_data.get('stream', False)
         span_data = {
             'request_data': {'model': json_data.get('model'), 'stream': stream},
-            SYSTEM: 'openai',
-            PROVIDER_NAME: 'openai',
+            **provider_attrs('openai'),
             OPERATION_NAME: 'chat',
             REQUEST_MODEL: json_data.get('model'),
         }
@@ -182,8 +179,7 @@ def get_endpoint_config(
     elif url == '/completions':
         span_data = {
             'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
-            SYSTEM: 'openai',
-            PROVIDER_NAME: 'openai',
+            **provider_attrs('openai'),
             OPERATION_NAME: 'text_completion',
             REQUEST_MODEL: json_data.get('model'),
         }
@@ -196,8 +192,7 @@ def get_endpoint_config(
     elif url == '/embeddings':
         span_data = {
             'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
-            SYSTEM: 'openai',
-            PROVIDER_NAME: 'openai',
+            **provider_attrs('openai'),
             OPERATION_NAME: 'embeddings',
             REQUEST_MODEL: json_data.get('model'),
         }
@@ -209,8 +204,7 @@ def get_endpoint_config(
     elif url == '/images/generations':
         span_data = {
             'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
-            SYSTEM: 'openai',
-            PROVIDER_NAME: 'openai',
+            **provider_attrs('openai'),
             OPERATION_NAME: 'image_generation',
             REQUEST_MODEL: json_data.get('model'),
         }
@@ -223,8 +217,7 @@ def get_endpoint_config(
         span_data = {
             'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
             'url': url,
-            SYSTEM: 'openai',
-            PROVIDER_NAME: 'openai',
+            **provider_attrs('openai'),
         }
         if 'model' in json_data:
             span_data[REQUEST_MODEL] = json_data['model']

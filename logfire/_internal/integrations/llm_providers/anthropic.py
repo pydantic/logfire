@@ -15,7 +15,6 @@ from .semconv import (
     INPUT_MESSAGES,
     OPERATION_NAME,
     OUTPUT_MESSAGES,
-    PROVIDER_NAME,
     REQUEST_MAX_TOKENS,
     REQUEST_MODEL,
     REQUEST_STOP_SEQUENCES,
@@ -25,7 +24,6 @@ from .semconv import (
     RESPONSE_FINISH_REASONS,
     RESPONSE_ID,
     RESPONSE_MODEL,
-    SYSTEM,
     SYSTEM_INSTRUCTIONS,
     TOOL_DEFINITIONS,
     BlobPart,
@@ -39,6 +37,7 @@ from .semconv import (
     ToolCallPart,
     ToolCallResponsePart,
     UriPart,
+    provider_attrs,
 )
 from .types import EndpointConfig, StreamState
 from .usage import get_usage_attributes
@@ -101,8 +100,7 @@ def get_endpoint_config(
     if url in ('/v1/messages', '/v1/messages?beta=true'):
         span_data: dict[str, Any] = {
             'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
-            SYSTEM: 'anthropic',
-            PROVIDER_NAME: 'anthropic',
+            **provider_attrs('anthropic'),
             OPERATION_NAME: 'chat',
             REQUEST_MODEL: json_data.get('model'),
         }
@@ -127,8 +125,7 @@ def get_endpoint_config(
         span_data = {
             'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
             'url': url,
-            SYSTEM: 'anthropic',
-            PROVIDER_NAME: 'anthropic',
+            **provider_attrs('anthropic'),
         }
         if 'model' in json_data:  # pragma: no branch
             span_data[REQUEST_MODEL] = json_data['model']
