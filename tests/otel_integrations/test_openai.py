@@ -914,6 +914,7 @@ def test_sync_chat_empty_response_chunk(instrumented_client: openai.Client, expo
                         'model': 'gpt-4',
                         'stream': True,
                     },
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.operation.name': 'chat',
@@ -927,6 +928,7 @@ def test_sync_chat_empty_response_chunk(instrumented_client: openai.Client, expo
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.request.model': {},
                             'gen_ai.operation.name': {},
@@ -959,6 +961,7 @@ def test_sync_chat_empty_response_chunk(instrumented_client: openai.Client, expo
                     'code.lineno': 123,
                     'logfire.msg': "streaming response from 'gpt-4' took 1.00s",
                     'gen_ai.request.model': 'gpt-4',
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'logfire.span_type': 'log',
                     'gen_ai.operation.name': 'chat',
@@ -973,6 +976,7 @@ def test_sync_chat_empty_response_chunk(instrumented_client: openai.Client, expo
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'async': {},
                             'gen_ai.operation.name': {},
@@ -1014,6 +1018,7 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                         'model': 'gpt-4',
                         'stream': True,
                     },
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.operation.name': 'chat',
@@ -1027,6 +1032,7 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.request.model': {},
                             'gen_ai.operation.name': {},
@@ -1059,6 +1065,7 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                     'code.lineno': 123,
                     'logfire.msg': "streaming response from 'gpt-4' took 1.00s",
                     'gen_ai.request.model': 'gpt-4',
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'logfire.span_type': 'log',
                     'gen_ai.operation.name': 'chat',
@@ -1073,6 +1080,7 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'async': {},
                             'gen_ai.operation.name': {},
@@ -1164,6 +1172,7 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                             }
                         ],
                     },
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.operation.name': 'chat',
@@ -1197,6 +1206,7 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.request.model': {},
                             'gen_ai.operation.name': {},
@@ -1252,6 +1262,7 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                         ],
                     },
                     'gen_ai.request.model': 'gpt-4',
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'async': False,
                     'gen_ai.operation.name': 'chat',
@@ -1332,6 +1343,7 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'async': {},
                             'gen_ai.operation.name': {},
@@ -1465,6 +1477,7 @@ async def test_async_chat_tool_call_stream(
                             }
                         ],
                     },
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.operation.name': 'chat',
@@ -1498,6 +1511,7 @@ async def test_async_chat_tool_call_stream(
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.request.model': {},
                             'gen_ai.operation.name': {},
@@ -1553,6 +1567,7 @@ async def test_async_chat_tool_call_stream(
                         ],
                     },
                     'gen_ai.request.model': 'gpt-4',
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'async': True,
                     'gen_ai.operation.name': 'chat',
@@ -1633,6 +1648,7 @@ async def test_async_chat_tool_call_stream(
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'async': {},
                             'gen_ai.operation.name': {},
@@ -1717,6 +1733,7 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                         'model': 'gpt-4',
                         'stream': True,
                     },
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.operation.name': 'chat',
@@ -1731,6 +1748,7 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.request.model': {},
                             'gen_ai.operation.name': {},
@@ -1766,6 +1784,7 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                     'code.lineno': 123,
                     'logfire.msg': "streaming response from 'gpt-4' took 1.00s",
                     'gen_ai.request.model': 'gpt-4',
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'logfire.span_type': 'log',
                     'gen_ai.operation.name': 'chat',
@@ -1796,6 +1815,7 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'async': {},
                             'gen_ai.operation.name': {},
@@ -1855,6 +1875,7 @@ async def test_async_chat_completions_stream(
                         'model': 'gpt-4',
                         'stream': True,
                     },
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.operation.name': 'chat',
@@ -1869,6 +1890,7 @@ async def test_async_chat_completions_stream(
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.request.model': {},
                             'gen_ai.operation.name': {},
@@ -1904,6 +1926,7 @@ async def test_async_chat_completions_stream(
                     'code.lineno': 123,
                     'logfire.msg': "streaming response from 'gpt-4' took 1.00s",
                     'gen_ai.request.model': 'gpt-4',
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'logfire.span_type': 'log',
                     'gen_ai.operation.name': 'chat',
@@ -1934,6 +1957,7 @@ async def test_async_chat_completions_stream(
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'async': {},
                             'gen_ai.operation.name': {},
@@ -2294,6 +2318,7 @@ def test_sync_chat_completions_stream_version_latest(exporter: TestExporter) -> 
                     'code.function': 'test_sync_chat_completions_stream_version_latest',
                     'code.lineno': 123,
                     'request_data': {'model': 'gpt-4.1'},
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.request.model': 'gpt-4.1',
@@ -2308,6 +2333,7 @@ def test_sync_chat_completions_stream_version_latest(exporter: TestExporter) -> 
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.operation.name': {},
                             'gen_ai.request.model': {},
@@ -2336,6 +2362,7 @@ def test_sync_chat_completions_stream_version_latest(exporter: TestExporter) -> 
                     'code.lineno': 123,
                     'duration': 1.0,
                     'request_data': {'model': 'gpt-4.1'},
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.request.model': 'gpt-4.1',
@@ -2356,6 +2383,7 @@ def test_sync_chat_completions_stream_version_latest(exporter: TestExporter) -> 
                         'properties': {
                             'duration': {},
                             'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.operation.name': {},
                             'gen_ai.request.model': {},
@@ -2407,6 +2435,7 @@ def test_sync_chat_completions_stream_version_v1_only(exporter: TestExporter) ->
                         'model': 'gpt-4.1',
                         'stream': True,
                     },
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.request.model': 'gpt-4.1',
@@ -2417,6 +2446,7 @@ def test_sync_chat_completions_stream_version_v1_only(exporter: TestExporter) ->
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.operation.name': {},
                             'gen_ai.request.model': {},
@@ -2451,6 +2481,7 @@ def test_sync_chat_completions_stream_version_v1_only(exporter: TestExporter) ->
                         'model': 'gpt-4.1',
                         'stream': True,
                     },
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.request.model': 'gpt-4.1',
@@ -2473,6 +2504,7 @@ def test_sync_chat_completions_stream_version_v1_only(exporter: TestExporter) ->
                         'properties': {
                             'duration': {},
                             'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.operation.name': {},
                             'gen_ai.request.model': {},
@@ -2643,6 +2675,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                     'code.function': 'test_responses_stream',
                     'code.lineno': 123,
                     'gen_ai.provider.name': 'openai',
+                    'gen_ai.system': 'openai',
                     'events': [
                         {'event.name': 'gen_ai.user.message', 'content': 'What is four plus five?', 'role': 'user'}
                     ],
@@ -2659,6 +2692,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                         'type': 'object',
                         'properties': {
                             'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'events': {'type': 'array'},
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
@@ -2688,6 +2722,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                     'code.lineno': 123,
                     'request_data': {'model': 'gpt-4.1', 'stream': True},
                     'gen_ai.provider.name': 'openai',
+                    'gen_ai.system': 'openai',
                     'events': [
                         {'event.name': 'gen_ai.user.message', 'content': 'What is four plus five?', 'role': 'user'},
                         {
@@ -2721,6 +2756,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'events': {'type': 'array'},
                             'gen_ai.request.model': {},
                             'async': {},
@@ -2797,6 +2833,7 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                         'prompt': 'What is four plus five?',
                         'stream': True,
                     },
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'gpt-3.5-turbo-instruct',
                     'gen_ai.operation.name': 'text_completion',
@@ -2807,6 +2844,7 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.request.model': {},
                             'gen_ai.operation.name': {},
@@ -2838,6 +2876,7 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                     'code.lineno': 123,
                     'logfire.msg': "streaming response from 'gpt-3.5-turbo-instruct' took 1.00s",
                     'gen_ai.request.model': 'gpt-3.5-turbo-instruct',
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'logfire.span_type': 'log',
                     'gen_ai.operation.name': 'text_completion',
@@ -2852,6 +2891,7 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'async': {},
                             'gen_ai.operation.name': {},
@@ -3793,6 +3833,7 @@ def test_openrouter_streaming_reasoning(exporter: TestExporter) -> None:
                         'model': 'google/gemini-2.5-flash',
                         'stream': True,
                     },
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'google/gemini-2.5-flash',
                     'gen_ai.operation.name': 'chat',
@@ -3809,6 +3850,7 @@ def test_openrouter_streaming_reasoning(exporter: TestExporter) -> None:
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.request.model': {},
                             'gen_ai.operation.name': {},
@@ -3841,6 +3883,7 @@ def test_openrouter_streaming_reasoning(exporter: TestExporter) -> None:
                         'stream': True,
                     },
                     'gen_ai.request.model': 'google/gemini-2.5-flash',
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'async': False,
                     'gen_ai.operation.name': 'chat',
@@ -3926,6 +3969,7 @@ So, while I can't genuinely answer it for myself, how are *you* doing today, and
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'async': {},
                             'gen_ai.operation.name': {},
