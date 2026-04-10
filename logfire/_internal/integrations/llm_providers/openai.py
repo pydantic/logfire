@@ -125,19 +125,20 @@ def get_endpoint_config(
     request_data = json_data if 1 in versions else {'model': model}
 
     def common_attrs(operation: str) -> dict[str, Any]:
-        return {
+        attrs: dict[str, Any] = {
             'request_data': request_data,
             **provider_attrs('openai'),
             OPERATION_NAME: operation,
             REQUEST_MODEL: model,
         }
+        _extract_request_parameters(json_data, attrs)
+        return attrs
 
     if url == '/chat/completions':
         if is_current_agent_span('Chat completion with {gen_ai.request.model!r}'):
             return EndpointConfig(message_template='', span_data={})
 
         span_data: dict[str, Any] = common_attrs('chat')
-        _extract_request_parameters(json_data, span_data)
 
         if 'latest' in versions:
             # Convert messages to semantic convention format
@@ -159,7 +160,6 @@ def get_endpoint_config(
         span_data = {**common_attrs('chat'), 'request_data': {'model': model, 'stream': stream}}
         if 1 in versions:
             span_data['events'] = inputs_to_events(json_data.get('input'), json_data.get('instructions'))
-        _extract_request_parameters(json_data, span_data)
 
         if 'latest' in versions:
             # Convert inputs to semantic convention format
@@ -177,26 +177,20 @@ def get_endpoint_config(
             stream_state_cls=_versioned_stream_cls(OpenaiResponsesStreamState, versions),
         )
     elif url == '/completions':
-        span_data = common_attrs('text_completion')
-        _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='Completion with {request_data[model]!r}',
-            span_data=span_data,
+            span_data=common_attrs('text_completion'),
             stream_state_cls=_versioned_stream_cls(OpenaiCompletionStreamState, versions),
         )
     elif url == '/embeddings':
-        span_data = common_attrs('embeddings')
-        _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='Embedding Creation with {request_data[model]!r}',
-            span_data=span_data,
+            span_data=common_attrs('embeddings'),
         )
     elif url == '/images/generations':
-        span_data = common_attrs('image_generation')
-        _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='Image Generation with {request_data[model]!r}',
-            span_data=span_data,
+            span_data=common_attrs('image_generation'),
         )
     else:
         span_data = {
