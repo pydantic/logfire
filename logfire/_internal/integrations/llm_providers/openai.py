@@ -125,16 +125,18 @@ def get_endpoint_config(
     request_data = json_data if 1 in versions else {'model': model}
 
     def common_attrs(operation: str) -> dict[str, Any]:
-        return {**provider_attrs('openai'), OPERATION_NAME: operation, REQUEST_MODEL: model}
+        return {
+            'request_data': request_data,
+            **provider_attrs('openai'),
+            OPERATION_NAME: operation,
+            REQUEST_MODEL: model,
+        }
 
     if url == '/chat/completions':
         if is_current_agent_span('Chat completion with {gen_ai.request.model!r}'):
             return EndpointConfig(message_template='', span_data={})
 
-        span_data: dict[str, Any] = {
-            'request_data': request_data,
-            **common_attrs('chat'),
-        }
+        span_data: dict[str, Any] = {**common_attrs('chat')}
         _extract_request_parameters(json_data, span_data)
 
         if 'latest' in versions:
@@ -154,10 +156,7 @@ def get_endpoint_config(
             return EndpointConfig(message_template='', span_data={})
 
         stream = json_data.get('stream', False)
-        span_data = {
-            'request_data': {'model': model, 'stream': stream},
-            **common_attrs('chat'),
-        }
+        span_data = {**common_attrs('chat'), 'request_data': {'model': model, 'stream': stream}}
         if 1 in versions:
             span_data['events'] = inputs_to_events(json_data.get('input'), json_data.get('instructions'))
         _extract_request_parameters(json_data, span_data)
@@ -178,10 +177,7 @@ def get_endpoint_config(
             stream_state_cls=_versioned_stream_cls(OpenaiResponsesStreamState, versions),
         )
     elif url == '/completions':
-        span_data = {
-            'request_data': request_data,
-            **common_attrs('text_completion'),
-        }
+        span_data = {**common_attrs('text_completion')}
         _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='Completion with {request_data[model]!r}',
@@ -189,20 +185,14 @@ def get_endpoint_config(
             stream_state_cls=_versioned_stream_cls(OpenaiCompletionStreamState, versions),
         )
     elif url == '/embeddings':
-        span_data = {
-            'request_data': request_data,
-            **common_attrs('embeddings'),
-        }
+        span_data = {**common_attrs('embeddings')}
         _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='Embedding Creation with {request_data[model]!r}',
             span_data=span_data,
         )
     elif url == '/images/generations':
-        span_data = {
-            'request_data': request_data,
-            **common_attrs('image_generation'),
-        }
+        span_data = {**common_attrs('image_generation')}
         _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='Image Generation with {request_data[model]!r}',
