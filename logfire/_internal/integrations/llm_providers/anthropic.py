@@ -99,18 +99,12 @@ def get_endpoint_config(
     model = json_data.get('model')
     request_data = json_data if 1 in versions else {'model': model}
 
-    common_attrs = {
-        'request_data': request_data,
-        **provider_attrs('anthropic'),
-    }
+    common_attrs = {'request_data': request_data, **provider_attrs('anthropic')}
     if model:  # pragma: no branch
         common_attrs[REQUEST_MODEL] = model
 
     if url in ('/v1/messages', '/v1/messages?beta=true'):
-        span_data: dict[str, Any] = {
-            **common_attrs,
-            OPERATION_NAME: 'chat',
-        }
+        span_data: dict[str, Any] = {**common_attrs, OPERATION_NAME: 'chat'}
         _extract_request_parameters(json_data, span_data)
 
         if 'latest' in versions:
