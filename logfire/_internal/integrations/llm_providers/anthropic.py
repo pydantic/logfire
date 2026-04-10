@@ -129,9 +129,8 @@ def get_endpoint_config(
         )
     else:
         span_data = {
-            'request_data': request_data,
             'url': url,
-            **provider_attrs('anthropic'),
+            **common_attrs,
         }
         if 'model' in json_data:  # pragma: no branch
             span_data[REQUEST_MODEL] = json_data['model']
