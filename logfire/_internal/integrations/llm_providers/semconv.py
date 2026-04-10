@@ -42,6 +42,12 @@ PROVIDER_NAME = 'gen_ai.provider.name'
 SYSTEM = 'gen_ai.system'
 OPERATION_NAME = 'gen_ai.operation.name'
 
+
+def provider_attrs(name: str) -> dict[str, str]:
+    """Return the common {SYSTEM: name, PROVIDER_NAME: name} dict."""
+    return {SYSTEM: name, PROVIDER_NAME: name}
+
+
 # Model information
 REQUEST_MODEL = 'gen_ai.request.model'
 RESPONSE_MODEL = 'gen_ai.response.model'

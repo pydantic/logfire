@@ -15,7 +15,6 @@ from .semconv import (
     INPUT_MESSAGES,
     OPERATION_NAME,
     OUTPUT_MESSAGES,
-    PROVIDER_NAME,
     REQUEST_MAX_TOKENS,
     REQUEST_MODEL,
     REQUEST_STOP_SEQUENCES,
@@ -38,6 +37,7 @@ from .semconv import (
     ToolCallPart,
     ToolCallResponsePart,
     UriPart,
+    provider_attrs,
 )
 from .types import EndpointConfig, StreamState
 from .usage import get_usage_attributes
@@ -96,15 +96,15 @@ def get_endpoint_config(
         # Ensure that `{request_data[model]!r}` doesn't raise an error, just a warning about `model` missing.
         raw_json_data = {}
     json_data = cast('dict[str, Any]', raw_json_data)
+    model = json_data.get('model')
+    request_data = json_data if 1 in versions else {'model': model}
+
+    common_attrs = {'request_data': request_data, **provider_attrs('anthropic')}
+    if model:  # pragma: no branch
+        common_attrs[REQUEST_MODEL] = model
 
     if url in ('/v1/messages', '/v1/messages?beta=true'):
-        span_data: dict[str, Any] = {
-            'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
-            'gen_ai.system': 'anthropic',
-            PROVIDER_NAME: 'anthropic',
-            OPERATION_NAME: 'chat',
-            REQUEST_MODEL: json_data.get('model'),
-        }
+        span_data: dict[str, Any] = {**common_attrs, OPERATION_NAME: 'chat'}
         _extract_request_parameters(json_data, span_data)
 
         if 'latest' in versions:
@@ -123,17 +123,9 @@ def get_endpoint_config(
             stream_state_cls=_versioned_stream_cls(AnthropicMessageStreamState, versions),
         )
     else:
-        span_data = {
-            'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
-            'url': url,
-            'gen_ai.system': 'anthropic',
-            PROVIDER_NAME: 'anthropic',
-        }
-        if 'model' in json_data:  # pragma: no branch
-            span_data[REQUEST_MODEL] = json_data['model']
         return EndpointConfig(
             message_template='Anthropic API call to {url!r}',
-            span_data=span_data,
+            span_data={'url': url, **common_attrs},
         )
 
 
