@@ -121,16 +121,18 @@ def get_endpoint_config(
         # Ensure that `{request_data[model]!r}` doesn't raise an error, just a warning about `model` missing.
         raw_json_data = {}
     json_data = cast('dict[str, Any]', raw_json_data)
+    model = json_data.get('model')
+
+    def common_attrs(operation: str) -> dict[str, Any]:
+        return {**provider_attrs('openai'), OPERATION_NAME: operation, REQUEST_MODEL: model}
 
     if url == '/chat/completions':
         if is_current_agent_span('Chat completion with {gen_ai.request.model!r}'):
             return EndpointConfig(message_template='', span_data={})
 
         span_data: dict[str, Any] = {
-            'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
-            **provider_attrs('openai'),
-            OPERATION_NAME: 'chat',
-            REQUEST_MODEL: json_data.get('model'),
+            'request_data': json_data if 1 in versions else {'model': model},
+            **common_attrs('chat'),
         }
         _extract_request_parameters(json_data, span_data)
 
@@ -152,10 +154,8 @@ def get_endpoint_config(
 
         stream = json_data.get('stream', False)
         span_data = {
-            'request_data': {'model': json_data.get('model'), 'stream': stream},
-            **provider_attrs('openai'),
-            OPERATION_NAME: 'chat',
-            REQUEST_MODEL: json_data.get('model'),
+            'request_data': {'model': model, 'stream': stream},
+            **common_attrs('chat'),
         }
         if 1 in versions:
             span_data['events'] = inputs_to_events(json_data.get('input'), json_data.get('instructions'))
@@ -178,10 +178,8 @@ def get_endpoint_config(
         )
     elif url == '/completions':
         span_data = {
-            'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
-            **provider_attrs('openai'),
-            OPERATION_NAME: 'text_completion',
-            REQUEST_MODEL: json_data.get('model'),
+            'request_data': json_data if 1 in versions else {'model': model},
+            **common_attrs('text_completion'),
         }
         _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
@@ -191,10 +189,8 @@ def get_endpoint_config(
         )
     elif url == '/embeddings':
         span_data = {
-            'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
-            **provider_attrs('openai'),
-            OPERATION_NAME: 'embeddings',
-            REQUEST_MODEL: json_data.get('model'),
+            'request_data': json_data if 1 in versions else {'model': model},
+            **common_attrs('embeddings'),
         }
         _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
@@ -203,10 +199,8 @@ def get_endpoint_config(
         )
     elif url == '/images/generations':
         span_data = {
-            'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
-            **provider_attrs('openai'),
-            OPERATION_NAME: 'image_generation',
-            REQUEST_MODEL: json_data.get('model'),
+            'request_data': json_data if 1 in versions else {'model': model},
+            **common_attrs('image_generation'),
         }
         _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
@@ -215,7 +209,7 @@ def get_endpoint_config(
         )
     else:
         span_data = {
-            'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
+            'request_data': json_data if 1 in versions else {'model': model},
             'url': url,
             **provider_attrs('openai'),
         }
