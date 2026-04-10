@@ -136,7 +136,7 @@ def get_endpoint_config(
         if is_current_agent_span('Chat completion with {gen_ai.request.model!r}'):
             return EndpointConfig(message_template='', span_data={})
 
-        span_data: dict[str, Any] = {**common_attrs('chat')}
+        span_data: dict[str, Any] = common_attrs('chat')
         _extract_request_parameters(json_data, span_data)
 
         if 'latest' in versions:
@@ -177,7 +177,7 @@ def get_endpoint_config(
             stream_state_cls=_versioned_stream_cls(OpenaiResponsesStreamState, versions),
         )
     elif url == '/completions':
-        span_data = {**common_attrs('text_completion')}
+        span_data = common_attrs('text_completion')
         _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='Completion with {request_data[model]!r}',
@@ -185,14 +185,14 @@ def get_endpoint_config(
             stream_state_cls=_versioned_stream_cls(OpenaiCompletionStreamState, versions),
         )
     elif url == '/embeddings':
-        span_data = {**common_attrs('embeddings')}
+        span_data = common_attrs('embeddings')
         _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='Embedding Creation with {request_data[model]!r}',
             span_data=span_data,
         )
     elif url == '/images/generations':
-        span_data = {**common_attrs('image_generation')}
+        span_data = common_attrs('image_generation')
         _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='Image Generation with {request_data[model]!r}',
