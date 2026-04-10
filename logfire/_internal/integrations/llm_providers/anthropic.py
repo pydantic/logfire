@@ -103,12 +103,13 @@ def get_endpoint_config(
         'request_data': request_data,
         **provider_attrs('anthropic'),
     }
+    if model:  # pragma: no branch
+        common_attrs[REQUEST_MODEL] = model
 
     if url in ('/v1/messages', '/v1/messages?beta=true'):
         span_data: dict[str, Any] = {
             **common_attrs,
             OPERATION_NAME: 'chat',
-            REQUEST_MODEL: model,
         }
         _extract_request_parameters(json_data, span_data)
 
@@ -128,15 +129,9 @@ def get_endpoint_config(
             stream_state_cls=_versioned_stream_cls(AnthropicMessageStreamState, versions),
         )
     else:
-        span_data = {
-            'url': url,
-            **common_attrs,
-        }
-        if 'model' in json_data:  # pragma: no branch
-            span_data[REQUEST_MODEL] = json_data['model']
         return EndpointConfig(
             message_template='Anthropic API call to {url!r}',
-            span_data=span_data,
+            span_data={'url': url, **common_attrs},
         )
 
 
