@@ -122,6 +122,7 @@ def get_endpoint_config(
         raw_json_data = {}
     json_data = cast('dict[str, Any]', raw_json_data)
     model = json_data.get('model')
+    request_data = json_data if 1 in versions else {'model': model}
 
     def common_attrs(operation: str) -> dict[str, Any]:
         return {**provider_attrs('openai'), OPERATION_NAME: operation, REQUEST_MODEL: model}
@@ -131,7 +132,7 @@ def get_endpoint_config(
             return EndpointConfig(message_template='', span_data={})
 
         span_data: dict[str, Any] = {
-            'request_data': json_data if 1 in versions else {'model': model},
+            'request_data': request_data,
             **common_attrs('chat'),
         }
         _extract_request_parameters(json_data, span_data)
@@ -178,7 +179,7 @@ def get_endpoint_config(
         )
     elif url == '/completions':
         span_data = {
-            'request_data': json_data if 1 in versions else {'model': model},
+            'request_data': request_data,
             **common_attrs('text_completion'),
         }
         _extract_request_parameters(json_data, span_data)
@@ -189,7 +190,7 @@ def get_endpoint_config(
         )
     elif url == '/embeddings':
         span_data = {
-            'request_data': json_data if 1 in versions else {'model': model},
+            'request_data': request_data,
             **common_attrs('embeddings'),
         }
         _extract_request_parameters(json_data, span_data)
@@ -199,7 +200,7 @@ def get_endpoint_config(
         )
     elif url == '/images/generations':
         span_data = {
-            'request_data': json_data if 1 in versions else {'model': model},
+            'request_data': request_data,
             **common_attrs('image_generation'),
         }
         _extract_request_parameters(json_data, span_data)
@@ -209,7 +210,7 @@ def get_endpoint_config(
         )
     else:
         span_data = {
-            'request_data': json_data if 1 in versions else {'model': model},
+            'request_data': request_data,
             'url': url,
             **provider_attrs('openai'),
         }

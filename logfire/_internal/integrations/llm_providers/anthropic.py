@@ -97,13 +97,14 @@ def get_endpoint_config(
         raw_json_data = {}
     json_data = cast('dict[str, Any]', raw_json_data)
     model = json_data.get('model')
+    request_data = json_data if 1 in versions else {'model': model}
 
     def common_attrs(operation: str) -> dict[str, Any]:
         return {**provider_attrs('anthropic'), OPERATION_NAME: operation, REQUEST_MODEL: model}
 
     if url in ('/v1/messages', '/v1/messages?beta=true'):
         span_data: dict[str, Any] = {
-            'request_data': json_data if 1 in versions else {'model': model},
+            'request_data': request_data,
             **common_attrs('chat'),
         }
         _extract_request_parameters(json_data, span_data)
@@ -125,7 +126,7 @@ def get_endpoint_config(
         )
     else:
         span_data = {
-            'request_data': json_data if 1 in versions else {'model': model},
+            'request_data': request_data,
             'url': url,
             **provider_attrs('anthropic'),
         }
