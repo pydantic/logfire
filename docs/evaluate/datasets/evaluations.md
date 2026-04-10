@@ -1,20 +1,87 @@
 ---
 title: "Running Evaluations"
-description: "Fetch hosted datasets and run evaluations with pydantic-evals."
+description: "Run evaluations against local or hosted datasets with pydantic-evals."
 ---
 
 # Running Evaluations
 
+Evaluations in Logfire are powered by [pydantic-evals](https://pydantic.dev/docs/ai/evals/evals/). You have two equally supported options for where your test cases live:
+
+- **Local datasets** --- defined in code (or loaded from a YAML file) as a [`pydantic_evals.Dataset`][pydantic_evals.Dataset]. No server round-trip required. This is the simplest way to get started and is all you need for many projects.
+- **Hosted datasets** --- stored on Logfire, editable in the [Web UI](ui.md), and fetchable as a typed `Dataset`. Useful when you want to curate cases from production traces or collaborate with teammates.
+
+Either way, once you have a `Dataset` in hand the evaluation step is identical, and results show up in the [Evals](../../guides/web-ui/evals.md) tab as long as Logfire tracing is configured.
+
 !!! note "Experimental SDK"
 
-    The dataset management SDK is under `logfire.experimental.api_client`. The API may change in future releases.
+    The hosted dataset management SDK is under `logfire.experimental.api_client`. The API may change in future releases. Local datasets use the stable `pydantic-evals` API.
 
-Once you have a hosted dataset (created via the [Web UI](ui.md) or [SDK](sdk.md)), you can fetch it as a
-typed [`pydantic_evals.Dataset`][pydantic_evals.Dataset] and use it to evaluate your AI system.
+## Evaluating a Local Dataset
 
-## Getting a typed pydantic-evals Dataset
+If your test cases live in code, you can run an evaluation without ever talking to the Logfire datasets API. Just build a `Dataset` and call `evaluate`:
 
-The `get_dataset` method fetches all cases and returns a typed
+```python skip-run="true" skip-reason="example-ai-task"
+from dataclasses import dataclass
+
+from pydantic_evals import Case, Dataset
+
+import logfire
+
+# Configure Logfire so the evaluation shows up in the Evals tab in the Logfire UI.
+# Without this, the evaluation still runs but its results will not be sent to Logfire.
+logfire.configure()
+logfire.instrument_pydantic_ai()  # optional, traces the AI task under test
+
+
+@dataclass
+class QuestionInput:
+    question: str
+    context: str | None = None
+
+
+@dataclass
+class AnswerOutput:
+    answer: str
+    confidence: float
+
+
+dataset = Dataset[QuestionInput, AnswerOutput, None](
+    cases=[
+        Case(
+            name='capital_of_france',
+            inputs=QuestionInput(question='What is the capital of France?'),
+            expected_output=AnswerOutput(answer='Paris', confidence=1.0),
+        ),
+        # ... more cases
+    ],
+)
+
+
+async def my_qa_task(inputs: QuestionInput) -> AnswerOutput:
+    """The AI system under test."""
+    ...
+
+
+async def run_evaluation():
+    report = await dataset.evaluate(my_qa_task)
+    report.print()
+```
+
+!!! note "Pulling data from Logfire without pushing results back"
+
+    Whether you *store* the dataset on Logfire and whether you *send* the evaluation results to Logfire are two independent choices. You can fetch a hosted dataset (see below) and then run a purely local evaluation that only prints to the console — just omit the `logfire.configure()` call. That said, we recommend configuring Logfire during evaluation so that runs show up alongside your dataset in the UI for comparison over time.
+
+You can also load local datasets from YAML files --- see the [pydantic-evals documentation](https://pydantic.dev/docs/ai/evals/evals/) for details. With Logfire tracing enabled, runs against local datasets still appear in the [Evals](../../guides/web-ui/evals.md) tab (as **Local** datasets --- see [Hosted vs Local Datasets](index.md#hosted-vs-local-datasets)).
+
+## Evaluating a Hosted Dataset
+
+If you'd rather manage cases on the server --- for example so teammates can edit them in the UI or so you can seed cases from production traces --- fetch a hosted dataset and use it the same way.
+
+Hosted datasets are typically created in the [Web UI](ui.md) or published from code via [`push_dataset(...)`](sdk.md#publishing-a-local-dataset-to-hosted).
+
+### Getting a typed pydantic-evals Dataset
+
+The `get_dataset` method fetches all hosted cases and returns a typed
 [`pydantic_evals.Dataset`][pydantic_evals.Dataset] that you can use directly for evaluation:
 
 ```python skip-run="true" skip-reason="external-connection"
@@ -74,14 +141,20 @@ raw_data = client.get_dataset('qa-golden-set')
 # raw_data is a dict with 'name', 'cases', etc.
 ```
 
-## Running the Evaluation
+### Running the Evaluation
 
-Use the dataset with pydantic-evals to evaluate your AI system:
+Once fetched, a hosted dataset is just a `pydantic_evals.Dataset` --- use it exactly like the local example above:
 
 ```python skip="true" skip-reason="external-connection"
 from pydantic_evals import Dataset
 
+import logfire
 from logfire.experimental.api_client import LogfireAPIClient
+
+# Send evaluation results to the Logfire Evals tab.
+logfire.configure()
+# You can instrument libraries here for richer information in the evaluation traces
+# e.g., via `logfire.instrument_pydantic_ai()`
 
 
 async def my_qa_task(inputs: QuestionInput) -> AnswerOutput:
