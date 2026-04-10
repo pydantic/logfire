@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from functools import cached_property
 from logfire._internal.constants import LevelName as LevelName, ONE_SECOND_IN_NANOSECONDS as ONE_SECOND_IN_NANOSECONDS
 from logfire._internal.exporters.wrapper import WrapperSpanProcessor as WrapperSpanProcessor
+from logfire._internal.utils import suppress_instrumentation as suppress_instrumentation
 from logfire.types import SpanLevel as SpanLevel
 from opentelemetry import context
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
@@ -70,14 +71,17 @@ class TailSamplingProcessor(WrapperSpanProcessor):
     `tail_sampling_defer_on_start` attribute to `True` on the processor class.
     """
     get_tail_sample_rate: Incomplete
-    deferred_processor: SpanProcessor | None
+    deferred_processor: Incomplete
     traces: dict[int, TraceBuffer]
     lock: Incomplete
     def __init__(self, processor: SpanProcessor, get_tail_sample_rate: Callable[[TailSamplingSpanInfo], float], deferred_processor: SpanProcessor | None = None) -> None: ...
     def on_start(self, span: Span, parent_context: context.Context | None = None) -> None: ...
     def on_end(self, span: ReadableSpan) -> None: ...
     def check_span(self, span_info: TailSamplingSpanInfo) -> bool:
-        """If the span meets the sampling criteria, drop the buffer and return True. Otherwise, return False."""
+        """If the span meets the sampling criteria, drop the buffer and return True. Otherwise, return False.
+
+        Must be called within self.lock since it modifies self.traces via drop_buffer.
+        """
     def drop_buffer(self, buffer: TraceBuffer) -> None: ...
     def push_buffer(self, buffer: TraceBuffer) -> None: ...
     def shutdown(self) -> None: ...

@@ -1,5 +1,10 @@
 # Release Notes
 
+## [v4.31.2] (2026-04-10)
+
+* fix: Show token badges for OpenAI streaming logs by @alexmojaki in [#1857](https://github.com/pydantic/logfire/pull/1857)
+* fix: OTel warning during tail sampling buffer replay by @cyberksh in [#1632](https://github.com/pydantic/logfire/pull/1632)
+
 ## [v4.31.1] (2026-04-09)
 
 * Capture token usage and cost attributes in OpenAI streaming logs by @alexmojaki in [#1846](https://github.com/pydantic/logfire/pull/1846)
@@ -1099,3 +1104,4 @@ First release from new repo!
 [v4.30.0]: https://github.com/pydantic/logfire/compare/v4.29.0...v4.30.0
 [v4.31.0]: https://github.com/pydantic/logfire/compare/v4.30.0...v4.31.0
 [v4.31.1]: https://github.com/pydantic/logfire/compare/v4.31.0...v4.31.1
+[v4.31.2]: https://github.com/pydantic/logfire/compare/v4.31.1...v4.31.2
