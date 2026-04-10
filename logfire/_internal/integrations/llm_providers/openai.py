@@ -124,13 +124,15 @@ def get_endpoint_config(
     model = json_data.get('model')
     request_data = json_data if 1 in versions else {'model': model}
 
-    def common_attrs(operation: str) -> dict[str, Any]:
+    def common_attrs(operation: str = '') -> dict[str, Any]:
         attrs: dict[str, Any] = {
             'request_data': request_data,
             **provider_attrs('openai'),
-            OPERATION_NAME: operation,
-            REQUEST_MODEL: model,
         }
+        if model:
+            attrs[REQUEST_MODEL] = model
+        if operation:
+            attrs[OPERATION_NAME] = operation
         _extract_request_parameters(json_data, attrs)
         return attrs
 
@@ -138,7 +140,7 @@ def get_endpoint_config(
         if is_current_agent_span('Chat completion with {gen_ai.request.model!r}'):
             return EndpointConfig(message_template='', span_data={})
 
-        span_data: dict[str, Any] = common_attrs('chat')
+        span_data = common_attrs('chat')
 
         if 'latest' in versions:
             # Convert messages to semantic convention format
@@ -193,17 +195,9 @@ def get_endpoint_config(
             span_data=common_attrs('image_generation'),
         )
     else:
-        span_data = {
-            'request_data': request_data,
-            'url': url,
-            **provider_attrs('openai'),
-        }
-        if 'model' in json_data:
-            span_data[REQUEST_MODEL] = json_data['model']
-        _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='OpenAI API call to {url!r}',
-            span_data=span_data,
+            span_data={'url': url, **common_attrs()},
         )
 
 
