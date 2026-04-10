@@ -20,7 +20,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-03T15:11:29.729106Z"
+exclude-newer = "2026-04-03T19:16:09.610813Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -3332,7 +3332,7 @@ wheels = [
 
 [[package]]
 name = "logfire"
-version = "4.31.2"
+version = "4.32.0"
 source = { editable = "." }
 dependencies = [
     { name = "executing" },
@@ -3725,7 +3725,7 @@ docs = [
 
 [[package]]
 name = "logfire-api"
-version = "4.31.2"
+version = "4.32.0"
 source = { editable = "logfire-api" }
 
 [package.metadata]
