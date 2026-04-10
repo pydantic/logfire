@@ -109,7 +109,7 @@ class _BaseLogfireQueryClient(Generic[T]):
         if response.status_code == 422:  # pragma: no cover
             raise QueryRequestError(response.json())
         if response.status_code != 200:
-            raise QueryExecutionError(f'Unexpected response status code: {response.status_code}')
+            raise QueryExecutionError(f'Unexpected response status code: {response.status_code}, body: {response.text}')
 
 
 class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
