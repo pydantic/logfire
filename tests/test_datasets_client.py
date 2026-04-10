@@ -538,8 +538,6 @@ class TestLogfireAPIClient:
             output_type=MyOutput,
             metadata_type=MyMetadata,
             description='A test dataset',
-            guidance='Be helpful',
-            ai_managed_guidance=True,
         )
         assert result == FAKE_DATASET
 
@@ -549,8 +547,6 @@ class TestLogfireAPIClient:
         assert 'input_schema' in body
         assert 'output_schema' in body
         assert 'metadata_schema' in body
-        assert body['guidance'] == 'Be helpful'
-        assert body['ai_managed_guidance'] is True
 
     def test_update_dataset_minimal(self):
         """When no params change, only empty data is sent."""
@@ -576,8 +572,6 @@ class TestLogfireAPIClient:
             output_type=MyOutput,
             metadata_type=MyMetadata,
             description='Updated desc',
-            guidance='New guidance',
-            ai_managed_guidance=True,
         )
 
         body = json.loads(requests_seen[0].content)
@@ -586,8 +580,6 @@ class TestLogfireAPIClient:
         assert 'input_schema' in body
         assert 'output_schema' in body
         assert 'metadata_schema' in body
-        assert body['guidance'] == 'New guidance'
-        assert body['ai_managed_guidance'] is True
 
     def test_update_dataset_clear_fields(self):
         """Test that passing None clears fields (using _UNSET sentinel)."""
@@ -601,11 +593,10 @@ class TestLogfireAPIClient:
         client = LogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
         client.client = httpx.Client(transport=transport, base_url='https://test.logfire.dev')
 
-        client.update_dataset('test-dataset', description=None, guidance=None)
+        client.update_dataset('test-dataset', description=None)
 
         body = json.loads(requests_seen[0].content)
         assert body['description'] is None
-        assert body['guidance'] is None
 
     def test_delete_dataset(self):
         client = make_client()
@@ -616,20 +607,6 @@ class TestLogfireAPIClient:
         client = make_client()
         result = client.list_cases('test-dataset')
         assert result == [FAKE_CASE]
-
-    def test_list_cases_with_tags(self):
-        requests_seen: list[httpx.Request] = []
-
-        def handler(request: httpx.Request) -> httpx.Response:
-            requests_seen.append(request)
-            return httpx.Response(200, json=[FAKE_CASE])
-
-        transport = httpx.MockTransport(handler)
-        client = LogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
-        client.client = httpx.Client(transport=transport, base_url='https://test.logfire.dev')
-
-        client.list_cases('test-dataset', tags=['tag1', 'tag2'])
-        assert 'tags' in str(requests_seen[0].url)
 
     def test_get_case(self):
         client = make_client()
@@ -666,9 +643,6 @@ class TestLogfireAPIClient:
         result = client.push_dataset(
             make_local_dataset(),
             description='Hosted copy',
-            guidance='Be accurate',
-            ai_managed_guidance=True,
-            tags=['bulk'],
         )
 
         assert result == hosted_dataset
@@ -681,8 +655,6 @@ class TestLogfireAPIClient:
         create_body = json.loads(requests_seen[0].content)
         assert create_body['name'] == 'local-dataset'
         assert create_body['description'] == 'Hosted copy'
-        assert create_body['guidance'] == 'Be accurate'
-        assert create_body['ai_managed_guidance'] is True
         assert 'input_schema' in create_body
         assert 'output_schema' in create_body
         assert 'metadata_schema' in create_body
@@ -696,7 +668,6 @@ class TestLogfireAPIClient:
                 'expected_output': {'answer': '4'},
                 'metadata': {'source': 'seed'},
                 'evaluators': [],
-                'tags': ['bulk'],
             }
         ]
 
@@ -724,7 +695,6 @@ class TestLogfireAPIClient:
             make_local_dataset(),
             name='hosted-dataset',
             description=None,
-            guidance=None,
             on_case_conflict='error',
         )
 
@@ -744,7 +714,6 @@ class TestLogfireAPIClient:
 
         update_body = json.loads(requests_seen[1].content)
         assert update_body['description'] is None
-        assert update_body['guidance'] is None
         assert 'name' not in update_body
         assert 'input_schema' in update_body
         assert 'output_schema' in update_body
@@ -805,23 +774,6 @@ class TestLogfireAPIClient:
             ('GET', '/v1/datasets/empty-dataset/'),
         ]
 
-    def test_add_cases_with_tags(self):
-        requests_seen: list[httpx.Request] = []
-
-        def handler(request: httpx.Request) -> httpx.Response:
-            requests_seen.append(request)
-            return httpx.Response(200, json=[FAKE_CASE])
-
-        transport = httpx.MockTransport(handler)
-        client = LogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
-        client.client = httpx.Client(transport=transport, base_url='https://test.logfire.dev')
-
-        cases: list[Case[MyInput, MyOutput, Any]] = [Case(inputs=MyInput(question='q1'))]
-        client.add_cases('test-dataset', cases, tags=['bulk'])
-
-        body = json.loads(requests_seen[0].content)
-        assert body['cases'][0]['tags'] == ['bulk']
-
     def test_update_case_minimal(self):
         """When no params are set, sends empty body."""
         client = make_client()
@@ -851,7 +803,6 @@ class TestLogfireAPIClient:
             expected_output=MyOutput(answer='new-answer'),
             metadata=MyMetadata(source='updated'),
             evaluators=[MyEval()],
-            tags=['updated'],
         )
 
         body = json.loads(requests_seen[0].content)
@@ -860,7 +811,6 @@ class TestLogfireAPIClient:
         assert body['expected_output'] == {'answer': 'new-answer'}
         assert body['metadata'] == {'source': 'updated'}
         assert body['evaluators'] == [{'name': 'MyEval', 'arguments': None}]
-        assert body['tags'] == ['updated']
 
     def test_update_case_clear_fields(self):
         """Pass None to explicitly clear nullable fields."""
@@ -881,7 +831,6 @@ class TestLogfireAPIClient:
             expected_output=None,
             metadata=None,
             evaluators=None,
-            tags=None,
         )
 
         body = json.loads(requests_seen[0].content)
@@ -889,7 +838,6 @@ class TestLogfireAPIClient:
         assert body['expected_output'] is None
         assert body['metadata'] is None
         assert body['evaluators'] is None
-        assert body['tags'] is None
 
     def test_update_case_dict_inputs(self):
         requests_seen: list[httpx.Request] = []
@@ -939,42 +887,6 @@ class TestLogfireAPIClient:
         cases: list[dict[str, Any]] = [{'inputs': {'question': 'q1'}}]
         result = client.add_cases('test-dataset', cases)
         assert result == [FAKE_CASE]
-
-    def test_add_cases_dicts_with_tags(self):
-        requests_seen: list[httpx.Request] = []
-
-        def handler(request: httpx.Request) -> httpx.Response:
-            requests_seen.append(request)
-            return httpx.Response(200, json=[FAKE_CASE])
-
-        transport = httpx.MockTransport(handler)
-        client = LogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
-        client.client = httpx.Client(transport=transport, base_url='https://test.logfire.dev')
-
-        cases: list[dict[str, Any]] = [{'inputs': {'question': 'q1'}}]
-        client.add_cases('test-dataset', cases, tags=['imported'])
-
-        body = json.loads(requests_seen[0].content)
-        assert body['cases'][0]['tags'] == ['imported']
-
-    def test_add_cases_dicts_not_mutated(self):
-        """Ensure add_cases doesn't mutate caller's dicts when adding tags."""
-        requests_seen: list[httpx.Request] = []
-
-        def handler(request: httpx.Request) -> httpx.Response:
-            requests_seen.append(request)
-            return httpx.Response(200, json=[FAKE_CASE])
-
-        transport = httpx.MockTransport(handler)
-        client = LogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
-        client.client = httpx.Client(transport=transport, base_url='https://test.logfire.dev')
-
-        original_case: dict[str, Any] = {'inputs': {'question': 'q1'}}
-        cases = [original_case]
-        client.add_cases('test-dataset', cases, tags=['tagged'])
-
-        # Original dict should NOT have been mutated
-        assert 'tags' not in original_case
 
     def test_auth_header(self):
         """Client should set Authorization header."""
@@ -1044,8 +956,6 @@ class TestAsyncLogfireAPIClient:
             output_type=MyOutput,
             metadata_type=MyMetadata,
             description='A test dataset',
-            guidance='Be helpful',
-            ai_managed_guidance=True,
         )
 
         body = json.loads(requests_seen[0].content)
@@ -1054,8 +964,6 @@ class TestAsyncLogfireAPIClient:
         assert 'output_schema' in body
         assert 'metadata_schema' in body
         assert body['description'] == 'A test dataset'
-        assert body['guidance'] == 'Be helpful'
-        assert body['ai_managed_guidance'] is True
 
     @pytest.mark.anyio
     async def test_update_dataset_minimal(self):
@@ -1082,16 +990,12 @@ class TestAsyncLogfireAPIClient:
             output_type=MyOutput,
             metadata_type=MyMetadata,
             description='Updated desc',
-            guidance='New guidance',
-            ai_managed_guidance=True,
         )
 
         body = json.loads(requests_seen[0].content)
         assert body['name'] == 'new-name'
         assert body['description'] == 'Updated desc'
         assert 'input_schema' in body
-        assert body['guidance'] == 'New guidance'
-        assert body['ai_managed_guidance'] is True
 
     @pytest.mark.anyio
     async def test_update_dataset_clear_fields(self):
@@ -1105,11 +1009,10 @@ class TestAsyncLogfireAPIClient:
         client = AsyncLogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
         client.client = httpx.AsyncClient(transport=transport, base_url='https://test.logfire.dev')
 
-        await client.update_dataset('test-dataset', description=None, guidance=None)
+        await client.update_dataset('test-dataset', description=None)
 
         body = json.loads(requests_seen[0].content)
         assert body['description'] is None
-        assert body['guidance'] is None
 
     @pytest.mark.anyio
     async def test_delete_dataset(self):
@@ -1122,21 +1025,6 @@ class TestAsyncLogfireAPIClient:
         client = make_async_client()
         result = await client.list_cases('test-dataset')
         assert result == [FAKE_CASE]
-
-    @pytest.mark.anyio
-    async def test_list_cases_with_tags(self):
-        requests_seen: list[httpx.Request] = []
-
-        def handler(request: httpx.Request) -> httpx.Response:
-            requests_seen.append(request)
-            return httpx.Response(200, json=[FAKE_CASE])
-
-        transport = httpx.MockTransport(handler)
-        client = AsyncLogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
-        client.client = httpx.AsyncClient(transport=transport, base_url='https://test.logfire.dev')
-
-        await client.list_cases('test-dataset', tags=['tag1'])
-        assert 'tags' in str(requests_seen[0].url)
 
     @pytest.mark.anyio
     async def test_get_case(self):
@@ -1173,9 +1061,6 @@ class TestAsyncLogfireAPIClient:
         result = await client.push_dataset(
             make_local_dataset(),
             description='Hosted copy',
-            guidance='Be accurate',
-            ai_managed_guidance=True,
-            tags=['bulk'],
         )
 
         assert result == hosted_dataset
@@ -1188,8 +1073,6 @@ class TestAsyncLogfireAPIClient:
         create_body = json.loads(requests_seen[0].content)
         assert create_body['name'] == 'local-dataset'
         assert create_body['description'] == 'Hosted copy'
-        assert create_body['guidance'] == 'Be accurate'
-        assert create_body['ai_managed_guidance'] is True
         assert 'input_schema' in create_body
         assert 'output_schema' in create_body
         assert 'metadata_schema' in create_body
@@ -1203,7 +1086,6 @@ class TestAsyncLogfireAPIClient:
                 'expected_output': {'answer': '4'},
                 'metadata': {'source': 'seed'},
                 'evaluators': [],
-                'tags': ['bulk'],
             }
         ]
 
@@ -1232,7 +1114,6 @@ class TestAsyncLogfireAPIClient:
             make_local_dataset(),
             name='hosted-dataset',
             description=None,
-            guidance=None,
             on_case_conflict='error',
         )
 
@@ -1252,7 +1133,6 @@ class TestAsyncLogfireAPIClient:
 
         update_body = json.loads(requests_seen[1].content)
         assert update_body['description'] is None
-        assert update_body['guidance'] is None
         assert 'name' not in update_body
         assert 'input_schema' in update_body
         assert 'output_schema' in update_body
@@ -1309,24 +1189,6 @@ class TestAsyncLogfireAPIClient:
         ]
 
     @pytest.mark.anyio
-    async def test_add_cases_with_tags(self):
-        requests_seen: list[httpx.Request] = []
-
-        def handler(request: httpx.Request) -> httpx.Response:
-            requests_seen.append(request)
-            return httpx.Response(200, json=[FAKE_CASE])
-
-        transport = httpx.MockTransport(handler)
-        client = AsyncLogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
-        client.client = httpx.AsyncClient(transport=transport, base_url='https://test.logfire.dev')
-
-        cases: list[Case[MyInput, MyOutput, Any]] = [Case(inputs=MyInput(question='q1'))]
-        await client.add_cases('test-dataset', cases, tags=['bulk'])
-
-        body = json.loads(requests_seen[0].content)
-        assert body['cases'][0]['tags'] == ['bulk']
-
-    @pytest.mark.anyio
     async def test_update_case_minimal(self):
         client = make_async_client()
         result = await client.update_case('test-dataset', 'case-456')
@@ -1356,7 +1218,6 @@ class TestAsyncLogfireAPIClient:
             expected_output=MyOutput(answer='new-answer'),
             metadata=MyMetadata(source='updated'),
             evaluators=[MyEval()],
-            tags=['updated'],
         )
 
         body = json.loads(requests_seen[0].content)
@@ -1364,7 +1225,6 @@ class TestAsyncLogfireAPIClient:
         assert body['inputs'] == {'question': 'new'}
         assert body['expected_output'] == {'answer': 'new-answer'}
         assert body['metadata'] == {'source': 'updated'}
-        assert body['tags'] == ['updated']
 
     @pytest.mark.anyio
     async def test_update_case_clear_fields(self):
@@ -1385,7 +1245,6 @@ class TestAsyncLogfireAPIClient:
             expected_output=None,
             metadata=None,
             evaluators=None,
-            tags=None,
         )
 
         body = json.loads(requests_seen[0].content)
@@ -1393,7 +1252,6 @@ class TestAsyncLogfireAPIClient:
         assert body['expected_output'] is None
         assert body['metadata'] is None
         assert body['evaluators'] is None
-        assert body['tags'] is None
 
     @pytest.mark.anyio
     async def test_update_case_dict_inputs(self):
@@ -1446,40 +1304,3 @@ class TestAsyncLogfireAPIClient:
         cases: list[dict[str, Any]] = [{'inputs': {'question': 'q1'}}]
         result = await client.add_cases('test-dataset', cases)
         assert result == [FAKE_CASE]
-
-    @pytest.mark.anyio
-    async def test_add_cases_dicts_with_tags(self):
-        requests_seen: list[httpx.Request] = []
-
-        def handler(request: httpx.Request) -> httpx.Response:
-            requests_seen.append(request)
-            return httpx.Response(200, json=[FAKE_CASE])
-
-        transport = httpx.MockTransport(handler)
-        client = AsyncLogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
-        client.client = httpx.AsyncClient(transport=transport, base_url='https://test.logfire.dev')
-
-        cases: list[dict[str, Any]] = [{'inputs': {'question': 'q1'}}]
-        await client.add_cases('test-dataset', cases, tags=['imported'])
-
-        body = json.loads(requests_seen[0].content)
-        assert body['cases'][0]['tags'] == ['imported']
-
-    @pytest.mark.anyio
-    async def test_add_cases_dicts_not_mutated(self):
-        """Ensure async add_cases doesn't mutate caller's dicts."""
-        requests_seen: list[httpx.Request] = []
-
-        def handler(request: httpx.Request) -> httpx.Response:
-            requests_seen.append(request)
-            return httpx.Response(200, json=[FAKE_CASE])
-
-        transport = httpx.MockTransport(handler)
-        client = AsyncLogfireAPIClient(api_key='test-key', base_url='https://test.logfire.dev')
-        client.client = httpx.AsyncClient(transport=transport, base_url='https://test.logfire.dev')
-
-        original_case: dict[str, Any] = {'inputs': {'question': 'q1'}}
-        cases = [original_case]
-        await client.add_cases('test-dataset', cases, tags=['tagged'])
-
-        assert 'tags' not in original_case

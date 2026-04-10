@@ -115,8 +115,6 @@ with LogfireAPIClient(api_key='your-api-key') as client:
     dataset = client.push_dataset(
         local_dataset,
         description='Golden test cases for the Q&A system',
-        guidance='Each case should represent a realistic user question with a verified answer.',
-        tags=['golden'],
     )
     print(f"Published dataset: {dataset['name']} (ID: {dataset['id']})")
 ```
@@ -146,7 +144,6 @@ dataset = client.create_dataset(
     input_type=QuestionInput,
     output_type=AnswerOutput,
     metadata_type=CaseMetadata,
-    guidance='Each case should represent a realistic user question with a verified answer.',
 )
 ```
 
@@ -156,7 +153,6 @@ Then use `add_cases(...)` to upload one or more cases:
 client.add_cases(
     'qa-golden-set',
     cases=local_dataset.cases,
-    tags=['batch-import'],
 )
 ```
 
@@ -182,11 +178,6 @@ cases = client.list_cases('qa-golden-set')
 for case in cases:
     print(f"  {case['name']}: {case['inputs']}")
 
-# Filter cases by tags
-cases = client.list_cases('qa-golden-set', tags=['geography'])
-for case in cases:
-    print(f"  {case['name']}: {case['tags']}")
-
 # Get a specific case
 case = client.get_case('qa-golden-set', case_id='some-case-uuid')
 ```
@@ -211,12 +202,11 @@ To fetch the full hosted dataset back as a typed [`pydantic_evals.Dataset`][pyda
 # Update a dataset's metadata
 client.update_dataset('qa-golden-set', description='Updated description')
 
-# Update a specific case (including tags)
+# Update a specific case
 client.update_case(
     'qa-golden-set',
     case_id='some-case-uuid',
     metadata=CaseMetadata(category='geography', difficulty='easy', reviewed=True),
-    tags=['verified', 'geography'],
 )
 
 # Delete a case

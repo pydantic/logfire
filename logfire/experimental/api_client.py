@@ -258,8 +258,6 @@ def _build_push_dataset_kwargs(
     output_type: Any | None,
     metadata_type: Any | None,
     description: str | None = _UNSET,
-    guidance: str | None = _UNSET,
-    ai_managed_guidance: bool | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """Build the create/update kwargs used by push_dataset()."""
     create_kwargs: dict[str, Any] = {'name': target_name}
@@ -277,12 +275,6 @@ def _build_push_dataset_kwargs(
     if description is not _UNSET:
         create_kwargs['description'] = description
         update_kwargs['description'] = description
-    if guidance is not _UNSET:
-        create_kwargs['guidance'] = guidance
-        update_kwargs['guidance'] = guidance
-    if ai_managed_guidance is not None:
-        create_kwargs['ai_managed_guidance'] = ai_managed_guidance
-        update_kwargs['ai_managed_guidance'] = ai_managed_guidance
 
     return create_kwargs, update_kwargs
 
@@ -409,8 +401,6 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         output_type: type[Any] | None = None,
         metadata_type: type[Any] | None = None,
         description: str | None = None,
-        guidance: str | None = None,
-        ai_managed_guidance: bool = False,
     ) -> dict[str, Any]:
         """Create a new dataset with optional type schemas.
 
@@ -420,8 +410,6 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             output_type: Type for expected outputs. JSON schema will be generated from this type.
             metadata_type: Type for case metadata. JSON schema will be generated from this type.
             description: Optional description of the dataset.
-            guidance: Instructions for AI-assisted population.
-            ai_managed_guidance: Whether guidance is managed by AI.
 
         Returns:
             The created dataset.
@@ -461,11 +449,6 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         if metadata_type is not None:
             data['metadata_schema'] = _type_to_schema(metadata_type)
 
-        if guidance is not None:
-            data['guidance'] = guidance
-        if ai_managed_guidance:
-            data['ai_managed_guidance'] = ai_managed_guidance
-
         response = self.client.post('/v1/datasets/', json=data)
         return self._handle_response(response)
 
@@ -478,8 +461,6 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         output_type: type[Any] | None = None,
         metadata_type: type[Any] | None = None,
         description: str | None = _UNSET,
-        guidance: str | None = _UNSET,
-        ai_managed_guidance: bool | None = None,
     ) -> dict[str, Any]:
         """Update an existing dataset.
 
@@ -490,8 +471,6 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             output_type: New output type (generates schema).
             metadata_type: New metadata type (generates schema).
             description: New description. Pass None to clear.
-            guidance: New guidance instructions. Pass None to clear.
-            ai_managed_guidance: Whether guidance is managed by AI.
 
         Returns:
             The updated dataset.
@@ -511,10 +490,6 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             data['output_schema'] = _type_to_schema(output_type)
         if metadata_type is not None:
             data['metadata_schema'] = _type_to_schema(metadata_type)
-        if guidance is not _UNSET:
-            data['guidance'] = guidance
-        if ai_managed_guidance is not None:
-            data['ai_managed_guidance'] = ai_managed_guidance
 
         response = self.client.patch(f'/v1/datasets/{id_or_name}/', json=data)
         return self._handle_response(response)
@@ -533,12 +508,11 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
 
     # --- Case operations ---
 
-    def list_cases(self, dataset_id_or_name: str, *, tags: list[str] | None = None) -> list[dict[str, Any]]:
+    def list_cases(self, dataset_id_or_name: str) -> list[dict[str, Any]]:
         """List all cases in a dataset.
 
         Args:
             dataset_id_or_name: The dataset ID (UUID) or name.
-            tags: Optional list of tags to filter cases by.
 
         Returns:
             List of cases with full details.
@@ -546,10 +520,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         Raises:
             DatasetNotFoundError: If the dataset does not exist.
         """
-        params: dict[str, Any] = {}
-        if tags is not None:
-            params['tags'] = tags
-        response = self.client.get(f'/v1/datasets/{dataset_id_or_name}/cases/', params=params)
+        response = self.client.get(f'/v1/datasets/{dataset_id_or_name}/cases/')
         return self._handle_response(response)
 
     def get_case(self, dataset_id_or_name: str, case_id: str) -> dict[str, Any]:
@@ -575,9 +546,6 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         *,
         name: str | None = None,
         description: str | None = _UNSET,
-        guidance: str | None = _UNSET,
-        ai_managed_guidance: bool | None = None,
-        tags: list[str] | None = None,
         on_case_conflict: Literal['update', 'error'] = 'update',
     ) -> dict[str, Any]:
         """Publish a local `pydantic_evals.Dataset` to the hosted datasets API.
@@ -604,14 +572,6 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
                 the existing description unchanged when updating an existing
                 dataset. Pass `None` to clear the description on update. On
                 initial create, `None` means no description is set.
-            guidance: Hosted dataset guidance text. Omit this argument to leave
-                the existing guidance unchanged when updating an existing
-                dataset. Pass `None` to clear the guidance on update. On initial
-                create, `None` means no guidance is set.
-            ai_managed_guidance: Whether hosted guidance should be marked as
-                AI-managed. Omit this argument to leave the existing value
-                unchanged when updating an existing dataset.
-            tags: Optional tags to apply to every uploaded case.
             on_case_conflict: Conflict behavior for uploaded cases. The default
                 `'update'` makes repeated pushes idempotent for named cases.
                 Pass `'error'` to fail instead of updating an existing case with
@@ -656,7 +616,6 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             dataset_info = client.push_dataset(
                 local_dataset,
                 description='Golden test cases for the Q&A task',
-                tags=['golden'],
             )
             ```
         """
@@ -673,8 +632,6 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             output_type=output_type,
             metadata_type=metadata_type,
             description=description,
-            guidance=guidance,
-            ai_managed_guidance=ai_managed_guidance,
         )
 
         try:
@@ -688,7 +645,6 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             self.add_cases(
                 target_name,
                 cast(Sequence[Any], dataset.cases),
-                tags=tags,
                 on_conflict=on_case_conflict,
             )
 
@@ -699,7 +655,6 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         dataset_id_or_name: str,
         cases: Sequence[Case[InputsT, OutputT, MetadataT]] | Sequence[dict[str, Any]],
         *,
-        tags: list[str] | None = None,
         on_conflict: str = 'update',
     ) -> list[dict[str, Any]]:
         """Add cases to a dataset.
@@ -713,7 +668,6 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         Args:
             dataset_id_or_name: The dataset ID (UUID) or name.
             cases: A sequence of pydantic-evals Case objects or dicts.
-            tags: Optional list of tags to associate with all cases.
             on_conflict: Conflict resolution strategy: `'update'` (default) to
                 upsert cases with matching names, or `'error'` to fail on conflicts.
 
@@ -742,9 +696,6 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             # Already dicts — shallow copy to avoid mutating caller's data
             serialized_cases: list[dict[str, Any]] = [dict(c) for c in cases]  # type: ignore[arg-type]
 
-        if tags is not None:
-            for case_data in serialized_cases:
-                case_data['tags'] = tags
         response = self.client.post(
             f'/v1/datasets/{dataset_id_or_name}/import/',
             json={'cases': serialized_cases},
@@ -762,7 +713,6 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         expected_output: Any | None = _UNSET,
         metadata: Any | None = _UNSET,
         evaluators: Sequence[Evaluator[Any, Any, Any]] | None = _UNSET,
-        tags: list[str] | None = _UNSET,
     ) -> dict[str, Any]:
         """Update an existing case.
 
@@ -774,7 +724,6 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             expected_output: New expected output (dict or typed object). Pass None to clear.
             metadata: New metadata (dict or typed object). Pass None to clear.
             evaluators: New evaluators. Pass None to clear.
-            tags: New tags for the case. Pass None to clear.
 
         Returns:
             The updated case.
@@ -802,8 +751,6 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             )
         if evaluators is not _UNSET:
             data['evaluators'] = _serialize_evaluators(evaluators) if evaluators is not None else None
-        if tags is not _UNSET:
-            data['tags'] = tags
 
         response = self.client.patch(f'/v1/datasets/{dataset_id_or_name}/cases/{case_id}/', json=data)
         return self._handle_response(response, is_case_endpoint=True)
@@ -957,8 +904,6 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         output_type: type[Any] | None = None,
         metadata_type: type[Any] | None = None,
         description: str | None = None,
-        guidance: str | None = None,
-        ai_managed_guidance: bool = False,
     ) -> dict[str, Any]:
         """Create a new dataset."""
         _validate_dataset_name(name)
@@ -971,10 +916,6 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
             data['output_schema'] = _type_to_schema(output_type)
         if metadata_type is not None:
             data['metadata_schema'] = _type_to_schema(metadata_type)
-        if guidance is not None:
-            data['guidance'] = guidance
-        if ai_managed_guidance:
-            data['ai_managed_guidance'] = ai_managed_guidance
 
         response = await self.client.post('/v1/datasets/', json=data)
         return self._handle_response(response)
@@ -988,8 +929,6 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         output_type: type[Any] | None = None,
         metadata_type: type[Any] | None = None,
         description: str | None = _UNSET,
-        guidance: str | None = _UNSET,
-        ai_managed_guidance: bool | None = None,
     ) -> dict[str, Any]:
         """Update an existing dataset."""
         data: dict[str, Any] = {}
@@ -1004,10 +943,6 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
             data['output_schema'] = _type_to_schema(output_type)
         if metadata_type is not None:
             data['metadata_schema'] = _type_to_schema(metadata_type)
-        if guidance is not _UNSET:
-            data['guidance'] = guidance
-        if ai_managed_guidance is not None:
-            data['ai_managed_guidance'] = ai_managed_guidance
 
         response = await self.client.patch(f'/v1/datasets/{id_or_name}/', json=data)
         return self._handle_response(response)
@@ -1017,12 +952,9 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         response = await self.client.delete(f'/v1/datasets/{id_or_name}/')
         self._handle_response(response)
 
-    async def list_cases(self, dataset_id_or_name: str, *, tags: list[str] | None = None) -> list[dict[str, Any]]:
+    async def list_cases(self, dataset_id_or_name: str) -> list[dict[str, Any]]:
         """List all cases in a dataset."""
-        params: dict[str, Any] = {}
-        if tags is not None:
-            params['tags'] = tags
-        response = await self.client.get(f'/v1/datasets/{dataset_id_or_name}/cases/', params=params)
+        response = await self.client.get(f'/v1/datasets/{dataset_id_or_name}/cases/')
         return self._handle_response(response)
 
     async def get_case(self, dataset_id_or_name: str, case_id: str) -> dict[str, Any]:
@@ -1036,9 +968,6 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         *,
         name: str | None = None,
         description: str | None = _UNSET,
-        guidance: str | None = _UNSET,
-        ai_managed_guidance: bool | None = None,
-        tags: list[str] | None = None,
         on_case_conflict: Literal['update', 'error'] = 'update',
     ) -> dict[str, Any]:
         """Async version of `LogfireAPIClient.push_dataset`.
@@ -1054,14 +983,6 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
                 the existing description unchanged when updating an existing
                 dataset. Pass `None` to clear the description on update. On
                 initial create, `None` means no description is set.
-            guidance: Hosted dataset guidance text. Omit this argument to leave
-                the existing guidance unchanged when updating an existing
-                dataset. Pass `None` to clear the guidance on update. On initial
-                create, `None` means no guidance is set.
-            ai_managed_guidance: Whether hosted guidance should be marked as
-                AI-managed. Omit this argument to leave the existing value
-                unchanged when updating an existing dataset.
-            tags: Optional tags to apply to every uploaded case.
             on_case_conflict: Conflict behavior for uploaded cases. The default
                 `'update'` makes repeated pushes idempotent for named cases.
                 Pass `'error'` to fail instead of updating an existing case with
@@ -1092,8 +1013,6 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
             output_type=output_type,
             metadata_type=metadata_type,
             description=description,
-            guidance=guidance,
-            ai_managed_guidance=ai_managed_guidance,
         )
 
         try:
@@ -1107,7 +1026,6 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
             await self.add_cases(
                 target_name,
                 cast(Sequence[Any], dataset.cases),
-                tags=tags,
                 on_conflict=on_case_conflict,
             )
 
@@ -1118,7 +1036,6 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         dataset_id_or_name: str,
         cases: Sequence[Case[InputsT, OutputT, MetadataT]] | Sequence[dict[str, Any]],
         *,
-        tags: list[str] | None = None,
         on_conflict: str = 'update',
     ) -> list[dict[str, Any]]:
         """Add cases to a dataset.
@@ -1135,9 +1052,6 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
             # Already dicts — shallow copy to avoid mutating caller's data
             serialized_cases: list[dict[str, Any]] = [dict(c) for c in cases]  # type: ignore[arg-type]
 
-        if tags is not None:
-            for case_data in serialized_cases:
-                case_data['tags'] = tags
         response = await self.client.post(
             f'/v1/datasets/{dataset_id_or_name}/import/',
             json={'cases': serialized_cases},
@@ -1155,7 +1069,6 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         expected_output: Any | None = _UNSET,
         metadata: Any | None = _UNSET,
         evaluators: Sequence[Evaluator[Any, Any, Any]] | None = _UNSET,
-        tags: list[str] | None = _UNSET,
     ) -> dict[str, Any]:
         """Update an existing case."""
         data: dict[str, Any] = {}
@@ -1177,8 +1090,6 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
             )
         if evaluators is not _UNSET:
             data['evaluators'] = _serialize_evaluators(evaluators) if evaluators is not None else None
-        if tags is not _UNSET:
-            data['tags'] = tags
 
         response = await self.client.patch(f'/v1/datasets/{dataset_id_or_name}/cases/{case_id}/', json=data)
         return self._handle_response(response, is_case_endpoint=True)
