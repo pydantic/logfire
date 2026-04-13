@@ -40,6 +40,17 @@ class RowQueryResults(TypedDict):
     """The row-oriented results of a JSON-format query."""
     columns: list[ColumnDetails]
     rows: list[dict[str, Any]]
+
+class PaginationCursor(TypedDict, total=False):
+    """Cursor for pagination through query results."""
+    start_timestamp: str
+    trace_id: str
+    span_id: str
+    created_at: str
+    kind: str
+
+MAX_QUERY_LIMIT: int
+
 T = TypeVar('T', bound=BaseClient)
 
 class _BaseLogfireQueryClient(Generic[T]):
@@ -74,6 +85,7 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
 
         Use `polars.read_csv(StringIO(result))` to convert the returned CSV to a polars DataFrame.
         """
+    def iter_paginated_records(self, select: str = '*', where: str | None = None, page_size: int = ..., cursor: PaginationCursor | None = None, use_created_at: bool = False) -> Incomplete: ...
 
 class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
     """An asynchronous client for querying Logfire data."""
@@ -98,3 +110,4 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
 
         Use `polars.read_csv(StringIO(result))` to convert the returned CSV to a polars DataFrame.
         """
+    async def iter_paginated_records(self, select: str = '*', where: str | None = None, page_size: int = ..., cursor: PaginationCursor | None = None, use_created_at: bool = False) -> Incomplete: ...
