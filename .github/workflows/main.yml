@@ -13,7 +13,7 @@ env:
   # https://github.com/samuelcolvin/pytest-pretty#usage-with-github-actions
   COLUMNS: 180
 
-permissions: {}
+permissions: { }
 
 jobs:
   lint:
@@ -92,10 +92,9 @@ jobs:
           - python-version: "3.12"
             pydantic-version: "2.4"
             otel-version: "1" # i.e. the latest
-          # Uncomment when we support multiple versions of OTel again
-    #            - python-version: '3.14'
-    #              pydantic-version: '2'  # i.e. the latest
-    #              otel-version: '1.39'
+          - python-version: '3.14'
+            pydantic-version: '2'  # i.e. the latest
+            otel-version: '1.39'
     env:
       PYTHON: ${{ matrix.python-version }}
     steps:

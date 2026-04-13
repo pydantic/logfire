@@ -96,7 +96,7 @@ def _instrument_psycopg(
         )
     else:
         # instrument_connection doesn't have a skip_dep_check argument.
-        instrumentor.instrument_connection(conn, tracer_provider=logfire_instance.config.get_tracer_provider())  # pyright: ignore[reportUnknownMemberType]
+        instrumentor.instrument_connection(conn, tracer_provider=logfire_instance.config.get_tracer_provider())
 
 
 def check_version(name: str, version: str, instrumentor: Instrumentor) -> bool:
