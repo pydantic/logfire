@@ -50,7 +50,7 @@ from opentelemetry.sdk.metrics import (
     UpDownCounter,
 )
 from opentelemetry.sdk.metrics.export import AggregationTemporality, MetricReader, PeriodicExportingMetricReader
-from opentelemetry.sdk.metrics.view import ExponentialBucketHistogramAggregation, View
+from opentelemetry.sdk.metrics.view import DropAggregation, ExponentialBucketHistogramAggregation, View
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import SpanProcessor, SynchronousMultiSpanProcessor, TracerProvider as SDKTracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
@@ -235,6 +235,10 @@ class MetricsOptions:
     """Configuration of metrics."""
 
     DEFAULT_VIEWS: ClassVar[Sequence[View]] = (
+        View(
+            instrument_name='otel.sdk.*',
+            aggregation=DropAggregation(),
+        ),
         View(
             instrument_type=Histogram,
             aggregation=ExponentialBucketHistogramAggregation(),
@@ -1247,6 +1251,9 @@ class LogfireConfig(_LogfireConfigData):
                     resource=resource,
                     views=self.metrics.views,
                 )
+                for reader in metric_readers:
+                    with suppress(Exception):
+                        reader._metrics = type(reader._metrics)('', NoOpMeterProvider())  # type: ignore
             else:
                 meter_provider = NoOpMeterProvider()
 

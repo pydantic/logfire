@@ -29,6 +29,7 @@ HANDLER_NAME = f'{__name__}.{lambda_handler.__name__}'
 # https://github.com/open-telemetry/opentelemetry-python-contrib/blob/ecf5529f99222e7d945eddcaa83acb8a47c9ba42/instrumentation/opentelemetry-instrumentation-aws-lambda/tests/test_aws_lambda_instrumentation_manual.py#L57-L66
 @dataclass
 class MockLambdaContext:
+    function_name: str
     aws_request_id: str
     invoked_function_arn: str
 
@@ -45,6 +46,7 @@ def test_instrument_aws_lambda(exporter: TestExporter) -> None:
         logfire.instrument_aws_lambda(lambda_handler, event_context_extractor=event_context_extractor)
 
         context = MockLambdaContext(
+            function_name='myfunction',
             aws_request_id='mock_aws_request_id',
             invoked_function_arn='arn:aws:lambda:us-east-1:123456:function:myfunction:myalias',
         )
