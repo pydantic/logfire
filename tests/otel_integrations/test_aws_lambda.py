@@ -70,15 +70,15 @@ def test_instrument_aws_lambda(exporter: TestExporter) -> None:
                 },
             },
             {
-                'name': HANDLER_NAME,
+                'name': 'myfunction',
                 'context': {'trace_id': 1, 'span_id': 3, 'is_remote': False},
                 'parent': {'trace_id': 1, 'span_id': 1, 'is_remote': True},
                 'start_time': 3000000000,
                 'end_time': 4000000000,
                 'attributes': {
                     'logfire.span_type': 'span',
-                    'logfire.msg': HANDLER_NAME,
-                    'cloud.resource_id': 'arn:aws:lambda:us-east-1:123456:function:myfunction:myalias',
+                    'logfire.msg': 'myfunction',
+                    'cloud.resource_id': 'arn:aws:lambda:us-east-1:123456:function:myfunction',
                     'faas.invocation_id': 'mock_aws_request_id',
                     'cloud.account.id': '123456',
                 },
