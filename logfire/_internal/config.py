@@ -262,6 +262,7 @@ class MetricsOptions:
 
     The default views include:
 
+    - **Dropping all 'meta' metrics from the OpenTelemetry SDK** to avoid unnecessary noise and overhead.
     - **Exponential bucket histogram aggregation** for all `Histogram` instruments, which provides
       better resolution and smaller payload sizes compared to fixed-bucket histograms.
     - **Attribute filtering** for the `http.server.active_requests` `UpDownCounter`, limiting
@@ -1253,6 +1254,9 @@ class LogfireConfig(_LogfireConfigData):
                 )
                 for reader in metric_readers:
                     with suppress(Exception):
+                        # Prevent metric readers from recording metrics about themselves which just adds noise.
+                        # The default metric view with the DropAggregation isn't enough here because it's a histogram
+                        # and there's another default view that matches it.
                         reader._metrics = type(reader._metrics)('', NoOpMeterProvider())  # type: ignore
             else:
                 meter_provider = NoOpMeterProvider()

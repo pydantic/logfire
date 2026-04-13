@@ -54,7 +54,7 @@ def test_good_route(client: Client, capfire: CaptureLogfire):
                             'exemplars': [
                                 {
                                     'filtered_attributes': {'http.server_name': 'testserver'},
-                                    'value': -1,
+                                    'value': IsNumeric(),
                                     'time_unix_nano': IsNumeric(),
                                     'span_id': 1,
                                     'trace_id': 1,

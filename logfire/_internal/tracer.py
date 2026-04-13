@@ -217,7 +217,11 @@ class _LogfireWrappedSpan(trace_api.Span, ReadableSpan):
         if not (
             self.is_recording()
             and (
-                (self.record_metrics and not name.startswith('otel.sdk.'))
+                (
+                    self.record_metrics
+                    # Filter out these OTel meta metrics which are just noise
+                    and not name.startswith('otel.sdk.')
+                )
                 or name in ('operation.cost', 'gen_ai.client.token.usage')
             )
         ):
