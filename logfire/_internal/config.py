@@ -50,7 +50,7 @@ from opentelemetry.sdk.metrics import (
     UpDownCounter,
 )
 from opentelemetry.sdk.metrics.export import AggregationTemporality, MetricReader, PeriodicExportingMetricReader
-from opentelemetry.sdk.metrics.view import ExponentialBucketHistogramAggregation, View
+from opentelemetry.sdk.metrics.view import DropAggregation, ExponentialBucketHistogramAggregation, View
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import SpanProcessor, SynchronousMultiSpanProcessor, TracerProvider as SDKTracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
@@ -236,6 +236,10 @@ class MetricsOptions:
 
     DEFAULT_VIEWS: ClassVar[Sequence[View]] = (
         View(
+            instrument_name='otel.sdk.*',
+            aggregation=DropAggregation(),
+        ),
+        View(
             instrument_type=Histogram,
             aggregation=ExponentialBucketHistogramAggregation(),
         ),
@@ -258,6 +262,7 @@ class MetricsOptions:
 
     The default views include:
 
+    - **Dropping all 'meta' metrics from the OpenTelemetry SDK** to avoid unnecessary noise and overhead.
     - **Exponential bucket histogram aggregation** for all `Histogram` instruments, which provides
       better resolution and smaller payload sizes compared to fixed-bucket histograms.
     - **Attribute filtering** for the `http.server.active_requests` `UpDownCounter`, limiting
@@ -1274,6 +1279,12 @@ class LogfireConfig(_LogfireConfigData):
                     resource=resource,
                     views=self.metrics.views,
                 )
+                for reader in metric_readers:
+                    with suppress(Exception):
+                        # Prevent metric readers from recording metrics about themselves which just adds noise.
+                        # The default metric view with the DropAggregation isn't enough here because it's a histogram
+                        # and there's another default view that matches it.
+                        reader._metrics = type(reader._metrics)('', NoOpMeterProvider())  # type: ignore
             else:
                 meter_provider = NoOpMeterProvider()
 

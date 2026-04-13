@@ -1,5 +1,9 @@
 # Release Notes
 
+## [v4.32.0] (2026-04-10)
+
+* Add `push_dataset` helpers to the experimental API client by @dmontagu in [#1848](https://github.com/pydantic/logfire/pull/1848)
+
 ## [v4.31.2] (2026-04-10)
 
 * fix: Show token badges for OpenAI streaming logs by @alexmojaki in [#1857](https://github.com/pydantic/logfire/pull/1857)
@@ -1105,3 +1109,4 @@ First release from new repo!
 [v4.31.0]: https://github.com/pydantic/logfire/compare/v4.30.0...v4.31.0
 [v4.31.1]: https://github.com/pydantic/logfire/compare/v4.31.0...v4.31.1
 [v4.31.2]: https://github.com/pydantic/logfire/compare/v4.31.1...v4.31.2
+[v4.32.0]: https://github.com/pydantic/logfire/compare/v4.31.2...v4.32.0

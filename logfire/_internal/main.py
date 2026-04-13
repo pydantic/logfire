@@ -1973,7 +1973,13 @@ class Logfire:
         from .integrations.aiohttp_server import instrument_aiohttp_server
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_aiohttp_server(**kwargs)
+        return instrument_aiohttp_server(
+            **{
+                'tracer_provider': self._config.get_tracer_provider(),
+                'meter_provider': self._config.get_meter_provider(),
+                **kwargs,
+            },
+        )
 
     def instrument_sqlalchemy(
         self,

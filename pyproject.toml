@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "4.31.2"
+version = "4.32.0"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.9"
 authors = [
@@ -47,8 +47,8 @@ classifiers = [
     "Framework :: OpenTelemetry :: Instrumentations",
 ]
 dependencies = [
-    "opentelemetry-sdk >= 1.39.0, < 1.40.0",
-    "opentelemetry-exporter-otlp-proto-http >= 1.39.0, < 1.40.0",
+    "opentelemetry-sdk >= 1.39.0, < 1.41.0",
+    "opentelemetry-exporter-otlp-proto-http >= 1.39.0, < 1.41.0",
     "opentelemetry-instrumentation >= 0.41b0",
     "rich >= 13.4.2",
     "protobuf >= 4.23.4",
@@ -327,6 +327,10 @@ filterwarnings = [
     "ignore:Call to 'get_connection' function with deprecated usage of input argument/s.*:DeprecationWarning",
     # OpenTelemetry event logger stuff being used by Pydantic AI
     "ignore:You should use `\\w*(L|l)ogger\\w*` instead. Deprecated since version 1.39.0 and will be removed in a future release.:DeprecationWarning",
+    # flask.__version__ is deprecated and used by OTel
+    "ignore:The '__version__' attribute is deprecated and will be removed in Flask 3.2.*:DeprecationWarning",
+    # aiohttp web.Application is deprecated and used by OTel
+    "ignore:Inheritance class _InstrumentedApplication from web.Application is discouraged:DeprecationWarning",
 ]
 DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_test_site.settings"
 
