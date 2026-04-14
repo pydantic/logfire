@@ -74,10 +74,7 @@ class RowQueryResults(TypedDict):
 
 def _rows_to_columns(result: RowQueryResults) -> QueryResults:
     """Convert a row-oriented JSON query result to a column-oriented one."""
-    columns_by_name: dict[str, ColumnData] = {
-        col['name']: {'name': col['name'], 'datatype': col['datatype'], 'nullable': col['nullable'], 'values': []}
-        for col in result['columns']
-    }
+    columns_by_name: dict[str, ColumnData] = {col['name']: {**col, 'values': []} for col in result['columns']}
     for row in result['rows']:
         for key, value in row.items():
             columns_by_name[key]['values'].append(value)
@@ -102,8 +99,11 @@ class _BaseLogfireQueryClient(Generic[T]):
         min_timestamp: datetime | None = None,
         max_timestamp: datetime | None = None,
         limit: int | None = None,
+        accept: str = 'application/json',
     ) -> dict[str, str]:
         params: dict[str, str] = {'sql': sql}
+        if accept == 'application/json':
+            params['json_rows'] = 'true'
         if limit is not None:
             params['limit'] = str(limit)
         if min_timestamp:
@@ -251,9 +251,7 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         max_timestamp: datetime | None = None,
         limit: int | None = None,
     ) -> Response:
-        params = self.build_query_params(sql, min_timestamp, max_timestamp, limit)
-        if accept == 'application/json':
-            params['json_rows'] = 'true'
+        params = self.build_query_params(sql, min_timestamp, max_timestamp, limit, accept)
         response = self.client.get('/v1/query', headers={'accept': accept}, params=params)
         self.handle_response_errors(response)
         return response
@@ -390,9 +388,7 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         max_timestamp: datetime | None = None,
         limit: int | None = None,
     ) -> Response:
-        params = self.build_query_params(sql, min_timestamp, max_timestamp, limit)
-        if accept == 'application/json':
-            params['json_rows'] = 'true'
+        params = self.build_query_params(sql, min_timestamp, max_timestamp, limit, accept)
         response = await self.client.get('/v1/query', headers={'accept': accept}, params=params)
         self.handle_response_errors(response)
         return response
