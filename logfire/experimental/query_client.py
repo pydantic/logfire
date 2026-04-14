@@ -84,6 +84,9 @@ def _rows_to_columns(result: RowQueryResults) -> QueryResults:
 T = TypeVar('T', bound=BaseClient)
 
 
+_ACCEPT = Literal['application/json', 'application/vnd.apache.arrow.stream', 'text/csv']
+
+
 class _BaseLogfireQueryClient(Generic[T]):
     def __init__(self, base_url: str, read_token: str, timeout: Timeout, client: type[T], **client_kwargs: Any):
         self.base_url = base_url
@@ -93,22 +96,22 @@ class _BaseLogfireQueryClient(Generic[T]):
         headers['authorization'] = read_token
         self.client: T = client(timeout=timeout, base_url=base_url, headers=headers, **client_kwargs)
 
-    def build_query_params(
+    def _build_query_params(
         self,
         sql: str,
-        min_timestamp: datetime | None = None,
-        max_timestamp: datetime | None = None,
-        limit: int | None = None,
-        accept: str = 'application/json',
+        min_timestamp: datetime | None,
+        max_timestamp: datetime | None,
+        limit: int | None,
+        accept: _ACCEPT,
     ) -> dict[str, str]:
         params: dict[str, str] = {'sql': sql}
         if accept == 'application/json':
             params['json_rows'] = 'true'
         if limit is not None:
             params['limit'] = str(limit)
-        if min_timestamp:
+        if min_timestamp is not None:
             params['min_timestamp'] = min_timestamp.isoformat()
-        if max_timestamp:
+        if max_timestamp is not None:
             params['max_timestamp'] = max_timestamp.isoformat()
         return params
 
@@ -245,13 +248,15 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
 
     def _query(
         self,
-        accept: Literal['application/json', 'application/vnd.apache.arrow.stream', 'text/csv'],
+        accept: _ACCEPT,
         sql: str,
         min_timestamp: datetime | None = None,
         max_timestamp: datetime | None = None,
         limit: int | None = None,
     ) -> Response:
-        params = self.build_query_params(sql, min_timestamp, max_timestamp, limit, accept)
+        params = self._build_query_params(
+            sql=sql, accept=accept, min_timestamp=min_timestamp, max_timestamp=max_timestamp, limit=limit
+        )
         response = self.client.get('/v1/query', headers={'accept': accept}, params=params)
         self.handle_response_errors(response)
         return response
@@ -388,7 +393,9 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         max_timestamp: datetime | None = None,
         limit: int | None = None,
     ) -> Response:
-        params = self.build_query_params(sql, min_timestamp, max_timestamp, limit, accept)
+        params = self._build_query_params(
+            sql=sql, accept=accept, min_timestamp=min_timestamp, max_timestamp=max_timestamp, limit=limit
+        )
         response = await self.client.get('/v1/query', headers={'accept': accept}, params=params)
         self.handle_response_errors(response)
         return response
