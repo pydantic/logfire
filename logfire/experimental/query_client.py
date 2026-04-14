@@ -76,8 +76,8 @@ def _rows_to_columns(result: RowQueryResults) -> QueryResults:
     """Convert a row-oriented JSON query result to a column-oriented one."""
     columns_by_name: dict[str, ColumnData] = {col['name']: {**col, 'values': []} for col in result['columns']}
     for row in result['rows']:
-        for key, value in row.items():
-            columns_by_name[key]['values'].append(value)
+        for col_name, col_data in columns_by_name.items():
+            col_data['values'].append(row.get(col_name))
     return {'columns': list(columns_by_name.values())}
 
 
