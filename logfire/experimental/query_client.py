@@ -72,7 +72,19 @@ class RowQueryResults(TypedDict):
     rows: list[dict[str, Any]]
 
 
+def _rows_to_columns(result: RowQueryResults) -> QueryResults:
+    """Convert a row-oriented JSON query result to a column-oriented one."""
+    columns_by_name: dict[str, ColumnData] = {col['name']: {**col, 'values': []} for col in result['columns']}
+    for row in result['rows']:
+        for col_name, col_data in columns_by_name.items():
+            col_data['values'].append(row.get(col_name))
+    return {'columns': list(columns_by_name.values())}
+
+
 T = TypeVar('T', bound=BaseClient)
+
+
+_ACCEPT = Literal['application/json', 'application/vnd.apache.arrow.stream', 'text/csv']
 
 
 class _BaseLogfireQueryClient(Generic[T]):
@@ -84,22 +96,22 @@ class _BaseLogfireQueryClient(Generic[T]):
         headers['authorization'] = read_token
         self.client: T = client(timeout=timeout, base_url=base_url, headers=headers, **client_kwargs)
 
-    def build_query_params(
+    def _build_query_params(
         self,
         sql: str,
-        min_timestamp: datetime | None = None,
-        max_timestamp: datetime | None = None,
-        limit: int | None = None,
-        row_oriented: bool = False,
+        min_timestamp: datetime | None,
+        max_timestamp: datetime | None,
+        limit: int | None,
+        accept: _ACCEPT,
     ) -> dict[str, str]:
         params: dict[str, str] = {'sql': sql}
+        if accept == 'application/json':
+            params['json_rows'] = 'true'
         if limit is not None:
             params['limit'] = str(limit)
-        if row_oriented:
-            params['json_rows'] = 'true'
-        if min_timestamp:
+        if min_timestamp is not None:
             params['min_timestamp'] = min_timestamp.isoformat()
-        if max_timestamp:
+        if max_timestamp is not None:
             params['max_timestamp'] = max_timestamp.isoformat()
         return params
 
@@ -160,15 +172,13 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         limit: int | None = None,
     ) -> QueryResults:
         """Query Logfire data and return the results as a column-oriented dictionary."""
-        response = self._query(
-            accept='application/json',
+        row_results = self.query_json_rows(
             sql=sql,
             min_timestamp=min_timestamp,
             max_timestamp=max_timestamp,
             limit=limit,
-            row_oriented=False,
         )
-        return response.json()
+        return _rows_to_columns(row_results)
 
     def query_json_rows(
         self,
@@ -184,7 +194,6 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
             min_timestamp=min_timestamp,
             max_timestamp=max_timestamp,
             limit=limit,
-            row_oriented=True,
         )
         return response.json()
 
@@ -239,14 +248,15 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
 
     def _query(
         self,
-        accept: Literal['application/json', 'application/vnd.apache.arrow.stream', 'text/csv'],
+        accept: _ACCEPT,
         sql: str,
         min_timestamp: datetime | None = None,
         max_timestamp: datetime | None = None,
         limit: int | None = None,
-        row_oriented: bool = False,
     ) -> Response:
-        params = self.build_query_params(sql, min_timestamp, max_timestamp, limit, row_oriented)
+        params = self._build_query_params(
+            sql=sql, accept=accept, min_timestamp=min_timestamp, max_timestamp=max_timestamp, limit=limit
+        )
         response = self.client.get('/v1/query', headers={'accept': accept}, params=params)
         self.handle_response_errors(response)
         return response
@@ -301,15 +311,13 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         limit: int | None = None,
     ) -> QueryResults:
         """Query Logfire data and return the results as a column-oriented dictionary."""
-        response = await self._query(
-            accept='application/json',
+        row_results = await self.query_json_rows(
             sql=sql,
             min_timestamp=min_timestamp,
             max_timestamp=max_timestamp,
             limit=limit,
-            row_oriented=False,
         )
-        return response.json()
+        return _rows_to_columns(row_results)
 
     async def query_json_rows(
         self,
@@ -325,7 +333,6 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
             min_timestamp=min_timestamp,
             max_timestamp=max_timestamp,
             limit=limit,
-            row_oriented=True,
         )
         return response.json()
 
@@ -385,9 +392,10 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
         min_timestamp: datetime | None = None,
         max_timestamp: datetime | None = None,
         limit: int | None = None,
-        row_oriented: bool = False,
     ) -> Response:
-        params = self.build_query_params(sql, min_timestamp, max_timestamp, limit, row_oriented)
+        params = self._build_query_params(
+            sql=sql, accept=accept, min_timestamp=min_timestamp, max_timestamp=max_timestamp, limit=limit
+        )
         response = await self.client.get('/v1/query', headers={'accept': accept}, params=params)
         self.handle_response_errors(response)
         return response
