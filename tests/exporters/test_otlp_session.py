@@ -1,3 +1,10 @@
+import gc
+import os
+import subprocess
+import sys
+import textwrap
+import weakref
+from pathlib import Path
 from typing import Any
 from unittest.mock import Mock
 
@@ -12,7 +19,9 @@ from requests.sessions import HTTPAdapter
 from logfire._internal.exporters.otlp import (
     BodySizeCheckingOTLPSpanExporter,
     BodyTooLargeError,
+    DiskRetryer,
     OTLPExporterHttpSession,
+    cleanup_disk_retryers,
 )
 from tests.exporters.test_retry_fewer_spans import TEST_SPANS
 
@@ -130,3 +139,79 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytes
     # After that the number of failed exports is unpredictable because the main thread is adding to it
     # at the same time as the retryer thread removes from it.
     assert caplog.messages[0] == snapshot('Currently retrying 1 failed export(s) (3 bytes)')
+
+
+def test_disk_retryer_cleanup_after_logfire_shutdown(tmp_path: Path) -> None:
+    retryer_dir = tmp_path / 'retryer-dir'
+    marker_file = tmp_path / 'retryer-marker.txt'
+
+    code = textwrap.dedent(
+        """
+        import os
+        from pathlib import Path
+
+        import requests
+        import logfire
+        from logfire._internal.exporters import otlp
+
+        retryer_dir = Path(os.environ['LOGFIRE_RETRYER_DIR'])
+        marker_file = Path(os.environ['LOGFIRE_RETRYER_MARKER'])
+
+        original_mkdtemp = otlp.mkdtemp
+        original_post = otlp.OTLPExporterHttpSession._post
+
+        def fake_mkdtemp(prefix: str) -> str:
+            marker_file.write_text(str(retryer_dir))
+            retryer_dir.mkdir()
+            return str(retryer_dir)
+
+        def fail(self, url, data, **kwargs):
+            raise requests.exceptions.RequestException('boom')
+
+        otlp.mkdtemp = fake_mkdtemp
+        otlp.OTLPExporterHttpSession._post = fail
+
+        logfire.configure(send_to_logfire=True, token='pyt_foobar', inspect_arguments=False)
+        logfire.info('hi')
+        """
+    )
+
+    env = {
+        **os.environ,
+        'LOGFIRE_RETRYER_DIR': str(retryer_dir),
+        'LOGFIRE_RETRYER_MARKER': str(marker_file),
+    }
+    result = subprocess.run([sys.executable, '-c', code], cwd=Path.cwd(), env=env, capture_output=True, text=True)
+
+    assert result.returncode == 0, result.stderr
+    assert marker_file.read_text() == str(retryer_dir)
+    assert not retryer_dir.exists()
+
+
+def test_cleanup_disk_retryers_skips_dead_weakrefs(monkeypatch: pytest.MonkeyPatch) -> None:
+    live_retryer = DiskRetryer({})
+    dead_retryer = DiskRetryer({})
+    dead_ref = weakref.ref(dead_retryer)
+    del dead_retryer
+    gc.collect()
+
+    monkeypatch.setattr(
+        'logfire._internal.exporters.otlp._DISK_RETRYERS',
+        [dead_ref, weakref.ref(live_retryer)],
+    )
+
+    cleanup_disk_retryers()
+
+    assert dead_ref() is None
+    assert not live_retryer.dir.exists()
+
+
+def test_disk_retryer_add_task_after_close_does_nothing() -> None:
+    retryer = DiskRetryer({})
+    retryer.close()
+
+    retryer.add_task(b'123', {'url': 'http://example.com/'})
+
+    assert retryer.total_size == 0
+    assert not retryer.tasks
+    assert retryer.thread is None
