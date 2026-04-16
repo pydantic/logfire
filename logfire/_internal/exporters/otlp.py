@@ -160,10 +160,8 @@ class DiskRetryer:
 
     def close(self) -> None:
         with self.lock:
-            if self.closed:
-                return
             self.closed = True
-            self.tasks.clear()
+            self.tasks = deque(maxlen=0)
             self.total_size = 0
             self.thread = None
 
@@ -220,9 +218,6 @@ class DiskRetryer:
         delay = 1
         while True:
             with self.lock:
-                if self.closed:
-                    self.thread = None
-                    break
                 if not self.tasks:
                     # All done, end the thread.
                     self.thread = None
@@ -234,8 +229,6 @@ class DiskRetryer:
 
             try:
                 path, kwargs = task
-                if self.closed:
-                    break
                 data = path.read_bytes()
                 while True:
                     if self.closed:
@@ -259,8 +252,7 @@ class DiskRetryer:
                         delay = 0.2
                         path.unlink(missing_ok=True)
                         with self.lock:
-                            if not self.closed:
-                                self.total_size -= len(data)
+                            self.total_size -= len(data)
                         break
 
             except Exception:  # pragma: no cover
