@@ -1,3 +1,8 @@
+import os
+import subprocess
+import sys
+import textwrap
+from pathlib import Path
 from typing import Any
 from unittest.mock import Mock
 
@@ -130,3 +135,50 @@ def test_connection_error_retries(monkeypatch: pytest.MonkeyPatch, caplog: pytes
     # After that the number of failed exports is unpredictable because the main thread is adding to it
     # at the same time as the retryer thread removes from it.
     assert caplog.messages[0] == snapshot('Currently retrying 1 failed export(s) (3 bytes)')
+
+
+def test_disk_retryer_cleanup_after_logfire_shutdown(tmp_path: Path) -> None:
+    retryer_dir = tmp_path / 'retryer-dir'
+    marker_file = tmp_path / 'retryer-marker.txt'
+
+    code = textwrap.dedent(
+        """
+        import os
+        from pathlib import Path
+
+        import requests
+        import logfire
+        from logfire._internal.exporters import otlp
+
+        retryer_dir = Path(os.environ['LOGFIRE_RETRYER_DIR'])
+        marker_file = Path(os.environ['LOGFIRE_RETRYER_MARKER'])
+
+        original_mkdtemp = otlp.mkdtemp
+        original_post = otlp.OTLPExporterHttpSession._post
+
+        def fake_mkdtemp(prefix: str) -> str:
+            marker_file.write_text(str(retryer_dir))
+            retryer_dir.mkdir()
+            return str(retryer_dir)
+
+        def fail(self, url, data, **kwargs):
+            raise requests.exceptions.RequestException('boom')
+
+        otlp.mkdtemp = fake_mkdtemp
+        otlp.OTLPExporterHttpSession._post = fail
+
+        logfire.configure(send_to_logfire=True, token='pyt_foobar', inspect_arguments=False)
+        logfire.info('hi')
+        """
+    )
+
+    env = {
+        **os.environ,
+        'LOGFIRE_RETRYER_DIR': str(retryer_dir),
+        'LOGFIRE_RETRYER_MARKER': str(marker_file),
+    }
+    result = subprocess.run([sys.executable, '-c', code], cwd=Path.cwd(), env=env, capture_output=True, text=True)
+
+    assert result.returncode == 0, result.stderr
+    assert marker_file.read_text() == str(retryer_dir)
+    assert not retryer_dir.exists()

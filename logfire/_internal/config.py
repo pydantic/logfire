@@ -96,6 +96,7 @@ from .exporters.otlp import (
     QuietLogExporter,
     QuietSpanExporter,
     RetryFewerSpansSpanExporter,
+    cleanup_disk_retryers,
 )
 from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper
 from .exporters.quiet_metrics import QuietMetricExporter
@@ -1539,6 +1540,7 @@ def patched_os_exit(code: int):  # pragma: no cover
             config = config_ref()
             if config is not None:
                 config.force_flush()
+        cleanup_disk_retryers()
     except:  # noqa  # weird errors can happen during shutdown, ignore them *all* with a bare except
         pass
     return original_os_exit(code)
