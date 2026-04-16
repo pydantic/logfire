@@ -1,5 +1,11 @@
 # Release Notes
 
+## [v4.32.1] (2026-04-15)
+
+* Support OpenTelemetry SDK 1.40.0 by @alexmojaki in [#1861](https://github.com/pydantic/logfire/pull/1861)
+* Do row→column transformation client-side in query client by @adriangb in [#1862](https://github.com/pydantic/logfire/pull/1862)
+* Mark various genai attributes as safe from scrubbing by @alexmojaki in [#1863](https://github.com/pydantic/logfire/pull/1863)
+
 ## [v4.32.0] (2026-04-10)
 
 * Add `push_dataset` helpers to the experimental API client by @dmontagu in [#1848](https://github.com/pydantic/logfire/pull/1848)
@@ -1110,3 +1116,4 @@ First release from new repo!
 [v4.31.1]: https://github.com/pydantic/logfire/compare/v4.31.0...v4.31.1
 [v4.31.2]: https://github.com/pydantic/logfire/compare/v4.31.1...v4.31.2
 [v4.32.0]: https://github.com/pydantic/logfire/compare/v4.31.2...v4.32.0
+[v4.32.1]: https://github.com/pydantic/logfire/compare/v4.32.0...v4.32.1
