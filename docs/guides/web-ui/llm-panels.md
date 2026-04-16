@@ -77,6 +77,12 @@ logfire.info(
 
 We are actively engaged with the OpenTelemetry community to improve the GenAI specification, so expect more instrumentations to be fully supported in the future.
 
+### How costs are calculated
+
+Costs are calculated from [`genai-prices`](https://github.com/pydantic/genai-prices), an open dataset of provider and model pricing. Logfire looks up each LLM span's model and token counts in `genai-prices` to produce the USD values shown on the token badge and in the details panel.
+
+If a model isn't in the dataset, cost is omitted and token counts are still recorded. This is common for very new model releases, and for custom or fine-tuned models. Upgrading `genai-prices` (for example, `pip install -U genai-prices`) usually adds coverage for recently-released models.
+
 ## Example LLM panel views
 
 ### Single‑prompt calls
