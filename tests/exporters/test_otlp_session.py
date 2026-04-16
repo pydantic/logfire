@@ -1,7 +1,9 @@
+import gc
 import os
 import subprocess
 import sys
 import textwrap
+import weakref
 from pathlib import Path
 from typing import Any
 from unittest.mock import Mock
@@ -17,7 +19,9 @@ from requests.sessions import HTTPAdapter
 from logfire._internal.exporters.otlp import (
     BodySizeCheckingOTLPSpanExporter,
     BodyTooLargeError,
+    DiskRetryer,
     OTLPExporterHttpSession,
+    cleanup_disk_retryers,
 )
 from tests.exporters.test_retry_fewer_spans import TEST_SPANS
 
@@ -182,3 +186,32 @@ def test_disk_retryer_cleanup_after_logfire_shutdown(tmp_path: Path) -> None:
     assert result.returncode == 0, result.stderr
     assert marker_file.read_text() == str(retryer_dir)
     assert not retryer_dir.exists()
+
+
+def test_cleanup_disk_retryers_skips_dead_weakrefs(monkeypatch: pytest.MonkeyPatch) -> None:
+    live_retryer = DiskRetryer({})
+    dead_retryer = DiskRetryer({})
+    dead_ref = weakref.ref(dead_retryer)
+    del dead_retryer
+    gc.collect()
+
+    monkeypatch.setattr(
+        'logfire._internal.exporters.otlp._DISK_RETRYERS',
+        [dead_ref, weakref.ref(live_retryer)],
+    )
+
+    cleanup_disk_retryers()
+
+    assert dead_ref() is None
+    assert not live_retryer.dir.exists()
+
+
+def test_disk_retryer_add_task_after_close_does_nothing() -> None:
+    retryer = DiskRetryer({})
+    retryer.close()
+
+    retryer.add_task(b'123', {'url': 'http://example.com/'})
+
+    assert retryer.total_size == 0
+    assert not retryer.tasks
+    assert retryer.thread is None
