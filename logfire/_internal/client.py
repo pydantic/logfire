@@ -51,7 +51,7 @@ class LogfireClient:
 
     @property
     def _token(self) -> str:
-        return self._user_token.token
+        return self._user_token.token.get_secret_value()
 
     @classmethod
     def from_url(cls, base_url: str | None) -> Self:

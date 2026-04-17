@@ -91,9 +91,12 @@ def _run_legacy_flow(args: argparse.Namespace, tokens_collection: UserTokenColle
 
 def _run_oauth_flow(args: argparse.Namespace, tokens_collection: UserTokenCollection, logfire_url: str) -> None:
     # Reuse any previously DCR-issued client id for this base URL so we don't
-    # re-register on every login.
+    # re-register on every login. Only DCR clients carry a registration URI;
+    # for the preconfigured client we let `run_device_flow` default back to it.
     cached = tokens_collection.user_tokens.get(logfire_url)
-    cached_client_id = cached.client_id if cached and cached.auth_method == 'oauth' else None
+    cached_client_id: str | None = None
+    if cached is not None and cached.auth_method == 'oauth' and cached.is_dcr_client:
+        cached_client_id = cached.client_id
 
     result = run_device_flow(
         args._session,
@@ -110,6 +113,8 @@ def _run_oauth_flow(args: argparse.Namespace, tokens_collection: UserTokenCollec
         refresh_token=token.get('refresh_token', ''),
         scope=token.get('scope', '') or DEFAULT_SCOPE,
         expiration=expiration,
+        registration_access_token=result.registration_access_token,
+        registration_client_uri=result.registration_client_uri,
     )
     sys.stderr.write('Successfully authenticated with OAuth 2.1!\n')
     if added.keyring_service:
@@ -132,7 +137,9 @@ def parse_logout(args: argparse.Namespace) -> None:
     tokens_collection = UserTokenCollection()
 
     try:
-        removed = tokens_collection.logout(logfire_url)
+        # `args._session` is always set by the CLI entry point; passing it
+        # lets the collection deregister DCR-issued OAuth clients server-side.
+        removed = tokens_collection.logout(logfire_url, session=args._session)
     except LogfireConfigError as e:
         sys.stderr.write(f'{e}\n')
         sys.exit(1)

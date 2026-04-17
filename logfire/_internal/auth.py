@@ -5,10 +5,10 @@ import re
 import stat
 import sys
 import warnings
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Literal, TypedDict, cast
+from typing import Any, TypedDict, Union, cast
 from urllib.parse import urljoin
 
 import requests
@@ -18,7 +18,7 @@ from typing_extensions import Self
 
 from logfire.exceptions import LogfireConfigError
 
-from .token_storage import StoredOAuthSecrets, TokenStorage, file_lock
+from .token_storage import KEYRING_SERVICE, SecretStr, StoredOAuthSecrets, TokenStorage, file_lock
 from .utils import UnexpectedResponse, read_toml_file
 
 HOME_LOGFIRE = Path.home() / '.logfire'
@@ -53,57 +53,97 @@ REGIONS: dict[str, _RegionData] = {
 """The existing Logfire regions."""
 
 
+DEFAULT_OAUTH_CLIENT_ID = 'logfire-cli'
+"""Preconfigured OAuth client id. Not persisted to TOML — used when a record is missing one."""
+
+
 class UserTokenData(TypedDict):
-    """Legacy long-lived user token record."""
+    """Legacy long-lived user token record.
+
+    Identified in TOML by the presence of the ``token`` key.
+    """
 
     token: str
     expiration: str
 
 
-class OAuthUserTokenData(TypedDict, total=False):
+class _OAuthRequired(TypedDict):
+    """Fields required on every OAuth record."""
+
+    expiration: str
+
+
+class OAuthUserTokenData(_OAuthRequired, total=False):
     """OAuth 2.1 device-flow token record.
 
-    When ``keyring_service`` is set, access_token/refresh_token live in the OS
-    keyring and are absent from the TOML file. Otherwise they live inline here.
+    When ``keyring_service`` is set, access_token/refresh_token (and the
+    optional DCR management token) live in the OS keyring and are absent from
+    the TOML file. Otherwise they live inline here.
+
+    ``client_id`` is persisted only for DCR-registered clients; preconfigured
+    installs reuse the default `logfire-cli` id at load time. The
+    ``registration_client_uri`` is the RFC 7592 management URL and only
+    appears for DCR records — its presence flags a record that should be
+    deregistered on logout.
     """
 
-    auth_method: Literal['oauth']
-    client_id: str
     scope: str
-    expiration: str
+    client_id: str
+    registration_client_uri: str
     keyring_service: str
     oauth_token: str
     refresh_token: str
 
 
+TokenRecord = Union[UserTokenData, OAuthUserTokenData]
+"""Union of the two disk record shapes. Legacy records carry ``token``; OAuth records don't."""
+
+
 class UserTokensFileData(TypedDict, total=False):
     """Content of the file containing the user tokens."""
 
-    tokens: dict[str, dict[str, Any]]
+    tokens: dict[str, TokenRecord]
 
 
 @dataclass
 class UserToken:
-    """A user token — either a legacy long-lived token or an OAuth access token."""
+    """A user token — either a legacy long-lived token or an OAuth access token.
 
-    token: str
+    The record kind is discriminated by the shape of the data rather than by a
+    tag field: if ``refresh_token`` is non-``None`` the token was issued via
+    the OAuth device flow, otherwise it's a legacy long-lived credential.
+    """
+
+    token: SecretStr
     base_url: str
     expiration: str
-    auth_method: Literal['legacy', 'oauth'] = 'legacy'
-    client_id: str | None = None
-    refresh_token: str | None = None
+    client_id: str = DEFAULT_OAUTH_CLIENT_ID
+    refresh_token: SecretStr | None = None
     scope: str | None = None
     # When the tokens are backed by the system keyring this is the service name,
     # otherwise None (tokens stored inline in the TOML file).
     keyring_service: str | None = None
+    # RFC 7592 management URL — present only for DCR-registered clients; drives
+    # optional deregistration on logout.
+    registration_client_uri: str | None = None
+    registration_access_token: SecretStr | None = field(default=None, repr=False)
+
+    @property
+    def auth_method(self) -> str:
+        """Derived discriminator: ``'oauth'`` when a refresh token is on file, ``'legacy'`` otherwise."""
+        return 'oauth' if self.refresh_token is not None else 'legacy'
+
+    @property
+    def is_dcr_client(self) -> bool:
+        """Whether the OAuth client was registered dynamically (vs. the preconfigured one)."""
+        return self.registration_client_uri is not None
 
     @classmethod
     def from_user_token_data(cls, base_url: str, token: UserTokenData) -> Self:
         return cls(
-            token=token['token'],
+            token=SecretStr(token['token']),
             base_url=base_url,
             expiration=token['expiration'],
-            auth_method='legacy',
         )
 
     @classmethod
@@ -119,24 +159,28 @@ class UserToken:
         longer be read (e.g. the keyring was disabled between logins).
         """
         keyring_service = record.get('keyring_service')
+        registration_access_token: SecretStr | None = None
         if keyring_service:
             secrets = storage.load(base_url)
             if secrets is None:
                 return None
-            access_token = secrets.access_token
-            refresh_token: str | None = secrets.refresh_token
+            access_token_str = secrets.access_token
+            refresh_token_str: str | None = secrets.refresh_token
+            if secrets.registration_access_token:
+                registration_access_token = SecretStr(secrets.registration_access_token)
         else:
-            access_token = record.get('oauth_token', '')
-            refresh_token = record.get('refresh_token') or None
+            access_token_str = record.get('oauth_token', '')
+            refresh_token_str = record.get('refresh_token') or ''
         return cls(
-            token=access_token,
+            token=SecretStr(access_token_str),
             base_url=base_url,
             expiration=record.get('expiration', ''),
-            auth_method='oauth',
-            client_id=record.get('client_id'),
-            refresh_token=refresh_token,
+            client_id=record.get('client_id') or DEFAULT_OAUTH_CLIENT_ID,
+            refresh_token=SecretStr(refresh_token_str) if refresh_token_str else SecretStr(''),
             scope=record.get('scope'),
             keyring_service=keyring_service,
+            registration_client_uri=record.get('registration_client_uri'),
+            registration_access_token=registration_access_token,
         )
 
     @property
@@ -162,18 +206,20 @@ class UserToken:
         Legacy long-lived tokens are sent raw to preserve backend compatibility;
         OAuth access tokens use the standard `Bearer` scheme.
         """
+        raw = self.token.get_secret_value()
         if self.auth_method == 'oauth':
-            return f'Bearer {self.token}'
-        return self.token
+            return f'Bearer {raw}'
+        return raw
 
     def __str__(self) -> str:
         region = 'us'
+        raw = self.token.get_secret_value()
         if self.auth_method == 'oauth':
             prefix = f'OAuth ({self.base_url}) - '
-            suffix = (self.token[:5] if self.token else '') + '****'
+            suffix = (raw[:5] if raw else '') + '****'
             return prefix + suffix
 
-        if match := PYDANTIC_LOGFIRE_TOKEN_PATTERN.match(self.token):
+        if match := PYDANTIC_LOGFIRE_TOKEN_PATTERN.match(raw):
             region = match.group('region')
             if region not in REGIONS:
                 region = 'us'
@@ -182,13 +228,14 @@ class UserToken:
         if match:
             token_repr += match.group('safe_part') + match.group('token')[:5]
         else:
-            token_repr += self.token[:5]
+            token_repr += raw[:5]
         token_repr += '****'
         return token_repr
 
 
-def _is_oauth_record(raw: dict[str, Any]) -> bool:
-    return raw.get('auth_method') == 'oauth'
+def _is_legacy_record(raw: dict[str, Any]) -> bool:
+    """A record is legacy if and only if it carries a raw long-lived ``token``."""
+    return 'token' in raw
 
 
 @dataclass
@@ -225,12 +272,12 @@ class UserTokenCollection:
         raw_tokens = cast('dict[str, dict[str, Any]]', data.get('tokens', {}))
         tokens: dict[str, UserToken] = {}
         for url, raw in raw_tokens.items():
-            if _is_oauth_record(raw):
+            if _is_legacy_record(raw):
+                tokens[url] = UserToken.from_user_token_data(url, cast(UserTokenData, raw))
+            else:
                 token = UserToken.from_oauth_record(url, cast(OAuthUserTokenData, raw), self.storage)
                 if token is not None:
                     tokens[url] = token
-            else:
-                tokens[url] = UserToken.from_user_token_data(url, cast(UserTokenData, raw))
         self.user_tokens = tokens
 
     def get_token(self, base_url: str | None = None) -> UserToken:
@@ -310,30 +357,50 @@ class UserTokenCollection:
         refresh_token: str,
         scope: str,
         expiration: str,
+        registration_access_token: str | None = None,
+        registration_client_uri: str | None = None,
     ) -> UserToken:
         """Store an OAuth access/refresh token pair for `base_url`.
 
         Secrets are pushed into the OS keyring when available; otherwise they
-        land in the TOML file which is then chmod-ed to 0600.
+        land in the TOML file which is then chmod-ed to 0600. DCR-issued
+        clients additionally persist the RFC 7592 management credentials so
+        that `logout` can deregister them.
         """
-        secrets = StoredOAuthSecrets(access_token=access_token, refresh_token=refresh_token)
+        secrets = StoredOAuthSecrets(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            registration_access_token=registration_access_token,
+        )
         keyring_ok = self.storage.save(base_url, secrets)
-        keyring_service = 'logfire-oauth' if keyring_ok else None
+        keyring_service = KEYRING_SERVICE if keyring_ok else None
         self.user_tokens[base_url] = user_token = UserToken(
-            token=access_token,
+            token=SecretStr(access_token),
             base_url=base_url,
             expiration=expiration,
-            auth_method='oauth',
             client_id=client_id,
-            refresh_token=refresh_token,
+            refresh_token=SecretStr(refresh_token),
             scope=scope,
             keyring_service=keyring_service,
+            registration_client_uri=registration_client_uri,
+            registration_access_token=SecretStr(registration_access_token) if registration_access_token else None,
         )
         self._dump()
         return user_token
 
-    def logout(self, base_url: str | None = None) -> list[str]:
-        """Remove user token(s) from the collection."""
+    def logout(
+        self,
+        base_url: str | None = None,
+        *,
+        session: requests.Session | None = None,
+    ) -> list[str]:
+        """Remove user token(s) from the collection.
+
+        When ``session`` is supplied and a removed record was a
+        dynamically-registered OAuth client, this will also send a best-effort
+        RFC 7592 DELETE to the server to deregister that client. The
+        preconfigured ``logfire-cli`` is never deregistered.
+        """
         if not self.user_tokens:
             raise LogfireConfigError('You are not logged into Logfire. Please run `logfire auth` to authenticate.')
 
@@ -346,7 +413,18 @@ class UserTokenCollection:
         removed = [base_url] if base_url is not None else list(self.user_tokens.keys())
         for url in removed:
             token = self.user_tokens.pop(url)
-            if token.auth_method == 'oauth' and token.keyring_service:
+            if token.auth_method != 'oauth':
+                continue
+            if session is not None and token.is_dcr_client and token.registration_access_token is not None:
+                from . import oauth as _oauth  # lazy import to avoid a circular dependency
+
+                assert token.registration_client_uri is not None
+                _oauth.unregister_client(
+                    session,
+                    registration_client_uri=token.registration_client_uri,
+                    registration_access_token=token.registration_access_token.get_secret_value(),
+                )
+            if token.keyring_service:
                 self.storage.delete(url)
 
         self._dump()
@@ -380,26 +458,34 @@ class UserTokenCollection:
 
             refresh_target = current if current is not None else token
             metadata = _oauth.discover_metadata(session, refresh_target.base_url)
+            assert refresh_target.refresh_token is not None
             response = _oauth.refresh_access_token(
                 session,
                 metadata,
-                refresh_token=refresh_target.refresh_token or '',
-                client_id=refresh_target.client_id or '',
+                refresh_token=refresh_target.refresh_token.get_secret_value(),
+                client_id=refresh_target.client_id,
             )
             new_expiration = (
                 datetime.now(tz=timezone.utc) + timedelta(seconds=int(response.get('expires_in', 3600)))
             ).isoformat()
-            new_refresh = response.get('refresh_token') or refresh_target.refresh_token or ''
+            new_refresh = response.get('refresh_token') or refresh_target.refresh_token.get_secret_value()
             new_access = response.get('access_token') or ''
             if not new_access:
                 raise LogfireConfigError('The OAuth refresh response did not include an access_token.')
+            registration_access_token = (
+                refresh_target.registration_access_token.get_secret_value()
+                if refresh_target.registration_access_token is not None
+                else None
+            )
             updated = self.add_oauth_token(
                 refresh_target.base_url,
-                client_id=refresh_target.client_id or '',
+                client_id=refresh_target.client_id,
                 access_token=new_access,
                 refresh_token=new_refresh,
                 scope=response.get('scope') or refresh_target.scope or '',
                 expiration=new_expiration,
+                registration_access_token=registration_access_token,
+                registration_client_uri=refresh_target.registration_client_uri,
             )
             # Reflect the update into the caller-visible object.
             token.token = updated.token
@@ -418,19 +504,26 @@ class UserTokenCollection:
             for base_url, user_token in self.user_tokens.items():
                 f.write(f'[tokens."{base_url}"]\n')
                 if user_token.auth_method == 'oauth':
-                    f.write('auth_method = "oauth"\n')
-                    f.write(f'client_id = "{user_token.client_id or ""}"\n')
+                    # Record shape is self-describing: no tag field, the OAuth shape
+                    # is recognized by the absence of a raw `token` key.
                     f.write(f'scope = "{user_token.scope or ""}"\n')
                     f.write(f'expiration = "{user_token.expiration}"\n')
+                    # Only persist the client_id for DCR-registered clients; the
+                    # preconfigured `logfire-cli` id is the load-time default.
+                    if user_token.is_dcr_client:
+                        f.write(f'client_id = "{user_token.client_id}"\n')
+                        assert user_token.registration_client_uri is not None
+                        f.write(f'registration_client_uri = "{user_token.registration_client_uri}"\n')
                     if user_token.keyring_service:
                         f.write(f'keyring_service = "{user_token.keyring_service}"\n')
                     else:
                         # Keyring unavailable — persist tokens inline.
-                        f.write(f'oauth_token = "{user_token.token}"\n')
-                        f.write(f'refresh_token = "{user_token.refresh_token or ""}"\n')
+                        f.write(f'oauth_token = "{user_token.token.get_secret_value()}"\n')
+                        refresh_raw = user_token.refresh_token.get_secret_value() if user_token.refresh_token else ''
+                        f.write(f'refresh_token = "{refresh_raw}"\n')
                         any_inline_secret = True
                 else:
-                    f.write(f'token = "{user_token.token}"\n')
+                    f.write(f'token = "{user_token.token.get_secret_value()}"\n')
                     f.write(f'expiration = "{user_token.expiration}"\n')
         # If we ended up writing secrets to disk, make sure the file is not world-readable.
         if any_inline_secret:

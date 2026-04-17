@@ -77,11 +77,28 @@ class OAuthTokenResponse(TypedDict, total=False):
 
 
 @dataclass
+class DynamicRegistration:
+    """Outcome of an RFC 7591 Dynamic Client Registration request."""
+
+    client_id: str
+    registration_access_token: str | None = None
+    registration_client_uri: str | None = None
+
+
+@dataclass
 class DeviceFlowResult:
-    """Returned to the caller once the full device flow succeeds."""
+    """Returned to the caller once the full device flow succeeds.
+
+    `client_id` is the id that produced the token. When DCR was used,
+    `registration_access_token` + `registration_client_uri` are the RFC 7592
+    credentials needed to later deregister the client (`unregister_client`).
+    For the preconfigured client they are `None`.
+    """
 
     token: OAuthTokenResponse
     client_id: str
+    registration_access_token: str | None = None
+    registration_client_uri: str | None = None
 
 
 def generate_pkce_pair() -> tuple[str, str]:
@@ -111,11 +128,13 @@ def discover_metadata(session: requests.Session, base_url: str) -> OAuthServerMe
     return cast(OAuthServerMetadata, response.json())
 
 
-def register_client(session: requests.Session, metadata: OAuthServerMetadata) -> str:
-    """Register a new OAuth client via RFC 7591 DCR and return the issued `client_id`.
+def register_client(session: requests.Session, metadata: OAuthServerMetadata) -> DynamicRegistration:
+    """Register a new OAuth client via RFC 7591 DCR.
 
-    Raises `LogfireConfigError` if the server does not advertise a registration
-    endpoint or the registration request fails.
+    Returns the issued `client_id` together with the RFC 7592 management
+    credentials (`registration_access_token` + `registration_client_uri`) when
+    the server provides them. Raises `LogfireConfigError` if the server does
+    not advertise a registration endpoint or the registration request fails.
     """
     endpoint = metadata.get('registration_endpoint')
     if not endpoint:
@@ -135,11 +154,36 @@ def register_client(session: requests.Session, metadata: OAuthServerMetadata) ->
         UnexpectedResponse.raise_for_status(response)
     except requests.RequestException as e:
         raise LogfireConfigError('Failed to register an OAuth client with the Logfire server.') from e
-    data = response.json()
+    data = cast(dict[str, Any], response.json())
     client_id = data.get('client_id')
     if not client_id:
         raise LogfireConfigError('The dynamic client registration response did not include a `client_id`.')
-    return str(client_id)
+    return DynamicRegistration(
+        client_id=str(client_id),
+        registration_access_token=data.get('registration_access_token'),
+        registration_client_uri=data.get('registration_client_uri'),
+    )
+
+
+def unregister_client(
+    session: requests.Session,
+    *,
+    registration_client_uri: str,
+    registration_access_token: str,
+) -> None:
+    """Best-effort RFC 7592 Dynamic Client Deregistration (DELETE on the management URI).
+
+    Swallows all network errors — deregistration is a courtesy cleanup on
+    logout; failure should never abort the user-facing logout flow.
+    """
+    try:
+        session.delete(
+            registration_client_uri,
+            headers={'Authorization': f'Bearer {registration_access_token}'},
+            timeout=10,
+        )
+    except requests.RequestException:
+        pass
 
 
 def _post_form(session: requests.Session, url: str, data: dict[str, str]) -> requests.Response:
@@ -307,12 +351,14 @@ def run_device_flow(
     code_verifier, code_challenge = generate_pkce_pair()
 
     client_id = cached_client_id or DEFAULT_CLIENT_ID
+    registration: DynamicRegistration | None = None
     device_response, invalid_client = request_device_authorization(
         session, metadata, client_id=client_id, code_challenge=code_challenge, scope=scope
     )
     if invalid_client:
         # Fall back to DCR only if the default client was rejected.
-        client_id = register_client(session, metadata)
+        registration = register_client(session, metadata)
+        client_id = registration.client_id
         device_response, invalid_client = request_device_authorization(
             session, metadata, client_id=client_id, code_challenge=code_challenge, scope=scope
         )
@@ -352,4 +398,9 @@ def run_device_flow(
         warnings.warn(
             'The Logfire server did not return a refresh_token; the access token cannot be renewed automatically.'
         )
-    return DeviceFlowResult(token=token, client_id=client_id)
+    return DeviceFlowResult(
+        token=token,
+        client_id=client_id,
+        registration_access_token=registration.registration_access_token if registration else None,
+        registration_client_uri=registration.registration_client_uri if registration else None,
+    )

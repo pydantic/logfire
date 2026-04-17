@@ -219,18 +219,53 @@ def test_user_token_collection_keyring_record(tmp_path: Path, fake_keyring: _InM
         scope='project:read_dashboard',
         expiration=expiration,
     )
-    # Secrets in keyring, metadata in TOML (no inline tokens).
+    # Secrets in keyring, metadata in TOML (no inline tokens, no `auth_method` tag —
+    # OAuth records are identified by the *absence* of a `token =` line).
     written = auth_file.read_text()
-    assert 'auth_method = "oauth"' in written
+    assert 'auth_method' not in written
     assert 'keyring_service = "logfire-oauth"' in written
+    # Preconfigured `logfire-cli` is not persisted; it's the load-time default.
+    assert 'client_id' not in written
+    assert 'registration_client_uri' not in written
     assert 'AT' not in written and 'RT' not in written
     # Round trip through a fresh collection.
     reloaded = UserTokenCollection(path=auth_file)
     token = reloaded.get_token(BASE_URL)
-    assert token.token == 'AT'
-    assert token.refresh_token == 'RT'
+    assert token.token.get_secret_value() == 'AT'
+    assert token.refresh_token is not None
+    assert token.refresh_token.get_secret_value() == 'RT'
     assert token.header_value == 'Bearer AT'
     assert token.auth_method == 'oauth'
+    assert token.is_dcr_client is False
+    # SecretStr hides the value in str()/repr().
+    assert str(token.token) == '**********'
+    assert 'AT' not in repr(token.token)
+
+
+def test_user_token_collection_persists_dcr_client_id(tmp_path: Path, fake_keyring: _InMemoryKeyring) -> None:
+    auth_file = tmp_path / 'default.toml'
+    collection = UserTokenCollection(path=auth_file)
+    expiration = (datetime.now(tz=timezone.utc) + timedelta(hours=1)).isoformat()
+    collection.add_oauth_token(
+        BASE_URL,
+        client_id='dcr-issued-123',
+        access_token='AT',
+        refresh_token='RT',
+        scope='project:read_dashboard',
+        expiration=expiration,
+        registration_access_token='RAT',
+        registration_client_uri=f'{BASE_URL}/oauth2/register/dcr-issued-123',
+    )
+    written = auth_file.read_text()
+    # DCR clients persist both the client id and the management URI.
+    assert 'client_id = "dcr-issued-123"' in written
+    assert 'registration_client_uri' in written
+    reloaded = UserTokenCollection(path=auth_file)
+    token = reloaded.get_token(BASE_URL)
+    assert token.client_id == 'dcr-issued-123'
+    assert token.is_dcr_client is True
+    assert token.registration_access_token is not None
+    assert token.registration_access_token.get_secret_value() == 'RAT'
 
 
 def test_user_token_collection_file_only(tmp_path: Path, no_keyring: None) -> None:
@@ -244,6 +279,7 @@ def test_user_token_collection_file_only(tmp_path: Path, no_keyring: None) -> No
         refresh_token='RT',
         scope='project:read_dashboard',
         expiration=expiration,
+        registration_client_uri=f'{BASE_URL}/oauth2/register/dcr-issued-123',
     )
     written = auth_file.read_text()
     assert 'keyring_service' not in written
@@ -254,7 +290,7 @@ def test_user_token_collection_file_only(tmp_path: Path, no_keyring: None) -> No
     assert mode == 0o600
     reloaded = UserTokenCollection(path=auth_file)
     token = reloaded.get_token(BASE_URL)
-    assert token.token == 'AT'
+    assert token.token.get_secret_value() == 'AT'
     assert token.client_id == 'dcr-issued-123'
 
 
@@ -273,6 +309,76 @@ def test_logout_clears_keyring(tmp_path: Path, fake_keyring: _InMemoryKeyring) -
     assert fake_keyring.store
     collection.logout(BASE_URL)
     assert not fake_keyring.store
+    assert auth_file.read_text() == ''
+
+
+def test_logout_skips_deregistration_for_preconfigured_client(tmp_path: Path, fake_keyring: _InMemoryKeyring) -> None:
+    auth_file = tmp_path / 'default.toml'
+    collection = UserTokenCollection(path=auth_file)
+    expiration = (datetime.now(tz=timezone.utc) + timedelta(hours=1)).isoformat()
+    collection.add_oauth_token(
+        BASE_URL,
+        client_id='logfire-cli',
+        access_token='AT',
+        refresh_token='RT',
+        scope='project:read_dashboard',
+        expiration=expiration,
+    )
+    # No registration_client_uri -> `unregister_client` must not be called.
+    # We exercise this by not registering a DELETE matcher; if one were
+    # issued, requests_mock would raise `NoMockAddress`.
+    with requests_mock.Mocker() as m:
+        with requests.Session() as session:
+            collection.logout(BASE_URL, session=session)
+        assert not any(req.method == 'DELETE' for req in m.request_history)
+
+
+def test_logout_deregisters_dcr_client(tmp_path: Path, fake_keyring: _InMemoryKeyring) -> None:
+    auth_file = tmp_path / 'default.toml'
+    collection = UserTokenCollection(path=auth_file)
+    expiration = (datetime.now(tz=timezone.utc) + timedelta(hours=1)).isoformat()
+    registration_uri = f'{BASE_URL}/oauth2/register/dcr-issued-123'
+    collection.add_oauth_token(
+        BASE_URL,
+        client_id='dcr-issued-123',
+        access_token='AT',
+        refresh_token='RT',
+        scope='project:read_dashboard',
+        expiration=expiration,
+        registration_access_token='RAT',
+        registration_client_uri=registration_uri,
+    )
+    with requests_mock.Mocker() as m:
+        m.delete(registration_uri, status_code=204)
+        with requests.Session() as session:
+            collection.logout(BASE_URL, session=session)
+        delete_calls = [req for req in m.request_history if req.method == 'DELETE']
+    assert len(delete_calls) == 1
+    assert delete_calls[0].url.rstrip('/') == registration_uri.rstrip('/')
+    assert delete_calls[0].headers['Authorization'] == 'Bearer RAT'
+    assert auth_file.read_text() == ''
+    assert not fake_keyring.store
+
+
+def test_logout_deregistration_swallows_errors(tmp_path: Path, fake_keyring: _InMemoryKeyring) -> None:
+    auth_file = tmp_path / 'default.toml'
+    collection = UserTokenCollection(path=auth_file)
+    expiration = (datetime.now(tz=timezone.utc) + timedelta(hours=1)).isoformat()
+    registration_uri = f'{BASE_URL}/oauth2/register/dcr-issued-123'
+    collection.add_oauth_token(
+        BASE_URL,
+        client_id='dcr-issued-123',
+        access_token='AT',
+        refresh_token='RT',
+        scope='project:read_dashboard',
+        expiration=expiration,
+        registration_access_token='RAT',
+        registration_client_uri=registration_uri,
+    )
+    with requests_mock.Mocker() as m:
+        m.delete(registration_uri, exc=requests.exceptions.ConnectionError)
+        with requests.Session() as session:
+            collection.logout(BASE_URL, session=session)
     assert auth_file.read_text() == ''
 
 
@@ -305,12 +411,13 @@ def test_refresh_triggers_when_near_expiry(tmp_path: Path, fake_keyring: _InMemo
         )
         with requests.Session() as session:
             refreshed = collection.refresh_if_needed(token, session)
-    assert refreshed.token == 'NEW'
-    assert refreshed.refresh_token == 'NEW_REFRESH'
+    assert refreshed.token.get_secret_value() == 'NEW'
+    assert refreshed.refresh_token is not None
+    assert refreshed.refresh_token.get_secret_value() == 'NEW_REFRESH'
     # On-disk record should reflect the new expiration.
     reloaded = UserTokenCollection(path=auth_file)
     current = reloaded.get_token(BASE_URL)
-    assert current.token == 'NEW'
+    assert current.token.get_secret_value() == 'NEW'
     assert not current.needs_refresh
 
 
@@ -345,9 +452,10 @@ def test_refresh_reuses_result_from_concurrent_process(
     # If we *do* hit the network, the test fails immediately because no mocks are registered.
     with requests.Session() as session:
         result = collection.refresh_if_needed(stale, session)
-    assert result.token == 'NEW'
-    assert stale.token == 'NEW'  # caller's reference updated in place
-    assert stale.refresh_token == 'NEW_REFRESH'
+    assert result.token.get_secret_value() == 'NEW'
+    assert stale.token.get_secret_value() == 'NEW'  # caller's reference updated in place
+    assert stale.refresh_token is not None
+    assert stale.refresh_token.get_secret_value() == 'NEW_REFRESH'
 
 
 def test_file_lock_serializes_writers(tmp_path: Path) -> None:
@@ -403,8 +511,11 @@ def test_cli_main_oauth_flow(
         )
         main(['--region', 'us', 'auth', '--oauth'])
     written = auth_file.read_text()
-    assert 'auth_method = "oauth"' in written
-    assert 'client_id = "logfire-cli"' in written
+    # No `auth_method` tag, no persisted `client_id` for the preconfigured client.
+    assert 'auth_method' not in written
+    assert 'client_id' not in written
+    assert 'scope = "project:read_dashboard"' in written
+    assert 'keyring_service' in written
     err = capsys.readouterr().err
     assert 'Successfully authenticated with OAuth 2.1!' in err
     assert KEYRING_SERVICE in err
@@ -488,7 +599,7 @@ def test_get_token_does_not_reject_expired_oauth(tmp_path: Path, fake_keyring: _
     # Unlike legacy tokens, expired OAuth tokens are returned — the caller
     # (LogfireClient) is responsible for refreshing them.
     token = collection.get_token(BASE_URL)
-    assert token.token == 'OLD'
+    assert token.token.get_secret_value() == 'OLD'
     assert token.is_expired is True
 
 

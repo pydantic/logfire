@@ -8,6 +8,7 @@ import pytest
 from inline_snapshot import snapshot
 
 from logfire._internal.auth import UserToken, UserTokenCollection
+from logfire._internal.token_storage import SecretStr
 from logfire.exceptions import LogfireConfigError
 
 
@@ -38,7 +39,7 @@ from logfire.exceptions import LogfireConfigError
 )
 def test_user_token_str(base_url: str, token: str, expected: str) -> None:
     user_token = UserToken(
-        token=token,
+        token=SecretStr(token),
         base_url=base_url,
         expiration='1970-01-01',
     )

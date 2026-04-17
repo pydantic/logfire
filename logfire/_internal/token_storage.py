@@ -39,12 +39,50 @@ KEYRING_SERVICE = 'logfire-oauth'
 """Service name used when storing tokens in the OS keyring."""
 
 
+class SecretStr:
+    """Minimal wrapper that hides a secret string in `repr()` and `str()` output.
+
+    Mirrors the subset of `pydantic.SecretStr` we actually use, so we can keep
+    `pydantic` out of the SDK's core dependency set. Callers must use
+    `.get_secret_value()` to retrieve the underlying text; the default string
+    conversions produce `'**********'` so accidental logging cannot leak
+    credentials.
+    """
+
+    __slots__ = ('_value',)
+
+    def __init__(self, value: str) -> None:
+        self._value = value
+
+    def get_secret_value(self) -> str:
+        return self._value
+
+    def __str__(self) -> str:
+        return '**********' if self._value else ''
+
+    def __repr__(self) -> str:
+        return f"SecretStr('{self.__str__()}')"
+
+    def __bool__(self) -> bool:
+        return bool(self._value)
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, SecretStr):
+            return self._value == other._value
+        return NotImplemented
+
+    def __hash__(self) -> int:
+        return hash(self._value)
+
+
 @dataclass
 class StoredOAuthSecrets:
     """Secret material for an OAuth login (kept out of TOML when possible)."""
 
     access_token: str
     refresh_token: str
+    registration_access_token: str | None = None
+    """RFC 7592 client management token — present only for DCR-registered clients."""
 
 
 class TokenStorage:
@@ -89,12 +127,14 @@ class TokenStorage:
         """
         if not self.keyring_available or _keyring_module is None:
             return False
+        payload: dict[str, str] = {
+            'access_token': secrets.access_token,
+            'refresh_token': secrets.refresh_token,
+        }
+        if secrets.registration_access_token:
+            payload['registration_access_token'] = secrets.registration_access_token
         try:
-            _keyring_module.set_password(
-                KEYRING_SERVICE,
-                base_url,
-                json.dumps({'access_token': secrets.access_token, 'refresh_token': secrets.refresh_token}),
-            )
+            _keyring_module.set_password(KEYRING_SERVICE, base_url, json.dumps(payload))
         except _keyring_error as e:
             sys.stderr.write(f'Warning: failed to save OAuth token to system keyring ({e}); falling back to file.\n')
             return False
@@ -118,7 +158,11 @@ class TokenStorage:
         refresh = data.get('refresh_token')
         if not access or not refresh:
             return None
-        return StoredOAuthSecrets(access_token=access, refresh_token=refresh)
+        return StoredOAuthSecrets(
+            access_token=access,
+            refresh_token=refresh,
+            registration_access_token=data.get('registration_access_token'),
+        )
 
     def delete(self, base_url: str) -> None:
         """Best-effort deletion of tokens for `base_url` from the keyring."""
