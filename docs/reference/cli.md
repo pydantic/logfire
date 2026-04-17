@@ -43,6 +43,48 @@ Then, if you go back to the terminal, you'll see that you are authenticated! :ta
 
 ![Terminal screenshot with successful authentication](../images/cli/terminal-screenshot-auth-2.png)
 
+### OAuth 2.1 device flow (`auth --oauth`)
+
+By default `logfire auth` issues a long-lived bearer token that is stored in
+plaintext in `~/.logfire/default.toml`. If your Logfire instance supports the
+OAuth 2.1 device authorization grant (RFC 8628), you can opt into a modern
+flow that uses short-lived access tokens + a refresh token, with secrets held
+in the operating system keyring whenever possible.
+
+```bash
+logfire auth --oauth
+```
+
+Install the `cli` extra to enable keyring-backed storage (macOS Keychain,
+Linux Secret Service, Windows Credential Locker):
+
+```bash
+pip install 'logfire[cli]'
+```
+
+What happens behind the scenes:
+
+1. `/.well-known/oauth-authorization-server` is fetched to discover endpoints
+   (RFC 8414).
+2. The CLI attempts the device flow using the preregistered `logfire-cli`
+   client. If the server rejects it with `invalid_client` and advertises a
+   `registration_endpoint`, the CLI falls back to Dynamic Client Registration
+   (RFC 7591) and caches the resulting client id.
+3. The browser is opened to complete authentication.
+4. The issued `access_token`/`refresh_token` pair is stored in the OS keyring;
+   only non-secret metadata (scope, expiration, client id) lands in
+   `~/.logfire/default.toml`. When the keyring is unavailable, tokens are
+   written inline to the same file, which is `chmod 0600`.
+5. Access tokens are refreshed transparently as they approach expiry. Refresh
+   requests are serialized across concurrent processes via an advisory file
+   lock so that the refresh token is never spent twice in parallel.
+
+To log out and remove both the stored metadata and any keyring entries:
+
+```bash
+logfire auth logout
+```
+
 ## Clean (`clean`)
 
 To clean _most_ the files created by **Logfire**, run the following command:

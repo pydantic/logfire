@@ -15,6 +15,10 @@ from .utils import UnexpectedResponse
 UA_HEADER = f'logfire/{VERSION}'
 
 
+def _apply_auth_header(session: Session, user_token: UserToken) -> None:
+    session.headers['Authorization'] = user_token.header_value
+
+
 class ProjectAlreadyExists(Exception):
     pass
 
@@ -31,13 +35,23 @@ class LogfireClient:
         user_token: The user token to use when authenticating against the API.
     """
 
-    def __init__(self, user_token: UserToken) -> None:
-        if user_token.is_expired:
+    def __init__(
+        self,
+        user_token: UserToken,
+        collection: UserTokenCollection | None = None,
+    ) -> None:
+        self._user_token = user_token
+        self._collection = collection
+        if user_token.is_expired and not self._try_refresh():
             raise RuntimeError('The provided user token is expired')
         self.base_url = user_token.base_url
-        self._token = user_token.token
         self._session = Session()
-        self._session.headers.update({'Authorization': self._token, 'User-Agent': UA_HEADER})
+        self._session.headers['User-Agent'] = UA_HEADER
+        _apply_auth_header(self._session, user_token)
+
+    @property
+    def _token(self) -> str:
+        return self._user_token.token
 
     @classmethod
     def from_url(cls, base_url: str | None) -> Self:
@@ -49,10 +63,32 @@ class LogfireClient:
                 use it directly). The token collection will be created from the `~/.logfire/default.toml`
                 file (or an empty one if no such file exists).
         """
-        return cls(user_token=UserTokenCollection().get_token(base_url))
+        collection = UserTokenCollection()
+        return cls(user_token=collection.get_token(base_url), collection=collection)
+
+    def _try_refresh(self) -> bool:
+        """Refresh the OAuth access token if possible. Returns True on success."""
+        token = self._user_token
+        if token.auth_method != 'oauth' or not token.refresh_token or self._collection is None:
+            return False
+        before_access = token.token
+        self._collection.refresh_if_needed(token, Session())
+        if token.token != before_access and not token.is_expired:
+            # Propagate the refreshed token to our session.
+            if hasattr(self, '_session'):
+                _apply_auth_header(self._session, token)
+            return True
+        return False
+
+    def _maybe_refresh_before_request(self) -> None:
+        if self._user_token.needs_refresh:
+            self._try_refresh()
 
     def _get_raw(self, endpoint: str, params: dict[str, Any] | None = None) -> Response:
+        self._maybe_refresh_before_request()
         response = self._session.get(urljoin(self.base_url, endpoint), params=params)
+        if response.status_code == 401 and self._try_refresh():
+            response = self._session.get(urljoin(self.base_url, endpoint), params=params)
         UnexpectedResponse.raise_for_status(response)
         return response
 
@@ -63,7 +99,10 @@ class LogfireClient:
             raise LogfireConfigError(error_message) from e
 
     def _post_raw(self, endpoint: str, body: Any | None = None) -> Response:
+        self._maybe_refresh_before_request()
         response = self._session.post(urljoin(self.base_url, endpoint), json=body)
+        if response.status_code == 401 and self._try_refresh():
+            response = self._session.post(urljoin(self.base_url, endpoint), json=body)
         UnexpectedResponse.raise_for_status(response)
         return response
 

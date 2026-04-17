@@ -58,6 +58,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+cli = ["keyring >= 25.0"]
 system-metrics = ["opentelemetry-instrumentation-system-metrics >= 0.42b0"]
 asgi = ["opentelemetry-instrumentation-asgi >= 0.42b0"]
 wsgi = ["opentelemetry-instrumentation-wsgi >= 0.42b0"]
@@ -143,6 +144,7 @@ dev = [
     "opentelemetry-instrumentation-sqlite3>=0.42b0",
     "opentelemetry-instrumentation-aws-lambda>=0.42b0",
     "eval-type-backport >= 0.2.0",
+    "keyring >= 25.0",
     "requests-mock >= 1.12.1",
     "inline-snapshot >= 0.32.5",
     "structlog >= 24.4.0",

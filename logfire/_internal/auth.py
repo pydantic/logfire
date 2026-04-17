@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import platform
 import re
+import stat
 import sys
 import warnings
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import TypedDict, cast
+from typing import Any, Literal, TypedDict, cast
 from urllib.parse import urljoin
 
 import requests
@@ -17,12 +18,16 @@ from typing_extensions import Self
 
 from logfire.exceptions import LogfireConfigError
 
+from .token_storage import StoredOAuthSecrets, TokenStorage, file_lock
 from .utils import UnexpectedResponse, read_toml_file
 
 HOME_LOGFIRE = Path.home() / '.logfire'
 """Folder used to store global configuration, and user tokens."""
 DEFAULT_FILE = HOME_LOGFIRE / 'default.toml'
 """File used to store user tokens."""
+
+REFRESH_MARGIN = timedelta(seconds=60)
+"""Refresh OAuth access tokens this long before they actually expire."""
 
 
 PYDANTIC_LOGFIRE_TOKEN_PATTERN = re.compile(
@@ -49,25 +54,48 @@ REGIONS: dict[str, _RegionData] = {
 
 
 class UserTokenData(TypedDict):
-    """User token data."""
+    """Legacy long-lived user token record."""
 
     token: str
     expiration: str
+
+
+class OAuthUserTokenData(TypedDict, total=False):
+    """OAuth 2.1 device-flow token record.
+
+    When ``keyring_service`` is set, access_token/refresh_token live in the OS
+    keyring and are absent from the TOML file. Otherwise they live inline here.
+    """
+
+    auth_method: Literal['oauth']
+    client_id: str
+    scope: str
+    expiration: str
+    keyring_service: str
+    oauth_token: str
+    refresh_token: str
 
 
 class UserTokensFileData(TypedDict, total=False):
     """Content of the file containing the user tokens."""
 
-    tokens: dict[str, UserTokenData]
+    tokens: dict[str, dict[str, Any]]
 
 
 @dataclass
 class UserToken:
-    """A user token."""
+    """A user token — either a legacy long-lived token or an OAuth access token."""
 
     token: str
     base_url: str
     expiration: str
+    auth_method: Literal['legacy', 'oauth'] = 'legacy'
+    client_id: str | None = None
+    refresh_token: str | None = None
+    scope: str | None = None
+    # When the tokens are backed by the system keyring this is the service name,
+    # otherwise None (tokens stored inline in the TOML file).
+    keyring_service: str | None = None
 
     @classmethod
     def from_user_token_data(cls, base_url: str, token: UserTokenData) -> Self:
@@ -75,17 +103,76 @@ class UserToken:
             token=token['token'],
             base_url=base_url,
             expiration=token['expiration'],
+            auth_method='legacy',
+        )
+
+    @classmethod
+    def from_oauth_record(
+        cls,
+        base_url: str,
+        record: OAuthUserTokenData,
+        storage: TokenStorage,
+    ) -> Self | None:
+        """Rehydrate an OAuth token, pulling secrets from keyring when needed.
+
+        Returns None when the record references a keyring entry that can no
+        longer be read (e.g. the keyring was disabled between logins).
+        """
+        keyring_service = record.get('keyring_service')
+        if keyring_service:
+            secrets = storage.load(base_url)
+            if secrets is None:
+                return None
+            access_token = secrets.access_token
+            refresh_token: str | None = secrets.refresh_token
+        else:
+            access_token = record.get('oauth_token', '')
+            refresh_token = record.get('refresh_token') or None
+        return cls(
+            token=access_token,
+            base_url=base_url,
+            expiration=record.get('expiration', ''),
+            auth_method='oauth',
+            client_id=record.get('client_id'),
+            refresh_token=refresh_token,
+            scope=record.get('scope'),
+            keyring_service=keyring_service,
         )
 
     @property
     def is_expired(self) -> bool:
         """Whether the token is expired."""
-        return datetime.now(tz=timezone.utc) >= datetime.fromisoformat(self.expiration.rstrip('Z')).replace(
-            tzinfo=timezone.utc
-        )
+        return datetime.now(tz=timezone.utc) >= self._expiration_dt
+
+    @property
+    def needs_refresh(self) -> bool:
+        """True if an OAuth token is within the refresh margin of expiring."""
+        if self.auth_method != 'oauth' or not self.refresh_token:
+            return False
+        return datetime.now(tz=timezone.utc) + REFRESH_MARGIN >= self._expiration_dt
+
+    @property
+    def _expiration_dt(self) -> datetime:
+        return datetime.fromisoformat(self.expiration.rstrip('Z')).replace(tzinfo=timezone.utc)
+
+    @property
+    def header_value(self) -> str:
+        """The value to send in the Authorization header.
+
+        Legacy long-lived tokens are sent raw to preserve backend compatibility;
+        OAuth access tokens use the standard `Bearer` scheme.
+        """
+        if self.auth_method == 'oauth':
+            return f'Bearer {self.token}'
+        return self.token
 
     def __str__(self) -> str:
         region = 'us'
+        if self.auth_method == 'oauth':
+            prefix = f'OAuth ({self.base_url}) - '
+            suffix = (self.token[:5] if self.token else '') + '****'
+            return prefix + suffix
+
         if match := PYDANTIC_LOGFIRE_TOKEN_PATTERN.match(self.token):
             region = match.group('region')
             if region not in REGIONS:
@@ -98,6 +185,10 @@ class UserToken:
             token_repr += self.token[:5]
         token_repr += '****'
         return token_repr
+
+
+def _is_oauth_record(raw: dict[str, Any]) -> bool:
+    return raw.get('auth_method') == 'oauth'
 
 
 @dataclass
@@ -115,15 +206,32 @@ class UserTokenCollection:
     path: Path
     """The path where the user tokens are stored."""
 
-    def __init__(self, path: Path | None = None) -> None:
+    storage: TokenStorage
+    """Keyring-backed secret storage used for OAuth records."""
+
+    def __init__(self, path: Path | None = None, storage: TokenStorage | None = None) -> None:
         # FIXME: we can't set the default value of `path` to `DEFAULT_FILE`, otherwise
         # `mock.patch()` doesn't work:
         self.path = path if path is not None else DEFAULT_FILE
+        self.storage = storage if storage is not None else TokenStorage()
+        self.user_tokens = {}
+        self._reload()
+
+    def _reload(self) -> None:
         try:
-            data = cast(UserTokensFileData, read_toml_file(self.path))
+            data = read_toml_file(self.path)
         except FileNotFoundError:
-            data: UserTokensFileData = {}
-        self.user_tokens = {url: UserToken(base_url=url, **token) for url, token in data.get('tokens', {}).items()}
+            data = {}
+        raw_tokens = cast('dict[str, dict[str, Any]]', data.get('tokens', {}))
+        tokens: dict[str, UserToken] = {}
+        for url, raw in raw_tokens.items():
+            if _is_oauth_record(raw):
+                token = UserToken.from_oauth_record(url, cast(OAuthUserTokenData, raw), self.storage)
+                if token is not None:
+                    tokens[url] = token
+            else:
+                tokens[url] = UserToken.from_user_token_data(url, cast(UserTokenData, raw))
+        self.user_tokens = tokens
 
     def get_token(self, base_url: str | None = None) -> UserToken:
         """Get a user token from the collection.
@@ -163,7 +271,7 @@ class UserTokenCollection:
         else:  # tokens_list == []
             raise LogfireConfigError('You are not logged into Logfire. Please run `logfire auth` to authenticate.')
 
-        if token.is_expired:
+        if token.is_expired and token.auth_method != 'oauth':
             raise LogfireConfigError(f'User token {token} is expired. Please run `logfire auth` to authenticate.')
         return token
 
@@ -178,11 +286,49 @@ class UserTokenCollection:
             tokens = (t for t in self.user_tokens.values() if t.base_url == base_url)
         else:
             tokens = self.user_tokens.values()
-        return any(not t.is_expired for t in tokens)
+
+        def _valid(t: UserToken) -> bool:
+            if not t.is_expired:
+                return True
+            # OAuth tokens are still usable while a refresh_token is available.
+            return t.auth_method == 'oauth' and bool(t.refresh_token)
+
+        return any(_valid(t) for t in tokens)
 
     def add_token(self, base_url: str, token: UserTokenData) -> UserToken:
-        """Add a user token to the collection."""
+        """Add a legacy long-lived user token to the collection."""
         self.user_tokens[base_url] = user_token = UserToken.from_user_token_data(base_url, token)
+        self._dump()
+        return user_token
+
+    def add_oauth_token(
+        self,
+        base_url: str,
+        *,
+        client_id: str,
+        access_token: str,
+        refresh_token: str,
+        scope: str,
+        expiration: str,
+    ) -> UserToken:
+        """Store an OAuth access/refresh token pair for `base_url`.
+
+        Secrets are pushed into the OS keyring when available; otherwise they
+        land in the TOML file which is then chmod-ed to 0600.
+        """
+        secrets = StoredOAuthSecrets(access_token=access_token, refresh_token=refresh_token)
+        keyring_ok = self.storage.save(base_url, secrets)
+        keyring_service = 'logfire-oauth' if keyring_ok else None
+        self.user_tokens[base_url] = user_token = UserToken(
+            token=access_token,
+            base_url=base_url,
+            expiration=expiration,
+            auth_method='oauth',
+            client_id=client_id,
+            refresh_token=refresh_token,
+            scope=scope,
+            keyring_service=keyring_service,
+        )
         self._dump()
         return user_token
 
@@ -199,19 +345,99 @@ class UserTokenCollection:
 
         removed = [base_url] if base_url is not None else list(self.user_tokens.keys())
         for url in removed:
-            del self.user_tokens[url]
+            token = self.user_tokens.pop(url)
+            if token.auth_method == 'oauth' and token.keyring_service:
+                self.storage.delete(url)
 
         self._dump()
         return removed
 
+    def refresh_if_needed(self, token: UserToken, session: requests.Session) -> UserToken:
+        """Refresh `token` in place if it is (close to) expired.
+
+        Serialized across processes via an advisory lock on the tokens file so
+        that concurrent `logfire` commands cannot race each other into
+        invalidating a refresh token. After acquiring the lock we re-read the
+        on-disk record first: if another process already rotated the token we
+        simply reuse its result.
+        """
+        if token.auth_method != 'oauth' or not token.refresh_token or not token.client_id:
+            return token
+        if not token.needs_refresh:
+            return token
+
+        from . import oauth as _oauth  # lazy import to avoid a circular dependency
+
+        with file_lock(self.path):
+            self._reload()
+            current = self.user_tokens.get(token.base_url)
+            if current is not None and current.auth_method == 'oauth' and not current.needs_refresh:
+                # Another process already refreshed. Update the caller's view.
+                token.token = current.token
+                token.refresh_token = current.refresh_token
+                token.expiration = current.expiration
+                return current
+
+            refresh_target = current if current is not None else token
+            metadata = _oauth.discover_metadata(session, refresh_target.base_url)
+            response = _oauth.refresh_access_token(
+                session,
+                metadata,
+                refresh_token=refresh_target.refresh_token or '',
+                client_id=refresh_target.client_id or '',
+            )
+            new_expiration = (
+                datetime.now(tz=timezone.utc) + timedelta(seconds=int(response.get('expires_in', 3600)))
+            ).isoformat()
+            new_refresh = response.get('refresh_token') or refresh_target.refresh_token or ''
+            new_access = response.get('access_token') or ''
+            if not new_access:
+                raise LogfireConfigError('The OAuth refresh response did not include an access_token.')
+            updated = self.add_oauth_token(
+                refresh_target.base_url,
+                client_id=refresh_target.client_id or '',
+                access_token=new_access,
+                refresh_token=new_refresh,
+                scope=response.get('scope') or refresh_target.scope or '',
+                expiration=new_expiration,
+            )
+            # Reflect the update into the caller-visible object.
+            token.token = updated.token
+            token.refresh_token = updated.refresh_token
+            token.expiration = updated.expiration
+            token.scope = updated.scope
+            token.keyring_service = updated.keyring_service
+            return updated
+
     def _dump(self) -> None:
         """Dump the user token collection as TOML to the provided path."""
+        self.path.parent.mkdir(parents=True, exist_ok=True)
         # There's no standard library package to write TOML files, so we'll write it manually.
+        any_inline_secret = False
         with self.path.open('w') as f:
             for base_url, user_token in self.user_tokens.items():
                 f.write(f'[tokens."{base_url}"]\n')
-                f.write(f'token = "{user_token.token}"\n')
-                f.write(f'expiration = "{user_token.expiration}"\n')
+                if user_token.auth_method == 'oauth':
+                    f.write('auth_method = "oauth"\n')
+                    f.write(f'client_id = "{user_token.client_id or ""}"\n')
+                    f.write(f'scope = "{user_token.scope or ""}"\n')
+                    f.write(f'expiration = "{user_token.expiration}"\n')
+                    if user_token.keyring_service:
+                        f.write(f'keyring_service = "{user_token.keyring_service}"\n')
+                    else:
+                        # Keyring unavailable — persist tokens inline.
+                        f.write(f'oauth_token = "{user_token.token}"\n')
+                        f.write(f'refresh_token = "{user_token.refresh_token or ""}"\n')
+                        any_inline_secret = True
+                else:
+                    f.write(f'token = "{user_token.token}"\n')
+                    f.write(f'expiration = "{user_token.expiration}"\n')
+        # If we ended up writing secrets to disk, make sure the file is not world-readable.
+        if any_inline_secret:
+            try:
+                self.path.chmod(stat.S_IRUSR | stat.S_IWUSR)
+            except OSError:  # pragma: no cover — best-effort on unusual filesystems
+                pass
 
 
 class NewDeviceFlow(TypedDict):
@@ -273,3 +499,16 @@ def poll_for_token(session: requests.Session, device_code: str, base_api_url: st
             opt_user_token: UserTokenData | None = res.json()
             if opt_user_token:
                 return opt_user_token
+
+
+__all__ = [
+    'DEFAULT_FILE',
+    'HOME_LOGFIRE',
+    'REGIONS',
+    'OAuthUserTokenData',
+    'UserToken',
+    'UserTokenCollection',
+    'UserTokenData',
+    'poll_for_token',
+    'request_device_code',
+]

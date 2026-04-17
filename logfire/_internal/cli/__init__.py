@@ -327,6 +327,12 @@ def _main(args: list[str] | None = None) -> None:
 
     # NOTE(DavidM): Let's try to keep the commands listed in alphabetical order if we can
     cmd_auth = subparsers.add_parser('auth', help=parse_auth.__doc__.split('\n', 1)[0], description=parse_auth.__doc__)  # pyright: ignore[reportOptionalMemberAccess]
+    cmd_auth.add_argument(
+        '--oauth',
+        action='store_true',
+        default=False,
+        help='use the OAuth 2.1 device flow (short-lived access token + refresh token, stored in the OS keyring when available)',
+    )
     cmd_auth.set_defaults(func=parse_auth)
     auth_subparsers = cmd_auth.add_subparsers()
 
