@@ -635,7 +635,7 @@ class Logfire:
             new_trace: Set to `True` to start a new trace with a span link to the current span
                 instead of creating a child of the current span.
             _level: The log level for the span. If provided, the span will be tagged with this level
-                and suppressed if the level is below the configured `min_log_level`.
+                and suppressed if the level is below the configured `min_level`.
         """
 
     @overload
@@ -690,7 +690,7 @@ class Logfire:
             new_trace: Set to `True` to start a new trace with a span link to the current span
                 instead of creating a child of the current span.
             _level: The log level for the span. If provided, the span will be tagged with this level
-                and suppressed if the level is below the configured `min_log_level`.
+                and suppressed if the level is below the configured `min_level`.
         """
         if callable(msg_template):
             return self.instrument()(msg_template)
