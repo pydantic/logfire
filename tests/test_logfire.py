@@ -117,6 +117,30 @@ def test_instrument_level_filtered_record_return(exporter: TestExporter, config_
     assert exporter.exported_spans_as_dict() == []
 
 
+def test_instrument_level_filtered_extract_args(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
+    config_kwargs['min_level'] = 'info'
+    logfire.configure(**config_kwargs)
+
+    @logfire.instrument('my span {x=}', _level='debug', extract_args=True)
+    def my_func(x: int) -> int:
+        return x * 2
+
+    assert my_func(5) == 10
+    assert exporter.exported_spans_as_dict() == []
+
+
+def test_instrument_level_filtered_extract_args_iterable(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
+    config_kwargs['min_level'] = 'info'
+    logfire.configure(**config_kwargs)
+
+    @logfire.instrument('my span', _level='debug', extract_args=('x',))
+    def my_func(x: int) -> int:
+        return x * 2
+
+    assert my_func(5) == 10
+    assert exporter.exported_spans_as_dict() == []
+
+
 @pytest.mark.anyio
 async def test_instrument_with_level_async(exporter: TestExporter) -> None:
     @logfire.instrument('async span', _level='warn', extract_args=False)
