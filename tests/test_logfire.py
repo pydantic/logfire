@@ -71,7 +71,7 @@ def test_instrument_with_level(exporter: TestExporter) -> None:
         return 'ok'
 
     assert my_func() == 'ok'
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
         [
             {
                 'name': 'my span',
@@ -80,7 +80,7 @@ def test_instrument_with_level(exporter: TestExporter) -> None:
                 'start_time': 1000000000,
                 'end_time': 2000000000,
                 'attributes': {
-                    'code.function': 'my_func',
+                    'code.function': 'test_instrument_with_level.<locals>.my_func',
                     'logfire.msg_template': 'my span',
                     'code.lineno': 123,
                     'code.filepath': 'test_logfire.py',
@@ -124,7 +124,7 @@ async def test_instrument_with_level_async(exporter: TestExporter) -> None:
         return 'ok'
 
     assert await my_async_func() == 'ok'
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
         [
             {
                 'name': 'async span',
@@ -133,7 +133,7 @@ async def test_instrument_with_level_async(exporter: TestExporter) -> None:
                 'start_time': 1000000000,
                 'end_time': 2000000000,
                 'attributes': {
-                    'code.function': 'my_async_func',
+                    'code.function': 'test_instrument_with_level_async.<locals>.my_async_func',
                     'logfire.msg_template': 'async span',
                     'code.lineno': 123,
                     'code.filepath': 'test_logfire.py',
@@ -152,7 +152,7 @@ def test_instrument_with_level_and_extract_args(exporter: TestExporter) -> None:
         return x * 2
 
     assert my_func(5) == 10
-    assert exporter.exported_spans_as_dict() == snapshot(
+    assert exporter.exported_spans_as_dict(_strip_function_qualname=False) == snapshot(
         [
             {
                 'name': 'span {x=}',
@@ -161,7 +161,7 @@ def test_instrument_with_level_and_extract_args(exporter: TestExporter) -> None:
                 'start_time': 1000000000,
                 'end_time': 2000000000,
                 'attributes': {
-                    'code.function': 'my_func',
+                    'code.function': 'test_instrument_with_level_and_extract_args.<locals>.my_func',
                     'logfire.msg_template': 'span {x=}',
                     'code.lineno': 123,
                     'code.filepath': 'test_logfire.py',
