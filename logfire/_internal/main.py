@@ -608,6 +608,7 @@ class Logfire:
         record_return: bool = False,
         allow_generator: bool = False,
         new_trace: bool = False,
+        _level: LevelName | int | None = None,
     ) -> Callable[[Callable[P, R]], Callable[P, R]]:
         """Decorator for instrumenting a function as a span.
 
@@ -633,6 +634,8 @@ class Logfire:
                 Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
             new_trace: Set to `True` to start a new trace with a span link to the current span
                 instead of creating a child of the current span.
+            _level: The log level for the span. If provided, the span will be tagged with this level
+                and suppressed if the level is below the configured `min_log_level`.
         """
 
     @overload
@@ -660,6 +663,7 @@ class Logfire:
         record_return: bool = False,
         allow_generator: bool = False,
         new_trace: bool = False,
+        _level: LevelName | int | None = None,
     ) -> Callable[[Callable[P, R]], Callable[P, R]] | Callable[P, R]:
         """Decorator for instrumenting a function as a span.
 
@@ -685,11 +689,21 @@ class Logfire:
                 Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
             new_trace: Set to `True` to start a new trace with a span link to the current span
                 instead of creating a child of the current span.
+            _level: The log level for the span. If provided, the span will be tagged with this level
+                and suppressed if the level is below the configured `min_log_level`.
         """
         if callable(msg_template):
             return self.instrument()(msg_template)
         return instrument(
-            self, tuple(self._tags), msg_template, span_name, extract_args, record_return, allow_generator, new_trace
+            self,
+            tuple(self._tags),
+            msg_template,
+            span_name,
+            extract_args,
+            record_return,
+            allow_generator,
+            new_trace,
+            _level=_level,
         )
 
     def log(

@@ -12,7 +12,12 @@ from opentelemetry import trace
 from opentelemetry.util import types as otel_types
 from typing_extensions import LiteralString, ParamSpec
 
-from .constants import ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_TAGS_KEY
+from .constants import (
+    ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
+    ATTRIBUTES_TAGS_KEY,
+    LevelName,
+    log_level_attributes,
+)
 from .stack_info import get_filepath_attribute
 from .utils import safe_repr, uniquify_sequence
 
@@ -52,6 +57,7 @@ def instrument(
     record_return: bool,
     allow_generator: bool,
     new_trace: bool,
+    _level: LevelName | int | None = None,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     from .main import set_user_attributes_on_raw_span
 
@@ -63,7 +69,7 @@ def instrument(
             )
 
         attributes = get_attributes(func, msg_template, tags)
-        open_span = get_open_span(logfire, attributes, span_name, extract_args, func, new_trace)
+        open_span = get_open_span(logfire, attributes, span_name, extract_args, func, new_trace, _level=_level)
 
         if inspect.isgeneratorfunction(func):
             if not allow_generator:
@@ -122,8 +128,12 @@ def get_open_span(
     extract_args: bool | Iterable[str],
     func: Callable[P, R],
     new_trace: bool,
+    _level: LevelName | int | None = None,
 ) -> Callable[P, AbstractContextManager[Any]]:
     final_span_name: str = span_name or attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # pyright: ignore[reportAssignmentType]
+
+    if _level is not None:
+        attributes = {**attributes, **log_level_attributes(_level)}
 
     def get_logfire():
         # This avoids having a `logfire` closure variable, which would make the instrumented
