@@ -13,6 +13,7 @@ from opentelemetry.util import types as otel_types
 from typing_extensions import LiteralString, ParamSpec
 
 from .constants import (
+    ATTRIBUTES_LOG_LEVEL_NUM_KEY,
     ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
     ATTRIBUTES_TAGS_KEY,
     LevelName,
@@ -132,8 +133,11 @@ def get_open_span(
 ) -> Callable[P, AbstractContextManager[Any]]:
     final_span_name: str = span_name or attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # pyright: ignore[reportAssignmentType]
 
+    level_num: int | None = None
     if _level is not None:
-        attributes = {**attributes, **log_level_attributes(_level)}
+        _level_attrs = log_level_attributes(_level)
+        level_num = int(_level_attrs[ATTRIBUTES_LOG_LEVEL_NUM_KEY])
+        attributes = {**attributes, **_level_attrs}
 
     def get_logfire():
         # This avoids having a `logfire` closure variable, which would make the instrumented
@@ -166,6 +170,10 @@ def get_open_span(
 
     # This is the fast case for when there are no arguments to extract
     def open_span(*_: P.args, **__: P.kwargs):  # pyright: ignore[reportRedeclaration]
+        if level_num is not None and level_num < get_logfire().config.min_level:
+            from .main import NoopSpan
+
+            return NoopSpan()
         return get_logfire()._fast_span(final_span_name, attributes, **extra_span_kwargs())  # pyright: ignore[reportPrivateUsage]
 
     if extract_args is True:
@@ -173,6 +181,10 @@ def get_open_span(
         if sig.parameters:  # only extract args if there are any
 
             def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
+                if level_num is not None and level_num < get_logfire().config.min_level:
+                    from .main import NoopSpan
+
+                    return NoopSpan()
                 bound = sig.bind(*func_args, **func_kwargs)
                 bound.apply_defaults()
                 args_dict = bound.arguments
@@ -200,6 +212,10 @@ def get_open_span(
         if extract_args_final:  # check that there are still arguments to extract
 
             def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
+                if level_num is not None and level_num < get_logfire().config.min_level:
+                    from .main import NoopSpan
+
+                    return NoopSpan()
                 bound = sig.bind(*func_args, **func_kwargs)
                 bound.apply_defaults()
                 args_dict = bound.arguments

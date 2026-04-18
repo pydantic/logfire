@@ -93,6 +93,30 @@ def test_instrument_with_level(exporter: TestExporter) -> None:
     )
 
 
+def test_instrument_level_filtered(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
+    config_kwargs['min_level'] = 'info'
+    logfire.configure(**config_kwargs)
+
+    @logfire.instrument('my span', _level='debug', extract_args=False)
+    def my_func() -> str:
+        return 'ok'
+
+    assert my_func() == 'ok'
+    assert exporter.exported_spans_as_dict() == []
+
+
+def test_instrument_level_filtered_record_return(exporter: TestExporter, config_kwargs: dict[str, Any]) -> None:
+    config_kwargs['min_level'] = 'info'
+    logfire.configure(**config_kwargs)
+
+    @logfire.instrument('my span', _level='debug', extract_args=False, record_return=True)
+    def my_func() -> str:
+        return 'ok'
+
+    assert my_func() == 'ok'
+    assert exporter.exported_spans_as_dict() == []
+
+
 def test_instrument_with_no_args(exporter: TestExporter) -> None:
     @logfire.instrument()
     def foo(x: int):

@@ -3097,6 +3097,11 @@ class NoopSpan:
     def message(self, message: str):
         pass
 
+    @property
+    def _span(self) -> Any:
+        # set_user_attributes_on_raw_span checks is_recording() first; INVALID_SPAN returns False
+        return trace_api.INVALID_SPAN
+
     def is_recording(self) -> bool:
         return False
 
