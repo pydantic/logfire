@@ -117,6 +117,65 @@ def test_instrument_level_filtered_record_return(exporter: TestExporter, config_
     assert exporter.exported_spans_as_dict() == []
 
 
+@pytest.mark.anyio
+async def test_instrument_with_level_async(exporter: TestExporter) -> None:
+    @logfire.instrument('async span', _level='warn', extract_args=False)
+    async def my_async_func() -> str:
+        return 'ok'
+
+    assert await my_async_func() == 'ok'
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'async span',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'my_async_func',
+                    'logfire.msg_template': 'async span',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.level_num': 13,
+                    'logfire.span_type': 'span',
+                    'logfire.msg': 'async span',
+                },
+            }
+        ]
+    )
+
+
+def test_instrument_with_level_and_extract_args(exporter: TestExporter) -> None:
+    @logfire.instrument('span {x=}', _level='warn')
+    def my_func(x: int) -> int:
+        return x * 2
+
+    assert my_func(5) == 10
+    assert exporter.exported_spans_as_dict() == snapshot(
+        [
+            {
+                'name': 'span {x=}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.function': 'my_func',
+                    'logfire.msg_template': 'span {x=}',
+                    'code.lineno': 123,
+                    'code.filepath': 'test_logfire.py',
+                    'logfire.level_num': 13,
+                    'logfire.msg': 'span x=5',
+                    'logfire.json_schema': '{"type":"object","properties":{"x":{}}}',
+                    'x': 5,
+                    'logfire.span_type': 'span',
+                },
+            }
+        ]
+    )
+
+
 def test_instrument_with_no_args(exporter: TestExporter) -> None:
     @logfire.instrument()
     def foo(x: int):

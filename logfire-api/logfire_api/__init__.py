@@ -131,7 +131,7 @@ except ImportError:
 
             def install_auto_tracing(self, *args, **kwargs) -> None: ...
 
-            def instrument(self, *args, **kwargs):
+            def instrument(self, *args, _level=None, **kwargs):
                 def decorator(func):
                     return func
 
