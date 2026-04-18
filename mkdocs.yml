@@ -197,6 +197,7 @@ nav:
           - Detect Service is Down: how-to-guides/detect-service-is-down.md
       - Evaluate:
           - Evals: guides/web-ui/evals.md
+          - Live Evaluations: guides/web-ui/live-evals.md
           - Datasets:
               - Datasets: evaluate/datasets/index.md
               - Web UI Guide: evaluate/datasets/ui.md
@@ -466,6 +467,7 @@ plugins:
           - how-to-guides/detect-service-is-down.md
         Evaluate:
           - guides/web-ui/evals.md
+          - guides/web-ui/live-evals.md
           - evaluate/datasets/*.md
         Manage & Configure:
           - guides/web-ui/organizations-and-projects.md
