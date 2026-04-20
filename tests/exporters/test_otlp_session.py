@@ -234,9 +234,10 @@ def test_disk_retryer_close_during_retry(monkeypatch: pytest.MonkeyPatch) -> Non
 
     retryer.add_task(b'123', {'url': 'http://example.com/'})
 
-    # Wait for the thread to finish (it should exit because close() was called).
-    assert retryer.thread
-    retryer.thread.join(timeout=5)
+    # Capture thread reference before it can be set to None by close().
+    thread = retryer.thread
+    assert thread is not None
+    thread.join(timeout=5)
 
     assert sleep_count >= 3
     assert retryer.closed
