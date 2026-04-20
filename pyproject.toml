@@ -234,6 +234,7 @@ pydantic_ai_slim = false
 pydantic-graph = false
 pydantic-evals = false
 pydantic = false
+pydantic-core = false
 
 [tool.uv.workspace]
 members = ["logfire-api"]
