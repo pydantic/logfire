@@ -22,6 +22,44 @@ A dataset can be both: if you create a hosted dataset with the same name as one 
 
 You can filter between these types using the **Hosted** and **Local** tabs at the top of the datasets list.
 
+## What is a Hosted Dataset?
+
+A Hosted Dataset is a collection of test cases stored on the Logfire server. Each hosted dataset row is one **case** with inputs, expected output, and optional metadata. Additionally, a **schema** for the whole hosted dataset can be defined which constrains each case — ensuring that every case has the correct structure.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ Hosted Dataset                                                      │
+│                                                                     │
+│  ┌──────────────────────────────────┐  ┌─────────────────────────┐  │
+│  │ Case #1                          │  │ Schema (Optional)       │  │
+│  │   Input                          │  │   Input                 │  │
+│  │   Expected Output                │  │   Expected Output       │  │
+│  │   Metadata                       │  │   Metadata              │  │
+│  └──────────────────────────────────┘  │                         │  │
+│  ┌──────────────────────────────────┐  │                         │  │
+│  │ Case #2                          │  │                         │  │
+│  └──────────────────────────────────┘  │                         │  │
+│  ┌──────────────────────────────────┐  │                         │  │
+│  │ Case #3                          │  │                         │  │
+│  └──────────────────────────────────┘  └─────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+Hosted datasets integrate into the broader [pydantic-evals](https://ai.pydantic.dev/evals/) data model:
+
+```
+Hosted Dataset (1) ─────────── (Many) Case
+│                                │
+│                                │
+└── (Many) Experiment ──── (Many) Case results
+     │
+     ├── (1) Task
+     │
+     └── (Many) Evaluator
+```
+
+A single hosted dataset contains many cases. Over time, you run multiple experiments against the same hosted dataset — each experiment executes every case against a task and scores the results with evaluators.
+
 ## Why Datasets?
 
 When evaluating AI systems, you need test cases that reflect real-world usage. Datasets solve several problems:
