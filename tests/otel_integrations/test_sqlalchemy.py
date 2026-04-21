@@ -89,6 +89,7 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
                     'db.statement': 'PRAGMA main.table_info("auth_records")',
                     'db.system': 'sqlite',
                     'db.name': 'example1.db',
+                    'db.operation': IsStr(),
                 },
             },
             {
@@ -103,6 +104,7 @@ def test_sqlalchemy_instrumentation(exporter: TestExporter):
                     'db.statement': 'PRAGMA temp.table_info("auth_records")',
                     'db.system': 'sqlite',
                     'db.name': 'example1.db',
+                    'db.operation': IsStr(),
                 },
             },
             {
@@ -120,6 +122,7 @@ CREATE TABLE auth_records ( id INTEGER … t VARCHAR NOT NULL, PRIMARY KEY (id)
                     'db.statement': '\nCREATE TABLE auth_records (\n\tid INTEGER NOT NULL, \n\tnumber INTEGER NOT NULL, \n\tcontent VARCHAR NOT NULL, \n\tPRIMARY KEY (id)\n)\n\n',
                     'db.system': 'sqlite',
                     'db.name': 'example1.db',
+                    'db.operation': IsStr(),
                 },
             },
             {
@@ -148,6 +151,7 @@ CREATE TABLE auth_records ( id INTEGER … t VARCHAR NOT NULL, PRIMARY KEY (id)
                     'db.statement': 'select * from auth_records',
                     'db.system': 'sqlite',
                     'db.name': 'example1.db',
+                    'db.operation': IsStr(),
                 },
             },
             {
@@ -162,6 +166,7 @@ CREATE TABLE auth_records ( id INTEGER … t VARCHAR NOT NULL, PRIMARY KEY (id)
                     'db.statement': 'INSERT INTO auth_records (id, number, content) VALUES (?, ?, ?)',
                     'db.system': 'sqlite',
                     'db.name': 'example1.db',
+                    'db.operation': IsStr(),
                 },
             },
             {
@@ -190,6 +195,7 @@ CREATE TABLE auth_records ( id INTEGER … t VARCHAR NOT NULL, PRIMARY KEY (id)
                     'db.statement': 'SELECT auth_records.id AS auth_records_id, auth_records.number AS auth_records_number, auth_records.content AS auth_records_content \nFROM auth_records \nWHERE auth_records.id = ?',
                     'db.system': 'sqlite',
                     'db.name': 'example1.db',
+                    'db.operation': IsStr(),
                 },
             },
             {
@@ -204,6 +210,7 @@ CREATE TABLE auth_records ( id INTEGER … t VARCHAR NOT NULL, PRIMARY KEY (id)
                     'db.statement': 'DELETE FROM auth_records WHERE auth_records.id = ?',
                     'db.system': 'sqlite',
                     'db.name': 'example1.db',
+                    'db.operation': IsStr(),
                 },
             },
         ]
@@ -289,6 +296,7 @@ def test_sqlalchemy_instrumentation_commenter(parameter: str, exporter: TestExpo
                     'db.statement': 'PRAGMA main.table_info("auth_records")',
                     'db.system': 'sqlite',
                     'db.name': 'example3.db',
+                    'db.operation': IsStr(),
                 },
             },
             {
@@ -319,6 +327,7 @@ def test_sqlalchemy_instrumentation_commenter(parameter: str, exporter: TestExpo
                     'db.statement': 'PRAGMA temp.table_info("auth_records")',
                     'db.system': 'sqlite',
                     'db.name': 'example3.db',
+                    'db.operation': IsStr(),
                 },
             },
             {
@@ -369,6 +378,7 @@ CREATE TABLE auth_records (
 """,
                     'db.system': 'sqlite',
                     'db.name': 'example3.db',
+                    'db.operation': IsStr(),
                 },
             },
         ]
@@ -436,6 +446,7 @@ async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestEx
                     'db.statement': 'PRAGMA main.table_info("auth_records")',
                     'db.system': 'sqlite',
                     'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
+                    'db.operation': IsStr(),
                 },
             },
             {
@@ -450,6 +461,7 @@ async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestEx
                     'db.statement': 'PRAGMA temp.table_info("auth_records")',
                     'db.system': 'sqlite',
                     'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
+                    'db.operation': IsStr(),
                 },
             },
             {
@@ -464,6 +476,7 @@ async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestEx
                     'db.statement': '\nCREATE TABLE auth_records (\n\tid INTEGER NOT NULL, \n\tnumber INTEGER NOT NULL, \n\tcontent VARCHAR NOT NULL, \n\tPRIMARY KEY (id)\n)\n\n',
                     'db.system': 'sqlite',
                     'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
+                    'db.operation': IsStr(),
                 },
             },
             {
@@ -492,6 +505,7 @@ async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestEx
                     'db.statement': 'select * from auth_records',
                     'db.system': 'sqlite',
                     'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
+                    'db.operation': IsStr(),
                 },
             },
             {
@@ -506,6 +520,7 @@ async def test_sqlalchemy_async_instrumentation(parameter: str, exporter: TestEx
                     'db.statement': 'INSERT INTO auth_records (id, number, content) VALUES (?, ?, ?)',
                     'db.system': 'sqlite',
                     'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
+                    'db.operation': IsStr(),
                 },
             },
             {
@@ -536,6 +551,7 @@ SELECT auth_records.id AS auth_records_id, auth_records.number AS auth_records_n
 """,
                     'db.system': 'sqlite',
                     'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
+                    'db.operation': IsStr(),
                 },
             },
             {
@@ -550,6 +566,7 @@ SELECT auth_records.id AS auth_records_id, auth_records.number AS auth_records_n
                     'db.statement': 'DELETE FROM auth_records WHERE auth_records.id = ?',
                     'db.system': 'sqlite',
                     'db.name': IsStr(regex=r'.*test_(engine|engines)\.db$'),
+                    'db.operation': IsStr(),
                 },
             },
         ]
