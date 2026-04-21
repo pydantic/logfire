@@ -27,22 +27,22 @@ You can filter between these types using the **Hosted** and **Local** tabs at th
 A Hosted Dataset is a collection of test cases stored on the Logfire server. Each hosted dataset row is one **case** with inputs, expected output, and optional metadata. Additionally, a **schema** for the whole hosted dataset can be defined which constrains each case — ensuring that every case has the correct structure.
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│ Hosted Dataset                                                      │
-│                                                                     │
-│  ┌──────────────────────────────────┐  ┌─────────────────────────┐  │
-│  │ Case #1                          │  │ Schema (Optional)       │  │
-│  │   Input                          │  │   Input                 │  │
-│  │   Expected Output                │  │   Expected Output       │  │
-│  │   Metadata                       │  │   Metadata              │  │
-│  └──────────────────────────────────┘  │                         │  │
-│  ┌──────────────────────────────────┐  │                         │  │
-│  │ Case #2                          │  │                         │  │
-│  └──────────────────────────────────┘  │                         │  │
-│  ┌──────────────────────────────────┐  │                         │  │
-│  │ Case #3                          │  │                         │  │
-│  └──────────────────────────────────┘  └─────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────┘
++-------------------------------------------------------------------+
+| Hosted Dataset                                                    |
+|                                                                   |
+|  +--------------------------------+  +-----------------------+    |
+|  | Case #1                        |  | Schema (Optional)     |    |
+|  |   Input                        |  |   Input               |    |
+|  |   Expected Output              |  |   Expected Output     |    |
+|  |   Metadata                     |  |   Metadata            |    |
+|  +--------------------------------+  |                       |    |
+|  +--------------------------------+  |                       |    |
+|  | Case #2                        |  |                       |    |
+|  +--------------------------------+  |                       |    |
+|  +--------------------------------+  |                       |    |
+|  | Case #3                        |  |                       |    |
+|  +--------------------------------+  +-----------------------+    |
++-------------------------------------------------------------------+
 ```
 
 Hosted datasets integrate into the broader [pydantic-evals](https://ai.pydantic.dev/evals/) data model:
@@ -59,6 +59,16 @@ Hosted Dataset (1) ─────────── (Many) Case
 ```
 
 A single hosted dataset contains many cases. Over time, you run multiple experiments against the same hosted dataset — each experiment executes every case against a task and scores the results with evaluators.
+
+## How Cases Get Into a Hosted Dataset
+
+There are several ways to populate a hosted dataset with cases:
+
+- **From Live View**: Find an interesting trace or span in production and save it as a single case. You pick an existing hosted dataset or create a new one, review the extracted inputs and outputs, then add it. This is the easiest way to turn real-world usage into test cases. See [Adding Cases from Traces](ui.md#adding-cases-from-traces) for a walkthrough.
+- **Manually in the UI**: Add cases one by one through the dataset's Cases tab. Useful when you want to hand-craft specific edge cases. See [Managing Cases](ui.md#managing-cases) for details.
+- **Via the SDK**: Create cases programmatically with Python — either by pushing a full local `pydantic-evals` dataset or by adding individual cases. See the [SDK Guide](sdk.md) for details.
+
+Adding from Live View usually creates one new case from one span. Importing via the SDK can be done in bulk.
 
 ## Why Datasets?
 
