@@ -1,0 +1,18 @@
+pyproject.toml
+  h_bc896295f46a8b 50-51
+logfire/_internal/exporters/wrapper.py
+  h_bc896295f46a8b 43
+tests/otel_integrations/test_sqlalchemy.py
+  h_bc896295f46a8b 92,107,125,154,169,198,213,299,330,381,449,464,479,508,523,554,569
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.2",
+  "base_commit_sha": "0acbc9a49a8f800ac4033613939e3cbe9fb9fb0b",
+  "prompts": {},
+  "humans": {
+    "h_bc896295f46a8b": {
+      "author": "Alex Hall"
+    }
+  }
+}
