@@ -1,11 +1,23 @@
 ---
-title: "Define Scenarios"
-description: "How to build scenarios — the reusable inputs that exercise a prompt — including multi-turn conversations and tool-calling flows."
+title: "Test Prompts"
+description: "How to test prompts with scenarios, datasets, and run records."
 ---
 
-# Define scenarios
+# Test Prompts
 
-A scenario is how you rehearse a prompt. Each scenario is a sequence of messages plus a set of variables. When you click **Run**, Logfire uses the scenario to build a realistic conversation, renders the prompt template into it, and sends the whole thing to the configured model through the gateway.
+Prompt Management includes a testing surface around the prompt template itself:
+
+- **Scenarios** are saved test cases.
+- **Datasets** let you run the same scenario across many cases.
+- **Runs** are the records you inspect afterward to see what happened.
+
+These are for testing and evaluation. They are not part of the runtime surface your application consumes.
+
+## Scenarios
+
+A scenario is a saved test case for a prompt. Each scenario is a sequence of messages plus a set of variables. When you click **Run**, Logfire uses the scenario to build a realistic conversation, renders the prompt template into it, and sends the whole thing to the configured model through the gateway.
+
+Scenarios are most useful when you want repeatable testing in the prompt editor: representative user inputs, few-shot or multi-turn setup, or tool-calling rehearsal.
 
 ## The default scenario
 
@@ -75,7 +87,41 @@ Role: tool
 
 Both `args` (on `tool-call`) and `content` (on `tool-return`) are JSON values. String fields anywhere inside them are rendered through the template engine — including nested strings inside arrays and objects. Non-string values (numbers, booleans, nulls) pass through unchanged.
 
-The tools your assistant is allowed to call during a run are configured separately — see [Tools](./tools.md). Scenarios only describe what tool calls and returns *look like*; they do not change what the model is permitted to do.
+Scenarios only describe what tool calls and returns *look like*; they do not change what the model is permitted to do.
+
+### Configure tools for testing
+
+The list of tools the model is allowed to call is configured on the prompt's settings panel. These tool definitions are part of the testing surface in Prompt Management: they affect future test runs in the UI, but they are not part of the runtime prompt template your application imports.
+
+A tool definition has three fields:
+
+| Field | Type | Notes |
+|---|---|---|
+| `name` | string | The tool's name as the model will see it. |
+| `description` | string or null | Optional free-text description passed to the model. |
+| `parameters` | JSON object | A JSON Schema describing the tool's arguments. |
+
+Example:
+
+```json
+{
+  "name": "fetch_weather",
+  "description": "Look up the current weather for a city by name.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "city": { "type": "string" },
+      "units": { "type": "string", "enum": ["metric", "imperial"] }
+    },
+    "required": ["city"]
+  }
+}
+```
+
+Two behaviors matter:
+
+- **Edits apply immediately.** Changing a tool updates the prompt's test settings right away, so the next run uses the new definition.
+- **Versions do not snapshot tools.** A version freezes only the prompt template text, not the tool definitions used for testing.
 
 ## Multiple scenarios on a prompt
 
@@ -83,13 +129,26 @@ A prompt can have as many scenarios as you want. Use them to capture distinct in
 
 Scenarios have a position — they render in the editor in the order you arrange them — and one is marked as the **default**. The default is the scenario that runs when you click Run without explicitly picking a scenario first.
 
-## Batch runs
+## Datasets and batch runs
 
 A scenario can be linked to a **dataset** for a batch run. In that mode, Logfire iterates over every case in the dataset (up to 500 per batch call), maps dataset columns to the scenario's variables, and executes the scenario once per case. Each case produces its own rendered messages, its own model output, and its own cost/latency numbers, all queryable under the single batch run record.
 
+Use this when you want to evaluate the same prompt setup across many representative cases instead of trying inputs one by one.
+
 !!! warning "Cost"
-    A batch run calls the gateway once per case. Before running 500 cases against a paid model, double-check the scenario and confirm the model/settings you want. See [Known limitations](./limitations.md#no-batch-cost-ceiling) — there is currently no cost ceiling or approval flow for batch runs; every run spends real gateway budget.
+    A batch run calls the gateway once per case. Before running a large batch against a paid model, double-check the scenario, dataset mapping, and model settings. Each case spends real gateway budget.
 
-## Seeing what the model actually sees
+For dataset authoring and management, see the [datasets docs](../../../evaluate/datasets/index.md).
 
-Both the editor preview and every run record surface the **rendered messages** — the concrete JSON that gets sent to the model after all template rendering. When a scenario behaves in a surprising way, the rendered messages are the first thing to check: you can compare what you wrote against what the engine produced.
+## Runs
+
+Every run record shows you how the prompt behaved under a particular test setup. Use runs to inspect:
+
+- the model output,
+- rendered messages,
+- tool calls,
+- latency and token usage,
+- cost, and
+- per-case results for batch runs.
+
+When a scenario behaves in a surprising way, the rendered messages are the first thing to check: you can compare what you wrote against what the engine produced.

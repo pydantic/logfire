@@ -216,13 +216,12 @@ nav:
               - Configuration Reference: reference/advanced/managed-variables/configuration-reference.md
           - Prompt Management:
               - Overview: reference/advanced/prompt-management/index.md
-              - Concepts: reference/advanced/prompt-management/concepts.md
+              - Core Concepts: reference/advanced/prompt-management/concepts.md
               - Writing Templates: reference/advanced/prompt-management/templates.md
+              - Test Prompts: reference/advanced/prompt-management/scenarios.md
+              - Use Prompts in Your Application: reference/advanced/prompt-management/application.md
               - Template Reference: reference/advanced/prompt-management/template-reference.md
-              - Define Scenarios: reference/advanced/prompt-management/scenarios.md
-              - Configure Tools: reference/advanced/prompt-management/tools.md
-              - Plan Requirements: reference/advanced/prompt-management/plan-requirements.md
-              - Known Limitations: reference/advanced/prompt-management/limitations.md
+              - Access and Prerequisites: reference/advanced/prompt-management/plan-requirements.md
           - Environments: how-to-guides/environments.md
           - Write Tokens: how-to-guides/create-write-tokens.md
           - API Keys: reference/advanced/use-api-keys.md

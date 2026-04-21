@@ -5,11 +5,13 @@ description: "The authoritative grammar used by Logfire Prompt Management templa
 
 # Template reference
 
-This page is the canonical specification for the template grammar used by Prompt Management. Both the editor preview (Handlebars.js) and the server renderer (pydantic-handlebars) honor the same surface. If preview and Run ever disagree on a template, that is a bug — please report it.
+This page is the canonical specification for the template grammar used by Prompt Management.
+
+Most prompt authors only need variable substitution and a few standard Handlebars block helpers. Scenario-specific additions, such as `@{prompt}@`, are collected later on this page.
 
 ## Grammar at a glance
 
-The supported grammar is **standard Handlebars** with the default helper set, plus one non-Handlebars convention used exclusively in scenario messages: the `@{prompt}@` alias.
+The supported grammar is **standard Handlebars** with the default helper set. Prompt Management also adds one non-Handlebars convention used only in scenario messages: the `@{prompt}@` alias.
 
 ### Mustache expressions
 
@@ -23,7 +25,7 @@ HTML escaping is **disabled** for prompt rendering — values are inserted verba
 
 ### Block helpers
 
-Logfire enables the standard Handlebars.js block helpers. The `extra_helpers=False` flag is set on the server, so only the default helper set is available.
+Prompt Management enables the standard Handlebars block helpers.
 
 | Helper | Purpose |
 |---|---|
@@ -34,6 +36,14 @@ Logfire enables the standard Handlebars.js block helpers. The `extra_helpers=Fal
 | `{{lookup obj key}}` | Look up a field by computed key |
 | `{{log value}}` | Log to server (no output; useful during debugging) |
 
+## Rendering order for prompt templates
+
+Prompt templates render against the current variable set using standard Handlebars rules.
+
+## Scenario-only additions
+
+Scenarios reuse the same grammar, but the testing surface adds a few extra rules.
+
 ### The `@{prompt}@` alias
 
 `@{prompt}@` is **not** a Handlebars token. It is a literal substring that the renderer replaces with the rendered prompt template *after* Handlebars has finished processing a scenario message.
@@ -42,7 +52,7 @@ Logfire enables the standard Handlebars.js block helpers. The `extra_helpers=Fal
 - Using `@{prompt}@` inside the prompt template itself raises `RenderingError: Reserved prompt placeholder @{prompt}@ can only be used in scenario messages`.
 - `{{prompt}}` is **not** reserved. If you define a scenario variable called `prompt`, it substitutes normally.
 
-## Rendering order
+### Rendering order inside scenarios
 
 ```mermaid
 flowchart TD
@@ -87,12 +97,12 @@ Rendering errors fall into a small set of categories:
 |---|---|
 | `Reserved prompt placeholder @{prompt}@ can only be used in scenario messages` | The prompt template contains `@{prompt}@`. Move it into a scenario message. |
 | `Unclosed block` / parser errors | The template is malformed Handlebars — typically an unbalanced `{{#if}} … {{/if}}` or `{{#each}} … {{/each}}`. |
-| `Missing helper` | You referenced a helper that is not in the default set. Only the standard Handlebars.js helpers are enabled. |
-
-All of these surface on the editor preview before you run, and also as a `400` response from the Run API if the template was saved with an error and executed server-side.
+| `Missing helper` | You referenced a helper that is not in the default set. Only the standard Handlebars helpers are enabled. |
 
 ## Compatibility with the SDK
 
-The Logfire SDK returns the raw template string — your application renders it locally before passing the result to your model. The recommended path is to use the forthcoming `logfire.render_prompt(template, variables)` helper, which wraps pydantic-handlebars and guarantees parity with what the Logfire UI renders.
+The Logfire SDK returns the raw template string, so your application renders it locally before passing the result to your model.
 
-Until that helper ships, applications that hand-roll substitution should stick to flat `{{variable}}` references and plain identifiers — the demo's regex approach does not support dotted paths or block helpers. See [Known limitations](./limitations.md#sdk-rendering-helper) for the timing.
+If your application uses simple substitution, stick to flat `{{variable}}` references. If you want to use dotted paths or block helpers, use a renderer that supports the same Handlebars features documented here.
+
+See [Use Prompts in Your Application](./application.md) for the current integration workflow.

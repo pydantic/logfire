@@ -1,13 +1,16 @@
 ---
 title: "Writing Prompt Templates"
-description: "How to use variables, block helpers, and the @{prompt}@ alias to compose Logfire prompt templates and scenarios."
+description: "How to write Logfire prompt templates with variables and standard Handlebars helpers."
 ---
 
 # Writing templates
 
-A prompt template is a string. At render time, Logfire walks that string with a Handlebars engine and substitutes in the scenario's variables. Scenario messages use the same engine, so every `text` part, every `tool-call` args field, and every `tool-return` content field is a mini-template.
+A prompt template is a string. At render time, Logfire walks that string with a Handlebars engine and substitutes in the current variables.
 
-If you already know Handlebars, the short version is: Logfire uses the standard Handlebars.js helper set, no extensions enabled by default, plus one non-Handlebars convention — the literal string `@{prompt}@` — which is substituted after Handlebars rendering to inject the rendered prompt template into scenario messages.
+!!! note "Your application renders the template at runtime"
+    Prompt Management stores the template, but your application is responsible for substituting runtime variables before sending the rendered prompt to your model client. See [Use Prompts in Your Application](./application.md).
+
+If you already know Handlebars, the short version is: Logfire uses the standard Handlebars.js helper set, with no custom helpers enabled by default.
 
 If you do not, keep reading. The surface you need is small.
 
@@ -70,50 +73,18 @@ The standard Handlebars block helpers work:
     ```
 
 !!! note "Undefined variables render as empty strings"
-    If a template references a variable you did not define (for example, you wrote `{{name}}` but never added a `name` variable), Handlebars renders an empty string rather than raising an error. The scenario editor surfaces the list of variables the template references so you can spot typos before running.
+    If a template references a variable you did not define (for example, you wrote `{{name}}` but never added a `name` variable), Handlebars renders an empty string rather than raising an error. The editor surfaces the list of variables the template references so you can spot typos before running.
 
-## The `@{prompt}@` alias
+## Scenario-specific rendering
 
-Scenario messages often need to reference *"the prompt template itself"* — for example, to place the rendered prompt as the system message. Using `{{prompt}}` for this would be fragile (it would collide with a user-defined variable named `prompt`), so Logfire uses the non-Handlebars token `@{prompt}@` instead.
+The prompt editor reuses the same template engine for saved test scenarios, including scenario messages, tool-call arguments, and tool-return content.
 
-At render time, the server first renders the **prompt template** against the scenario variables to produce the *rendered prompt*. Then it renders **each scenario message**, and finally replaces every literal occurrence of `@{prompt}@` in the scenario message's rendered text with the rendered prompt.
+Two scenario-only details are documented separately because they are part of testing a prompt rather than authoring the prompt template itself:
 
-```handlebars
-# Prompt template
-You are a support agent for {{product}}. Be concise.
-```
+- the `@{prompt}@` alias, which injects the rendered prompt into a scenario message,
+- recursive rendering inside tool-call `args` and tool-return `content`.
 
-```text
-# Scenario — system message
-@{prompt}@
-```
-
-Rendered with `product = Logfire`:
-
-```text
-You are a support agent for Logfire. Be concise.
-```
-
-Key rules:
-
-- `@{prompt}@` only works inside **scenario messages**. Using it inside the prompt template itself is an error (*"Reserved prompt placeholder @{prompt}@ can only be used in scenario messages"*).
-- `{{prompt}}` is **not** reserved. If you define a variable called `prompt` in the scenario panel, it substitutes normally; if you do not, it renders empty.
-- `@{prompt}@` is a plain string replacement, not a Handlebars construct. It cannot be nested inside block helpers that haven't executed yet — render order is always *template first, then scenario messages, then alias substitution*.
-
-## Nested rendering inside tool calls and returns
-
-`tool-call` args and `tool-return` content are JSON values. The renderer walks the JSON recursively and renders every string field through the template engine. This means you can parameterize a tool's arguments:
-
-```json
-{
-  "tool_name": "fetch_weather",
-  "args": { "city": "{{city}}", "units": "metric" }
-}
-```
-
-With `city = Amsterdam`, the args become `{ "city": "Amsterdam", "units": "metric" }`.
-
-Non-string fields (numbers, booleans, nulls, nested objects) pass through unchanged. Strings inside arrays are rendered too.
+See [Test Prompts](./scenarios.md) for the workflow and [Template reference](./template-reference.md#scenario-only-additions) for the exact rules.
 
 ## What is not supported
 
@@ -127,11 +98,10 @@ If you need transformation logic that is not expressible in plain Handlebars, do
 
 ## Rendering from your application
 
-The Logfire SDK returns the prompt template unchanged — your application is responsible for rendering it before passing the result to your model client.
+The Logfire SDK returns the prompt template unchanged, so your application renders it before passing the result to your model client.
 
-!!! warning "Today the SDK hand-rolls a simple regex renderer"
-    The [demo integration](https://github.com/pydantic/platform/blob/main/src/demos/logfire_demo/demo_prompt_variables_pydantic_ai.py) uses a plain `{{variable}}` regex substitution and supports only flat identifier variables. It does **not** support dotted paths or block helpers. That gap is tracked in [Known limitations](./limitations.md#sdk-rendering-helper) — an official `logfire.render_prompt()` helper is planned so that SDK-rendered output matches what you see in the Logfire UI.
+If you want to keep rendering simple in application code, prefer flat variables such as `{{customer_name}}`. If you want to use dotted paths or block helpers, make sure your application uses a renderer that supports the same Handlebars features described here.
 
-    Until that helper ships, either keep your templates to flat `{{variable}}` substitution in anything you consume through the SDK, or vendor pydantic-handlebars into your application and render there.
+See [Use Prompts in Your Application](./application.md) for the current integration workflow.
 
 See the full grammar and its error behavior in the [Template reference](./template-reference.md).
