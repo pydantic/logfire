@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import atexit
 import random
+import shutil
 import time
 import uuid
+import weakref
 from collections import deque
 from collections.abc import Mapping, Sequence
 from functools import cached_property
@@ -23,6 +26,16 @@ import logfire
 
 from ..utils import logger, platform_is_emscripten
 from .wrapper import WrapperLogExporter, WrapperSpanExporter
+
+_DISK_RETRYERS: list[weakref.ref[DiskRetryer]] = []
+
+
+@atexit.register
+def cleanup_disk_retryers() -> None:
+    for retryer_ref in _DISK_RETRYERS:
+        retryer = retryer_ref()
+        if retryer is not None:
+            retryer.close()
 
 
 class BodySizeCheckingOTLPSpanExporter(OTLPSpanExporter):
@@ -94,6 +107,12 @@ class OTLPExporterHttpSession(Session):
         # and because the full set of headers are only set some time after this session is created.
         return DiskRetryer(self.headers)
 
+    def close(self) -> None:
+        retryer = self.__dict__.get('retryer')
+        if retryer is not None:
+            retryer.close()
+        super().close()
+
 
 def raise_for_retryable_status(response: requests.Response):
     # These are status codes that OTEL should retry.
@@ -121,6 +140,7 @@ class DiskRetryer:
         self.thread: Thread | None = None
         self.tasks: deque[tuple[Path, dict[str, Any]]] = deque()
         self.total_size = 0
+        self.closed = False
 
         # Make a new session rather than using the OTLPExporterHttpSession directly
         # because thread safety of Session is questionable.
@@ -130,12 +150,29 @@ class DiskRetryer:
 
         # The directory where the export files are stored.
         self.dir = Path(mkdtemp(prefix='logfire-retryer-'))
+        _DISK_RETRYERS.append(weakref.ref(self))
 
         self.last_log_time = -float('inf')
+
+    @staticmethod
+    def _cleanup_dir(path: Path) -> None:
+        shutil.rmtree(path, ignore_errors=True)
+
+    def close(self) -> None:
+        with self.lock:
+            self.closed = True
+            self.tasks = deque(maxlen=0)
+            self.total_size = 0
+            self.thread = None
+
+        self.session.close()
+        self._cleanup_dir(self.dir)
 
     def add_task(self, data: bytes, kwargs: dict[str, Any]):
         try:
             with self.lock:
+                if self.closed:
+                    return
                 if self.total_size >= self.MAX_TASK_SIZE:  # pragma: no cover
                     if self._should_log():
                         logger.error(
@@ -194,6 +231,8 @@ class DiskRetryer:
                 path, kwargs = task
                 data = path.read_bytes()
                 while True:
+                    if self.closed:
+                        return
                     # Exponential backoff with jitter.
                     # The jitter is proportional to the delay, in particular so that if we go down for a while
                     # and then come back up then retry requests will be spread out over a time of MAX_DELAY.
@@ -211,7 +250,7 @@ class DiskRetryer:
                         # Success, set the delay to a small value (so that remaining tasks can be done quickly),
                         # remove the file, and move on to the next task.
                         delay = 0.2
-                        path.unlink()
+                        path.unlink(missing_ok=True)
                         with self.lock:
                             self.total_size -= len(data)
                         break
