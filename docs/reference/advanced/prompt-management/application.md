@@ -25,8 +25,12 @@ This lets you iterate on drafts without changing what production imports.
 
 Today, application code fetches prompts with `logfire.var(...)`.
 
-```python
-template = logfire.var(name='prompt__welcome_email', label='production').value
+```python skip="true"
+import logfire
+
+prompt_var = logfire.var(name='prompt__welcome_email', default='')
+with prompt_var.get(label='production') as resolved:
+    template = resolved.value
 ```
 
 The `name` currently follows the pattern `prompt__<slug_with_underscores>`.
@@ -43,17 +47,21 @@ If you want to use dotted paths or Handlebars block helpers, use a renderer that
 
 ## Example
 
-```python
+```python skip="true"
 import logfire
 
-template = logfire.var(name='prompt__welcome_email', label='production').value
-rendered_prompt = template.replace('{{customer_name}}', customer_name)
+customer_name = 'Taylor'
+prompt_var = logfire.var(name='prompt__welcome_email', default='')
+with prompt_var.get(label='production') as resolved:
+    rendered_prompt = resolved.value.replace('{{customer_name}}', customer_name)
 ```
 
 Here is a slightly more complete example:
 
-```python
+```python skip="true"
 import logfire
+
+customer_name = 'Taylor'
 
 
 def render_prompt(template: str, variables: dict[str, str]) -> str:
@@ -63,8 +71,9 @@ def render_prompt(template: str, variables: dict[str, str]) -> str:
     return rendered
 
 
-prompt_template = logfire.var(name='prompt__welcome_email', label='production').value
-prompt = render_prompt(prompt_template, {'customer_name': customer_name})
+prompt_var = logfire.var(name='prompt__welcome_email', default='')
+with prompt_var.get(label='production') as resolved:
+    prompt = render_prompt(resolved.value, {'customer_name': customer_name})
 
 # Pass `prompt` to your model client here.
 ```
