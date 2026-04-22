@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import platform
 from datetime import datetime
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypedDict, TypeVar
 
 from typing_extensions import Self
 
+from logfire import VERSION
 from logfire._internal.config import get_base_url_from_token
 
 try:
@@ -85,6 +87,7 @@ T = TypeVar('T', bound=BaseClient)
 
 
 _ACCEPT = Literal['application/json', 'application/vnd.apache.arrow.stream', 'text/csv']
+_USER_AGENT = f'logfire-sdk-python/{VERSION} (Python {platform.python_version()}, os {platform.platform()}, arch {platform.machine()})'
 
 
 class _BaseLogfireQueryClient(Generic[T]):
@@ -94,6 +97,7 @@ class _BaseLogfireQueryClient(Generic[T]):
         self.timeout = timeout
         headers = client_kwargs.pop('headers', {})
         headers['authorization'] = read_token
+        headers.setdefault('user-agent', _USER_AGENT)
         self.client: T = client(timeout=timeout, base_url=base_url, headers=headers, **client_kwargs)
 
     def _build_query_params(
