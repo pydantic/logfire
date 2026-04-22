@@ -4,7 +4,7 @@ description: "View real-time online-evaluation activity for your agents and func
 ---
 # Live Evaluations
 
-The **Evals: Live Monitoring** page streams evaluator results from production (or staging) traffic into the Pydantic Logfire web UI. Every target that emits evaluation events appears here as a single row, with a sparkline for each attached evaluator and a summary of activity over the selected time window. This is the Logfire view of what Pydantic AI calls [online evaluation](https://ai.pydantic.dev/evals/online-evaluation/).
+The **Evals: Live Monitoring** page streams evaluator results from live application traffic (e.g., from a production deployment) into the Pydantic Logfire web UI. Every target that emits evaluation events appears here as a single row, with a sparkline for each attached evaluator and a summary of activity over the selected time window. This is the Logfire view of what Pydantic AI calls [online evaluation](https://ai.pydantic.dev/evals/online-evaluation/).
 
 To wire up evaluators on the Python side, see the [Online Evaluation guide](https://ai.pydantic.dev/evals/online-evaluation/) in the Pydantic AI docs. The page renders any ingested `gen_ai.evaluation.result` OpenTelemetry events that follow the [GenAI evaluation semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-events/#event-gen_aievaluationresult) — the [`@evaluate`](https://ai.pydantic.dev/evals/online-evaluation/#quick-start) decorator and the [`OnlineEvaluation`](https://ai.pydantic.dev/evals/online-evaluation/#agent-integration) agent capability from `pydantic-evals` are the supported entry points today.
 
@@ -15,7 +15,7 @@ Click **Evals: Live Monitoring** in the sidebar to open the directory. Each row 
 Each row shows:
 
 - **Target** — the target name, with an agent or function icon
-- **Type** — `agent` if the evaluation event carries `gen_ai.agent.name`, otherwise `function`. The `OnlineEvaluation` capability on a Pydantic AI agent stamps this automatically (via OTel baggage inherited from the agent run). The `@evaluate` decorator itself doesn't stamp it, so a standalone decorated function shows as `function` — but if the decorated function runs inside a Pydantic AI agent call, the same baggage propagates and the target is classified as `agent`
+- **Type** — `agent` or `function`. Evaluations dispatched by the [`OnlineEvaluation`](https://ai.pydantic.dev/evals/online-evaluation/#agent-integration) capability on a Pydantic AI agent appear as `agent`; `@evaluate`-decorated functions appear as `function`, even when the decorated function runs inside an agent
 - **Evaluations** — one compact cell per evaluator with a pass rate, numeric average, or categorical label summary plus a sparkline
 - **Events** — total number of evaluation events in the window
 - **Last activity** — when the most recent event arrived
@@ -62,5 +62,5 @@ The event attributes follow the [OTel GenAI evaluation semantic conventions](htt
 - `gen_ai.evaluation.explanation` — optional free-text reason
 - `gen_ai.evaluation.evaluator.source` — JSON-serialized `EvaluatorSpec` (evaluator class + constructor args). Live Evaluations groups by `(target, name)`, so two events with the same target and name but different sources land in the same row; the `source` is visible on individual events in the trace view so you can tell them apart there
 - `gen_ai.evaluation.evaluator.version` — optional version tag so retired evaluator revisions can be filtered out
-- `gen_ai.agent.name` — set automatically by the `OnlineEvaluation` capability or inherited from an enclosing Pydantic AI agent run via OTel baggage; drives the agent/function classification in the directory
+- `gen_ai.agent.name` — set by the `OnlineEvaluation` capability, and also propagated via OTel baggage onto any evaluation emitted inside a Pydantic AI agent run (useful for drill-down, but not used to classify the target — see the Type column above)
 - `error.type` — set when the evaluator raised
