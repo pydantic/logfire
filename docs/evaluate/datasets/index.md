@@ -13,7 +13,7 @@ Datasets let you build and maintain collections of test cases for evaluating you
 
 ## Hosted vs Local Datasets
 
-When you open the **Evals** page, you'll see two types of datasets:
+When you open the **Evals: Datasets & Experiments** page, you'll see two types of datasets:
 
 - **Hosted** datasets have their cases stored and editable on Logfire. You create these through the UI or SDK, and can add, edit, and delete individual test cases.
 - **Local** datasets are discovered automatically from experiment runs in your code (via `pydantic-evals`). They appear in the list alongside hosted datasets but their cases are read-only --- they reflect what your code defined. If you run an experiment without defining a `dataset_name` in code, it still appears in the list using the experiment ID as a fallback name.
@@ -38,7 +38,7 @@ Datasets fit into a continuous evaluation loop:
 1. **Observe** production behavior in Live View.
 2. **Curate** test cases by adding interesting traces to a dataset.
 3. **Evaluate** your system against the dataset using pydantic-evals.
-4. **Analyze** the results in the Logfire Evals tab.
+4. **Analyze** the results on the Logfire **Evals: Datasets & Experiments** page.
 5. **Improve** your system and repeat.
 
 ## Next Steps

@@ -10,7 +10,7 @@ To get started with creating and running evals, see the [Pydantic Evals docs](ht
 
 ## The Datasets List
 
-Click **Evals** in the sidebar to open the datasets list. This is the top-level view for all evaluation activity in your project.
+Click **Evals: Datasets & Experiments** in the sidebar to open the datasets list. This is the top-level view for all dataset-and-experiment evaluation activity in your project. For live, per-request evaluation activity streaming in from production or staging, see [Live Evaluations](./live-evals.md) instead.
 
 Each dataset row shows:
 

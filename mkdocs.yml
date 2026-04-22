@@ -196,8 +196,8 @@ nav:
           - Setup Slack Alerts: how-to-guides/setup-slack-alerts.md
           - Detect Service is Down: how-to-guides/detect-service-is-down.md
       - Evaluate:
-          - Evals: guides/web-ui/evals.md
-          - Live Evaluations: guides/web-ui/live-evals.md
+          - "Evals: Datasets & Experiments": guides/web-ui/evals.md
+          - "Evals: Live Monitoring": guides/web-ui/live-evals.md
           - Datasets:
               - Datasets: evaluate/datasets/index.md
               - Web UI Guide: evaluate/datasets/ui.md

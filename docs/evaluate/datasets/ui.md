@@ -7,9 +7,9 @@ description: "Create and manage evaluation datasets through the Logfire web inte
 
 This guide covers creating and managing datasets through the Logfire web interface. For programmatic access, see the [SDK Guide](sdk.md).
 
-## Navigating Evals
+## Navigating Datasets
 
-Click **Evals** in the sidebar to open the datasets list. From there:
+Click **Evals: Datasets & Experiments** in the sidebar to open the datasets list. From there:
 
 - Click a dataset name to see its detail page (experiments, cases, schema).
 - Click **Edit** to modify the dataset's name, description, and schemas.
@@ -17,7 +17,7 @@ Click **Evals** in the sidebar to open the datasets list. From there:
 - Click **+ Add case** to add a new test case.
 - Select experiments and click **Compare** to compare multiple runs side by side.
 
-Breadcrumbs at the top of each page show your current location (e.g., `Evals / Datasets / my-dataset / Edit`).
+Use the **Back to Datasets** link at the top of any dataset detail or edit page to return to the list.
 
 ## Creating a New Dataset
 
