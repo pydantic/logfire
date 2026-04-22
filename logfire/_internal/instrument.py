@@ -58,7 +58,7 @@ def instrument(
     record_return: bool,
     allow_generator: bool,
     new_trace: bool,
-    _level: LevelName | int | None = None,
+    level: LevelName | int | None = None,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     from .main import set_user_attributes_on_raw_span
 
@@ -70,7 +70,7 @@ def instrument(
             )
 
         attributes = get_attributes(func, msg_template, tags)
-        open_span = get_open_span(logfire, attributes, span_name, extract_args, func, new_trace, _level=_level)
+        open_span = get_open_span(logfire, attributes, span_name, extract_args, func, new_trace, level=level)
 
         if inspect.isgeneratorfunction(func):
             if not allow_generator:
@@ -129,15 +129,15 @@ def get_open_span(
     extract_args: bool | Iterable[str],
     func: Callable[P, R],
     new_trace: bool,
-    _level: LevelName | int | None = None,
+    level: LevelName | int | None = None,
 ) -> Callable[P, AbstractContextManager[Any]]:
     final_span_name: str = span_name or attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # pyright: ignore[reportAssignmentType]
 
     level_num: int | None = None
-    if _level is not None:
-        _level_attrs = log_level_attributes(_level)
-        level_num = int(_level_attrs[ATTRIBUTES_LOG_LEVEL_NUM_KEY])
-        attributes = {**attributes, **_level_attrs}
+    if level is not None:
+        level_attrs = log_level_attributes(level)
+        level_num = int(level_attrs[ATTRIBUTES_LOG_LEVEL_NUM_KEY])
+        attributes = {**attributes, **level_attrs}
 
     def get_logfire():
         # This avoids having a `logfire` closure variable, which would make the instrumented

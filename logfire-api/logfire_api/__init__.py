@@ -131,7 +131,7 @@ except ImportError:
 
             def install_auto_tracing(self, *args, **kwargs) -> None: ...
 
-            def instrument(self, *args, _level=None, **kwargs):
+            def instrument(self, *args, **kwargs):
                 def decorator(func):
                     return func
 
@@ -322,5 +322,5 @@ except ImportError:
         def get_context(*args, **kwargs) -> dict[str, Any]:
             return {}
 
-        def attach_context(*args, **kwargs)-> ContextManager[None]:
+        def attach_context(*args, **kwargs) -> ContextManager[None]:
             return nullcontext()

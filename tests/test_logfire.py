@@ -66,7 +66,7 @@ def test_log_methods_without_kwargs(method: str):
 
 
 def test_instrument_with_level(exporter: TestExporter) -> None:
-    @logfire.instrument('my span', _level='warn', extract_args=False)
+    @logfire.instrument('my span', level='warn', extract_args=False)
     def my_func() -> str:
         return 'ok'
 
@@ -97,7 +97,7 @@ def test_instrument_level_filtered(exporter: TestExporter, config_kwargs: dict[s
     config_kwargs['min_level'] = 'info'
     logfire.configure(**config_kwargs)
 
-    @logfire.instrument('my span', _level='debug', extract_args=False)
+    @logfire.instrument('my span', level='debug', extract_args=False)
     def my_func() -> str:
         return 'ok'
 
@@ -109,7 +109,7 @@ def test_instrument_level_filtered_record_return(exporter: TestExporter, config_
     config_kwargs['min_level'] = 'info'
     logfire.configure(**config_kwargs)
 
-    @logfire.instrument('my span', _level='debug', extract_args=False, record_return=True)
+    @logfire.instrument('my span', level='debug', extract_args=False, record_return=True)
     def my_func() -> str:
         return 'ok'
 
@@ -121,7 +121,7 @@ def test_instrument_level_filtered_extract_args(exporter: TestExporter, config_k
     config_kwargs['min_level'] = 'info'
     logfire.configure(**config_kwargs)
 
-    @logfire.instrument('my span {x=}', _level='debug', extract_args=True)
+    @logfire.instrument('my span {x=}', level='debug', extract_args=True)
     def my_func(x: int) -> int:
         return x * 2
 
@@ -133,7 +133,7 @@ def test_instrument_level_filtered_extract_args_iterable(exporter: TestExporter,
     config_kwargs['min_level'] = 'info'
     logfire.configure(**config_kwargs)
 
-    @logfire.instrument('my span', _level='debug', extract_args=('x',))
+    @logfire.instrument('my span', level='debug', extract_args=('x',))
     def my_func(x: int) -> int:
         return x * 2
 
@@ -143,7 +143,7 @@ def test_instrument_level_filtered_extract_args_iterable(exporter: TestExporter,
 
 @pytest.mark.anyio
 async def test_instrument_with_level_async(exporter: TestExporter) -> None:
-    @logfire.instrument('async span', _level='warn', extract_args=False)
+    @logfire.instrument('async span', level='warn', extract_args=False)
     async def my_async_func() -> str:
         return 'ok'
 
@@ -171,7 +171,7 @@ async def test_instrument_with_level_async(exporter: TestExporter) -> None:
 
 
 def test_instrument_with_level_and_extract_args(exporter: TestExporter) -> None:
-    @logfire.instrument('span {x=}', _level='warn')
+    @logfire.instrument('span {x=}', level='warn')
     def my_func(x: int) -> int:
         return x * 2
 
