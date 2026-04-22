@@ -40,7 +40,7 @@ class WrapperMetricExporter(MetricExporter):
         preferred_temporality: dict[type, AggregationTemporality] | None = None,
         preferred_aggregation: dict[type, Aggregation] | None = None,
     ) -> None:
-        super().__init__(preferred_temporality=preferred_temporality, preferred_aggregation=preferred_aggregation)  # pyright: ignore[reportUnknownMemberType]
+        super().__init__(preferred_temporality=preferred_temporality, preferred_aggregation=preferred_aggregation)
         self.wrapped_exporter = exporter
 
     def export(self, metrics_data: MetricsData, timeout_millis: float = 10_000, **kwargs: Any) -> MetricExportResult:
