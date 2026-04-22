@@ -79,9 +79,11 @@ We are actively engaged with the OpenTelemetry community to improve the GenAI sp
 
 ### How costs are calculated
 
-Costs are calculated from [`genai-prices`](https://github.com/pydantic/genai-prices), an open dataset of provider and model pricing. Logfire looks up each LLM span's model and token counts in `genai-prices` to produce the USD values shown on the token badge and in the details panel.
+Costs are calculated from [`genai-prices`](https://github.com/pydantic/genai-prices), an open dataset of provider and model pricing.
 
-If a model isn't in the dataset, cost is omitted and token counts are still recorded. This is common for very new model releases, and for custom or fine-tuned models. Upgrading `genai-prices` usually adds coverage for recently-released models.
+For the Pydantic AI, OpenAI, and Anthropic instrumentations, if `genai-prices` is installed locally, it will try to use it to calculate a cost. If it succeeds, it will be attached to the span as the attribute `operation.cost`. This attribute is always used in the Logfire UI when present. This is typically more accurate because it takes into account details like cached tokens. If you're using one of these instrumentations, make sure that `genai-prices` is installed (it's only installed automatically by Pydantic AI) and either update it regularly or use [`UpdatePrices`](https://github.com/pydantic/genai-prices/tree/main/packages/python#updateprices) to ensure you have prices for the latest models.
+
+If `operation.cost` isn't present on the span, then the Logfire UI will use `genai-prices` to calculate a cost based on the other span attributes, particularly the input and output tokens. This may be less accurate because it doesn't have access to details like cached tokens, but it will still give you a rough estimate of the cost. The UI automatically uses the latest data in `genai-prices`, even if it hasn't been released, but there might be some delay due to browser caching. The calculated cost will only be visible in the UI and can't be queried with SQL.
 
 ## Example LLM panel views
 
