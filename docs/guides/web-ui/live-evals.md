@@ -4,13 +4,13 @@ description: "View real-time online-evaluation activity for your agents and func
 ---
 # Live Evaluations
 
-Live Evaluations streams evaluator results from production (or staging) traffic into the Pydantic Logfire web UI. Every target that emits evaluation events appears here, grouped by the target's name, with one row per evaluator and a sparkline showing activity over the selected time window.
+Live Evaluations streams evaluator results from production (or staging) traffic into the Pydantic Logfire web UI. Every target that emits evaluation events appears here as a single row, with a sparkline for each attached evaluator and a summary of activity over the selected time window.
 
 To wire up evaluators on the Python side, see the [Online Evaluation guide](https://ai.pydantic.dev/evals/online-evaluation/) in the Pydantic AI docs. Live Evaluations renders any ingested `gen_ai.evaluation.result` OpenTelemetry events that follow the GenAI semantic conventions — the `@evaluate` decorator and the [`OnlineEvaluation`](https://ai.pydantic.dev/evals/online-evaluation/#agent-integration) agent capability from `pydantic-evals` are the supported entry points today.
 
 ## The Directory
 
-Click **Evals: Live** in the sidebar to open the directory. Each row is one **target** — the name of the function or agent that produced the evaluation event.
+Click **Evals: Live Monitoring** in the sidebar to open the directory. Each row is one **target** — the name of the function or agent that produced the evaluation event. Expanding a row (via the chevron on the left) reveals a larger sparkline for each of its evaluators.
 
 Each row shows:
 
@@ -35,7 +35,9 @@ Click a target row to open its detail page. The page shows:
 
 The **Evaluator** filter dropdown narrows the recent-events table to a single evaluator. The time-window tabs behave the same as on the directory.
 
-Each recent-events row includes an **open trace** link that jumps to the live trace view for the span the evaluation was attached to --- useful for seeing the full context of a low-scoring call.
+Each recent-events row includes an **Open trace in live view** link that jumps to the live trace view for the span the evaluation was attached to --- useful for seeing the full context of a low-scoring call.
+
+Each evaluator row also shows the distinct `evaluator_version` values seen in the window as small version badges. During a deploy rollout where two versions of the same evaluator are live at once, both versions appear side-by-side.
 
 ## Evaluator Shapes
 
