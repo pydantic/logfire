@@ -14,8 +14,8 @@ Click **Evals: Live** in the sidebar to open the directory. Each row is one **ta
 
 Each row shows:
 
-- **Target** --- the target name, with an agent or function icon derived from the parent span
-- **Type** --- `agent` if the parent span carries `gen_ai.agent.name`, otherwise `function`
+- **Target** --- the target name, with an agent or function icon
+- **Type** --- `agent` if the evaluation event carries `gen_ai.agent.name`, otherwise `function`. The `OnlineEvaluation` capability on a Pydantic AI agent stamps this automatically (via OTel baggage inherited from the agent run); the `@evaluate` decorator path does not, so decorator-wrapped targets always show as `function`
 - **Evaluations** --- one compact cell per evaluator with a pass rate, numeric average, or categorical label summary plus a sparkline
 - **Events** --- total number of evaluation events in the window
 - **Last activity** --- when the most recent event arrived
@@ -30,8 +30,8 @@ If you haven't wired up any evaluators yet, the empty state shows getting-starte
 
 Click a target row to open its detail page. The page shows:
 
-- Each evaluator attached to the target as its own row, with a larger sparkline, numeric/pass-rate/categorical summary, and a failure count when evaluators raised
-- A **Recent events** table with the 20 most recent evaluation events for the target
+- Each evaluator attached to the target as its own row, with a larger sparkline, numeric/pass-rate/categorical summary, and an error count when evaluators raised
+- A **Recent events** table with the 50 most recent evaluation events for the target
 
 The **Evaluator** filter dropdown narrows the recent-events table to a single evaluator. The time-window tabs behave the same as on the directory.
 
@@ -44,7 +44,7 @@ The **Evaluations** cell adapts to the shape of scores an evaluator produces:
 - **Pass rate** --- evaluators that return `bool`. The cell shows a percentage and colors a dot based on health (≥95% green, ≥80% amber, otherwise red).
 - **Numeric average** --- evaluators that return `int` or `float`. The cell shows the average score over the window.
 - **Categorical labels** --- evaluators that return a string. The cell shows the most common label with a **`+N`** badge indicating how many other distinct labels were seen.
-- **Error-only** --- evaluators that only raised in the window. The cell shows the failure count in red.
+- **Error-only** --- evaluators that only raised in the window. The cell shows the error count in red.
 
 Evaluators that emit multiple score keys (a mapping return type) show up as one row per key.
 
@@ -58,5 +58,7 @@ The event attributes follow the OTel GenAI semantic conventions:
 - `gen_ai.evaluation.name` --- the evaluator name
 - `gen_ai.evaluation.score.value` / `gen_ai.evaluation.score.label` --- score payload
 - `gen_ai.evaluation.explanation` --- optional free-text reason
-- `gen_ai.evaluation.evaluator_version` --- optional version tag so retired evaluator revisions can be filtered out
+- `gen_ai.evaluation.evaluator.source` --- JSON-serialized `EvaluatorSpec`, lets us distinguish two evaluators with the same name but different configs
+- `gen_ai.evaluation.evaluator.version` --- optional version tag so retired evaluator revisions can be filtered out
+- `gen_ai.agent.name` --- set automatically by the `OnlineEvaluation` capability, drives the agent/function classification in the directory
 - `error.type` --- set when the evaluator raised
