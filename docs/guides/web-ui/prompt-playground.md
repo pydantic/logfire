@@ -15,8 +15,12 @@ Clicking **Open in Playground** will redirect you to the Agent Playground, prefi
 
 ![Prompt playground](../../images/guide/prompt-playground/prompt_playground.png)
 
-You will then be able to modify parts of the agent run (e.g. the system prompt, but also the user requests and tool calls), and trigger another run
-to see the results.
+You can then modify parts of the captured run, such as the system prompt, user requests, tool calls, available tools, or model settings, and trigger another run to see the results.
 
-The Prompt Playground can be seen as a UI wrapper over a [Pydantic AI agent](https://ai.pydantic.dev/agent/). As such, you can configure which tools
-are available as well as the [model settings](https://ai.pydantic.dev/api/settings/) (e.g. the temperature).
+You can also configure which tools are available as well as the [model settings](https://ai.pydantic.dev/api/settings/) (for example, temperature).
+
+## Compared with Prompt Management
+
+The Prompt Playground is for exploratory iteration on a captured run. You tweak the system prompt, user messages, tool calls, or settings on that specific run and immediately re-execute it.
+
+If you want a persistent prompt that your application imports from Logfire, use [Prompt Management](../../reference/advanced/prompt-management/index.md) instead. Prompt Management stores prompt templates and versions, plus testing artifacts such as saved scenarios and run history.

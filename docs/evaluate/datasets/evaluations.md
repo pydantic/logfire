@@ -10,7 +10,7 @@ Evaluations in Logfire are powered by [pydantic-evals](https://pydantic.dev/docs
 - **Local datasets** --- defined in code (or loaded from a YAML file) as a [`pydantic_evals.Dataset`][pydantic_evals.Dataset]. No server round-trip required. This is the simplest way to get started and is all you need for many projects.
 - **Hosted datasets** --- stored on Logfire, editable in the [Web UI](ui.md), and fetchable as a typed `Dataset`. Useful when you want to curate cases from production traces or collaborate with teammates.
 
-Either way, once you have a `Dataset` in hand the evaluation step is identical, and results show up in the [Evals](../../guides/web-ui/evals.md) tab as long as Logfire tracing is configured.
+Either way, once you have a `Dataset` in hand the evaluation step is identical, and results show up on the [Evals: Datasets & Experiments](../../guides/web-ui/evals.md) page as long as Logfire tracing is configured.
 
 !!! note "Experimental SDK"
 
@@ -27,7 +27,7 @@ from pydantic_evals import Case, Dataset
 
 import logfire
 
-# Configure Logfire so the evaluation shows up in the Evals tab in the Logfire UI.
+# Configure Logfire so the evaluation shows up on the Evals: Datasets & Experiments page in the Logfire UI.
 # Without this, the evaluation still runs but its results will not be sent to Logfire.
 logfire.configure()
 logfire.instrument_pydantic_ai()  # optional, traces the AI task under test
@@ -71,7 +71,7 @@ async def run_evaluation():
 
     Whether you *store* the dataset on Logfire and whether you *send* the evaluation results to Logfire are two independent choices. You can fetch a hosted dataset (see below) and then run a purely local evaluation that only prints to the console — just omit the `logfire.configure()` call. That said, we recommend configuring Logfire during evaluation so that runs show up alongside your dataset in the UI for comparison over time.
 
-You can also load local datasets from YAML files --- see the [pydantic-evals documentation](https://pydantic.dev/docs/ai/evals/evals/) for details. With Logfire tracing enabled, runs against local datasets still appear in the [Evals](../../guides/web-ui/evals.md) tab (as **Local** datasets --- see [Hosted vs Local Datasets](index.md#hosted-vs-local-datasets)).
+You can also load local datasets from YAML files --- see the [pydantic-evals documentation](https://pydantic.dev/docs/ai/evals/evals/) for details. With Logfire tracing enabled, runs against local datasets still appear on the [Evals: Datasets & Experiments](../../guides/web-ui/evals.md) page (as **Local** datasets --- see [Hosted vs Local Datasets](index.md#hosted-vs-local-datasets)).
 
 ## Evaluating a Hosted Dataset
 
@@ -151,7 +151,7 @@ from pydantic_evals import Dataset
 import logfire
 from logfire.experimental.api_client import LogfireAPIClient
 
-# Send evaluation results to the Logfire Evals tab.
+# Send evaluation results to the Evals: Datasets & Experiments page in Logfire.
 logfire.configure()
 # You can instrument libraries here for richer information in the evaluation traces
 # e.g., via `logfire.instrument_pydantic_ai()`
@@ -178,9 +178,9 @@ async def run_evaluation():
     report.print()
 ```
 
-## Viewing Results in the Evals Tab
+## Viewing Results on the Evals Page
 
-With Logfire tracing enabled, the evaluation results appear automatically in the [Evals](../../guides/web-ui/evals.md) tab, where you can compare experiments and analyze performance over time.
+With Logfire tracing enabled, the evaluation results appear automatically on the [Evals: Datasets & Experiments](../../guides/web-ui/evals.md) page, where you can compare experiments and analyze performance over time.
 
 ## The Evaluation Workflow
 
@@ -189,5 +189,5 @@ This creates a continuous improvement loop:
 1. **Observe** production behavior in Live View.
 2. **Curate** test cases by adding interesting traces to a dataset.
 3. **Evaluate** your system against the dataset using pydantic-evals.
-4. **Analyze** the results in the Logfire Evals tab.
+4. **Analyze** the results on the Logfire **Evals: Datasets & Experiments** page.
 5. **Improve** your system and repeat.
