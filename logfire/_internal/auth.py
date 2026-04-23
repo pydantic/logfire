@@ -8,7 +8,7 @@ import warnings
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, TypedDict, Union, cast
+from typing import Any, Literal, TypedDict, Union, cast
 from urllib.parse import urljoin
 
 import requests
@@ -18,6 +18,7 @@ from typing_extensions import Self
 
 from logfire.exceptions import LogfireConfigError
 
+from . import oauth as _oauth
 from .token_storage import KEYRING_SERVICE, SecretStr, StoredOAuthSecrets, TokenStorage, file_lock
 from .utils import UnexpectedResponse, read_toml_file
 
@@ -129,9 +130,13 @@ class UserToken:
     registration_access_token: SecretStr | None = field(default=None, repr=False)
 
     @property
-    def auth_method(self) -> str:
-        """Derived discriminator: ``'oauth'`` when a refresh token is on file, ``'legacy'`` otherwise."""
-        return 'oauth' if self.refresh_token is not None else 'legacy'
+    def auth_method(self) -> Literal['oauth', 'user_token']:
+        """Derived discriminator for the record kind.
+
+        ``'oauth'`` for OAuth device-flow records (refresh token on file),
+        ``'user_token'`` for legacy long-lived user tokens.
+        """
+        return 'oauth' if self.refresh_token is not None else 'user_token'
 
     @property
     def is_dcr_client(self) -> bool:
@@ -416,8 +421,6 @@ class UserTokenCollection:
             if token.auth_method != 'oauth':
                 continue
             if session is not None and token.is_dcr_client and token.registration_access_token is not None:
-                from . import oauth as _oauth  # lazy import to avoid a circular dependency
-
                 assert token.registration_client_uri is not None
                 _oauth.unregister_client(
                     session,
@@ -453,8 +456,6 @@ class UserTokenCollection:
             return token
         if not force and not token.needs_refresh:
             return token
-
-        from . import oauth as _oauth  # lazy import to avoid a circular dependency
 
         with file_lock(self.path):
             self._reload()

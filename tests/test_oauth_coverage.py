@@ -525,12 +525,12 @@ def test_usertoken_str_oauth_and_header_value_legacy() -> None:
         refresh_token=SecretStr('rt'),
     )
     assert str(oauth_token) == f'OAuth ({BASE_URL}) - abcde****'
-    # Legacy tokens send the raw value without a `Bearer` prefix.
-    legacy = UserToken(token=SecretStr('pylf_xxx'), base_url=BASE_URL, expiration='2099-12-31')
-    assert legacy.auth_method == 'legacy'
-    assert legacy.header_value == 'pylf_xxx'
-    # `needs_refresh` is meaningless for legacy tokens.
-    assert legacy.needs_refresh is False
+    # User tokens send the raw value without a `Bearer` prefix.
+    user_token = UserToken(token=SecretStr('pylf_xxx'), base_url=BASE_URL, expiration='2099-12-31')
+    assert user_token.auth_method == 'user_token'
+    assert user_token.header_value == 'pylf_xxx'
+    # `needs_refresh` is meaningless for user tokens.
+    assert user_token.needs_refresh is False
 
 
 def test_refresh_if_needed_short_circuits_for_legacy_and_fresh(tmp_path: Path, fake_keyring: _InMemoryKeyring) -> None:
