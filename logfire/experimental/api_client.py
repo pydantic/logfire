@@ -242,17 +242,9 @@ def _get_dataset_type_args(dataset: Dataset[Any, Any, Any]) -> tuple[Any | None,
     return input_type, output_type, metadata_type
 
 
-def _validate_push_dataset(dataset: Dataset[Any, Any, Any]) -> None:
-    """Reject dataset-level features that hosted datasets do not yet support."""
-    if getattr(dataset, 'evaluators', ()) or getattr(dataset, 'report_evaluators', ()):
-        raise ValueError(
-            'push_dataset() does not support dataset-level evaluators or report_evaluators yet. '
-            'Only case-level evaluators are uploaded.'
-        )
-
-
 def _build_push_dataset_kwargs(
     *,
+    dataset: Dataset[Any, Any, Any],
     target_name: str,
     input_type: Any | None,
     output_type: Any | None,
@@ -275,6 +267,15 @@ def _build_push_dataset_kwargs(
     if description is not _UNSET:
         create_kwargs['description'] = description
         update_kwargs['description'] = description
+
+    # Always pass `evaluators` / `report_evaluators` so subsequent pushes can clear
+    # them by sending []. `_serialize_evaluators` returns [] for an empty sequence.
+    dataset_evaluators = getattr(dataset, 'evaluators', None) or ()
+    dataset_report_evaluators = getattr(dataset, 'report_evaluators', None) or ()
+    create_kwargs['evaluators'] = _serialize_evaluators(dataset_evaluators)
+    update_kwargs['evaluators'] = _serialize_evaluators(dataset_evaluators)
+    create_kwargs['report_evaluators'] = _serialize_evaluators(dataset_report_evaluators)
+    update_kwargs['report_evaluators'] = _serialize_evaluators(dataset_report_evaluators)
 
     return create_kwargs, update_kwargs
 
@@ -401,6 +402,8 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         output_type: type[Any] | None = None,
         metadata_type: type[Any] | None = None,
         description: str | None = None,
+        evaluators: list[dict[str, Any]] | None = None,
+        report_evaluators: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """Create a new dataset with optional type schemas.
 
@@ -410,6 +413,12 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             output_type: Type for expected outputs. JSON schema will be generated from this type.
             metadata_type: Type for case metadata. JSON schema will be generated from this type.
             description: Optional description of the dataset.
+            evaluators: Optional dataset-level evaluator specs in
+                `[{"name": "...", "arguments": {...}}]` format. Use
+                `_serialize_evaluators(dataset.evaluators)` to build from a
+                pydantic-evals Dataset.
+            report_evaluators: Optional report-level evaluator specs. Same shape
+                as `evaluators`.
 
         Returns:
             The created dataset.
@@ -448,6 +457,10 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             data['output_schema'] = _type_to_schema(output_type)
         if metadata_type is not None:
             data['metadata_schema'] = _type_to_schema(metadata_type)
+        if evaluators is not None:
+            data['evaluators'] = evaluators
+        if report_evaluators is not None:
+            data['report_evaluators'] = report_evaluators
 
         response = self.client.post('/v1/datasets/', json=data)
         return self._handle_response(response)
@@ -461,6 +474,8 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         output_type: type[Any] | None = None,
         metadata_type: type[Any] | None = None,
         description: str | None = _UNSET,
+        evaluators: list[dict[str, Any]] | None = _UNSET,
+        report_evaluators: list[dict[str, Any]] | None = _UNSET,
     ) -> dict[str, Any]:
         """Update an existing dataset.
 
@@ -471,6 +486,10 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             output_type: New output type (generates schema).
             metadata_type: New metadata type (generates schema).
             description: New description. Pass None to clear.
+            evaluators: New dataset-level evaluator specs (`[{"name": ...,
+                "arguments": ...}]`). Pass `[]` to clear.
+            report_evaluators: New report-level evaluator specs. Pass `[]` to
+                clear.
 
         Returns:
             The updated dataset.
@@ -490,6 +509,10 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             data['output_schema'] = _type_to_schema(output_type)
         if metadata_type is not None:
             data['metadata_schema'] = _type_to_schema(metadata_type)
+        if evaluators is not _UNSET:
+            data['evaluators'] = evaluators
+        if report_evaluators is not _UNSET:
+            data['report_evaluators'] = report_evaluators
 
         response = self.client.patch(f'/v1/datasets/{id_or_name}/', json=data)
         return self._handle_response(response)
@@ -563,9 +586,9 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
 
         Args:
             dataset: The local `pydantic_evals.Dataset` to publish. Case-level
-                evaluators are uploaded with their cases. Dataset-level
-                `evaluators` and `report_evaluators` are not supported yet and
-                will raise `ValueError`.
+                evaluators are uploaded with their cases; dataset-level
+                `evaluators` and `report_evaluators` are uploaded as part of the
+                dataset itself and overwrite the hosted values on each push.
             name: Optional hosted dataset name override. Defaults to
                 `dataset.name`.
             description: Hosted dataset description. Omit this argument to leave
@@ -582,8 +605,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             `get_dataset(..., include_cases=False)`.
 
         Raises:
-            ValueError: If neither `dataset.name` nor `name` is provided, or if
-                the dataset contains unsupported dataset-level evaluators.
+            ValueError: If neither `dataset.name` nor `name` is provided.
             DatasetApiError: If the API returns an error other than the expected
                 `409` conflict used to trigger an update flow.
             DatasetNotFoundError: If the hosted dataset cannot be fetched after
@@ -619,14 +641,13 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             )
             ```
         """
-        _validate_push_dataset(dataset)
-
         target_name = dataset.name if name is None else name
         if not target_name:
             raise ValueError('push_dataset() requires a dataset name either on dataset.name or via name=')
 
         input_type, output_type, metadata_type = _get_dataset_type_args(dataset)
         create_kwargs, update_kwargs = _build_push_dataset_kwargs(
+            dataset=dataset,
             target_name=target_name,
             input_type=input_type,
             output_type=output_type,
@@ -781,6 +802,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         metadata_type: type[MetadataT] | None = None,
         *,
         custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = (),
+        custom_report_evaluator_types: Sequence[type[Any]] = (),
     ) -> Dataset[InputsT, OutputT, MetadataT]: ...
 
     def get_dataset(
@@ -792,6 +814,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         *,
         include_cases: bool = True,
         custom_evaluator_types: Sequence[type[Evaluator[Any, Any, Any]]] = (),
+        custom_report_evaluator_types: Sequence[type[Any]] = (),
     ) -> Dataset[InputsT, OutputT, MetadataT] | dict[str, Any]:
         """Get a dataset by ID or name.
 
@@ -813,7 +836,10 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             include_cases: Whether to include cases in the response. Defaults
                 to True. Set to False to retrieve only dataset metadata.
             custom_evaluator_types: Custom evaluator classes for deserializing
-                case-level evaluators stored in the dataset.
+                case-level and dataset-level evaluators stored in the dataset.
+            custom_report_evaluator_types: Custom report-evaluator classes for
+                deserializing report-level evaluators stored in the dataset.
+                Mirror of `Dataset.from_file(custom_report_evaluator_types=)`.
 
         Returns:
             A `pydantic_evals.Dataset` when `input_type` is provided, otherwise
@@ -848,7 +874,11 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
 
         Dataset, _ = _import_pydantic_evals()
         typed_dataset_cls: type[Dataset[InputsT, OutputT, MetadataT]] = Dataset[input_type, output_type, metadata_type]  # pyright: ignore[reportIndexIssue, reportUnknownVariableType]
-        return typed_dataset_cls.from_dict(data, custom_evaluator_types=list(custom_evaluator_types))  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
+        return typed_dataset_cls.from_dict(  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
+            data,
+            custom_evaluator_types=list(custom_evaluator_types),
+            custom_report_evaluator_types=list(custom_report_evaluator_types),
+        )
 
 
 class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
@@ -904,6 +934,8 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         output_type: type[Any] | None = None,
         metadata_type: type[Any] | None = None,
         description: str | None = None,
+        evaluators: list[dict[str, Any]] | None = None,
+        report_evaluators: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """Create a new dataset."""
         _validate_dataset_name(name)
@@ -916,6 +948,10 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
             data['output_schema'] = _type_to_schema(output_type)
         if metadata_type is not None:
             data['metadata_schema'] = _type_to_schema(metadata_type)
+        if evaluators is not None:
+            data['evaluators'] = evaluators
+        if report_evaluators is not None:
+            data['report_evaluators'] = report_evaluators
 
         response = await self.client.post('/v1/datasets/', json=data)
         return self._handle_response(response)
@@ -929,6 +965,8 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         output_type: type[Any] | None = None,
         metadata_type: type[Any] | None = None,
         description: str | None = _UNSET,
+        evaluators: list[dict[str, Any]] | None = _UNSET,
+        report_evaluators: list[dict[str, Any]] | None = _UNSET,
     ) -> dict[str, Any]:
         """Update an existing dataset."""
         data: dict[str, Any] = {}
@@ -943,6 +981,10 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
             data['output_schema'] = _type_to_schema(output_type)
         if metadata_type is not None:
             data['metadata_schema'] = _type_to_schema(metadata_type)
+        if evaluators is not _UNSET:
+            data['evaluators'] = evaluators
+        if report_evaluators is not _UNSET:
+            data['report_evaluators'] = report_evaluators
 
         response = await self.client.patch(f'/v1/datasets/{id_or_name}/', json=data)
         return self._handle_response(response)
@@ -974,9 +1016,9 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
 
         Args:
             dataset: The local `pydantic_evals.Dataset` to publish. Case-level
-                evaluators are uploaded with their cases. Dataset-level
-                `evaluators` and `report_evaluators` are not supported yet and
-                will raise `ValueError`.
+                evaluators are uploaded with their cases; dataset-level
+                `evaluators` and `report_evaluators` are uploaded as part of the
+                dataset itself and overwrite the hosted values on each push.
             name: Optional hosted dataset name override. Defaults to
                 `dataset.name`.
             description: Hosted dataset description. Omit this argument to leave
@@ -993,21 +1035,19 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
             `get_dataset(..., include_cases=False)`.
 
         Raises:
-            ValueError: If neither `dataset.name` nor `name` is provided, or if
-                the dataset contains unsupported dataset-level evaluators.
+            ValueError: If neither `dataset.name` nor `name` is provided.
             DatasetApiError: If the API returns an error other than the expected
                 `409` conflict used to trigger an update flow.
             DatasetNotFoundError: If the hosted dataset cannot be fetched after
                 the push completes.
         """
-        _validate_push_dataset(dataset)
-
         target_name = dataset.name if name is None else name
         if not target_name:
             raise ValueError('push_dataset() requires a dataset name either on dataset.name or via name=')
 
         input_type, output_type, metadata_type = _get_dataset_type_args(dataset)
         create_kwargs, update_kwargs = _build_push_dataset_kwargs(
+            dataset=dataset,
             target_name=target_name,
             input_type=input_type,
             output_type=output_type,
@@ -1111,6 +1151,7 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         metadata_type: type[MetadataT] | None = None,
         *,
         custom_evaluator_types: Sequence[type[Evaluator[InputsT, OutputT, MetadataT]]] = (),
+        custom_report_evaluator_types: Sequence[type[Any]] = (),
     ) -> Dataset[InputsT, OutputT, MetadataT]: ...
 
     async def get_dataset(
@@ -1122,6 +1163,7 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         *,
         include_cases: bool = True,
         custom_evaluator_types: Sequence[type[Evaluator[Any, Any, Any]]] = (),
+        custom_report_evaluator_types: Sequence[type[Any]] = (),
     ) -> Dataset[InputsT, OutputT, MetadataT] | dict[str, Any]:
         """Get a dataset by ID or name.
 
@@ -1139,4 +1181,8 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
 
         Dataset, _ = _import_pydantic_evals()
         typed_dataset_cls: type[Dataset[InputsT, OutputT, MetadataT]] = Dataset[input_type, output_type, metadata_type]  # pyright: ignore[reportIndexIssue, reportUnknownVariableType]
-        return typed_dataset_cls.from_dict(data, custom_evaluator_types=list(custom_evaluator_types))  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
+        return typed_dataset_cls.from_dict(  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
+            data,
+            custom_evaluator_types=list(custom_evaluator_types),
+            custom_report_evaluator_types=list(custom_report_evaluator_types),
+        )

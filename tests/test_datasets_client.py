@@ -32,7 +32,6 @@ from logfire.experimental.api_client import (
     _serialize_value,
     _type_to_schema,
     _validate_dataset_name,
-    _validate_push_dataset,
 )
 
 # --- Test types ---
@@ -364,18 +363,37 @@ class TestPushDatasetHelpers:
         assert _get_dataset_type_args(cast(Any, DatasetLike())) == (None, None, None)
 
     def test_build_push_dataset_kwargs_minimal(self):
-        create_kwargs, update_kwargs = _build_push_dataset_kwargs(
-            target_name='test-dataset', input_type=None, output_type=None, metadata_type=None
-        )
-        assert create_kwargs == {'name': 'test-dataset'}
-        assert update_kwargs == {}
-
-    def test_validate_push_dataset_report_evaluators(self):
         dataset = make_local_dataset()
-        dataset.report_evaluators = cast(Any, [object()])
+        create_kwargs, update_kwargs = _build_push_dataset_kwargs(
+            dataset=dataset, target_name='test-dataset', input_type=None, output_type=None, metadata_type=None
+        )
+        # `evaluators` / `report_evaluators` are always sent so a subsequent push that drops them
+        # locally also clears the hosted side.
+        assert create_kwargs == {'name': 'test-dataset', 'evaluators': [], 'report_evaluators': []}
+        assert update_kwargs == {'evaluators': [], 'report_evaluators': []}
 
-        with pytest.raises(ValueError, match='dataset-level evaluators or report_evaluators'):
-            _validate_push_dataset(dataset)
+    def test_build_push_dataset_kwargs_includes_dataset_and_report_evaluators(self):
+        @dataclass
+        class DatasetEval:
+            threshold: float = 0.9
+
+        @dataclass
+        class ReportEval:
+            min_pass_rate: float = 0.5
+
+        dataset = make_local_dataset()
+        dataset.evaluators = cast(Any, [DatasetEval(threshold=0.95)])
+        dataset.report_evaluators = cast(Any, [ReportEval(min_pass_rate=0.8)])
+
+        create_kwargs, update_kwargs = _build_push_dataset_kwargs(
+            dataset=dataset, target_name='test-dataset', input_type=None, output_type=None, metadata_type=None
+        )
+        expected_eval = [{'name': 'DatasetEval', 'arguments': {'threshold': 0.95}}]
+        expected_report_eval = [{'name': 'ReportEval', 'arguments': {'min_pass_rate': 0.8}}]
+        assert create_kwargs['evaluators'] == expected_eval
+        assert create_kwargs['report_evaluators'] == expected_report_eval
+        assert update_kwargs['evaluators'] == expected_eval
+        assert update_kwargs['report_evaluators'] == expected_report_eval
 
 
 # =============================================================================
@@ -729,13 +747,39 @@ class TestLogfireAPIClient:
         with pytest.raises(ValueError, match='requires a dataset name'):
             client.push_dataset(dataset)
 
-    def test_push_dataset_rejects_dataset_level_evaluators(self):
-        client = make_client()
-        dataset = make_local_dataset()
-        dataset.evaluators = cast(Any, [object()])
+    def test_push_dataset_uploads_dataset_level_evaluators(self):
+        @dataclass
+        class DatasetEval:
+            threshold: float = 0.9
 
-        with pytest.raises(ValueError, match='dataset-level evaluators or report_evaluators'):
-            client.push_dataset(dataset)
+        @dataclass
+        class ReportEval:
+            min_pass_rate: float = 0.5
+
+        requests_seen: list[httpx.Request] = []
+        dataset = make_local_dataset()
+        dataset.evaluators = cast(Any, [DatasetEval(threshold=0.95)])
+        dataset.report_evaluators = cast(Any, [ReportEval(min_pass_rate=0.8)])
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests_seen.append(request)
+            if request.method == 'POST' and request.url.path == '/v1/datasets/':
+                return httpx.Response(200, json=FAKE_DATASET)
+            if request.method == 'POST' and request.url.path.endswith('/import/'):
+                return httpx.Response(200, json=[FAKE_CASE])
+            if request.method == 'GET' and request.url.path == '/v1/datasets/local-dataset/':
+                return httpx.Response(200, json=FAKE_DATASET)
+            return httpx.Response(404, json={'detail': 'Not found'})
+
+        client = LogfireAPIClient(
+            client=httpx.Client(transport=httpx.MockTransport(handler), base_url='https://test.logfire.dev')
+        )
+        client.push_dataset(dataset)
+
+        create_request = next(r for r in requests_seen if r.method == 'POST' and r.url.path == '/v1/datasets/')
+        body = json.loads(create_request.content)
+        assert body['evaluators'] == [{'name': 'DatasetEval', 'arguments': {'threshold': 0.95}}]
+        assert body['report_evaluators'] == [{'name': 'ReportEval', 'arguments': {'min_pass_rate': 0.8}}]
 
     def test_push_dataset_propagates_non_conflict_error(self):
         client = make_client(
