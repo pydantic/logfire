@@ -142,8 +142,8 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             metadata_type: New metadata type (generates schema).
             description: New description. Pass None to clear.
             evaluators: New dataset-level evaluator specs (`[{"name": ...,
-                "arguments": ...}]`). Pass `[]` to clear.
-            report_evaluators: New report-level evaluator specs. Pass `[]` to
+                "arguments": ...}]`). Pass None to clear.
+            report_evaluators: New report-level evaluator specs. Pass None to
                 clear.
 
         Returns:
