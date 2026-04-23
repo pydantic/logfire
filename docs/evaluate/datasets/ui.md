@@ -5,19 +5,11 @@ description: "Create and manage evaluation datasets through the Logfire web inte
 
 # Web UI Guide
 
-This guide covers creating and managing datasets through the Logfire web interface. For programmatic access, see the [SDK Guide](sdk.md).
+This guide covers creating, editing, and managing datasets through the Logfire web interface. It's task-oriented: each section below is a specific lifecycle action (create, edit, add cases, export).
 
-## Navigating Evals
+For a reference of the **Evals: Datasets & Experiments** page itself (list layout, experiment viewing, comparison workflow, trace integration), see [Evals: Datasets & Experiments](../../guides/web-ui/evals.md). For programmatic dataset access, see the [SDK Guide](sdk.md).
 
-Click **Evals** in the sidebar to open the datasets list. From there:
-
-- Click a dataset name to see its detail page (experiments, cases, schema).
-- Click **Edit** to modify the dataset's name, description, and schemas.
-- Click **`<> SDK`** to view code snippets for working with the dataset programmatically.
-- Click **+ Add case** to add a new test case.
-- Select experiments and click **Compare** to compare multiple runs side by side.
-
-Breadcrumbs at the top of each page show your current location (e.g., `Evals / Datasets / my-dataset / Edit`).
+All tasks below start from the **Evals: Datasets & Experiments** page in the sidebar.
 
 ## Creating a New Dataset
 
@@ -144,14 +136,9 @@ From the dataset detail page, click **Export** to download the dataset in one of
 - **JSON**: Raw JSON representation of all cases.
 - **pydantic-evals**: A YAML format compatible with `pydantic_evals.Dataset.from_file()`.
 
-## Viewing Experiments
-
-The **Experiments** tab on the dataset detail page shows all evaluation runs against this dataset. You can:
-
-- Click any experiment row to see detailed results (inputs, outputs, scores, assertions).
-- Select multiple experiments and click **Compare** to view them side by side.
-- See pass rates, scores, labels, and metrics at a glance.
-
 ## What's Next?
 
-Once you have cases in a dataset, you can export them and run evaluations. See [Running Evaluations](evaluations.md) to get started.
+Once you have cases in a dataset, you can:
+
+- Run evaluations against it — see [Running Evaluations](evaluations.md).
+- View and compare experiment results — see [Evals: Datasets & Experiments](../../guides/web-ui/evals.md#viewing-experiments).
