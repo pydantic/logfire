@@ -127,9 +127,22 @@ with LogfireAPIClient(api_key='your-api-key') as client:
 - it uploads all cases through the existing import/upsert API
 - it uses `on_case_conflict='update'` by default, so named cases are updated on repeat pushes
 
-!!! note "Dataset-level evaluators are not uploaded yet"
+!!! note "Round-tripping evaluators"
 
-    `push_dataset(...)` uploads case-level evaluators with their cases, but it currently rejects dataset-level `evaluators` and `report_evaluators` because hosted datasets do not store them yet. Case-level evaluators are also not yet surfaced in the Logfire UI, so they round-trip through `get_dataset(..., custom_evaluator_types=[...])` but won't show up when browsing cases in the web app. We're working on this!
+    `push_dataset(...)` uploads case-level evaluators with their cases, plus dataset-level `evaluators` and `report_evaluators` from the `Dataset` itself. Each push overwrites the hosted values, so removing an evaluator locally and re-pushing also clears it on the server.
+
+    To deserialize the hosted values back into typed instances, pass the same custom types you would to `Dataset.from_file(...)`:
+
+    ```python skip="true" skip-reason="external-connection"
+    dataset = client.get_dataset(
+        'qa-golden-set',
+        QuestionInput,
+        AnswerOutput,
+        CaseMetadata,
+        custom_evaluator_types=[MyEvaluator],
+        custom_report_evaluator_types=[MyReportEvaluator],
+    )
+    ```
 
 ## Manual Dataset Management
 
