@@ -172,19 +172,18 @@ class UserToken:
             secrets = storage.load(base_url)
             if secrets is None:
                 return None
-            access_token_str = secrets.access_token
-            refresh_token_str: str | None = secrets.refresh_token
-            if secrets.registration_access_token:
-                registration_access_token = SecretStr(secrets.registration_access_token)
+            access_token = secrets.access_token
+            refresh_token = secrets.refresh_token
+            registration_access_token = secrets.registration_access_token
         else:
-            access_token_str = record.get('oauth_token', '')
-            refresh_token_str = record.get('refresh_token') or ''
+            access_token = SecretStr(record.get('oauth_token', ''))
+            refresh_token = SecretStr(record.get('refresh_token') or '')
         return cls(
-            token=SecretStr(access_token_str),
+            token=access_token,
             base_url=base_url,
             expiration=record.get('expiration', ''),
             client_id=record.get('client_id') or DEFAULT_OAUTH_CLIENT_ID,
-            refresh_token=SecretStr(refresh_token_str) if refresh_token_str else SecretStr(''),
+            refresh_token=refresh_token,
             scope=record.get('scope'),
             keyring_backed=keyring_backed,
             registration_client_uri=record.get('registration_client_uri'),
@@ -376,21 +375,21 @@ class UserTokenCollection:
         that `logout` can deregister them.
         """
         secrets = StoredOAuthSecrets(
-            access_token=access_token,
-            refresh_token=refresh_token,
-            registration_access_token=registration_access_token,
+            access_token=SecretStr(access_token),
+            refresh_token=SecretStr(refresh_token),
+            registration_access_token=SecretStr(registration_access_token) if registration_access_token else None,
         )
         keyring_backed = self.storage.save(base_url, secrets)
         self.user_tokens[base_url] = user_token = UserToken(
-            token=SecretStr(access_token),
+            token=secrets.access_token,
             base_url=base_url,
             expiration=expiration,
             client_id=client_id,
-            refresh_token=SecretStr(refresh_token),
+            refresh_token=secrets.refresh_token,
             scope=scope,
             keyring_backed=keyring_backed,
             registration_client_uri=registration_client_uri,
-            registration_access_token=SecretStr(registration_access_token) if registration_access_token else None,
+            registration_access_token=secrets.registration_access_token,
         )
         self._dump()
         return user_token

@@ -19,6 +19,7 @@ import base64
 import hashlib
 import platform
 import secrets
+import socket
 import sys
 import time
 import warnings
@@ -128,6 +129,21 @@ def discover_metadata(session: requests.Session, base_url: str) -> OAuthServerMe
     return cast(OAuthServerMetadata, response.json())
 
 
+def _dcr_client_name() -> str:
+    """Build the DCR ``client_name`` as ``logfire-sdk@<hostname>[#<platform.node()>]``.
+
+    The hostname is the best-effort network name from ``socket.gethostname()``;
+    ``platform.node()`` is appended with a ``#`` discriminator only when it's
+    present and distinct (useful inside containers where the two differ).
+    """
+    hostname = socket.gethostname() or 'unknown'
+    name = f'logfire-sdk@{hostname}'
+    node = platform.node()
+    if node and node != hostname:
+        name += f'#{node}'
+    return name
+
+
 def register_client(session: requests.Session, metadata: OAuthServerMetadata) -> DynamicRegistration:
     """Register a new OAuth client via RFC 7591 DCR.
 
@@ -144,7 +160,7 @@ def register_client(session: requests.Session, metadata: OAuthServerMetadata) ->
             'administrator or fall back to `logfire auth` (without `--oauth`).'
         )
     payload = {
-        'client_name': f'logfire-cli@{platform.node() or "unknown"}',
+        'client_name': _dcr_client_name(),
         'grant_types': ['urn:ietf:params:oauth:grant-type:device_code', 'refresh_token'],
         'token_endpoint_auth_method': 'none',
         'application_type': 'native',

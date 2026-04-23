@@ -113,6 +113,18 @@ class _FakeKeyringError(Exception):
     """Stand-in for `keyring.errors.KeyringError` that doesn't require the package."""
 
 
+def test_dcr_client_name_includes_hostname_and_optional_node(monkeypatch: pytest.MonkeyPatch) -> None:
+    # When hostname and node match (the common case) only the hostname is used.
+    monkeypatch.setattr('socket.gethostname', lambda: 'same-host')
+    monkeypatch.setattr('platform.node', lambda: 'same-host')
+    assert oauth._dcr_client_name() == 'logfire-sdk@same-host'  # pyright: ignore[reportPrivateUsage]
+
+    # When they differ (e.g. inside a container) the node is appended as a discriminator.
+    monkeypatch.setattr('socket.gethostname', lambda: 'container-01')
+    monkeypatch.setattr('platform.node', lambda: 'real-laptop')
+    assert oauth._dcr_client_name() == 'logfire-sdk@container-01#real-laptop'  # pyright: ignore[reportPrivateUsage]
+
+
 def test_pkce_pair_shape() -> None:
     verifier, challenge = oauth.generate_pkce_pair()
     assert 43 <= len(verifier) <= 128
@@ -208,11 +220,12 @@ def test_run_device_flow_no_dcr_endpoint_errors(
 def test_token_storage_keyring_roundtrip(fake_keyring: _InMemoryKeyring) -> None:
     storage = TokenStorage()
     assert storage.keyring_available is True
-    assert storage.save('https://logfire-us.pydantic.dev', StoredOAuthSecrets('ACCESS', 'REFRESH')) is True
+    secrets = StoredOAuthSecrets(SecretStr('ACCESS'), SecretStr('REFRESH'))
+    assert storage.save('https://logfire-us.pydantic.dev', secrets) is True
     loaded = storage.load('https://logfire-us.pydantic.dev')
     assert loaded is not None
-    assert loaded.access_token == 'ACCESS'
-    assert loaded.refresh_token == 'REFRESH'
+    assert loaded.access_token.get_secret_value() == 'ACCESS'
+    assert loaded.refresh_token.get_secret_value() == 'REFRESH'
     storage.delete('https://logfire-us.pydantic.dev')
     assert storage.load('https://logfire-us.pydantic.dev') is None
 
@@ -220,7 +233,7 @@ def test_token_storage_keyring_roundtrip(fake_keyring: _InMemoryKeyring) -> None
 def test_token_storage_without_keyring(no_keyring: None) -> None:
     storage = TokenStorage()
     assert storage.keyring_available is False
-    assert storage.save('https://logfire-us.pydantic.dev', StoredOAuthSecrets('A', 'B')) is False
+    assert storage.save('https://logfire-us.pydantic.dev', StoredOAuthSecrets(SecretStr('A'), SecretStr('B'))) is False
     assert storage.load('https://logfire-us.pydantic.dev') is None
 
 
@@ -972,13 +985,13 @@ def test_save_reports_keyring_error_and_falls_back(
     monkeypatch.setattr(token_storage, '_keyring_error', _FakeKeyringError)
     fake_keyring.set_errors.append(_FakeKeyringError('disk full'))
     storage = TokenStorage()
-    assert storage.save('u', StoredOAuthSecrets('A', 'R')) is False
+    assert storage.save('u', StoredOAuthSecrets(SecretStr('A'), SecretStr('R'))) is False
     assert 'disk full' in capsys.readouterr().err
 
 
 def test_save_returns_false_without_keyring(no_keyring: None) -> None:
     storage = TokenStorage()
-    assert storage.save('u', StoredOAuthSecrets('A', 'R')) is False
+    assert storage.save('u', StoredOAuthSecrets(SecretStr('A'), SecretStr('R'))) is False
 
 
 def test_load_returns_none_on_keyring_error(fake_keyring: _InMemoryKeyring, monkeypatch: pytest.MonkeyPatch) -> None:

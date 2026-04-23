@@ -82,11 +82,15 @@ class SecretStr:
 
 @dataclass
 class StoredOAuthSecrets:
-    """Secret material for an OAuth login (kept out of TOML when possible)."""
+    """Secret material for an OAuth login (kept out of TOML when possible).
 
-    access_token: str
-    refresh_token: str
-    registration_access_token: str | None = None
+    All token fields are wrapped in `SecretStr` so they don't leak through
+    `repr()` or accidental logging.
+    """
+
+    access_token: SecretStr
+    refresh_token: SecretStr
+    registration_access_token: SecretStr | None = None
     """RFC 7592 client management token — present only for DCR-registered clients."""
 
 
@@ -133,11 +137,11 @@ class TokenStorage:
         if not self.keyring_available or _keyring_module is None:
             return False
         payload: dict[str, str] = {
-            'access_token': secrets.access_token,
-            'refresh_token': secrets.refresh_token,
+            'access_token': secrets.access_token.get_secret_value(),
+            'refresh_token': secrets.refresh_token.get_secret_value(),
         }
         if secrets.registration_access_token:
-            payload['registration_access_token'] = secrets.registration_access_token
+            payload['registration_access_token'] = secrets.registration_access_token.get_secret_value()
         try:
             _keyring_module.set_password(KEYRING_SERVICE, base_url, json.dumps(payload))
         except _keyring_error as e:
@@ -163,10 +167,11 @@ class TokenStorage:
         refresh = data.get('refresh_token')
         if not access or not refresh:
             return None
+        registration = data.get('registration_access_token')
         return StoredOAuthSecrets(
-            access_token=access,
-            refresh_token=refresh,
-            registration_access_token=data.get('registration_access_token'),
+            access_token=SecretStr(access),
+            refresh_token=SecretStr(refresh),
+            registration_access_token=SecretStr(registration) if registration else None,
         )
 
     def delete(self, base_url: str) -> None:
