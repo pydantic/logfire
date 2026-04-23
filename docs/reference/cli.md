@@ -78,10 +78,11 @@ pip install 'logfire[cli]'
    code, opens the browser to the verification URL and polls until you finish
    authenticating.
 4. The issued `access_token`/`refresh_token` pair is stored in the OS keyring
-   (service name `logfire-oauth`); only non-secret metadata (scope, expiration,
-   and for DCR clients `client_id` + `registration_client_uri`) lands in
-   `~/.logfire/default.toml`.  When the keyring is unavailable, tokens are
-   written inline to the same file, which is `chmod 0600`.
+   under the service name `logfire-sdk` (with the base URL as the username).
+   Only non-secret metadata (scope, expiration, and for DCR clients
+   `client_id` + `registration_client_uri`) lands in
+   `~/.logfire/default.toml`. When the keyring is unavailable, tokens are
+   instead written inline to the same file, which is `chmod 0600`.
 5. Access tokens are refreshed transparently as they approach expiry. Refresh
    requests are serialized across concurrent processes via an advisory file
    lock on `~/.logfire/default.toml.lock` so that a refresh token is never
@@ -95,13 +96,13 @@ pip install 'logfire[cli]'
 token = "pylf_v1_us_..."
 expiration = "2099-12-31T23:59:59"
 
-# OAuth with the preconfigured `logfire-cli` client and keyring storage
+# OAuth with the preconfigured `logfire-cli` client and keyring storage.
+# No `oauth_token` / `refresh_token` fields -> secrets live in the keyring.
 [tokens."https://logfire-eu.pydantic.dev"]
 scope = "project:read_dashboard"
 expiration = "2026-04-17T12:00:00+00:00"
-keyring_service = "logfire-oauth"
 
-# OAuth via Dynamic Client Registration (tokens inline — no keyring)
+# OAuth via Dynamic Client Registration with tokens inline (no keyring).
 [tokens."http://localhost:3000"]
 scope = "project:read_dashboard"
 expiration = "2026-04-17T12:00:00+00:00"
@@ -110,6 +111,11 @@ registration_client_uri = "http://localhost:3000/oauth2/register/dcr-issued-abc"
 oauth_token = "..."
 refresh_token = "..."
 ```
+
+The record shape is self-describing: `token = ...` means a legacy user token,
+`oauth_token = ...` means an OAuth record with inline secrets, and neither
+means an OAuth record whose secrets are in the keyring under the service name
+`logfire-sdk`.
 
 Tokens `token` / `oauth_token` / `refresh_token` wrap the underlying string in
 a `SecretStr` at runtime: their default `str()` / `repr()` produce

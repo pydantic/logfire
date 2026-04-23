@@ -35,8 +35,13 @@ except ImportError:  # pragma: no cover — exercised only when `keyring` is mis
     pass
 
 
-KEYRING_SERVICE = 'logfire-oauth'
-"""Service name used when storing tokens in the OS keyring."""
+KEYRING_SERVICE = 'logfire-sdk'
+"""Service name under which OAuth access/refresh tokens live in the OS keyring.
+
+A record in `~/.logfire/default.toml` is considered "keyring-backed" whenever
+it has no inline `oauth_token` / `refresh_token` fields; the keyring entry is
+looked up with this fixed service name and the base URL as the username.
+"""
 
 
 class SecretStr:

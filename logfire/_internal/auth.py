@@ -19,7 +19,7 @@ from typing_extensions import Self
 from logfire.exceptions import LogfireConfigError
 
 from . import oauth as _oauth
-from .token_storage import KEYRING_SERVICE, SecretStr, StoredOAuthSecrets, TokenStorage, file_lock
+from .token_storage import SecretStr, StoredOAuthSecrets, TokenStorage, file_lock
 from .utils import UnexpectedResponse, read_toml_file
 
 HOME_LOGFIRE = Path.home() / '.logfire'
@@ -77,9 +77,10 @@ class _OAuthRequired(TypedDict):
 class OAuthUserTokenData(_OAuthRequired, total=False):
     """OAuth 2.1 device-flow token record.
 
-    When ``keyring_service`` is set, access_token/refresh_token (and the
-    optional DCR management token) live in the OS keyring and are absent from
-    the TOML file. Otherwise they live inline here.
+    The presence of inline ``oauth_token`` + ``refresh_token`` marks a
+    file-only record (written when the OS keyring is unavailable); their
+    absence means the secrets live in the keyring under `KEYRING_SERVICE`
+    with the base URL as the username.
 
     ``client_id`` is persisted only for DCR-registered clients; preconfigured
     installs reuse the default `logfire-cli` id at load time. The
@@ -91,7 +92,6 @@ class OAuthUserTokenData(_OAuthRequired, total=False):
     scope: str
     client_id: str
     registration_client_uri: str
-    keyring_service: str
     oauth_token: str
     refresh_token: str
 
@@ -121,9 +121,10 @@ class UserToken:
     client_id: str = DEFAULT_OAUTH_CLIENT_ID
     refresh_token: SecretStr | None = None
     scope: str | None = None
-    # When the tokens are backed by the system keyring this is the service name,
-    # otherwise None (tokens stored inline in the TOML file).
-    keyring_service: str | None = None
+    # True when the secret tokens live in the OS keyring instead of inline in
+    # the TOML file. Serialization just omits the inline fields — the keyring
+    # entry is addressed by `(KEYRING_SERVICE, base_url)`.
+    keyring_backed: bool = False
     # RFC 7592 management URL — present only for DCR-registered clients; drives
     # optional deregistration on logout.
     registration_client_uri: str | None = None
@@ -163,9 +164,11 @@ class UserToken:
         Returns None when the record references a keyring entry that can no
         longer be read (e.g. the keyring was disabled between logins).
         """
-        keyring_service = record.get('keyring_service')
+        # Records with inline tokens are file-backed; everything else is
+        # keyring-backed (regardless of what service name we used originally).
+        keyring_backed = 'oauth_token' not in record
         registration_access_token: SecretStr | None = None
-        if keyring_service:
+        if keyring_backed:
             secrets = storage.load(base_url)
             if secrets is None:
                 return None
@@ -183,7 +186,7 @@ class UserToken:
             client_id=record.get('client_id') or DEFAULT_OAUTH_CLIENT_ID,
             refresh_token=SecretStr(refresh_token_str) if refresh_token_str else SecretStr(''),
             scope=record.get('scope'),
-            keyring_service=keyring_service,
+            keyring_backed=keyring_backed,
             registration_client_uri=record.get('registration_client_uri'),
             registration_access_token=registration_access_token,
         )
@@ -377,8 +380,7 @@ class UserTokenCollection:
             refresh_token=refresh_token,
             registration_access_token=registration_access_token,
         )
-        keyring_ok = self.storage.save(base_url, secrets)
-        keyring_service = KEYRING_SERVICE if keyring_ok else None
+        keyring_backed = self.storage.save(base_url, secrets)
         self.user_tokens[base_url] = user_token = UserToken(
             token=SecretStr(access_token),
             base_url=base_url,
@@ -386,7 +388,7 @@ class UserTokenCollection:
             client_id=client_id,
             refresh_token=SecretStr(refresh_token),
             scope=scope,
-            keyring_service=keyring_service,
+            keyring_backed=keyring_backed,
             registration_client_uri=registration_client_uri,
             registration_access_token=SecretStr(registration_access_token) if registration_access_token else None,
         )
@@ -427,7 +429,7 @@ class UserTokenCollection:
                     registration_client_uri=token.registration_client_uri,
                     registration_access_token=token.registration_access_token.get_secret_value(),
                 )
-            if token.keyring_service:
+            if token.keyring_backed:
                 self.storage.delete(url)
 
         self._dump()
@@ -510,7 +512,7 @@ class UserTokenCollection:
             token.refresh_token = updated.refresh_token
             token.expiration = updated.expiration
             token.scope = updated.scope
-            token.keyring_service = updated.keyring_service
+            token.keyring_backed = updated.keyring_backed
             return updated
 
     def _dump(self) -> None:
@@ -522,8 +524,10 @@ class UserTokenCollection:
             for base_url, user_token in self.user_tokens.items():
                 f.write(f'[tokens."{base_url}"]\n')
                 if user_token.auth_method == 'oauth':
-                    # Record shape is self-describing: no tag field, the OAuth shape
-                    # is recognized by the absence of a raw `token` key.
+                    # Record shape is self-describing:
+                    #   - `token = ...`        -> legacy user token
+                    #   - `oauth_token = ...`  -> OAuth, tokens inline
+                    #   - neither              -> OAuth, tokens in the keyring
                     f.write(f'scope = "{user_token.scope or ""}"\n')
                     f.write(f'expiration = "{user_token.expiration}"\n')
                     # Only persist the client_id for DCR-registered clients; the
@@ -532,9 +536,7 @@ class UserTokenCollection:
                         f.write(f'client_id = "{user_token.client_id}"\n')
                         assert user_token.registration_client_uri is not None
                         f.write(f'registration_client_uri = "{user_token.registration_client_uri}"\n')
-                    if user_token.keyring_service:
-                        f.write(f'keyring_service = "{user_token.keyring_service}"\n')
-                    else:
+                    if not user_token.keyring_backed:
                         # Keyring unavailable — persist tokens inline.
                         f.write(f'oauth_token = "{user_token.token.get_secret_value()}"\n')
                         refresh_raw = user_token.refresh_token.get_secret_value() if user_token.refresh_token else ''

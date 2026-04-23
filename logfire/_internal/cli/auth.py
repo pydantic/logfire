@@ -117,7 +117,7 @@ def _run_oauth_flow(args: argparse.Namespace, tokens_collection: UserTokenCollec
         registration_client_uri=result.registration_client_uri,
     )
     sys.stderr.write('Successfully authenticated with OAuth 2.1!\n')
-    if added.keyring_service:
+    if added.keyring_backed:
         sys.stderr.write(
             f'Access/refresh tokens stored in the system keyring (service: {KEYRING_SERVICE}).\n'
             f'Metadata stored in {DEFAULT_FILE}.\n'
