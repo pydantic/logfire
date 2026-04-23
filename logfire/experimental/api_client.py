@@ -140,12 +140,13 @@ def _from_dict_compat(
         )
 
     if data.get('report_evaluators'):
+        # Stack: _from_dict_compat -> get_dataset -> user. stacklevel=3 lands on user code.
         warnings.warn(
             'Hosted dataset has report_evaluators but the installed pydantic-evals does not '
             'support them. Upgrade to pydantic-evals>=1.58.0 to deserialize report-level evaluators. '
             'Dropping the field for now.',
             UserWarning,
-            stacklevel=4,
+            stacklevel=3,
         )
     stripped = {k: v for k, v in data.items() if k != 'report_evaluators'}
     return typed_dataset_cls.from_dict(stripped, custom_evaluator_types=list(custom_evaluator_types))

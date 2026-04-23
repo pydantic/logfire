@@ -341,6 +341,20 @@ class TestFromDictCompat:
 
         assert _from_dict_supports_report_evaluators(Legacy) is False
 
+    def test_returns_false_when_class_has_no_from_dict(self):
+        class NoFromDict:
+            pass
+
+        assert _from_dict_supports_report_evaluators(NoFromDict) is False
+
+    def test_returns_false_when_signature_inspection_fails(self):
+        class WeirdFromDict:
+            # Set `from_dict` to a built-in whose signature can't be introspected,
+            # so `inspect.signature` raises ValueError.
+            from_dict = staticmethod(min)
+
+        assert _from_dict_supports_report_evaluators(WeirdFromDict) is False
+
     def test_modern_path_passes_through_kwarg(self):
         captured: dict[str, Any] = {}
 
