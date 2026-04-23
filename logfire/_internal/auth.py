@@ -430,7 +430,13 @@ class UserTokenCollection:
         self._dump()
         return removed
 
-    def refresh_if_needed(self, token: UserToken, session: requests.Session) -> UserToken:
+    def refresh_if_needed(
+        self,
+        token: UserToken,
+        session: requests.Session,
+        *,
+        force: bool = False,
+    ) -> UserToken:
         """Refresh `token` in place if it is (close to) expired.
 
         Serialized across processes via an advisory lock on the tokens file so
@@ -438,10 +444,14 @@ class UserTokenCollection:
         invalidating a refresh token. After acquiring the lock we re-read the
         on-disk record first: if another process already rotated the token we
         simply reuse its result.
+
+        Pass ``force=True`` to rotate even when the token is not yet near
+        expiry — used by the HTTP client after a server-side 401, where we
+        have positive evidence the access token is no longer accepted.
         """
         if token.auth_method != 'oauth' or not token.refresh_token or not token.client_id:
             return token
-        if not token.needs_refresh:
+        if not force and not token.needs_refresh:
             return token
 
         from . import oauth as _oauth  # lazy import to avoid a circular dependency
@@ -449,7 +459,14 @@ class UserTokenCollection:
         with file_lock(self.path):
             self._reload()
             current = self.user_tokens.get(token.base_url)
-            if current is not None and current.auth_method == 'oauth' and not current.needs_refresh:
+            # Reuse another process's result only when it actually replaced the
+            # token we came in with — otherwise we'd skip the forced rotation.
+            if (
+                current is not None
+                and current.auth_method == 'oauth'
+                and not current.needs_refresh
+                and current.token != token.token
+            ):
                 # Another process already refreshed. Update the caller's view.
                 token.token = current.token
                 token.refresh_token = current.refresh_token

@@ -31,7 +31,7 @@ try:
 
     _keyring_error = _KeyringError
     _keyring_import_ok = True
-except ImportError:
+except ImportError:  # pragma: no cover — exercised only when `keyring` is missing at import time
     pass
 
 
@@ -192,7 +192,7 @@ def file_lock(path: Path) -> Iterator[None]:
         locked = True
         yield
     finally:
-        if locked:
+        if locked:  # pragma: no branch — blocking `_acquire_lock` either succeeds or raises
             _release_lock(fd)
         os.close(fd)
 

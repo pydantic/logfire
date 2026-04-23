@@ -66,13 +66,18 @@ class LogfireClient:
         collection = UserTokenCollection()
         return cls(user_token=collection.get_token(base_url), collection=collection)
 
-    def _try_refresh(self) -> bool:
-        """Refresh the OAuth access token if possible. Returns True on success."""
+    def _try_refresh(self, *, force: bool = False) -> bool:
+        """Refresh the OAuth access token if possible. Returns True on success.
+
+        ``force=True`` bypasses the "near-expiry" check; used after a 401 so
+        we rotate even when the access token's nominal TTL is still in the
+        future (the server has already told us the credential is rejected).
+        """
         token = self._user_token
         if token.auth_method != 'oauth' or not token.refresh_token or self._collection is None:
             return False
         before_access = token.token
-        self._collection.refresh_if_needed(token, Session())
+        self._collection.refresh_if_needed(token, Session(), force=force)
         if token.token != before_access and not token.is_expired:
             # Propagate the refreshed token to our session.
             if hasattr(self, '_session'):
@@ -87,7 +92,7 @@ class LogfireClient:
     def _get_raw(self, endpoint: str, params: dict[str, Any] | None = None) -> Response:
         self._maybe_refresh_before_request()
         response = self._session.get(urljoin(self.base_url, endpoint), params=params)
-        if response.status_code == 401 and self._try_refresh():
+        if response.status_code == 401 and self._try_refresh(force=True):
             response = self._session.get(urljoin(self.base_url, endpoint), params=params)
         UnexpectedResponse.raise_for_status(response)
         return response
@@ -101,7 +106,7 @@ class LogfireClient:
     def _post_raw(self, endpoint: str, body: Any | None = None) -> Response:
         self._maybe_refresh_before_request()
         response = self._session.post(urljoin(self.base_url, endpoint), json=body)
-        if response.status_code == 401 and self._try_refresh():
+        if response.status_code == 401 and self._try_refresh(force=True):
             response = self._session.post(urljoin(self.base_url, endpoint), json=body)
         UnexpectedResponse.raise_for_status(response)
         return response

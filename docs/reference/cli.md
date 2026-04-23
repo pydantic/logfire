@@ -47,9 +47,9 @@ Then, if you go back to the terminal, you'll see that you are authenticated! :ta
 
 By default `logfire auth` issues a long-lived bearer token that is stored in
 plaintext in `~/.logfire/default.toml`. If your Logfire instance supports the
-OAuth 2.1 device authorization grant (RFC 8628), you can opt into a modern
-flow that uses short-lived access tokens + a refresh token, with secrets held
-in the operating system keyring whenever possible.
+OAuth 2.1 device authorization grant ([RFC 8628][rfc8628]), you can opt into a
+modern flow that uses a short-lived access token plus a refresh token, with
+secrets held in the operating system keyring whenever possible.
 
 ```bash
 logfire auth --oauth
@@ -62,28 +62,80 @@ Linux Secret Service, Windows Credential Locker):
 pip install 'logfire[cli]'
 ```
 
-What happens behind the scenes:
+!!! note
+    The legacy long-lived-token flow remains the default. Both kinds of records
+    can coexist in `~/.logfire/default.toml` for different base URLs.
+
+#### What happens behind the scenes
 
 1. `/.well-known/oauth-authorization-server` is fetched to discover endpoints
-   (RFC 8414).
+   ([RFC 8414][rfc8414]).
 2. The CLI attempts the device flow using the preregistered `logfire-cli`
-   client. If the server rejects it with `invalid_client` and advertises a
+   client.  If the server rejects it with `invalid_client` **and** advertises a
    `registration_endpoint`, the CLI falls back to Dynamic Client Registration
-   (RFC 7591) and caches the resulting client id.
-3. The browser is opened to complete authentication.
-4. The issued `access_token`/`refresh_token` pair is stored in the OS keyring;
-   only non-secret metadata (scope, expiration, client id) lands in
-   `~/.logfire/default.toml`. When the keyring is unavailable, tokens are
+   ([RFC 7591][rfc7591]) and caches the resulting client id.
+3. The CLI generates PKCE parameters ([RFC 7636][rfc7636]), requests a device
+   code, opens the browser to the verification URL and polls until you finish
+   authenticating.
+4. The issued `access_token`/`refresh_token` pair is stored in the OS keyring
+   (service name `logfire-oauth`); only non-secret metadata (scope, expiration,
+   and for DCR clients `client_id` + `registration_client_uri`) lands in
+   `~/.logfire/default.toml`.  When the keyring is unavailable, tokens are
    written inline to the same file, which is `chmod 0600`.
 5. Access tokens are refreshed transparently as they approach expiry. Refresh
    requests are serialized across concurrent processes via an advisory file
-   lock so that the refresh token is never spent twice in parallel.
+   lock on `~/.logfire/default.toml.lock` so that a refresh token is never
+   spent twice in parallel.
 
-To log out and remove both the stored metadata and any keyring entries:
+#### Storage layout
+
+```toml
+# Legacy long-lived token — recognized by the `token` field
+[tokens."https://logfire-us.pydantic.dev"]
+token = "pylf_v1_us_..."
+expiration = "2099-12-31T23:59:59"
+
+# OAuth with the preconfigured `logfire-cli` client and keyring storage
+[tokens."https://logfire-eu.pydantic.dev"]
+scope = "project:read_dashboard"
+expiration = "2026-04-17T12:00:00+00:00"
+keyring_service = "logfire-oauth"
+
+# OAuth via Dynamic Client Registration (tokens inline — no keyring)
+[tokens."http://localhost:3000"]
+scope = "project:read_dashboard"
+expiration = "2026-04-17T12:00:00+00:00"
+client_id = "dcr-issued-abc"
+registration_client_uri = "http://localhost:3000/oauth2/register/dcr-issued-abc"
+oauth_token = "..."
+refresh_token = "..."
+```
+
+Tokens `token` / `oauth_token` / `refresh_token` wrap the underlying string in
+a `SecretStr` at runtime: their default `str()` / `repr()` produce
+`'**********'` so accidental logging cannot leak credentials.
+
+#### Logging out
+
+To log out and remove the stored tokens:
 
 ```bash
 logfire auth logout
 ```
+
+For OAuth records, `logout` additionally:
+
+- Deletes the associated entry from the OS keyring.
+- For Dynamic Client Registration clients only, issues a best-effort
+  [RFC 7592][rfc7592] `DELETE` against `registration_client_uri` to deregister
+  the client on the server. The preconfigured `logfire-cli` is never
+  deregistered.
+
+[rfc8628]: https://www.rfc-editor.org/rfc/rfc8628
+[rfc8414]: https://www.rfc-editor.org/rfc/rfc8414
+[rfc7591]: https://www.rfc-editor.org/rfc/rfc7591
+[rfc7592]: https://www.rfc-editor.org/rfc/rfc7592
+[rfc7636]: https://www.rfc-editor.org/rfc/rfc7636
 
 ## Clean (`clean`)
 
