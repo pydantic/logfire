@@ -144,8 +144,6 @@ with LogfireAPIClient(api_key='your-api-key') as client:
     )
     ```
 
-    Both case-level and dataset-level evaluators can also be edited from the Logfire UI; report-level evaluators are managed from the dataset edit page.
-
 ## Manual Dataset Management
 
 If you need lower-level control, the SDK still exposes `create_dataset(...)`, `add_cases(...)`, `update_dataset(...)`, and the other primitives directly.
