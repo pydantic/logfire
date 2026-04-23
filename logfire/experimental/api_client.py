@@ -48,8 +48,11 @@ Example usage:
 
 from __future__ import annotations
 
+import inspect
 import re
+import warnings
 from collections.abc import Sequence
+from functools import cache
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, cast, overload
 
@@ -101,6 +104,51 @@ def _import_pydantic_evals() -> tuple[type, type]:
         return Dataset, Case
     except ImportError:
         raise ImportError('pydantic-evals is required for this operation. Install with: pip install pydantic-evals')
+
+
+@cache
+def _from_dict_supports_report_evaluators(dataset_cls: type) -> bool:
+    """Whether `Dataset.from_dict` accepts `custom_report_evaluator_types=` (added in pydantic-evals 1.58.0)."""
+    from_dict = getattr(dataset_cls, 'from_dict', None)
+    if from_dict is None:
+        return False
+    try:
+        params = inspect.signature(from_dict).parameters
+    except (TypeError, ValueError):
+        return False
+    return 'custom_report_evaluator_types' in params
+
+
+def _from_dict_compat(
+    typed_dataset_cls: Any,
+    data: dict[str, Any],
+    custom_evaluator_types: Sequence[type[Any]],
+    custom_report_evaluator_types: Sequence[type[Any]],
+) -> Any:
+    """Call `Dataset.from_dict` with best-effort compatibility for pre-1.58.0 pydantic-evals.
+
+    Older versions don't accept `custom_report_evaluator_types` and reject the
+    `report_evaluators` field on the input dict (`_DatasetModel` uses `extra='forbid'`).
+    On those installs we strip the field before calling `from_dict`, warning if the
+    server returned a non-empty list (the report evaluators are silently dropped).
+    """
+    if _from_dict_supports_report_evaluators(typed_dataset_cls):
+        return typed_dataset_cls.from_dict(
+            data,
+            custom_evaluator_types=list(custom_evaluator_types),
+            custom_report_evaluator_types=list(custom_report_evaluator_types),
+        )
+
+    if data.get('report_evaluators'):
+        warnings.warn(
+            'Hosted dataset has report_evaluators but the installed pydantic-evals does not '
+            'support them. Upgrade to pydantic-evals>=1.58.0 to deserialize report-level evaluators. '
+            'Dropping the field for now.',
+            UserWarning,
+            stacklevel=4,
+        )
+    stripped = {k: v for k, v in data.items() if k != 'report_evaluators'}
+    return typed_dataset_cls.from_dict(stripped, custom_evaluator_types=list(custom_evaluator_types))
 
 
 class DatasetNotFoundError(Exception):
@@ -875,11 +923,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
 
         Dataset, _ = _import_pydantic_evals()
         typed_dataset_cls: type[Dataset[InputsT, OutputT, MetadataT]] = Dataset[input_type, output_type, metadata_type]  # pyright: ignore[reportIndexIssue, reportUnknownVariableType]
-        return typed_dataset_cls.from_dict(  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
-            data,
-            custom_evaluator_types=list(custom_evaluator_types),
-            custom_report_evaluator_types=list(custom_report_evaluator_types),
-        )
+        return _from_dict_compat(typed_dataset_cls, data, custom_evaluator_types, custom_report_evaluator_types)
 
 
 class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
@@ -1184,8 +1228,4 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
 
         Dataset, _ = _import_pydantic_evals()
         typed_dataset_cls: type[Dataset[InputsT, OutputT, MetadataT]] = Dataset[input_type, output_type, metadata_type]  # pyright: ignore[reportIndexIssue, reportUnknownVariableType]
-        return typed_dataset_cls.from_dict(  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
-            data,
-            custom_evaluator_types=list(custom_evaluator_types),
-            custom_report_evaluator_types=list(custom_report_evaluator_types),
-        )
+        return _from_dict_compat(typed_dataset_cls, data, custom_evaluator_types, custom_report_evaluator_types)

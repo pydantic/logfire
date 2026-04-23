@@ -20,7 +20,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-16T20:33:02.253206Z"
+exclude-newer = "2026-04-16T21:55:02.217004Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -3674,7 +3674,7 @@ requires-dist = [
     { name = "protobuf", specifier = ">=4.23.4" },
     { name = "pydantic", marker = "extra == 'datasets'", specifier = ">=2" },
     { name = "pydantic", marker = "extra == 'variables'", specifier = ">=2" },
-    { name = "pydantic-evals", marker = "python_full_version >= '3.10' and extra == 'datasets'", specifier = ">=1.58.0" },
+    { name = "pydantic-evals", marker = "python_full_version >= '3.10' and extra == 'datasets'", specifier = ">=1.0.0" },
     { name = "rich", specifier = ">=13.4.2" },
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0.1" },
     { name = "typing-extensions", specifier = ">=4.1.0" },
@@ -3750,7 +3750,7 @@ dev = [
     { name = "pyarrow", marker = "python_full_version >= '3.13'", specifier = ">=18.1.0" },
     { name = "pydantic", specifier = ">=2.11.0" },
     { name = "pydantic-ai-slim", specifier = ">=0.0.39" },
-    { name = "pydantic-evals", marker = "python_full_version >= '3.10'", specifier = ">=1.58.0" },
+    { name = "pydantic-evals", marker = "python_full_version >= '3.10'", specifier = ">=1.0.0" },
     { name = "pymongo", specifier = ">=4.10.1" },
     { name = "pymysql", specifier = ">=1.1.1" },
     { name = "pyright", specifier = "!=1.1.407" },

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import warnings
 from dataclasses import dataclass
 from typing import Any, cast
 from unittest.mock import patch
@@ -25,6 +26,8 @@ from logfire.experimental.api_client import (
     DatasetNotFoundError,
     LogfireAPIClient,
     _build_push_dataset_kwargs,
+    _from_dict_compat,
+    _from_dict_supports_report_evaluators,
     _get_dataset_type_args,
     _import_pydantic_evals,
     _serialize_case,
@@ -309,6 +312,79 @@ class TestImportPydanticEvals:
         with patch.dict('sys.modules', {'pydantic_evals': None}):
             with pytest.raises(ImportError, match='pydantic-evals is required'):
                 _import_pydantic_evals()
+
+
+class TestFromDictCompat:
+    """`get_dataset` shim that lets the SDK keep working on pydantic-evals < 1.58.0."""
+
+    def test_supports_when_kwarg_present(self):
+        class Modern:
+            @classmethod
+            def from_dict(
+                cls,
+                data: dict[str, Any],
+                custom_evaluator_types: Any = (),
+                custom_report_evaluator_types: Any = (),
+                default_name: str | None = None,
+            ) -> Any:
+                return ('called', data, list(custom_evaluator_types), list(custom_report_evaluator_types))
+
+        assert _from_dict_supports_report_evaluators(Modern) is True
+
+    def test_does_not_support_when_kwarg_absent(self):
+        class Legacy:
+            @classmethod
+            def from_dict(
+                cls, data: dict[str, Any], custom_evaluator_types: Any = (), default_name: str | None = None
+            ) -> Any:
+                return ('legacy', data, list(custom_evaluator_types))
+
+        assert _from_dict_supports_report_evaluators(Legacy) is False
+
+    def test_modern_path_passes_through_kwarg(self):
+        captured: dict[str, Any] = {}
+
+        class Modern:
+            @classmethod
+            def from_dict(
+                cls, data: dict[str, Any], custom_evaluator_types: Any = (), custom_report_evaluator_types: Any = ()
+            ) -> Any:
+                captured['custom_report_evaluator_types'] = list(custom_report_evaluator_types)
+                return ('ok', data)
+
+        result = _from_dict_compat(Modern, {'cases': [], 'report_evaluators': [{'name': 'X'}]}, [int], [str])
+        assert result == ('ok', {'cases': [], 'report_evaluators': [{'name': 'X'}]})
+        assert captured['custom_report_evaluator_types'] == [str]
+
+    def test_legacy_path_strips_report_evaluators_silently_when_empty(self):
+        seen: dict[str, Any] = {}
+
+        class Legacy:
+            @classmethod
+            def from_dict(cls, data: dict[str, Any], custom_evaluator_types: Any = ()) -> Any:
+                seen['data'] = data
+                return ('legacy', data)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('error')
+            # Empty report_evaluators should not warn, just get stripped.
+            _from_dict_compat(Legacy, {'cases': [], 'report_evaluators': []}, [], [])
+        assert 'report_evaluators' not in seen['data']
+
+    def test_legacy_path_warns_when_dropping_non_empty(self):
+        class Legacy:
+            @classmethod
+            def from_dict(cls, data: dict[str, Any], custom_evaluator_types: Any = ()) -> Any:
+                return data
+
+        with pytest.warns(UserWarning, match=r'pydantic-evals>=1\.58\.0'):
+            result = _from_dict_compat(
+                Legacy,
+                {'cases': [], 'report_evaluators': [{'name': 'PassRate'}]},
+                [],
+                [],
+            )
+        assert 'report_evaluators' not in result
 
 
 class TestValidateDatasetName:
