@@ -367,12 +367,16 @@ class TestPushDatasetHelpers:
         create_kwargs, update_kwargs = _build_push_dataset_kwargs(
             dataset=dataset, target_name='test-dataset', input_type=None, output_type=None, metadata_type=None
         )
-        # `evaluators` / `report_evaluators` are always sent so a subsequent push that drops them
-        # locally also clears the hosted side.
-        assert create_kwargs == {'name': 'test-dataset', 'evaluators': [], 'report_evaluators': []}
-        assert update_kwargs == {'evaluators': [], 'report_evaluators': []}
+        # `evaluators` / `report_evaluators` are always forwarded — empty sequences
+        # so a subsequent push that drops them locally also clears the hosted side.
+        # Serialization happens inside create_dataset / update_dataset.
+        assert create_kwargs['name'] == 'test-dataset'
+        assert list(create_kwargs['evaluators']) == []
+        assert list(create_kwargs['report_evaluators']) == []
+        assert list(update_kwargs['evaluators']) == []
+        assert list(update_kwargs['report_evaluators']) == []
 
-    def test_build_push_dataset_kwargs_includes_dataset_and_report_evaluators(self):
+    def test_build_push_dataset_kwargs_forwards_dataset_and_report_evaluator_instances(self):
         @dataclass
         class DatasetEval:
             threshold: float = 0.9
@@ -381,19 +385,21 @@ class TestPushDatasetHelpers:
         class ReportEval:
             min_pass_rate: float = 0.5
 
+        dataset_eval = DatasetEval(threshold=0.95)
+        report_eval = ReportEval(min_pass_rate=0.8)
         dataset = make_local_dataset()
-        dataset.evaluators = cast(Any, [DatasetEval(threshold=0.95)])
-        dataset.report_evaluators = cast(Any, [ReportEval(min_pass_rate=0.8)])
+        dataset.evaluators = cast(Any, [dataset_eval])
+        dataset.report_evaluators = cast(Any, [report_eval])
 
         create_kwargs, update_kwargs = _build_push_dataset_kwargs(
             dataset=dataset, target_name='test-dataset', input_type=None, output_type=None, metadata_type=None
         )
-        expected_eval = [{'name': 'DatasetEval', 'arguments': {'threshold': 0.95}}]
-        expected_report_eval = [{'name': 'ReportEval', 'arguments': {'min_pass_rate': 0.8}}]
-        assert create_kwargs['evaluators'] == expected_eval
-        assert create_kwargs['report_evaluators'] == expected_report_eval
-        assert update_kwargs['evaluators'] == expected_eval
-        assert update_kwargs['report_evaluators'] == expected_report_eval
+        # The helper forwards raw instances; create_dataset / update_dataset do the
+        # serialization via `_serialize_evaluators`.
+        assert list(create_kwargs['evaluators']) == [dataset_eval]
+        assert list(create_kwargs['report_evaluators']) == [report_eval]
+        assert list(update_kwargs['evaluators']) == [dataset_eval]
+        assert list(update_kwargs['report_evaluators']) == [report_eval]
 
 
 # =============================================================================

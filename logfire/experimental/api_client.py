@@ -66,9 +66,9 @@ except ImportError as e:  # pragma: no cover
 
 if TYPE_CHECKING:
     from pydantic_evals import Case, Dataset
-    from pydantic_evals.evaluators import Evaluator
+    from pydantic_evals.evaluators import Evaluator, ReportEvaluator
 else:
-    Case = Dataset = Evaluator = Any  # type: ignore[assignment]
+    Case = Dataset = Evaluator = ReportEvaluator = Any  # type: ignore[assignment]
 
 DEFAULT_TIMEOUT = Timeout(30.0)
 
@@ -268,14 +268,15 @@ def _build_push_dataset_kwargs(
         create_kwargs['description'] = description
         update_kwargs['description'] = description
 
-    # Always pass `evaluators` / `report_evaluators` so subsequent pushes can clear
-    # them by sending []. `_serialize_evaluators` returns [] for an empty sequence.
-    dataset_evaluators = getattr(dataset, 'evaluators', None) or ()
-    dataset_report_evaluators = getattr(dataset, 'report_evaluators', None) or ()
-    create_kwargs['evaluators'] = _serialize_evaluators(dataset_evaluators)
-    update_kwargs['evaluators'] = _serialize_evaluators(dataset_evaluators)
-    create_kwargs['report_evaluators'] = _serialize_evaluators(dataset_report_evaluators)
-    update_kwargs['report_evaluators'] = _serialize_evaluators(dataset_report_evaluators)
+    # Always pass `evaluators` / `report_evaluators` so subsequent pushes can
+    # clear them by sending an empty sequence. `create_dataset` /
+    # `update_dataset` serialize the instances for us.
+    dataset_evaluators: Sequence[Any] = getattr(dataset, 'evaluators', None) or ()
+    dataset_report_evaluators: Sequence[Any] = getattr(dataset, 'report_evaluators', None) or ()
+    create_kwargs['evaluators'] = dataset_evaluators
+    update_kwargs['evaluators'] = dataset_evaluators
+    create_kwargs['report_evaluators'] = dataset_report_evaluators
+    update_kwargs['report_evaluators'] = dataset_report_evaluators
 
     return create_kwargs, update_kwargs
 
@@ -402,8 +403,8 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         output_type: type[Any] | None = None,
         metadata_type: type[Any] | None = None,
         description: str | None = None,
-        evaluators: list[dict[str, Any]] | None = None,
-        report_evaluators: list[dict[str, Any]] | None = None,
+        evaluators: Sequence[Evaluator[Any, Any, Any]] | None = None,
+        report_evaluators: Sequence[ReportEvaluator[Any, Any, Any]] | None = None,
     ) -> dict[str, Any]:
         """Create a new dataset with optional type schemas.
 
@@ -413,12 +414,10 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             output_type: Type for expected outputs. JSON schema will be generated from this type.
             metadata_type: Type for case metadata. JSON schema will be generated from this type.
             description: Optional description of the dataset.
-            evaluators: Optional dataset-level evaluator specs in
-                `[{"name": "...", "arguments": {...}}]` format. Use
-                `_serialize_evaluators(dataset.evaluators)` to build from a
-                pydantic-evals Dataset.
-            report_evaluators: Optional report-level evaluator specs. Same shape
-                as `evaluators`.
+            evaluators: Optional dataset-level evaluators. Instances are serialized
+                to the hosted `{"name": ..., "arguments": ...}` format.
+            report_evaluators: Optional report-level evaluators, serialized the
+                same way.
 
         Returns:
             The created dataset.
@@ -458,9 +457,9 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         if metadata_type is not None:
             data['metadata_schema'] = _type_to_schema(metadata_type)
         if evaluators is not None:
-            data['evaluators'] = evaluators
+            data['evaluators'] = _serialize_evaluators(evaluators)
         if report_evaluators is not None:
-            data['report_evaluators'] = report_evaluators
+            data['report_evaluators'] = _serialize_evaluators(report_evaluators)
 
         response = self.client.post('/v1/datasets/', json=data)
         return self._handle_response(response)
@@ -474,8 +473,8 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         output_type: type[Any] | None = None,
         metadata_type: type[Any] | None = None,
         description: str | None = _UNSET,
-        evaluators: list[dict[str, Any]] | None = _UNSET,
-        report_evaluators: list[dict[str, Any]] | None = _UNSET,
+        evaluators: Sequence[Evaluator[Any, Any, Any]] | None = _UNSET,
+        report_evaluators: Sequence[ReportEvaluator[Any, Any, Any]] | None = _UNSET,
     ) -> dict[str, Any]:
         """Update an existing dataset.
 
@@ -486,10 +485,10 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             output_type: New output type (generates schema).
             metadata_type: New metadata type (generates schema).
             description: New description. Pass None to clear.
-            evaluators: New dataset-level evaluator specs (`[{"name": ...,
-                "arguments": ...}]`). Pass None to clear.
-            report_evaluators: New report-level evaluator specs. Pass None to
-                clear.
+            evaluators: New dataset-level evaluators. Instances are serialized
+                for you. Pass None to clear.
+            report_evaluators: New report-level evaluators, serialized the same
+                way. Pass None to clear.
 
         Returns:
             The updated dataset.
@@ -510,9 +509,11 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         if metadata_type is not None:
             data['metadata_schema'] = _type_to_schema(metadata_type)
         if evaluators is not _UNSET:
-            data['evaluators'] = evaluators
+            data['evaluators'] = _serialize_evaluators(evaluators) if evaluators is not None else None
         if report_evaluators is not _UNSET:
-            data['report_evaluators'] = report_evaluators
+            data['report_evaluators'] = (
+                _serialize_evaluators(report_evaluators) if report_evaluators is not None else None
+            )
 
         response = self.client.patch(f'/v1/datasets/{id_or_name}/', json=data)
         return self._handle_response(response)
@@ -934,8 +935,8 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         output_type: type[Any] | None = None,
         metadata_type: type[Any] | None = None,
         description: str | None = None,
-        evaluators: list[dict[str, Any]] | None = None,
-        report_evaluators: list[dict[str, Any]] | None = None,
+        evaluators: Sequence[Evaluator[Any, Any, Any]] | None = None,
+        report_evaluators: Sequence[ReportEvaluator[Any, Any, Any]] | None = None,
     ) -> dict[str, Any]:
         """Create a new dataset."""
         _validate_dataset_name(name)
@@ -949,9 +950,9 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         if metadata_type is not None:
             data['metadata_schema'] = _type_to_schema(metadata_type)
         if evaluators is not None:
-            data['evaluators'] = evaluators
+            data['evaluators'] = _serialize_evaluators(evaluators)
         if report_evaluators is not None:
-            data['report_evaluators'] = report_evaluators
+            data['report_evaluators'] = _serialize_evaluators(report_evaluators)
 
         response = await self.client.post('/v1/datasets/', json=data)
         return self._handle_response(response)
@@ -965,8 +966,8 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         output_type: type[Any] | None = None,
         metadata_type: type[Any] | None = None,
         description: str | None = _UNSET,
-        evaluators: list[dict[str, Any]] | None = _UNSET,
-        report_evaluators: list[dict[str, Any]] | None = _UNSET,
+        evaluators: Sequence[Evaluator[Any, Any, Any]] | None = _UNSET,
+        report_evaluators: Sequence[ReportEvaluator[Any, Any, Any]] | None = _UNSET,
     ) -> dict[str, Any]:
         """Update an existing dataset."""
         data: dict[str, Any] = {}
@@ -982,9 +983,11 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
         if metadata_type is not None:
             data['metadata_schema'] = _type_to_schema(metadata_type)
         if evaluators is not _UNSET:
-            data['evaluators'] = evaluators
+            data['evaluators'] = _serialize_evaluators(evaluators) if evaluators is not None else None
         if report_evaluators is not _UNSET:
-            data['report_evaluators'] = report_evaluators
+            data['report_evaluators'] = (
+                _serialize_evaluators(report_evaluators) if report_evaluators is not None else None
+            )
 
         response = await self.client.patch(f'/v1/datasets/{id_or_name}/', json=data)
         return self._handle_response(response)

@@ -4,7 +4,7 @@ from httpx import AsyncClient, Client, Timeout
 from httpx._client import BaseClient
 from logfire._internal.config import get_base_url_from_token as get_base_url_from_token
 from pydantic_evals import Case, Dataset
-from pydantic_evals.evaluators import Evaluator
+from pydantic_evals.evaluators import Evaluator, ReportEvaluator
 from types import TracebackType
 from typing import Any, Generic, Literal, TypeVar, overload
 from typing_extensions import Self
@@ -12,6 +12,7 @@ from typing_extensions import Self
 Case = Any
 Dataset = Any
 Evaluator = Any
+ReportEvaluator = Any
 DEFAULT_TIMEOUT: Incomplete
 T = TypeVar('T', bound=BaseClient)
 InputsT = TypeVar('InputsT')
@@ -90,7 +91,7 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
         Returns:
             List of dataset summaries with id, name, description, case_count, etc.
         """
-    def create_dataset(self, name: str, *, input_type: type[Any] | None = None, output_type: type[Any] | None = None, metadata_type: type[Any] | None = None, description: str | None = None, evaluators: list[dict[str, Any]] | None = None, report_evaluators: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    def create_dataset(self, name: str, *, input_type: type[Any] | None = None, output_type: type[Any] | None = None, metadata_type: type[Any] | None = None, description: str | None = None, evaluators: Sequence[Evaluator[Any, Any, Any]] | None = None, report_evaluators: Sequence[ReportEvaluator[Any, Any, Any]] | None = None) -> dict[str, Any]:
         '''Create a new dataset with optional type schemas.
 
         Args:
@@ -99,12 +100,10 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             output_type: Type for expected outputs. JSON schema will be generated from this type.
             metadata_type: Type for case metadata. JSON schema will be generated from this type.
             description: Optional description of the dataset.
-            evaluators: Optional dataset-level evaluator specs in
-                `[{"name": "...", "arguments": {...}}]` format. Use
-                `_serialize_evaluators(dataset.evaluators)` to build from a
-                pydantic-evals Dataset.
-            report_evaluators: Optional report-level evaluator specs. Same shape
-                as `evaluators`.
+            evaluators: Optional dataset-level evaluators. Instances are serialized
+                to the hosted `{"name": ..., "arguments": ...}` format.
+            report_evaluators: Optional report-level evaluators, serialized the
+                same way.
 
         Returns:
             The created dataset.
@@ -131,8 +130,8 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             )
             ```
         '''
-    def update_dataset(self, id_or_name: str, *, name: str = ..., input_type: type[Any] | None = None, output_type: type[Any] | None = None, metadata_type: type[Any] | None = None, description: str | None = ..., evaluators: list[dict[str, Any]] | None = ..., report_evaluators: list[dict[str, Any]] | None = ...) -> dict[str, Any]:
-        '''Update an existing dataset.
+    def update_dataset(self, id_or_name: str, *, name: str = ..., input_type: type[Any] | None = None, output_type: type[Any] | None = None, metadata_type: type[Any] | None = None, description: str | None = ..., evaluators: Sequence[Evaluator[Any, Any, Any]] | None = ..., report_evaluators: Sequence[ReportEvaluator[Any, Any, Any]] | None = ...) -> dict[str, Any]:
+        """Update an existing dataset.
 
         Args:
             id_or_name: The dataset ID (UUID) or name.
@@ -141,17 +140,17 @@ class LogfireAPIClient(_BaseLogfireAPIClient[Client]):
             output_type: New output type (generates schema).
             metadata_type: New metadata type (generates schema).
             description: New description. Pass None to clear.
-            evaluators: New dataset-level evaluator specs (`[{"name": ...,
-                "arguments": ...}]`). Pass None to clear.
-            report_evaluators: New report-level evaluator specs. Pass None to
-                clear.
+            evaluators: New dataset-level evaluators. Instances are serialized
+                for you. Pass None to clear.
+            report_evaluators: New report-level evaluators, serialized the same
+                way. Pass None to clear.
 
         Returns:
             The updated dataset.
 
         Raises:
             DatasetNotFoundError: If the dataset does not exist.
-        '''
+        """
     def delete_dataset(self, id_or_name: str) -> None:
         """Delete a dataset and all its cases.
 
@@ -337,9 +336,9 @@ class AsyncLogfireAPIClient(_BaseLogfireAPIClient[AsyncClient]):
     async def __aexit__(self, exc_type: type[BaseException] | None = None, exc_value: BaseException | None = None, traceback: TracebackType | None = None) -> None: ...
     async def list_datasets(self) -> list[dict[str, Any]]:
         """List all datasets."""
-    async def create_dataset(self, name: str, *, input_type: type[Any] | None = None, output_type: type[Any] | None = None, metadata_type: type[Any] | None = None, description: str | None = None, evaluators: list[dict[str, Any]] | None = None, report_evaluators: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    async def create_dataset(self, name: str, *, input_type: type[Any] | None = None, output_type: type[Any] | None = None, metadata_type: type[Any] | None = None, description: str | None = None, evaluators: Sequence[Evaluator[Any, Any, Any]] | None = None, report_evaluators: Sequence[ReportEvaluator[Any, Any, Any]] | None = None) -> dict[str, Any]:
         """Create a new dataset."""
-    async def update_dataset(self, id_or_name: str, *, name: str = ..., input_type: type[Any] | None = None, output_type: type[Any] | None = None, metadata_type: type[Any] | None = None, description: str | None = ..., evaluators: list[dict[str, Any]] | None = ..., report_evaluators: list[dict[str, Any]] | None = ...) -> dict[str, Any]:
+    async def update_dataset(self, id_or_name: str, *, name: str = ..., input_type: type[Any] | None = None, output_type: type[Any] | None = None, metadata_type: type[Any] | None = None, description: str | None = ..., evaluators: Sequence[Evaluator[Any, Any, Any]] | None = ..., report_evaluators: Sequence[ReportEvaluator[Any, Any, Any]] | None = ...) -> dict[str, Any]:
         """Update an existing dataset."""
     async def delete_dataset(self, id_or_name: str) -> None:
         """Delete a dataset."""
