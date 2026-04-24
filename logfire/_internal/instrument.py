@@ -12,7 +12,13 @@ from opentelemetry import trace
 from opentelemetry.util import types as otel_types
 from typing_extensions import LiteralString, ParamSpec
 
-from .constants import ATTRIBUTES_MESSAGE_TEMPLATE_KEY, ATTRIBUTES_TAGS_KEY
+from .constants import (
+    ATTRIBUTES_LOG_LEVEL_NUM_KEY,
+    ATTRIBUTES_MESSAGE_TEMPLATE_KEY,
+    ATTRIBUTES_TAGS_KEY,
+    LevelName,
+    log_level_attributes,
+)
 from .stack_info import get_filepath_attribute
 from .utils import safe_repr, uniquify_sequence
 
@@ -52,6 +58,7 @@ def instrument(
     record_return: bool,
     allow_generator: bool,
     new_trace: bool,
+    level: LevelName | int | None = None,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     from .main import set_user_attributes_on_raw_span
 
@@ -63,7 +70,7 @@ def instrument(
             )
 
         attributes = get_attributes(func, msg_template, tags)
-        open_span = get_open_span(logfire, attributes, span_name, extract_args, func, new_trace)
+        open_span = get_open_span(logfire, attributes, span_name, extract_args, func, new_trace, level=level)
 
         if inspect.isgeneratorfunction(func):
             if not allow_generator:
@@ -122,8 +129,17 @@ def get_open_span(
     extract_args: bool | Iterable[str],
     func: Callable[P, R],
     new_trace: bool,
+    level: LevelName | int | None = None,
 ) -> Callable[P, AbstractContextManager[Any]]:
+    from .main import NoopSpan
+
     final_span_name: str = span_name or attributes[ATTRIBUTES_MESSAGE_TEMPLATE_KEY]  # pyright: ignore[reportAssignmentType]
+
+    level_num: int | None = None
+    if level is not None:
+        level_attrs = log_level_attributes(level)
+        level_num = int(level_attrs[ATTRIBUTES_LOG_LEVEL_NUM_KEY])
+        attributes = {**attributes, **level_attrs}
 
     def get_logfire():
         # This avoids having a `logfire` closure variable, which would make the instrumented
@@ -156,6 +172,8 @@ def get_open_span(
 
     # This is the fast case for when there are no arguments to extract
     def open_span(*_: P.args, **__: P.kwargs):  # pyright: ignore[reportRedeclaration]
+        if level_num is not None and level_num < get_logfire().config.min_level:
+            return NoopSpan()
         return get_logfire()._fast_span(final_span_name, attributes, **extra_span_kwargs())  # pyright: ignore[reportPrivateUsage]
 
     if extract_args is True:
@@ -163,6 +181,8 @@ def get_open_span(
         if sig.parameters:  # only extract args if there are any
 
             def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
+                if level_num is not None and level_num < get_logfire().config.min_level:
+                    return NoopSpan()
                 bound = sig.bind(*func_args, **func_kwargs)
                 bound.apply_defaults()
                 args_dict = bound.arguments
@@ -190,6 +210,8 @@ def get_open_span(
         if extract_args_final:  # check that there are still arguments to extract
 
             def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
+                if level_num is not None and level_num < get_logfire().config.min_level:
+                    return NoopSpan()
                 bound = sig.bind(*func_args, **func_kwargs)
                 bound.apply_defaults()
                 args_dict = bound.arguments
