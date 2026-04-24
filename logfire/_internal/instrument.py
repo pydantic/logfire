@@ -155,13 +155,6 @@ def get_open_span(
         def get_logfire():
             return logfire
 
-    if level_num is not None and level_num < get_logfire().config.min_level:
-
-        def open_span(*_: P.args, **__: P.kwargs):  # pyright: ignore[reportRedeclaration]
-            return NoopSpan()
-
-        return open_span
-
     if new_trace:
 
         def extra_span_kwargs() -> dict[str, Any]:
@@ -179,6 +172,8 @@ def get_open_span(
 
     # This is the fast case for when there are no arguments to extract
     def open_span(*_: P.args, **__: P.kwargs):  # pyright: ignore[reportRedeclaration]
+        if level_num is not None and level_num < get_logfire().config.min_level:
+            return NoopSpan()
         return get_logfire()._fast_span(final_span_name, attributes, **extra_span_kwargs())  # pyright: ignore[reportPrivateUsage]
 
     if extract_args is True:
@@ -186,6 +181,8 @@ def get_open_span(
         if sig.parameters:  # only extract args if there are any
 
             def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
+                if level_num is not None and level_num < get_logfire().config.min_level:
+                    return NoopSpan()
                 bound = sig.bind(*func_args, **func_kwargs)
                 bound.apply_defaults()
                 args_dict = bound.arguments
@@ -213,6 +210,8 @@ def get_open_span(
         if extract_args_final:  # check that there are still arguments to extract
 
             def open_span(*func_args: P.args, **func_kwargs: P.kwargs):
+                if level_num is not None and level_num < get_logfire().config.min_level:
+                    return NoopSpan()
                 bound = sig.bind(*func_args, **func_kwargs)
                 bound.apply_defaults()
                 args_dict = bound.arguments
