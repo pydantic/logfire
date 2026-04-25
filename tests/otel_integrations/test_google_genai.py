@@ -332,3 +332,48 @@ def test_span_event_logger_with_none_parts(exporter: TestExporter) -> None:
             }
         ]
     )
+
+
+def test_span_event_logger_with_circular_reference(exporter: TestExporter) -> None:
+    """Test that SpanEventLogger does not drop the span event when ``body`` contains
+    a circular reference.
+
+    The upstream google_genai instrumentation can capture SDK objects (e.g. an
+    uploaded ``google.genai.types.File``) whose ``_to_dict`` representation contains
+    a self-loop. Without the fallback in ``emit``, ``json.dumps`` would raise
+    ``ValueError: Circular reference detected`` and the event would be swallowed by
+    ``handle_internal_errors``.
+    See https://github.com/pydantic/logfire/issues/1881.
+    """
+    from typing import Any as _Any
+
+    from logfire._internal.integrations.google_genai import SpanEventLogger
+
+    # Build a body that mimics a Gemini File-like dict that references itself.
+    file_part: dict[str, _Any] = {'name': 'files/abc123', 'mime_type': 'audio/wav'}
+    file_part['self'] = file_part  # circular reference
+
+    with logfire.span('test'):
+        logger = SpanEventLogger('test_logger')
+        record = LogRecord(
+            event_name='gen_ai.user.message',
+            timestamp=2,
+            severity_number=SeverityNumber.INFO,
+            body={'content': file_part, 'role': 'user'},
+        )
+        # Should not raise; ValueError from json.dumps is recovered via _strip_cycles.
+        logger.emit(record)
+
+    spans = exporter.exported_spans_as_dict(parse_json_attributes=True)
+    assert len(spans) == 1
+    events = spans[0]['events']
+    assert len(events) == 1
+    assert events[0]['name'] == 'gen_ai.user.message'
+    event_body = events[0]['attributes']['event_body']
+    # The non-cyclic fields are preserved; the eventual self-loop becomes a safe_repr string.
+    assert event_body['role'] == 'user'
+    assert event_body['content']['name'] == 'files/abc123'
+    assert event_body['content']['mime_type'] == 'audio/wav'
+    # The first level of recursion expands the cycle once, then the back-edge is stringified.
+    assert event_body['content']['self']['name'] == 'files/abc123'
+    assert isinstance(event_body['content']['self']['self'], str)
