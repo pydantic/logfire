@@ -334,6 +334,15 @@ filterwarnings = [
     "ignore:Inheritance class _InstrumentedApplication from web.Application is discouraged:DeprecationWarning",
     # anthropic SDK warns when using older models that are still recorded in test cassettes
     "ignore:The model 'claude-.*' is deprecated.*:DeprecationWarning",
+    # openai-agents 0.14+ defines a `DynamicCompactionPolicy` model with a `model_info` field.
+    # Pydantic 2.4–2.9 emit a UserWarning at class-definition time about its `model_` protected
+    # namespace; the wording changed in 2.9 to include the class name (hence the `.*` in the
+    # middle of the pattern), and 2.10+ no longer emit it at all. Without this filter,
+    # `import agents` aborts test collection on those older versions because
+    # `filterwarnings=error` above turns it into an exception. Older pydantic versions are
+    # only exercised by the weekly job (.github/workflows/weekly_deps_test.yml). Upstream fix
+    # would be `model_config['protected_namespaces'] = ()` in agents itself.
+    'ignore:Field "model_info".*has conflict with protected namespace "model_".*:UserWarning',
 ]
 DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_test_site.settings"
 
