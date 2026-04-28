@@ -4,7 +4,6 @@ from __future__ import annotations
 import os
 import sys
 import unittest.mock
-import warnings
 from pathlib import Path
 from typing import Any
 
@@ -39,12 +38,7 @@ os.environ.pop('ANTHROPIC_BASE_URL', None)
 sys.modules['openai.resources.evals'] = unittest.mock.MagicMock()
 
 try:
-    # `warnings.catch_warnings()` silences the `model_info` protected-namespace UserWarning
-    # that openai-agents 0.14+ triggers on pydantic <2.10, which would otherwise be promoted
-    # to an error by `filterwarnings=error` and abort test collection.
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore')
-        from agents.tracing import get_trace_provider
+    from agents.tracing import get_trace_provider
 
     get_trace_provider().shutdown()
     get_trace_provider().set_processors([])
