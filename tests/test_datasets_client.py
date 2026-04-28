@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import warnings
 from dataclasses import dataclass
 from typing import Any, cast
 from unittest.mock import patch
@@ -25,6 +26,8 @@ from logfire.experimental.api_client import (
     DatasetNotFoundError,
     LogfireAPIClient,
     _build_push_dataset_kwargs,
+    _from_dict_compat,
+    _from_dict_supports_report_evaluators,
     _get_dataset_type_args,
     _import_pydantic_evals,
     _serialize_case,
@@ -32,7 +35,6 @@ from logfire.experimental.api_client import (
     _serialize_value,
     _type_to_schema,
     _validate_dataset_name,
-    _validate_push_dataset,
 )
 
 # --- Test types ---
@@ -312,6 +314,93 @@ class TestImportPydanticEvals:
                 _import_pydantic_evals()
 
 
+class TestFromDictCompat:
+    """`get_dataset` shim that lets the SDK keep working on pydantic-evals < 1.58.0."""
+
+    def test_supports_when_kwarg_present(self):
+        class Modern:
+            @classmethod
+            def from_dict(
+                cls,
+                data: dict[str, Any],
+                custom_evaluator_types: Any = (),
+                custom_report_evaluator_types: Any = (),
+                default_name: str | None = None,
+            ) -> Any:
+                return ('called', data, list(custom_evaluator_types), list(custom_report_evaluator_types))
+
+        assert _from_dict_supports_report_evaluators(Modern) is True
+
+    def test_does_not_support_when_kwarg_absent(self):
+        class Legacy:
+            @classmethod
+            def from_dict(
+                cls, data: dict[str, Any], custom_evaluator_types: Any = (), default_name: str | None = None
+            ) -> Any:
+                return ('legacy', data, list(custom_evaluator_types))
+
+        assert _from_dict_supports_report_evaluators(Legacy) is False
+
+    def test_returns_false_when_class_has_no_from_dict(self):
+        class NoFromDict:
+            pass
+
+        assert _from_dict_supports_report_evaluators(NoFromDict) is False
+
+    def test_returns_false_when_signature_inspection_fails(self):
+        class WeirdFromDict:
+            # Set `from_dict` to a built-in whose signature can't be introspected,
+            # so `inspect.signature` raises ValueError.
+            from_dict = staticmethod(min)
+
+        assert _from_dict_supports_report_evaluators(WeirdFromDict) is False
+
+    def test_modern_path_passes_through_kwarg(self):
+        captured: dict[str, Any] = {}
+
+        class Modern:
+            @classmethod
+            def from_dict(
+                cls, data: dict[str, Any], custom_evaluator_types: Any = (), custom_report_evaluator_types: Any = ()
+            ) -> Any:
+                captured['custom_report_evaluator_types'] = list(custom_report_evaluator_types)
+                return ('ok', data)
+
+        result = _from_dict_compat(Modern, {'cases': [], 'report_evaluators': [{'name': 'X'}]}, [int], [str])
+        assert result == ('ok', {'cases': [], 'report_evaluators': [{'name': 'X'}]})
+        assert captured['custom_report_evaluator_types'] == [str]
+
+    def test_legacy_path_strips_report_evaluators_silently_when_empty(self):
+        seen: dict[str, Any] = {}
+
+        class Legacy:
+            @classmethod
+            def from_dict(cls, data: dict[str, Any], custom_evaluator_types: Any = ()) -> Any:
+                seen['data'] = data
+                return ('legacy', data)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('error')
+            # Empty report_evaluators should not warn, just get stripped.
+            _from_dict_compat(Legacy, {'cases': [], 'report_evaluators': []}, [], [])
+        assert 'report_evaluators' not in seen['data']
+
+    def test_legacy_path_warns_when_dropping_non_empty(self):
+        class Legacy:
+            @classmethod
+            def from_dict(cls, data: dict[str, Any], custom_evaluator_types: Any = ()) -> Any:
+                return data
+
+        with pytest.warns(UserWarning, match=r'pydantic-evals>=1\.58\.0'):
+            result = _from_dict_compat(
+                Legacy,
+                {'cases': [], 'report_evaluators': [{'name': 'PassRate'}]},
+                [],
+                [],
+            )
+        assert 'report_evaluators' not in result
+
+
 class TestValidateDatasetName:
     def test_valid_names(self):
         # Should not raise
@@ -364,18 +453,43 @@ class TestPushDatasetHelpers:
         assert _get_dataset_type_args(cast(Any, DatasetLike())) == (None, None, None)
 
     def test_build_push_dataset_kwargs_minimal(self):
-        create_kwargs, update_kwargs = _build_push_dataset_kwargs(
-            target_name='test-dataset', input_type=None, output_type=None, metadata_type=None
-        )
-        assert create_kwargs == {'name': 'test-dataset'}
-        assert update_kwargs == {}
-
-    def test_validate_push_dataset_report_evaluators(self):
         dataset = make_local_dataset()
-        dataset.report_evaluators = cast(Any, [object()])
+        create_kwargs, update_kwargs = _build_push_dataset_kwargs(
+            dataset=dataset, target_name='test-dataset', input_type=None, output_type=None, metadata_type=None
+        )
+        # `evaluators` / `report_evaluators` are always forwarded — empty sequences
+        # so a subsequent push that drops them locally also clears the hosted side.
+        # Serialization happens inside create_dataset / update_dataset.
+        assert create_kwargs['name'] == 'test-dataset'
+        assert list(create_kwargs['evaluators']) == []
+        assert list(create_kwargs['report_evaluators']) == []
+        assert list(update_kwargs['evaluators']) == []
+        assert list(update_kwargs['report_evaluators']) == []
 
-        with pytest.raises(ValueError, match='dataset-level evaluators or report_evaluators'):
-            _validate_push_dataset(dataset)
+    def test_build_push_dataset_kwargs_forwards_dataset_and_report_evaluator_instances(self):
+        @dataclass
+        class DatasetEval:
+            threshold: float = 0.9
+
+        @dataclass
+        class ReportEval:
+            min_pass_rate: float = 0.5
+
+        dataset_eval = DatasetEval(threshold=0.95)
+        report_eval = ReportEval(min_pass_rate=0.8)
+        dataset = make_local_dataset()
+        dataset.evaluators = cast(Any, [dataset_eval])
+        dataset.report_evaluators = cast(Any, [report_eval])
+
+        create_kwargs, update_kwargs = _build_push_dataset_kwargs(
+            dataset=dataset, target_name='test-dataset', input_type=None, output_type=None, metadata_type=None
+        )
+        # The helper forwards raw instances; create_dataset / update_dataset do the
+        # serialization via `_serialize_evaluators`.
+        assert list(create_kwargs['evaluators']) == [dataset_eval]
+        assert list(create_kwargs['report_evaluators']) == [report_eval]
+        assert list(update_kwargs['evaluators']) == [dataset_eval]
+        assert list(update_kwargs['report_evaluators']) == [report_eval]
 
 
 # =============================================================================
@@ -729,13 +843,39 @@ class TestLogfireAPIClient:
         with pytest.raises(ValueError, match='requires a dataset name'):
             client.push_dataset(dataset)
 
-    def test_push_dataset_rejects_dataset_level_evaluators(self):
-        client = make_client()
-        dataset = make_local_dataset()
-        dataset.evaluators = cast(Any, [object()])
+    def test_push_dataset_uploads_dataset_level_evaluators(self):
+        @dataclass
+        class DatasetEval:
+            threshold: float = 0.9
 
-        with pytest.raises(ValueError, match='dataset-level evaluators or report_evaluators'):
-            client.push_dataset(dataset)
+        @dataclass
+        class ReportEval:
+            min_pass_rate: float = 0.5
+
+        requests_seen: list[httpx.Request] = []
+        dataset = make_local_dataset()
+        dataset.evaluators = cast(Any, [DatasetEval(threshold=0.95)])
+        dataset.report_evaluators = cast(Any, [ReportEval(min_pass_rate=0.8)])
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests_seen.append(request)
+            if request.method == 'POST' and request.url.path == '/v1/datasets/':
+                return httpx.Response(200, json=FAKE_DATASET)
+            if request.method == 'POST' and request.url.path.endswith('/import/'):
+                return httpx.Response(200, json=[FAKE_CASE])
+            if request.method == 'GET' and request.url.path == '/v1/datasets/local-dataset/':
+                return httpx.Response(200, json=FAKE_DATASET)
+            return httpx.Response(404, json={'detail': 'Not found'})
+
+        client = LogfireAPIClient(
+            client=httpx.Client(transport=httpx.MockTransport(handler), base_url='https://test.logfire.dev')
+        )
+        client.push_dataset(dataset)
+
+        create_request = next(r for r in requests_seen if r.method == 'POST' and r.url.path == '/v1/datasets/')
+        body = json.loads(create_request.content)
+        assert body['evaluators'] == [{'name': 'DatasetEval', 'arguments': {'threshold': 0.95}}]
+        assert body['report_evaluators'] == [{'name': 'ReportEval', 'arguments': {'min_pass_rate': 0.8}}]
 
     def test_push_dataset_propagates_non_conflict_error(self):
         client = make_client(

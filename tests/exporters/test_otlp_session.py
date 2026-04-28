@@ -206,6 +206,43 @@ def test_cleanup_disk_retryers_skips_dead_weakrefs(monkeypatch: pytest.MonkeyPat
     assert not live_retryer.dir.exists()
 
 
+def test_disk_retryer_close_during_retry(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that _run exits when close() is called while the retry loop is active."""
+    monkeypatch.setattr('random.random', Mock(return_value=0.5))
+
+    retryer = DiskRetryer({})
+
+    # Make the retryer session always fail so _run stays in the retry loop.
+    failure = Response()
+    failure.status_code = 500
+
+    def failing_send(*args: Any, **kwargs: Any) -> Response:
+        return failure
+
+    monkeypatch.setattr(retryer.session, 'send', failing_send)
+
+    # After a few sleeps, call close() so the retry loop checks self.closed and returns.
+    sleep_count = 0
+
+    def mock_sleep(seconds: float) -> None:
+        nonlocal sleep_count
+        sleep_count += 1
+        if sleep_count >= 3:
+            retryer.close()
+
+    monkeypatch.setattr('time.sleep', mock_sleep)
+
+    retryer.add_task(b'123', {'url': 'http://example.com/'})
+
+    # Capture thread reference before it can be set to None by close().
+    thread = retryer.thread
+    assert thread is not None
+    thread.join(timeout=5)
+
+    assert sleep_count >= 3
+    assert retryer.closed
+
+
 def test_disk_retryer_add_task_after_close_does_nothing() -> None:
     retryer = DiskRetryer({})
     retryer.close()

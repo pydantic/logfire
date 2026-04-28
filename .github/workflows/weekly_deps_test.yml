@@ -9,6 +9,10 @@ on:
 
 permissions: { }
 
+env:
+  # https://github.com/samuelcolvin/pytest-pretty#usage-with-github-actions
+  COLUMNS: 180
+
 jobs:
   test:
     name: test on Python ${{ matrix.python-version }}, pydantic ${{ matrix.pydantic-version }}, otel ${{ matrix.otel-version }}

@@ -196,7 +196,8 @@ nav:
           - Setup Slack Alerts: how-to-guides/setup-slack-alerts.md
           - Detect Service is Down: how-to-guides/detect-service-is-down.md
       - Evaluate:
-          - Evals: guides/web-ui/evals.md
+          - "Evals: Datasets & Experiments": guides/web-ui/evals.md
+          - "Evals: Live Monitoring": guides/web-ui/live-evals.md
           - Datasets:
               - Datasets: evaluate/datasets/index.md
               - Web UI Guide: evaluate/datasets/ui.md
@@ -214,6 +215,14 @@ nav:
               - External Variables & OFREP: reference/advanced/managed-variables/external.md
               - Local Variables: reference/advanced/managed-variables/local.md
               - Configuration Reference: reference/advanced/managed-variables/configuration-reference.md
+          - Prompt Management:
+              - Overview: reference/advanced/prompt-management/index.md
+              - Core Concepts: reference/advanced/prompt-management/concepts.md
+              - Writing Templates: reference/advanced/prompt-management/templates.md
+              - Test Prompts: reference/advanced/prompt-management/scenarios.md
+              - Use Prompts in Your Application: reference/advanced/prompt-management/application.md
+              - Template Reference: reference/advanced/prompt-management/template-reference.md
+              - Access and Prerequisites: reference/advanced/prompt-management/plan-requirements.md
           - Environments: how-to-guides/environments.md
           - Write Tokens: how-to-guides/create-write-tokens.md
           - API Keys: reference/advanced/use-api-keys.md
@@ -466,11 +475,13 @@ plugins:
           - how-to-guides/detect-service-is-down.md
         Evaluate:
           - guides/web-ui/evals.md
+          - guides/web-ui/live-evals.md
           - evaluate/datasets/*.md
         Manage & Configure:
           - guides/web-ui/organizations-and-projects.md
           - reference/configuration.md
           - reference/advanced/managed-variables/*.md
+          - reference/advanced/prompt-management/*.md
           - reference/advanced/use-api-keys.md
           - reference/data-regions.md
           - logfire-costs.md

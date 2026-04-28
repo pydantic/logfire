@@ -35,7 +35,7 @@ For other OpenTelemetry SDKs, you can configure these settings using resource at
 [`OTEL_RESOURCE_ATTRIBUTES`][otel-resource-attributes] environment variable:
 
 ```
-OTEL_RESOURCE_ATTRIBUTES=vcs.repository.url.full=https://github.com/pydantic/platform
+OTEL_RESOURCE_ATTRIBUTES=vcs.repository.url.full=https://github.com/pydantic/logfire
 OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES},vcs.repository.ref.revision=main
 OTEL_RESOURCE_ATTRIBUTES=${OTEL_RESOURCE_ATTRIBUTES},vcs.root.path=path/within/repo
 ```

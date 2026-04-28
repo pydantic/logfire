@@ -4,13 +4,17 @@ description: "Logfire Evals provides observability into how your AI systems perf
 ---
 # Evals
 
-View and analyze your evaluation results in Pydantic Logfire's web interface. Evals provide observability into how your AI systems perform across different test cases and experiments over time.
+This is the reference for the **Evals: Datasets & Experiments** page in the Logfire web UI — use it to view and compare your dataset and experiment results. For live, per-request evaluation activity streaming in from production or staging traffic, see [Live Evaluations](./live-evals.md) instead.
 
-To get started with creating and running evals, see the [Pydantic Evals docs](https://ai.pydantic.dev/evals/). For managing datasets in Logfire, see the [Datasets guide](../../evaluate/datasets/index.md).
+**Where to go next:**
+
+- To get started with creating and running evals in code, see the [Pydantic Evals docs](https://ai.pydantic.dev/evals/).
+- To create or edit datasets through the Logfire UI, see the [Datasets Web UI Guide](../../evaluate/datasets/ui.md). This page covers what you see on the Evals page itself; the Web UI Guide covers dataset/case lifecycle tasks (create, edit, manage cases, export).
+- For programmatic dataset access, see the [SDK Guide](../../evaluate/datasets/sdk.md).
 
 ## The Datasets List
 
-Click **Evals** in the sidebar to open the datasets list. This is the top-level view for all evaluation activity in your project.
+Click **Evals: Datasets & Experiments** in the sidebar to open the datasets list. This is the top-level view for all dataset-and-experiment evaluation activity in your project. For live, per-request evaluation activity streaming in from production or staging, see [Live Evaluations](./live-evals.md) instead.
 
 Each dataset row shows:
 
