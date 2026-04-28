@@ -41,7 +41,7 @@ from agents import (
     trace,
 )
 from agents.tracing import get_trace_provider
-from agents.tracing.span_data import MCPListToolsSpanData, ResponseSpanData
+from agents.tracing.span_data import MCPListToolsSpanData, ResponseSpanData, TaskSpanData, TurnSpanData
 from agents.tracing.spans import NoOpSpan
 from agents.tracing.traces import NoOpTrace
 from agents.voice import AudioInput, SingleAgentVoiceWorkflow, VoicePipeline
@@ -1490,6 +1490,8 @@ def test_unknown_span(exporter: TestExporter):
         SpeechSpanData,
         TranscriptionSpanData,
         MCPListToolsSpanData,
+        TaskSpanData,
+        TurnSpanData,
     }, 'Need to update LogfireTraceProviderWrapper.create_span'
 
 
