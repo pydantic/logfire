@@ -1905,6 +1905,36 @@ url = "https://logfire-us.pydantic.dev/mcp"
     assert err == snapshot('Logfire MCP server updated in Codex.\n')
 
 
+def test_parse_prompt_codex_logfire_mcp_update_legacy_stdio(
+    prompt_http_calls: None, capsys: pytest.CaptureFixture[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Replacing a config written by the previous (stdio) CLI version must consume the full section,
+    including TOML values that contain `[` (e.g. `args = ["logfire-mcp@latest"]`).
+    """
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+
+    codex_path = tmp_path / 'codex'
+    codex_path.mkdir()
+    codex_config_path = codex_path / 'config.toml'
+    codex_config_path.write_text(
+        '[other]\nfoo = "bar"\n'
+        '\n[mcp_servers.logfire]\n'
+        'command = "uvx"\n'
+        'args = ["logfire-mcp@latest"]\n'
+        'env = { "LOGFIRE_READ_TOKEN" = "fake_token" }\n'
+        '\n[after]\nbaz = 1\n'
+    )
+
+    with patch.dict(os.environ, {'CODEX_HOME': str(codex_path)}):
+        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--codex', '--update'])
+
+    content = codex_config_path.read_text()
+    assert 'logfire-mcp@latest' not in content
+    assert 'LOGFIRE_READ_TOKEN' not in content
+    assert 'url = "https://logfire-us.pydantic.dev/mcp"' in content
+    assert '[other]' in content and '[after]' in content
+
+
 def test_parse_prompt_claude(
     prompt_http_calls: None, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -2060,7 +2090,7 @@ def test_parse_prompt_opencode_logfire_mcp_installed(
     monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
 
     existing = json.dumps(
-        {'mcp': {'logfire': {'type': 'remote', 'url': 'https://old.example/mcp'}}},
+        {'mcp': {'logfire-mcp': {'type': 'remote', 'url': 'https://old.example/mcp'}}},
         indent=2,
     )
     (tmp_path / 'opencode.jsonc').write_text(existing)
@@ -2088,7 +2118,7 @@ def test_parse_prompt_opencode_logfire_mcp_update(
     monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
 
     (tmp_path / 'opencode.jsonc').write_text(
-        json.dumps({'mcp': {'logfire': {'type': 'remote', 'url': 'https://old.example/mcp'}}})
+        json.dumps({'mcp': {'logfire-mcp': {'type': 'remote', 'url': 'https://old.example/mcp'}}})
     )
 
     def check_output(x: list[str]) -> bytes:
@@ -2099,7 +2129,9 @@ def test_parse_prompt_opencode_logfire_mcp_update(
     main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--opencode', '--update'])
 
     config = json.loads((tmp_path / 'opencode.jsonc').read_text())
-    assert config == snapshot({'mcp': {'logfire': {'type': 'remote', 'url': 'https://logfire-us.pydantic.dev/mcp'}}})
+    assert config == snapshot(
+        {'mcp': {'logfire-mcp': {'type': 'remote', 'url': 'https://logfire-us.pydantic.dev/mcp'}}}
+    )
     out, err = capsys.readouterr()
     assert out == snapshot('This is the prompt\n')
     assert err == snapshot('Logfire MCP server updated in OpenCode.\n')

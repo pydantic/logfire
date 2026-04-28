@@ -17,6 +17,7 @@ from rich.console import Console
 
 from logfire._internal.cli.auth import parse_auth
 from logfire._internal.client import LogfireClient
+from logfire._internal.utils import read_toml_file
 from logfire.exceptions import LogfireConfigError
 
 LOGFIRE_MCP_TOML = """
@@ -85,20 +86,21 @@ def configure_codex(client: LogfireClient, console: Console, update: bool = Fals
         console.print('Codex config file not found. Install `codex`, or remove the `--codex` flag.')
         exit(1)
 
-    codex_config_content = codex_config.read_text()
-    already_configured = '[mcp_servers.logfire]' in codex_config_content
+    already_configured = 'logfire' in read_toml_file(codex_config).get('mcp_servers', {})
 
     if already_configured and not update:
         return
 
     mcp_server_toml = LOGFIRE_MCP_TOML.format(url=_logfire_mcp_url(client))
+    codex_config_content = codex_config.read_text()
 
     if already_configured:
         new_content = re.sub(
-            r'\n?\[mcp_servers\.logfire\][^\[]*',
+            r'\n?\[mcp_servers\.logfire\].*?(?=\n\[|\Z)',
             mcp_server_toml,
             codex_config_content,
             count=1,
+            flags=re.DOTALL,
         )
         codex_config.write_text(new_content)
         console.print('Logfire MCP server updated in Codex.', style='green')
@@ -124,13 +126,13 @@ def configure_opencode(client: LogfireClient, console: Console, update: bool = F
 
     opencode_config_content = opencode_config.read_text()
     opencode_config_json: dict[str, Any] = json.loads(opencode_config_content) if opencode_config_content else {}
-    already_configured = 'logfire' in opencode_config_json.get('mcp', {})
+    already_configured = 'logfire-mcp' in opencode_config_json.get('mcp', {})
 
     if already_configured and not update:
         return
 
     mcp_entry = opencode_mcp_json(_logfire_mcp_url(client))
-    opencode_config_json.setdefault('mcp', {})['logfire'] = mcp_entry
+    opencode_config_json.setdefault('mcp', {})['logfire-mcp'] = mcp_entry
     opencode_config.write_text(json.dumps(opencode_config_json, indent=2))
     console.print(f'Logfire MCP server {"updated in" if already_configured else "added to"} OpenCode.', style='green')
 
