@@ -13,7 +13,11 @@ from openai import AsyncOpenAI
 import logfire
 from logfire._internal.exporters.test import TestExporter
 
-pytest.importorskip('agents', reason='openai-agents requires python 3.10', exc_type=ImportError)
+# Importing `agents.sandbox` rather than just `agents` so that DynamicCompactionPolicy gets
+# defined inside importorskip's `warnings.catch_warnings()` block. On pydantic <2.10 its
+# `model_info` field would otherwise emit a protected-namespace UserWarning that gets elevated
+# to an error by `filterwarnings=error`.
+pytest.importorskip('agents.sandbox', reason='openai-agents requires python 3.10', exc_type=ImportError)
 
 from agents import (
     Agent,
