@@ -39,9 +39,12 @@ def get_usage_attributes(
     try:
         from genai_prices import calc_price, extract_usage
 
-        try:
-            response_data = response.model_dump(include={'model', 'usage', 'modelVersion', 'usageMetadata'})
-        except TypeError:
+        if provider_id == 'openai' and api_flavor == 'embeddings':
+            try:
+                response_data = response.model_dump(include={'model', 'usage'})
+            except TypeError:
+                response_data = response.model_dump()
+        else:
             response_data = response.model_dump()
         extract_kwargs: dict[str, Any] = {'provider_id': provider_id}
         if api_flavor is not None:

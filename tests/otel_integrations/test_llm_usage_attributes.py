@@ -287,22 +287,23 @@ def test_anthropic_usage_none() -> None:
     assert get_anthropic_usage_attributes(response) == snapshot({})
 
 
-def test_model_dump_prefers_include_for_cost() -> None:
-    """model_dump must be called with include= on the primary path."""
+def test_openai_embeddings_model_dump_uses_include() -> None:
+    """For OpenAI embeddings, model_dump must be called with include={'model', 'usage'} only."""
     dump_calls: list[dict[str, Any]] = []
 
     class TrackingResponse:
         def model_dump(self, **kwargs: Any) -> dict[str, Any]:
             dump_calls.append(kwargs)
-            return {'model': 'gpt-4', 'usage': {'prompt_tokens': 10, 'completion_tokens': 5}}
+            return {'model': 'text-embedding-3-small', 'usage': {'prompt_tokens': 10, 'total_tokens': 10}}
 
-    get_usage_attributes(TrackingResponse(), object(), 10, 5, provider_id='openai', api_flavor='chat')
+    result = get_usage_attributes(TrackingResponse(), object(), 10, None, provider_id='openai', api_flavor='embeddings')
+    assert result.get('gen_ai.usage.input_tokens') == 10
     if GENAI_PRICES_AVAILABLE:
         assert dump_calls
-        assert dump_calls[0].get('include') == {'model', 'usage', 'modelVersion', 'usageMetadata'}
+        assert dump_calls[0].get('include') == {'model', 'usage'}
 
 
-def test_model_dump_include_fallback_to_plain_dump() -> None:
+def test_openai_embeddings_model_dump_include_fallback() -> None:
     """If model_dump does not accept include=, fall back to plain model_dump() and keep usage attrs."""
     calls: list[dict[str, Any]] = []
 
@@ -311,14 +312,36 @@ def test_model_dump_include_fallback_to_plain_dump() -> None:
             calls.append(kwargs)
             if kwargs:
                 raise TypeError('include not supported')
-            return {'model': 'gpt-4', 'usage': {'prompt_tokens': 10, 'completion_tokens': 5}}
+            return {'model': 'text-embedding-3-small', 'usage': {'prompt_tokens': 10, 'total_tokens': 10}}
 
-    result = get_usage_attributes(FallbackResponse(), object(), 10, 5, provider_id='openai', api_flavor='chat')
+    result = get_usage_attributes(FallbackResponse(), object(), 10, None, provider_id='openai', api_flavor='embeddings')
     if GENAI_PRICES_AVAILABLE:
-        assert calls == [
-            {'include': {'model', 'usage', 'modelVersion', 'usageMetadata'}},
-            {},
-        ]
+        assert calls == [{'include': {'model', 'usage'}}, {}]
     assert 'gen_ai.usage.input_tokens' in result
     if GENAI_PRICES_AVAILABLE:
         assert 'operation.cost' in result
+
+
+def test_non_target_flavors_use_plain_model_dump() -> None:
+    """chat, responses, api_flavor=None, and non-OpenAI embeddings must call plain model_dump()
+    with no kwargs — preserving access to all response fields for genai-prices (e.g. 'output'
+    for tool-call counting in pydantic/genai-prices#290)."""
+    cases = [
+        ('openai', 'chat'),
+        ('openai', 'responses'),
+        ('anthropic', None),
+        ('google', 'embeddings'),
+    ]
+    for provider_id, flavor in cases:
+        dump_calls: list[dict[str, Any]] = []
+
+        class TrackingResponse:
+            def model_dump(self, **kwargs: Any) -> dict[str, Any]:
+                dump_calls.append(kwargs)
+                return {'model': 'gpt-4', 'usage': {'prompt_tokens': 10, 'completion_tokens': 5}}
+
+        result = get_usage_attributes(TrackingResponse(), object(), 10, 5, provider_id=provider_id, api_flavor=flavor)
+        assert result.get('gen_ai.usage.input_tokens') == 10
+        if GENAI_PRICES_AVAILABLE:
+            assert len(dump_calls) == 1, f'expected exactly one model_dump call for {provider_id}/{flavor}'
+            assert dump_calls[0] == {}, f'expected no kwargs for {provider_id}/{flavor}'
