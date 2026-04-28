@@ -334,6 +334,8 @@ filterwarnings = [
     "ignore:Inheritance class _InstrumentedApplication from web.Application is discouraged:DeprecationWarning",
     # anthropic SDK warns when using older models that are still recorded in test cassettes
     "ignore:The model 'claude-.*' is deprecated.*:DeprecationWarning",
+    # openai-agents has a `model_info` field that pydantic flags on older versions
+    'ignore:Field "model_info" has conflict with protected namespace "model_".*:UserWarning',
 ]
 DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_test_site.settings"
 
