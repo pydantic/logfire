@@ -17,7 +17,7 @@ except ImportError as e:  # pragma: no cover
     raise ImportError('httpx is required to use the Logfire query clients') from e
 
 if TYPE_CHECKING:
-    from pyarrow import Table  # pyright: ignore[reportUnknownVariableType]
+    from pyarrow import Table
 
 DEFAULT_TIMEOUT = Timeout(30.0)  # queries might typically be slower than the 5s default from AsyncClient
 
@@ -226,8 +226,8 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
             max_timestamp=max_timestamp,
             limit=limit,
         )
-        with pyarrow.ipc.open_stream(response.content) as reader:  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
-            arrow_table: Table = reader.read_all()  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+        with pyarrow.ipc.open_stream(response.content) as reader:
+            arrow_table: Table = reader.read_all()
         return arrow_table  # pyright: ignore[reportUnknownVariableType]
 
     def query_csv(
@@ -365,8 +365,8 @@ class AsyncLogfireQueryClient(_BaseLogfireQueryClient[AsyncClient]):
             max_timestamp=max_timestamp,
             limit=limit,
         )
-        with pyarrow.ipc.open_stream(response.content) as reader:  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
-            arrow_table: Table = reader.read_all()  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+        with pyarrow.ipc.open_stream(response.content) as reader:
+            arrow_table: Table = reader.read_all()
         return arrow_table  # pyright: ignore[reportUnknownVariableType]
 
     async def query_csv(
