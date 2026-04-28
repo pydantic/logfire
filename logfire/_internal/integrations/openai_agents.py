@@ -27,7 +27,7 @@ from agents import (
     TranscriptionSpanData,
 )
 from agents.models.openai_responses import OpenAIResponsesModel
-from agents.tracing import ResponseSpanData, TaskSpanData, TurnSpanData, response_span
+from agents.tracing import ResponseSpanData, response_span
 from agents.tracing.scope import Scope
 from agents.tracing.spans import NoOpSpan, SpanError, TSpanData
 from agents.tracing.traces import NoOpTrace
@@ -110,10 +110,6 @@ class LogfireTraceProviderWrapper:
                 msg_template = 'Speech → Text with {gen_ai.request.model!r}'
             elif isinstance(span_data, MCPListToolsSpanData):
                 msg_template = 'MCP: list tools from server {server}'
-            elif isinstance(span_data, TaskSpanData):
-                msg_template = 'Task: {name}'
-            elif isinstance(span_data, TurnSpanData):
-                msg_template = 'Turn {turn} for agent {agent_name}'
             else:
                 msg_template = 'OpenAI agents: {type} span'
 
