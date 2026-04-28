@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import pydantic
 from anthropic.types import Message as AnthropicMessage, Usage as AnthropicUsage
 from inline_snapshot import snapshot
@@ -283,3 +285,38 @@ def test_anthropic_usage_none() -> None:
         usage=None,
     )
     assert get_anthropic_usage_attributes(response) == snapshot({})
+
+
+def test_model_dump_prefers_include_for_cost() -> None:
+    """model_dump must be called with include= on the primary path."""
+    dump_calls: list[dict[str, Any]] = []
+
+    class TrackingResponse:
+        def model_dump(self, **kwargs: Any) -> dict[str, Any]:
+            dump_calls.append(kwargs)
+            return {'model': 'gpt-4', 'usage': {'prompt_tokens': 10, 'completion_tokens': 5}}
+
+    get_usage_attributes(TrackingResponse(), object(), 10, 5, provider_id='openai', api_flavor='chat')
+    assert dump_calls
+    assert dump_calls[0].get('include') == {'model', 'usage', 'modelVersion', 'usageMetadata'}
+
+
+def test_model_dump_include_fallback_to_plain_dump() -> None:
+    """If model_dump does not accept include=, fall back to plain model_dump() and keep usage attrs."""
+    calls: list[dict[str, Any]] = []
+
+    class FallbackResponse:
+        def model_dump(self, **kwargs: Any) -> dict[str, Any]:
+            calls.append(kwargs)
+            if kwargs:
+                raise TypeError('include not supported')
+            return {'model': 'gpt-4', 'usage': {'prompt_tokens': 10, 'completion_tokens': 5}}
+
+    result = get_usage_attributes(FallbackResponse(), object(), 10, 5, provider_id='openai', api_flavor='chat')
+    assert calls == [
+        {'include': {'model', 'usage', 'modelVersion', 'usageMetadata'}},
+        {},
+    ]
+    assert 'gen_ai.usage.input_tokens' in result
+    if GENAI_PRICES_AVAILABLE:
+        assert 'operation.cost' in result
