@@ -1,0 +1,23 @@
+logfire/experimental/query_client.py
+  7df3f0c8612521ca 20,229-230,368-369
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "7a051c81102a2051b76571394da873d0732d5541",
+  "prompts": {
+    "7df3f0c8612521ca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "adf37932-5886-40db-9fe6-3616ff7bbf90",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Alex Hall",
+      "messages": [],
+      "total_additions": 5,
+      "total_deletions": 5,
+      "accepted_lines": 5,
+      "overriden_lines": 0
+    }
+  }
+}
