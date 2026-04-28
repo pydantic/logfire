@@ -297,8 +297,9 @@ def test_model_dump_prefers_include_for_cost() -> None:
             return {'model': 'gpt-4', 'usage': {'prompt_tokens': 10, 'completion_tokens': 5}}
 
     get_usage_attributes(TrackingResponse(), object(), 10, 5, provider_id='openai', api_flavor='chat')
-    assert dump_calls
-    assert dump_calls[0].get('include') == {'model', 'usage', 'modelVersion', 'usageMetadata'}
+    if GENAI_PRICES_AVAILABLE:
+        assert dump_calls
+        assert dump_calls[0].get('include') == {'model', 'usage', 'modelVersion', 'usageMetadata'}
 
 
 def test_model_dump_include_fallback_to_plain_dump() -> None:
@@ -313,10 +314,11 @@ def test_model_dump_include_fallback_to_plain_dump() -> None:
             return {'model': 'gpt-4', 'usage': {'prompt_tokens': 10, 'completion_tokens': 5}}
 
     result = get_usage_attributes(FallbackResponse(), object(), 10, 5, provider_id='openai', api_flavor='chat')
-    assert calls == [
-        {'include': {'model', 'usage', 'modelVersion', 'usageMetadata'}},
-        {},
-    ]
+    if GENAI_PRICES_AVAILABLE:
+        assert calls == [
+            {'include': {'model', 'usage', 'modelVersion', 'usageMetadata'}},
+            {},
+        ]
     assert 'gen_ai.usage.input_tokens' in result
     if GENAI_PRICES_AVAILABLE:
         assert 'operation.cost' in result
