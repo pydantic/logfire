@@ -388,7 +388,7 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
             attributes['output'] = span_data.output
         elif isinstance(span_data, (TaskSpanData, TurnSpanData)):
             data = attributes.pop('data', None)
-            if isinstance(data, dict):
+            if isinstance(data, dict):  # pragma: no branch
                 attributes.update(cast('dict[str, Any]', data))
         return attributes
     except Exception:  # pragma: no cover
