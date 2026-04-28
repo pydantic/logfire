@@ -7,7 +7,7 @@ from abc import abstractmethod
 from contextlib import nullcontext
 from dataclasses import dataclass
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 import agents
 from agents import (
@@ -386,10 +386,6 @@ def attributes_from_span_data(span_data: SpanData, msg_template: str) -> dict[st
                 attributes['output'] = {k: v for k, v in attributes['output'].items() if k != 'data'}
         elif isinstance(span_data, FunctionSpanData):
             attributes['output'] = span_data.output
-        elif isinstance(span_data, (TaskSpanData, TurnSpanData)):
-            data = attributes.pop('data', None)
-            if isinstance(data, dict):
-                attributes.update(cast('dict[str, Any]', data))
         return attributes
     except Exception:  # pragma: no cover
         log_internal_error()
