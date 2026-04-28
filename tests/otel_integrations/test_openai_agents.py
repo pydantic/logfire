@@ -837,7 +837,7 @@ async def test_responses(exporter: TestExporter):
                     'logfire.msg_template': 'OpenAI Agents trace: {name}',
                     'logfire.msg': 'OpenAI Agents trace: Agent workflow',
                     'logfire.span_type': 'span',
-                    'agent_trace_id': 'trace_61822f2ce0de4a9fb2ea242b72192f5a',
+                    'agent_trace_id': IsStr(),
                 },
             },
         ]
@@ -1007,7 +1007,7 @@ async def test_input_guardrails(exporter: TestExporter):
                     'logfire.span_type': 'span',
                     'logfire.msg': 'OpenAI Agents trace: Agent workflow',
                     'name': 'Agent workflow',
-                    'agent_trace_id': 'trace_e67d8195c3414a40a85307f517834c0c',
+                    'agent_trace_id': IsStr(),
                 },
             },
             {
@@ -1102,7 +1102,7 @@ async def test_input_guardrails(exporter: TestExporter):
                     'logfire.msg_template': 'OpenAI Agents trace: {name}',
                     'logfire.msg': 'OpenAI Agents trace: Agent workflow',
                     'logfire.span_type': 'span',
-                    'agent_trace_id': 'trace_b733665bf7d94f7ba03d242f1c343dd5',
+                    'agent_trace_id': IsStr(),
                 },
             },
         ]
@@ -1264,7 +1264,7 @@ async def test_chat_completions(exporter: TestExporter):
                     'logfire.msg_template': 'OpenAI Agents trace: {name}',
                     'logfire.msg': 'OpenAI Agents trace: Agent workflow',
                     'logfire.span_type': 'span',
-                    'agent_trace_id': 'trace_c844b555caf241f8afbbd433abc782a3',
+                    'agent_trace_id': IsStr(),
                 },
             },
         ]
@@ -2357,7 +2357,7 @@ async def test_function_tool_exception(exporter: TestExporter):
                     'logfire.msg_template': 'OpenAI Agents trace: {name}',
                     'logfire.msg': 'OpenAI Agents trace: Agent workflow',
                     'logfire.span_type': 'span',
-                    'agent_trace_id': 'trace_106829181551427cbb61dbdcc20356f3',
+                    'agent_trace_id': IsStr(),
                 },
             },
         ]
@@ -2546,7 +2546,7 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
                         'instructions': 'You will receive partial sentences. Do not complete the sentence just read out the text.',
                         'speed': None,
                     },
-                    'first_content_at': '2026-04-28T12:43:08.871040+00:00',
+                    'first_content_at': IsStr(),
                     'gen_ai.system': 'openai',
                     'gen_ai.request.model': 'gpt-4o-mini-tts',
                     'gen_ai.response.model': 'gpt-4o-mini-tts',
@@ -2582,8 +2582,8 @@ async def test_voice_pipeline(exporter: TestExporter, vcr_allow_bytes: None):
                     'logfire.msg_template': 'OpenAI Agents trace: {name}',
                     'logfire.msg': 'OpenAI Agents trace: Voice Agent',
                     'logfire.span_type': 'span',
-                    'agent_trace_id': 'trace_6c042621a99a4e49a0a9db57f7184222',
-                    'group_id': 'group_1c3c501f1aac456683c9ab86',
+                    'agent_trace_id': IsStr(),
+                    'group_id': IsStr(),
                 },
             },
         ]
