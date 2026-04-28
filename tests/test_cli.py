@@ -2080,6 +2080,55 @@ opencode is not installed. Install `opencode`, or remove the `--opencode` flag.
 """)
 
 
+def test_parse_prompt_opencode_whitespace_only_config(
+    prompt_http_calls: None,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
+
+    (tmp_path / 'opencode.jsonc').write_text('   \n\t\n')
+
+    def check_output(x: list[str]) -> bytes:
+        return tmp_path.as_posix().encode('utf-8')
+
+    monkeypatch.setattr(subprocess, 'check_output', check_output)
+
+    main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--opencode'])
+
+    config = json.loads((tmp_path / 'opencode.jsonc').read_text())
+    assert config == snapshot(
+        {'mcp': {'logfire-mcp': {'type': 'remote', 'url': 'https://logfire-us.pydantic.dev/mcp'}}}
+    )
+
+
+def test_parse_prompt_opencode_invalid_jsonc(
+    prompt_http_calls: None,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+    monkeypatch.setattr(Path, 'cwd', lambda: tmp_path)
+
+    (tmp_path / 'opencode.jsonc').write_text('// JSONC comment\n{"mcp": {}}')
+
+    def check_output(x: list[str]) -> bytes:
+        return tmp_path.as_posix().encode('utf-8')
+
+    monkeypatch.setattr(subprocess, 'check_output', check_output)
+
+    with pytest.raises(SystemExit):
+        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--opencode'])
+
+    out, err = capsys.readouterr()
+    assert out == snapshot('')
+    assert 'Failed to parse' in err
+    assert 'JSONC' in err
+
+
 def test_parse_prompt_opencode_logfire_mcp_installed(
     prompt_http_calls: None,
     capsys: pytest.CaptureFixture[str],

@@ -125,7 +125,17 @@ def configure_opencode(client: LogfireClient, console: Console, update: bool = F
     opencode_config.touch()
 
     opencode_config_content = opencode_config.read_text()
-    opencode_config_json: dict[str, Any] = json.loads(opencode_config_content) if opencode_config_content else {}
+    if opencode_config_content.strip():
+        try:
+            opencode_config_json: dict[str, Any] = json.loads(opencode_config_content)
+        except json.JSONDecodeError:
+            console.print(
+                f'Failed to parse {opencode_config} as JSON. '
+                'If it contains JSONC syntax (comments or trailing commas), please update it manually.'
+            )
+            exit(1)
+    else:
+        opencode_config_json = {}
     already_configured = 'logfire-mcp' in opencode_config_json.get('mcp', {})
 
     if already_configured and not update:
