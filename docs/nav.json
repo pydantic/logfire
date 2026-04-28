@@ -171,8 +171,7 @@
           { "label": "Datasets", "slug": "evaluate/datasets/index" },
           { "label": "Web UI Guide", "slug": "evaluate/datasets/ui" },
           { "label": "SDK Guide", "slug": "evaluate/datasets/sdk" },
-          { "label": "Running Evaluations", "slug": "evaluate/datasets/evaluations" },
-          { "label": "SDK Reference", "slug": "evaluate/datasets/sdk-reference" }
+          { "label": "Running Evaluations", "slug": "evaluate/datasets/evaluations" }
         ]
       }
     ]
@@ -227,7 +226,8 @@
       { "label": "Use Alternative Clients", "slug": "how-to-guides/alternative-clients" },
       { "label": "Use Alternative Backends", "slug": "how-to-guides/alternative-backends" },
       { "label": "Collect Cloud Provider Metrics", "slug": "how-to-guides/cloud-metrics" },
-      { "label": "Connect to MCP Server", "slug": "how-to-guides/mcp-server" }
+      { "label": "Connect to MCP Server", "slug": "how-to-guides/mcp-server" },
+      { "label": "Claude Code Skills", "slug": "how-to-guides/skills" }
     ]
   },
   {
@@ -260,7 +260,9 @@
     "label": "Deploy & Scale",
     "items": [
       { "label": "Enterprise", "slug": "enterprise" },
+      { "label": "Single Tenant", "slug": "enterprise-single-tenant" },
       { "label": "SSO Setup", "slug": "how-to-guides/sso-setup" },
+      { "label": "Audit logs API", "slug": "audit-logs-api" },
       { "label": "Compliance", "slug": "compliance" },
       {
         "label": "Self-Hosted Deployment",
@@ -270,6 +272,7 @@
           { "label": "Installation", "slug": "reference/self-hosted/installation" },
           { "label": "Scaling", "slug": "reference/self-hosted/scaling" },
           { "label": "Troubleshooting", "slug": "reference/self-hosted/troubleshooting" },
+          { "label": "Bucket Migration", "slug": "reference/self-hosted/bucket-migration" },
           { "label": "Examples", "slug": "reference/self-hosted/examples" },
           { "label": "Usage Report", "slug": "reference/self-hosted/usage-report" }
         ]
