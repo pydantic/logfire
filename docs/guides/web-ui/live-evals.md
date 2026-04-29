@@ -50,6 +50,53 @@ The **Evaluations** cell adapts to the shape of scores an evaluator produces:
 
 Evaluators that emit multiple score keys (a mapping return type) show up as one row per key.
 
+## Hiding Evaluators
+
+Sometimes the directory ends up cluttered with evaluators you no longer want shown — an old experiment, a Codex-written evaluator from a demo, or a deprecated revision that's still emitting events from a long-running deployment. **Hide rules** let you suppress matching events from the directory without deleting any underlying telemetry.
+
+### Hiding from the Live Monitoring page
+
+Each evaluator row (in the expanded directory and on the per-target detail page) has a `⋮` overflow menu with three actions, all scoped to the current target:
+
+- **Hide this evaluator** — hides the evaluator on this target across all versions and all time
+- **Hide version `vN`** — appears when an `evaluator_version` is recorded; hides only that specific version on this target
+- **Hide data older than now** — hides existing events on this target up to the current timestamp; new events keep arriving as normal. Use this as a "soft reset" after a meaningful change to an evaluator without bumping its version
+
+After clicking, the evaluator disappears from the directory immediately. A banner appears above the directory — `N evaluators hidden — Manage` — linking to the project's **Hidden Evaluators** settings page.
+
+The same overflow menu also includes a **Manage hidden evaluators** entry that takes you to the same page.
+
+### Managing rules
+
+The **Hidden Evaluators** project-settings sub-page (also reachable from the project sidebar under Settings) lists every active rule. Each row shows the rule's scope as badges — `evaluator: <name>`, `target: <name>`, `version: <value>`, `older than: <timestamp>` — plus when it was created. From this page you can:
+
+- **Add rule** — author a rule with any combination of fields. At least one of `target`, `evaluator name`, `evaluator version`, or `hide before` must be set
+- **Edit** (pencil icon) — change any field on an existing rule
+- **Remove** (trash icon) — delete a rule; the matching evaluator entries reappear in Live Monitoring immediately
+
+Rules created from the overflow menu are always target-scoped. Rules authored on the settings page can be broader — for example, leaving `target` blank and setting only `evaluator name` hides that evaluator across every target in the project.
+
+### How rules match
+
+A rule is a partial filter. An evaluation event is hidden when **every non-empty field on the rule** matches the event:
+
+| Rule field          | Matched against                       |
+| ------------------- | ------------------------------------- |
+| `target`            | `gen_ai.evaluation.target`            |
+| `evaluator_name`    | `gen_ai.evaluation.name`              |
+| `evaluator_version` | `gen_ai.evaluation.evaluator.version` |
+| `hide_before`       | event's `start_timestamp` (`<=`)      |
+
+Empty fields on the rule act as wildcards. An event is hidden if **any** active rule matches it. Rules are project-scoped — they don't affect other projects.
+
+### What hide rules do *not* do
+
+- **They don't delete telemetry.** The underlying OpenTelemetry events are untouched. Removing a rule (or going through the trace view directly) restores full visibility immediately.
+- **They don't filter trace views.** The `gen_ai.evaluation.result` events still appear nested under their parent spans wherever you open a trace.
+- **They aren't an alerting filter.** Alerts and SQL queries against your telemetry still see every event.
+
+If you need to permanently delete telemetry, use the **Data Deletion** project-settings page instead.
+
 ## Integration with Traces
 
 Each `gen_ai.evaluation.result` event is parented to the span whose call was evaluated, so the evaluation appears nested inside the original function call in the trace view. This makes it easy to jump from a failing evaluator back to the exact prompt, tool calls, and response that produced the result.
