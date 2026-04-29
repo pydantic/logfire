@@ -39,7 +39,7 @@ def get_usage_attributes(
     try:
         from genai_prices import calc_price, extract_usage
 
-        if provider_id == 'openai' and api_flavor == 'embeddings':
+        if api_flavor == 'embeddings':
             response_data = response.model_dump(include={'model', 'usage'})
         else:
             response_data = response.model_dump()

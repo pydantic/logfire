@@ -303,15 +303,13 @@ def test_openai_embeddings_model_dump_uses_include() -> None:
         assert dump_calls[0].get('include') == {'model', 'usage'}
 
 
-def test_non_target_flavors_use_plain_model_dump() -> None:
-    """chat, responses, api_flavor=None, and non-OpenAI embeddings must call plain model_dump()
-    with no kwargs — preserving access to all response fields for genai-prices (e.g. 'output'
-    for tool-call counting in pydantic/genai-prices#290)."""
+def test_non_embedding_flavors_use_plain_model_dump() -> None:
+    """chat, responses, and api_flavor=None must call plain model_dump() with no kwargs,
+    preserving access to full response fields for pricing extraction."""
     cases = [
         ('openai', 'chat'),
         ('openai', 'responses'),
         ('anthropic', None),
-        ('google', 'embeddings'),
     ]
     for provider_id, flavor in cases:
         dump_calls: list[dict[str, Any]] = []
