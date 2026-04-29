@@ -1596,6 +1596,33 @@ def test_configure_twice_no_warning(caplog: LogCaptureFixture):
     assert not caplog.messages
 
 
+def test_exit_open_spans_registered_after_otel_shutdown_callbacks(monkeypatch: pytest.MonkeyPatch) -> None:
+    from opentelemetry.sdk.metrics import _internal as otel_metrics
+
+    from logfire._internal.config import exit_open_spans
+
+    registered_callbacks: list[Any] = []
+
+    def register(callback: Any) -> Any:
+        registered_callbacks.append(callback)
+        return callback
+
+    monkeypatch.setattr('atexit.register', register)
+    monkeypatch.setattr(otel_metrics, 'register', register)
+
+    logfire.configure(send_to_logfire=False, console=False)
+
+    exit_open_spans_index = registered_callbacks.index(exit_open_spans)
+    otel_shutdown_indexes = [
+        index
+        for index, callback in enumerate(registered_callbacks)
+        if getattr(callback, '__name__', None) == 'shutdown'
+    ]
+
+    assert otel_shutdown_indexes
+    assert exit_open_spans_index > max(otel_shutdown_indexes)
+
+
 def test_send_to_logfire_under_pytest():
     """
     Test that the `send_to_logfire` parameter is set to False when running under pytest.
