@@ -1612,10 +1612,16 @@ def test_exit_open_spans_registered_after_otel_shutdown_callbacks(monkeypatch: p
             registered_callback for registered_callback in registered_callbacks if registered_callback != callback
         ]
 
+    def callback_matches_method(callback: Any, method: Any) -> bool:
+        return getattr(callback, '__self__', None) is getattr(method, '__self__', None) and getattr(
+            callback, '__func__', None
+        ) is getattr(method, '__func__', None)
+
     atexit_recorder = mock.Mock(register=register, unregister=unregister)
 
     monkeypatch.setattr('atexit.register', register)
     monkeypatch.setattr(config_module, 'atexit', atexit_recorder)
+    # The metrics provider imports atexit.register as a module-level alias.
     monkeypatch.setattr(otel_metrics, 'register', register)
 
     logfire.configure(send_to_logfire=False, console=False)
@@ -1624,14 +1630,22 @@ def test_exit_open_spans_registered_after_otel_shutdown_callbacks(monkeypatch: p
     exit_open_spans_indexes = [
         index for index, callback in enumerate(registered_callbacks) if callback is config_module.exit_open_spans
     ]
+
+    expected_otel_shutdown_callbacks: list[Any] = [
+        get_tracer_provider().provider.shutdown,  # type: ignore
+        get_meter_provider().provider.shutdown,  # type: ignore
+        get_logger_provider().provider.shutdown,  # type: ignore
+    ]
     otel_shutdown_indexes = [
-        index
-        for index, callback in enumerate(registered_callbacks)
-        if getattr(callback, '__name__', None) == 'shutdown'
+        next(
+            index
+            for index, callback in enumerate(registered_callbacks)
+            if callback_matches_method(callback, otel_shutdown_callback)
+        )
+        for otel_shutdown_callback in expected_otel_shutdown_callbacks
     ]
 
     assert len(exit_open_spans_indexes) == 1
-    assert otel_shutdown_indexes
     assert exit_open_spans_indexes[0] > max(otel_shutdown_indexes)
 
 
