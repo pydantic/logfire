@@ -332,6 +332,8 @@ filterwarnings = [
     "ignore:The '__version__' attribute is deprecated and will be removed in Flask 3.2.*:DeprecationWarning",
     # aiohttp web.Application is deprecated and used by OTel
     "ignore:Inheritance class _InstrumentedApplication from web.Application is discouraged:DeprecationWarning",
+    # anthropic SDK warns when using older models that are still recorded in test cassettes
+    "ignore:The model 'claude-.*' is deprecated.*:DeprecationWarning",
 ]
 DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_test_site.settings"
 

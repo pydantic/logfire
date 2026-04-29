@@ -42,7 +42,11 @@ try:
 
     get_trace_provider().shutdown()
     get_trace_provider().set_processors([])
-except ImportError:
+except (ImportError, UserWarning):
+    # On pydantic <2.10, openai-agents 0.14+ emits a `model_info` protected-namespace
+    # UserWarning during class construction that gets promoted to an exception by
+    # `filterwarnings=error`. Test modules that need the agents API guard themselves
+    # with `pytest.importorskip`, which silences warnings inside its own catch_warnings.
     pass
 
 logfire.configure(send_to_logfire=False)
