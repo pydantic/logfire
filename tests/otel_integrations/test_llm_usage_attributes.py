@@ -136,7 +136,7 @@ def test_model_none_from_extract_usage() -> None:
     usage = FakeUsage(prompt_tokens=10)
 
     class NoModelResponse:
-        def model_dump(self) -> dict[str, object]:
+        def model_dump(self, **kwargs: Any) -> dict[str, object]:
             return {'usage': {'prompt_tokens': 10}}  # no 'model' key
 
     # Use embeddings flavor so extract_usage succeeds (doesn't require completion_tokens)
