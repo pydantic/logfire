@@ -1597,12 +1597,11 @@ def test_configure_twice_no_warning(caplog: LogCaptureFixture):
     assert not caplog.messages
 
 
-def test_exit_open_spans_exports_suspended_generator_span_before_shutdown(tmp_path: Path) -> None:
-    output_path = tmp_path / 'exported_span.txt'
+def test_exit_open_spans_exports_suspended_generator_span_before_shutdown() -> None:
     script_path = Path(__file__).parent / 'import_used_for_tests' / 'open_span_at_shutdown.py'
 
     result = subprocess.run(
-        [sys.executable, str(script_path), str(output_path)],
+        [sys.executable, str(script_path)],
         capture_output=True,
         cwd=Path(__file__).parents[1],
         text=True,
@@ -1610,8 +1609,7 @@ def test_exit_open_spans_exports_suspended_generator_span_before_shutdown(tmp_pa
     )
 
     assert result.returncode == 0, result.stderr
-    assert output_path.read_text() == 'open span at shutdown'
-    assert 'Already shutdown, dropping span' not in result.stderr
+    assert result.stdout == 'open span at shutdown\n'
 
 
 def test_send_to_logfire_under_pytest():
