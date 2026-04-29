@@ -1328,6 +1328,11 @@ class LogfireConfig(_LogfireConfigData):
             # Track this instance for cleanup on exit
             _LOGFIRE_CONFIG_INSTANCES.append(weakref.ref(self))
 
+            # OTEL registers its own atexit callback in the tracer/meter providers to shut them down.
+            # Registering this callback here after the OTEL one means that this runs first.
+            # Otherwise OTEL would log an error "Already shutdown, dropping span."
+            atexit.register(exit_open_spans)
+
             self._initialized = True
 
             # set up context propagation for ThreadPoolExecutor and ProcessPoolExecutor
@@ -1511,12 +1516,8 @@ class LogfireConfig(_LogfireConfigData):
 _LOGFIRE_CONFIG_INSTANCES: list[weakref.ref[LogfireConfig]] = []
 
 
-@atexit.register
 def exit_open_spans():  # pragma: no cover
     # Ensure that all open spans are closed when the program exits.
-    # OTEL registers its own atexit callback in the tracer/meter providers to shut them down.
-    # Registering this callback here after the OTEL one means that this runs first.
-    # Otherwise OTEL would log an error "Already shutdown, dropping span."
     # The reason that spans may be lingering open is that they're in suspended generator frames.
     # Apart from here, they will be ended when the generator is garbage collected
     # as the interpreter shuts down, but that's too late.
