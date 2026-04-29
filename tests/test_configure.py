@@ -1596,57 +1596,68 @@ def test_configure_twice_no_warning(caplog: LogCaptureFixture):
     assert not caplog.messages
 
 
-def test_exit_open_spans_registered_after_otel_shutdown_callbacks(monkeypatch: pytest.MonkeyPatch) -> None:
-    from opentelemetry.sdk.metrics import _internal as otel_metrics
+def test_exit_open_spans_exports_suspended_generator_span_before_shutdown(tmp_path: Path) -> None:
+    import subprocess
+    import textwrap
 
-    from logfire._internal import config as config_module
+    output_path = tmp_path / 'exported_span.txt'
+    script = textwrap.dedent(
+        """
+        from __future__ import annotations
 
-    registered_callbacks: list[Any] = []
+        import sys
+        from collections.abc import Sequence
+        from pathlib import Path
 
-    def register(callback: Any) -> Any:
-        registered_callbacks.append(callback)
-        return callback
+        import logfire
+        from opentelemetry.sdk.trace import ReadableSpan
+        from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExportResult, SpanExporter
 
-    def unregister(callback: Any) -> None:
-        registered_callbacks[:] = [
-            registered_callback for registered_callback in registered_callbacks if registered_callback != callback
-        ]
+        output_path = Path(sys.argv[1])
 
-    def callback_matches_method(callback: Any, method: Any) -> bool:
-        return getattr(callback, '__self__', None) is getattr(method, '__self__', None) and getattr(
-            callback, '__func__', None
-        ) is getattr(method, '__func__', None)
 
-    atexit_recorder = mock.Mock(register=register, unregister=unregister)
+        class FileExporter(SpanExporter):
+            shutdown_called = False
 
-    monkeypatch.setattr('atexit.register', register)
-    monkeypatch.setattr(config_module, 'atexit', atexit_recorder)
-    # The metrics provider imports atexit.register as a module-level alias.
-    monkeypatch.setattr(otel_metrics, 'register', register)
+            def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
+                if self.shutdown_called:
+                    output_path.write_text('export after shutdown')
+                else:
+                    output_path.write_text('\\n'.join(span.name for span in spans))
+                return SpanExportResult.SUCCESS
 
-    logfire.configure(send_to_logfire=False, console=False)
-    logfire.configure(send_to_logfire=False, console=False)
+            def shutdown(self) -> None:
+                self.shutdown_called = True
 
-    exit_open_spans_indexes = [
-        index for index, callback in enumerate(registered_callbacks) if callback is config_module.exit_open_spans
-    ]
 
-    expected_otel_shutdown_callbacks: list[Any] = [
-        get_tracer_provider().provider.shutdown,  # type: ignore
-        get_meter_provider().provider.shutdown,  # type: ignore
-        get_logger_provider().provider.shutdown,  # type: ignore
-    ]
-    otel_shutdown_indexes = [
-        next(
-            index
-            for index, callback in enumerate(registered_callbacks)
-            if callback_matches_method(callback, otel_shutdown_callback)
+        def open_span_in_suspended_generator():
+            with logfire.span('open span at shutdown'):
+                yield
+
+
+        logfire.configure(send_to_logfire=False, console=False, inspect_arguments=False)
+        logfire.configure(
+            send_to_logfire=False,
+            console=False,
+            inspect_arguments=False,
+            additional_span_processors=[SimpleSpanProcessor(FileExporter())],
         )
-        for otel_shutdown_callback in expected_otel_shutdown_callbacks
-    ]
+        generator = open_span_in_suspended_generator()
+        next(generator)
+        """
+    )
 
-    assert len(exit_open_spans_indexes) == 1
-    assert exit_open_spans_indexes[0] > max(otel_shutdown_indexes)
+    result = subprocess.run(
+        [sys.executable, '-c', script, str(output_path)],
+        capture_output=True,
+        cwd=Path(__file__).parents[1],
+        text=True,
+        timeout=10,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert output_path.read_text() == 'open span at shutdown'
+    assert 'Already shutdown, dropping span' not in result.stderr
 
 
 def test_send_to_logfire_under_pytest():
