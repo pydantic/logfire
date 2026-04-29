@@ -322,5 +322,5 @@ except ImportError:
         def get_context(*args, **kwargs) -> dict[str, Any]:
             return {}
 
-        def attach_context(*args, **kwargs)-> ContextManager[None]:
+        def attach_context(*args, **kwargs) -> ContextManager[None]:
             return nullcontext()

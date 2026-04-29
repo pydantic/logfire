@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import pydantic
 from anthropic.types import Message as AnthropicMessage, Usage as AnthropicUsage
 from inline_snapshot import snapshot
@@ -134,7 +136,7 @@ def test_model_none_from_extract_usage() -> None:
     usage = FakeUsage(prompt_tokens=10)
 
     class NoModelResponse:
-        def model_dump(self) -> dict[str, object]:
+        def model_dump(self, **kwargs: Any) -> dict[str, object]:
             return {'usage': {'prompt_tokens': 10}}  # no 'model' key
 
     # Use embeddings flavor so extract_usage succeeds (doesn't require completion_tokens)
@@ -283,3 +285,42 @@ def test_anthropic_usage_none() -> None:
         usage=None,
     )
     assert get_anthropic_usage_attributes(response) == snapshot({})
+
+
+def test_openai_embeddings_model_dump_uses_include() -> None:
+    """For OpenAI embeddings, model_dump must be called with include={'model', 'usage'} only."""
+    dump_calls: list[dict[str, Any]] = []
+
+    class TrackingResponse:
+        def model_dump(self, **kwargs: Any) -> dict[str, Any]:
+            dump_calls.append(kwargs)
+            return {'model': 'text-embedding-3-small', 'usage': {'prompt_tokens': 10, 'total_tokens': 10}}
+
+    result = get_usage_attributes(TrackingResponse(), object(), 10, None, provider_id='openai', api_flavor='embeddings')
+    assert result.get('gen_ai.usage.input_tokens') == 10
+    if GENAI_PRICES_AVAILABLE:
+        assert dump_calls
+        assert dump_calls[0].get('include') == {'model', 'usage'}
+
+
+def test_non_embedding_flavors_use_plain_model_dump() -> None:
+    """chat, responses, and api_flavor=None must call plain model_dump() with no kwargs,
+    preserving access to full response fields for pricing extraction."""
+    cases = [
+        ('openai', 'chat'),
+        ('openai', 'responses'),
+        ('anthropic', None),
+    ]
+    for provider_id, flavor in cases:
+        dump_calls: list[dict[str, Any]] = []
+
+        class TrackingResponse:
+            def model_dump(self, **kwargs: Any) -> dict[str, Any]:
+                dump_calls.append(kwargs)
+                return {'model': 'gpt-4', 'usage': {'prompt_tokens': 10, 'completion_tokens': 5}}
+
+        result = get_usage_attributes(TrackingResponse(), object(), 10, 5, provider_id=provider_id, api_flavor=flavor)
+        assert result.get('gen_ai.usage.input_tokens') == 10
+        if GENAI_PRICES_AVAILABLE:
+            assert len(dump_calls) == 1, f'expected exactly one model_dump call for {provider_id}/{flavor}'
+            assert dump_calls[0] == {}, f'expected no kwargs for {provider_id}/{flavor}'
