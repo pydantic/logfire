@@ -4,6 +4,7 @@ import dataclasses
 import json
 import os
 import pickle
+import subprocess
 import sys
 import threading
 from collections.abc import Iterable, Sequence
@@ -1597,58 +1598,11 @@ def test_configure_twice_no_warning(caplog: LogCaptureFixture):
 
 
 def test_exit_open_spans_exports_suspended_generator_span_before_shutdown(tmp_path: Path) -> None:
-    import subprocess
-    import textwrap
-
     output_path = tmp_path / 'exported_span.txt'
-    script = textwrap.dedent(
-        """
-        from __future__ import annotations
-
-        import sys
-        from collections.abc import Sequence
-        from pathlib import Path
-
-        import logfire
-        from opentelemetry.sdk.trace import ReadableSpan
-        from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExportResult, SpanExporter
-
-        output_path = Path(sys.argv[1])
-
-
-        class FileExporter(SpanExporter):
-            shutdown_called = False
-
-            def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
-                if self.shutdown_called:
-                    output_path.write_text('export after shutdown')
-                else:
-                    output_path.write_text('\\n'.join(span.name for span in spans))
-                return SpanExportResult.SUCCESS
-
-            def shutdown(self) -> None:
-                self.shutdown_called = True
-
-
-        def open_span_in_suspended_generator():
-            with logfire.span('open span at shutdown'):
-                yield
-
-
-        logfire.configure(send_to_logfire=False, console=False, inspect_arguments=False)
-        logfire.configure(
-            send_to_logfire=False,
-            console=False,
-            inspect_arguments=False,
-            additional_span_processors=[SimpleSpanProcessor(FileExporter())],
-        )
-        generator = open_span_in_suspended_generator()
-        next(generator)
-        """
-    )
+    script_path = Path(__file__).parent / 'import_used_for_tests' / 'open_span_at_shutdown.py'
 
     result = subprocess.run(
-        [sys.executable, '-c', script, str(output_path)],
+        [sys.executable, str(script_path), str(output_path)],
         capture_output=True,
         cwd=Path(__file__).parents[1],
         text=True,
