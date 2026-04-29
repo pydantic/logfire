@@ -1331,6 +1331,7 @@ class LogfireConfig(_LogfireConfigData):
             # OTEL registers its own atexit callback in the tracer/meter providers to shut them down.
             # Registering this callback here after the OTEL one means that this runs first.
             # Otherwise OTEL would log an error "Already shutdown, dropping span."
+            atexit.unregister(exit_open_spans)
             atexit.register(exit_open_spans)
 
             self._initialized = True
