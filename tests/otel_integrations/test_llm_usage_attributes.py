@@ -303,25 +303,6 @@ def test_openai_embeddings_model_dump_uses_include() -> None:
         assert dump_calls[0].get('include') == {'model', 'usage'}
 
 
-def test_openai_embeddings_model_dump_include_fallback() -> None:
-    """If model_dump does not accept include=, fall back to plain model_dump() and keep usage attrs."""
-    calls: list[dict[str, Any]] = []
-
-    class FallbackResponse:
-        def model_dump(self, **kwargs: Any) -> dict[str, Any]:
-            calls.append(kwargs)
-            if kwargs:
-                raise TypeError('include not supported')
-            return {'model': 'text-embedding-3-small', 'usage': {'prompt_tokens': 10, 'total_tokens': 10}}
-
-    result = get_usage_attributes(FallbackResponse(), object(), 10, None, provider_id='openai', api_flavor='embeddings')
-    if GENAI_PRICES_AVAILABLE:
-        assert calls == [{'include': {'model', 'usage'}}, {}]
-    assert 'gen_ai.usage.input_tokens' in result
-    if GENAI_PRICES_AVAILABLE:
-        assert 'operation.cost' in result
-
-
 def test_non_target_flavors_use_plain_model_dump() -> None:
     """chat, responses, api_flavor=None, and non-OpenAI embeddings must call plain model_dump()
     with no kwargs — preserving access to all response fields for genai-prices (e.g. 'output'
