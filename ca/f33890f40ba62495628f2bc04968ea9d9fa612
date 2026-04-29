@@ -1,0 +1,28 @@
+logfire/_internal/config.py
+  h_bc896295f46a8b 1334
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "caf33890f40ba62495628f2bc04968ea9d9fa612",
+  "prompts": {
+    "32a8bdbb52857b36": {
+      "agent_id": {
+        "tool": "github-copilot-jetbrains",
+        "id": "1777400726276",
+        "model": "unknown"
+      },
+      "human_author": "Alex Hall",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    }
+  },
+  "humans": {
+    "h_bc896295f46a8b": {
+      "author": "Alex Hall"
+    }
+  }
+}
