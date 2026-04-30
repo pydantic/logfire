@@ -86,7 +86,12 @@ def configure_codex(client: LogfireClient, console: Console, update: bool = Fals
         console.print('Codex config file not found. Install `codex`, or remove the `--codex` flag.')
         exit(1)
 
-    already_configured = 'logfire' in read_toml_file(codex_config).get('mcp_servers', {})
+    try:
+        codex_config_data = read_toml_file(codex_config)
+    except ValueError:
+        console.print(f'Failed to parse {codex_config} as TOML. Please fix the file or update it manually.')
+        exit(1)
+    already_configured = 'logfire' in codex_config_data.get('mcp_servers', {})
 
     if already_configured and not update:
         return

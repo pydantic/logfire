@@ -1905,6 +1905,25 @@ url = "https://logfire-us.pydantic.dev/mcp"
     assert err == snapshot('Logfire MCP server updated in Codex.\n')
 
 
+def test_parse_prompt_codex_invalid_toml(
+    prompt_http_calls: None, capsys: pytest.CaptureFixture[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+
+    codex_path = tmp_path / 'codex'
+    codex_path.mkdir()
+    codex_config_path = codex_path / 'config.toml'
+    codex_config_path.write_text('this is = invalid [ toml')
+
+    with patch.dict(os.environ, {'CODEX_HOME': str(codex_path)}), pytest.raises(SystemExit):
+        main(['prompt', '--project', 'fake_org/myproject', 'fix-span-issue:123', '--codex'])
+
+    out, err = capsys.readouterr()
+    assert out == snapshot('')
+    assert 'Failed to parse' in err
+    assert 'TOML' in err
+
+
 def test_parse_prompt_codex_logfire_mcp_update_legacy_stdio(
     prompt_http_calls: None, capsys: pytest.CaptureFixture[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
