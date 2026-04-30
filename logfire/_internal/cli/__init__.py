@@ -384,6 +384,9 @@ def _main(args: list[str] | None = None) -> None:
     agent_code_group.add_argument('--claude', action='store_true', help='verify the Claude Code setup')
     agent_code_group.add_argument('--codex', action='store_true', help='verify the Cursor setup')
     agent_code_group.add_argument('--opencode', action='store_true', help='verify the OpenCode setup')
+    cmd_prompt.add_argument(
+        '--update', action='store_true', help='replace any existing Logfire MCP server configuration'
+    )
     cmd_prompt.add_argument('--project', action=OrgProjectAction, help='project in the format <org>/<project>')
     cmd_prompt.add_argument('issue', nargs='?', help='the issue to get a prompt for')
     cmd_prompt.set_defaults(func=parse_prompt)
