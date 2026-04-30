@@ -39,7 +39,10 @@ def get_usage_attributes(
     try:
         from genai_prices import calc_price, extract_usage
 
-        response_data = response.model_dump()
+        if api_flavor == 'embeddings':
+            response_data = response.model_dump(include={'model', 'usage'})
+        else:
+            response_data = response.model_dump()
         extract_kwargs: dict[str, Any] = {'provider_id': provider_id}
         if api_flavor is not None:
             extract_kwargs['api_flavor'] = api_flavor
