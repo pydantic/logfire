@@ -547,6 +547,7 @@ Because it found something more "sole-ful!"\
                 'start_time': 10000000000,
                 'end_time': 25000000000,
                 'attributes': {
+                    'gen_ai.operation.name': 'execute_tool',
                     'gen_ai.tool.name': 'joker',
                     'gen_ai.tool.call.id': 'call_YWeIZ4oGGwEnk9GIb443ZNys',
                     'gen_ai.tool.call.arguments': {'theme': 'socks'},
