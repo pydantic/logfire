@@ -50,7 +50,11 @@ The full list of available extras: `fastapi`, `starlette`, `django`, `flask`, `h
 This is where ordering matters. `logfire.configure()` initializes the SDK and must come before everything else. The `instrument_*()` calls register hooks into each library. If you call `instrument_*()` before `configure()`, the hooks register but traces go nowhere.
 
 ```python
+from fastapi import FastAPI
+
 import logfire
+
+app = FastAPI()
 
 # 1. Configure first - always
 logfire.configure()
@@ -73,31 +77,50 @@ Placement rules:
 Replace `print()` and `logging.*()` calls with Logfire's structured logging. The key pattern: use `{key}` placeholders with keyword arguments, never f-strings.
 
 ```python
+import logfire
+
+uid = 123
+
 # Correct - each {key} becomes a searchable attribute in the Logfire UI
-logfire.info("Created user {user_id}", user_id=uid)
-logfire.error("Payment failed {amount} {currency}", amount=100, currency="USD")
+logfire.info('Created user {user_id}', user_id=uid)
+logfire.error('Payment failed {amount} {currency}', amount=100, currency='USD')
 
 # Wrong - creates a flat string, nothing is searchable
-logfire.info(f"Created user {uid}")
+logfire.info(f'Created user {uid}')
 ```
 
 For grouping related operations and measuring duration, use spans:
 
 ```python
-with logfire.span("Processing order {order_id}", order_id=order_id):
-    items = await fetch_items(order_id)
-    total = calculate_total(items)
-    logfire.info("Calculated total {total}", total=total)
+import logfire
+
+
+async def process_order(order_id: int):
+    ...
+
+
+async def handle_order(order_id: int):
+    with logfire.span('Processing order {order_id}', order_id=order_id):
+        total = 100
+        logfire.info('Calculated total {total}', total=total)
 ```
 
 For exceptions, use `logfire.exception()` which automatically captures the traceback:
 
 ```python
-try:
-    await process_order(order_id)
-except Exception:
-    logfire.exception("Failed to process order {order_id}", order_id=order_id)
-    raise
+import logfire
+
+
+async def process_order(order_id: int):
+    ...
+
+
+async def handle_order(order_id: int):
+    try:
+        await process_order(order_id)
+    except Exception:
+        logfire.exception('Failed to process order {order_id}', order_id=order_id)
+        raise
 ```
 
 ### AI/LLM Instrumentation (Python)
@@ -112,6 +135,8 @@ uv add 'logfire[pydantic-ai]'
 Available AI extras: `pydantic-ai`, `openai`, `anthropic`, `litellm`, `dspy`, `google-genai`.
 
 ```python
+import logfire
+
 logfire.configure()
 logfire.instrument_pydantic_ai()  # captures agent runs, tool calls, LLM request/response
 # or:

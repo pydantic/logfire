@@ -19,12 +19,13 @@ logfire.fatal("Fatal error {error}", error=err)
 Spans nest to create a tree visible in the Logfire UI. Use them to show the structure of an operation, not just that it happened:
 
 ```python
-with logfire.span("HTTP request {method} {url}", method="POST", url=url):
-    with logfire.span("Serialize payload"):
-        payload = model.model_dump_json()
-    with logfire.span("Send request"):
-        response = await client.post(url, content=payload)
-    logfire.info("Response {status}", status=response.status_code)
+async def send_request(url: str):
+    with logfire.span("HTTP request {method} {url}", method="POST", url=url):
+        with logfire.span("Serialize payload"):
+            payload = model.model_dump_json()
+        with logfire.span("Send request"):
+            response = await client.post(url, content=payload)
+        logfire.info("Response {status}", status=response.status_code)
 ```
 
 ## Standard Library Logging Integration
@@ -33,6 +34,7 @@ For projects that already use Python's `logging` module, route existing log call
 
 ```python
 from logging import basicConfig
+
 import logfire
 
 logfire.configure()
@@ -43,6 +45,7 @@ Or with `dictConfig`:
 
 ```python
 from logging.config import dictConfig
+
 import logfire
 
 logfire.configure()
