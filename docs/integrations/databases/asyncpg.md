@@ -46,11 +46,10 @@ import logfire
 
 logfire.configure()
 
-# Will not capture parameters by default.
 logfire.instrument_asyncpg()
 
 # To capture parameters:
-logfire.instrument_asyncpg(capture_parameters=True)
+# logfire.instrument_asyncpg(capture_parameters=True)
 
 
 async def main():
