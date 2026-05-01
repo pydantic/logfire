@@ -1505,8 +1505,14 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_print(self)
 
-    def instrument_asyncpg(self, **kwargs: Any) -> None:
-        """Instrument the `asyncpg` module so that spans are automatically created for each query."""
+    def instrument_asyncpg(self, capture_parameters: bool = False, **kwargs: Any) -> None:
+        """Instrument the `asyncpg` module so that spans are automatically created for each query.
+
+        Args:
+            capture_parameters: Set to `True` to capture query parameters as span attributes.
+                Be cautious when enabling this, as it may lead to sensitive data being captured in traces.
+            kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` method.
+        """
         from .integrations.asyncpg import instrument_asyncpg
 
         self._warn_if_not_initialized_for_instrumentation()
@@ -1514,6 +1520,7 @@ class Logfire:
             **{
                 'tracer_provider': self._config.get_tracer_provider(),
                 'meter_provider': self._config.get_meter_provider(),
+                'capture_parameters': capture_parameters,
                 **kwargs,
             },
         )
