@@ -1597,6 +1597,29 @@ def test_configure_twice_no_warning(caplog: LogCaptureFixture):
     assert not caplog.messages
 
 
+def test_configuration_span_emitted(real_emit_configuration_span: Any, exporter: TestExporter):
+    from logfire._internal.config import GLOBAL_CONFIG
+
+    GLOBAL_CONFIG.token = 'pylf_v1_us_FAKE_TOKEN_xyz'
+    try:
+        real_emit_configuration_span(GLOBAL_CONFIG)
+    finally:
+        GLOBAL_CONFIG.token = None
+
+    spans = [
+        s for s in exporter.exported_spans_as_dict(parse_json_attributes=True) if s['name'] == 'Logfire configured'
+    ]
+    assert len(spans) == 1
+    attrs = spans[0]['attributes']
+    assert attrs['logfire_version']
+    assert isinstance(attrs['package_versions'], dict)
+    assert 'logfire' in attrs['package_versions']
+    cfg = attrs['logfire_config']
+    assert isinstance(cfg, dict)
+    assert 'service_name' in cfg
+    assert cfg['token'] == '[REDACTED]'
+
+
 def test_exit_open_spans_exports_suspended_generator_span_before_shutdown() -> None:
     script_path = Path(__file__).parent / 'import_used_for_tests' / 'open_span_at_shutdown.py'
 
@@ -1609,7 +1632,7 @@ def test_exit_open_spans_exports_suspended_generator_span_before_shutdown() -> N
     )
 
     assert result.returncode == 0, result.stderr
-    assert result.stdout == 'open span at shutdown\n'
+    assert result.stdout == 'Logfire configured\nopen span at shutdown\n'
 
 
 def test_send_to_logfire_under_pytest():

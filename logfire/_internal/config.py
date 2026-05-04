@@ -1352,6 +1352,30 @@ class LogfireConfig(_LogfireConfigData):
 
             self._ensure_flush_after_aws_lambda()
 
+        self._emit_configuration_span()
+
+    def _emit_configuration_span(self) -> None:
+        """Emit a span describing the active Logfire configuration and installed packages."""
+        from logfire._internal.collect_system_info import collect_package_info
+        from logfire._internal.main import Logfire
+
+        with handle_internal_errors:
+            config_dict: dict[str, Any] = {}
+            for f in dataclasses.fields(_LogfireConfigData):
+                value = getattr(self, f.name, None)
+                if f.name in ('token', 'api_key') and value:
+                    config_dict[f.name] = '[REDACTED]'
+                elif dataclasses.is_dataclass(value) and not isinstance(value, type):
+                    config_dict[f.name] = {sf.name: getattr(value, sf.name) for sf in dataclasses.fields(value)}
+                else:
+                    config_dict[f.name] = value
+            Logfire(config=self).info(
+                'Logfire configured',
+                logfire_version=VERSION,
+                logfire_config=config_dict,
+                package_versions=collect_package_info(),
+            )
+
     def force_flush(self, timeout_millis: int = 30_000) -> bool:
         """Force flush all spans and metrics.
 
