@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import functools
 import inspect
+import types
 import uuid
 from inspect import Signature
 from typing import Any, Union, get_args, get_origin
@@ -26,7 +27,7 @@ def _is_complex_type(tp: type | type[Value]) -> bool:
         return True
     if tp in (str, bool, int, float, type(None), uuid.UUID, Table, RecordIdType):
         return False
-    if origin is Union:  # pragma: no branch
+    if origin is Union or origin is types.UnionType:  # pragma: no branch
         args = get_args(tp)
         return any(_is_complex_type(arg) for arg in args)
     return True  # pragma: no cover
@@ -121,6 +122,8 @@ def _get_params_template(scrubber: BaseScrubber, sig: Signature) -> str:
             and not scrubbed
             # not scrubbed by default, definitely sensitive in this context
             and 'token' not in param_name
+            # optional params may not be passed by the user, leaving the template field unfilled
+            and param.default is inspect.Parameter.empty
         ):
             template_params.append(param_name)
     if len(template_params) == 1:
