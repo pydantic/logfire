@@ -48,7 +48,7 @@ def test_instrument_surrealdb(exporter: TestExporter) -> None:
                 'surrealdb invalidate',
                 'surrealdb kill {query_uuid}',
                 'surrealdb let {key}',
-                'surrealdb live {table}',
+                'surrealdb live table = {table}, diff = {diff}',
                 'surrealdb merge {record}',
                 'surrealdb patch {record}',
                 'surrealdb query {query}',

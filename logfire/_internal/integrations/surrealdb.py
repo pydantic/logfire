@@ -61,19 +61,22 @@ def instrument_surrealdb(
             and SyncTemplate.__dict__.get(name) == template_method
         ):
             continue
-        patch_method(obj, name, logfire_instance)
+        patch_method(obj, name, template_method, logfire_instance)
 
 
 @handle_internal_errors
-def patch_method(obj: Any, method_name: str, logfire_instance: Logfire):
+def patch_method(obj: Any, method_name: str, template_method: Any, logfire_instance: Logfire):
     original_method = getattr(obj, method_name, None)
     if not original_method or hasattr(original_method, '_logfire_template'):
         return  # already patched
 
+    # Use the base template's signature for the message template so all subclasses share
+    # the same span attributes regardless of subclass-specific extra parameters.
+    template_sig = inspect.signature(template_method)
     sig = inspect.signature(original_method)
     template = span_name = f'surrealdb {method_name}'
     # Keep the span name clean and simple.
-    template += _get_params_template(logfire_instance.config.scrubber, sig)
+    template += _get_params_template(logfire_instance.config.scrubber, template_sig)
 
     def get_attributes(*args: Any, **kwargs: Any) -> dict[str, Any]:
         bound = sig.bind(*args, **kwargs)
@@ -122,8 +125,6 @@ def _get_params_template(scrubber: BaseScrubber, sig: Signature) -> str:
             and not scrubbed
             # not scrubbed by default, definitely sensitive in this context
             and 'token' not in param_name
-            # optional params may not be passed by the user, leaving the template field unfilled
-            and param.default is inspect.Parameter.empty
         ):
             template_params.append(param_name)
     if len(template_params) == 1:
