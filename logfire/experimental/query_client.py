@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import json
 import platform
+from collections.abc import Generator
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypedDict, TypeVar, overload
 
-from typing_extensions import Self, deprecated
+from typing_extensions import NotRequired, Self, TypeAlias, deprecated
 
 from logfire import VERSION
 from logfire._internal.config import get_base_url_from_token
@@ -85,6 +88,49 @@ class RowQueryResultsV2Explained(RowQueryResultsV2):
     logical_plan: Any
     physical_plan: Any
     physical_plan_with_metrics: Any
+
+
+class StreamSchemaMessage(TypedDict):
+    """First line of the NDJSON stream (omitted when ``include_schema=False``)."""
+
+    type: Literal['schema']
+    schema: dict[str, Any]
+
+
+class StreamExplainMessage(TypedDict):
+    """Emitted when ``explain=True``, after ``schema`` and before any ``data``."""
+
+    type: Literal['explain']
+    logical_plan: NotRequired[Any]
+    physical_plan: NotRequired[Any]
+
+
+class StreamDataMessage(TypedDict):
+    """One per Arrow record batch; repeats."""
+
+    type: Literal['data']
+    rows: list[dict[str, Any]]
+
+
+class StreamErrorMessage(TypedDict):
+    """Emitted when a record batch fails. Always followed by an ``end`` message."""
+
+    type: Literal['error']
+    message: str
+
+
+class StreamEndMessage(TypedDict):
+    """Final line of the stream. ``error`` is set if the stream failed mid-flight."""
+
+    type: Literal['end']
+    row_count: int
+    physical_plan_with_metrics: NotRequired[Any]
+    error: NotRequired[str]
+
+
+StreamMessage: TypeAlias = (
+    StreamSchemaMessage | StreamExplainMessage | StreamDataMessage | StreamErrorMessage | StreamEndMessage
+)
 
 
 def _rows_to_columns(result: RowQueryResults) -> QueryResults:
@@ -178,12 +224,13 @@ class _BaseLogfireQueryClient(Generic[T]):
         timezone: str | None = None,
         deployment_environment: str | list[str] | None = None,
         explain: bool = False,
+        include_schema: bool = True,
     ) -> dict[str, Any]:
-        body: dict[str, Any] = {'sql': sql, 'explain': explain, 'include_schema': True}
+        body: dict[str, Any] = {'sql': sql, 'explain': explain, 'include_schema': include_schema}
 
         if limit is not None:
             body['limit'] = limit
-        body['min_timestamp'] = min_timestamp.isoformat() if min_timestamp is not None else _MIN_DATETIME
+        body['min_timestamp'] = (min_timestamp or _MIN_DATETIME).isoformat()
         if max_timestamp is not None:
             body['max_timestamp'] = max_timestamp.isoformat()
         if params is not None:
@@ -395,6 +442,37 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
             limit=limit,
         )
         return response.text
+
+    @contextmanager
+    def query_stream(
+        self,
+        sql: str,
+        min_timestamp: datetime | None = None,
+        max_timestamp: datetime | None = None,
+        limit: int | None = None,
+        *,
+        params: dict[str, str] | None = None,
+        timezone: str | None = None,
+        deployment_environment: str | list[str] | None = None,
+        explain: bool = False,
+        include_schema: bool = True,
+    ) -> Generator[Generator[StreamMessage]]:
+        body = self._build_v2_body(
+            sql=sql,
+            min_timestamp=min_timestamp,
+            max_timestamp=max_timestamp,
+            limit=limit,
+            params=params,
+            timezone=timezone,
+            deployment_environment=deployment_environment,
+            explain=explain,
+            include_schema=include_schema,
+        )
+        with self.client.stream('POST', '/v2/query', headers={'accept': 'application/x-ndjson'}, json=body) as response:
+            if response.status_code != 200:
+                response.read()
+                self.handle_response_errors(response)
+            yield from (json.loads(line) for line in response.iter_lines() if line)
 
     def _query(
         self,
