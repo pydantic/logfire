@@ -79,6 +79,10 @@ if TYPE_CHECKING:
     import openai
     import pydantic_ai.models
     import requests
+    from anthropic.lib.bedrock import (
+        AnthropicBedrock as _AnthropicBedrock,
+        AsyncAnthropicBedrock as _AsyncAnthropicBedrock,
+    )
     from django.http import HttpRequest, HttpResponse
     from fastapi import FastAPI
     from flask.app import Flask
@@ -1344,12 +1348,12 @@ class Logfire:
         anthropic_client: (
             anthropic.Anthropic
             | anthropic.AsyncAnthropic
-            | anthropic.AnthropicBedrock
-            | anthropic.AsyncAnthropicBedrock
+            | _AnthropicBedrock
+            | _AsyncAnthropicBedrock
             | type[anthropic.Anthropic]
             | type[anthropic.AsyncAnthropic]
-            | type[anthropic.AnthropicBedrock]
-            | type[anthropic.AsyncAnthropicBedrock]
+            | type[_AnthropicBedrock]
+            | type[_AsyncAnthropicBedrock]
             | None
         ) = None,
         *,
@@ -1415,6 +1419,7 @@ class Logfire:
                 Use of this context manager is optional.
         """
         import anthropic
+        from anthropic.lib.bedrock import AnthropicBedrock, AsyncAnthropicBedrock
 
         from .integrations.llm_providers.anthropic import get_endpoint_config, is_async_client, on_response
         from .integrations.llm_providers.llm_provider import instrument_llm_provider
@@ -1428,8 +1433,8 @@ class Logfire:
             or (
                 anthropic.Anthropic,
                 anthropic.AsyncAnthropic,
-                anthropic.AnthropicBedrock,
-                anthropic.AsyncAnthropicBedrock,
+                AnthropicBedrock,
+                AsyncAnthropicBedrock,
             ),
             suppress_other_instrumentation,
             'Anthropic',
