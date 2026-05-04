@@ -20,7 +20,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-21T12:37:33.421467Z"
+exclude-newer = "2026-04-27T11:31:54.556811Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -717,7 +717,7 @@ name = "cffi"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pycparser", version = "2.23", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10' and implementation_name != 'PyPy'" },
+    { name = "pycparser", version = "2.23", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10' and implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'" },
     { name = "pycparser", version = "3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10' and implementation_name != 'PyPy'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/eb/56/b1ba7935a17738ae8453301356628e8147c79dbb825bcbc73dc7401f9846/cffi-2.0.0.tar.gz", hash = "sha256:44d1b5909021139fe36001ae048dbdde8214afa20200eda0f64c068cac5d5529", size = 523588, upload-time = "2025-09-08T23:24:04.541Z" }
@@ -1614,7 +1614,7 @@ name = "exceptiongroup"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
 wheels = [
@@ -3611,7 +3611,8 @@ dev = [
     { name = "sqlmodel", version = "0.0.34", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "sqlmodel", version = "0.0.38", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "structlog" },
-    { name = "surrealdb" },
+    { name = "surrealdb", version = "1.0.8", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "surrealdb", version = "2.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "testcontainers" },
     { name = "uvicorn", version = "0.39.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "uvicorn", version = "0.45.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
@@ -8898,13 +8899,16 @@ wheels = [
 name = "surrealdb"
 version = "1.0.8"
 source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version < '3.10' and platform_python_implementation == 'PyPy'",
+    "python_full_version < '3.10' and platform_python_implementation != 'PyPy'",
+]
 dependencies = [
-    { name = "aiohttp" },
-    { name = "pydantic-core" },
+    { name = "aiohttp", marker = "python_full_version < '3.10'" },
+    { name = "pydantic-core", marker = "python_full_version < '3.10'" },
     { name = "requests", version = "2.32.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "requests", version = "2.33.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "typing-extensions", marker = "python_full_version < '3.12'" },
-    { name = "websockets" },
+    { name = "typing-extensions", marker = "python_full_version < '3.10'" },
+    { name = "websockets", marker = "python_full_version < '3.10'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/36/ad/6f7e69bddb77a7b8deb0874652a8e9a4a15e15736d09f13911f1a9490294/surrealdb-1.0.8.tar.gz", hash = "sha256:14a9b2e24b8a2fbe15b6894617a2c2aababaf02e7fb95bd755ab9182b40c92c6", size = 291033, upload-time = "2026-01-07T18:18:40.335Z" }
 wheels = [
@@ -8913,6 +8917,43 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/3a/3b/82703abfc8b96a3f5000b2edca28d6f093d07185022dd60a2e463f0c59a7/surrealdb-1.0.8-cp39-abi3-manylinux_2_24_aarch64.whl", hash = "sha256:ca0d6d4deee59f2100580da8ca2df449543d2c2945dc12299217b712278bf812", size = 5789423, upload-time = "2026-01-07T18:18:35.995Z" },
     { url = "https://files.pythonhosted.org/packages/34/cb/dd598d0519ed537bd033f79dc7d008adee88469cc8a0e60e33a57d51989e/surrealdb-1.0.8-cp39-abi3-manylinux_2_24_x86_64.whl", hash = "sha256:b85d2ae0f43306496690081a07b06231f30383952280002275fe6083eafc2a2a", size = 5686857, upload-time = "2026-01-07T18:18:37.702Z" },
     { url = "https://files.pythonhosted.org/packages/e1/db/5e24536cb158edcd1a40992811ed49ad4b911b330cedc84371bfa0c1d160/surrealdb-1.0.8-cp39-abi3-win_amd64.whl", hash = "sha256:977c5f4602d16476f70557c6e729c4035c6323be580a756a26f79a103e0df46d", size = 5047898, upload-time = "2026-01-07T18:18:39.085Z" },
+]
+
+[[package]]
+name = "surrealdb"
+version = "2.0.0"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.14' and sys_platform == 'win32'",
+    "python_full_version >= '3.14' and sys_platform == 'emscripten'",
+    "python_full_version >= '3.14' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*' and sys_platform == 'win32'",
+    "python_full_version == '3.13.*' and sys_platform == 'emscripten'",
+    "python_full_version == '3.13.*' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.12.*' and sys_platform == 'win32'",
+    "python_full_version == '3.12.*' and sys_platform == 'emscripten'",
+    "python_full_version == '3.12.*' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.11.*' and sys_platform == 'win32'",
+    "python_full_version == '3.11.*' and sys_platform == 'emscripten'",
+    "python_full_version == '3.11.*' and sys_platform != 'emscripten' and sys_platform != 'win32'",
+    "python_full_version == '3.10.*'",
+]
+dependencies = [
+    { name = "aiohttp", marker = "python_full_version >= '3.10'" },
+    { name = "pydantic-core", marker = "python_full_version >= '3.10'" },
+    { name = "requests", version = "2.33.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "typing-extensions", marker = "python_full_version >= '3.10' and python_full_version < '3.12'" },
+    { name = "websockets", marker = "python_full_version >= '3.10'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/55/b3/231444479bd065b5d29c151296dd8aa4591f399039ffd39c45d1ea0b3906/surrealdb-2.0.0.tar.gz", hash = "sha256:70a2656bf5b6d844cf4c029d6e0a7309ca95b9ba282663f31c8b6e642fc8463a", size = 303740, upload-time = "2026-04-23T17:21:47.74Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/86/47/85b04ef0224cb1538d8b0154a16c222e1e4174016ad3c7833e4b00cc6382/surrealdb-2.0.0-cp39-abi3-macosx_10_12_x86_64.whl", hash = "sha256:5ade2dfd53fedd7c7ddb3b102d6223ccefa30ad8a1df1cde261ce8004e97aa2f", size = 5148243, upload-time = "2026-04-23T17:21:34.666Z" },
+    { url = "https://files.pythonhosted.org/packages/d3/8c/137e6d3e1ff0b2990dcf56c80920e2d64855ffdd16fe8195fa6c5c4adcf9/surrealdb-2.0.0-cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:8b0b24ea230a53ea6c67c51c8e45332d9383b4b8f42246b64c034a2b26d0cc2a", size = 5010874, upload-time = "2026-04-23T17:21:37.32Z" },
+    { url = "https://files.pythonhosted.org/packages/18/1d/d05be5d682b10ac8b2af74f93b374c43109585b7e6be3d9d2b4790960f20/surrealdb-2.0.0-cp39-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:e3a4e9c35964af1dc6ce01fe2aa553d6c3fcd0a8bd02c05e38fc88433395ba74", size = 5789187, upload-time = "2026-04-23T17:21:38.963Z" },
+    { url = "https://files.pythonhosted.org/packages/4c/55/463e429e85e41c0941b3daa878b6005f76fcabaab9a09beab02d2852c4b3/surrealdb-2.0.0-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:1e0d61545611cf86f13825932315e65c79a9f1bfb1c0fe3b40b0e48562b8673c", size = 5697268, upload-time = "2026-04-23T17:21:40.896Z" },
+    { url = "https://files.pythonhosted.org/packages/20/2e/1d02a9c1d6cbeea1dae079320c7baaf89c0d465b204eaeb5fe8a543ee53a/surrealdb-2.0.0-cp39-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:d5dd4df823b407f58077a9dddc4f4bff938e365d091df56d2fe4108e980f8b87", size = 5967299, upload-time = "2026-04-23T17:21:42.441Z" },
+    { url = "https://files.pythonhosted.org/packages/1d/a4/d1259c9437e12bbe8e54416f610b9a4300791e655d8784e51c087394cce8/surrealdb-2.0.0-cp39-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:e7163637c813e2e6daec7660c4d83462509c1c77ecb4086bdb3766af6fdfb571", size = 5941482, upload-time = "2026-04-23T17:21:44.714Z" },
+    { url = "https://files.pythonhosted.org/packages/3c/6b/522f48258c2f1cefacfe55cb772e14e1c28b4973f63ba5baffc4998e9cc9/surrealdb-2.0.0-cp39-abi3-win_amd64.whl", hash = "sha256:ba43f1156b2a6d00e8e595764505156db2f7fd5d023e189c59e9673fa9949fe8", size = 5068184, upload-time = "2026-04-23T17:21:46.371Z" },
 ]
 
 [[package]]
