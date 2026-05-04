@@ -220,7 +220,6 @@ def footer_excluded_urls_and_headers(markdown: str, page: Page) -> str:
 - [OpenTelemetry Documentation]({docs_url}#exclude-lists)
 """
     if is_http_client:
-        # http-clients pages already document headers/bodies inline
         return markdown + exclude_lists
     capture_headers = f"""
 ## Capturing request and response headers
