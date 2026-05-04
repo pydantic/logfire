@@ -62,6 +62,7 @@ from typing_extensions import Self, Unpack, assert_type
 
 from logfire._internal.auth import PYDANTIC_LOGFIRE_TOKEN_PATTERN, REGIONS
 from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
+from logfire._internal.collect_system_info import collect_package_info
 from logfire.exceptions import LogfireConfigError
 from logfire.sampling import SamplingOptions
 from logfire.sampling._tail_sampling import TailSamplingProcessor
@@ -1356,7 +1357,6 @@ class LogfireConfig(_LogfireConfigData):
 
     def _emit_configuration_span(self) -> None:
         """Emit a span describing the active Logfire configuration and installed packages."""
-        from logfire._internal.collect_system_info import collect_package_info
         from logfire._internal.main import Logfire
 
         with handle_internal_errors:
