@@ -79,6 +79,10 @@ if TYPE_CHECKING:
     import openai
     import pydantic_ai.models
     import requests
+    from anthropic.lib.bedrock import (
+        AnthropicBedrock as _AnthropicBedrock,
+        AsyncAnthropicBedrock as _AsyncAnthropicBedrock,
+    )
     from django.http import HttpRequest, HttpResponse
     from fastapi import FastAPI
     from flask.app import Flask
@@ -1344,12 +1348,12 @@ class Logfire:
         anthropic_client: (
             anthropic.Anthropic
             | anthropic.AsyncAnthropic
-            | anthropic.AnthropicBedrock
-            | anthropic.AsyncAnthropicBedrock
+            | _AnthropicBedrock
+            | _AsyncAnthropicBedrock
             | type[anthropic.Anthropic]
             | type[anthropic.AsyncAnthropic]
-            | type[anthropic.AnthropicBedrock]
-            | type[anthropic.AsyncAnthropicBedrock]
+            | type[_AnthropicBedrock]
+            | type[_AsyncAnthropicBedrock]
             | None
         ) = None,
         *,
@@ -1415,6 +1419,7 @@ class Logfire:
                 Use of this context manager is optional.
         """
         import anthropic
+        from anthropic.lib.bedrock import AnthropicBedrock, AsyncAnthropicBedrock
 
         from .integrations.llm_providers.anthropic import get_endpoint_config, is_async_client, on_response
         from .integrations.llm_providers.llm_provider import instrument_llm_provider
@@ -1428,8 +1433,8 @@ class Logfire:
             or (
                 anthropic.Anthropic,
                 anthropic.AsyncAnthropic,
-                anthropic.AnthropicBedrock,
-                anthropic.AsyncAnthropicBedrock,
+                AnthropicBedrock,
+                AsyncAnthropicBedrock,
             ),
             suppress_other_instrumentation,
             'Anthropic',
@@ -1505,8 +1510,14 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_print(self)
 
-    def instrument_asyncpg(self, **kwargs: Any) -> None:
-        """Instrument the `asyncpg` module so that spans are automatically created for each query."""
+    def instrument_asyncpg(self, capture_parameters: bool = False, **kwargs: Any) -> None:
+        """Instrument the `asyncpg` module so that spans are automatically created for each query.
+
+        Args:
+            capture_parameters: Set to `True` to capture query parameters as span attributes.
+                Be cautious when enabling this, as it may lead to sensitive data being captured in traces.
+            kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` method.
+        """
         from .integrations.asyncpg import instrument_asyncpg
 
         self._warn_if_not_initialized_for_instrumentation()
@@ -1514,6 +1525,7 @@ class Logfire:
             **{
                 'tracer_provider': self._config.get_tracer_provider(),
                 'meter_provider': self._config.get_meter_provider(),
+                'capture_parameters': capture_parameters,
                 **kwargs,
             },
         )

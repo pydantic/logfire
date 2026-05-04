@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import importlib
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from unittest import mock
 
@@ -51,7 +51,7 @@ def uninstrument():
 
 
 @asynccontextmanager
-async def create_test_server(app: aiohttp.web.Application) -> AsyncIterator[aiohttp.test_utils.BaseTestServer]:
+async def create_test_server(app: aiohttp.web.Application) -> AsyncGenerator[aiohttp.test_utils.BaseTestServer]:
     """Context manager that creates and starts a test server."""
     async with aiohttp.test_utils.TestServer(app) as server:
         await server.start_server()
