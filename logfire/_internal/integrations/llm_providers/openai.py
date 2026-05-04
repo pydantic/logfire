@@ -282,17 +282,28 @@ def _convert_content_part(part: object) -> MessagePart:
 
     part = cast('dict[str, Any]', part)
     part_type = part.get('type', 'unknown')
-    if part_type in ('text', 'output_text'):
+    if part_type in ('text', 'output_text', 'input_text'):
         return TextPart(type='text', content=part.get('text', ''))
     elif part_type == 'image_url':  # pragma: no cover
         url = part.get('image_url', {}).get('url', '')
         return UriPart(type='uri', uri=url, modality='image')
+    elif part_type == 'input_image':
+        # Responses API: image_url is a flat string (URL or data URI),
+        # not the nested {url: ...} dict used by Chat Completions.
+        return UriPart(type='uri', uri=part.get('image_url', ''), modality='image')
     elif part_type == 'input_audio':  # pragma: no cover
         return BlobPart(
             type='blob',
             content=part.get('input_audio', {}).get('data', ''),
             modality='audio',
         )
+    elif part_type == 'input_file':
+        # Responses API input_file may carry file_url, file_data (data URI),
+        # or just file_id. Prefer URI-bearing fields; fall through for file_id.
+        uri = part.get('file_url') or part.get('file_data')
+        if uri:
+            return UriPart(type='uri', uri=uri, modality='document')
+        return {**part, 'type': part_type}
     else:  # pragma: no cover
         # Return as generic dict for unknown types
         return {**part, 'type': part_type}
@@ -728,10 +739,10 @@ def input_to_events(inp: dict[str, Any], tool_call_id_to_name: dict[str, str]):
             else:
                 for content_item in content:
                     with contextlib.suppress(KeyError):
-                        if content_item['type'] == 'output_text':
+                        if content_item['type'] in ('output_text', 'input_text'):
                             events.append({'event.name': event_name, 'content': content_item['text'], 'role': role})
                             continue
-                    events.append(unknown_event(content_item))  # pragma: no cover
+                    events.append(unknown_event(content_item))
         elif typ == 'function_call':
             tool_call_id_to_name[inp['call_id']] = inp['name']
             events.append(
