@@ -175,8 +175,8 @@ Paris
                         'signature': """\
 BasicQA(question -> answer
     instructions='Answer questions with short factoid answers.'
-    question = Field(annotation=str required=True json_schema_extra={'__dspy_field_type': 'input', 'IS_TYPE_UNDEFINED': True, 'prefix': 'Question:', 'desc': '${question}'})
-    answer = Field(annotation=str required=True json_schema_extra={'desc': 'often between 1 and 5 words', '__dspy_field_type': 'output', 'IS_TYPE_UNDEFINED': True, 'prefix': 'Answer:'})
+    question = Field(annotation=str required=True json_schema_extra={'__dspy_field_type': 'input', 'prefix': 'Question:', 'desc': '${question}'})
+    answer = Field(annotation=str required=True json_schema_extra={'desc': 'often between 1 and 5 words', '__dspy_field_type': 'output', 'prefix': 'Answer:'})
 )\
 """,
                         'demos': [],
