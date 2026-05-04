@@ -22,7 +22,7 @@ def on_page_markdown(markdown: str, page: Page, config: Config, files: Files) ->
     markdown = logfire_print_help(markdown, page)
     markdown = install_logfire(markdown, page)
     markdown = integrations_metadata(markdown, page)
-    markdown = footer_web_frameworks(markdown, page)
+    markdown = footer_excluded_urls_and_headers(markdown, page)
     return markdown
 
 
@@ -180,23 +180,29 @@ def integrations_metadata(markdown: str, page: Page) -> str:
 
 
 otel_docs = {
-    'flask': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html',
-    'fastapi': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html',
-    'django': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/django/django.html',
-    'starlette': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/starlette/starlette.html',
-    'asgi': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html',
-    'wsgi': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/wsgi/wsgi.html',
-    'aiohttp': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aiohttp_server/aiohttp_server.html',
+    'integrations/web-frameworks/flask.md': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/flask/flask.html',
+    'integrations/web-frameworks/fastapi.md': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/fastapi/fastapi.html',
+    'integrations/web-frameworks/django.md': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/django/django.html',
+    'integrations/web-frameworks/starlette.md': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/starlette/starlette.html',
+    'integrations/web-frameworks/asgi.md': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html',
+    'integrations/web-frameworks/wsgi.md': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/wsgi/wsgi.html',
+    'integrations/web-frameworks/aiohttp.md': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aiohttp_server/aiohttp_server.html',
+    'integrations/http-clients/httpx.md': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/httpx/httpx.html',
+    'integrations/http-clients/requests.md': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/requests/requests.html',
+    'integrations/http-clients/aiohttp.md': 'https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/aiohttp_client/aiohttp_client.html',
 }
 
 
-def footer_web_frameworks(markdown: str, page: Page) -> str:
-    if (
-        not page.file.src_uri.startswith('integrations/web-frameworks/')
-        or page.file.src_uri == 'integrations/web-frameworks/gunicorn.md'
-        or page.file.src_path.endswith('index.md')
-    ):
+def footer_excluded_urls_and_headers(markdown: str, page: Page) -> str:
+    is_web_framework = (
+        page.file.src_uri.startswith('integrations/web-frameworks/')
+        and page.file.src_uri != 'integrations/web-frameworks/gunicorn.md'
+        and not page.file.src_path.endswith('index.md')
+    )
+    is_http_client = page.file.src_uri.startswith('integrations/http-clients/')
+    if not (is_web_framework or is_http_client):
         return markdown
+    docs_url = otel_docs[page.file.src_uri]
     exclude_lists = """
 ## Excluding URLs from instrumentation
 
@@ -211,12 +217,15 @@ def footer_web_frameworks(markdown: str, page: Page) -> str:
 """
     elif not page.file.name == 'wsgi':
         exclude_lists += f"""
-- [OpenTelemetry Documentation]({otel_docs[page.file.name]}#exclude-lists)
+- [OpenTelemetry Documentation]({docs_url}#exclude-lists)
 """
+    if is_http_client:
+        # http-clients pages already document headers/bodies inline
+        return markdown + exclude_lists
     capture_headers = f"""
 ## Capturing request and response headers
 
 - [Quick guide](../web-frameworks/index.md#capturing-http-server-request-and-response-headers)
-- [OpenTelemetry Documentation]({otel_docs[page.file.name]}#capture-http-request-and-response-headers)
+- [OpenTelemetry Documentation]({docs_url}#capture-http-request-and-response-headers)
 """
     return markdown + exclude_lists + capture_headers
