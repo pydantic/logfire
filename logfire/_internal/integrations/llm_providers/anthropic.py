@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import anthropic
 import httpx
+from anthropic.lib.bedrock import AnthropicBedrock, AsyncAnthropicBedrock
 from anthropic.types import Message, TextBlock, TextDelta, ToolUseBlock
 from anthropic.types.beta import BetaMessage, BetaTextBlock, BetaTextDelta, BetaToolUseBlock
 
@@ -356,13 +357,13 @@ def on_response(
 def is_async_client(
     client: type[anthropic.Anthropic]
     | type[anthropic.AsyncAnthropic]
-    | type[anthropic.AnthropicBedrock]
-    | type[anthropic.AsyncAnthropicBedrock],
+    | type[AnthropicBedrock]
+    | type[AsyncAnthropicBedrock],
 ):
     """Returns whether or not the `client` class is async."""
-    if issubclass(client, (anthropic.Anthropic, anthropic.AnthropicBedrock)):
+    if issubclass(client, (anthropic.Anthropic, AnthropicBedrock)):
         return False
-    assert issubclass(client, (anthropic.AsyncAnthropic, anthropic.AsyncAnthropicBedrock)), (
+    assert issubclass(client, (anthropic.AsyncAnthropic, AsyncAnthropicBedrock)), (
         f'Expected Anthropic, AsyncAnthropic, AnthropicBedrock or AsyncAnthropicBedrock type, got: {client}'
     )
     return True

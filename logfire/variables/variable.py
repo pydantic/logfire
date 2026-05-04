@@ -1,7 +1,7 @@
 from __future__ import annotations as _annotations
 
 import inspect
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Generator, Mapping, Sequence
 from contextlib import ExitStack, contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
@@ -165,7 +165,7 @@ class Variable(Generic[T_co]):
             return e
 
     @contextmanager
-    def override(self, value: T_co | ResolveFunction[T_co]) -> Iterator[None]:
+    def override(self, value: T_co | ResolveFunction[T_co]) -> Generator[None]:
         """Context manager to temporarily override this variable's value.
 
         Args:
@@ -402,7 +402,7 @@ def _with_value(details: ResolvedVariable[Any], new_value: T_co) -> ResolvedVari
 def targeting_context(
     targeting_key: str,
     variables: Sequence[Variable[Any]] | None = None,
-) -> Iterator[None]:
+) -> Generator[None]:
     """Set the targeting key for variable resolution within this context.
 
     The targeting key is used for deterministic label selection - the same targeting key
