@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import platform
-from datetime import datetime
+from datetime import datetime, timezone
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Generic, Literal, TypedDict, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypedDict, TypeVar, overload
 
-from typing_extensions import Self
+from typing_extensions import Self, deprecated
 
 from logfire import VERSION
 from logfire._internal.config import get_base_url_from_token
@@ -74,6 +74,19 @@ class RowQueryResults(TypedDict):
     rows: list[dict[str, Any]]
 
 
+class RowQueryResultsV2(TypedDict):
+    """The row-oriented results of a JSON-format query."""
+
+    columns: list[ColumnDetails]
+    rows: list[dict[str, Any]]
+
+
+class RowQueryResultsV2Explained(RowQueryResultsV2):
+    logical_plan: Any
+    physical_plan: Any
+    physical_plan_with_metrics: Any
+
+
 def _rows_to_columns(result: RowQueryResults) -> QueryResults:
     """Convert a row-oriented JSON query result to a column-oriented one."""
     columns_by_name: dict[str, ColumnData] = {col['name']: {**col, 'values': []} for col in result['columns']}
@@ -83,11 +96,47 @@ def _rows_to_columns(result: RowQueryResults) -> QueryResults:
     return {'columns': list(columns_by_name.values())}
 
 
+_FF_DATA_TYPE_KEYS_TO_REMOVE = {'dict_id', 'dict_is_ordered', 'metadata'}
+
+
+def _transform_fields_for_backwards_compatibility(obj: Any) -> Any:
+    """Recursively removes all occurrences of _FF_DATA_TYPE_KEYS_TO_REMOVE as keys from arbitrary nesting within `obj`."""
+    if isinstance(obj, dict):
+        new_obj: dict[str, Any] = {}
+        for k, v in obj.items():  # type: ignore
+            if k in _FF_DATA_TYPE_KEYS_TO_REMOVE:
+                continue
+            if k == 'data_type':
+                k = 'datatype'
+            new_obj[k] = _transform_fields_for_backwards_compatibility(v)
+        return new_obj
+
+    elif isinstance(obj, list):
+        return [_transform_fields_for_backwards_compatibility(item) for item in obj]  # type: ignore
+
+    else:
+        return obj
+
+
+def _map_v2_result(obj: dict[str, Any]) -> RowQueryResultsV2 | RowQueryResultsV2Explained:
+    mapped: RowQueryResultsV2 | RowQueryResultsV2Explained = {
+        'columns': _transform_fields_for_backwards_compatibility(obj['schema']['fields']),
+        'rows': obj['data'],
+    }
+    if 'logical_plan' in obj:
+        # All the plan keys are guaranteed to be present:
+        for k in ['logical_plan', 'physical_plan', 'physical_plan_with_metrics']:
+            mapped[k] = obj[k]
+
+    return mapped
+
+
 T = TypeVar('T', bound=BaseClient)
 
 
 _ACCEPT = Literal['application/json', 'application/vnd.apache.arrow.stream', 'text/csv']
 _USER_AGENT = f'logfire-sdk-python/{VERSION} (Python {platform.python_version()}, os {platform.platform()}, arch {platform.machine()})'
+_MIN_DATETIME = datetime(2020, 1, 1, tzinfo=timezone.utc)
 
 
 class _BaseLogfireQueryClient(Generic[T]):
@@ -118,6 +167,34 @@ class _BaseLogfireQueryClient(Generic[T]):
         if max_timestamp is not None:
             params['max_timestamp'] = max_timestamp.isoformat()
         return params
+
+    def _build_v2_body(
+        self,
+        sql: str,
+        min_timestamp: datetime | None,
+        max_timestamp: datetime | None,
+        limit: int | None,
+        params: dict[str, str] | None = None,
+        timezone: str | None = None,
+        deployment_environment: str | list[str] | None = None,
+        explain: bool = False,
+    ) -> dict[str, Any]:
+        body: dict[str, Any] = {'sql': sql, 'explain': explain, 'include_schema': True}
+
+        if limit is not None:
+            body['limit'] = limit
+        body['min_timestamp'] = min_timestamp.isoformat() if min_timestamp is not None else _MIN_DATETIME
+        if max_timestamp is not None:
+            body['max_timestamp'] = max_timestamp.isoformat()
+        if params is not None:
+            body['params'] = params
+        if timezone is not None:
+            body['timezone'] = timezone
+        if isinstance(deployment_environment, str):
+            deployment_environment = [deployment_environment]
+        if deployment_environment is not None:
+            body['deployment_environment'] = deployment_environment
+        return body
 
     def handle_response_errors(self, response: Response) -> None:
         if response.status_code == 400:  # pragma: no cover
@@ -168,6 +245,7 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
                 'The read token info response is missing required fields: organization_name or project_name'
             )
 
+    @deprecated('query_json() is deprecated, use query_json_rows() instead', stacklevel=2)
     def query_json(
         self,
         sql: str,
@@ -184,22 +262,90 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
         )
         return _rows_to_columns(row_results)
 
+    # Note: on the next major version, move the keyword-only marker after `sql`:
+    @overload
+    @deprecated('Using query_json_rows() without a min_timestamp is deprecated')
+    def query_json_rows(
+        self,
+        sql: str,
+        min_timestamp: None = None,
+        max_timestamp: datetime | None = None,
+        limit: int | None = None,
+        *,
+        params: dict[str, str] | None = None,
+        timezone: str | None = None,
+        deployment_environment: str | list[str] | None = None,
+        explain: Literal[True],
+    ) -> RowQueryResultsV2Explained: ...
+
+    @overload
+    def query_json_rows(
+        self,
+        sql: str,
+        min_timestamp: datetime,
+        max_timestamp: datetime | None = None,
+        limit: int | None = None,
+        *,
+        params: dict[str, str] | None = None,
+        timezone: str | None = None,
+        deployment_environment: str | list[str] | None = None,
+        explain: Literal[True],
+    ) -> RowQueryResultsV2Explained: ...
+
+    @overload
+    @deprecated('Using query_json_rows() without a min_timestamp is deprecated')
+    def query_json_rows(
+        self,
+        sql: str,
+        min_timestamp: None = None,
+        max_timestamp: datetime | None = None,
+        limit: int | None = None,
+        *,
+        params: dict[str, str] | None = None,
+        timezone: str | None = None,
+        deployment_environment: str | list[str] | None = None,
+        explain: Literal[False] = ...,
+    ) -> RowQueryResultsV2: ...
+
+    @overload
+    def query_json_rows(
+        self,
+        sql: str,
+        min_timestamp: datetime,
+        max_timestamp: datetime | None = None,
+        limit: int | None = None,
+        *,
+        params: dict[str, str] | None = None,
+        timezone: str | None = None,
+        deployment_environment: str | list[str] | None = None,
+        explain: Literal[False] = ...,
+    ) -> RowQueryResultsV2: ...
+
     def query_json_rows(
         self,
         sql: str,
         min_timestamp: datetime | None = None,
         max_timestamp: datetime | None = None,
         limit: int | None = None,
-    ) -> RowQueryResults:
+        *,
+        params: dict[str, str] | None = None,
+        timezone: str | None = None,
+        deployment_environment: str | list[str] | None = None,
+        explain: bool = False,
+    ) -> RowQueryResultsV2 | RowQueryResultsV2Explained:
         """Query Logfire data and return the results as a row-oriented dictionary."""
-        response = self._query(
+        response = self._query_v2(
             accept='application/json',
             sql=sql,
             min_timestamp=min_timestamp,
             max_timestamp=max_timestamp,
             limit=limit,
+            params=params,
+            timezone=timezone,
+            deployment_environment=deployment_environment,
+            explain=explain,
         )
-        return response.json()
+        return _map_v2_result(response.json())
 
     def query_arrow(  # pyright: ignore[reportUnknownParameterType]
         self,
@@ -262,6 +408,34 @@ class LogfireQueryClient(_BaseLogfireQueryClient[Client]):
             sql=sql, accept=accept, min_timestamp=min_timestamp, max_timestamp=max_timestamp, limit=limit
         )
         response = self.client.get('/v1/query', headers={'accept': accept}, params=params)
+        self.handle_response_errors(response)
+        return response
+
+    def _query_v2(
+        self,
+        *,
+        accept: _ACCEPT,
+        sql: str,
+        min_timestamp: datetime | None = None,
+        max_timestamp: datetime | None = None,
+        limit: int | None = None,
+        params: dict[str, str] | None = None,
+        timezone: str | None = None,
+        deployment_environment: str | list[str] | None = None,
+        explain: bool = False,
+    ) -> Response:
+
+        body = self._build_v2_body(
+            sql=sql,
+            min_timestamp=min_timestamp,
+            max_timestamp=max_timestamp,
+            limit=limit,
+            params=params,
+            timezone=timezone,
+            deployment_environment=deployment_environment,
+            explain=explain,
+        )
+        response = self.client.post('/v2/query', headers={'accept': accept}, json=body)
         self.handle_response_errors(response)
         return response
 
