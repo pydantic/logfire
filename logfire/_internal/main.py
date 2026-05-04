@@ -1419,7 +1419,13 @@ class Logfire:
                 Use of this context manager is optional.
         """
         import anthropic
-        from anthropic.lib.bedrock import AnthropicBedrock, AsyncAnthropicBedrock
+
+        if TYPE_CHECKING:
+            AnthropicBedrock = _AnthropicBedrock
+            AsyncAnthropicBedrock = _AsyncAnthropicBedrock
+        else:
+            AnthropicBedrock = anthropic.AnthropicBedrock
+            AsyncAnthropicBedrock = anthropic.AsyncAnthropicBedrock
 
         from .integrations.llm_providers.anthropic import get_endpoint_config, is_async_client, on_response
         from .integrations.llm_providers.llm_provider import instrument_llm_provider
