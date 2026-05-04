@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import anthropic
 import httpx
+from anthropic.lib.bedrock import AnthropicBedrock, AsyncAnthropicBedrock
 from anthropic.types import Message, TextBlock, TextDelta, ToolUseBlock
 from anthropic.types.beta import BetaMessage, BetaTextBlock, BetaTextDelta, BetaToolUseBlock
 
@@ -45,12 +46,8 @@ from .usage import get_usage_attributes
 if TYPE_CHECKING:
     from anthropic._models import FinalRequestOptions
     from anthropic._types import ResponseT
-    from anthropic.lib.bedrock import AnthropicBedrock, AsyncAnthropicBedrock
 
     from ...main import LogfireSpan
-else:
-    AnthropicBedrock = anthropic.AnthropicBedrock
-    AsyncAnthropicBedrock = anthropic.AsyncAnthropicBedrock
 
 __all__ = (
     'get_endpoint_config',
