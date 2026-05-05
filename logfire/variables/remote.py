@@ -18,6 +18,7 @@ from requests import RequestException, Session
 from logfire._internal.client import UA_HEADER
 from logfire._internal.config import VariablesOptions
 from logfire._internal.server_response import ServerResponseCallback, install_logfire_response_hook
+from logfire._internal.telemetry_header import TELEMETRY_HEADER_NAME, build_telemetry_header
 from logfire._internal.utils import UnexpectedResponse
 from logfire.variables.abstract import (
     ResolvedVariable,
@@ -61,6 +62,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
         token: str,
         options: VariablesOptions,
         server_response_hook: ServerResponseCallback | None = None,
+        telemetry_header: str | None = None,
     ):
         """Create a new remote variable provider.
 
@@ -70,6 +72,10 @@ class LogfireRemoteVariableProvider(VariableProvider):
             options: Options for retrieving remote variables.
             server_response_hook: Optional override for the API response hook
                 (see `AdvancedOptions.server_response_hook`).
+            telemetry_header: Pre-built `X-Logfire-Telemetry` header value carrying the
+                SDK's `service.instance.id` so it matches the OTLP resource attribute.
+                When None (e.g. lazily instantiated outside of `_initialize`), a base
+                header without config-derived fields is built here.
         """
         block_before_first_resolve = options.block_before_first_resolve
         polling_interval = options.polling_interval
@@ -77,8 +83,15 @@ class LogfireRemoteVariableProvider(VariableProvider):
         self._base_url = base_url
         self._token = token
         self._server_response_hook = server_response_hook
+        self._telemetry_header = telemetry_header if telemetry_header is not None else build_telemetry_header()
         self._session = Session()
-        self._session.headers.update({'Authorization': f'bearer {token}', 'User-Agent': UA_HEADER})
+        self._session.headers.update(
+            {
+                'Authorization': f'bearer {token}',
+                'User-Agent': UA_HEADER,
+                TELEMETRY_HEADER_NAME: self._telemetry_header,
+            }
+        )
         install_logfire_response_hook(self._session, server_response_hook)
         self._timeout = options.timeout
         self._block_before_first_fetch = block_before_first_resolve
@@ -204,6 +217,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
                         {
                             'Authorization': f'bearer {self._token}',
                             'User-Agent': UA_HEADER,
+                            TELEMETRY_HEADER_NAME: self._telemetry_header,
                             'Accept': 'text/event-stream',
                             'Cache-Control': 'no-cache',
                         }

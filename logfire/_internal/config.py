@@ -112,6 +112,7 @@ from .metrics import ProxyMeterProvider
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions
 from .server_response import ServerResponseCallback, install_logfire_response_hook
 from .stack_info import warn_at_user_stacklevel
+from .telemetry_header import TELEMETRY_HEADER_NAME, build_telemetry_header
 from .tracer import OPEN_SPANS, PendingSpanProcessor, ProxyTracerProvider
 from .utils import (
     SeededRandomIdGenerator,
@@ -935,6 +936,9 @@ class LogfireConfig(_LogfireConfigData):
         # This ensures that we only call OTEL's global set_tracer_provider once to avoid warnings.
         self._has_set_providers = False
         self._initialized = False
+        # Resolved in `_initialize` once the resource (and therefore its `service.instance.id`)
+        # exists; until then there is no value to advertise to the backend.
+        self._service_instance_id: str = ''
         self._lock = RLock()
 
     def configure(
@@ -1042,6 +1046,9 @@ class LogfireConfig(_LogfireConfigData):
             # https://github.com/open-telemetry/semantic-conventions/blob/e44693245eef815071402b88c3a44a8f7f8f24c8/docs/resource/README.md#service-experimental
             # Both recommend generating a UUID.
             resource = Resource({'service.instance.id': uuid4().hex}).merge(resource)
+            # Cache the resolved service.instance.id so the X-Logfire-Telemetry header
+            # advertises the same UUID the OTLP resource attributes carry.
+            self._service_instance_id = str(resource.attributes.get('service.instance.id', ''))
 
             head = self.sampling.head
             sampler: Sampler | None = None
@@ -1171,9 +1178,14 @@ class LogfireConfig(_LogfireConfigData):
                         thread.start()
 
                     # Create exporters for each token
+                    telemetry_header_value = build_telemetry_header(self)
                     for token in token_list:
                         base_url = self.advanced.generate_base_url(token)
-                        headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': token}
+                        headers = {
+                            'User-Agent': f'logfire/{VERSION}',
+                            'Authorization': token,
+                            TELEMETRY_HEADER_NAME: telemetry_header_value,
+                        }
                         session = OTLPExporterHttpSession()
                         install_logfire_response_hook(session, self.advanced.server_response_hook)
                         span_exporter = BodySizeCheckingOTLPSpanExporter(
@@ -1353,6 +1365,7 @@ class LogfireConfig(_LogfireConfigData):
                     token=self.api_key,
                     options=self.variables,
                     server_response_hook=self.advanced.server_response_hook,
+                    telemetry_header=build_telemetry_header(self),
                 )
             multi_log_processor = SynchronousMultiLogRecordProcessor()
             for processor in log_record_processors:
@@ -1486,6 +1499,7 @@ class LogfireConfig(_LogfireConfigData):
                 token=api_key,
                 options=options,
                 server_response_hook=self.advanced.server_response_hook,
+                telemetry_header=build_telemetry_header(self),
             )
             self._variable_provider = provider
             provider.start(Logfire(config=self))
@@ -1504,7 +1518,12 @@ class LogfireConfig(_LogfireConfigData):
     def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
         session = requests.Session()
         install_logfire_response_hook(session, self.advanced.server_response_hook)
-        return LogfireCredentials.from_token(token, session, self.advanced.generate_base_url(token))
+        return LogfireCredentials.from_token(
+            token,
+            session,
+            self.advanced.generate_base_url(token),
+            telemetry_header=build_telemetry_header(self),
+        )
 
     def _ensure_flush_after_aws_lambda(self):
         """Ensure that `force_flush` is called after an AWS Lambda invocation.
@@ -1698,7 +1717,9 @@ class LogfireCredentials:
                 raise LogfireConfigError(f'Invalid credentials file: {path} - {e}') from e
 
     @classmethod
-    def from_token(cls, token: str, session: requests.Session, base_url: str) -> Self | None:
+    def from_token(
+        cls, token: str, session: requests.Session, base_url: str, telemetry_header: str | None = None
+    ) -> Self | None:
         """Check that the token is valid.
 
         Issue a warning if the Logfire API is unreachable, or we get a response other than 200 or 401.
@@ -1708,11 +1729,14 @@ class LogfireCredentials:
         Raises:
             LogfireConfigError: If the token is invalid.
         """
+        headers: dict[str, str] = {**COMMON_REQUEST_HEADERS, 'Authorization': token}
+        if telemetry_header is not None:
+            headers[TELEMETRY_HEADER_NAME] = telemetry_header
         try:
             response = session.get(
                 urljoin(base_url, '/v1/info'),
                 timeout=10,
-                headers={**COMMON_REQUEST_HEADERS, 'Authorization': token},
+                headers=headers,
             )
         except requests.RequestException as e:
             warnings.warn(f'Logfire API is unreachable, you may have trouble sending data. Error: {e}')
