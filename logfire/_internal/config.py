@@ -110,6 +110,7 @@ from .integrations.executors import instrument_executors
 from .logs import ProxyLoggerProvider
 from .metrics import ProxyMeterProvider
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions
+from .server_response import install_logfire_response_hook
 from .stack_info import warn_at_user_stacklevel
 from .tracer import OPEN_SPANS, PendingSpanProcessor, ProxyTracerProvider
 from .utils import (
@@ -1148,6 +1149,7 @@ class LogfireConfig(_LogfireConfigData):
                         base_url = self.advanced.generate_base_url(token)
                         headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': token}
                         session = OTLPExporterHttpSession()
+                        install_logfire_response_hook(session)
                         span_exporter = BodySizeCheckingOTLPSpanExporter(
                             endpoint=urljoin(base_url, '/v1/traces'),
                             session=session,
@@ -1472,7 +1474,9 @@ class LogfireConfig(_LogfireConfigData):
             )
 
     def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
-        return LogfireCredentials.from_token(token, requests.Session(), self.advanced.generate_base_url(token))
+        session = requests.Session()
+        install_logfire_response_hook(session)
+        return LogfireCredentials.from_token(token, session, self.advanced.generate_base_url(token))
 
     def _ensure_flush_after_aws_lambda(self):
         """Ensure that `force_flush` is called after an AWS Lambda invocation.
