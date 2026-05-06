@@ -110,7 +110,7 @@ from .integrations.executors import instrument_executors
 from .logs import ProxyLoggerProvider
 from .metrics import ProxyMeterProvider
 from .scrubbing import NOOP_SCRUBBER, BaseScrubber, Scrubber, ScrubbingOptions
-from .server_response import install_logfire_response_hook
+from .server_response import TransportResponseHook, install_logfire_response_hook
 from .stack_info import warn_at_user_stacklevel
 from .tracer import OPEN_SPANS, PendingSpanProcessor, ProxyTracerProvider
 from .utils import (
@@ -215,6 +215,29 @@ class AdvancedOptions:
     Defaults to the `LOGFIRE_EMIT_CONFIGURATION_SPAN` environment variable, or `False`.
 
     This log and configuration is experimental and may be modified or removed.
+    """
+
+    transport_response_hook: TransportResponseHook | None = None
+    """Optional callback invoked for every HTTP response received from the Logfire API.
+
+    This applies to OTLP exports, credential / project initialisation, and the remote
+    variables provider. The default surfaces `X-Logfire-Warning` and `X-Logfire-Error`
+    headers as `LogfireServerWarning` / `LogfireServerError`.
+
+    Setting this replaces the default; pass `lambda response: None` to opt out entirely,
+    or compose your own logic on top of `process_logfire_response_headers`:
+
+    ```python
+    from logfire._internal.server_response import process_logfire_response_headers
+
+    def hook(response):
+        my_metric.inc(response.status_code)
+        process_logfire_response_headers(response)
+
+    logfire.configure(advanced=AdvancedOptions(transport_response_hook=hook))
+    ```
+
+    Raise from the hook to abort the calling code path.
     """
 
     def generate_base_url(self, token: str) -> str:
@@ -1098,7 +1121,7 @@ class LogfireConfig(_LogfireConfigData):
                     # If we don't have tokens or credentials from a file,
                     # try initializing a new project and writing a new creds file.
                     # note, we only do this if `send_to_logfire` is explicitly `True`, not 'if-token-present'
-                    client = LogfireClient.from_url(self.advanced.base_url)
+                    client = LogfireClient.from_url(self.advanced.base_url, self.advanced.transport_response_hook)
                     credentials = LogfireCredentials.initialize_project(client=client)
                     credentials.write_creds_file(self.data_dir)
 
@@ -1149,7 +1172,7 @@ class LogfireConfig(_LogfireConfigData):
                         base_url = self.advanced.generate_base_url(token)
                         headers = {'User-Agent': f'logfire/{VERSION}', 'Authorization': token}
                         session = OTLPExporterHttpSession()
-                        install_logfire_response_hook(session)
+                        install_logfire_response_hook(session, self.advanced.transport_response_hook)
                         span_exporter = BodySizeCheckingOTLPSpanExporter(
                             endpoint=urljoin(base_url, '/v1/traces'),
                             session=session,
@@ -1326,6 +1349,7 @@ class LogfireConfig(_LogfireConfigData):
                     base_url=base_url,
                     token=self.api_key,
                     options=self.variables,
+                    transport_response_hook=self.advanced.transport_response_hook,
                 )
             multi_log_processor = SynchronousMultiLogRecordProcessor()
             for processor in log_record_processors:
@@ -1475,7 +1499,7 @@ class LogfireConfig(_LogfireConfigData):
 
     def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
         session = requests.Session()
-        install_logfire_response_hook(session)
+        install_logfire_response_hook(session, self.advanced.transport_response_hook)
         return LogfireCredentials.from_token(token, session, self.advanced.generate_base_url(token))
 
     def _ensure_flush_after_aws_lambda(self):

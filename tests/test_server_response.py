@@ -76,3 +76,57 @@ def test_response_hook_installed_on_logfire_client():
         )
         with pytest.raises(LogfireServerError, match='no longer supported'):
             client.get_user_information()
+
+
+def test_custom_transport_response_hook_replaces_default():
+    """A custom hook replaces the built-in header processor entirely."""
+    from logfire._internal.auth import UserToken
+    from logfire._internal.client import LogfireClient
+
+    seen: list[requests.Response] = []
+
+    def my_hook(response: requests.Response) -> None:
+        seen.append(response)
+
+    token = UserToken(
+        token='pylf_v1_us_xxx',
+        base_url='https://logfire-us.pydantic.dev',
+        expiration='2099-12-31T23:59:59',
+    )
+    client = LogfireClient(user_token=token, transport_response_hook=my_hook)
+
+    with requests_mock.Mocker() as m:
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/account/me',
+            json={'name': 'me'},
+            # Both headers set: default would warn AND raise; custom hook ignores them.
+            headers={WARNING_HEADER_NAME: 'deprecated', ERROR_HEADER_NAME: 'broken'},
+        )
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter('always')
+            client.get_user_information()
+
+    assert len(seen) == 1
+    assert not any(isinstance(w.message, LogfireServerWarning) for w in caught)
+
+
+def test_transport_response_hook_can_opt_out():
+    """`lambda response: None` disables both warnings and errors."""
+    from logfire._internal.auth import UserToken
+    from logfire._internal.client import LogfireClient
+
+    token = UserToken(
+        token='pylf_v1_us_xxx',
+        base_url='https://logfire-us.pydantic.dev',
+        expiration='2099-12-31T23:59:59',
+    )
+    client = LogfireClient(user_token=token, transport_response_hook=lambda response: None)
+
+    with requests_mock.Mocker() as m:
+        m.get(
+            'https://logfire-us.pydantic.dev/v1/account/me',
+            json={'name': 'me'},
+            headers={ERROR_HEADER_NAME: 'no longer supported'},
+        )
+        # No exception raised.
+        assert client.get_user_information() == {'name': 'me'}
