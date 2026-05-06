@@ -4,17 +4,24 @@ description: "Guide for generating and downloading a Logfire usage report for se
 ---
 # Download Usage Report
 
-This page shows you how to download your usage report from your self-hosted logfire instance.
+This page shows you how to download your usage report from your self-hosted Logfire instance.
 
 ---
 
 ## Access the Meta Organization
 
-First, you need to login to your ```logfire-meta``` organization.
-If you never did this, you can check [Accessing the Meta Organization](./troubleshooting.md#accessing-the-meta-organization) for a quick way to access.
+First, log in to your `logfire-meta` organization.
+If you've never done this, see [Accessing the Meta Organization](./troubleshooting.md#accessing-the-meta-organization) for a quick way in.
+
 !!! note
     We recommend generating an invite link to invite your own users so you don't have to use the above method again.
 
-Once inside the Meta Org, access the ```logfire-meta``` project (```https://<your-logfire-hostname>/logfire-meta/logfire-meta```) and you will see the **Download usage report** button at the top-right corner
+## Download the Usage Report
+
+1. Open the **Settings** menu.
+2. Under **Platform admin**, select **Download usage**.
+3. Click the **Download usage report** button.
+
+The report covers the last six months for your self-hosted Logfire instance and can be shared with Pydantic for billing reconciliation.
 
 ![Download usage report](../../images/self-hosted/usage-report.png)
