@@ -227,7 +227,7 @@ class AdvancedOptions:
     Setting this replaces the default; pass `lambda response: None` to opt out entirely,
     or compose your own logic on top of `process_logfire_response_headers`:
 
-    ```python
+    ```python skip-run="true" skip-reason="needs metric/logfire setup"
     from logfire._internal.server_response import process_logfire_response_headers
 
     def hook(response):
