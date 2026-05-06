@@ -813,7 +813,10 @@ class _LogfireConfigData:
             if isinstance(id_generator, dict) and list(id_generator.keys()) == ['seed', '_ms_timestamp_generator']:  # pyright: ignore[reportUnknownArgumentType]  # pragma: no branch
                 advanced.id_generator = SeededRandomIdGenerator(**id_generator)  # pyright: ignore[reportUnknownArgumentType]
         elif advanced is None:
-            advanced = AdvancedOptions(base_url=param_manager.load_param('base_url'))
+            advanced = AdvancedOptions(
+                base_url=param_manager.load_param('base_url'),
+                emit_configuration_span=param_manager.load_param('emit_configuration_span'),
+            )
         self.advanced = advanced
 
         self.additional_span_processors = additional_span_processors

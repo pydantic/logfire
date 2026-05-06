@@ -1623,6 +1623,15 @@ def test_configuration_span_emitted_when_opted_in(config_kwargs: dict[str, Any],
         assert forbidden not in cfg
 
 
+def test_configuration_span_enabled_via_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
+    from logfire._internal.config import GLOBAL_CONFIG
+
+    monkeypatch.setenv('LOGFIRE_EMIT_CONFIGURATION_SPAN', '1')
+    # No `advanced=` so the param manager picks up the env var.
+    configure(send_to_logfire=False, console=False, inspect_arguments=False)
+    assert GLOBAL_CONFIG.advanced.emit_configuration_span is True
+
+
 def test_exit_open_spans_exports_suspended_generator_span_before_shutdown() -> None:
     script_path = Path(__file__).parent / 'import_used_for_tests' / 'open_span_at_shutdown.py'
 
