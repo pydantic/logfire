@@ -25,6 +25,13 @@ claude plugin marketplace add pydantic/skills
 claude plugin install logfire@pydantic-skills
 ```
 
+The plugin bundles skills, commands, and an MCP server. Claude will use the relevant skills
+automatically, or you can invoke a command directly:
+
+```
+/instrumentation
+```
+
 ### Cross-Agent
 
 Install the Logfire skill using the [skills CLI](https://github.com/vercel-labs/skills):
@@ -52,3 +59,4 @@ Add `--claude` to install into `.claude/skills` instead of the default `.agents`
 
 - Source repository: [github.com/pydantic/skills](https://github.com/pydantic/skills)
 - Open standards: [agentskills.io](https://agentskills.io), [library-skills.io](https://library-skills.io)
+- Claude Code skills documentation: [code.claude.com/docs/en/skills](https://code.claude.com/docs/en/skills)
