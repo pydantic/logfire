@@ -1482,6 +1482,7 @@ class LogfireConfig(_LogfireConfigData):
                 base_url=base_url,
                 token=api_key,
                 options=options,
+                transport_response_hook=self.advanced.transport_response_hook,
             )
             self._variable_provider = provider
             provider.start(Logfire(config=self))
