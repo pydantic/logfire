@@ -215,7 +215,7 @@ def footer_excluded_urls_and_headers(markdown: str, page: Page) -> str:
     `instrument_asgi` does accept an `excluded_urls` parameter, but does not support specifying said URLs via an environment variable,
     unlike other instrumentations.
 """
-    elif not page.file.name == 'wsgi':
+    elif page.file.name != 'wsgi':
         exclude_lists += f"""
 - [OpenTelemetry Documentation]({docs_url}#exclude-lists)
 """
