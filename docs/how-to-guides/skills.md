@@ -40,6 +40,9 @@ Install the Logfire skill using the [skills CLI](https://github.com/vercel-labs/
 npx skills add pydantic/skills
 ```
 
+The CLI is interactive and lets you pick individual skills (e.g. `logfire-instrumentation` or
+`logfire-query`) rather than installing the whole bundle.
+
 This works with 30+ agents via the [agentskills.io](https://agentskills.io) standard, including
 Claude Code, Codex, Cursor, and Gemini CLI.
 
@@ -60,3 +63,4 @@ Add `--claude` to install into `.claude/skills` instead of the default `.agents`
 - Source repository: [github.com/pydantic/skills](https://github.com/pydantic/skills)
 - Open standards: [agentskills.io](https://agentskills.io), [library-skills.io](https://library-skills.io)
 - Claude Code skills documentation: [code.claude.com/docs/en/skills](https://code.claude.com/docs/en/skills)
+- Claude Code plugins documentation: [code.claude.com/docs/en/plugins](https://code.claude.com/docs/en/plugins)
