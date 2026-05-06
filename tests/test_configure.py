@@ -1603,8 +1603,7 @@ def test_configuration_span_not_emitted_by_default(config_kwargs: dict[str, Any]
 
 
 def test_configuration_span_emitted_when_opted_in(config_kwargs: dict[str, Any], exporter: TestExporter):
-    advanced = dataclasses.replace(config_kwargs['advanced'], emit_configuration_span=True)
-    configure(**{**config_kwargs, 'advanced': advanced})
+    configure(**config_kwargs, emit_configuration_span=True)
 
     spans = [
         s for s in exporter.exported_spans_as_dict(parse_json_attributes=True) if s['name'] == 'Logfire configured'
@@ -1627,9 +1626,8 @@ def test_configuration_span_enabled_via_env_var(monkeypatch: pytest.MonkeyPatch)
     from logfire._internal.config import GLOBAL_CONFIG
 
     monkeypatch.setenv('LOGFIRE_EMIT_CONFIGURATION_SPAN', '1')
-    # No `advanced=` so the param manager picks up the env var.
     configure(send_to_logfire=False, console=False, inspect_arguments=False)
-    assert GLOBAL_CONFIG.advanced.emit_configuration_span is True
+    assert GLOBAL_CONFIG.emit_configuration_span is True
 
 
 def test_exit_open_spans_exports_suspended_generator_span_before_shutdown() -> None:
