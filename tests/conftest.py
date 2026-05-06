@@ -122,38 +122,8 @@ def config_kwargs(
     )
 
 
-_original_emit_configuration_span: Any = None
-
-
 @pytest.fixture(autouse=True)
-def _disable_configured_span(monkeypatch: pytest.MonkeyPatch) -> None:  # pyright: ignore[reportUnusedFunction]
-    """Skip the "Logfire configured" span in tests.
-
-    The span is useful in production but adds noise to nearly every snapshot test
-    and would shift trace/span ids when using `IncrementalIdGenerator`.
-    A dedicated test in `test_configure.py` exercises the emit path explicitly.
-    """
-    from logfire._internal.config import LogfireConfig
-
-    global _original_emit_configuration_span
-    if _original_emit_configuration_span is None:
-        _original_emit_configuration_span = LogfireConfig._emit_configuration_span  # pyright: ignore[reportPrivateUsage]
-
-    def _no_op(self: LogfireConfig) -> None:
-        pass
-
-    monkeypatch.setattr(LogfireConfig, '_emit_configuration_span', _no_op)
-
-
-@pytest.fixture
-def real_emit_configuration_span() -> Any:
-    """Return the unpatched `_emit_configuration_span` so a single test can exercise it."""
-    assert _original_emit_configuration_span is not None
-    return _original_emit_configuration_span
-
-
-@pytest.fixture(autouse=True)
-def config(_disable_configured_span: None, config_kwargs: dict[str, Any], metrics_reader: InMemoryMetricReader) -> None:
+def config(config_kwargs: dict[str, Any], metrics_reader: InMemoryMetricReader) -> None:
     logfire.variables_clear()
     configure(
         **config_kwargs,

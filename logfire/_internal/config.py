@@ -202,6 +202,15 @@ class AdvancedOptions:
     serialized configuration sent to child processes. See the [distributed tracing guide](https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#thread-and-pool-executors) for more details.
     """
 
+    emit_configuration_span: bool = False
+    """Whether to emit a `Logfire configured` log span after `logfire.configure()`.
+
+    The span includes the SDK version, installed package versions, and a small set of
+    non-sensitive configuration flags (sampling rate, console enabled, etc.). Identity
+    and secrets (token, api_key, service name, environment, base URL) are never sent.
+    Useful for diagnosing setup issues from the Logfire UI. Off by default.
+    """
+
     def generate_base_url(self, token: str) -> str:
         if self.base_url is not None:
             return self.base_url
@@ -1356,19 +1365,32 @@ class LogfireConfig(_LogfireConfigData):
         self._emit_configuration_span()
 
     def _emit_configuration_span(self) -> None:
-        """Emit a span describing the active Logfire configuration and installed packages."""
+        """Emit a span describing the active Logfire configuration and installed packages.
+
+        Only runs when `advanced.emit_configuration_span` is `True`. Sends a curated set
+        of non-sensitive configuration fields - never the token, api_key, or opaque
+        objects like span/log processors.
+        """
+        if not self.advanced.emit_configuration_span:
+            return
+
         from logfire._internal.main import Logfire
 
         with handle_internal_errors:
-            config_dict: dict[str, Any] = {}
-            for f in dataclasses.fields(_LogfireConfigData):
-                value = getattr(self, f.name, None)
-                if f.name in ('token', 'api_key') and value:
-                    config_dict[f.name] = '[REDACTED]'
-                elif dataclasses.is_dataclass(value) and not isinstance(value, type):
-                    config_dict[f.name] = {sf.name: getattr(value, sf.name) for sf in dataclasses.fields(value)}
-                else:
-                    config_dict[f.name] = value
+            sampling = self.sampling
+            config_dict: dict[str, Any] = {
+                'send_to_logfire': self.send_to_logfire,
+                'console_enabled': bool(self.console),
+                'scrubbing_enabled': bool(self.scrubbing),
+                'inspect_arguments': self.inspect_arguments,
+                'min_level': self.min_level,
+                'add_baggage_to_attributes': self.add_baggage_to_attributes,
+                'distributed_tracing': self.distributed_tracing,
+                'head_sample_rate': sampling.head if isinstance(sampling.head, (int, float)) else None,
+                'tail_sampling_enabled': sampling.tail is not None,
+                'code_source_set': self.code_source is not None,
+                'variables_set': self.variables is not None,
+            }
             Logfire(config=self).info(
                 'Logfire configured',
                 logfire_version=VERSION,

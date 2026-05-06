@@ -1597,14 +1597,14 @@ def test_configure_twice_no_warning(caplog: LogCaptureFixture):
     assert not caplog.messages
 
 
-def test_configuration_span_emitted(real_emit_configuration_span: Any, exporter: TestExporter):
-    from logfire._internal.config import GLOBAL_CONFIG
+def test_configuration_span_not_emitted_by_default(config_kwargs: dict[str, Any], exporter: TestExporter):
+    configure(**config_kwargs)
+    assert not [s for s in exporter.exported_spans_as_dict() if s['name'] == 'Logfire configured']
 
-    GLOBAL_CONFIG.token = 'pylf_v1_us_FAKE_TOKEN_xyz'
-    try:
-        real_emit_configuration_span(GLOBAL_CONFIG)
-    finally:
-        GLOBAL_CONFIG.token = None
+
+def test_configuration_span_emitted_when_opted_in(config_kwargs: dict[str, Any], exporter: TestExporter):
+    advanced = dataclasses.replace(config_kwargs['advanced'], emit_configuration_span=True)
+    configure(**{**config_kwargs, 'advanced': advanced})
 
     spans = [
         s for s in exporter.exported_spans_as_dict(parse_json_attributes=True) if s['name'] == 'Logfire configured'
@@ -1616,8 +1616,11 @@ def test_configuration_span_emitted(real_emit_configuration_span: Any, exporter:
     assert 'logfire' in attrs['package_versions']
     cfg = attrs['logfire_config']
     assert isinstance(cfg, dict)
-    assert 'service_name' in cfg
-    assert cfg['token'] == '[REDACTED]'
+    assert cfg['send_to_logfire'] is False
+    assert cfg['inspect_arguments'] is True
+    # No identity/secrets in the payload.
+    for forbidden in ('token', 'api_key', 'service_name', 'service_version', 'environment', 'base_url'):
+        assert forbidden not in cfg
 
 
 def test_exit_open_spans_exports_suspended_generator_span_before_shutdown() -> None:
@@ -1632,7 +1635,7 @@ def test_exit_open_spans_exports_suspended_generator_span_before_shutdown() -> N
     )
 
     assert result.returncode == 0, result.stderr
-    assert result.stdout == 'Logfire configured\nopen span at shutdown\n'
+    assert result.stdout == 'open span at shutdown\n'
 
 
 def test_send_to_logfire_under_pytest():
