@@ -13,7 +13,7 @@ The server attaches custom headers to API responses:
 `install_logfire_response_hook(session)` wires this into a `requests.Session` as
 a response hook so every Logfire-bound HTTP response is inspected. Callers can
 pass a custom `hook` to replace the default behavior (see
-`AdvancedOptions.transport_response_hook`).
+`AdvancedOptions.server_response_hook`).
 """
 
 from __future__ import annotations

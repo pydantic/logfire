@@ -7,10 +7,8 @@ import requests
 import requests_mock
 from inline_snapshot import snapshot
 
-from logfire._internal.server_response import (
-    ServerResponseCallbackHelper,
-)
 from logfire.exceptions import LogfireServerError, LogfireServerWarning
+from logfire.types import ServerResponseCallbackHelper
 
 
 def test_process_response_warning_header_emits_warning():
@@ -78,7 +76,7 @@ def test_response_hook_installed_on_logfire_client():
             client.get_user_information()
 
 
-def test_custom_transport_response_hook_replaces_default():
+def test_custom_server_response_hook_replaces_default():
     """A custom hook replaces the built-in header processor entirely."""
     from logfire._internal.auth import UserToken
     from logfire._internal.client import LogfireClient
@@ -93,7 +91,7 @@ def test_custom_transport_response_hook_replaces_default():
         base_url='https://logfire-us.pydantic.dev',
         expiration='2099-12-31T23:59:59',
     )
-    client = LogfireClient(user_token=token, transport_response_hook=my_hook)
+    client = LogfireClient(user_token=token, server_response_hook=my_hook)
 
     with requests_mock.Mocker() as m:
         m.get(
@@ -113,7 +111,7 @@ def test_custom_transport_response_hook_replaces_default():
     assert not any(isinstance(w.message, LogfireServerWarning) for w in caught)
 
 
-def test_transport_response_hook_can_opt_out():
+def test_server_response_hook_can_opt_out():
     """`lambda response: None` disables both warnings and errors."""
     from logfire._internal.auth import UserToken
     from logfire._internal.client import LogfireClient
@@ -123,7 +121,7 @@ def test_transport_response_hook_can_opt_out():
         base_url='https://logfire-us.pydantic.dev',
         expiration='2099-12-31T23:59:59',
     )
-    client = LogfireClient(user_token=token, transport_response_hook=lambda response: None)
+    client = LogfireClient(user_token=token, server_response_hook=lambda response: None)
 
     with requests_mock.Mocker() as m:
         m.get(

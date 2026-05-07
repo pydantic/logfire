@@ -60,7 +60,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
         base_url: str,
         token: str,
         options: VariablesOptions,
-        transport_response_hook: ServerResponseCallback | None = None,
+        server_response_hook: ServerResponseCallback | None = None,
     ):
         """Create a new remote variable provider.
 
@@ -68,18 +68,18 @@ class LogfireRemoteVariableProvider(VariableProvider):
             base_url: The base URL of the Logfire API.
             token: Authentication token for the Logfire API.
             options: Options for retrieving remote variables.
-            transport_response_hook: Optional override for the API response hook
-                (see `AdvancedOptions.transport_response_hook`).
+            server_response_hook: Optional override for the API response hook
+                (see `AdvancedOptions.server_response_hook`).
         """
         block_before_first_resolve = options.block_before_first_resolve
         polling_interval = options.polling_interval
 
         self._base_url = base_url
         self._token = token
-        self._transport_response_hook = transport_response_hook
+        self._server_response_hook = server_response_hook
         self._session = Session()
         self._session.headers.update({'Authorization': f'bearer {token}', 'User-Agent': UA_HEADER})
-        install_logfire_response_hook(self._session, transport_response_hook)
+        install_logfire_response_hook(self._session, server_response_hook)
         self._timeout = options.timeout
         self._block_before_first_fetch = block_before_first_resolve
         self._polling_interval: timedelta = (
@@ -208,7 +208,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
                             'Cache-Control': 'no-cache',
                         }
                     )
-                    install_logfire_response_hook(sse_session, self._transport_response_hook)
+                    install_logfire_response_hook(sse_session, self._server_response_hook)
 
                     # Open streaming connection
                     response = sse_session.get(sse_url, stream=True, timeout=(10, None))
