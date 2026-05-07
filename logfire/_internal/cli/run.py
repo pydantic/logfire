@@ -93,6 +93,10 @@ def parse_run(args: argparse.Namespace) -> None:
     module_name = args.module
     script_path = script_and_args[0] if script_and_args and not module_name else None
 
+    # Add the current directory to `sys.path` BEFORE import analysis so that
+    # local modules (e.g. `logfire run -m myapp`) can be resolved by find_spec.
+    sys.path.insert(0, os.getcwd())
+
     ctx = collect_instrumentation_context(exclude, script_path=script_path, module_name=module_name)
 
     instrumented_packages = instrument_packages(ctx.installed_otel_pkgs, ctx.instrument_pkg_map)
@@ -105,9 +109,6 @@ def parse_run(args: argparse.Namespace) -> None:
         print_otel_summary(
             console=console, instrumented_packages_text=instrumentation_text, recommendations=ctx.recommendations
         )
-
-    # Add the current directory to `sys.path`. This is needed for the module to be found.
-    sys.path.insert(0, os.getcwd())
 
     if module_name:
         module_args = script_and_args
@@ -361,7 +362,15 @@ def find_script_imports(script_path: str | None = None, module_name: str | None 
         try:
             spec = importlib.util.find_spec(module_name)
             if spec and spec.origin:
-                with open(spec.origin) as f:
+                origin = spec.origin
+                # For packages, runtime executes __main__.py (via runpy.run_module),
+                # not __init__.py. Analyze __main__.py if it exists so that
+                # recommendations match what actually runs.
+                if origin.endswith('__init__.py'):
+                    main_py = origin.replace('__init__.py', '__main__.py')
+                    if os.path.isfile(main_py):
+                        origin = main_py
+                with open(origin) as f:
                     source = f.read()
         except (ModuleNotFoundError, ValueError, OSError):
             return None
