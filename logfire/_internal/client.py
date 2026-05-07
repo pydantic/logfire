@@ -10,7 +10,7 @@ from logfire.exceptions import LogfireConfigError
 from logfire.version import VERSION
 
 from .auth import UserToken, UserTokenCollection
-from .server_response import TransportResponseHook, install_logfire_response_hook
+from .server_response import ServerResponseCallback, install_logfire_response_hook
 from .utils import UnexpectedResponse
 
 UA_HEADER = f'logfire/{VERSION}'
@@ -37,7 +37,7 @@ class LogfireClient:
     def __init__(
         self,
         user_token: UserToken,
-        transport_response_hook: TransportResponseHook | None = None,
+        transport_response_hook: ServerResponseCallback | None = None,
     ) -> None:
         if user_token.is_expired:
             raise RuntimeError('The provided user token is expired')
@@ -51,7 +51,7 @@ class LogfireClient:
     def from_url(
         cls,
         base_url: str | None,
-        transport_response_hook: TransportResponseHook | None = None,
+        transport_response_hook: ServerResponseCallback | None = None,
     ) -> Self:
         """Create a client from the provided base URL.
 

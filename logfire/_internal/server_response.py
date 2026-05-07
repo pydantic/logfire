@@ -12,52 +12,37 @@ The server attaches custom headers to API responses:
 
 `install_logfire_response_hook(session)` wires this into a `requests.Session` as
 a response hook so every Logfire-bound HTTP response is inspected. Callers can
-pass a custom `hook` to replace the default behaviour (see
+pass a custom `hook` to replace the default behavior (see
 `AdvancedOptions.transport_response_hook`).
 """
 
 from __future__ import annotations
 
-import warnings
-from typing import Any, Callable
+from typing import Any
 
 import requests
 
-from logfire.exceptions import LogfireServerError, LogfireServerWarning
-
-WARNING_HEADER_NAME = 'X-Logfire-Warning'
-ERROR_HEADER_NAME = 'X-Logfire-Error'
-
-TransportResponseHook = Callable[[requests.Response], object]
-"""Callable invoked for every Logfire API response received by the SDK.
-
-The return value is ignored; raise to abort the call.
-"""
-
-
-def process_logfire_response_headers(response: requests.Response) -> None:
-    """Default transport response hook: surface `X-Logfire-Warning` / `X-Logfire-Error` headers."""
-    warning_message = response.headers.get(WARNING_HEADER_NAME)
-    if warning_message:
-        warnings.warn(warning_message, LogfireServerWarning, stacklevel=2)
-    error_message = response.headers.get(ERROR_HEADER_NAME)
-    if error_message:
-        raise LogfireServerError(error_message)
+from logfire.types import ServerResponseCallback, ServerResponseCallbackHelper
 
 
 def install_logfire_response_hook(
     session: requests.Session,
-    hook: TransportResponseHook | None = None,
+    hook: ServerResponseCallback | None = None,
 ) -> None:
     """Install a `requests` response hook on `session` for every Logfire API response.
 
-    `hook` defaults to `process_logfire_response_headers`. Pass a custom callable
-    to replace the default behaviour (e.g. opt out by passing `lambda response: None`).
-    """
-    user_hook = hook if hook is not None else process_logfire_response_headers
+    By default, calls ServerResponseCallbackHelper.default_hook(), which emits warnings and raises errors based
+    on the presence of `X-Logfire-Warning` and `X-Logfire-Error` response headers.
 
-    def _hook(response: requests.Response, *_args: Any, **_kwargs: Any) -> requests.Response:
-        user_hook(response)
+    Pass a custom callable to replace the default behavior (e.g. opt out by passing `lambda _: None`).
+    """
+
+    def _hook(response: requests.Response, *args: Any, **kwargs: Any) -> requests.Response:
+        helper = ServerResponseCallbackHelper(response, args, kwargs)
+        if hook:
+            hook(helper)
+        else:
+            helper.default_hook()
         return response
 
     response_hooks: list[Any] = session.hooks.setdefault('response', [])

@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+import requests
 
 from logfire._internal.constants import (
     ATTRIBUTES_LOG_LEVEL_NUM_KEY,
@@ -11,8 +13,10 @@ from logfire._internal.constants import (
     LevelName,
     log_level_attributes,
 )
+from logfire._internal.stack_info import warn_at_user_stacklevel
 from logfire._internal.tracer import get_parent_span
 from logfire._internal.utils import canonicalize_exception_traceback
+from logfire.exceptions import LogfireServerError, LogfireServerWarning
 
 if TYPE_CHECKING:
     from opentelemetry.sdk.trace import ReadableSpan, Span
@@ -259,4 +263,56 @@ Create issues for all exceptions, even warnings:
 Don't record the exception on the span:
 
     helper.no_record_exception()
+"""
+
+
+@dataclass
+class ServerResponseCallbackHelper:
+    """Helper object passed to the server response callback.
+
+    This is experimental and may change significantly in future releases.
+    """
+
+    response: requests.Response
+    """The raw HTTP response from the Logfire API."""
+
+    args: tuple[Any, ...]
+    """Positional arguments passed to the response hook by `requests`."""
+
+    kwargs: dict[str, Any]
+    """Keyword arguments passed to the response hook by `requests`."""
+
+    WARNING_HEADER_NAME = 'X-Logfire-Warning'
+    ERROR_HEADER_NAME = 'X-Logfire-Error'
+
+    @property
+    def warning_header(self) -> str | None:
+        """Value of the Logfire warning header, or `None` if not present."""
+        return self.response.headers.get(self.WARNING_HEADER_NAME)
+
+    @property
+    def error_header(self) -> str | None:
+        """Value of the Logfire error header, or `None` if not present."""
+        return self.response.headers.get(self.ERROR_HEADER_NAME)
+
+    def default_hook(self, *, check_warning: bool = True, check_error: bool = True) -> None:
+        """The default hook behavior.
+
+        If check_warning is true, check for a warning header and raise it as a LogfireServerWarning if present.
+        If check_error is true, check for an error header and raise it as a LogfireServerError if present.
+        """
+        if check_warning:
+            warning_message = self.warning_header
+            if warning_message:
+                warn_at_user_stacklevel(warning_message, LogfireServerWarning)
+        if check_error:
+            error_message = self.error_header
+            if error_message:
+                raise LogfireServerError(error_message)
+
+
+ServerResponseCallback = Callable[[ServerResponseCallbackHelper], None]
+"""Callable invoked for every Logfire API response received by the SDK.
+
+This is experimental and may change significantly in future releases.
 """

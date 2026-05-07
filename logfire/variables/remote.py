@@ -17,7 +17,7 @@ from requests import RequestException, Session
 
 from logfire._internal.client import UA_HEADER
 from logfire._internal.config import VariablesOptions
-from logfire._internal.server_response import TransportResponseHook, install_logfire_response_hook
+from logfire._internal.server_response import ServerResponseCallback, install_logfire_response_hook
 from logfire._internal.utils import UnexpectedResponse
 from logfire.variables.abstract import (
     ResolvedVariable,
@@ -60,7 +60,7 @@ class LogfireRemoteVariableProvider(VariableProvider):
         base_url: str,
         token: str,
         options: VariablesOptions,
-        transport_response_hook: TransportResponseHook | None = None,
+        transport_response_hook: ServerResponseCallback | None = None,
     ):
         """Create a new remote variable provider.
 
