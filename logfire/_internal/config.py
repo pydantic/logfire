@@ -220,19 +220,22 @@ class AdvancedOptions:
     server_response_hook: ServerResponseCallback | None = None
     """Optional callback invoked for every HTTP response received from the Logfire API.
 
+    This is experimental and may be modified or removed.
+
     This applies to OTLP exports, credential / project initialisation, and the remote
     variables provider. The default surfaces `X-Logfire-Warning` and `X-Logfire-Error`
     headers as `LogfireServerWarning` / `LogfireServerError`.
 
-    Setting this replaces the default; pass `lambda response: None` to opt out entirely,
-    or compose your own logic on top of `process_logfire_response_headers`:
+    Setting this replaces the default; pass `lambda response: None` to opt out entirely.
+
+    Example usage:
 
     ```python skip-run="true" skip-reason="needs metric/logfire setup"
-    from logfire._internal.server_response import process_logfire_response_headers
+    from logfire.types import ServerResponseCallbackHelper
 
-    def hook(response):
-        my_metric.inc(response.status_code)
-        process_logfire_response_headers(response)
+    def hook(helper: ServerResponseCallbackHelper):
+        my_metric.inc(response.response.status_code)
+        helper.default_hook()  # call this to keep the default behavior of raising/logging based on headers
 
     logfire.configure(advanced=AdvancedOptions(server_response_hook=hook))
     ```
