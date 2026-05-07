@@ -1,8 +1,10 @@
 from __future__ import annotations as _annotations
 
 import argparse
+import ast
 import importlib
 import importlib.metadata
+import importlib.util
 import os
 import runpy
 import shutil
@@ -21,7 +23,9 @@ from rich.text import Text
 
 import logfire
 
-STANDARD_LIBRARY_PACKAGES = {'urllib', 'sqlite3'}
+# Packages that are always importable (stdlib or transitive deps of opentelemetry)
+# but should only be suggested for instrumentation if the user's code actually imports them.
+ALWAYS_AVAILABLE_PACKAGES = {'urllib', 'sqlite3', 'requests'}
 
 # Map of instrumentation packages to the packages they instrument
 OTEL_INSTRUMENTATION_MAP = {
@@ -84,7 +88,12 @@ def parse_run(args: argparse.Namespace) -> None:
     summary = cast(bool, args.summary)
     exclude = cast(set[str], args.exclude)
 
-    ctx = collect_instrumentation_context(exclude)
+    # Determine the script path or module name for import analysis
+    script_and_args = args.script_and_args
+    module_name = args.module
+    script_path = script_and_args[0] if script_and_args and not module_name else None
+
+    ctx = collect_instrumentation_context(exclude, script_path=script_path, module_name=module_name)
 
     instrumented_packages = instrument_packages(ctx.installed_otel_pkgs, ctx.instrument_pkg_map)
 
@@ -97,13 +106,10 @@ def parse_run(args: argparse.Namespace) -> None:
             console=console, instrumented_packages_text=instrumentation_text, recommendations=ctx.recommendations
         )
 
-    # Get arguments from the script_and_args parameter
-    script_and_args = args.script_and_args
-
     # Add the current directory to `sys.path`. This is needed for the module to be found.
     sys.path.insert(0, os.getcwd())
 
-    if module_name := args.module:
+    if module_name:
         module_args = script_and_args
 
         # We need to change the `sys.argv` to make sure the module sees the right CLI args
@@ -115,15 +121,15 @@ def parse_run(args: argparse.Namespace) -> None:
             runpy.run_module(module_name, run_name='__main__', alter_sys=True)
     elif script_and_args:
         # Script mode
-        script_path = script_and_args[0]
+        run_script_path = script_and_args[0]
 
         # Make sure the script directory is in sys.path
-        script_dir = os.path.dirname(os.path.abspath(script_path))
+        script_dir = os.path.dirname(os.path.abspath(run_script_path))
         if script_dir not in sys.path:  # pragma: no branch
             sys.path.insert(0, script_dir)
 
         with alter_sys_argv(script_and_args, f'python {" ".join(script_and_args)}'):
-            runpy.run_path(script_path, run_name='__main__')
+            runpy.run_path(run_script_path, run_name='__main__')
     else:
         print('Usage: logfire run [-m MODULE] [args...] OR logfire run SCRIPT [args...]')
         sys.exit(1)
@@ -178,6 +184,7 @@ def find_recommended_instrumentations_to_install(
     instrument_pkg_map: dict[str, str],
     installed_otel_pkgs: set[str],
     installed_pkgs: set[str],
+    script_imports: set[str] | None = None,
 ) -> set[tuple[str, str]]:
     """Determine which OpenTelemetry instrumentation packages are recommended for installation.
 
@@ -185,6 +192,9 @@ def find_recommended_instrumentations_to_install(
         instrument_pkg_map: Mapping of instrumentation package names to the packages they instrument.
         installed_otel_pkgs: Set of already installed instrumentation package names.
         installed_pkgs: Set of all installed package names.
+        script_imports: Set of top-level module names imported by the user's script/module.
+            Used to filter out false suggestions for packages that are always available
+            (stdlib or transitive deps) but not actually used.
 
     Returns:
         Set of tuples where each tuple is (instrumentation_package, target_package) that
@@ -197,8 +207,16 @@ def find_recommended_instrumentations_to_install(
         if otel_pkg in installed_otel_pkgs:
             continue
 
-        # Include only if the package it instruments is installed or in sys.stdlib_module_names
-        if required_pkg in installed_pkgs or required_pkg in STANDARD_LIBRARY_PACKAGES:
+        # For packages that are always importable (stdlib or transitive deps of otel),
+        # only recommend if the user's code actually imports them.
+        if required_pkg in ALWAYS_AVAILABLE_PACKAGES:
+            if script_imports is not None and required_pkg not in script_imports:
+                continue
+            recommendations.add((otel_pkg, required_pkg))
+            continue
+
+        # For other packages, recommend if they are installed
+        if required_pkg in installed_pkgs:
             recommendations.add((otel_pkg, required_pkg))
 
     # Special case: if fastapi is installed, don't show starlette instrumentation.
@@ -322,13 +340,64 @@ def _full_install_command(recommendations: list[tuple[str, str]]) -> str:
         return f'pip install {" ".join(package_names)}'  # pragma: no cover
 
 
-def collect_instrumentation_context(exclude: set[str]) -> InstrumentationContext:
+def find_script_imports(script_path: str | None = None, module_name: str | None = None) -> set[str] | None:
+    """Extract top-level import names from a script file or module.
+
+    Uses AST parsing to find all `import X` and `from X import ...` statements,
+    returning the set of top-level module names (e.g. 'requests', 'sqlite3').
+
+    Returns None if the source cannot be determined (e.g. no script or module provided),
+    which signals that filtering should be skipped (all packages recommended as before).
+    """
+    source: str | None = None
+
+    if script_path:
+        try:
+            with open(script_path) as f:
+                source = f.read()
+        except OSError:
+            return None
+    elif module_name:
+        try:
+            spec = importlib.util.find_spec(module_name)
+            if spec and spec.origin:
+                with open(spec.origin) as f:
+                    source = f.read()
+        except (ModuleNotFoundError, ValueError, OSError):
+            return None
+
+    if source is None:
+        return None
+
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return None
+
+    imports: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                # 'import urllib.request' -> top-level is 'urllib'
+                imports.add(alias.name.split('.')[0])
+        elif isinstance(node, ast.ImportFrom):
+            if node.module:
+                imports.add(node.module.split('.')[0])
+    return imports
+
+
+def collect_instrumentation_context(
+    exclude: set[str],
+    script_path: str | None = None,
+    module_name: str | None = None,
+) -> InstrumentationContext:
     """Collects all relevant context for instrumentation and recommendations."""
     instrument_pkg_map = {otel_pkg: pkg for otel_pkg, pkg in OTEL_INSTRUMENTATION_MAP.items() if pkg not in exclude}
     installed_pkgs = installed_packages()
     installed_otel_pkgs = {pkg for pkg in instrument_pkg_map.keys() if pkg in installed_pkgs}
+    script_imports = find_script_imports(script_path=script_path, module_name=module_name)
     recommendations = find_recommended_instrumentations_to_install(
-        instrument_pkg_map, installed_otel_pkgs, installed_pkgs
+        instrument_pkg_map, installed_otel_pkgs, installed_pkgs, script_imports=script_imports
     )
     return InstrumentationContext(
         instrument_pkg_map=instrument_pkg_map,
