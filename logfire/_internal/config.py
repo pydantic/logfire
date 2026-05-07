@@ -202,6 +202,13 @@ class AdvancedOptions:
     serialized configuration sent to child processes. See the [distributed tracing guide](https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#thread-and-pool-executors) for more details.
     """
 
+    emit_configuration_span: bool | None = None
+    """If `True`, emit a `Logfire configured` log span after `logfire.configure()` containing the SDK
+    version, installed package versions, and a curated set of non-sensitive configuration flags.
+
+    Defaults to the `LOGFIRE_EMIT_CONFIGURATION_SPAN` environment variable, or `False`.
+    """
+
     def generate_base_url(self, token: str) -> str:
         if self.base_url is not None:
             return self.base_url
@@ -396,7 +403,6 @@ def configure(
     code_source: CodeSource | None = None,
     variables: VariablesOptions | LocalVariablesOptions | None = None,
     distributed_tracing: bool | None = None,
-    emit_configuration_span: bool | None = None,
     advanced: AdvancedOptions | None = None,
     **deprecated_kwargs: Unpack[DeprecatedKwargs],
 ) -> Logfire:
@@ -472,10 +478,6 @@ def configure(
             See [Unintentional Distributed Tracing](https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#unintentional-distributed-tracing)
             for more information.
             This setting always applies globally, and the last value set is used, including the default value.
-        emit_configuration_span: If `True`, emit a `Logfire configured` log span containing the SDK version,
-            installed package versions, and a curated set of non-sensitive configuration flags. Useful for
-            diagnosing setup issues from the Logfire UI. Defaults to the `LOGFIRE_EMIT_CONFIGURATION_SPAN`
-            environment variable, or `False`.
         advanced: Advanced options primarily used for testing by Logfire developers.
     """
     from .. import DEFAULT_LOGFIRE_INSTANCE, Logfire
@@ -609,7 +611,6 @@ def configure(
         code_source=code_source,
         variables=variables,
         distributed_tracing=distributed_tracing,
-        emit_configuration_span=emit_configuration_span,
         advanced=advanced,
     )
 
@@ -617,6 +618,8 @@ def configure(
         logfire_instance = Logfire(config=config)
     else:
         logfire_instance = DEFAULT_LOGFIRE_INSTANCE
+
+    config.emit_configuration_span(logfire_instance, local=local)
 
     # Start the variable provider now that we have the logfire instance
     # Pass None if instrumentation is disabled to avoid logging errors via logfire
@@ -691,9 +694,6 @@ class _LogfireConfigData:
     distributed_tracing: bool | None
     """Whether to extract incoming trace context."""
 
-    emit_configuration_span: bool
-    """Whether to emit a `Logfire configured` log span after `logfire.configure()`."""
-
     advanced: AdvancedOptions
     """Advanced options primarily used for testing by Logfire developers."""
 
@@ -721,7 +721,6 @@ class _LogfireConfigData:
         code_source: CodeSource | None,
         variables: VariablesOptions | LocalVariablesOptions | None,
         distributed_tracing: bool | None,
-        emit_configuration_span: bool | None,
         advanced: AdvancedOptions | None,
     ) -> None:
         """Merge the given parameters with the environment variables file configurations."""
@@ -737,7 +736,6 @@ class _LogfireConfigData:
         self.data_dir = param_manager.load_param('data_dir', data_dir)
         self.inspect_arguments = param_manager.load_param('inspect_arguments', inspect_arguments)
         self.distributed_tracing = param_manager.load_param('distributed_tracing', distributed_tracing)
-        self.emit_configuration_span = param_manager.load_param('emit_configuration_span', emit_configuration_span)
         self.ignore_no_config = param_manager.load_param('ignore_no_config')
         min_level = param_manager.load_param('min_level', min_level)
         if min_level is None:
@@ -816,6 +814,8 @@ class _LogfireConfigData:
                 advanced.id_generator = SeededRandomIdGenerator(**id_generator)  # pyright: ignore[reportUnknownArgumentType]
         elif advanced is None:
             advanced = AdvancedOptions(base_url=param_manager.load_param('base_url'))
+        if advanced.emit_configuration_span is None:
+            advanced.emit_configuration_span = param_manager.load_param('emit_configuration_span')
         self.advanced = advanced
 
         self.additional_span_processors = additional_span_processors
@@ -856,7 +856,6 @@ class LogfireConfig(_LogfireConfigData):
         variables: VariablesOptions | None = None,
         code_source: CodeSource | None = None,
         distributed_tracing: bool | None = None,
-        emit_configuration_span: bool | None = None,
         advanced: AdvancedOptions | None = None,
     ) -> None:
         """Create a new LogfireConfig.
@@ -887,7 +886,6 @@ class LogfireConfig(_LogfireConfigData):
             code_source=code_source,
             variables=variables,
             distributed_tracing=distributed_tracing,
-            emit_configuration_span=emit_configuration_span,
             advanced=advanced,
         )
         # initialize with no-ops so that we don't impact OTEL's global config just because logfire is installed
@@ -924,7 +922,6 @@ class LogfireConfig(_LogfireConfigData):
         code_source: CodeSource | None,
         variables: VariablesOptions | LocalVariablesOptions | None,
         distributed_tracing: bool | None,
-        emit_configuration_span: bool | None,
         advanced: AdvancedOptions | None,
     ) -> None:
         with self._lock:
@@ -949,7 +946,6 @@ class LogfireConfig(_LogfireConfigData):
                 code_source,
                 variables,
                 distributed_tracing,
-                emit_configuration_span,
                 advanced,
             )
             self.initialize()
@@ -1368,23 +1364,39 @@ class LogfireConfig(_LogfireConfigData):
 
             self._ensure_flush_after_aws_lambda()
 
-        self._emit_configuration_span()
-
-    def _emit_configuration_span(self) -> None:
+    def emit_configuration_span(self, logfire_instance: Logfire, *, local: bool) -> None:
         """Emit a span describing the active Logfire configuration and installed packages.
 
-        Only runs when `emit_configuration_span` is `True`. Sends a curated set of
+        Only runs when `advanced.emit_configuration_span` is `True`. Sends a curated set of
         non-sensitive configuration fields - never the token, api_key, or opaque
         objects like span/log processors.
         """
-        if not self.emit_configuration_span:
+        if not self.advanced.emit_configuration_span:
             return
-
-        from logfire._internal.main import Logfire
 
         with handle_internal_errors:
             sampling = self.sampling
+            if isinstance(self.token, str):
+                token_count = 1
+            elif self.token is None:
+                token_count = 0
+            else:
+                token_count = len(self.token)
+            # Names of identity-shaped fields the user provided. We only report whether
+            # they were set (never the values). Keys are chosen to avoid the default
+            # scrubber patterns (`api_key`, `credential`, `secret`, etc.).
+            fields_provided = sorted(
+                name
+                for name, value in {
+                    'api_key': self.api_key,
+                    'service_name': self.service_name,
+                    'service_version': self.service_version,
+                    'environment': self.environment,
+                }.items()
+                if value is not None
+            )
             config_dict: dict[str, Any] = {
+                'local': local,
                 'send_to_logfire': self.send_to_logfire,
                 'console_enabled': bool(self.console),
                 'scrubbing_enabled': bool(self.scrubbing),
@@ -1396,8 +1408,10 @@ class LogfireConfig(_LogfireConfigData):
                 'tail_sampling_enabled': sampling.tail is not None,
                 'code_source_set': self.code_source is not None,
                 'variables_set': self.variables is not None,
+                'token_count': token_count,
+                'fields_provided': fields_provided,
             }
-            Logfire(config=self).info(
+            logfire_instance.info(
                 'Logfire configured',
                 logfire_version=VERSION,
                 logfire_config=config_dict,
