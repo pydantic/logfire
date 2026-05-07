@@ -223,8 +223,8 @@ class AdvancedOptions:
     This is experimental and may be modified or removed.
 
     This applies to OTLP exports, credential / project initialisation, and the remote
-    variables provider. The default surfaces `X-Logfire-Warning` and `X-Logfire-Error`
-    headers as `LogfireServerWarning` / `LogfireServerError`.
+    variables provider. The default surfaces the `X-Logfire-Warning` header as a
+    `LogfireServerWarning`.
 
     Setting this replaces the default; pass `lambda response: None` to opt out entirely.
 
@@ -234,8 +234,8 @@ class AdvancedOptions:
     from logfire.types import ServerResponseCallbackHelper
 
     def hook(helper: ServerResponseCallbackHelper):
-        my_metric.inc(response.response.status_code)
-        helper.default_hook()  # call this to keep the default behavior of raising/logging based on headers
+        my_metric.inc(helper.response.status_code)
+        helper.default_hook()  # call this to keep the default warning behavior
 
     logfire.configure(advanced=AdvancedOptions(server_response_hook=hook))
     ```

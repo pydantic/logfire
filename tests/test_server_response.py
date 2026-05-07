@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import warnings
 
-import pytest
 import requests
 import requests_mock
 from inline_snapshot import snapshot
 
-from logfire.exceptions import LogfireServerError, LogfireServerWarning
+from logfire.exceptions import LogfireServerWarning
 from logfire.types import ServerResponseCallbackHelper
 
 
@@ -36,13 +35,6 @@ def test_process_response_warning_header_dedupes():
     assert messages == ['a duplicated warning']
 
 
-def test_process_response_error_header_raises():
-    response = requests.Response()
-    response.headers[ServerResponseCallbackHelper.ERROR_HEADER_NAME] = 'something is wrong'
-    with pytest.raises(LogfireServerError, match='something is wrong'):
-        ServerResponseCallbackHelper(response, (), {}).default_hook()
-
-
 def test_response_hook_installed_on_logfire_client():
     from logfire._internal.auth import UserToken
     from logfire._internal.client import LogfireClient
@@ -66,15 +58,6 @@ def test_response_hook_installed_on_logfire_client():
 
     assert any(isinstance(w.message, LogfireServerWarning) for w in caught)
 
-    with requests_mock.Mocker() as m:
-        m.get(
-            'https://logfire-us.pydantic.dev/v1/account/me',
-            json={'name': 'me'},
-            headers={ServerResponseCallbackHelper.ERROR_HEADER_NAME: 'no longer supported'},
-        )
-        with pytest.raises(LogfireServerError, match='no longer supported'):
-            client.get_user_information()
-
 
 def test_custom_server_response_hook_replaces_default():
     """A custom hook replaces the built-in header processor entirely."""
@@ -97,11 +80,7 @@ def test_custom_server_response_hook_replaces_default():
         m.get(
             'https://logfire-us.pydantic.dev/v1/account/me',
             json={'name': 'me'},
-            # Both headers set: default would warn AND raise; custom hook ignores them.
-            headers={
-                ServerResponseCallbackHelper.WARNING_HEADER_NAME: 'deprecated',
-                ServerResponseCallbackHelper.ERROR_HEADER_NAME: 'broken',
-            },
+            headers={ServerResponseCallbackHelper.WARNING_HEADER_NAME: 'deprecated'},
         )
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter('always')
@@ -112,7 +91,7 @@ def test_custom_server_response_hook_replaces_default():
 
 
 def test_server_response_hook_can_opt_out():
-    """`lambda response: None` disables both warnings and errors."""
+    """`lambda response: None` disables the default warning behavior."""
     from logfire._internal.auth import UserToken
     from logfire._internal.client import LogfireClient
 
@@ -127,7 +106,10 @@ def test_server_response_hook_can_opt_out():
         m.get(
             'https://logfire-us.pydantic.dev/v1/account/me',
             json={'name': 'me'},
-            headers={ServerResponseCallbackHelper.ERROR_HEADER_NAME: 'no longer supported'},
+            headers={ServerResponseCallbackHelper.WARNING_HEADER_NAME: 'deprecated'},
         )
-        # No exception raised.
-        assert client.get_user_information() == {'name': 'me'}
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter('always')
+            assert client.get_user_information() == {'name': 'me'}
+
+    assert not any(isinstance(w.message, LogfireServerWarning) for w in caught)

@@ -16,7 +16,7 @@ from logfire._internal.constants import (
 from logfire._internal.stack_info import warn_at_user_stacklevel
 from logfire._internal.tracer import get_parent_span
 from logfire._internal.utils import canonicalize_exception_traceback
-from logfire.exceptions import LogfireServerError, LogfireServerWarning
+from logfire.exceptions import LogfireServerWarning
 
 if TYPE_CHECKING:
     from opentelemetry.sdk.trace import ReadableSpan, Span
@@ -283,32 +283,17 @@ class ServerResponseCallbackHelper:
     """Keyword arguments passed to the response hook by `requests`."""
 
     WARNING_HEADER_NAME = 'X-Logfire-Warning'
-    ERROR_HEADER_NAME = 'X-Logfire-Error'
 
     @property
     def warning_header(self) -> str | None:
         """Value of the Logfire warning header, or `None` if not present."""
         return self.response.headers.get(self.WARNING_HEADER_NAME)
 
-    @property
-    def error_header(self) -> str | None:
-        """Value of the Logfire error header, or `None` if not present."""
-        return self.response.headers.get(self.ERROR_HEADER_NAME)
-
-    def default_hook(self, *, check_warning: bool = True, check_error: bool = True) -> None:
-        """The default hook behavior.
-
-        If check_warning is true, check for a warning header and raise it as a LogfireServerWarning if present.
-        If check_error is true, check for an error header and raise it as a LogfireServerError if present.
-        """
-        if check_warning:
-            warning_message = self.warning_header
-            if warning_message:
-                warn_at_user_stacklevel(warning_message, LogfireServerWarning)
-        if check_error:
-            error_message = self.error_header
-            if error_message:
-                raise LogfireServerError(error_message)
+    def default_hook(self) -> None:
+        """The default hook behavior: emit a `LogfireServerWarning` if the warning header is present."""
+        warning_message = self.warning_header
+        if warning_message:
+            warn_at_user_stacklevel(warning_message, LogfireServerWarning)
 
 
 ServerResponseCallback = Callable[[ServerResponseCallbackHelper], None]
