@@ -16,7 +16,7 @@ from logfire.propagate import attach_context as attach_context, get_context as g
 from logfire.sampling import SamplingOptions as SamplingOptions
 from typing import Any
 
-__all__ = ['Logfire', 'LogfireSpan', 'LevelName', 'AdvancedOptions', 'ConsoleOptions', 'CodeSource', 'PydanticPlugin', 'configure', 'span', 'instrument', 'log', 'trace', 'debug', 'notice', 'info', 'warn', 'warning', 'error', 'exception', 'fatal', 'force_flush', 'log_slow_async_callbacks', 'install_auto_tracing', 'instrument_asgi', 'instrument_wsgi', 'instrument_pydantic', 'instrument_pydantic_ai', 'instrument_fastapi', 'instrument_openai', 'instrument_openai_agents', 'instrument_anthropic', 'instrument_google_genai', 'instrument_litellm', 'instrument_dspy', 'instrument_print', 'instrument_asyncpg', 'instrument_httpx', 'instrument_celery', 'instrument_requests', 'instrument_psycopg', 'instrument_django', 'instrument_flask', 'instrument_starlette', 'instrument_aiohttp_client', 'instrument_aiohttp_server', 'instrument_sqlalchemy', 'instrument_sqlite3', 'instrument_aws_lambda', 'instrument_redis', 'instrument_pymongo', 'instrument_mysql', 'instrument_surrealdb', 'instrument_system_metrics', 'instrument_mcp', 'AutoTraceModule', 'with_tags', 'with_settings', 'suppress_scopes', 'shutdown', 'no_auto_trace', 'ScrubMatch', 'ScrubbingOptions', 'VERSION', 'add_non_user_code_prefix', 'suppress_instrumentation', 'StructlogProcessor', 'LogfireLoggingHandler', 'loguru_handler', 'SamplingOptions', 'MetricsOptions', 'VariablesOptions', 'LocalVariablesOptions', 'variables', 'var', 'variables_clear', 'variables_get', 'variables_push', 'variables_push_types', 'variables_validate', 'variables_push_config', 'variables_pull_config', 'variables_build_config', 'logfire_info', 'get_baggage', 'set_baggage', 'get_context', 'attach_context']
+__all__ = ['Logfire', 'LogfireSpan', 'LevelName', 'AdvancedOptions', 'ConsoleOptions', 'CodeSource', 'PydanticPlugin', 'configure', 'span', 'instrument', 'log', 'trace', 'debug', 'notice', 'info', 'warn', 'warning', 'error', 'exception', 'fatal', 'force_flush', 'log_slow_async_callbacks', 'install_auto_tracing', 'instrument_asgi', 'instrument_wsgi', 'instrument_pydantic', 'instrument_pydantic_ai', 'instrument_fastapi', 'instrument_openai', 'instrument_openai_agents', 'instrument_anthropic', 'instrument_google_genai', 'instrument_litellm', 'instrument_dspy', 'instrument_print', 'instrument_asyncpg', 'instrument_httpx', 'instrument_celery', 'instrument_requests', 'instrument_psycopg', 'instrument_django', 'instrument_flask', 'instrument_starlette', 'instrument_aiohttp_client', 'instrument_aiohttp_server', 'instrument_sqlalchemy', 'instrument_sqlite3', 'instrument_aws_lambda', 'instrument_redis', 'instrument_pymongo', 'instrument_mysql', 'instrument_surrealdb', 'instrument_system_metrics', 'instrument_mcp', 'instrument_claude_agent_sdk', 'AutoTraceModule', 'with_tags', 'with_settings', 'suppress_scopes', 'shutdown', 'no_auto_trace', 'ScrubMatch', 'ScrubbingOptions', 'VERSION', 'add_non_user_code_prefix', 'suppress_instrumentation', 'StructlogProcessor', 'LogfireLoggingHandler', 'loguru_handler', 'SamplingOptions', 'MetricsOptions', 'VariablesOptions', 'LocalVariablesOptions', 'variables', 'var', 'variables_clear', 'variables_get', 'variables_push', 'variables_push_types', 'variables_validate', 'variables_push_config', 'variables_pull_config', 'variables_build_config', 'logfire_info', 'get_baggage', 'set_baggage', 'get_context', 'attach_context', 'url_from_eval']
 
 DEFAULT_LOGFIRE_INSTANCE = Logfire()
 span = DEFAULT_LOGFIRE_INSTANCE.span
@@ -55,10 +55,12 @@ instrument_mysql = DEFAULT_LOGFIRE_INSTANCE.instrument_mysql
 instrument_surrealdb = DEFAULT_LOGFIRE_INSTANCE.instrument_surrealdb
 instrument_system_metrics = DEFAULT_LOGFIRE_INSTANCE.instrument_system_metrics
 instrument_mcp = DEFAULT_LOGFIRE_INSTANCE.instrument_mcp
+instrument_claude_agent_sdk = DEFAULT_LOGFIRE_INSTANCE.instrument_claude_agent_sdk
 suppress_scopes = DEFAULT_LOGFIRE_INSTANCE.suppress_scopes
 shutdown = DEFAULT_LOGFIRE_INSTANCE.shutdown
 with_tags = DEFAULT_LOGFIRE_INSTANCE.with_tags
 with_settings = DEFAULT_LOGFIRE_INSTANCE.with_settings
+url_from_eval = DEFAULT_LOGFIRE_INSTANCE.url_from_eval
 log = DEFAULT_LOGFIRE_INSTANCE.log
 trace = DEFAULT_LOGFIRE_INSTANCE.trace
 debug = DEFAULT_LOGFIRE_INSTANCE.debug

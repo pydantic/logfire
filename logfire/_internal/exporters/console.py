@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import json
 import os
-import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -119,7 +118,7 @@ class SimpleConsoleSpanExporter(SpanExporter):
         verbose: bool = False,
         min_log_level: LevelName = 'info',
     ) -> None:
-        self._output = output or sys.stdout
+        self._output = output
         if colors == 'auto':
             force_terminal = None
         else:

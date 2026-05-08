@@ -7,6 +7,11 @@ on:
   # Can be triggered manually from the actions tab, if needed
   workflow_dispatch:
 
+permissions: { }
+
+env:
+  # https://github.com/samuelcolvin/pytest-pretty#usage-with-github-actions
+  COLUMNS: 180
 
 jobs:
   test:
@@ -44,15 +49,28 @@ jobs:
           - python-version: '3.13'
             pydantic-version: '2.11'
             otel-version: '1'
+          - python-version: '3.14'
+            pydantic-version: '2.12'
+            otel-version: '1'
+          - python-version: '3.14'
+            pydantic-version: '2.13'
+            otel-version: '1'
           # OpenTelemetry versions
-          # Uncomment when we support multiple versions of OTel again
-    #          - python-version: '3.14'
-    #            pydantic-version: 'main'
-    #            otel-version: '1.39'
+          - python-version: '3.14'
+            pydantic-version: 'main'
+            otel-version: '1.39'
+          - python-version: '3.14'
+            pydantic-version: 'main'
+            otel-version: '1.40'
+          - python-version: '3.14'
+            pydantic-version: 'main'
+            otel-version: '1.41'
     env:
       PYTHON: ${{ matrix.python-version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
 
       - name: Ensure requests to production domains fail
         if: runner.os == 'Linux'
@@ -62,9 +80,9 @@ jobs:
           echo "203.0.113.0 logfire.pydantic.dev" | sudo tee -a /etc/hosts
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57  # v8.0.0
         with:
-          version: "0.9.22"
+          version: "0.11.1"
           enable-cache: true
 
         # upgrade deps to the latest versions for this test
@@ -96,7 +114,7 @@ jobs:
 
     steps:
       - name: Send slack message
-        uses: slackapi/slack-github-action@v2.0.0
+        uses: slackapi/slack-github-action@af78098f536edbc4de71162a307590698245be95  # v3.0.1
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           webhook-type: webhook-trigger

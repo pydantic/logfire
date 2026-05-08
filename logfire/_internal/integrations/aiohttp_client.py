@@ -226,6 +226,9 @@ def make_request_hook(
             capture_request(span, request, capture_headers, capture_request_body)
             run_hook(hook, span, request)
 
+    if hook is not None:
+        new_hook = functools.wraps(hook)(new_hook)
+
     return new_hook
 
 
@@ -248,6 +251,9 @@ def make_response_hook(
                 capture_response_body,
             )
             run_hook(hook, span, response)
+
+    if hook is not None:
+        new_hook = functools.wraps(hook)(new_hook)
 
     return new_hook
 

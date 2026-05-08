@@ -223,6 +223,7 @@ def test_sync_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 3,
+                    'gen_ai.usage.raw': {'input_tokens': 2, 'output_tokens': 3},
                     'gen_ai.response.finish_reasons': ['end_turn'],
                     'operation.cost': 4.25e-06,
                     'logfire.json_schema': {
@@ -252,6 +253,7 @@ def test_sync_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                             'operation.cost': {},
                         },
@@ -327,6 +329,7 @@ async def test_async_messages(instrumented_async_client: anthropic.AsyncAnthropi
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 3,
+                    'gen_ai.usage.raw': {'input_tokens': 2, 'output_tokens': 3},
                     'gen_ai.response.finish_reasons': ['end_turn'],
                     'operation.cost': 4.25e-06,
                     'logfire.json_schema': {
@@ -352,6 +355,7 @@ async def test_async_messages(instrumented_async_client: anthropic.AsyncAnthropi
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                             'operation.cost': {},
                         },
@@ -574,8 +578,16 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
                     'gen_ai.output.messages': [
-                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'The answer is secret'}]}
+                        {
+                            'role': 'assistant',
+                            'parts': [{'type': 'text', 'content': 'The answer is secret'}],
+                            'finish_reason': 'end_turn',
+                        }
                     ],
+                    'gen_ai.usage.input_tokens': 25,
+                    'gen_ai.usage.output_tokens': 55,
+                    'gen_ai.usage.raw': {'input_tokens': 25, 'output_tokens': 55},
+                    'operation.cost': 7.5e-05,
                     'response_data': {'combined_chunk_content': 'The answer is secret', 'chunk_count': 2},
                     'logfire.json_schema': {
                         'type': 'object',
@@ -592,6 +604,10 @@ def test_sync_messages_stream(instrumented_client: anthropic.Anthropic, exporter
                             'async': {},
                             'response_data': {'type': 'object'},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
                         },
                     },
                     'gen_ai.response.model': 'claude-3-haiku-20240307',
@@ -703,8 +719,16 @@ async def test_async_messages_stream(
                     'logfire.tags': ('LLM',),
                     'duration': 1.0,
                     'gen_ai.output.messages': [
-                        {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'The answer is secret'}]}
+                        {
+                            'role': 'assistant',
+                            'parts': [{'type': 'text', 'content': 'The answer is secret'}],
+                            'finish_reason': 'end_turn',
+                        }
                     ],
+                    'gen_ai.usage.input_tokens': 25,
+                    'gen_ai.usage.output_tokens': 55,
+                    'gen_ai.usage.raw': {'input_tokens': 25, 'output_tokens': 55},
+                    'operation.cost': 7.5e-05,
                     'response_data': {'combined_chunk_content': 'The answer is secret', 'chunk_count': 2},
                     'logfire.json_schema': {
                         'type': 'object',
@@ -721,6 +745,10 @@ async def test_async_messages_stream(
                             'async': {},
                             'response_data': {'type': 'object'},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
                         },
                     },
                     'gen_ai.response.model': 'claude-3-haiku-20240307',
@@ -801,6 +829,7 @@ def test_tool_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 3,
+                    'gen_ai.usage.raw': {'input_tokens': 2, 'output_tokens': 3},
                     'gen_ai.response.finish_reasons': ['tool_use'],
                     'operation.cost': 4.25e-06,
                     'logfire.json_schema': {
@@ -826,6 +855,7 @@ def test_tool_messages(instrumented_client: anthropic.Anthropic, exporter: TestE
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                             'operation.cost': {},
                         },
@@ -898,6 +928,7 @@ def test_messages_without_stop_reason(instrumented_client: anthropic.Anthropic, 
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 3,
+                    'gen_ai.usage.raw': {'input_tokens': 2, 'output_tokens': 3},
                     'operation.cost': 4.25e-06,
                     'logfire.json_schema': {
                         'type': 'object',
@@ -922,6 +953,7 @@ def test_messages_without_stop_reason(instrumented_client: anthropic.Anthropic, 
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'operation.cost': {},
                         },
                     },
@@ -1088,6 +1120,7 @@ def test_request_parameters(instrumented_client: anthropic.Anthropic, exporter: 
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 3,
+                    'gen_ai.usage.raw': {'input_tokens': 2, 'output_tokens': 3},
                     'gen_ai.response.finish_reasons': ['end_turn'],
                     'operation.cost': 4.25e-06,
                     'logfire.json_schema': {
@@ -1118,6 +1151,7 @@ def test_request_parameters(instrumented_client: anthropic.Anthropic, exporter: 
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                             'operation.cost': {},
                         },
@@ -1198,6 +1232,10 @@ def test_on_response_unknown_block_type() -> None:
 
         def set_attribute(self, key: str, value: Any) -> None:
             self.attributes[key] = value
+
+        def set_attributes(self, attributes: dict[str, Any]) -> None:
+            for key, value in attributes.items():
+                self.set_attribute(key, value)
 
     span = MockSpan()
     on_response(message, span, version=1)  # type: ignore
@@ -1287,6 +1325,15 @@ def test_sync_messages_version_latest(exporter: TestExporter) -> None:
                     'gen_ai.response.id': IsStr(),
                     'gen_ai.usage.input_tokens': IsInt(),
                     'gen_ai.usage.output_tokens': IsInt(),
+                    'gen_ai.usage.raw': {
+                        'cache_creation': {'ephemeral_1h_input_tokens': 0, 'ephemeral_5m_input_tokens': 0},
+                        'cache_creation_input_tokens': 0,
+                        'cache_read_input_tokens': 0,
+                        'inference_geo': 'not_available',
+                        'input_tokens': 19,
+                        'output_tokens': 9,
+                        'service_tier': 'standard',
+                    },
                     'gen_ai.response.finish_reasons': ['end_turn'],
                     'operation.cost': 0.000192,
                     'logfire.json_schema': {
@@ -1306,6 +1353,7 @@ def test_sync_messages_version_latest(exporter: TestExporter) -> None:
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                             'operation.cost': {},
                         },
@@ -1377,6 +1425,15 @@ def test_sync_messages_version_v1_only(exporter: TestExporter) -> None:
                     'gen_ai.response.id': IsStr(),
                     'gen_ai.usage.input_tokens': IsInt(),
                     'gen_ai.usage.output_tokens': IsInt(),
+                    'gen_ai.usage.raw': {
+                        'cache_creation': {'ephemeral_1h_input_tokens': 0, 'ephemeral_5m_input_tokens': 0},
+                        'cache_creation_input_tokens': 0,
+                        'cache_read_input_tokens': 0,
+                        'inference_geo': 'not_available',
+                        'input_tokens': 19,
+                        'output_tokens': 9,
+                        'service_tier': 'standard',
+                    },
                     'gen_ai.response.finish_reasons': ['end_turn'],
                     'operation.cost': 0.000192,
                     'logfire.json_schema': {
@@ -1410,6 +1467,7 @@ def test_sync_messages_version_v1_only(exporter: TestExporter) -> None:
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                             'operation.cost': {},
                         },
@@ -1513,8 +1571,21 @@ def test_sync_messages_stream_version_latest(exporter: TestExporter) -> None:
                         {
                             'role': 'assistant',
                             'parts': [{'type': 'text', 'content': 'Four plus five equals nine.'}],
+                            'finish_reason': 'end_turn',
                         }
                     ],
+                    'gen_ai.usage.input_tokens': 19,
+                    'gen_ai.usage.output_tokens': 9,
+                    'gen_ai.usage.raw': {
+                        'cache_creation': {'ephemeral_1h_input_tokens': 0, 'ephemeral_5m_input_tokens': 0},
+                        'cache_creation_input_tokens': 0,
+                        'cache_read_input_tokens': 0,
+                        'inference_geo': 'not_available',
+                        'input_tokens': 19,
+                        'output_tokens': 9,
+                        'service_tier': 'standard',
+                    },
+                    'operation.cost': 0.000192,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -1529,6 +1600,10 @@ def test_sync_messages_stream_version_latest(exporter: TestExporter) -> None:
                             'gen_ai.system_instructions': {'type': 'array'},
                             'async': {},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
                         },
                     },
                     'logfire.tags': ('LLM',),
@@ -1631,6 +1706,18 @@ def test_sync_messages_stream_version_v1_only(exporter: TestExporter) -> None:
                     'gen_ai.request.max_tokens': 1000,
                     'async': False,
                     'response_data': {'combined_chunk_content': 'Four plus five equals nine.', 'chunk_count': IsInt()},
+                    'gen_ai.usage.input_tokens': 19,
+                    'gen_ai.usage.output_tokens': 9,
+                    'gen_ai.usage.raw': {
+                        'cache_creation': {'ephemeral_1h_input_tokens': 0, 'ephemeral_5m_input_tokens': 0},
+                        'cache_creation_input_tokens': 0,
+                        'cache_read_input_tokens': 0,
+                        'inference_geo': 'not_available',
+                        'input_tokens': 19,
+                        'output_tokens': 9,
+                        'service_tier': 'standard',
+                    },
+                    'operation.cost': 0.000192,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -1643,11 +1730,293 @@ def test_sync_messages_stream_version_v1_only(exporter: TestExporter) -> None:
                             'gen_ai.request.max_tokens': {},
                             'async': {},
                             'response_data': {'type': 'object'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
                         },
                     },
                     'logfire.tags': ('LLM',),
                     'gen_ai.response.model': 'claude-sonnet-4-20250514',
                 },
             },
+        ]
+    )
+
+
+@pytest.mark.vcr()
+def test_sync_messages_beta_stream(exporter: TestExporter) -> None:
+    client = anthropic.Anthropic(api_key='foobar')
+    logfire.instrument_anthropic(client, version=['latest', 1])
+    response = client.beta.messages.create(
+        max_tokens=1000,
+        model='claude-sonnet-4-20250514',
+        system='You are a helpful assistant.',
+        messages=[{'role': 'user', 'content': [{'text': 'What is four plus five?', 'type': 'text'}]}],
+        stream=True,
+    )
+    with response as stream:
+        combined = ''.join(
+            chunk.delta.text  # type: ignore
+            for chunk in stream
+            if hasattr(chunk, 'delta') and hasattr(chunk.delta, 'text')  # type: ignore
+        )
+    assert combined == snapshot('Four plus five equals nine.')
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Message with {request_data[model]!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_anthropic.py',
+                    'code.function': 'test_sync_messages_beta_stream',
+                    'code.lineno': 123,
+                    'request_data': {
+                        'max_tokens': 1000,
+                        'messages': [
+                            {'role': 'user', 'content': [{'text': 'What is four plus five?', 'type': 'text'}]}
+                        ],
+                        'model': 'claude-sonnet-4-20250514',
+                        'stream': True,
+                        'system': 'You are a helpful assistant.',
+                    },
+                    'gen_ai.system': 'anthropic',
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'claude-sonnet-4-20250514',
+                    'gen_ai.request.max_tokens': 1000,
+                    'gen_ai.input.messages': [
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
+                    ],
+                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'You are a helpful assistant.'}],
+                    'async': False,
+                    'logfire.msg_template': 'Message with {request_data[model]!r}',
+                    'logfire.msg': "Message with 'claude-sonnet-4-20250514'",
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.request.max_tokens': {},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'gen_ai.system_instructions': {'type': 'array'},
+                            'async': {},
+                        },
+                    },
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'gen_ai.response.model': 'claude-sonnet-4-20250514',
+                },
+            },
+            {
+                'name': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'parent': None,
+                'start_time': 5000000000,
+                'end_time': 5000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'streaming response from {request_data[model]!r} took {duration:.2f}s',
+                    'logfire.msg': "streaming response from 'claude-sonnet-4-20250514' took 1.00s",
+                    'code.filepath': 'test_anthropic.py',
+                    'code.function': '<genexpr>',
+                    'code.lineno': 123,
+                    'duration': 1.0,
+                    'request_data': {
+                        'max_tokens': 1000,
+                        'messages': [
+                            {'role': 'user', 'content': [{'text': 'What is four plus five?', 'type': 'text'}]}
+                        ],
+                        'model': 'claude-sonnet-4-20250514',
+                        'stream': True,
+                        'system': 'You are a helpful assistant.',
+                    },
+                    'gen_ai.system': 'anthropic',
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'claude-sonnet-4-20250514',
+                    'gen_ai.request.max_tokens': 1000,
+                    'gen_ai.input.messages': [
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
+                    ],
+                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'You are a helpful assistant.'}],
+                    'async': False,
+                    'response_data': {'combined_chunk_content': 'Four plus five equals nine.', 'chunk_count': 3},
+                    'gen_ai.output.messages': [
+                        {
+                            'role': 'assistant',
+                            'parts': [{'type': 'text', 'content': 'Four plus five equals nine.'}],
+                            'finish_reason': 'end_turn',
+                        }
+                    ],
+                    'gen_ai.usage.input_tokens': 19,
+                    'gen_ai.usage.output_tokens': 9,
+                    'gen_ai.usage.raw': {
+                        'cache_creation': {'ephemeral_1h_input_tokens': 0, 'ephemeral_5m_input_tokens': 0},
+                        'cache_creation_input_tokens': 0,
+                        'cache_read_input_tokens': 0,
+                        'inference_geo': 'not_available',
+                        'input_tokens': 19,
+                        'output_tokens': 9,
+                        'service_tier': 'standard',
+                    },
+                    'operation.cost': 0.000192,
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'duration': {},
+                            'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.request.max_tokens': {},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'gen_ai.system_instructions': {'type': 'array'},
+                            'async': {},
+                            'response_data': {'type': 'object'},
+                            'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
+                        },
+                    },
+                    'logfire.tags': ('LLM',),
+                    'gen_ai.response.model': 'claude-sonnet-4-20250514',
+                },
+            },
+        ]
+    )
+
+
+@pytest.mark.vcr()
+async def test_async_beta_messages(exporter: TestExporter) -> None:
+    client = anthropic.AsyncAnthropic()
+    logfire.instrument_anthropic(client, version=['latest', 1])
+    response = await client.beta.messages.create(
+        max_tokens=1000,
+        model='claude-3-haiku-20240307',
+        system='You are a helpful assistant.',
+        messages=[{'role': 'user', 'content': 'What is four plus five?'}],
+    )
+    assert response.content[0].model_dump() == snapshot({'citations': None, 'text': '4 + 5 = 9.', 'type': 'text'})
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Message with {request_data[model]!r}',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 2000000000,
+                'attributes': {
+                    'code.filepath': 'test_anthropic.py',
+                    'code.function': 'test_async_beta_messages',
+                    'code.lineno': 123,
+                    'request_data': {
+                        'max_tokens': 1000,
+                        'messages': [{'role': 'user', 'content': 'What is four plus five?'}],
+                        'model': 'claude-3-haiku-20240307',
+                        'system': 'You are a helpful assistant.',
+                    },
+                    'gen_ai.system': 'anthropic',
+                    'gen_ai.provider.name': 'anthropic',
+                    'gen_ai.operation.name': 'chat',
+                    'gen_ai.request.model': 'claude-3-haiku-20240307',
+                    'gen_ai.request.max_tokens': 1000,
+                    'gen_ai.input.messages': [
+                        {'role': 'user', 'parts': [{'type': 'text', 'content': 'What is four plus five?'}]}
+                    ],
+                    'gen_ai.system_instructions': [{'type': 'text', 'content': 'You are a helpful assistant.'}],
+                    'async': True,
+                    'logfire.msg_template': 'Message with {request_data[model]!r}',
+                    'logfire.msg': "Message with 'claude-3-haiku-20240307'",
+                    'logfire.tags': ('LLM',),
+                    'logfire.span_type': 'span',
+                    'response_data': {
+                        'message': {'role': 'assistant', 'content': '4 + 5 = 9.'},
+                        'usage': {
+                            'cache_creation': {'ephemeral_1h_input_tokens': 0, 'ephemeral_5m_input_tokens': 0},
+                            'cache_creation_input_tokens': 0,
+                            'cache_read_input_tokens': 0,
+                            'inference_geo': 'not_available',
+                            'input_tokens': 19,
+                            'iterations': None,
+                            'output_tokens': 14,
+                            'server_tool_use': None,
+                            'service_tier': 'standard',
+                            'speed': None,
+                        },
+                    },
+                    'gen_ai.output.messages': [
+                        {
+                            'role': 'assistant',
+                            'parts': [{'type': 'text', 'content': '4 + 5 = 9.'}],
+                            'finish_reason': 'end_turn',
+                        }
+                    ],
+                    'gen_ai.response.model': 'claude-3-haiku-20240307',
+                    'gen_ai.response.id': 'msg_01HJB23z1SCp7SjLxmybeqgF',
+                    'gen_ai.usage.input_tokens': 19,
+                    'gen_ai.usage.output_tokens': 14,
+                    'gen_ai.usage.raw': {
+                        'cache_creation': {'ephemeral_1h_input_tokens': 0, 'ephemeral_5m_input_tokens': 0},
+                        'cache_creation_input_tokens': 0,
+                        'cache_read_input_tokens': 0,
+                        'inference_geo': 'not_available',
+                        'input_tokens': 19,
+                        'output_tokens': 14,
+                        'service_tier': 'standard',
+                    },
+                    'gen_ai.response.finish_reasons': ['end_turn'],
+                    'operation.cost': 2.225e-05,
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
+                            'gen_ai.provider.name': {},
+                            'gen_ai.operation.name': {},
+                            'gen_ai.request.model': {},
+                            'gen_ai.request.max_tokens': {},
+                            'gen_ai.input.messages': {'type': 'array'},
+                            'gen_ai.system_instructions': {'type': 'array'},
+                            'async': {},
+                            'response_data': {
+                                'type': 'object',
+                                'properties': {
+                                    'usage': {
+                                        'type': 'object',
+                                        'title': 'BetaUsage',
+                                        'x-python-datatype': 'PydanticModel',
+                                        'properties': {
+                                            'cache_creation': {
+                                                'type': 'object',
+                                                'title': 'BetaCacheCreation',
+                                                'x-python-datatype': 'PydanticModel',
+                                            }
+                                        },
+                                    }
+                                },
+                            },
+                            'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.response.model': {},
+                            'gen_ai.response.id': {},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
+                            'gen_ai.response.finish_reasons': {'type': 'array'},
+                            'operation.cost': {},
+                        },
+                    },
+                },
+            }
         ]
     )

@@ -437,6 +437,7 @@ def test_sync_chat_completions(instrumented_client: openai.Client, exporter: Tes
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 1,
+                    'gen_ai.usage.raw': {'completion_tokens': 1, 'prompt_tokens': 2, 'total_tokens': 3},
                     'response_data': {
                         'message': {
                             'content': 'Nine',
@@ -474,6 +475,7 @@ def test_sync_chat_completions(instrumented_client: openai.Client, exporter: Tes
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
@@ -565,6 +567,7 @@ def test_sync_chat_completions_with_all_request_params(
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 1,
+                    'gen_ai.usage.raw': {'completion_tokens': 1, 'prompt_tokens': 2, 'total_tokens': 3},
                     'response_data': {
                         'message': {
                             'content': 'Nine',
@@ -609,6 +612,7 @@ def test_sync_chat_completions_with_all_request_params(
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
@@ -680,6 +684,7 @@ def test_sync_chat_completions_with_stop_string(instrumented_client: openai.Clie
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 1,
+                    'gen_ai.usage.raw': {'completion_tokens': 1, 'prompt_tokens': 2, 'total_tokens': 3},
                     'response_data': {
                         'message': {
                             'content': 'Nine',
@@ -718,6 +723,7 @@ def test_sync_chat_completions_with_stop_string(instrumented_client: openai.Clie
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
@@ -819,6 +825,7 @@ async def test_async_chat_completions(instrumented_async_client: openai.AsyncCli
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.input_tokens': 2,
                     'gen_ai.usage.output_tokens': 1,
+                    'gen_ai.usage.raw': {'completion_tokens': 1, 'prompt_tokens': 2, 'total_tokens': 3},
                     'response_data': {
                         'message': {
                             'content': 'Nine',
@@ -856,6 +863,7 @@ async def test_async_chat_completions(instrumented_async_client: openai.AsyncCli
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
@@ -906,6 +914,7 @@ def test_sync_chat_empty_response_chunk(instrumented_client: openai.Client, expo
                         'model': 'gpt-4',
                         'stream': True,
                     },
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.operation.name': 'chat',
@@ -919,6 +928,7 @@ def test_sync_chat_empty_response_chunk(instrumented_client: openai.Client, expo
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.request.model': {},
                             'gen_ai.operation.name': {},
@@ -951,6 +961,7 @@ def test_sync_chat_empty_response_chunk(instrumented_client: openai.Client, expo
                     'code.lineno': 123,
                     'logfire.msg': "streaming response from 'gpt-4' took 1.00s",
                     'gen_ai.request.model': 'gpt-4',
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'logfire.span_type': 'log',
                     'gen_ai.operation.name': 'chat',
@@ -965,6 +976,7 @@ def test_sync_chat_empty_response_chunk(instrumented_client: openai.Client, expo
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'async': {},
                             'gen_ai.operation.name': {},
@@ -1006,6 +1018,7 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                         'model': 'gpt-4',
                         'stream': True,
                     },
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.operation.name': 'chat',
@@ -1019,6 +1032,7 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.request.model': {},
                             'gen_ai.operation.name': {},
@@ -1051,6 +1065,7 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                     'code.lineno': 123,
                     'logfire.msg': "streaming response from 'gpt-4' took 1.00s",
                     'gen_ai.request.model': 'gpt-4',
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'logfire.span_type': 'log',
                     'gen_ai.operation.name': 'chat',
@@ -1065,6 +1080,7 @@ def test_sync_chat_empty_response_choices(instrumented_client: openai.Client, ex
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'async': {},
                             'gen_ai.operation.name': {},
@@ -1156,6 +1172,7 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                             }
                         ],
                     },
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.operation.name': 'chat',
@@ -1189,6 +1206,7 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.request.model': {},
                             'gen_ai.operation.name': {},
@@ -1244,6 +1262,7 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                         ],
                     },
                     'gen_ai.request.model': 'gpt-4',
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'async': False,
                     'gen_ai.operation.name': 'chat',
@@ -1315,11 +1334,16 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                             'finish_reason': 'stop',
                         }
                     ],
+                    'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.usage.output_tokens': 1,
+                    'gen_ai.usage.raw': {'completion_tokens': 1, 'prompt_tokens': 2, 'total_tokens': 3},
+                    'operation.cost': 0.00012,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'async': {},
                             'gen_ai.operation.name': {},
@@ -1359,6 +1383,10 @@ def test_sync_chat_tool_call_stream(instrumented_client: openai.Client, exporter
                                 },
                             },
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
                         },
                     },
                     'logfire.tags': ('LLM',),
@@ -1449,6 +1477,7 @@ async def test_async_chat_tool_call_stream(
                             }
                         ],
                     },
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.operation.name': 'chat',
@@ -1482,6 +1511,7 @@ async def test_async_chat_tool_call_stream(
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.request.model': {},
                             'gen_ai.operation.name': {},
@@ -1537,6 +1567,7 @@ async def test_async_chat_tool_call_stream(
                         ],
                     },
                     'gen_ai.request.model': 'gpt-4',
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'async': True,
                     'gen_ai.operation.name': 'chat',
@@ -1608,11 +1639,16 @@ async def test_async_chat_tool_call_stream(
                             'finish_reason': 'stop',
                         }
                     ],
+                    'gen_ai.usage.input_tokens': 2,
+                    'gen_ai.usage.output_tokens': 1,
+                    'gen_ai.usage.raw': {'completion_tokens': 1, 'prompt_tokens': 2, 'total_tokens': 3},
+                    'operation.cost': 0.00012,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'async': {},
                             'gen_ai.operation.name': {},
@@ -1652,6 +1688,10 @@ async def test_async_chat_tool_call_stream(
                                 },
                             },
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
                         },
                     },
                     'logfire.tags': ('LLM',),
@@ -1693,6 +1733,7 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                         'model': 'gpt-4',
                         'stream': True,
                     },
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.operation.name': 'chat',
@@ -1707,6 +1748,7 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.request.model': {},
                             'gen_ai.operation.name': {},
@@ -1742,6 +1784,7 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                     'code.lineno': 123,
                     'logfire.msg': "streaming response from 'gpt-4' took 1.00s",
                     'gen_ai.request.model': 'gpt-4',
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'logfire.span_type': 'log',
                     'gen_ai.operation.name': 'chat',
@@ -1772,6 +1815,7 @@ def test_sync_chat_completions_stream(instrumented_client: openai.Client, export
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'async': {},
                             'gen_ai.operation.name': {},
@@ -1831,6 +1875,7 @@ async def test_async_chat_completions_stream(
                         'model': 'gpt-4',
                         'stream': True,
                     },
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'gpt-4',
                     'gen_ai.operation.name': 'chat',
@@ -1845,6 +1890,7 @@ async def test_async_chat_completions_stream(
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.request.model': {},
                             'gen_ai.operation.name': {},
@@ -1880,6 +1926,7 @@ async def test_async_chat_completions_stream(
                     'code.lineno': 123,
                     'logfire.msg': "streaming response from 'gpt-4' took 1.00s",
                     'gen_ai.request.model': 'gpt-4',
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'logfire.span_type': 'log',
                     'gen_ai.operation.name': 'chat',
@@ -1910,6 +1957,7 @@ async def test_async_chat_completions_stream(
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'async': {},
                             'gen_ai.operation.name': {},
@@ -1968,6 +2016,7 @@ def test_completions(instrumented_client: openai.Client, exporter: TestExporter)
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.output_tokens': 1,
                     'operation.cost': 5e-06,
+                    'gen_ai.usage.raw': {'completion_tokens': 1, 'prompt_tokens': 2, 'total_tokens': 3},
                     'response_data': {
                         'finish_reason': 'stop',
                         'text': 'Nine',
@@ -1997,6 +2046,7 @@ def test_completions(instrumented_client: openai.Client, exporter: TestExporter)
                             'gen_ai.response.id': {},
                             'gen_ai.usage.output_tokens': {},
                             'operation.cost': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
@@ -2061,6 +2111,18 @@ def test_sync_chat_completions_version_latest(exporter: TestExporter) -> None:
                     'gen_ai.response.id': IsStr(),
                     'gen_ai.usage.input_tokens': IsInt(),
                     'gen_ai.usage.output_tokens': IsInt(),
+                    'gen_ai.usage.raw': {
+                        'completion_tokens': 6,
+                        'prompt_tokens': 23,
+                        'total_tokens': 29,
+                        'completion_tokens_details': {
+                            'accepted_prediction_tokens': 0,
+                            'audio_tokens': 0,
+                            'reasoning_tokens': 0,
+                            'rejected_prediction_tokens': 0,
+                        },
+                        'prompt_tokens_details': {'audio_tokens': 0, 'cached_tokens': 0},
+                    },
                     'gen_ai.output.messages': [
                         {
                             'role': 'assistant',
@@ -2084,6 +2146,7 @@ def test_sync_chat_completions_version_latest(exporter: TestExporter) -> None:
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                         },
@@ -2140,6 +2203,18 @@ def test_sync_chat_completions_version_v1_only(exporter: TestExporter) -> None:
                     'gen_ai.response.id': IsStr(),
                     'gen_ai.usage.input_tokens': IsInt(),
                     'gen_ai.usage.output_tokens': IsInt(),
+                    'gen_ai.usage.raw': {
+                        'completion_tokens': 6,
+                        'prompt_tokens': 23,
+                        'total_tokens': 29,
+                        'completion_tokens_details': {
+                            'accepted_prediction_tokens': 0,
+                            'audio_tokens': 0,
+                            'reasoning_tokens': 0,
+                            'rejected_prediction_tokens': 0,
+                        },
+                        'prompt_tokens_details': {'audio_tokens': 0, 'cached_tokens': 0},
+                    },
                     'response_data': {
                         'message': {
                             'content': 'Four plus five is nine.',
@@ -2178,6 +2253,7 @@ def test_sync_chat_completions_version_v1_only(exporter: TestExporter) -> None:
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
@@ -2242,6 +2318,7 @@ def test_sync_chat_completions_stream_version_latest(exporter: TestExporter) -> 
                     'code.function': 'test_sync_chat_completions_stream_version_latest',
                     'code.lineno': 123,
                     'request_data': {'model': 'gpt-4.1'},
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.request.model': 'gpt-4.1',
@@ -2256,6 +2333,7 @@ def test_sync_chat_completions_stream_version_latest(exporter: TestExporter) -> 
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.operation.name': {},
                             'gen_ai.request.model': {},
@@ -2284,6 +2362,7 @@ def test_sync_chat_completions_stream_version_latest(exporter: TestExporter) -> 
                     'code.lineno': 123,
                     'duration': 1.0,
                     'request_data': {'model': 'gpt-4.1'},
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.request.model': 'gpt-4.1',
@@ -2304,6 +2383,7 @@ def test_sync_chat_completions_stream_version_latest(exporter: TestExporter) -> 
                         'properties': {
                             'duration': {},
                             'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.operation.name': {},
                             'gen_ai.request.model': {},
@@ -2355,6 +2435,7 @@ def test_sync_chat_completions_stream_version_v1_only(exporter: TestExporter) ->
                         'model': 'gpt-4.1',
                         'stream': True,
                     },
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.request.model': 'gpt-4.1',
@@ -2365,6 +2446,7 @@ def test_sync_chat_completions_stream_version_v1_only(exporter: TestExporter) ->
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.operation.name': {},
                             'gen_ai.request.model': {},
@@ -2399,6 +2481,7 @@ def test_sync_chat_completions_stream_version_v1_only(exporter: TestExporter) ->
                         'model': 'gpt-4.1',
                         'stream': True,
                     },
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.request.model': 'gpt-4.1',
@@ -2421,6 +2504,7 @@ def test_sync_chat_completions_stream_version_v1_only(exporter: TestExporter) ->
                         'properties': {
                             'duration': {},
                             'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.operation.name': {},
                             'gen_ai.request.model': {},
@@ -2478,6 +2562,8 @@ def test_embeddings_version_latest(exporter: TestExporter) -> None:
                     'gen_ai.system': 'openai',
                     'gen_ai.response.model': 'text-embedding-3-small',
                     'gen_ai.usage.input_tokens': IsInt(),
+                    'gen_ai.usage.raw': {'prompt_tokens': 1, 'total_tokens': 1},
+                    'operation.cost': 2e-08,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
@@ -2489,6 +2575,8 @@ def test_embeddings_version_latest(exporter: TestExporter) -> None:
                             'gen_ai.system': {},
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
                         },
                     },
                 },
@@ -2530,6 +2618,8 @@ def test_embeddings_version_v1_only(exporter: TestExporter) -> None:
                     'gen_ai.system': 'openai',
                     'gen_ai.response.model': 'text-embedding-3-small',
                     'gen_ai.usage.input_tokens': IsInt(),
+                    'gen_ai.usage.raw': {'prompt_tokens': 1, 'total_tokens': 1},
+                    'operation.cost': 2e-08,
                     'response_data': {'usage': {'prompt_tokens': IsInt(), 'total_tokens': IsInt()}},
                     'logfire.json_schema': {
                         'type': 'object',
@@ -2542,6 +2632,8 @@ def test_embeddings_version_v1_only(exporter: TestExporter) -> None:
                             'gen_ai.system': {},
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
@@ -2583,6 +2675,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                     'code.function': 'test_responses_stream',
                     'code.lineno': 123,
                     'gen_ai.provider.name': 'openai',
+                    'gen_ai.system': 'openai',
                     'events': [
                         {'event.name': 'gen_ai.user.message', 'content': 'What is four plus five?', 'role': 'user'}
                     ],
@@ -2599,6 +2692,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                         'type': 'object',
                         'properties': {
                             'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'events': {'type': 'array'},
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
@@ -2628,6 +2722,7 @@ def test_responses_stream(exporter: TestExporter) -> None:
                     'code.lineno': 123,
                     'request_data': {'model': 'gpt-4.1', 'stream': True},
                     'gen_ai.provider.name': 'openai',
+                    'gen_ai.system': 'openai',
                     'events': [
                         {'event.name': 'gen_ai.user.message', 'content': 'What is four plus five?', 'role': 'user'},
                         {
@@ -2646,11 +2741,22 @@ def test_responses_stream(exporter: TestExporter) -> None:
                     'gen_ai.output.messages': [
                         {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Four plus five equals **nine**.'}]}
                     ],
+                    'gen_ai.usage.input_tokens': 13,
+                    'gen_ai.usage.output_tokens': 9,
+                    'gen_ai.usage.raw': {
+                        'input_tokens': 13,
+                        'input_tokens_details': {'cached_tokens': 0},
+                        'output_tokens': 9,
+                        'output_tokens_details': {'reasoning_tokens': 0},
+                        'total_tokens': 22,
+                    },
+                    'operation.cost': 9.8e-05,
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.provider.name': {},
+                            'gen_ai.system': {},
                             'events': {'type': 'array'},
                             'gen_ai.request.model': {},
                             'async': {},
@@ -2658,6 +2764,10 @@ def test_responses_stream(exporter: TestExporter) -> None:
                             'gen_ai.input.messages': {'type': 'array'},
                             'duration': {},
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
                         },
                     },
                     'logfire.tags': ('LLM',),
@@ -2723,6 +2833,7 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                         'prompt': 'What is four plus five?',
                         'stream': True,
                     },
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'gpt-3.5-turbo-instruct',
                     'gen_ai.operation.name': 'text_completion',
@@ -2733,6 +2844,7 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.request.model': {},
                             'gen_ai.operation.name': {},
@@ -2764,6 +2876,7 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                     'code.lineno': 123,
                     'logfire.msg': "streaming response from 'gpt-3.5-turbo-instruct' took 1.00s",
                     'gen_ai.request.model': 'gpt-3.5-turbo-instruct',
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'logfire.span_type': 'log',
                     'gen_ai.operation.name': 'text_completion',
@@ -2778,6 +2891,7 @@ def test_completions_stream(instrumented_client: openai.Client, exporter: TestEx
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'async': {},
                             'gen_ai.operation.name': {},
@@ -2827,6 +2941,8 @@ def test_embeddings(instrumented_client: openai.Client, exporter: TestExporter) 
                     'gen_ai.request.model': 'text-embedding-3-small',
                     'gen_ai.response.model': 'text-embedding-3-small',
                     'gen_ai.usage.input_tokens': 1,
+                    'gen_ai.usage.raw': {'prompt_tokens': 1, 'total_tokens': 2},
+                    'operation.cost': 2e-08,
                     'response_data': {'usage': {'prompt_tokens': 1, 'total_tokens': 2}},
                     'logfire.json_schema': {
                         'type': 'object',
@@ -2839,6 +2955,8 @@ def test_embeddings(instrumented_client: openai.Client, exporter: TestExporter) 
                             'gen_ai.request.model': {},
                             'gen_ai.response.model': {},
                             'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
+                            'operation.cost': {},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
@@ -3017,6 +3135,7 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.output_tokens': 1,
                     'operation.cost': 5e-06,
+                    'gen_ai.usage.raw': {'completion_tokens': 1, 'prompt_tokens': 2, 'total_tokens': 3},
                     'response_data': {
                         'finish_reason': 'stop',
                         'text': 'Nine',
@@ -3046,6 +3165,7 @@ def test_dont_suppress_httpx(exporter: TestExporter) -> None:
                             'gen_ai.response.id': {},
                             'gen_ai.usage.output_tokens': {},
                             'operation.cost': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
@@ -3136,6 +3256,7 @@ def test_suppress_httpx(exporter: TestExporter) -> None:
                     'gen_ai.response.id': 'test_id',
                     'gen_ai.usage.output_tokens': 1,
                     'operation.cost': 5e-06,
+                    'gen_ai.usage.raw': {'completion_tokens': 1, 'prompt_tokens': 2, 'total_tokens': 3},
                     'response_data': {
                         'finish_reason': 'stop',
                         'text': 'Nine',
@@ -3165,6 +3286,7 @@ def test_suppress_httpx(exporter: TestExporter) -> None:
                             'gen_ai.response.id': {},
                             'gen_ai.usage.output_tokens': {},
                             'operation.cost': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
@@ -3496,6 +3618,13 @@ def test_responses_api(exporter: TestExporter) -> None:
                     'gen_ai.response.id': 'resp_039e74dd66b112920068dfe10528b8819c82d1214897014964',
                     'gen_ai.usage.input_tokens': 65,
                     'gen_ai.usage.output_tokens': 17,
+                    'gen_ai.usage.raw': {
+                        'input_tokens': 65,
+                        'input_tokens_details': {'cached_tokens': 0},
+                        'output_tokens': 17,
+                        'output_tokens_details': {'reasoning_tokens': 0},
+                        'total_tokens': 82,
+                    },
                     'gen_ai.output.messages': [
                         {
                             'role': 'assistant',
@@ -3528,6 +3657,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                             'gen_ai.response.id': {},
                             'gen_ai.usage.output_tokens': {},
                             'operation.cost': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'gen_ai.output.messages': {'type': 'array'},
                         },
                     },
@@ -3614,6 +3744,13 @@ def test_responses_api(exporter: TestExporter) -> None:
                         },
                     ],
                     'gen_ai.usage.output_tokens': 21,
+                    'gen_ai.usage.raw': {
+                        'input_tokens': 43,
+                        'input_tokens_details': {'cached_tokens': 0},
+                        'output_tokens': 21,
+                        'output_tokens_details': {'reasoning_tokens': 0},
+                        'total_tokens': 64,
+                    },
                     'gen_ai.output.messages': [
                         {
                             'role': 'assistant',
@@ -3642,6 +3779,7 @@ def test_responses_api(exporter: TestExporter) -> None:
                             'gen_ai.response.id': {},
                             'gen_ai.usage.output_tokens': {},
                             'operation.cost': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'gen_ai.output.messages': {'type': 'array'},
                         },
                     },
@@ -3695,6 +3833,7 @@ def test_openrouter_streaming_reasoning(exporter: TestExporter) -> None:
                         'model': 'google/gemini-2.5-flash',
                         'stream': True,
                     },
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'gen_ai.request.model': 'google/gemini-2.5-flash',
                     'gen_ai.operation.name': 'chat',
@@ -3711,6 +3850,7 @@ def test_openrouter_streaming_reasoning(exporter: TestExporter) -> None:
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'gen_ai.request.model': {},
                             'gen_ai.operation.name': {},
@@ -3743,6 +3883,7 @@ def test_openrouter_streaming_reasoning(exporter: TestExporter) -> None:
                         'stream': True,
                     },
                     'gen_ai.request.model': 'google/gemini-2.5-flash',
+                    'gen_ai.system': 'openai',
                     'gen_ai.provider.name': 'openai',
                     'async': False,
                     'gen_ai.operation.name': 'chat',
@@ -3820,11 +3961,15 @@ So, while I can't genuinely answer it for myself, how are *you* doing today, and
                             'finish_reason': 'stop',
                         }
                     ],
+                    'gen_ai.usage.input_tokens': 13,
+                    'gen_ai.usage.output_tokens': 1003,
+                    'gen_ai.usage.raw': {'completion_tokens': 1003, 'prompt_tokens': 13, 'total_tokens': 1016},
                     'logfire.json_schema': {
                         'type': 'object',
                         'properties': {
                             'request_data': {'type': 'object'},
                             'gen_ai.request.model': {},
+                            'gen_ai.system': {},
                             'gen_ai.provider.name': {},
                             'async': {},
                             'gen_ai.operation.name': {},
@@ -3846,6 +3991,9 @@ So, while I can't genuinely answer it for myself, how are *you* doing today, and
                                 },
                             },
                             'gen_ai.output.messages': {'type': 'array'},
+                            'gen_ai.usage.input_tokens': {},
+                            'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                         },
                     },
                     'logfire.tags': ('LLM',),
@@ -3946,6 +4094,24 @@ def test_chat_completions_with_audio_input(exporter: TestExporter) -> None:
                     'gen_ai.response.id': 'chatcmpl-D5caSDR31gOd1Qpyucf0b5VvVy9zY',
                     'gen_ai.usage.input_tokens': 21,
                     'gen_ai.usage.output_tokens': 1,
+                    'gen_ai.usage.raw': {
+                        'completion_tokens': 1,
+                        'prompt_tokens': 21,
+                        'total_tokens': 22,
+                        'completion_tokens_details': {
+                            'accepted_prediction_tokens': 0,
+                            'audio_tokens': 0,
+                            'reasoning_tokens': 0,
+                            'rejected_prediction_tokens': 0,
+                            'text_tokens': 1,
+                        },
+                        'prompt_tokens_details': {
+                            'audio_tokens': 2,
+                            'cached_tokens': 0,
+                            'text_tokens': 19,
+                            'image_tokens': 0,
+                        },
+                    },
                     'response_data': {
                         'message': {
                             'content': 'Hello',
@@ -3994,6 +4160,7 @@ def test_chat_completions_with_audio_input(exporter: TestExporter) -> None:
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
@@ -4370,6 +4537,7 @@ def test_completions_version_v1_only(exporter: TestExporter) -> None:
                     'gen_ai.response.id': IsStr(),
                     'gen_ai.usage.input_tokens': IsInt(),
                     'gen_ai.usage.output_tokens': IsInt(),
+                    'gen_ai.usage.raw': {'completion_tokens': 1, 'prompt_tokens': 5, 'total_tokens': 6},
                     'response_data': {
                         'finish_reason': 'stop',
                         'text': 'Nine',
@@ -4397,6 +4565,7 @@ def test_completions_version_v1_only(exporter: TestExporter) -> None:
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'response_data': {
                                 'type': 'object',
                                 'properties': {
@@ -4455,6 +4624,7 @@ def test_completions_version_latest_only(exporter: TestExporter) -> None:
                     'gen_ai.response.id': IsStr(),
                     'gen_ai.usage.input_tokens': IsInt(),
                     'gen_ai.usage.output_tokens': IsInt(),
+                    'gen_ai.usage.raw': {'completion_tokens': 1, 'prompt_tokens': 5, 'total_tokens': 6},
                     'gen_ai.output.messages': [
                         {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Nine'}], 'finish_reason': 'stop'}
                     ],
@@ -4474,6 +4644,7 @@ def test_completions_version_latest_only(exporter: TestExporter) -> None:
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'gen_ai.output.messages': {'type': 'array'},
                             'gen_ai.response.finish_reasons': {'type': 'array'},
                         },
@@ -4521,6 +4692,13 @@ def test_responses_api_version_v1_only(exporter: TestExporter) -> None:
                     'gen_ai.response.id': IsStr(),
                     'gen_ai.usage.input_tokens': IsInt(),
                     'gen_ai.usage.output_tokens': IsInt(),
+                    'gen_ai.usage.raw': {
+                        'input_tokens': 12,
+                        'input_tokens_details': {'cached_tokens': 0},
+                        'output_tokens': 8,
+                        'output_tokens_details': {'reasoning_tokens': 0},
+                        'total_tokens': 20,
+                    },
                     'events': [
                         {'event.name': 'gen_ai.user.message', 'content': 'What is four plus five?', 'role': 'user'},
                         {
@@ -4544,6 +4722,7 @@ def test_responses_api_version_v1_only(exporter: TestExporter) -> None:
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                         },
                     },
                 },
@@ -4592,6 +4771,13 @@ def test_responses_api_version_latest_only(exporter: TestExporter) -> None:
                     'gen_ai.response.id': IsStr(),
                     'gen_ai.usage.input_tokens': IsInt(),
                     'gen_ai.usage.output_tokens': IsInt(),
+                    'gen_ai.usage.raw': {
+                        'input_tokens': 12,
+                        'input_tokens_details': {'cached_tokens': 0},
+                        'output_tokens': 8,
+                        'output_tokens_details': {'reasoning_tokens': 0},
+                        'total_tokens': 20,
+                    },
                     'gen_ai.output.messages': [
                         {'role': 'assistant', 'parts': [{'type': 'text', 'content': 'Four plus five is nine.'}]}
                     ],
@@ -4610,6 +4796,7 @@ def test_responses_api_version_latest_only(exporter: TestExporter) -> None:
                             'gen_ai.response.id': {},
                             'gen_ai.usage.input_tokens': {},
                             'gen_ai.usage.output_tokens': {},
+                            'gen_ai.usage.raw': {'type': 'object'},
                             'gen_ai.output.messages': {'type': 'array'},
                         },
                     },

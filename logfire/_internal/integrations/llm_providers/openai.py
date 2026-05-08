@@ -22,11 +22,8 @@ from logfire import LogfireSpan
 from ...utils import handle_internal_errors, log_internal_error
 from .semconv import (
     INPUT_MESSAGES,
-    INPUT_TOKENS,
     OPERATION_NAME,
     OUTPUT_MESSAGES,
-    OUTPUT_TOKENS,
-    PROVIDER_NAME,
     REQUEST_FREQUENCY_PENALTY,
     REQUEST_MAX_TOKENS,
     REQUEST_MODEL,
@@ -53,13 +50,14 @@ from .semconv import (
     ToolCallPart,
     ToolCallResponsePart,
     UriPart,
+    provider_attrs,
 )
 from .types import EndpointConfig, StreamState
+from .usage import get_usage_attributes
 
 if TYPE_CHECKING:
     from openai._models import FinalRequestOptions
     from openai._types import ResponseT
-    from pydantic import BaseModel
 
     from ...main import LogfireSpan
 
@@ -123,18 +121,26 @@ def get_endpoint_config(
         # Ensure that `{request_data[model]!r}` doesn't raise an error, just a warning about `model` missing.
         raw_json_data = {}
     json_data = cast('dict[str, Any]', raw_json_data)
+    model = json_data.get('model')
+    request_data = json_data if 1 in versions else {'model': model}
+
+    def common_attrs(operation: str = '') -> dict[str, Any]:
+        attrs: dict[str, Any] = {
+            'request_data': request_data,
+            **provider_attrs('openai'),
+        }
+        if model:
+            attrs[REQUEST_MODEL] = model
+        if operation:
+            attrs[OPERATION_NAME] = operation
+        _extract_request_parameters(json_data, attrs)
+        return attrs
 
     if url == '/chat/completions':
         if is_current_agent_span('Chat completion with {gen_ai.request.model!r}'):
             return EndpointConfig(message_template='', span_data={})
 
-        span_data: dict[str, Any] = {
-            'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
-            PROVIDER_NAME: 'openai',
-            OPERATION_NAME: 'chat',
-            REQUEST_MODEL: json_data.get('model'),
-        }
-        _extract_request_parameters(json_data, span_data)
+        span_data = common_attrs('chat')
 
         if 'latest' in versions:
             # Convert messages to semantic convention format
@@ -153,15 +159,9 @@ def get_endpoint_config(
             return EndpointConfig(message_template='', span_data={})
 
         stream = json_data.get('stream', False)
-        span_data = {
-            'request_data': {'model': json_data.get('model'), 'stream': stream},
-            PROVIDER_NAME: 'openai',
-            OPERATION_NAME: 'chat',
-            REQUEST_MODEL: json_data.get('model'),
-        }
+        span_data = {**common_attrs('chat'), 'request_data': {'model': model, 'stream': stream}}
         if 1 in versions:
             span_data['events'] = inputs_to_events(json_data.get('input'), json_data.get('instructions'))
-        _extract_request_parameters(json_data, span_data)
 
         if 'latest' in versions:
             # Convert inputs to semantic convention format
@@ -179,54 +179,25 @@ def get_endpoint_config(
             stream_state_cls=_versioned_stream_cls(OpenaiResponsesStreamState, versions),
         )
     elif url == '/completions':
-        span_data = {
-            'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
-            PROVIDER_NAME: 'openai',
-            OPERATION_NAME: 'text_completion',
-            REQUEST_MODEL: json_data.get('model'),
-        }
-        _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='Completion with {request_data[model]!r}',
-            span_data=span_data,
+            span_data=common_attrs('text_completion'),
             stream_state_cls=_versioned_stream_cls(OpenaiCompletionStreamState, versions),
         )
     elif url == '/embeddings':
-        span_data = {
-            'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
-            PROVIDER_NAME: 'openai',
-            OPERATION_NAME: 'embeddings',
-            REQUEST_MODEL: json_data.get('model'),
-        }
-        _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='Embedding Creation with {request_data[model]!r}',
-            span_data=span_data,
+            span_data=common_attrs('embeddings'),
         )
     elif url == '/images/generations':
-        span_data = {
-            'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
-            PROVIDER_NAME: 'openai',
-            OPERATION_NAME: 'image_generation',
-            REQUEST_MODEL: json_data.get('model'),
-        }
-        _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='Image Generation with {request_data[model]!r}',
-            span_data=span_data,
+            span_data=common_attrs('image_generation'),
         )
     else:
-        span_data = {
-            'request_data': json_data if 1 in versions else {'model': json_data.get('model')},
-            'url': url,
-            PROVIDER_NAME: 'openai',
-        }
-        if 'model' in json_data:
-            span_data[REQUEST_MODEL] = json_data['model']
-        _extract_request_parameters(json_data, span_data)
         return EndpointConfig(
             message_template='OpenAI API call to {url!r}',
-            span_data=span_data,
+            span_data={'url': url, **common_attrs()},
         )
 
 
@@ -519,6 +490,7 @@ class OpenaiResponsesStreamState(StreamState):
                 span_data[OUTPUT_MESSAGES] = output_messages
             if 1 in versions:
                 span_data['events'] = (span_data.get('events') or []) + responses_output_events(response)
+            span_data.update(get_openai_usage_attributes(response))
         return span_data
 
 
@@ -568,10 +540,39 @@ try:
                         output_messages.append(convert_openai_response_to_semconv(choice.message, choice.finish_reason))
                     if output_messages:
                         result[OUTPUT_MESSAGES] = output_messages
+            try:
+                final_completion = self._stream_state.current_completion_snapshot
+            except AssertionError:
+                pass
+            else:
+                result.update(get_openai_usage_attributes(final_completion))
             return result
 
 except ImportError:  # pragma: no cover
     OpenaiChatCompletionStreamState = OpenaiCompletionStreamState  # pyright: ignore[reportAssignmentType]
+
+
+def get_openai_usage_attributes(response: Any) -> dict[str, Any]:
+    """Extract usage attributes from any OpenAI response object.
+
+    Works for ChatCompletion, Response, CreateEmbeddingResponse —
+    both from non-streaming on_response() and streaming get_attributes().
+    Returns an empty dict when usage is None.
+    """
+    usage = getattr(response, 'usage', None)
+    if usage is None:
+        return {}
+    input_tokens = getattr(usage, 'prompt_tokens', getattr(usage, 'input_tokens', None))
+    output_tokens = getattr(usage, 'completion_tokens', getattr(usage, 'output_tokens', None))
+    if isinstance(response, Response):
+        api_flavor = 'responses'
+    elif isinstance(response, CreateEmbeddingResponse):
+        api_flavor = 'embeddings'
+    else:
+        api_flavor = 'chat'
+    return get_usage_attributes(
+        response, usage, input_tokens, output_tokens, provider_id='openai', api_flavor=api_flavor
+    )
 
 
 @handle_internal_errors
@@ -585,38 +586,15 @@ def on_response(
         on_response(response.parse(), span, version=versions)  # pyright: ignore[reportUnknownArgumentType]
         return cast('ResponseT', response)
 
-    span.set_attribute('gen_ai.system', 'openai')
-
     if isinstance(response_model := getattr(response, 'model', None), str):
         span.set_attribute(RESPONSE_MODEL, response_model)
-
-        try:
-            from genai_prices import calc_price, extract_usage
-
-            response_data = cast('BaseModel', response).model_dump()
-            usage_data = extract_usage(
-                response_data,
-                provider_id='openai',
-                api_flavor='responses' if isinstance(response, Response) else 'chat',
-            )
-            span.set_attribute(
-                'operation.cost',
-                float(calc_price(usage_data.usage, model_ref=response_model, provider_id='openai').total_price),
-            )
-        except Exception:
-            pass
 
     response_id = getattr(response, 'id', None)
     if isinstance(response_id, str):
         span.set_attribute(RESPONSE_ID, response_id)
 
     usage = getattr(response, 'usage', None)
-    input_tokens = getattr(usage, 'prompt_tokens', getattr(usage, 'input_tokens', None))
-    output_tokens = getattr(usage, 'completion_tokens', getattr(usage, 'output_tokens', None))
-    if isinstance(input_tokens, int):
-        span.set_attribute(INPUT_TOKENS, input_tokens)
-    if isinstance(output_tokens, int):
-        span.set_attribute(OUTPUT_TOKENS, output_tokens)
+    span.set_attributes(get_openai_usage_attributes(response))
 
     if isinstance(response, ChatCompletion) and response.choices:
         if 1 in versions:

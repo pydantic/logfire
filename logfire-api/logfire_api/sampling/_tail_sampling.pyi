@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from functools import cached_property
 from logfire._internal.constants import LevelName as LevelName, ONE_SECOND_IN_NANOSECONDS as ONE_SECOND_IN_NANOSECONDS
 from logfire._internal.exporters.wrapper import WrapperSpanProcessor as WrapperSpanProcessor
+from logfire._internal.utils import suppress_instrumentation as suppress_instrumentation
 from logfire.types import SpanLevel as SpanLevel
 from opentelemetry import context
 from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
@@ -18,8 +19,7 @@ class TraceBuffer:
     """
     started: list[tuple[Span, context.Context | None]]
     ended: list[ReadableSpan]
-    @cached_property
-    def first_span(self) -> Span: ...
+    first_span: Span
     @cached_property
     def trace_id(self) -> int: ...
 
@@ -60,14 +60,29 @@ class SamplingOptions:
 def check_trace_id_ratio(trace_id: int, rate: float) -> bool: ...
 
 class TailSamplingProcessor(WrapperSpanProcessor):
-    """Passes spans to the wrapped processor if any span in a trace meets the sampling criteria."""
+    """Buffers spans until a span in the trace meets the sampling criteria.
+
+    The wrapped `processor` receives `on_start` calls immediately (most processors just set attributes,
+    which is safe before the sampling decision). Only `on_end` is buffered.
+
+    The optional `deferred_processor` has both `on_start` and `on_end` buffered until the sampling
+    decision. Use this for processors like `PendingSpanProcessor` that create new spans in `on_start`.
+    Advanced users can mark their own processors for deferral by setting the
+    `tail_sampling_defer_on_start` attribute to `True` on the processor class.
+    """
     get_tail_sample_rate: Incomplete
+    deferred_processor: Incomplete
     traces: dict[int, TraceBuffer]
     lock: Incomplete
-    def __init__(self, processor: SpanProcessor, get_tail_sample_rate: Callable[[TailSamplingSpanInfo], float]) -> None: ...
+    def __init__(self, processor: SpanProcessor, get_tail_sample_rate: Callable[[TailSamplingSpanInfo], float], deferred_processor: SpanProcessor | None = None) -> None: ...
     def on_start(self, span: Span, parent_context: context.Context | None = None) -> None: ...
     def on_end(self, span: ReadableSpan) -> None: ...
     def check_span(self, span_info: TailSamplingSpanInfo) -> bool:
-        """If the span meets the sampling criteria, drop the buffer and return True. Otherwise, return False."""
+        """If the span meets the sampling criteria, drop the buffer and return True. Otherwise, return False.
+
+        Must be called within self.lock since it modifies self.traces via drop_buffer.
+        """
     def drop_buffer(self, buffer: TraceBuffer) -> None: ...
     def push_buffer(self, buffer: TraceBuffer) -> None: ...
+    def shutdown(self) -> None: ...
+    def force_flush(self, timeout_millis: int = 30000) -> bool: ...

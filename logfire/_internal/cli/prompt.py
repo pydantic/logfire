@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -16,13 +17,12 @@ from rich.console import Console
 
 from logfire._internal.cli.auth import parse_auth
 from logfire._internal.client import LogfireClient
+from logfire._internal.utils import read_toml_file
 from logfire.exceptions import LogfireConfigError
 
 LOGFIRE_MCP_TOML = """
 [mcp_servers.logfire]
-command = "uvx"
-args = ["logfire-mcp@latest"]
-env = {{ "LOGFIRE_READ_TOKEN" = "{token}" }}
+url = "{url}"
 """
 
 
@@ -39,38 +39,43 @@ def parse_prompt(args: argparse.Namespace) -> None:
         parse_auth(args)
         client = LogfireClient.from_url(args.logfire_url)
 
+    update = bool(getattr(args, 'update', False))
+
     if args.claude:
-        configure_claude(client, args.organization, args.project, console)
+        configure_claude(client, console, update=update)
     elif args.codex:
-        configure_codex(client, args.organization, args.project, console)
+        configure_codex(client, console, update=update)
     elif args.opencode:
-        configure_opencode(client, args.organization, args.project, console)
+        configure_opencode(client, console, update=update)
 
     response = client.get_prompt(args.organization, args.project, args.issue)
     sys.stdout.write(response['prompt'])
 
 
-def _create_read_token(client: LogfireClient, organization: str, project: str, console: Console) -> str:
-    console.print('Logfire MCP server not found. Creating a read token...', style='yellow')
-    response = client.create_read_token(organization, project)
-    return response['token']
+def _logfire_mcp_url(client: LogfireClient) -> str:
+    return f'{client.base_url.rstrip("/")}/mcp'
 
 
-def configure_claude(client: LogfireClient, organization: str, project: str, console: Console) -> None:
+def configure_claude(client: LogfireClient, console: Console, update: bool = False) -> None:
     if not shutil.which('claude'):
         console.print('claude is not installed. Install `claude`, or remove the `--claude` flag.')
         exit(1)
 
-    output = subprocess.check_output(['claude', 'mcp', 'list'])
-    if 'logfire-mcp' not in output.decode('utf-8'):
-        token = _create_read_token(client, organization, project, console)
-        subprocess.check_output(
-            shlex.split(f'claude mcp add logfire -e LOGFIRE_READ_TOKEN={token} -- uvx logfire-mcp@latest')
-        )
-        console.print('Logfire MCP server added to Claude.', style='green')
+    output = subprocess.check_output(['claude', 'mcp', 'list']).decode('utf-8')
+    already_configured = bool(re.search(r'(?m)^logfire[\s:]', output))
+
+    if already_configured and not update:
+        return
+
+    if already_configured:
+        subprocess.check_output(shlex.split('claude mcp remove logfire'))
+
+    url = _logfire_mcp_url(client)
+    subprocess.check_output(shlex.split(f'claude mcp add --transport http logfire {url}'))
+    console.print(f'Logfire MCP server {"updated in" if already_configured else "added to"} Claude.', style='green')
 
 
-def configure_codex(client: LogfireClient, organization: str, project: str, console: Console) -> None:
+def configure_codex(client: LogfireClient, console: Console, update: bool = False) -> None:
     if not shutil.which('codex'):
         console.print('codex is not installed. Install `codex`, or remove the `--codex` flag.')
         exit(1)
@@ -81,17 +86,35 @@ def configure_codex(client: LogfireClient, organization: str, project: str, cons
         console.print('Codex config file not found. Install `codex`, or remove the `--codex` flag.')
         exit(1)
 
+    try:
+        codex_config_data = read_toml_file(codex_config)
+    except ValueError:
+        console.print(f'Failed to parse {codex_config} as TOML. Please fix the file or update it manually.')
+        exit(1)
+    already_configured = 'logfire' in codex_config_data.get('mcp_servers', {})
+
+    if already_configured and not update:
+        return
+
+    mcp_server_toml = LOGFIRE_MCP_TOML.format(url=_logfire_mcp_url(client))
     codex_config_content = codex_config.read_text()
 
-    if 'logfire-mcp' not in codex_config_content:
-        token = _create_read_token(client, organization, project, console)
-        mcp_server_toml = LOGFIRE_MCP_TOML.format(token=token)
+    if already_configured:
+        new_content = re.sub(
+            r'\n?\[mcp_servers\.logfire\].*?(?=\n\[|\Z)',
+            mcp_server_toml,
+            codex_config_content,
+            count=1,
+            flags=re.DOTALL,
+        )
+        codex_config.write_text(new_content)
+        console.print('Logfire MCP server updated in Codex.', style='green')
+    else:
         codex_config.write_text(codex_config_content + mcp_server_toml)
         console.print('Logfire MCP server added to Codex.', style='green')
 
 
-def configure_opencode(client: LogfireClient, organization: str, project: str, console: Console) -> None:
-    # Check if opencode is installed
+def configure_opencode(client: LogfireClient, console: Console, update: bool = False) -> None:
     if not shutil.which('opencode'):
         console.print('opencode is not installed. Install `opencode`, or remove the `--opencode` flag.')
         exit(1)
@@ -107,27 +130,31 @@ def configure_opencode(client: LogfireClient, organization: str, project: str, c
     opencode_config.touch()
 
     opencode_config_content = opencode_config.read_text()
+    if opencode_config_content.strip():
+        try:
+            opencode_config_json: dict[str, Any] = json.loads(opencode_config_content)
+        except json.JSONDecodeError:
+            console.print(
+                f'Failed to parse {opencode_config} as JSON. '
+                'If it contains JSONC syntax (comments or trailing commas), please update it manually.'
+            )
+            exit(1)
+    else:
+        opencode_config_json = {}
+    already_configured = 'logfire-mcp' in opencode_config_json.get('mcp', {})
 
-    if 'logfire-mcp' not in opencode_config_content:
-        token = _create_read_token(client, organization, project, console)
-        if not opencode_config_content:
-            opencode_config.write_text(json.dumps(opencode_mcp_json(token), indent=2))
-        else:
-            opencode_config_json = json.loads(opencode_config_content)
-            opencode_config_json.setdefault('mcp', {})
-            opencode_config_json['mcp'] = {'logfire-mcp': opencode_mcp_json(token)}
-            opencode_config.write_text(json.dumps(opencode_config_json, indent=2))
-        console.print('Logfire MCP server added to OpenCode.', style='green')
+    if already_configured and not update:
+        return
+
+    mcp_entry = opencode_mcp_json(_logfire_mcp_url(client))
+    opencode_config_json.setdefault('mcp', {})['logfire-mcp'] = mcp_entry
+    opencode_config.write_text(json.dumps(opencode_config_json, indent=2))
+    console.print(f'Logfire MCP server {"updated in" if already_configured else "added to"} OpenCode.', style='green')
 
 
-# https://opencode.ai/docs/mcp-servers/#local
-def opencode_mcp_json(token: str) -> dict[str, Any]:
+# https://opencode.ai/docs/mcp-servers/#remote
+def opencode_mcp_json(url: str) -> dict[str, Any]:
     return {
-        'mcp': {
-            'logfire-mcp': {
-                'type': 'local',
-                'command': ['uvx', 'logfire-mcp@latest'],
-                'environment': {'LOGFIRE_READ_TOKEN': token},
-            }
-        }
+        'type': 'remote',
+        'url': url,
     }

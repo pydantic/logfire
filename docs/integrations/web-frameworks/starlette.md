@@ -55,6 +55,13 @@ The keyword arguments of `logfire.instrument_starlette()` are passed to the `Sta
     `StarletteInstrumentor` actually wraps the ASGI middleware and adds some additional
     information related to the routes.
 
+
+## Proxying Browser Telemetry
+
+If your frontend application sends telemetry from the browser, you should never expose your Logfire Write Token in the frontend code.
+
+You can use experimental proxy handler to securely forward OTLP telemetry through your Starlette backend. See the [Browser Telemetry Proxying guide](../javascript/browser.md#proxying-browser-telemetry) for detailed instructions.
+
 [starlette]: https://www.starlette.io/
 [opentelemetry-asgi]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/asgi/asgi.html
 [opentelemetry-starlette]: https://opentelemetry-python-contrib.readthedocs.io/en/latest/instrumentation/starlette/starlette.html

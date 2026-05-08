@@ -577,7 +577,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     logfire_instance.force_flush(timeout_millis=5000)
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def logfire_pytest(request: pytest.FixtureRequest) -> Logfire:
     """Provide a Logfire instance configured for the pytest plugin.
 

@@ -1,6 +1,6 @@
 # Remote Variables
 
-When connected to Logfire, variables are managed through the Logfire UI. This is the recommended setup for production.
+When connected to Logfire, variables are managed through the Logfire UI or programmatically via the SDK. This is the recommended setup for production.
 
 To enable remote variables, you can explicitly opt in using `VariablesOptions`:
 
@@ -96,8 +96,8 @@ When you run this script, it will:
 2. Show you a diff of what will be created or updated
 3. Prompt for confirmation before applying changes
 
-!!! note "Metadata only"
-    `logfire.variables_push()` syncs **metadata only** — the variable name, description, JSON schema, rollout configuration, and overrides. It does **not** create versions or labels. Instead, it stores your code's default value as an "example" that can be used as a template when creating versions in the Logfire UI. You create versions and assign labels through the UI.
+!!! note "What gets synced"
+    `logfire.variables_push()` syncs **metadata only** — the variable name, description, JSON schema, rollout configuration, and overrides. It does **not** create versions or labels. Instead, it stores your code's default value as an "example" that can be used as a template when creating versions in the Logfire UI. To sync labels and versions programmatically, use [`logfire.variables_push_config()`](#config-push-workflow-programmatic).
 
 **Example output:**
 
@@ -339,7 +339,7 @@ from logfire.variables import VariablesConfig
 # Read the edited config
 config = VariablesConfig.model_validate_json(Path('variables.json').read_text())
 
-# Sync to the server (metadata only — versions and labels are managed via UI)
+# Sync to the server (including labels and versions)
 logfire.variables_push_config(config)
 ```
 

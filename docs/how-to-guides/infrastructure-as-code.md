@@ -12,8 +12,8 @@ Logfire supports Infrastructure as Code (IaC) via provider projects for differen
 
 ## Pulumi
 
+- Published in the Pulumi Registry: [pulumi.com/registry/packages/logfire](https://www.pulumi.com/registry/packages/logfire/)
 - Pulumi provider source: [github.com/pydantic/pulumi-logfire](https://github.com/pydantic/pulumi-logfire)
-- The Pulumi provider is not published in the Pulumi Registry yet.
 
 ## What You Can Manage
 

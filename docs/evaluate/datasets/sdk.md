@@ -5,11 +5,11 @@ description: "Manage evaluation datasets programmatically with the Logfire Pytho
 
 # SDK Guide
 
-!!! warning "Experimental Feature"
+!!! note "Experimental SDK"
 
-    Managed datasets are an experimental feature currently gated behind a feature flag. Reach out to us on [Slack](https://logfire.pydantic.dev/docs/join-slack/) or [contact us](../../help.md) to learn how to enable it for your project.
+    The dataset management SDK is under `logfire.experimental.api_client`. The API may change in future releases.
 
-The SDK provides a typed Python client for managing datasets programmatically. This is the recommended approach when you want to define schemas using Python types and automate dataset management. You can also manage datasets through the [Web UI](ui.md).
+The SDK provides a typed Python client for managing datasets programmatically. This is the recommended approach when you want to define datasets in code, publish them to hosted storage, and later fetch them back for evaluation. You can also manage datasets through the [Web UI](ui.md).
 
 ## Installation
 
@@ -61,12 +61,14 @@ async with AsyncLogfireAPIClient(api_key='your-api-key') as client:
     datasets = await client.list_datasets()
 ```
 
-## Creating a Dataset with Typed Schemas
+## Publishing a Local Dataset to Hosted
 
-Define your input, output, and metadata types as dataclasses or Pydantic models, then pass them to `create_dataset`. The SDK automatically generates JSON schemas from the types:
+Define your input, output, and metadata types as dataclasses or Pydantic models, build a local [`pydantic_evals.Dataset`][pydantic_evals.Dataset], and publish it with `push_dataset`. The SDK infers hosted JSON schemas from the dataset's generic types:
 
 ```python skip-run="true" skip-reason="external-connection"
 from dataclasses import dataclass
+
+from pydantic_evals import Case, Dataset
 
 from logfire.experimental.api_client import LogfireAPIClient
 
@@ -90,31 +92,8 @@ class CaseMetadata:
     reviewed: bool = False
 
 
-with LogfireAPIClient(api_key='your-api-key') as client:
-    dataset = client.create_dataset(
-        name='qa-golden-set',
-        description='Golden test cases for the Q&A system',
-        input_type=QuestionInput,
-        output_type=AnswerOutput,
-        metadata_type=CaseMetadata,
-        guidance='Each case should represent a realistic user question with a verified answer.',
-    )
-    print(f"Created dataset: {dataset['name']} (ID: {dataset['id']})")
-```
-
-All three type parameters are optional. You can create a dataset with just `input_type`, or with no types at all (in which case inputs and outputs are unvalidated JSON).
-
-The `guidance` parameter lets you provide free-text instructions describing how cases should be structured.
-
-## Adding Cases
-
-The SDK integrates directly with pydantic-evals `Case` objects. Use `add_cases` to add one or more cases:
-
-```python skip="true" skip-reason="external-connection"
-from pydantic_evals import Case
-
-client.add_cases(
-    'qa-golden-set',
+local_dataset = Dataset[QuestionInput, AnswerOutput, CaseMetadata](
+    name='qa-golden-set',
     cases=[
         Case(
             name='capital-question',
@@ -129,7 +108,64 @@ client.add_cases(
             metadata=CaseMetadata(category='math', difficulty='easy'),
         ),
     ],
-    tags=['batch-import'],
+)
+
+
+with LogfireAPIClient(api_key='your-api-key') as client:
+    dataset = client.push_dataset(
+        local_dataset,
+        description='Golden test cases for the Q&A system',
+    )
+    print(f"Published dataset: {dataset['name']} (ID: {dataset['id']})")
+```
+
+`push_dataset(...)` is designed to be rerunnable:
+
+- it uses `dataset.name` by default, or `name=` if you want a hosted override
+- it creates the hosted dataset if it does not exist yet
+- it updates the hosted dataset if one already exists with the same name
+- it uploads all cases through the existing import/upsert API
+- it uses `on_case_conflict='update'` by default, so named cases are updated on repeat pushes
+
+!!! note "Round-tripping evaluators"
+
+    `push_dataset(...)` uploads case-level evaluators with their cases, plus dataset-level `evaluators` and `report_evaluators` from the `Dataset` itself. Each push overwrites the hosted values, so removing an evaluator locally and re-pushing also clears it on the server.
+
+    To deserialize the hosted values back into typed instances, pass the same custom types you would to `Dataset.from_file(...)`:
+
+    ```python skip="true" skip-reason="external-connection"
+    dataset = client.get_dataset(
+        'qa-golden-set',
+        QuestionInput,
+        AnswerOutput,
+        CaseMetadata,
+        custom_evaluator_types=[MyEvaluator],
+        custom_report_evaluator_types=[MyReportEvaluator],
+    )
+    ```
+
+## Manual Dataset Management
+
+If you need lower-level control, the SDK still exposes `create_dataset(...)`, `add_cases(...)`, `update_dataset(...)`, and the other primitives directly.
+
+Use `create_dataset(...)` when you want to create the hosted dataset record separately from uploading cases:
+
+```python skip="true" skip-reason="external-connection"
+dataset = client.create_dataset(
+    name='qa-golden-set',
+    description='Golden test cases for the Q&A system',
+    input_type=QuestionInput,
+    output_type=AnswerOutput,
+    metadata_type=CaseMetadata,
+)
+```
+
+Then use `add_cases(...)` to upload one or more cases:
+
+```python skip="true" skip-reason="external-connection"
+client.add_cases(
+    'qa-golden-set',
+    cases=local_dataset.cases,
 )
 ```
 
@@ -155,11 +191,6 @@ cases = client.list_cases('qa-golden-set')
 for case in cases:
     print(f"  {case['name']}: {case['inputs']}")
 
-# Filter cases by tags
-cases = client.list_cases('qa-golden-set', tags=['geography'])
-for case in cases:
-    print(f"  {case['name']}: {case['tags']}")
-
 # Get a specific case
 case = client.get_case('qa-golden-set', case_id='some-case-uuid')
 ```
@@ -172,9 +203,11 @@ datasets = client.list_datasets()
 for ds in datasets:
     print(f"{ds['name']}: {ds['case_count']} cases")
 
-# Get a specific dataset by name or ID
-dataset_info = client.get_dataset('qa-golden-set')
+# Retrieve only dataset-level metadata for a specific dataset by name or ID
+dataset_info = client.get_dataset('qa-golden-set', include_cases=False)
 ```
+
+To fetch the full hosted dataset back as a typed [`pydantic_evals.Dataset`][pydantic_evals.Dataset], see [Running Evaluations](evaluations.md).
 
 ## Updating and Deleting
 
@@ -182,12 +215,11 @@ dataset_info = client.get_dataset('qa-golden-set')
 # Update a dataset's metadata
 client.update_dataset('qa-golden-set', description='Updated description')
 
-# Update a specific case (including tags)
+# Update a specific case
 client.update_case(
     'qa-golden-set',
     case_id='some-case-uuid',
     metadata=CaseMetadata(category='geography', difficulty='easy', reviewed=True),
-    tags=['verified', 'geography'],
 )
 
 # Delete a case
@@ -199,6 +231,6 @@ client.delete_dataset('qa-golden-set')
 
 ## What's Next?
 
-- **[Running Evaluations](evaluations.md)** --- Export your dataset and run evaluations with pydantic-evals.
-- **[SDK Reference](sdk-reference.md)** --- Complete method signatures and exception reference.
+- **[Running Evaluations](evaluations.md)** --- Fetch your dataset and run evaluations with pydantic-evals.
+- **[SDK Reference](../../reference/api/datasets.md)** --- Complete method signatures and exception reference.
 - **[Web UI Guide](ui.md)** --- Manage datasets through the Logfire web interface.

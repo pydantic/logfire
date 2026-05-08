@@ -10,9 +10,22 @@ description: "Guide on how to create API keys and use them to call Logfire publi
     To send data to Logfire, use [write tokens](../../how-to-guides/create-write-tokens.md).
 
 !!! tip "What you can do"
-    - **Projects & tokens**: Create projects and generate tokens for CI/CD pipelines
-    - **Channels**: Configure notification destinations (Slack, webhooks, etc.)
-    - **Audit logs**: Track activity across your projects and organization
+    **Available to all plans:**
+
+    - **Projects**: List, create, update, and delete projects
+    - **Write tokens**: Create, list, rotate, expire, and revoke write tokens
+    - **Read tokens**: Create, list, rotate, expire, and revoke read tokens
+    - **Alerts**: Create, list, update, and delete alerts with SQL-based conditions and notification channels
+    - **Dashboards**: Create, list, update, and delete dashboards
+    - **Notification channels**: Create, list, update, and delete notification destinations (Slack, webhooks, etc.)
+    - **Variables**: Create, read, and update project variables
+
+    **Enterprise / Self-hosted only:**{ .enterprise }
+
+    - **Audit logs**: List and retrieve audit log entries for your organization
+    - **Billing usage**: View billing usage data for current and previous periods
+    - **SCIM provisioning**: Manage users and groups via the SCIM protocol for identity provider integration
+    - **Organization management** _(self-hosted only)_: Create, list, update, and delete organizations
 
 ## API Documentation
 
@@ -40,6 +53,16 @@ Project API keys are limited to the project where they were created.
 !!! warning
     Copy your API key when it's displayed—it won't be shown again.
 
+### Personal API Keys
+
+When creating an API key, it can be marked as **personal**. A personal API key is tied to your user account rather than being a shared project or organization key.
+
+- **Automatically deleted** when your account is removed from the project or organization.
+- **Only visible to you** — you can only view and delete your own personal API keys.
+- **Scoped to your permissions** — the key can only be granted scopes that your role allows.
+
+Organization and project admins can choose whether to create a personal or non-personal API key. Non-admin members always create personal API keys.
+
 ## API Key Scopes
 
 When creating an API key, set the scope to define which actions the key can perform.
@@ -47,13 +70,17 @@ Available scopes depend on whether you're creating an organization or project AP
 
 | Scope                                | Organization API Key | Project API Key |
 | ------------------------------------ | -------------------- | --------------- |
-| Organization management (read/write) | ✓                    | —               |
-| Member management                    | ✓                    | —               |
-| Billing access                       | ✓                    | —               |
-| Project settings (read/write)        | ✓                    | ✓               |
+| Organization management              | ✓                    | —               |
+| Notification channels                | ✓                    | —               |
+| Audit logs                           | ✓                    | —               |
+| SCIM provisioning                    | ✓                    | —               |
+| Billing usage                        | ✓                    | —               |
+| Project settings                     | ✓                    | ✓               |
 | Write tokens management              | ✓                    | ✓               |
 | Read tokens management               | ✓                    | ✓               |
 | Alerts management                    | ✓                    | ✓               |
+| Dashboards management                | ✓                    | ✓               |
+| Variables management                 | ✓                    | ✓               |
 
 !!! info
     Select only the scopes your application needs to follow the principle of least privilege.

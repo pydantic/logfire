@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "logfire"
-version = "4.27.0"
+version = "4.32.1"
 description = "The best Python observability tool! 🪵🔥"
 requires-python = ">=3.9"
 authors = [
@@ -47,8 +47,8 @@ classifiers = [
     "Framework :: OpenTelemetry :: Instrumentations",
 ]
 dependencies = [
-    "opentelemetry-sdk >= 1.39.0, < 1.40.0",
-    "opentelemetry-exporter-otlp-proto-http >= 1.39.0, < 1.40.0",
+    "opentelemetry-sdk >= 1.39.0, < 1.42.0",
+    "opentelemetry-exporter-otlp-proto-http >= 1.39.0, < 1.42.0",
     "opentelemetry-instrumentation >= 0.41b0",
     "rich >= 13.4.2",
     "protobuf >= 4.23.4",
@@ -144,7 +144,7 @@ dev = [
     "opentelemetry-instrumentation-aws-lambda>=0.42b0",
     "eval-type-backport >= 0.2.0",
     "requests-mock >= 1.12.1",
-    "inline-snapshot >= 0.17.1",
+    "inline-snapshot >= 0.32.5",
     "structlog >= 24.4.0",
     "loguru >= 0.7.3",
     "ruff >= 0.8.3",
@@ -164,7 +164,7 @@ dev = [
     "celery>=5.4.0",
     # https://github.com/testcontainers/testcontainers-python/issues/874
     "testcontainers<4.13",
-    "mysql-connector-python~=8.0",
+    "mysql-connector-python>=8.0",
     "pyarrow>=17.0.0; python_version < '3.13'",
     "pyarrow>=18.1.0; python_version >= '3.13'",
     # It looks like numpy didn't use to have `requires-python`, so we need to specify the version.
@@ -198,6 +198,7 @@ dev = [
     "pytest-timeout>=2.4.0",
     "pytest-asyncio>=0.24.0",
     "pydantic-handlebars>=0.1.0; python_version >= '3.10'",
+    "claude-agent-sdk>=0 ; python_full_version >= '3.10'",
 ]
 docs = [
     "black>=23.12.0",
@@ -209,6 +210,7 @@ docs = [
     "griffe",
     "algoliasearch>=3,<4",
     "mkdocs-llmstxt>=0.2.0",
+    "pydantic-docs",
 ]
 
 [tool.inline-snapshot]
@@ -217,9 +219,23 @@ format-command = "ruff format --stdin-filename {filename}"
 
 [tool.uv.sources]
 logfire-api = { workspace = true }
+pydantic-docs = { git = "https://github.com/pydantic/pydantic-docs/" }
 
 [tool.uv]
 default-groups = ["dev", "docs"]
+exclude-newer = "1 week"
+
+[tool.uv.exclude-newer-package]
+# These are installed from our private PyPI server which is missing upload dates and that causes problems
+# when building docs in CI, so we exclude them from the exclude-newer check.
+mkdocstrings_python = false
+mkdocs_material = false
+# These are our own packages, not worth defending from supply chain attacks on them.
+pydantic_ai_slim = false
+pydantic-graph = false
+pydantic-evals = false
+pydantic = false
+pydantic-core = false
 
 [tool.uv.workspace]
 members = ["logfire-api"]
@@ -313,6 +329,12 @@ filterwarnings = [
     "ignore:Call to 'get_connection' function with deprecated usage of input argument/s.*:DeprecationWarning",
     # OpenTelemetry event logger stuff being used by Pydantic AI
     "ignore:You should use `\\w*(L|l)ogger\\w*` instead. Deprecated since version 1.39.0 and will be removed in a future release.:DeprecationWarning",
+    # flask.__version__ is deprecated and used by OTel
+    "ignore:The '__version__' attribute is deprecated and will be removed in Flask 3.2.*:DeprecationWarning",
+    # aiohttp web.Application is deprecated and used by OTel
+    "ignore:Inheritance class _InstrumentedApplication from web.Application is discouraged:DeprecationWarning",
+    # anthropic SDK warns when using older models that are still recorded in test cassettes
+    "ignore:The model 'claude-.*' is deprecated.*:DeprecationWarning",
 ]
 DJANGO_SETTINGS_MODULE = "tests.otel_integrations.django_test_project.django_test_site.settings"
 

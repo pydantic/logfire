@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     import logfire
     from logfire.variables.composition import ComposedReference
     from logfire.variables.config import VariableConfig, VariablesConfig, VariableTypeConfig
-    from logfire.variables.variable import _BaseVariable  # pyright: ignore[reportPrivateUsage]
+    from logfire.variables.variable import _BaseVariable
 
 # ANSI color codes for terminal output
 ANSI_RESET = '\033[0m'
@@ -1155,7 +1155,7 @@ class VariableProvider(ABC):
             server_var = server_config.variables.get(name)
             if server_var is None:
                 creates.append(name)
-            elif var_config.model_dump() != server_var.model_dump():
+            elif var_config.model_dump(exclude={'latest_version'}) != server_var.model_dump(exclude={'latest_version'}):
                 updates.append(name)
             else:
                 unchanged.append(name)

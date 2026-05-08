@@ -79,11 +79,16 @@ if TYPE_CHECKING:
     import openai
     import pydantic_ai.models
     import requests
+    from anthropic.lib.bedrock import (
+        AnthropicBedrock as _AnthropicBedrock,
+        AsyncAnthropicBedrock as _AsyncAnthropicBedrock,
+    )
     from django.http import HttpRequest, HttpResponse
     from fastapi import FastAPI
     from flask.app import Flask
     from opentelemetry.instrumentation.asgi.types import ClientRequestHook, ClientResponseHook, ServerRequestHook
     from opentelemetry.metrics import _Gauge as Gauge
+    from pydantic_evals.reporting import EvaluationReport
     from pymongo.monitoring import CommandFailedEvent, CommandStartedEvent, CommandSucceededEvent
     from sqlalchemy import Engine
     from sqlalchemy.ext.asyncio import AsyncEngine
@@ -608,6 +613,7 @@ class Logfire:
         record_return: bool = False,
         allow_generator: bool = False,
         new_trace: bool = False,
+        level: LevelName | int | None = None,
     ) -> Callable[[Callable[P, R]], Callable[P, R]]:
         """Decorator for instrumenting a function as a span.
 
@@ -633,6 +639,8 @@ class Logfire:
                 Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
             new_trace: Set to `True` to start a new trace with a span link to the current span
                 instead of creating a child of the current span.
+            level: The log level for the span. If provided, the span will be tagged with this level
+                and suppressed if the level is below the configured `min_level`.
         """
 
     @overload
@@ -660,6 +668,7 @@ class Logfire:
         record_return: bool = False,
         allow_generator: bool = False,
         new_trace: bool = False,
+        level: LevelName | int | None = None,
     ) -> Callable[[Callable[P, R]], Callable[P, R]] | Callable[P, R]:
         """Decorator for instrumenting a function as a span.
 
@@ -685,11 +694,21 @@ class Logfire:
                 Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
             new_trace: Set to `True` to start a new trace with a span link to the current span
                 instead of creating a child of the current span.
+            level: The log level for the span. If provided, the span will be tagged with this level
+                and suppressed if the level is below the configured `min_level`.
         """
         if callable(msg_template):
             return self.instrument()(msg_template)
         return instrument(
-            self, tuple(self._tags), msg_template, span_name, extract_args, record_return, allow_generator, new_trace
+            self,
+            tuple(self._tags),
+            msg_template,
+            span_name,
+            extract_args,
+            record_return,
+            allow_generator,
+            new_trace,
+            level=level,
         )
 
     def log(
@@ -893,6 +912,22 @@ class Logfire:
         """
         return self._config.force_flush(timeout_millis)
 
+    def url_from_eval(self, report: EvaluationReport[Any, Any, Any]) -> str | None:
+        """Generate a Logfire URL to view an evaluation report.
+
+        Args:
+            report: An evaluation report from `pydantic_evals`.
+
+        Returns:
+            The URL string, or `None` if the project URL or trace/span IDs are not available.
+        """
+        project_url = self._config._project_url  # type: ignore[reportPrivateUsage]
+        trace_id = report.trace_id
+        span_id = report.span_id
+        if not project_url or not trace_id or not span_id:
+            return None
+        return f'{project_url.rstrip("/")}/evals/compare?experiment={trace_id}-{span_id}'
+
     def log_slow_async_callbacks(self, slow_duration: float = 0.1) -> AbstractContextManager[None]:
         """Log a warning whenever a function running in the asyncio event loop blocks for too long.
 
@@ -983,6 +1018,24 @@ class Logfire:
 
         self._warn_if_not_initialized_for_instrumentation()
         instrument_mcp(self, propagate_otel_context)
+
+    def instrument_claude_agent_sdk(self) -> AbstractContextManager[None]:
+        """Instrument the [Claude Agent SDK](https://platform.claude.com/docs/en/agent-sdk/overview).
+
+        All `ClaudeSDKClient` instances created after this call will be automatically traced.
+        Existing instances created before this call will not have tool call tracing.
+
+        Returns:
+            A context manager that will revert the instrumentation when exited.
+                This context manager doesn't take into account threads or other concurrency.
+                Calling this method will immediately apply the instrumentation
+                without waiting for the context manager to be opened,
+                i.e. it's not necessary to use this as a context manager.
+        """
+        from .integrations.claude_agent_sdk import instrument_claude_agent_sdk
+
+        self._warn_if_not_initialized_for_instrumentation()
+        return instrument_claude_agent_sdk(self)
 
     def instrument_pydantic(
         self,
@@ -1296,12 +1349,12 @@ class Logfire:
         anthropic_client: (
             anthropic.Anthropic
             | anthropic.AsyncAnthropic
-            | anthropic.AnthropicBedrock
-            | anthropic.AsyncAnthropicBedrock
+            | _AnthropicBedrock
+            | _AsyncAnthropicBedrock
             | type[anthropic.Anthropic]
             | type[anthropic.AsyncAnthropic]
-            | type[anthropic.AnthropicBedrock]
-            | type[anthropic.AsyncAnthropicBedrock]
+            | type[_AnthropicBedrock]
+            | type[_AsyncAnthropicBedrock]
             | None
         ) = None,
         *,
@@ -1367,6 +1420,7 @@ class Logfire:
                 Use of this context manager is optional.
         """
         import anthropic
+        from anthropic.lib.bedrock import AnthropicBedrock, AsyncAnthropicBedrock
 
         from .integrations.llm_providers.anthropic import get_endpoint_config, is_async_client, on_response
         from .integrations.llm_providers.llm_provider import instrument_llm_provider
@@ -1380,8 +1434,8 @@ class Logfire:
             or (
                 anthropic.Anthropic,
                 anthropic.AsyncAnthropic,
-                anthropic.AnthropicBedrock,
-                anthropic.AsyncAnthropicBedrock,
+                AnthropicBedrock,
+                AsyncAnthropicBedrock,
             ),
             suppress_other_instrumentation,
             'Anthropic',
@@ -1457,8 +1511,14 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_print(self)
 
-    def instrument_asyncpg(self, **kwargs: Any) -> None:
-        """Instrument the `asyncpg` module so that spans are automatically created for each query."""
+    def instrument_asyncpg(self, capture_parameters: bool = False, **kwargs: Any) -> None:
+        """Instrument the `asyncpg` module so that spans are automatically created for each query.
+
+        Args:
+            capture_parameters: Set to `True` to capture query parameters as span attributes.
+                Be cautious when enabling this, as it may lead to sensitive data being captured in traces.
+            kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` method.
+        """
         from .integrations.asyncpg import instrument_asyncpg
 
         self._warn_if_not_initialized_for_instrumentation()
@@ -1466,6 +1526,7 @@ class Logfire:
             **{
                 'tracer_provider': self._config.get_tracer_provider(),
                 'meter_provider': self._config.get_meter_provider(),
+                'capture_parameters': capture_parameters,
                 **kwargs,
             },
         )
@@ -1939,7 +2000,13 @@ class Logfire:
         from .integrations.aiohttp_server import instrument_aiohttp_server
 
         self._warn_if_not_initialized_for_instrumentation()
-        return instrument_aiohttp_server(**kwargs)
+        return instrument_aiohttp_server(
+            **{
+                'tracer_provider': self._config.get_tracer_provider(),
+                'meter_provider': self._config.get_meter_provider(),
+                **kwargs,
+            },
+        )
 
     def instrument_sqlalchemy(
         self,
@@ -3154,6 +3221,10 @@ class NoopSpan:
     @message.setter
     def message(self, message: str):
         pass
+
+    @property
+    def _span(self) -> Any:
+        return trace_api.INVALID_SPAN
 
     def is_recording(self) -> bool:
         return False

@@ -14,7 +14,7 @@ from logfire._internal.config import (
     VariablesOptions as VariablesOptions,
 )
 from logfire.variables.abstract import ResolvedVariable
-from logfire.variables.variable import _BaseVariable  # pyright: ignore[reportPrivateUsage]
+from logfire.variables.variable import _BaseVariable
 
 try:
     from pydantic import Discriminator

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Iterable, Iterator
+from collections.abc import AsyncIterator, Generator, Iterable, Iterator
 from contextlib import AbstractContextManager, ExitStack, contextmanager, nullcontext
+from functools import wraps
 from typing import TYPE_CHECKING, Any, Callable, cast
 
 from opentelemetry.trace import SpanKind
@@ -134,6 +135,7 @@ def instrument_llm_provider(
     # In these methods, `*args` is only expected to be `(self,)`
     # in the case where we instrument classes rather than client instances.
 
+    @wraps(original_request_method)
     def instrumented_llm_request_sync(*args: Any, **kwargs: Any) -> Any:
         message_template, span_data, kwargs = _instrumentation_setup(*args, **kwargs)
         if message_template is None:
@@ -146,6 +148,7 @@ def instrument_llm_provider(
                     response = on_response_fn(original_request_method(*args, **kwargs), span)
                     return response
 
+    @wraps(original_request_method)
     async def instrumented_llm_request_async(*args: Any, **kwargs: Any) -> Any:
         message_template, span_data, kwargs = _instrumentation_setup(*args, **kwargs)
         if message_template is None:
@@ -183,7 +186,7 @@ def instrument_llm_provider(
 
 
 @contextmanager
-def maybe_suppress_instrumentation(suppress: bool) -> Iterator[None]:
+def maybe_suppress_instrumentation(suppress: bool) -> Generator[None]:
     if suppress:
         with suppress_instrumentation():
             yield
@@ -202,7 +205,10 @@ def record_streaming(
 
     def record_chunk(chunk: Any) -> None:
         if chunk:
-            stream_state.record_chunk(chunk)
+            try:
+                stream_state.record_chunk(chunk)
+            except Exception:  # pragma: no cover
+                pass
 
     timer = logire_llm._config.advanced.ns_timestamp_generator  # pyright: ignore[reportPrivateUsage]
     start = timer()

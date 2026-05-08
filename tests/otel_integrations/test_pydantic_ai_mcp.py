@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 import pydantic
 import pytest
-from dirty_equals import IsPartialDict
+from dirty_equals import IsPartialDict, IsStr
 
 import logfire
 from logfire._internal.exporters.test import TestExporter
@@ -114,6 +114,7 @@ Because it found something more "sole-ful!"\
                             'meta': {
                                 'progressToken': None,
                                 'traceparent': '00-00000000000000000000000000000002-0000000000000005-01',
+                                'baggage': IsStr(),
                             },
                             'cursor': None,
                         },
@@ -164,6 +165,9 @@ Because it found something more "sole-ful!"\
                     'gen_ai.request.model': 'gpt-4o',
                     'server.address': 'api.openai.com',
                     'model_request_parameters': IsPartialDict(),
+                    'gen_ai.agent.name': 'agent',
+                    'gen_ai.agent.call.id': IsStr(),
+                    'gen_ai.conversation.id': IsStr(),
                     'gen_ai.tool.definitions': [
                         {
                             'type': 'function',
@@ -206,10 +210,10 @@ Because it found something more "sole-ful!"\
             },
             {
                 'name': 'chat gpt-4o',
-                'context': {'trace_id': 2, 'span_id': 27, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 25, 'is_remote': False},
-                'start_time': 18000000000,
-                'end_time': 19000000000,
+                'context': {'trace_id': 2, 'span_id': 25, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 23, 'is_remote': False},
+                'start_time': 17000000000,
+                'end_time': 18000000000,
                 'attributes': {
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.provider.name': 'openai',
@@ -217,6 +221,9 @@ Because it found something more "sole-ful!"\
                     'gen_ai.request.model': 'gpt-4o',
                     'server.address': 'api.openai.com',
                     'model_request_parameters': IsPartialDict(),
+                    'gen_ai.agent.name': 'agent',
+                    'gen_ai.agent.call.id': IsStr(),
+                    'gen_ai.conversation.id': IsStr(),
                     'gen_ai.request.max_tokens': 16384,
                     'logfire.span_type': 'span',
                     'logfire.msg': 'chat gpt-4o',
@@ -249,10 +256,10 @@ Because it found something more "sole-ful!"\
             },
             {
                 'name': 'MCP client handle request: sampling/createMessage',
-                'context': {'trace_id': 2, 'span_id': 25, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 23, 'is_remote': True},
-                'start_time': 17000000000,
-                'end_time': 20000000000,
+                'context': {'trace_id': 2, 'span_id': 23, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 21, 'is_remote': True},
+                'start_time': 16000000000,
+                'end_time': 19000000000,
                 'attributes': {
                     'request': {
                         'method': 'sampling/createMessage',
@@ -260,7 +267,8 @@ Because it found something more "sole-ful!"\
                             'task': None,
                             'meta': {
                                 'progressToken': None,
-                                'traceparent': '00-00000000000000000000000000000002-0000000000000017-01',
+                                'traceparent': '00-00000000000000000000000000000002-0000000000000015-01',
+                                'baggage': IsStr(),
                             },
                             'messages': [
                                 {
@@ -310,10 +318,10 @@ Because it found something more "sole-ful!"\
             },
             {
                 'name': 'MCP request: sampling/createMessage',
-                'context': {'trace_id': 2, 'span_id': 23, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 21, 'is_remote': False},
-                'start_time': 16000000000,
-                'end_time': 21000000000,
+                'context': {'trace_id': 2, 'span_id': 21, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 19, 'is_remote': False},
+                'start_time': 15000000000,
+                'end_time': 20000000000,
                 'attributes': {
                     'request': {
                         'method': 'sampling/createMessage',
@@ -369,16 +377,19 @@ Because it found something more "sole-ful!"\
             },
             {
                 'name': 'chat mcp-sampling',
-                'context': {'trace_id': 2, 'span_id': 21, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 19, 'is_remote': False},
-                'start_time': 15000000000,
-                'end_time': 22000000000,
+                'context': {'trace_id': 2, 'span_id': 19, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 17, 'is_remote': False},
+                'start_time': 14000000000,
+                'end_time': 21000000000,
                 'attributes': {
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.provider.name': 'MCP',
                     'gen_ai.system': 'MCP',
                     'gen_ai.request.model': 'mcp-sampling',
                     'model_request_parameters': IsPartialDict(),
+                    'gen_ai.agent.name': 'agent',
+                    'gen_ai.agent.call.id': IsStr(),
+                    'gen_ai.conversation.id': IsStr(),
                     'logfire.span_type': 'span',
                     'logfire.msg': 'chat mcp-sampling',
                     'gen_ai.input.messages': [
@@ -405,14 +416,17 @@ Because it found something more "sole-ful!"\
             },
             {
                 'name': 'invoke_agent agent',
-                'context': {'trace_id': 2, 'span_id': 19, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 17, 'is_remote': False},
-                'start_time': 14000000000,
-                'end_time': 23000000000,
+                'context': {'trace_id': 2, 'span_id': 17, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 15, 'is_remote': False},
+                'start_time': 13000000000,
+                'end_time': 22000000000,
                 'attributes': {
                     'model_name': 'mcp-sampling',
                     'agent_name': 'agent',
                     'gen_ai.agent.name': 'agent',
+                    'gen_ai.agent.call.id': IsStr(),
+                    'gen_ai.conversation.id': IsStr(),
+                    'gen_ai.operation.name': 'invoke_agent',
                     'logfire.msg': 'agent run',
                     'logfire.span_type': 'span',
                     'final_result': """\
@@ -440,10 +454,10 @@ Because it found something more "sole-ful!"\
             },
             {
                 'name': 'MCP server handle request: tools/call',
-                'context': {'trace_id': 2, 'span_id': 17, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 15, 'is_remote': True},
-                'start_time': 13000000000,
-                'end_time': 24000000000,
+                'context': {'trace_id': 2, 'span_id': 15, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 13, 'is_remote': True},
+                'start_time': 12000000000,
+                'end_time': 23000000000,
                 'attributes': {
                     'request': {
                         'method': 'tools/call',
@@ -451,7 +465,8 @@ Because it found something more "sole-ful!"\
                             'task': None,
                             'meta': {
                                 'progressToken': None,
-                                'traceparent': '00-00000000000000000000000000000002-000000000000000f-01',
+                                'traceparent': '00-00000000000000000000000000000002-000000000000000d-01',
+                                'baggage': IsStr(),
                             },
                             'name': 'joker',
                             'arguments': {'theme': 'socks'},
@@ -489,10 +504,10 @@ Because it found something more "sole-ful!"\
             },
             {
                 'name': 'MCP request: tools/call joker',
-                'context': {'trace_id': 2, 'span_id': 15, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 13, 'is_remote': False},
-                'start_time': 12000000000,
-                'end_time': 25000000000,
+                'context': {'trace_id': 2, 'span_id': 13, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 11, 'is_remote': False},
+                'start_time': 11000000000,
+                'end_time': 24000000000,
                 'attributes': {
                     'request': {
                         'method': 'tools/call',
@@ -531,14 +546,18 @@ Because it found something more "sole-ful!"\
             },
             {
                 'name': 'execute_tool joker',
-                'context': {'trace_id': 2, 'span_id': 13, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 11, 'is_remote': False},
-                'start_time': 11000000000,
-                'end_time': 26000000000,
+                'context': {'trace_id': 2, 'span_id': 11, 'is_remote': False},
+                'parent': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
+                'start_time': 10000000000,
+                'end_time': 25000000000,
                 'attributes': {
+                    'gen_ai.operation.name': 'execute_tool',
                     'gen_ai.tool.name': 'joker',
                     'gen_ai.tool.call.id': 'call_YWeIZ4oGGwEnk9GIb443ZNys',
                     'gen_ai.tool.call.arguments': {'theme': 'socks'},
+                    'gen_ai.agent.name': 'agent',
+                    'gen_ai.agent.call.id': IsStr(),
+                    'gen_ai.conversation.id': IsStr(),
                     'logfire.msg': 'running tool: joker',
                     'logfire.span_type': 'span',
                     'gen_ai.tool.call.result': """\
@@ -549,19 +568,11 @@ Because it found something more "sole-ful!"\
                 },
             },
             {
-                'name': 'running tools',
-                'context': {'trace_id': 2, 'span_id': 11, 'is_remote': False},
-                'parent': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
-                'start_time': 10000000000,
-                'end_time': 27000000000,
-                'attributes': {'tools': ('joker',), 'logfire.msg': 'running 1 tool', 'logfire.span_type': 'span'},
-            },
-            {
                 'name': 'chat gpt-4o',
-                'context': {'trace_id': 2, 'span_id': 29, 'is_remote': False},
+                'context': {'trace_id': 2, 'span_id': 27, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
-                'start_time': 28000000000,
-                'end_time': 29000000000,
+                'start_time': 26000000000,
+                'end_time': 27000000000,
                 'attributes': {
                     'gen_ai.operation.name': 'chat',
                     'gen_ai.provider.name': 'openai',
@@ -569,6 +580,9 @@ Because it found something more "sole-ful!"\
                     'gen_ai.request.model': 'gpt-4o',
                     'server.address': 'api.openai.com',
                     'model_request_parameters': IsPartialDict(),
+                    'gen_ai.agent.name': 'agent',
+                    'gen_ai.agent.call.id': IsStr(),
+                    'gen_ai.conversation.id': IsStr(),
                     'gen_ai.tool.definitions': [
                         {
                             'type': 'function',
@@ -643,11 +657,14 @@ Because it found something more "sole-ful!"\
                 'context': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
                 'parent': None,
                 'start_time': 3000000000,
-                'end_time': 30000000000,
+                'end_time': 28000000000,
                 'attributes': {
                     'model_name': 'gpt-4o',
                     'agent_name': 'agent',
                     'gen_ai.agent.name': 'agent',
+                    'gen_ai.agent.call.id': IsStr(),
+                    'gen_ai.conversation.id': IsStr(),
+                    'gen_ai.operation.name': 'invoke_agent',
                     'logfire.msg': 'agent run',
                     'logfire.span_type': 'span',
                     'final_result': """\

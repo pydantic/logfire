@@ -26,7 +26,7 @@ from ..client import LogfireClient
 from ..config import REGIONS, LogfireCredentials, get_base_url_from_token
 from ..config_params import ParamManager
 from ..tracer import SDKTracerProvider
-from .auth import parse_auth
+from .auth import parse_auth, parse_logout
 from .prompt import parse_prompt
 from .run import collect_instrumentation_context, parse_run, print_otel_summary
 
@@ -328,6 +328,10 @@ def _main(args: list[str] | None = None) -> None:
     # NOTE(DavidM): Let's try to keep the commands listed in alphabetical order if we can
     cmd_auth = subparsers.add_parser('auth', help=parse_auth.__doc__.split('\n', 1)[0], description=parse_auth.__doc__)  # pyright: ignore[reportOptionalMemberAccess]
     cmd_auth.set_defaults(func=parse_auth)
+    auth_subparsers = cmd_auth.add_subparsers()
+
+    cmd_logout = auth_subparsers.add_parser('logout', help=parse_logout.__doc__)
+    cmd_logout.set_defaults(func=parse_logout)
 
     cmd_clean = subparsers.add_parser('clean', help=parse_clean.__doc__)
     cmd_clean.set_defaults(func=parse_clean)
@@ -380,6 +384,9 @@ def _main(args: list[str] | None = None) -> None:
     agent_code_group.add_argument('--claude', action='store_true', help='verify the Claude Code setup')
     agent_code_group.add_argument('--codex', action='store_true', help='verify the Cursor setup')
     agent_code_group.add_argument('--opencode', action='store_true', help='verify the OpenCode setup')
+    cmd_prompt.add_argument(
+        '--update', action='store_true', help='replace any existing Logfire MCP server configuration'
+    )
     cmd_prompt.add_argument('--project', action=OrgProjectAction, help='project in the format <org>/<project>')
     cmd_prompt.add_argument('issue', nargs='?', help='the issue to get a prompt for')
     cmd_prompt.set_defaults(func=parse_prompt)

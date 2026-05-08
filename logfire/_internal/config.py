@@ -50,7 +50,7 @@ from opentelemetry.sdk.metrics import (
     UpDownCounter,
 )
 from opentelemetry.sdk.metrics.export import AggregationTemporality, MetricReader, PeriodicExportingMetricReader
-from opentelemetry.sdk.metrics.view import ExponentialBucketHistogramAggregation, View
+from opentelemetry.sdk.metrics.view import DropAggregation, ExponentialBucketHistogramAggregation, View
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import SpanProcessor, SynchronousMultiSpanProcessor, TracerProvider as SDKTracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
@@ -96,6 +96,7 @@ from .exporters.otlp import (
     QuietLogExporter,
     QuietSpanExporter,
     RetryFewerSpansSpanExporter,
+    cleanup_disk_retryers,
 )
 from .exporters.processor_wrapper import CheckSuppressInstrumentationProcessorWrapper, MainSpanProcessorWrapper
 from .exporters.quiet_metrics import QuietMetricExporter
@@ -236,6 +237,10 @@ class MetricsOptions:
 
     DEFAULT_VIEWS: ClassVar[Sequence[View]] = (
         View(
+            instrument_name='otel.sdk.*',
+            aggregation=DropAggregation(),
+        ),
+        View(
             instrument_type=Histogram,
             aggregation=ExponentialBucketHistogramAggregation(),
         ),
@@ -258,6 +263,7 @@ class MetricsOptions:
 
     The default views include:
 
+    - **Dropping all 'meta' metrics from the OpenTelemetry SDK** to avoid unnecessary noise and overhead.
     - **Exponential bucket histogram aggregation** for all `Histogram` instruments, which provides
       better resolution and smaller payload sizes compared to fixed-bucket histograms.
     - **Attribute filtering** for the `http.server.active_requests` `UpDownCounter`, limiting
@@ -801,6 +807,7 @@ class _LogfireConfigData:
         self.advanced = advanced
 
         self.additional_span_processors = additional_span_processors
+        self._project_url: str | None = None
 
         if metrics is None:
             metrics = MetricsOptions()
@@ -1007,17 +1014,14 @@ class LogfireConfig(_LogfireConfigData):
             self._tracer_provider.set_provider(tracer_provider)  # do we need to shut down the existing one???
 
             processors_with_pending_spans: list[SpanProcessor] = []
-            root_processor = main_multiprocessor = SynchronousMultiSpanProcessor()
-            if self.sampling.tail:
-                root_processor = TailSamplingProcessor(root_processor, self.sampling.tail)
-            tracer_provider.add_span_processor(
-                CheckSuppressInstrumentationProcessorWrapper(
-                    MainSpanProcessorWrapper(root_processor, self.scrubber),
-                )
-            )
+            user_deferred_processors: list[SpanProcessor] = []
+            main_multiprocessor = SynchronousMultiSpanProcessor()
 
             def add_span_processor(span_processor: SpanProcessor) -> None:
-                main_multiprocessor.add_span_processor(span_processor)
+                if self.sampling.tail and getattr(span_processor, 'tail_sampling_defer_on_start', False):
+                    user_deferred_processors.append(span_processor)
+                else:
+                    main_multiprocessor.add_span_processor(span_processor)
                 has_pending = isinstance(
                     getattr(span_processor, 'span_exporter', None),
                     (TestExporter, RemovePendingSpansExporter, SimpleConsoleSpanExporter),
@@ -1083,6 +1087,7 @@ class LogfireConfig(_LogfireConfigData):
                     # This means that e.g. a token in an env var takes priority over a token in a creds file.
                     self.token = self.token or credentials.token
                     self.advanced.base_url = self.advanced.base_url or credentials.logfire_api_url
+                    self._project_url = self._project_url or credentials.project_url
 
                 if self.token:
                     # Convert to list for iteration (handles both str and list[str])
@@ -1108,12 +1113,10 @@ class LogfireConfig(_LogfireConfigData):
                         with suppress_instrumentation():
                             for token in token_list:
                                 validated_credentials = self._initialize_credentials_from_token(token)
-                                if (
-                                    validated_credentials is not None
-                                    and show_project_link
-                                    and token not in printed_tokens
-                                ):
-                                    validated_credentials.print_token_summary()
+                                if validated_credentials is not None:
+                                    self._project_url = self._project_url or validated_credentials.project_url
+                                    if show_project_link and token not in printed_tokens:
+                                        validated_credentials.print_token_summary()
 
                     if emscripten:  # pragma: no cover
                         check_tokens()
@@ -1183,16 +1186,39 @@ class LogfireConfig(_LogfireConfigData):
                         # This line is just to make sure.
                         session.headers.update(headers)
 
+            deferred_processors: list[SpanProcessor] = []
             if processors_with_pending_spans:
                 pending_multiprocessor = SynchronousMultiSpanProcessor()
                 for processor in processors_with_pending_spans:
                     pending_multiprocessor.add_span_processor(processor)
-
-                main_multiprocessor.add_span_processor(
+                deferred_processors.append(
                     PendingSpanProcessor(
                         self.advanced.id_generator, MainSpanProcessorWrapper(pending_multiprocessor, self.scrubber)
                     )
                 )
+            deferred_processors.extend(user_deferred_processors)
+
+            root_processor: SpanProcessor = main_multiprocessor
+            if self.sampling.tail:
+                deferred_multi: SpanProcessor | None = None
+                if deferred_processors:
+                    deferred_multi = SynchronousMultiSpanProcessor()
+                    for p in deferred_processors:
+                        deferred_multi.add_span_processor(p)
+                root_processor = TailSamplingProcessor(
+                    main_multiprocessor,
+                    self.sampling.tail,
+                    deferred_processor=deferred_multi,
+                )
+            else:
+                for p in deferred_processors:
+                    main_multiprocessor.add_span_processor(p)
+
+            tracer_provider.add_span_processor(
+                CheckSuppressInstrumentationProcessorWrapper(
+                    MainSpanProcessorWrapper(root_processor, self.scrubber),
+                )
+            )
 
             otlp_endpoint = os.getenv(OTEL_EXPORTER_OTLP_ENDPOINT)
             otlp_traces_endpoint = os.getenv(OTEL_EXPORTER_OTLP_TRACES_ENDPOINT)
@@ -1227,6 +1253,12 @@ class LogfireConfig(_LogfireConfigData):
                     resource=resource,
                     views=self.metrics.views,
                 )
+                for reader in metric_readers:
+                    with suppress(Exception):
+                        # Prevent metric readers from recording metrics about themselves which just adds noise.
+                        # The default metric view with the DropAggregation isn't enough here because it's a histogram
+                        # and there's another default view that matches it.
+                        reader._metrics = type(reader._metrics)('', NoOpMeterProvider())  # type: ignore
             else:
                 meter_provider = NoOpMeterProvider()
 
@@ -1295,6 +1327,12 @@ class LogfireConfig(_LogfireConfigData):
 
             # Track this instance for cleanup on exit
             _LOGFIRE_CONFIG_INSTANCES.append(weakref.ref(self))
+
+            # OTEL registers its own atexit callback in the tracer/meter providers to shut them down.
+            # Registering this callback here after the OTEL one means that this runs first.
+            # Otherwise OTEL would log an error "Already shutdown, dropping span."
+            atexit.unregister(exit_open_spans)
+            atexit.register(exit_open_spans)
 
             self._initialized = True
 
@@ -1479,12 +1517,8 @@ class LogfireConfig(_LogfireConfigData):
 _LOGFIRE_CONFIG_INSTANCES: list[weakref.ref[LogfireConfig]] = []
 
 
-@atexit.register
 def exit_open_spans():  # pragma: no cover
     # Ensure that all open spans are closed when the program exits.
-    # OTEL registers its own atexit callback in the tracer/meter providers to shut them down.
-    # Registering this callback here after the OTEL one means that this runs first.
-    # Otherwise OTEL would log an error "Already shutdown, dropping span."
     # The reason that spans may be lingering open is that they're in suspended generator frames.
     # Apart from here, they will be ended when the generator is garbage collected
     # as the interpreter shuts down, but that's too late.
@@ -1508,6 +1542,7 @@ def patched_os_exit(code: int):  # pragma: no cover
             config = config_ref()
             if config is not None:
                 config.force_flush()
+        cleanup_disk_retryers()
     except:  # noqa  # weird errors can happen during shutdown, ignore them *all* with a bare except
         pass
     return original_os_exit(code)
@@ -1843,19 +1878,15 @@ class LogfireCredentials:
         """Print a summary of the existing project."""
         if self.project_url:  # pragma: no branch
             _print_summary(
-                f'[bold]Logfire[/bold] project URL: [link={self.project_url} cyan]{self.project_url}[/link]',
+                f'[bold]Logfire[/bold] project URL: [cyan]{self.project_url}[/cyan]',
                 min_content_width=len(self.project_url),
             )
 
 
 def _print_summary(message: str, min_content_width: int) -> None:
     from rich.console import Console
-    from rich.style import Style
-    from rich.theme import Theme
 
-    # customise the link color since the default `blue` is too dark for me to read.
-    custom_theme = Theme({'markdown.link_url': Style(color='cyan')})
-    console = Console(stderr=True, theme=custom_theme)
+    console = Console(stderr=True)
     if console.width < min_content_width + 4:  # pragma: no cover
         console.width = min_content_width + 4
     console.print(message)
