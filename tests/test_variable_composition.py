@@ -109,6 +109,22 @@ class TestExpandReferences:
         assert len(composed[0].composed_from) == 1
         assert composed[0].composed_from[0].name == 'b'
 
+    def test_nested_references_in_structured_value(self):
+        """References within structured referenced values are expanded recursively."""
+        resolve_fn = _make_resolve_fn(
+            {
+                'config': '{"prompt": "Hello @{name}@", "model": "gpt-4"}',
+                'name': '"Alice"',
+            }
+        )
+        expanded, composed = expand_references('"@{config.prompt}@ using @{config.model}@"', 'my_var', resolve_fn)
+        assert json.loads(expanded) == 'Hello Alice using gpt-4'
+        assert len(composed) == 1
+        assert composed[0].name == 'config'
+        assert composed[0].value == '{"prompt": "Hello Alice", "model": "gpt-4"}'
+        assert len(composed[0].composed_from) == 1
+        assert composed[0].composed_from[0].name == 'name'
+
     def test_cycle_detection(self):
         """Circular references are caught and the reference is left unexpanded."""
         resolve_fn = _make_resolve_fn(
@@ -336,7 +352,7 @@ class TestFindReferences:
 
 
 # =============================================================================
-# Tests for Handlebars-powered @{}@ block helpers
+# Tests for Handlebars-compatible @{}@ block helpers
 # =============================================================================
 
 
@@ -413,6 +429,18 @@ class TestBlockHelpers:
         expanded, _ = expand_references(serialized, 'my_var', resolve_fn)
         result = json.loads(expanded)
         assert result == '@{escaped}@ expanded'
+
+    def test_referenced_html_entities_are_preserved(self):
+        """Literal HTML entities in referenced values are not treated as internal escapes."""
+        resolve_fn = _make_resolve_fn({'ref': json.dumps('literal &#123; and &#125;')})
+        expanded, _ = expand_references('"@{ref}@"', 'my_var', resolve_fn)
+        assert json.loads(expanded) == 'literal &#123; and &#125;'
+
+    def test_referenced_escaped_reference_is_preserved(self):
+        r"""Escaped reference syntax inside referenced values keeps its backslash."""
+        resolve_fn = _make_resolve_fn({'ref': json.dumps(r'\@{not_a_ref}@')})
+        expanded, _ = expand_references('"@{ref}@"', 'my_var', resolve_fn)
+        assert json.loads(expanded) == r'\@{not_a_ref}@'
 
 
 # =============================================================================

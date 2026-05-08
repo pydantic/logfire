@@ -2,9 +2,8 @@
 
 This module provides ``render_once`` which performs a single-pass render using
 ``@{}@`` as the delimiter instead of ``{{}}``. It is the engine behind variable
-composition — it gives ``@{}@`` syntax the full power of Handlebars
-(conditionals, loops, helpers, etc.) while preserving any ``{{}}`` runtime
-placeholders untouched.
+composition — it gives ``@{}@`` syntax a Handlebars-compatible subset while
+preserving any ``{{}}`` runtime placeholders untouched.
 
 Algorithm:
   a. Protect ``{{...}}`` runtime placeholders in the template
@@ -22,30 +21,18 @@ from typing import Any
 from logfire.variables._handlebars import get_handlebars_renderer
 
 _REFERENCE_TAG = re.compile(r'(?<!\\)@\{(.*?)\}@')
-_LEFT_RUNTIME_PLACEHOLDER = '&#123;&#123;'
-_RIGHT_RUNTIME_PLACEHOLDER = '&#125;&#125;'
-
-# ---------------------------------------------------------------------------
-# Protection: escape {} in values to numeric entities so rendered values can't
-# be interpreted as Handlebars syntax during this composition pass.
-# ---------------------------------------------------------------------------
-_PROTECT = str.maketrans(
-    {
-        '{': '&#123;',
-        '}': '&#125;',
-    }
-)
+_ESCAPED_REFERENCE_START = r'\@{'
 
 
-def _unescape_protected(s: str) -> str:
-    """Undo only the entities we introduced."""
-    return s.replace('&#123;', '{').replace('&#125;', '}')
+def _sentinel(name: str, template: str) -> str:
+    """Return a per-template sentinel unlikely to collide with user content."""
+    return f'\x00logfire-{name}-{id(template)}\x00'
 
 
 def _protect_value(value: Any, safe_string_cls: type[str]) -> Any:
-    """Recursively protect string values, preserving structure for dicts/lists."""
+    """Recursively mark string values safe, preserving structure for dicts/lists."""
     if isinstance(value, str):
-        return safe_string_cls(value.translate(_PROTECT))
+        return safe_string_cls(value)
     if isinstance(value, dict):
         return {k: _protect_value(v, safe_string_cls) for k, v in value.items()}  # pyright: ignore[reportUnknownVariableType]
     if isinstance(value, list):
@@ -61,9 +48,19 @@ def _protect_value(value: Any, safe_string_cls: type[str]) -> Any:
 def render_once(template: str, context: dict[str, Any]) -> str:
     """Single-pass render: convert ``@{}@`` tags, run Handlebars, restore ``{{}}``."""
     safe_string_cls, hbs_render = get_handlebars_renderer()
-    protected_template = template.replace('{{', _LEFT_RUNTIME_PLACEHOLDER).replace('}}', _RIGHT_RUNTIME_PLACEHOLDER)
+    left_runtime_placeholder = _sentinel('left-runtime-placeholder', template)
+    right_runtime_placeholder = _sentinel('right-runtime-placeholder', template)
+    escaped_reference_start = _sentinel('escaped-reference-start', template)
+    protected_template = (
+        template.replace(_ESCAPED_REFERENCE_START, escaped_reference_start)
+        .replace('{{', left_runtime_placeholder)
+        .replace('}}', right_runtime_placeholder)
+    )
     handlebars_template = _REFERENCE_TAG.sub(r'{{\1}}', protected_template)
     safe_context = {k: _protect_value(v, safe_string_cls) for k, v in context.items()}
     result: str = hbs_render(handlebars_template, safe_context)
-    result = result.replace(_LEFT_RUNTIME_PLACEHOLDER, '{{').replace(_RIGHT_RUNTIME_PLACEHOLDER, '}}')
-    return _unescape_protected(result).replace('\\@{', '@{')
+    return (
+        result.replace(left_runtime_placeholder, '{{')
+        .replace(right_runtime_placeholder, '}}')
+        .replace(escaped_reference_start, '@{')
+    )

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import pytest
+from pydantic import BaseModel
 
 import logfire
 from logfire.variables.abstract import (
@@ -15,6 +16,7 @@ from logfire.variables.abstract import (
     ValidationReport,
     VariableChange,
     VariableDiff,
+    _apply_changes,
     _check_label_compatibility,
     _check_type_label_compatibility,
     _compute_diff,
@@ -23,6 +25,7 @@ from logfire.variables.abstract import (
     _get_json_schema,
 )
 from logfire.variables.config import LabeledValue, LabelRef, LatestVersion, Rollout, VariableConfig, VariablesConfig
+from logfire.variables.local import LocalVariableProvider
 from logfire.variables.variable import Variable
 
 
@@ -218,6 +221,50 @@ def test_compute_diff_schema_change(mock_logfire_instance: MockLogfire) -> None:
     assert diff.changes[0].incompatible_labels is not None
     assert len(diff.changes[0].incompatible_labels) == 1
     assert diff.has_changes is True
+
+
+def test_compute_diff_template_inputs_schema_change(mock_logfire_instance: MockLogfire) -> None:
+    """A template inputs schema change is pushed even if the value schema is unchanged."""
+
+    class NewInputs(BaseModel):
+        user_name: str
+
+    var = Variable[str](
+        name='prompt',
+        default='Hello {{user_name}}',
+        type=str,
+        template_inputs=NewInputs,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    server_config = VariablesConfig(
+        variables={
+            'prompt': VariableConfig(
+                name='prompt',
+                json_schema={'type': 'string'},
+                template_inputs_schema={'type': 'object', 'properties': {'old_name': {'type': 'string'}}},
+                labels={},
+                rollout=Rollout(labels={}),
+                overrides=[],
+            )
+        }
+    )
+
+    diff = _compute_diff([var], server_config)
+
+    assert len(diff.changes) == 1
+    change = diff.changes[0]
+    assert change.change_type == 'update_schema'
+    assert change.template_inputs_schema is not None
+    assert 'user_name' in change.template_inputs_schema['properties']
+
+    provider = LocalVariableProvider(server_config)
+    _apply_changes(provider, diff, server_config)
+    updated_config = provider.get_variable_config('prompt')
+    assert updated_config is not None
+    updated_schema = updated_config.template_inputs_schema
+    assert updated_schema is not None
+    assert 'user_name' in updated_schema['properties']
+    assert 'old_name' not in updated_schema['properties']
 
 
 def test_compute_diff_orphaned_variables(mock_logfire_instance: MockLogfire) -> None:

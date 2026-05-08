@@ -258,6 +258,18 @@ class TestRenderCodeDefault:
         rendered = resolved.render({'name': 'Alice'})
         assert rendered == 'Hello Alice!'
 
+    def test_template_var_invalid_default_records_exception(self, config_kwargs: dict[str, Any]):
+        """Rendering failures in code defaults are exposed on the resolution result."""
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+        var = lf.template_var('prompt', type=str, default='Hello {{#if name}}', inputs_type=dict)
+
+        resolved = var.get({'name': 'Alice'})
+
+        assert resolved.value == 'Hello {{#if name}}'
+        assert resolved.exception is not None
+        assert resolved._reason == 'other_error'
+
 
 class TestRenderErrors:
     """Test error handling in render()."""

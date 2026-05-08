@@ -281,6 +281,8 @@ def _render_json_value(value: Any, hbs_render: Callable[..., str], context: dict
     Only string values are rendered; dicts and lists are walked recursively.
     """
     if isinstance(value, str):
+        if '{{' not in value:
+            return value
         return hbs_render(value, context)
     if isinstance(value, dict):
         return {k: _render_json_value(v, hbs_render, context) for k, v in value.items()}  # pyright: ignore[reportUnknownVariableType]
@@ -712,6 +714,9 @@ def _compute_diff(
             server_normalized = json.dumps(server_schema, sort_keys=True) if server_schema else '{}'
 
             schema_changed = local_normalized != server_normalized
+            local_template_inputs_normalized = json.dumps(template_inputs_schema, sort_keys=True)
+            server_template_inputs_normalized = json.dumps(server_var.template_inputs_schema, sort_keys=True)
+            template_inputs_schema_changed = local_template_inputs_normalized != server_template_inputs_normalized
 
             # Check if description differs (for warning purposes)
             # Normalize: treat None and empty string as equivalent
@@ -719,7 +724,7 @@ def _compute_diff(
             server_desc_normalized = server_description or None
             description_differs = local_desc_normalized != server_desc_normalized
 
-            if schema_changed:
+            if schema_changed or template_inputs_schema_changed:
                 # Schema changed - check label value compatibility
                 incompatible = _check_all_label_compatibility(variable, server_var)
 
@@ -733,6 +738,7 @@ def _compute_diff(
                         local_description=local_description,
                         server_description=server_description,
                         description_differs=description_differs,
+                        template_inputs_schema=template_inputs_schema,
                     )
                 )
             else:
@@ -888,6 +894,7 @@ def _update_variable_schema(
         rollout=existing.rollout,
         overrides=existing.overrides,
         json_schema=change.local_schema,
+        template_inputs_schema=change.template_inputs_schema,
     )
 
     provider.update_variable(change.name, config)

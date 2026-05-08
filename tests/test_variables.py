@@ -2181,7 +2181,7 @@ class TestLogfireVarIntegration:
         original = lf.config._variable_provider.get_serialized_value
 
         def failing_get(*args: Any, **kwargs: Any) -> ResolvedVariable[str | None]:
-            raise RuntimeError('Provider failed!')
+            raise IndexError('Provider failed!')
 
         lf.config._variable_provider.get_serialized_value = failing_get
 
@@ -2189,7 +2189,7 @@ class TestLogfireVarIntegration:
         details = var.get()
         assert details.value == 'fallback'
         assert details._reason == 'other_error'
-        assert isinstance(details.exception, RuntimeError)
+        assert isinstance(details.exception, IndexError)
 
         # Restore original
         lf.config._variable_provider.get_serialized_value = original

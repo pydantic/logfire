@@ -264,17 +264,7 @@ class _BaseVariable(Generic[T_co]):
                 serialized_result, provider, targeting_key, attributes, span, render_fn=render_fn
             )
 
-        except (  # Safety net: providers and resolve functions are user-defined and may raise any of these
-            ValidationError,
-            ValueError,
-            TypeError,
-            KeyError,
-            AttributeError,
-            RuntimeError,
-            OSError,
-            HandlebarsError,
-            VariableCompositionError,
-        ) as e:
+        except Exception as e:
             if span and serialized_result is not None:  # pragma: no cover
                 span.set_attribute('invalid_serialized_label', serialized_result.label)
                 span.set_attribute('invalid_serialized_value', serialized_result.value)
@@ -283,16 +273,12 @@ class _BaseVariable(Generic[T_co]):
 
     def _render_default(self, default: Any, render_fn: Callable[[str], str]) -> T_co:
         """Serialize the default value, apply render_fn, then deserialize back."""
-        try:
-            serialized = self.type_adapter.dump_json(default).decode('utf-8')
-            rendered = render_fn(serialized)
-            result = self._deserialize(rendered)
-            if isinstance(result, (ValidationError, ValueError)):
-                raise result
-            return result
-        except (ValidationError, ValueError, TypeError, HandlebarsError):
-            # If rendering the default fails, return the original default
-            return default
+        serialized = self.type_adapter.dump_json(default).decode('utf-8')
+        rendered = render_fn(serialized)
+        result = self._deserialize(rendered)
+        if isinstance(result, (ValidationError, ValueError)):
+            raise result
+        return result
 
     def _expand_and_deserialize(
         self,

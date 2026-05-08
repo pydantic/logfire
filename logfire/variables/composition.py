@@ -2,8 +2,8 @@
 
 This module provides pure functions for expanding variable references in serialized
 JSON strings. References use the ``@{variable_name}@`` syntax and are expanded using
-the Handlebars engine, giving ``@{}@`` the full power of Handlebars:
-``@{#if flag}@``, ``@{#each items}@``, ``@{#unless flag}@``, ``@{#with obj}@``, etc.
+a Handlebars-compatible subset: simple references, dotted field reads, and block
+helpers whose condition/iterable is a top-level referenced variable.
 
 Meanwhile, any ``{{runtime}}`` placeholders are preserved untouched for later
 template rendering.
@@ -97,9 +97,10 @@ def expand_references(
 ) -> tuple[str, list[ComposedReference]]:
     """Expand ``@{var}@`` references in a serialized variable value.
 
-    Uses the Handlebars engine so that ``@{}@`` supports the full Handlebars
-    feature set (``@{#if flag}@``, ``@{#each items}@``, etc.) while
-    preserving ``{{runtime}}`` placeholders untouched.
+    Uses the Handlebars engine so that ``@{}@`` supports simple references,
+    dotted field reads, and block helpers whose condition/iterable is a
+    top-level referenced variable while preserving ``{{runtime}}`` placeholders
+    untouched.
 
     Args:
         serialized_value: The raw JSON-serialized variable value.
@@ -178,12 +179,12 @@ def expand_references(
             unresolved_names.add(ref_name)
             continue
 
-        # Recursively expand references within the resolved value (if it's a string).
+        # Recursively expand references within the resolved value.
         nested_composed: list[ComposedReference] = []
-        if isinstance(raw_value, str) and has_references(json.dumps(raw_value)):
+        if has_references(ref_serialized):
             try:
                 expanded_serialized, nested_composed = expand_references(
-                    json.dumps(raw_value),
+                    ref_serialized,
                     ref_name,
                     resolve_fn,
                     _visited=visited,

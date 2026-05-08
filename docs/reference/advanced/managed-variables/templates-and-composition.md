@@ -186,9 +186,9 @@ with agent_prompt.get() as resolved:
 
 When `safety_rules` is updated in the Logfire UI, all variables that reference `@{safety_rules}@` automatically pick up the new value — no code changes or redeployment required.
 
-### Composition with Handlebars Power
+### Composition Control Flow
 
-The `@{}@` syntax supports the full Handlebars feature set — not just simple variable substitution. You can use conditionals, loops, and more:
+The `@{}@` syntax supports a small Handlebars-compatible subset for composing variables. It supports simple references, dotted field reads, and block helpers that branch or iterate over a top-level referenced variable:
 
 | Syntax | Description |
 |--------|-------------|
@@ -196,6 +196,8 @@ The `@{}@` syntax supports the full Handlebars feature set — not just simple v
 | `@{variable.field}@` | Access a nested field |
 | `@{#if variable}@...@{else}@...@{/if}@` | Conditional on whether a variable is set |
 | `@{#each items}@...@{/each}@` | Iterate over a list variable |
+
+Block helper conditions and iterables must be top-level variable names. Use `@{#if user}@...@{user.active}@...@{/if}@` rather than `@{#if user.active}@`.
 
 ### Composition Tracking
 
