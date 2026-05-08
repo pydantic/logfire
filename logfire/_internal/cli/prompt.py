@@ -48,6 +48,9 @@ def parse_prompt(args: argparse.Namespace) -> None:
     elif args.opencode:
         configure_opencode(client, console, update=update)
 
+    if not getattr(args, 'project', None):
+        return
+
     response = client.get_prompt(args.organization, args.project, args.issue)
     sys.stdout.write(response['prompt'])
 

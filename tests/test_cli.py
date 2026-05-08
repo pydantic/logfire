@@ -1835,6 +1835,31 @@ Logfire MCP server added to Codex.
 """)
 
 
+def test_parse_prompt_codex_without_project(
+    prompt_http_calls: None, capsys: pytest.CaptureFixture[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(shutil, 'which', lambda x: True)  # type: ignore
+
+    codex_path = tmp_path / 'codex'
+    codex_path.mkdir()
+    codex_config_path = codex_path / 'config.toml'
+    codex_config_path.write_text('')
+
+    with patch.dict(os.environ, {'CODEX_HOME': str(codex_path)}):
+        main(['prompt', '--codex'])
+
+    assert codex_config_path.read_text() == snapshot("""\
+
+[mcp_servers.logfire]
+url = "https://logfire-us.pydantic.dev/mcp"
+""")
+    out, err = capsys.readouterr()
+    assert out == ''
+    assert err == snapshot("""\
+Logfire MCP server added to Codex.
+""")
+
+
 def test_parse_prompt_codex_not_installed(
     prompt_http_calls: None, capsys: pytest.CaptureFixture[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
