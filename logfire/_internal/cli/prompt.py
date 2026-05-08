@@ -49,7 +49,10 @@ def parse_prompt(args: argparse.Namespace) -> None:
         configure_opencode(client, console, update=update)
 
     if not getattr(args, 'project', None):
-        return
+        if args.claude or args.codex or args.opencode:
+            return
+        console.print('The --project option is required unless configuring an agent integration.')
+        sys.exit(1)
 
     response = client.get_prompt(args.organization, args.project, args.issue)
     sys.stdout.write(response['prompt'])

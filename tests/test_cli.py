@@ -1810,6 +1810,15 @@ def test_parse_prompt(prompt_http_calls: None, capsys: pytest.CaptureFixture[str
     assert capsys.readouterr().out == snapshot('This is the prompt\n')
 
 
+def test_parse_prompt_without_project_errors(prompt_http_calls: None, capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit):
+        main(['prompt'])
+
+    assert capsys.readouterr().err == snapshot(
+        'The --project option is required unless configuring an agent integration.\n'
+    )
+
+
 def test_parse_prompt_codex(
     prompt_http_calls: None, capsys: pytest.CaptureFixture[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
