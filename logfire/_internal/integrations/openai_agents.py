@@ -111,9 +111,11 @@ class LogfireTraceProviderWrapper:
             elif isinstance(span_data, MCPListToolsSpanData):
                 msg_template = 'MCP: list tools from server {server}'
             elif isinstance(span_data, TaskSpanData):
-                msg_template = 'Task: {name}'
+                # For newer span types, inline low cardinality attribute values in the message template
+                # (which becomes the span name) so that they render nicely in other OTel platforms.
+                msg_template = f'Task: {span_data.name}'
             elif isinstance(span_data, TurnSpanData):
-                msg_template = 'Turn {turn} for agent {agent_name}'
+                msg_template = f'Turn {{turn}} for agent {span_data.agent_name}'
             else:
                 msg_template = 'OpenAI agents: {type} span'
 
