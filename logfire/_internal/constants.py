@@ -136,8 +136,8 @@ ATTRIBUTES_VALIDATION_ERROR_KEY = 'exception.logfire.data'
 ATTRIBUTES_SCRUBBED_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.scrubbed'
 """Key in OTEL attributes with metadata about parts of a span that have been scrubbed."""
 
-RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS = 'logfire.package_versions'
-"""Versions of installed packages, serialized as list of json objects with keys 'name' and 'version'."""
+ATTRIBUTES_CONFIG = 'logfire.config'
+ATTRIBUTES_PACKAGE_VERSIONS = 'logfire.package_versions'
 
 RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME = 'deployment.environment.name'
 """The name of the deployment environment e.g. production, staging, etc."""

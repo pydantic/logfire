@@ -20,7 +20,7 @@ import inline_snapshot.extra
 import pytest
 import requests.exceptions
 import requests_mock
-from dirty_equals import IsStr
+from dirty_equals import IsPartialDict, IsStr
 from inline_snapshot import snapshot
 from opentelemetry._logs import get_logger_provider
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
@@ -1565,7 +1565,7 @@ def test_initialize_credentials_from_token_unreachable():
         UserWarning,
         match="Logfire API is unreachable, you may have trouble sending data. Error: Invalid URL '/v1/info': No scheme supplied.",
     ):
-        LogfireConfig(advanced=logfire.AdvancedOptions(base_url=''))._initialize_credentials_from_token('some-token')  # type: ignore
+        LogfireConfig(advanced=logfire.AdvancedOptions(base_url='foo'))._initialize_credentials_from_token('some-token')  # type: ignore
 
 
 def test_initialize_credentials_from_token_invalid_token():
@@ -1595,6 +1595,71 @@ def test_initialize_credentials_from_token_unhealthy():
 def test_configure_twice_no_warning(caplog: LogCaptureFixture):
     logfire.configure(send_to_logfire=False)
     assert not caplog.messages
+
+
+def test_configuration_span_not_emitted_by_default(config_kwargs: dict[str, Any], exporter: TestExporter):
+    configure(**config_kwargs)
+    assert not exporter.exported_spans_as_dict()
+
+
+def test_configuration_span_emitted_when_opted_in(config_kwargs: dict[str, Any], exporter: TestExporter):
+    config_kwargs['advanced'].emit_configuration_span = True
+    configure(**config_kwargs)
+
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Logfire configured',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'Logfire configured',
+                    'logfire.msg': 'Logfire configured',
+                    'code.filepath': 'test_configure.py',
+                    'code.function': 'test_configuration_span_emitted_when_opted_in',
+                    'code.lineno': 123,
+                    'logfire.config': {
+                        'local': False,
+                        'send_to_logfire': False,
+                        'console_enabled': False,
+                        'scrubbing_enabled': True,
+                        'inspect_arguments': True,
+                        'min_level': 0,
+                        'add_baggage_to_attributes': False,
+                        'distributed_tracing': True,
+                        'head_sample_rate': 1.0,
+                        'tail_sampling_enabled': False,
+                        'code_source_set': False,
+                        'variables_set': False,
+                        'token_count': 0,
+                        'api_key': False,
+                        'service_name': False,
+                        'service_version': True,
+                        'environment': False,
+                        'additional_span_processors': 1,
+                    },
+                    'logfire.package_versions': IsPartialDict({'logfire': IsStr()}),
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'logfire.config': {'type': 'object'},
+                            'logfire.package_versions': {'type': 'object'},
+                        },
+                    },
+                },
+            }
+        ]
+    )
+
+
+def test_configuration_span_enabled_via_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('LOGFIRE_EMIT_CONFIGURATION_SPAN', '1')
+    configure(send_to_logfire=False, console=False, inspect_arguments=False)
+    assert GLOBAL_CONFIG.advanced.emit_configuration_span is True
 
 
 def test_exit_open_spans_exports_suspended_generator_span_before_shutdown() -> None:
