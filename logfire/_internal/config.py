@@ -207,10 +207,12 @@ class AdvancedOptions:
     """
 
     emit_configuration_span: bool | None = None
-    """If `True`, emit a `Logfire configured` log span after `logfire.configure()` containing the SDK
-    version, installed package versions, and a curated set of non-sensitive configuration flags.
+    """If `True`, emit a `Logfire configured` log after `logfire.configure()` containing
+    installed package versions and a curated set of non-sensitive configuration flags.
 
     Defaults to the `LOGFIRE_EMIT_CONFIGURATION_SPAN` environment variable, or `False`.
+
+    This log and configuration is experimental and may be modified or removed.
     """
 
     def generate_base_url(self, token: str) -> str:
