@@ -74,6 +74,8 @@ from ..types import ExceptionCallback
 from .client import InvalidProjectName, LogfireClient, ProjectAlreadyExists
 from .config_params import ParamManager, PydanticPluginRecordValues, normalize_token
 from .constants import (
+    ATTRIBUTES_CONFIG,
+    ATTRIBUTES_PACKAGE_VERSIONS,
     LEVEL_NUMBERS,
     RESOURCE_ATTRIBUTES_CODE_ROOT_PATH,
     RESOURCE_ATTRIBUTES_CODE_WORK_DIR,
@@ -1546,31 +1548,32 @@ def emit_configuration_span(config: LogfireConfig, logfire_instance: Logfire, *,
         token_count = 0
     else:
         token_count = len(config.token)
-    config_dict: dict[str, Any] = {
-        'local': local,
-        'send_to_logfire': config.send_to_logfire,
-        'console_enabled': bool(config.console),
-        'scrubbing_enabled': bool(config.scrubbing),
-        'inspect_arguments': config.inspect_arguments,
-        'min_level': config.min_level,
-        'add_baggage_to_attributes': config.add_baggage_to_attributes,
-        'distributed_tracing': config.distributed_tracing,
-        'head_sample_rate': sampling.head if isinstance(sampling.head, (int, float)) else None,
-        'tail_sampling_enabled': sampling.tail is not None,
-        'code_source_set': config.code_source is not None,
-        'variables_set': config.variables is not None,
-        'token_count': token_count,
-        'api_key': bool(config.api_key),
-        'service_name': bool(config.service_name),
-        'service_version': bool(config.service_version),
-        'environment': bool(config.environment),
-        'additional_span_processors': len(config.additional_span_processors or ()),
-    }
+
     logfire_instance.info(
         'Logfire configured',
-        logfire_version=VERSION,
-        logfire_config=config_dict,
-        package_versions=collect_package_info(),
+        **{  # type: ignore
+            ATTRIBUTES_CONFIG: {
+                'local': local,
+                'send_to_logfire': config.send_to_logfire,
+                'console_enabled': bool(config.console),
+                'scrubbing_enabled': bool(config.scrubbing),
+                'inspect_arguments': config.inspect_arguments,
+                'min_level': config.min_level,
+                'add_baggage_to_attributes': config.add_baggage_to_attributes,
+                'distributed_tracing': config.distributed_tracing,
+                'head_sample_rate': sampling.head if isinstance(sampling.head, (int, float)) else None,
+                'tail_sampling_enabled': sampling.tail is not None,
+                'code_source_set': config.code_source is not None,
+                'variables_set': config.variables is not None,
+                'token_count': token_count,
+                'api_key': bool(config.api_key),
+                'service_name': bool(config.service_name),
+                'service_version': bool(config.service_version),
+                'environment': bool(config.environment),
+                'additional_span_processors': len(config.additional_span_processors or ()),
+            },
+            ATTRIBUTES_PACKAGE_VERSIONS: collect_package_info(),
+        },
     )
 
 

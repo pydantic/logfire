@@ -20,7 +20,7 @@ import inline_snapshot.extra
 import pytest
 import requests.exceptions
 import requests_mock
-from dirty_equals import IsStr
+from dirty_equals import IsPartialDict, IsStr
 from inline_snapshot import snapshot
 from opentelemetry._logs import get_logger_provider
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
@@ -1603,30 +1603,57 @@ def test_configuration_span_not_emitted_by_default(config_kwargs: dict[str, Any]
 
 
 def test_configuration_span_emitted_when_opted_in(config_kwargs: dict[str, Any], exporter: TestExporter):
-    advanced = config_kwargs.pop('advanced')
-    advanced.emit_configuration_span = True
-    configure(**config_kwargs, advanced=advanced)
+    config_kwargs['advanced'].emit_configuration_span = True
+    configure(**config_kwargs)
 
-    spans = [
-        s for s in exporter.exported_spans_as_dict(parse_json_attributes=True) if s['name'] == 'Logfire configured'
-    ]
-    assert len(spans) == 1
-    attrs = spans[0]['attributes']
-    assert attrs['logfire_version']
-    assert isinstance(attrs['package_versions'], dict)
-    assert 'logfire' in attrs['package_versions']
-    cfg = attrs['logfire_config']
-    assert isinstance(cfg, dict)
-    assert cfg['send_to_logfire'] is False
-    assert cfg['inspect_arguments'] is True
-    assert cfg['local'] is False
-    assert cfg['token_count'] == 0
-    assert isinstance(cfg['fields_provided'], list)
-    assert 'api_key' not in cfg['fields_provided']
-    assert 'environment' not in cfg['fields_provided']
-    # No identity/secrets in the payload.
-    for forbidden in ('token', 'api_key', 'service_name', 'service_version', 'environment', 'base_url'):
-        assert forbidden not in cfg
+    assert exporter.exported_spans_as_dict(parse_json_attributes=True) == snapshot(
+        [
+            {
+                'name': 'Logfire configured',
+                'context': {'trace_id': 1, 'span_id': 1, 'is_remote': False},
+                'parent': None,
+                'start_time': 1000000000,
+                'end_time': 1000000000,
+                'attributes': {
+                    'logfire.span_type': 'log',
+                    'logfire.level_num': 9,
+                    'logfire.msg_template': 'Logfire configured',
+                    'logfire.msg': 'Logfire configured',
+                    'code.filepath': 'test_configure.py',
+                    'code.function': 'test_configuration_span_emitted_when_opted_in',
+                    'code.lineno': 123,
+                    'logfire.config': {
+                        'local': False,
+                        'send_to_logfire': False,
+                        'console_enabled': False,
+                        'scrubbing_enabled': True,
+                        'inspect_arguments': True,
+                        'min_level': 0,
+                        'add_baggage_to_attributes': False,
+                        'distributed_tracing': True,
+                        'head_sample_rate': 1.0,
+                        'tail_sampling_enabled': False,
+                        'code_source_set': False,
+                        'variables_set': False,
+                        'token_count': 0,
+                        'api_key': False,
+                        'service_name': False,
+                        'service_version': True,
+                        'environment': False,
+                        'additional_span_processors': 1,
+                    },
+                    'logfire.package_versions': IsPartialDict({'logfire': IsStr()}),
+                    'logfire.json_schema': {
+                        'type': 'object',
+                        'properties': {
+                            'logfire.config': {'type': 'object'},
+                            'logfire.package_versions': {'type': 'object'},
+                        },
+                    },
+                },
+            }
+        ]
+    )
 
 
 def test_configuration_span_enabled_via_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
