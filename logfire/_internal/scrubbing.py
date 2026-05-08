@@ -29,6 +29,7 @@ from .constants import (
     ATTRIBUTES_SPAN_TYPE_KEY,
     ATTRIBUTES_TAGS_KEY,
     MESSAGE_FORMATTED_VALUE_LENGTH_LIMIT,
+    RESOURCE_ATTRIBUTES_VERSION,
 )
 from .integrations.llm_providers import semconv as gen_ai_semconv
 from .stack_info import STACK_INFO_KEYS
@@ -126,6 +127,7 @@ class BaseScrubber(ABC):
         ATTRIBUTES_SCRUBBED_KEY,
         ATTRIBUTES_CONFIG,
         ATTRIBUTES_PACKAGE_VERSIONS,
+        RESOURCE_ATTRIBUTES_VERSION,
         *STACK_INFO_KEYS,
         'exception.stacktrace',
         'exception.type',
