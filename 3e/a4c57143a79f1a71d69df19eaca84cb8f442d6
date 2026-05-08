@@ -1,0 +1,23 @@
+logfire/_internal/config.py
+  h_d9dd17644dded9 85,975
+logfire/_internal/constants.py
+  h_d9dd17644dded9 142-143
+tests/test_configure.py
+  h_d9dd17644dded9 83,726,773,821,2010,2061,2114
+logfire/_internal/scrubbing.py
+  h_d9dd17644dded9 32,130
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "3ea4c57143a79f1a71d69df19eaca84cb8f442d6",
+  "prompts": {},
+  "humans": {
+    "h_bc896295f46a8b": {
+      "author": "Alex Hall"
+    },
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
