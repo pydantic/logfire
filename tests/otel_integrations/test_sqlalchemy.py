@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import importlib
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -37,7 +37,7 @@ class AuthRecord(Base):
 
 
 @contextmanager
-def sqlite_engine(path: Path) -> Iterator[Engine]:
+def sqlite_engine(path: Path) -> Generator[Engine]:
     path.unlink(missing_ok=True)
     engine = create_engine(f'sqlite:///{path}')
     try:
@@ -389,7 +389,7 @@ CREATE TABLE auth_records (
 
 
 @contextmanager
-def sqlite_async_engine(path: Path) -> Iterator[AsyncEngine]:
+def sqlite_async_engine(path: Path) -> Generator[AsyncEngine]:
     path.unlink(missing_ok=True)
     engine = create_async_engine(f'sqlite+aiosqlite:///{path}')
     try:

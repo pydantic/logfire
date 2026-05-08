@@ -54,7 +54,31 @@ def test_formatting(eval_example: EvalExample):
 def _get_runnable_examples():
     """Get examples that should be run, filtering out skipped ones."""
     examples = find_examples('logfire/', 'docs/', 'README.md')
-    return [ex for ex in examples if not any(ex.prefix_settings().get(key) == 'true' for key in SKIP_RUN_TAGS)]
+    return [
+        ex
+        for ex in examples
+        if '.agents' not in ex.path.parts and not any(ex.prefix_settings().get(key) == 'true' for key in SKIP_RUN_TAGS)
+    ]
+
+
+def test_skill_examples_formatting(eval_example: EvalExample):
+    """Ensure skill examples are formatted, without running instrumentation snippets."""
+    examples = find_examples('logfire/.agents')
+    examples = [ex for ex in examples if not any(ex.prefix_settings().get(key) == 'true' for key in SKIP_LINT_TAGS)]
+
+    eval_example.set_config(
+        line_length=120,
+        quotes='either',
+        isort=False,
+        ruff_ignore=[*ruff_ignore, 'F821', 'I001', 'Q'],
+        target_version='py39',
+    )
+
+    for example in examples:
+        if eval_example.update_examples:  # pragma: no cover
+            eval_example.format(example)
+        else:
+            eval_example.lint_ruff(example)
 
 
 @pytest.mark.parametrize('example', _get_runnable_examples(), ids=str)

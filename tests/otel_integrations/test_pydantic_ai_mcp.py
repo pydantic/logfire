@@ -167,6 +167,7 @@ Because it found something more "sole-ful!"\
                     'model_request_parameters': IsPartialDict(),
                     'gen_ai.agent.name': 'agent',
                     'gen_ai.agent.call.id': IsStr(),
+                    'gen_ai.conversation.id': IsStr(),
                     'gen_ai.tool.definitions': [
                         {
                             'type': 'function',
@@ -222,6 +223,7 @@ Because it found something more "sole-ful!"\
                     'model_request_parameters': IsPartialDict(),
                     'gen_ai.agent.name': 'agent',
                     'gen_ai.agent.call.id': IsStr(),
+                    'gen_ai.conversation.id': IsStr(),
                     'gen_ai.request.max_tokens': 16384,
                     'logfire.span_type': 'span',
                     'logfire.msg': 'chat gpt-4o',
@@ -387,6 +389,7 @@ Because it found something more "sole-ful!"\
                     'model_request_parameters': IsPartialDict(),
                     'gen_ai.agent.name': 'agent',
                     'gen_ai.agent.call.id': IsStr(),
+                    'gen_ai.conversation.id': IsStr(),
                     'logfire.span_type': 'span',
                     'logfire.msg': 'chat mcp-sampling',
                     'gen_ai.input.messages': [
@@ -422,6 +425,7 @@ Because it found something more "sole-ful!"\
                     'agent_name': 'agent',
                     'gen_ai.agent.name': 'agent',
                     'gen_ai.agent.call.id': IsStr(),
+                    'gen_ai.conversation.id': IsStr(),
                     'gen_ai.operation.name': 'invoke_agent',
                     'logfire.msg': 'agent run',
                     'logfire.span_type': 'span',
@@ -553,6 +557,7 @@ Because it found something more "sole-ful!"\
                     'gen_ai.tool.call.arguments': {'theme': 'socks'},
                     'gen_ai.agent.name': 'agent',
                     'gen_ai.agent.call.id': IsStr(),
+                    'gen_ai.conversation.id': IsStr(),
                     'logfire.msg': 'running tool: joker',
                     'logfire.span_type': 'span',
                     'gen_ai.tool.call.result': """\
@@ -577,6 +582,7 @@ Because it found something more "sole-ful!"\
                     'model_request_parameters': IsPartialDict(),
                     'gen_ai.agent.name': 'agent',
                     'gen_ai.agent.call.id': IsStr(),
+                    'gen_ai.conversation.id': IsStr(),
                     'gen_ai.tool.definitions': [
                         {
                             'type': 'function',
@@ -657,6 +663,7 @@ Because it found something more "sole-ful!"\
                     'agent_name': 'agent',
                     'gen_ai.agent.name': 'agent',
                     'gen_ai.agent.call.id': IsStr(),
+                    'gen_ai.conversation.id': IsStr(),
                     'gen_ai.operation.name': 'invoke_agent',
                     'logfire.msg': 'agent run',
                     'logfire.span_type': 'span',
