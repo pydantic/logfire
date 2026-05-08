@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 import logfire
 from logfire.variables.abstract import (
+    DescriptionDifference,
     LabelCompatibility,
     LabelValidationError,
     ValidationReport,
@@ -300,6 +301,104 @@ def test_compute_diff_orphaned_variables(mock_logfire_instance: MockLogfire) -> 
     assert 'my_feature' not in diff.orphaned_server_variables
 
 
+def test_compute_diff_reference_warnings(mock_logfire_instance: MockLogfire) -> None:
+    """Reference warnings include missing references and cycles."""
+    var_a = Variable[str](
+        name='var_a',
+        default='@{missing}@ @{var_b}@',
+        type=str,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    var_b = Variable[str](
+        name='var_b',
+        default='@{var_a}@',
+        type=str,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    server_config = VariablesConfig(
+        variables={
+            'var_a': VariableConfig(
+                name='var_a',
+                json_schema={'type': 'string'},
+                labels={'production': LabeledValue(version=1, serialized_value='"@{server_missing}@"')},
+                latest_version=LatestVersion(version=1, serialized_value='"@{server_latest_missing}@"'),
+                rollout=Rollout(labels={'production': 1.0}),
+                overrides=[],
+            ),
+            'var_b': VariableConfig(
+                name='var_b',
+                json_schema={'type': 'string'},
+                labels={},
+                rollout=Rollout(labels={}),
+                overrides=[],
+            ),
+        }
+    )
+
+    diff = _compute_diff([var_a, var_b], server_config)
+
+    assert any("'var_a' references '@{missing}@'" in warning for warning in diff.reference_warnings)
+    assert any("'var_a' references '@{server_missing}@'" in warning for warning in diff.reference_warnings)
+    assert any("'var_a' references '@{server_latest_missing}@'" in warning for warning in diff.reference_warnings)
+    assert any('Reference cycle detected: var_a -> var_b -> var_a' in warning for warning in diff.reference_warnings)
+
+
+def test_compute_diff_reference_warning_scan_handles_unserializable_default(
+    mock_logfire_instance: MockLogfire,
+) -> None:
+    """Reference scanning tolerates defaults that cannot be serialized."""
+    var = Variable[object](
+        name='opaque',
+        default=object(),
+        type=object,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    server_config = VariablesConfig(
+        variables={
+            'opaque': VariableConfig(
+                name='opaque',
+                json_schema={},
+                labels={},
+                rollout=Rollout(labels={}),
+                overrides=[],
+            ),
+        }
+    )
+
+    diff = _compute_diff([var], server_config)
+
+    assert diff.reference_warnings == []
+
+
+def test_compute_diff_reference_warning_scan_skips_already_visited_nodes(
+    mock_logfire_instance: MockLogfire,
+) -> None:
+    """Cycle detection handles shared reference graph nodes without duplicate traversal."""
+    var_a = Variable[str](
+        name='var_a',
+        default='@{shared}@',
+        type=str,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    var_b = Variable[str](
+        name='var_b',
+        default='@{shared}@',
+        type=str,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    shared = Variable[str](
+        name='shared',
+        default='value',
+        type=str,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+    server_config = VariablesConfig(variables={})
+
+    diff = _compute_diff([var_a, var_b, shared], server_config)
+
+    assert diff.reference_warnings == []
+
+
 def test_format_diff_creates() -> None:
     """Test diff formatting for creates."""
     diff = VariableDiff(
@@ -334,6 +433,42 @@ def test_format_diff_updates() -> None:
     output = _format_diff(diff)
     assert 'UPDATE' in output
     assert 'updated_feature' in output
+
+
+def test_format_diff_reference_warnings() -> None:
+    """Reference warnings are shown in the formatted diff."""
+    diff = VariableDiff(
+        changes=[],
+        orphaned_server_variables=[],
+        reference_warnings=["Variable 'a' references '@{missing}@' which does not exist."],
+    )
+
+    output = _format_diff(diff)
+
+    assert 'Reference warnings' in output
+    assert 'missing' in output
+
+
+def test_validation_report_format_reference_and_description_warnings() -> None:
+    """Validation reports include informational reference and description warnings."""
+    report = ValidationReport(
+        errors=[],
+        variables_checked=1,
+        variables_not_on_server=[],
+        description_differences=[
+            DescriptionDifference(variable_name='prompt', local_description='local', server_description=None)
+        ],
+        reference_warnings=["Variable 'prompt' references '@{missing}@' which does not exist."],
+    )
+
+    output = report.format(colors=False)
+
+    assert 'Validation passed' in output
+    assert 'Description differences' in output
+    assert 'Local:  local' in output
+    assert 'Server: (none)' in output
+    assert 'Reference warnings' in output
+    assert 'missing' in output
 
 
 def test_variable_diff_has_changes_true() -> None:

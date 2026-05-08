@@ -58,6 +58,13 @@ def _make_resolve_fn(
 
 @requires_handlebars
 class TestExpandReferences:
+    def test_invalid_serialized_value_is_returned_unchanged(self):
+        """Non-JSON values cannot be composed and are returned as-is."""
+        expanded, composed = expand_references('not json', 'my_var', _make_resolve_fn({}))
+
+        assert expanded == 'not json'
+        assert composed == []
+
     def test_no_references(self):
         """Values without @{}@ are returned unchanged."""
         resolve_fn = _make_resolve_fn({})
@@ -252,6 +259,23 @@ class TestExpandReferences:
         assert len(composed) == 1
         assert composed[0].name == 'safety'
 
+    def test_list_with_references(self):
+        """Composition walks lists and leaves non-string values unchanged."""
+        resolve_fn = _make_resolve_fn({'greeting': '"Hello"', 'name': '"Alice"'})
+        serialized = json.dumps(['@{greeting}@ @{name}@', 42, {'nested': '@{name}@'}])
+
+        expanded, composed = expand_references(serialized, 'my_var', resolve_fn)
+
+        assert json.loads(expanded) == ['Hello Alice', 42, {'nested': 'Alice'}]
+        assert [ref.name for ref in composed] == ['greeting', 'name']
+
+    def test_keyword_block_references_are_ignored(self):
+        """Handlebars built-in names are not treated as variable references."""
+        expanded, composed = expand_references(json.dumps('@{#if this}@yes@{/if}@'), 'my_var', _make_resolve_fn({}))
+
+        assert json.loads(expanded) == '@{#if this}@yes@{/if}@'
+        assert composed == []
+
     def test_json_encoding_newlines(self):
         """Newlines in referenced values are properly JSON-escaped."""
         resolve_fn = _make_resolve_fn({'multi': '"Line1\\nLine2"'})
@@ -357,6 +381,10 @@ class TestFindReferences:
         result = find_references(serialized)
         assert 'greeting' in result
         assert 'flag' in result
+
+    def test_find_references_ignores_handlebars_keywords(self):
+        serialized = json.dumps('@{this}@ @{#if this}@yes@{else}@no@{/if}@')
+        assert find_references(serialized) == []
 
 
 # =============================================================================
@@ -497,6 +525,27 @@ class TestCompositionIntegration:
         assert len(result.composed_from) == 1
         assert result.composed_from[0].name == 'greeting'
         assert result.composed_from[0].value == 'Hello'
+
+    def test_composition_exception_falls_back(self, config_kwargs: dict[str, Any], monkeypatch: pytest.MonkeyPatch):
+        """Composition engine failures fall back to the code default."""
+        variables_config = _make_variables_config(
+            main='"@{greeting}@ World"',
+            greeting='"Hello"',
+        )
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+
+        def raise_composition_error(*args: Any, **kwargs: Any) -> Any:
+            raise VariableCompositionError('forced composition failure')
+
+        monkeypatch.setattr('logfire.variables.variable.expand_references', raise_composition_error)
+
+        var = lf.var(name='main', default='fallback', type=str)
+        result = var.get()
+
+        assert result.value == 'fallback'
+        assert result.exception is not None
+        assert result._reason == 'other_error'
 
     def test_nested_reference(self, config_kwargs: dict[str, Any]):
         """A→B→C chain resolves fully."""

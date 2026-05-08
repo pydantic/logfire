@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from importlib.util import find_spec
+from types import SimpleNamespace
 
 import pytest
 
@@ -227,6 +228,25 @@ class TestValidateTemplateComposition:
         result = validate_template_composition('my_var', schema, get_values)
         assert result.issues == []
 
+    def test_non_error_template_compatibility_issues_are_ignored(self, monkeypatch: pytest.MonkeyPatch):
+        """Only hard compatibility errors are surfaced as template field issues."""
+        schema = {'properties': {'name': {'type': 'string'}}}
+        get_values = _make_get_all_serialized({'my_var': {None: '"Hello {{name}}"'}})
+
+        def check_with_warning(*_args: object) -> SimpleNamespace:
+            return SimpleNamespace(
+                issues=[SimpleNamespace(severity='warning', field_path='name')],
+            )
+
+        monkeypatch.setattr(
+            'logfire.variables.template_validation.check_template_compatibility',
+            check_with_warning,
+        )
+
+        result = validate_template_composition('my_var', schema, get_values)
+
+        assert result.issues == []
+
     def test_field_not_in_schema(self):
         """A {{field}} not in schema properties produces an issue."""
         schema = {'properties': {'name': {'type': 'string'}}}
@@ -442,6 +462,17 @@ class TestDetectCompositionCycles:
                 'a': {'b'},
                 'b': {'c'},
                 'c': set(),
+            }
+        )
+        result = detect_composition_cycles('a', {'b'}, get_refs)
+        assert result is None
+
+    def test_non_target_cycle_does_not_count(self):
+        """A cycle elsewhere in the graph is ignored unless it reaches the target."""
+        get_refs = _make_get_all_references(
+            {
+                'b': {'c'},
+                'c': {'b'},
             }
         )
         result = detect_composition_cycles('a', {'b'}, get_refs)

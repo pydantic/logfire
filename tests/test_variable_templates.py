@@ -18,6 +18,7 @@ from pydantic import BaseModel
 
 import logfire
 from logfire._internal.config import LocalVariablesOptions
+from logfire.variables.abstract import ResolvedVariable
 from logfire.variables.config import (
     LabeledValue,
     Rollout,
@@ -97,6 +98,22 @@ def test_import_logfire_without_pydantic_handlebars():
 # =============================================================================
 # ResolvedVariable.render() tests
 # =============================================================================
+
+
+def test_render_requires_serialized_value():
+    """render() fails clearly if the resolution did not preserve serialized JSON."""
+    resolved = ResolvedVariable(name='prompt', value='Hello', _reason='context_override', _deserializer=lambda x: x)
+
+    with pytest.raises(ValueError, match='no serialized value available'):
+        resolved.render()
+
+
+def test_render_requires_deserializer():
+    """render() fails clearly if it cannot deserialize the rendered JSON."""
+    resolved = ResolvedVariable(name='prompt', value='Hello', _reason='resolved', _serialized_value='"Hello"')
+
+    with pytest.raises(ValueError, match='no deserializer available'):
+        resolved.render()
 
 
 @requires_handlebars
@@ -252,6 +269,30 @@ class TestRenderStructuredType:
         assert rendered.temperature == 0.7
         assert rendered.max_tokens == 100
 
+    def test_model_with_template_list_fields(self, config_kwargs: dict[str, Any]):
+        """Rendering walks lists and leaves non-string values unchanged."""
+
+        class PromptConfig(BaseModel):
+            messages: list[str]
+            count: int
+
+        serialized = json.dumps(
+            {
+                'messages': ['Hello {{user_name}}', 'static'],
+                'count': 2,
+            }
+        )
+
+        lf = _make_lf(_simple_config('config', serialized), config_kwargs)
+        var = lf.var(
+            'config',
+            type=PromptConfig,
+            default=PromptConfig(messages=['default'], count=1),
+        )
+        resolved = var.get()
+        rendered = resolved.render({'user_name': 'Alice'})
+        assert rendered == PromptConfig(messages=['Hello Alice', 'static'], count=2)
+
 
 @requires_handlebars
 class TestRenderCodeDefault:
@@ -281,6 +322,15 @@ class TestRenderCodeDefault:
         assert resolved.exception is not None
         assert resolved._reason == 'other_error'
 
+    def test_render_default_raises_rendered_validation_error(self, config_kwargs: dict[str, Any]):
+        """_render_default raises validation errors from the rendered JSON."""
+        config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var('count', type=int, default=0)
+
+        with pytest.raises(ValueError):
+            var._render_default(0, lambda _: '"not an int"')
+
 
 @requires_handlebars
 class TestRenderErrors:
@@ -293,6 +343,19 @@ class TestRenderErrors:
         resolved = var.get()
         with pytest.raises(TypeError, match='Expected a dict, Mapping, or Pydantic model'):
             resolved.render(42)
+
+    def test_render_raises_deserializer_exception(self):
+        """render() raises validation/deserialization errors after template rendering."""
+        resolved = ResolvedVariable(
+            name='prompt',
+            value='Hello {{name}}',
+            _reason='resolved',
+            _serialized_value=json.dumps('Hello {{name}}'),
+            _deserializer=lambda _: ValueError('bad rendered value'),
+        )
+
+        with pytest.raises(ValueError, match='bad rendered value'):
+            resolved.render({'name': 'Alice'})
 
 
 # =============================================================================
@@ -432,6 +495,43 @@ class TestTemplateVariable:
         var = lf.template_var('greeting', type=str, default='default', inputs_type=Inputs)
         resolved = var.get(Inputs(name='Alice'))
         assert resolved.value == 'Hello Alice!'
+
+    def test_invalid_name_error(self, config_kwargs: dict[str, Any]):
+        """template_var() applies the same Python identifier name validation as var()."""
+
+        class Inputs(BaseModel):
+            name: str
+
+        lf = logfire.configure(**config_kwargs)
+        with pytest.raises(ValueError, match='Invalid variable name'):
+            lf.template_var('not-valid', type=str, default='x', inputs_type=Inputs)
+
+    def test_remote_render_error_records_exception(self, config_kwargs: dict[str, Any]):
+        """Invalid remote templates fall back and record the render exception."""
+
+        class Inputs(BaseModel):
+            name: str
+
+        lf = _make_lf(_simple_config('prompt', json.dumps('Hello {{#if name}}')), config_kwargs)
+        var = lf.template_var('prompt', type=str, default='fallback', inputs_type=Inputs)
+
+        resolved = var.get(Inputs(name='Alice'))
+
+        assert resolved.value == 'fallback'
+        assert resolved.exception is not None
+        assert resolved._reason == 'other_error'
+
+    def test_unserializable_override_keeps_get_usable(self, config_kwargs: dict[str, Any]):
+        """get() tolerates values that cannot be serialized for later render() support."""
+        marker = object()
+        lf = logfire.configure(**config_kwargs)
+        var = lf.var('opaque', type=object, default=object())
+
+        with var.override(marker):
+            resolved = var.get()
+
+        assert resolved.value is marker
+        assert resolved._serialized_value is None
 
     def test_composition_then_render(self, config_kwargs: dict[str, Any]):
         """@{refs}@ expanded first, then {{}} rendered with inputs."""
