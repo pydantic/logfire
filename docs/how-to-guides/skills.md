@@ -18,11 +18,11 @@ FastAPI, httpx, asyncpg, and more.
 
 ### Claude Code
 
-Add the Pydantic marketplace and install the plugin:
+The Logfire plugin is published in the [official Claude marketplace](https://claude.com/plugins/logfire),
+which is available by default in Claude Code. Install it with:
 
-```bash
-claude plugin marketplace add pydantic/skills
-claude plugin install logfire@pydantic-skills
+```
+/plugin install logfire@claude-plugins-official
 ```
 
 The plugin bundles skills, commands, and an MCP server. Claude will use the relevant skills
