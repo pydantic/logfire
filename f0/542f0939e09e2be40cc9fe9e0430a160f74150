@@ -1,0 +1,14 @@
+tests/test_configure.py
+  h_d9dd17644dded9 1568
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "f0542f0939e09e2be40cc9fe9e0430a160f74150",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
