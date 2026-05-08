@@ -1565,7 +1565,7 @@ def test_initialize_credentials_from_token_unreachable():
         UserWarning,
         match="Logfire API is unreachable, you may have trouble sending data. Error: Invalid URL '/v1/info': No scheme supplied.",
     ):
-        LogfireConfig(advanced=logfire.AdvancedOptions(base_url=''))._initialize_credentials_from_token('some-token')  # type: ignore
+        LogfireConfig(advanced=logfire.AdvancedOptions(base_url='foo'))._initialize_credentials_from_token('some-token')  # type: ignore
 
 
 def test_initialize_credentials_from_token_invalid_token():
