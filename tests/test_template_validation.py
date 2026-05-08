@@ -94,6 +94,10 @@ class TestFindTemplateFields:
         result = find_template_fields('{{user_name}}')
         assert result == {'user_name'}
 
+    def test_dotted_path(self):
+        result = find_template_fields('{{user.name}} {{ account.plan.tier }}')
+        assert result == {'user.name', 'account.plan.tier'}
+
     def test_field_with_digits(self):
         result = find_template_fields('{{item1}}')
         assert result == {'item1'}

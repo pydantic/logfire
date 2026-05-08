@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from functools import cache
 from typing import Any
 
 
@@ -27,6 +28,7 @@ def _dependency_error() -> HandlebarsDependencyError:
     )
 
 
+@cache
 def get_handlebars_renderer() -> tuple[type[str], Callable[..., str]]:
     """Return pydantic-handlebars SafeString and render, or raise a helpful error."""
     try:
@@ -36,10 +38,16 @@ def get_handlebars_renderer() -> tuple[type[str], Callable[..., str]]:
     return SafeString, render
 
 
-def check_template_compatibility(templates: list[str], schema: dict[str, Any]) -> Any:
-    """Run pydantic-handlebars schema compatibility checking."""
+@cache
+def _get_template_compatibility_checker() -> Callable[[list[str], dict[str, Any]], Any]:
+    """Return pydantic-handlebars schema compatibility checker, or raise a helpful error."""
     try:
         from pydantic_handlebars import check_template_compatibility as _check_template_compatibility
     except ImportError as exc:  # pragma: no cover
         raise _dependency_error() from exc
-    return _check_template_compatibility(templates, schema)
+    return _check_template_compatibility
+
+
+def check_template_compatibility(templates: list[str], schema: dict[str, Any]) -> Any:
+    """Run pydantic-handlebars schema compatibility checking."""
+    return _get_template_compatibility_checker()(templates, schema)

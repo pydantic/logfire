@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import builtins
 import json
 import os
 import subprocess
@@ -18,6 +19,7 @@ from pydantic import BaseModel
 
 import logfire
 from logfire._internal.config import LocalVariablesOptions
+from logfire.variables import _handlebars
 from logfire.variables.abstract import ResolvedVariable
 from logfire.variables.config import (
     LabeledValue,
@@ -93,6 +95,26 @@ def test_import_logfire_without_pydantic_handlebars():
         check=False,
     )
     assert result.returncode == 0, result.stderr
+
+
+@requires_handlebars
+def test_handlebars_import_helpers_are_memoized(monkeypatch: pytest.MonkeyPatch):
+    """Successful pydantic-handlebars imports are cached after the first lookup."""
+    renderer = _handlebars.get_handlebars_renderer()
+    schema = {'type': 'object', 'properties': {'name': {'type': 'string'}}}
+    _handlebars.check_template_compatibility(['Hello {{name}}'], schema)
+
+    real_import = builtins.__import__
+
+    def blocked_import(name: str, *args: Any, **kwargs: Any) -> Any:
+        if name == 'pydantic_handlebars' or name.startswith('pydantic_handlebars.'):
+            raise AssertionError('pydantic_handlebars should be cached')
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, '__import__', blocked_import)
+
+    assert _handlebars.get_handlebars_renderer() == renderer
+    _handlebars.check_template_compatibility(['Hello {{name}}'], schema)
 
 
 # =============================================================================

@@ -29,10 +29,10 @@ __all__ = (
     'find_template_fields',
 )
 
-# Matches {{identifier}} — simple Handlebars variable references.
+# Matches {{identifier}} and {{path.to.identifier}} Handlebars variable references.
 # Excludes block helpers ({{#if}}), closing tags ({{/if}}), partials ({{> name}}),
-# comments ({{! text}}), and triple-stache ({{{raw}}}).
-TEMPLATE_FIELD_PATTERN = re.compile(r'\{\{\s*([a-zA-Z_]\w*)\s*\}\}')
+# and comments ({{! text}}).
+TEMPLATE_FIELD_PATTERN = re.compile(r'\{\{\s*([a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)*)\s*\}\}')
 
 
 @dataclass
@@ -57,7 +57,7 @@ class TemplateValidationResult:
 
 
 def find_template_fields(text: str) -> set[str]:
-    """Find all ``{{field}}`` references in a string.
+    """Find all ``{{field}}`` or ``{{path.to.field}}`` references in a string.
 
     Returns:
         Set of field names found in the text.

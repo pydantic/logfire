@@ -38,7 +38,7 @@ from logfire.variables.config import (
 )
 from logfire.variables.local import LocalVariableProvider
 from logfire.variables.remote import LogfireRemoteVariableProvider
-from logfire.variables.variable import is_resolve_function
+from logfire.variables.variable import _record_exception, is_resolve_function
 
 # =============================================================================
 # Test Condition Classes
@@ -2193,6 +2193,23 @@ class TestLogfireVarIntegration:
 
         # Restore original
         lf.config._variable_provider.get_serialized_value = original
+
+    def test_record_exception_ignores_cpython_traceback_bug(self):
+        span = unittest.mock.Mock()
+        error = ValueError('Provider failed!')
+        span.record_exception.side_effect = RuntimeError('generator raised StopIteration')
+
+        _record_exception(error, span)
+
+        span.record_exception.assert_called_once_with(error)
+
+    def test_record_exception_reraises_other_runtime_errors(self):
+        span = unittest.mock.Mock()
+        error = ValueError('Provider failed!')
+        span.record_exception.side_effect = RuntimeError('unexpected recording failure')
+
+        with pytest.raises(RuntimeError, match='unexpected recording failure'):
+            _record_exception(error, span)
 
     def test_variables_build_config(self, config_kwargs: dict[str, Any]):
         """Test that variables_build_config on a Logfire instance delegates to VariablesConfig.from_variables."""
