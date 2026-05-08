@@ -542,6 +542,9 @@ class LogfireRemoteVariableProvider(VariableProvider):
         if config.example is not None:
             body['example'] = config.example
 
+        if config.template_inputs_schema is not None:
+            body['template_inputs_schema'] = config.template_inputs_schema
+
         # Include labels if present
         if config.labels:
             body['labels'] = {

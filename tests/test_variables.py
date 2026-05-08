@@ -2486,6 +2486,41 @@ class TestLogfireRemoteVariableProviderWriteOperations:
             finally:
                 provider.shutdown()
 
+    def test_create_variable_with_template_inputs_schema(self) -> None:
+        """Test creating a template variable sends the template inputs schema."""
+        request_mocker = requests_mock_module.Mocker()
+        request_mocker.get('http://localhost:8000/v1/variables/', json={'variables': {}})
+        post_adapter = request_mocker.post('http://localhost:8000/v1/variables/', json={'name': 'template_var'})
+        with request_mocker:
+            provider = LogfireRemoteVariableProvider(
+                base_url=REMOTE_BASE_URL,
+                token=REMOTE_TOKEN,
+                options=VariablesOptions(block_before_first_resolve=False, polling_interval=timedelta(seconds=60)),
+            )
+            try:
+                template_inputs_schema = {
+                    'type': 'object',
+                    'properties': {'user_name': {'type': 'string'}},
+                    'required': ['user_name'],
+                }
+                config = VariableConfig(
+                    name='template_var',
+                    labels={'v1': LabeledValue(version=1, serialized_value='"Hello {{user_name}}"')},
+                    rollout=Rollout(labels={'v1': 1.0}),
+                    overrides=[],
+                    description='Template variable',
+                    json_schema={'type': 'string'},
+                    template_inputs_schema=template_inputs_schema,
+                )
+                result = provider.create_variable(config)
+                assert result.name == 'template_var'
+
+                assert post_adapter.last_request is not None
+                request_body = post_adapter.last_request.json()
+                assert request_body['template_inputs_schema'] == template_inputs_schema
+            finally:
+                provider.shutdown()
+
     def test_create_variable_already_exists(self) -> None:
         from logfire.variables.abstract import VariableAlreadyExistsError
 
