@@ -143,6 +143,7 @@ if TYPE_CHECKING:
     ExcInfo = Union[SysExcInfo, BaseException, bool, None]
 
 T = TypeVar('T')
+InputsT = TypeVar('InputsT')
 
 
 class Logfire:
@@ -2646,6 +2647,28 @@ class Logfire:
         self._variables[name] = variable
 
         return variable
+
+    @overload
+    def template_var(
+        self,
+        name: str,
+        *,
+        type: type[T],
+        default: T | ResolveFunction[T],
+        inputs_type: type[dict[Any, Any]],
+        description: str | None = None,
+    ) -> TemplateVariable[T, dict[Any, Any]]: ...
+
+    @overload
+    def template_var(
+        self,
+        name: str,
+        *,
+        type: type[T],
+        default: T | ResolveFunction[T],
+        inputs_type: type[InputsT],
+        description: str | None = None,
+    ) -> TemplateVariable[T, InputsT]: ...
 
     def template_var(
         self,

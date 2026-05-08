@@ -557,7 +557,7 @@ print(f'  "{rendered_concise}"')
 section('10. Composition-Time Conditionals: @{#if}@ with feature flags')
 
 print('The banner_message variable uses @{#if beta_enabled}@ at composition time.')
-print('This conditional is resolved when @{}@ references are expanded, NOT at')
+print('This conditional is resolved when @{...}@ references are expanded, NOT at')
 print('template render time. The beta_enabled variable controls which branch appears.')
 print()
 
