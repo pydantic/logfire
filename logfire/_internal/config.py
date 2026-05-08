@@ -177,6 +177,8 @@ class AdvancedOptions:
     base_url: str | None = None
     """Base URL for the Logfire API.
 
+    Defaults to the `LOGFIRE_BASE_URL` environment variable.
+
     If not set, Logfire will infer the base URL from the token (which contains information about the region).
     """
 
@@ -619,7 +621,7 @@ def configure(
     else:
         logfire_instance = DEFAULT_LOGFIRE_INSTANCE
 
-    config.emit_configuration_span(logfire_instance, local=local)
+    emit_configuration_span(config, logfire_instance, local=local)
 
     # Start the variable provider now that we have the logfire instance
     # Pass None if instrumentation is disabled to avoid logging errors via logfire
@@ -813,9 +815,11 @@ class _LogfireConfigData:
             if isinstance(id_generator, dict) and list(id_generator.keys()) == ['seed', '_ms_timestamp_generator']:  # pyright: ignore[reportUnknownArgumentType]  # pragma: no branch
                 advanced.id_generator = SeededRandomIdGenerator(**id_generator)  # pyright: ignore[reportUnknownArgumentType]
         elif advanced is None:
-            advanced = AdvancedOptions(base_url=param_manager.load_param('base_url'))
-        if advanced.emit_configuration_span is None:
-            advanced.emit_configuration_span = param_manager.load_param('emit_configuration_span')
+            advanced = AdvancedOptions()
+        advanced.base_url = param_manager.load_param('base_url', advanced.base_url)
+        advanced.emit_configuration_span = param_manager.load_param(
+            'emit_configuration_span', advanced.emit_configuration_span
+        )
         self.advanced = advanced
 
         self.additional_span_processors = additional_span_processors
@@ -1364,60 +1368,6 @@ class LogfireConfig(_LogfireConfigData):
 
             self._ensure_flush_after_aws_lambda()
 
-    def emit_configuration_span(self, logfire_instance: Logfire, *, local: bool) -> None:
-        """Emit a span describing the active Logfire configuration and installed packages.
-
-        Only runs when `advanced.emit_configuration_span` is `True`. Sends a curated set of
-        non-sensitive configuration fields - never the token, api_key, or opaque
-        objects like span/log processors.
-        """
-        if not self.advanced.emit_configuration_span:
-            return
-
-        with handle_internal_errors:
-            sampling = self.sampling
-            if isinstance(self.token, str):
-                token_count = 1
-            elif self.token is None:
-                token_count = 0
-            else:
-                token_count = len(self.token)
-            # Names of identity-shaped fields the user provided. We only report whether
-            # they were set (never the values). Keys are chosen to avoid the default
-            # scrubber patterns (`api_key`, `credential`, `secret`, etc.).
-            fields_provided = sorted(
-                name
-                for name, value in {
-                    'api_key': self.api_key,
-                    'service_name': self.service_name,
-                    'service_version': self.service_version,
-                    'environment': self.environment,
-                }.items()
-                if value is not None
-            )
-            config_dict: dict[str, Any] = {
-                'local': local,
-                'send_to_logfire': self.send_to_logfire,
-                'console_enabled': bool(self.console),
-                'scrubbing_enabled': bool(self.scrubbing),
-                'inspect_arguments': self.inspect_arguments,
-                'min_level': self.min_level,
-                'add_baggage_to_attributes': self.add_baggage_to_attributes,
-                'distributed_tracing': self.distributed_tracing,
-                'head_sample_rate': sampling.head if isinstance(sampling.head, (int, float)) else None,
-                'tail_sampling_enabled': sampling.tail is not None,
-                'code_source_set': self.code_source is not None,
-                'variables_set': self.variables is not None,
-                'token_count': token_count,
-                'fields_provided': fields_provided,
-            }
-            logfire_instance.info(
-                'Logfire configured',
-                logfire_version=VERSION,
-                logfire_config=config_dict,
-                package_versions=collect_package_info(),
-            )
-
     def force_flush(self, timeout_millis: int = 30_000) -> bool:
         """Force flush all spans and metrics.
 
@@ -1577,6 +1527,51 @@ class LogfireConfig(_LogfireConfigData):
         self._tracer_provider.suppress_scopes(*scopes)
         self._meter_provider.suppress_scopes(*scopes)
         self._logger_provider.suppress_scopes(*scopes)
+
+
+@handle_internal_errors
+def emit_configuration_span(config: LogfireConfig, logfire_instance: Logfire, *, local: bool) -> None:
+    """Emit a span describing the active Logfire configuration and installed packages.
+
+    Only runs when `advanced.emit_configuration_span` is `True`. Sends a curated set of
+    non-sensitive configuration fields.
+    """
+    if not config.advanced.emit_configuration_span:
+        return
+
+    sampling = config.sampling
+    if isinstance(config.token, str):
+        token_count = 1
+    elif config.token is None:
+        token_count = 0
+    else:
+        token_count = len(config.token)
+    config_dict: dict[str, Any] = {
+        'local': local,
+        'send_to_logfire': config.send_to_logfire,
+        'console_enabled': bool(config.console),
+        'scrubbing_enabled': bool(config.scrubbing),
+        'inspect_arguments': config.inspect_arguments,
+        'min_level': config.min_level,
+        'add_baggage_to_attributes': config.add_baggage_to_attributes,
+        'distributed_tracing': config.distributed_tracing,
+        'head_sample_rate': sampling.head if isinstance(sampling.head, (int, float)) else None,
+        'tail_sampling_enabled': sampling.tail is not None,
+        'code_source_set': config.code_source is not None,
+        'variables_set': config.variables is not None,
+        'token_count': token_count,
+        'api_key': bool(config.api_key),
+        'service_name': bool(config.service_name),
+        'service_version': bool(config.service_version),
+        'environment': bool(config.environment),
+        'additional_span_processors': len(config.additional_span_processors or ()),
+    }
+    logfire_instance.info(
+        'Logfire configured',
+        logfire_version=VERSION,
+        logfire_config=config_dict,
+        package_versions=collect_package_info(),
+    )
 
 
 # Global list to track all LogfireConfig instances for cleanup on exit
