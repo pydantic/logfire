@@ -1,0 +1,14 @@
+logfire/_internal/config.py
+  h_d9dd17644dded9 210-211,214-215
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "4831a99cadaaa3d56f08fea3c5297eb0b976d49e",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
