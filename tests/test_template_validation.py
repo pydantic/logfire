@@ -233,11 +233,11 @@ class TestValidateTemplateComposition:
         assert issue.reference_path == []
 
     def test_transitive_reference_issue(self):
-        """var_a references <<var_b>>, var_b has {{field}} not in var_a's schema."""
+        """var_a references @{var_b}@, var_b has {{field}} not in var_a's schema."""
         schema = {'properties': {'name': {'type': 'string'}}}
         get_values = _make_get_all_serialized(
             {
-                'var_a': {None: '"Hello {{name}} <<var_b>>"'},
+                'var_a': {None: '"Hello {{name}} @{var_b}@"'},
                 'var_b': {None: '"extra {{bad_field}}"'},
             }
         )
@@ -271,8 +271,8 @@ class TestValidateTemplateComposition:
         schema = {'properties': {}}
         get_values = _make_get_all_serialized(
             {
-                'a': {None: '"<<b>>"'},
-                'b': {None: '"<<a>>"'},
+                'a': {None: '"@{b}@"'},
+                'b': {None: '"@{a}@"'},
             }
         )
         # Should complete without hanging
@@ -350,8 +350,8 @@ class TestValidateTemplateComposition:
         schema = {'properties': {'ok': {'type': 'string'}}}
         get_values = _make_get_all_serialized(
             {
-                'a': {None: '"{{ok}} <<b>>"'},
-                'b': {None: '"<<c>>"'},
+                'a': {None: '"{{ok}} @{b}@"'},
+                'b': {None: '"@{c}@"'},
                 'c': {None: '"{{deep_field}}"'},
             }
         )
@@ -368,7 +368,7 @@ class TestValidateTemplateComposition:
         # Two labels in a, both reference b which has the same field
         get_values = _make_get_all_serialized(
             {
-                'a': {None: '"<<b>>"', 'prod': '"<<b>>"'},
+                'a': {None: '"@{b}@"', 'prod': '"@{b}@"'},
                 'b': {None: '"{{field}}"'},
             }
         )
@@ -382,7 +382,7 @@ class TestValidateTemplateComposition:
         schema = {'properties': {'allowed': {'type': 'string'}}}
         get_values = _make_get_all_serialized(
             {
-                'a': {None: '"<<b>> <<c>>"'},
+                'a': {None: '"@{b}@ @{c}@"'},
                 'b': {None: '"{{field_b}}"'},
                 'c': {None: '"{{field_c}}"'},
             }

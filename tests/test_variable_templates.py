@@ -307,7 +307,7 @@ class TestCompositionThenRendering:
     """Test the full pipeline: resolve → compose → render."""
 
     def test_composition_then_render(self, config_kwargs: dict[str, Any]):
-        """<<references>> are expanded first, then {{placeholders}} are rendered."""
+        """@{references}@ are expanded first, then {{placeholders}} are rendered."""
         variables_config = VariablesConfig(
             variables={
                 'snippet': VariableConfig(
@@ -323,7 +323,7 @@ class TestCompositionThenRendering:
                     labels={
                         'production': LabeledValue(
                             version=1,
-                            serialized_value=json.dumps('Hello {{user_name}}. <<snippet>>'),
+                            serialized_value=json.dumps('Hello {{user_name}}. @{snippet}@'),
                         ),
                     },
                     rollout=Rollout(labels={'production': 1.0}),
@@ -334,7 +334,7 @@ class TestCompositionThenRendering:
         lf = _make_lf(variables_config, config_kwargs)
         var = lf.var('full_prompt', type=str, default='default')
         resolved = var.get()
-        # After composition, <<snippet>> is expanded but {{placeholders}} remain
+        # After composition, @{snippet}@ is expanded but {{placeholders}} remain
         assert resolved.value == 'Hello {{user_name}}. Welcome to {{company}}!'
         # After rendering, all {{placeholders}} are filled
         rendered = resolved.render({'user_name': 'Alice', 'company': 'Acme Corp'})
@@ -361,7 +361,7 @@ class TestTemplateVariable:
         assert resolved.value == 'Hello Alice!'
 
     def test_composition_then_render(self, config_kwargs: dict[str, Any]):
-        """<<refs>> expanded first, then {{}} rendered with inputs."""
+        """@{refs}@ expanded first, then {{}} rendered with inputs."""
 
         class Inputs(BaseModel):
             user_name: str
@@ -382,7 +382,7 @@ class TestTemplateVariable:
                     labels={
                         'production': LabeledValue(
                             version=1,
-                            serialized_value=json.dumps('Hello {{user_name}}. <<snippet>>'),
+                            serialized_value=json.dumps('Hello {{user_name}}. @{snippet}@'),
                         ),
                     },
                     rollout=Rollout(labels={'production': 1.0}),

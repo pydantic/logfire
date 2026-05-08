@@ -303,7 +303,7 @@ class _BaseVariable(Generic[T_co]):
         span: logfire.LogfireSpan | None,
         render_fn: Callable[[str], str] | None = None,
     ) -> ResolvedVariable[T_co]:
-        """Expand <<references>> in a serialized value, optionally render templates, then deserialize.
+        """Expand @{references}@ in a serialized value, optionally render templates, then deserialize.
 
         Handles composition between the provider fetch and Pydantic deserialization.
         When render_fn is provided, it is applied after composition and before deserialization.
@@ -313,7 +313,7 @@ class _BaseVariable(Generic[T_co]):
         serialized_value = serialized_result.value
         composed: list[ComposedReference] = []
 
-        # Expand <<references>> if any are present
+        # Expand @{references}@ if any are present
         if has_references(serialized_value):
 
             def resolve_ref(ref_name: str) -> tuple[str | None, str | None, int | None, str]:
@@ -558,7 +558,7 @@ class TemplateVariable(_BaseVariable[T_co], Generic[T_co, InputsT]):
 
     Like ``Variable``, but ``get()`` requires ``inputs`` and automatically renders
     Handlebars ``{{placeholder}}`` templates in the resolved value before returning.
-    The pipeline is: resolve → compose ``<<refs>>`` → render ``{{}}`` → deserialize.
+    The pipeline is: resolve → compose ``@{refs}@`` → render ``{{}}`` → deserialize.
     """
 
     inputs_type: type[InputsT]
@@ -608,7 +608,7 @@ class TemplateVariable(_BaseVariable[T_co], Generic[T_co, InputsT]):
 
         The resolution pipeline is:
         1. Fetch serialized value from provider (or use default)
-        2. Expand ``<<variable_name>>`` composition references
+        2. Expand ``@{variable_name}@`` composition references
         3. Render ``{{placeholder}}`` Handlebars templates using ``inputs``
         4. Deserialize to the variable's type
 

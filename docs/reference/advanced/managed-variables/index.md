@@ -14,7 +14,7 @@ Managed variables are a way to externalize runtime configuration from your code.
 - **Observability-integrated**: Every variable resolution creates a span, and using the context manager automatically sets baggage so downstream operations are tagged with which label and version was used
 - **Versions and labels**: Create immutable version snapshots of your variable's value, and assign labels (like `production`, `staging`, `canary`) that point to specific versions
 - **Rollouts and targeting**: Control what percentage of requests receive each labeled version, and route specific users or segments based on attributes
-- **Templates and composition**: Use `{{placeholder}}` Handlebars syntax in values that get rendered with runtime inputs, and compose variables from reusable fragments via `<<other_variable>>` references (see [Templates and Composition](templates-and-composition.md))
+- **Templates and composition**: Use `{{placeholder}}` Handlebars syntax in values that get rendered with runtime inputs, and compose variables from reusable fragments via `@{other_variable}@` references (see [Templates and Composition](templates-and-composition.md))
 
 ### Versions and Labels
 
@@ -139,7 +139,7 @@ with prompt.get(PromptInputs(user_name='Alice', is_premium=True)) as resolved:
     print(resolved.value)  # "Hello Alice! Welcome back, valued member."
 ```
 
-Variables can also reference other variables using `<<variable_name>>` syntax, allowing you to compose values from reusable fragments that can be independently updated in the UI.
+Variables can also reference other variables using `@{variable_name}@` syntax, allowing you to compose values from reusable fragments that can be independently updated in the UI.
 
 For full details, see [Templates and Composition](templates-and-composition.md).
 

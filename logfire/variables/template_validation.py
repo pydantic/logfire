@@ -1,7 +1,7 @@
 """Template validation: check ``{{field}}`` references against ``template_inputs_schema``.
 
 This module validates that Handlebars ``{{field}}`` references in template variable
-values (including composed ``<<ref>>`` dependencies) match the declared
+values (including composed ``@{ref}@`` dependencies) match the declared
 ``template_inputs_schema``. It uses ``pydantic_handlebars.check_template_compatibility``
 for full AST-based schema checking (nested paths, block scopes, helpers).
 
@@ -103,7 +103,7 @@ def validate_template_composition(
     """Validate that ``{{field}}`` references in a template variable match its schema.
 
     Walks the composition graph starting from *variable_name*, collecting all
-    template strings from the variable's values and its ``<<ref>>`` dependencies,
+    template strings from the variable's values and its ``@{ref}@`` dependencies,
     then uses AST-based schema checking via ``check_template_compatibility`` to
     find incompatible field references.
 

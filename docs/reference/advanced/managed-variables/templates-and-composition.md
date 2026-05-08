@@ -1,6 +1,6 @@
 # Template Variables and Composition
 
-Managed variables can contain **Handlebars templates** (`{{placeholder}}`) and **composition references** (`<<other_variable>>`), enabling dynamic values that are assembled from multiple sources and rendered with runtime inputs.
+Managed variables can contain **Handlebars templates** (`{{placeholder}}`) and **composition references** (`@{other_variable}@`), enabling dynamic values that are assembled from multiple sources and rendered with runtime inputs.
 
 This is especially useful for AI applications where prompts are built from reusable fragments and personalized with request-specific data.
 
@@ -39,7 +39,7 @@ with prompt.get(PromptInputs(user_name='Alice')) as resolved:
 The full resolution pipeline is:
 
 1. **Resolve** — fetch the serialized value from the provider (or use the code default)
-2. **Compose** — expand any `<<variable_name>>` references (see [Composition](#variable-composition) below)
+2. **Compose** — expand any `@{variable_name}@` references (see [Composition](#variable-composition) below)
 3. **Render** — render `{{placeholder}}` Handlebars templates using the provided inputs
 4. **Deserialize** — validate and deserialize to the variable's type
 
@@ -156,7 +156,7 @@ For example, if your `inputs_type` declares `user_name: str` and `is_premium: bo
 
 ## Variable Composition {#variable-composition}
 
-**Composition** lets a variable's value reference other variables using `<<variable_name>>` syntax. When the variable is resolved, `<<ref>>` references are expanded by looking up the referenced variable and substituting its value.
+**Composition** lets a variable's value reference other variables using `@{variable_name}@` syntax. When the variable is resolved, `@{ref}@` references are expanded by looking up the referenced variable and substituting its value.
 
 This is useful for building values from reusable fragments:
 
@@ -176,7 +176,7 @@ safety_rules = logfire.var(
 agent_prompt = logfire.var(
     'agent_prompt',
     type=str,
-    default='You are a helpful assistant. <<safety_rules>>',
+    default='You are a helpful assistant. @{safety_rules}@',
 )
 
 with agent_prompt.get() as resolved:
@@ -184,22 +184,22 @@ with agent_prompt.get() as resolved:
     # "You are a helpful assistant. Never share personal data. Always be respectful."
 ```
 
-When `safety_rules` is updated in the Logfire UI, all variables that reference `<<safety_rules>>` automatically pick up the new value — no code changes or redeployment required.
+When `safety_rules` is updated in the Logfire UI, all variables that reference `@{safety_rules}@` automatically pick up the new value — no code changes or redeployment required.
 
 ### Composition with Handlebars Power
 
-The `<<>>` syntax supports the full Handlebars feature set — not just simple variable substitution. You can use conditionals, loops, and more:
+The `@{}@` syntax supports the full Handlebars feature set — not just simple variable substitution. You can use conditionals, loops, and more:
 
 | Syntax | Description |
 |--------|-------------|
-| `<<variable_name>>` | Insert a variable's value |
-| `<<variable.field>>` | Access a nested field |
-| `<<#if variable>>...<<#else>>...<</#if>>` | Conditional on whether a variable is set |
-| `<<#each items>>...<</#each>>` | Iterate over a list variable |
+| `@{variable_name}@` | Insert a variable's value |
+| `@{variable.field}@` | Access a nested field |
+| `@{#if variable}@...@{else}@...@{/if}@` | Conditional on whether a variable is set |
+| `@{#each items}@...@{/each}@` | Iterate over a list variable |
 
 ### Composition Tracking
 
-Every `<<ref>>` expansion is recorded in the resolution result. You can inspect which variables were composed and their values:
+Every `@{ref}@` expansion is recorded in the resolution result. You can inspect which variables were composed and their values:
 
 ```python skip="true"
 with agent_prompt.get() as resolved:
@@ -211,7 +211,7 @@ These composition details are also recorded as span attributes, so you can see t
 
 ### Combining Templates and Composition
 
-Template variables and composition work together. A common pattern is to compose reusable fragments via `<<ref>>` and render runtime inputs via `{{}}`:
+Template variables and composition work together. A common pattern is to compose reusable fragments via `@{ref}@` and render runtime inputs via `{{}}`:
 
 ```python skip="true"
 from pydantic import BaseModel
@@ -237,11 +237,11 @@ tone_instructions = logfire.var(
 chat_prompt = logfire.template_var(
     'chat_prompt',
     type=str,
-    default='You are helping {{user_name}}. Respond in {{language}}. <<tone_instructions>>',
+    default='You are helping {{user_name}}. Respond in {{language}}. @{tone_instructions}@',
     inputs_type=ChatInputs,
 )
 
-# Resolution: compose <<tone_instructions>> first, then render {{user_name}} and {{language}}
+# Resolution: compose @{tone_instructions}@ first, then render {{user_name}} and {{language}}
 with chat_prompt.get(ChatInputs(user_name='Alice', language='French')) as resolved:
     print(resolved.value)
     # "You are helping Alice. Respond in French. Be friendly and concise."
@@ -249,7 +249,7 @@ with chat_prompt.get(ChatInputs(user_name='Alice', language='French')) as resolv
 
 ### Cycle Detection
 
-The system detects circular references at write time. If variable A references `<<B>>` and variable B references `<<A>>`, pushing this configuration will produce an error. This prevents infinite loops during resolution.
+The system detects circular references at write time. If variable A references `@{B}@` and variable B references `@{A}@`, pushing this configuration will produce an error. This prevents infinite loops during resolution.
 
 ## Requirements
 

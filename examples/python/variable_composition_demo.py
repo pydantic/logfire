@@ -1,13 +1,13 @@
 """Demo: Variable Composition & Template Rendering with Logfire Managed Variables.
 
 This script demonstrates the full power of Logfire's variable composition
-(<<variable_name>> references) and Handlebars template rendering ({{field}})
+(@{variable_name}@ references) and Handlebars template rendering ({{field}})
 using a purely local configuration — no remote server needed.
 
 Key features shown:
-  1. Basic variable composition: <<var>> references expand inline
+  1. Basic variable composition: @{var}@ references expand inline
   2. Nested composition: variable A references B, which references C
-  3. Subfield variable references: <<var.field>> accesses a field of a structured variable
+  3. Subfield variable references: @{var.field}@ accesses a field of a structured variable
   4. Template rendering with {{field}} placeholders and Pydantic input models
   5. Accessing subfields of template inputs (e.g. {{user.name}}, {{user.email}})
   6. Handlebars conditionals: {{#if}}, {{else}}, {{/if}}
@@ -15,7 +15,7 @@ Key features shown:
   8. TemplateVariable: single-step get(inputs) with automatic rendering
   9. Variable.get() + .render(inputs): two-step manual rendering
   10. Rollout overrides with attribute-based conditions
-  11. Composition-time conditionals: <<#if flag>>...<<else>>...<</if>>
+  11. Composition-time conditionals: @{#if flag}@...@{else}@...@{/if}@
 """
 
 from __future__ import annotations
@@ -115,7 +115,7 @@ variables_config = VariablesConfig(
             overrides=[],
         ),
         # --- Structured variable (JSON object) for subfield composition ---
-        # Other variables can reference subfields like <<brand.tagline>>
+        # Other variables can reference subfields like @{brand.tagline}@
         'brand': VariableConfig(
             name='brand',
             labels={
@@ -133,20 +133,20 @@ variables_config = VariablesConfig(
             rollout=Rollout(labels={'production': 1.0}),
             overrides=[],
         ),
-        # --- Composed variable: references <<support_email>> ---
+        # --- Composed variable: references @{support_email}@ ---
         'support_footer': VariableConfig(
             name='support_footer',
             labels={
                 'production': LabeledValue(
                     version=1,
-                    serialized_value=json.dumps('Need help? Contact us at <<support_email>>.'),
+                    serialized_value=json.dumps('Need help? Contact us at @{support_email}@.'),
                 ),
             },
             rollout=Rollout(labels={'production': 1.0}),
             overrides=[],
         ),
         # --- Composed + templated variable ---
-        # References <<app_name>>, <<safety_disclaimer>>, <<support_footer>>
+        # References @{app_name}@, @{safety_disclaimer}@, @{support_footer}@
         # Also contains {{user.name}}, {{user.tier}}, {{topic}} template placeholders
         'system_prompt': VariableConfig(
             name='system_prompt',
@@ -154,20 +154,20 @@ variables_config = VariablesConfig(
                 'production': LabeledValue(
                     version=1,
                     serialized_value=json.dumps(
-                        'You are a helpful assistant for <<app_name>>.\n\n'
+                        'You are a helpful assistant for @{app_name}@.\n\n'
                         'The user you are speaking with is {{user.name}} ({{user.tier}} tier).\n'
                         'They want help with: {{topic}}\n\n'
                         'Guidelines:\n'
                         '- Be concise and helpful\n'
-                        '- <<safety_disclaimer>>\n\n'
-                        '<<support_footer>>'
+                        '- @{safety_disclaimer}@\n\n'
+                        '@{support_footer}@'
                     ),
                 ),
                 'concise': LabeledValue(
                     version=1,
                     serialized_value=json.dumps(
-                        '<<app_name>> assistant. User: {{user.name}} ({{user.tier}}). '
-                        'Topic: {{topic}}. Be brief. <<safety_disclaimer>>'
+                        '@{app_name}@ assistant. User: {{user.name}} ({{user.tier}}). '
+                        'Topic: {{topic}}. Be brief. @{safety_disclaimer}@'
                     ),
                 ),
             },
@@ -184,10 +184,10 @@ variables_config = VariablesConfig(
                     version=1,
                     serialized_value=json.dumps(
                         'Hi {{user.name}},\n\n'
-                        'Your action "{{action}}" has been completed on <<app_name>>.\n'
+                        'Your action "{{action}}" has been completed on @{app_name}@.\n'
                         '{{#if details}}Details: {{details}}\n{{/if}}'
                         '\nA confirmation has been sent to {{user.email}}.\n\n'
-                        '<<support_footer>>'
+                        '@{support_footer}@'
                     ),
                 ),
             },
@@ -196,7 +196,7 @@ variables_config = VariablesConfig(
             template_inputs_schema=NotificationInputs.model_json_schema(),
         ),
         # --- Onboarding template: demonstrates #if/#else and #each ---
-        # Also uses <<brand.tagline>> subfield composition
+        # Also uses @{brand.tagline}@ subfield composition
         'onboarding_message': VariableConfig(
             name='onboarding_message',
             labels={
@@ -204,10 +204,10 @@ variables_config = VariablesConfig(
                     version=1,
                     serialized_value=json.dumps(
                         '{{#if is_new_user}}'
-                        'Welcome to <<app_name>>, {{user.name}}! '
-                        '<<brand.tagline>>.\n'
+                        'Welcome to @{app_name}@, {{user.name}}! '
+                        '@{brand.tagline}@.\n'
                         '{{else}}'
-                        'Welcome back to <<app_name>>, {{user.name}}!\n'
+                        'Welcome back to @{app_name}@, {{user.name}}!\n'
                         '{{/if}}'
                         '\n'
                         '{{#if features}}'
@@ -216,9 +216,9 @@ variables_config = VariablesConfig(
                         '  - {{this}}\n'
                         '{{/each}}'
                         '{{else}}'
-                        'No features enabled yet. Visit <<brand.support_url>> to get started.\n'
+                        'No features enabled yet. Visit @{brand.support_url}@ to get started.\n'
                         '{{/if}}'
-                        '\nQuestions? Reach out to <<support_email>>.'
+                        '\nQuestions? Reach out to @{support_email}@.'
                     ),
                 ),
             },
@@ -235,8 +235,8 @@ variables_config = VariablesConfig(
                     version=1,
                     serialized_value=json.dumps(
                         {
-                            'greeting': 'Welcome to <<app_name>>, {{user.name}}!',
-                            'subtitle': 'Your {{user.tier}} account is ready. <<brand.tagline>>.',
+                            'greeting': 'Welcome to @{app_name}@, {{user.name}}!',
+                            'subtitle': 'Your {{user.tier}} account is ready. @{brand.tagline}@.',
                             'cta_text': 'Explore {{topic}}',
                             'show_banner': True,
                             'max_tokens': 500,
@@ -258,8 +258,8 @@ variables_config = VariablesConfig(
             rollout=Rollout(labels={'enabled': 1.0}),
             overrides=[],
         ),
-        # --- Composed variable using <<#if>> at composition time ---
-        # The <<#if beta_enabled>> block is evaluated during composition, NOT at
+        # --- Composed variable using @{#if}@ at composition time ---
+        # The @{#if beta_enabled}@ block is evaluated during composition, NOT at
         # template-render time. This means the conditional is resolved when the
         # variable value is expanded, controlled by the beta_enabled flag variable.
         'banner_message': VariableConfig(
@@ -268,11 +268,11 @@ variables_config = VariablesConfig(
                 'production': LabeledValue(
                     version=1,
                     serialized_value=json.dumps(
-                        '<<#if beta_enabled>>'
-                        'Try our new beta features! <<brand.tagline>>.'
-                        '<<else>>'
-                        'Welcome to <<app_name>>.'
-                        '<</if>>'
+                        '@{#if beta_enabled}@'
+                        'Try our new beta features! @{brand.tagline}@.'
+                        '@{else}@'
+                        'Welcome to @{app_name}@.'
+                        '@{/if}@'
                     ),
                 ),
             },
@@ -359,13 +359,13 @@ def section(title: str) -> None:
 # 5. Demo: Basic composition (no templates)
 # ---------------------------------------------------------------------------
 
-section('1. Basic Composition: <<variable>> references expand inline')
+section('1. Basic Composition: @{variable}@ references expand inline')
 
 result = support_footer_var.get()
 print(f'support_footer resolved to:\n  "{result.value}"\n')
 print(f'Composed from {len(result.composed_from)} reference(s):')
 for ref in result.composed_from:
-    print(f'  - <<{ref.name}>> -> "{ref.value}" (label={ref.label}, v{ref.version})')
+    print(f'  - @{{{ref.name}}}@ -> "{ref.value}" (label={ref.label}, v{ref.version})')
 
 # ---------------------------------------------------------------------------
 # 6. Demo: Nested composition (A -> B -> C)
@@ -379,7 +379,7 @@ print('After composition (before template rendering):')
 print(f'  label={raw_result.label}, version={raw_result.version}')
 print()
 
-# Show the composed value — <<refs>> are expanded but {{fields}} remain
+# Show the composed value — @{refs}@ are expanded but {{fields}} remain
 composed_value = raw_result.value
 # Since templates haven't been rendered yet, {{...}} placeholders are literal
 print('Composed value ({{placeholders}} still present):')
@@ -388,16 +388,16 @@ for line in composed_value.split('\n'):
 
 print(f'\nComposed from {len(raw_result.composed_from)} top-level reference(s):')
 for ref in raw_result.composed_from:
-    print(f'  - <<{ref.name}>> -> "{ref.value}"')
+    print(f'  - @{{{ref.name}}}@ -> "{ref.value}"')
     # Show nested references (e.g. support_footer -> support_email)
     for nested in ref.composed_from:
-        print(f'      -> <<{nested.name}>> -> "{nested.value}"')
+        print(f'      -> @{{{nested.name}}}@ -> "{nested.value}"')
 
 # ---------------------------------------------------------------------------
 # 7. Demo: Subfield references to structured variables
 # ---------------------------------------------------------------------------
 
-section('3. Subfield Variable References: <<brand.tagline>>, <<brand.support_url>>')
+section('3. Subfield Variable References: @{brand.tagline}@, @{brand.support_url}@')
 
 print('The "brand" variable is a JSON object:')
 brand_result = brand_var.get()
@@ -405,10 +405,10 @@ for key, value in brand_result.value.items():
     print(f'  {key}: {value!r}')
 
 print()
-print('Other variables can reference individual fields via <<brand.field>>.')
+print('Other variables can reference individual fields via @{brand.field}@.')
 print('For example, the onboarding_message template contains:')
-print('  <<brand.tagline>>     -> expands to the tagline string')
-print('  <<brand.support_url>> -> expands to the support URL string')
+print('  @{brand.tagline}@     -> expands to the tagline string')
+print('  @{brand.support_url}@ -> expands to the support URL string')
 
 # ---------------------------------------------------------------------------
 # 8. Demo: Handlebars conditionals (#if / #else)
@@ -450,7 +450,7 @@ for line in result_returning.value.split('\n'):
 print()
 print('Composed references in the onboarding message:')
 for ref in result_new.composed_from:
-    print(f'  - <<{ref.name}>> -> "{ref.value}"')
+    print(f'  - @{{{ref.name}}}@ -> "{ref.value}"')
 
 # ---------------------------------------------------------------------------
 # 9. Demo: Template rendering with subfield access (user.name, user.tier)
@@ -504,7 +504,7 @@ for line in result_no_details.value.split('\n'):
 # 11. Demo: Structured variable with templates and subfield composition
 # ---------------------------------------------------------------------------
 
-section('7. Structured Variable: Templates + <<brand.tagline>> in dict values')
+section('7. Structured Variable: Templates + @{brand.tagline}@ in dict values')
 
 struct_inputs = PromptInputs(
     user=UserProfile(name='Carol', email='carol@startup.io'),
@@ -517,7 +517,7 @@ for key, value in struct_result.value.items():
     print(f'  {key}: {value!r}')
 
 print('\nNote: string values were rendered, non-strings (bool, int) pass through unchanged.')
-print('The subtitle used <<brand.tagline>> to compose in the brand tagline.')
+print('The subtitle used @{brand.tagline}@ to compose in the brand tagline.')
 
 # ---------------------------------------------------------------------------
 # 12. Demo: Rollout overrides with attributes
@@ -551,13 +551,13 @@ print('\nConcise prompt rendered:')
 print(f'  "{rendered_concise}"')
 
 # ---------------------------------------------------------------------------
-# 14. Demo: Composition-time conditionals (<<#if>> at composition time)
+# 14. Demo: Composition-time conditionals (@{#if}@ at composition time)
 # ---------------------------------------------------------------------------
 
-section('10. Composition-Time Conditionals: <<#if>> with feature flags')
+section('10. Composition-Time Conditionals: @{#if}@ with feature flags')
 
-print('The banner_message variable uses <<#if beta_enabled>> at composition time.')
-print('This conditional is resolved when <<>> references are expanded, NOT at')
+print('The banner_message variable uses @{#if beta_enabled}@ at composition time.')
+print('This conditional is resolved when @{}@ references are expanded, NOT at')
 print('template render time. The beta_enabled variable controls which branch appears.')
 print()
 
@@ -570,7 +570,7 @@ print()
 # Show the composed references
 print(f'Composed from {len(banner_result.composed_from)} reference(s):')
 for ref in banner_result.composed_from:
-    print(f'  - <<{ref.name}>> = {ref.value!r}')
+    print(f'  - @{{{ref.name}}}@ = {ref.value!r}')
 
 # ---------------------------------------------------------------------------
 # 15. Demo: Using context manager for baggage propagation
@@ -595,14 +595,14 @@ with system_prompt_var.get() as resolved:
 
 section('Summary')
 print('This demo showed:')
-print('  - <<variable>> composition: inline expansion of variable references')
+print('  - @{variable}@ composition: inline expansion of variable references')
 print('  - Nested composition: A -> B -> C chains expand recursively')
-print('  - <<var.field>> subfield refs: access fields of structured variables')
+print('  - @{var.field}@ subfield refs: access fields of structured variables')
 print('  - {{field}} templates with Handlebars syntax')
 print('  - Subfield access in templates: {{user.name}}, {{user.email}}, {{user.tier}}')
 print('  - {{#if cond}}...{{else}}...{{/if}} conditionals (template-time)')
 print('  - {{#each list}}...{{/each}} iteration (template-time)')
-print('  - <<#if flag>>...<<else>>...<</if>> conditionals (composition-time)')
+print('  - @{#if flag}@...@{else}@...@{/if}@ conditionals (composition-time)')
 print('  - Structured variables: templates render inside dict string values')
 print('  - TemplateVariable: single-step get(inputs) with auto-rendering')
 print('  - Variable + render(): two-step manual rendering')

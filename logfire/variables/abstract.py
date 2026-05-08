@@ -115,7 +115,7 @@ class ResolvedVariable(Generic[T_co]):
     exception: Exception | None = None
     """Any exception that occurred during resolution."""
     composed_from: list[ComposedReference] = field(default_factory=list)  # pyright: ignore[reportUnknownVariableType]
-    """Variables that were composed into this value via <<reference>> expansion.
+    """Variables that were composed into this value via @{reference}@ expansion.
 
     Each entry is a ComposedReference for a referenced variable, including
     its label, version, reason, and any nested composed_from entries.
@@ -588,7 +588,7 @@ def _check_reference_warnings(
 ) -> list[str]:
     """Check for reference warnings: non-existent refs and cycles.
 
-    Scans local variable defaults and server label values for <<references>>
+    Scans local variable defaults and server label values for @{references}@
     and validates that referenced variables exist and there are no cycles.
     """
     from logfire.variables.composition import find_references
@@ -628,7 +628,7 @@ def _check_reference_warnings(
         # Check for non-existent references
         for ref_name in refs:
             if ref_name not in all_names:
-                warnings_list.append(f"Variable '{variable.name}' references '<<{ref_name}>>' which does not exist.")
+                warnings_list.append(f"Variable '{variable.name}' references '@{{{ref_name}}}@' which does not exist.")
 
     # Check for cycles using DFS
     def _detect_cycles(graph: dict[str, set[str]]) -> list[list[str]]:

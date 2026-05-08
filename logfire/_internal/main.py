@@ -2657,7 +2657,7 @@ class Logfire:
 
         Like ``var()``, but ``get(inputs)`` automatically renders Handlebars ``{{placeholder}}``
         templates in the resolved value before returning. The pipeline is:
-        resolve → compose ``<<refs>>`` → render ``{{}}`` → deserialize.
+        resolve → compose ``@{refs}@`` → render ``{{}}`` → deserialize.
 
         ```py
         from pydantic import BaseModel
