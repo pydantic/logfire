@@ -1544,11 +1544,11 @@ def emit_configuration_span(config: LogfireConfig, logfire_instance: Logfire, *,
         return
 
     sampling = config.sampling
-    if isinstance(config.token, str):
+    if isinstance(config.token, str):  # pragma: no cover
         token_count = 1
     elif config.token is None:
         token_count = 0
-    else:
+    else:  # pragma: no cover
         token_count = len(config.token)
 
     logfire_instance.info(
