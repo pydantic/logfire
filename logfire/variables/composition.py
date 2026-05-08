@@ -231,7 +231,7 @@ def expand_references(
         context[name] = f'@{{{name}}}@'
 
     # Walk the decoded value and render each string through the reference-syntax Handlebars engine.
-    rendered = _render_value(decoded, context)
+    rendered = _render_value(decoded, context, unresolved_names)
 
     result_serialized = json.dumps(rendered)
     return result_serialized, composed
@@ -306,7 +306,7 @@ def _collect_ref_names(value: Any) -> list[str]:
     return result
 
 
-def _render_value(value: Any, context: dict[str, Any]) -> Any:
+def _render_value(value: Any, context: dict[str, Any], unresolved_names: set[str]) -> Any:
     """Recursively walk a decoded JSON value, rendering strings through Handlebars.
 
     Unresolved variable names should already be present in the context as their
@@ -318,11 +318,41 @@ def _render_value(value: Any, context: dict[str, Any]) -> Any:
             return value.replace('\\@{', '@{')
         from logfire.variables.reference_syntax import render_once
 
-        return render_once(value, context)
+        protected_value, protected_refs = _protect_unresolved_dotted_refs(value, unresolved_names)
+        rendered = render_once(protected_value, context) if has_references(protected_value) else protected_value
+        return _restore_unresolved_refs(rendered, protected_refs)
     if isinstance(value, dict):
-        return {k: _render_value(v, context) for k, v in value.items()}  # pyright: ignore[reportUnknownVariableType]
+        return {
+            k: _render_value(v, context, unresolved_names)
+            for k, v in value.items()  # pyright: ignore[reportUnknownVariableType]
+        }
     if isinstance(value, list):
-        return [_render_value(v, context) for v in value]  # pyright: ignore[reportUnknownVariableType]
+        return [_render_value(v, context, unresolved_names) for v in value]  # pyright: ignore[reportUnknownVariableType]
+    return value
+
+
+def _protect_unresolved_dotted_refs(value: str, unresolved_names: set[str]) -> tuple[str, dict[str, str]]:
+    """Replace unresolved dotted reference tags with sentinels before Handlebars rendering."""
+    if not unresolved_names:
+        return value, {}
+
+    protected_refs: dict[str, str] = {}
+
+    def replace(match: re.Match[str]) -> str:
+        full_ref = match.group(1)
+        if '.' not in full_ref or full_ref.split('.')[0] not in unresolved_names:
+            return match.group(0)
+        sentinel = f'\x00logfire-unresolved-ref-{len(protected_refs)}-{id(value)}\x00'
+        protected_refs[sentinel] = match.group(0)
+        return sentinel
+
+    return _SIMPLE_REF.sub(replace, value), protected_refs
+
+
+def _restore_unresolved_refs(value: str, protected_refs: dict[str, str]) -> str:
+    """Restore unresolved reference sentinels after Handlebars rendering."""
+    for sentinel, ref in protected_refs.items():
+        value = value.replace(sentinel, ref)
     return value
 
 

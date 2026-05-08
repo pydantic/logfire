@@ -367,6 +367,8 @@ class _BaseVariable(Generic[T_co]):
                 value=default,
                 exception=value_or_exc,
                 _reason=reason,
+                label=serialized_result.label,
+                version=serialized_result.version,
                 composed_from=composed,
             )
 

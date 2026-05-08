@@ -1637,6 +1637,8 @@ class TestVariable:
         assert details.value == 999
         assert details.exception is not None
         assert details._reason == 'validation_error'
+        assert details.label == 'default'
+        assert details.version == 1
 
     def test_get_uses_default_when_no_config(self, config_kwargs: dict[str, Any]):
         config_kwargs['variables'] = LocalVariablesOptions(config=VariablesConfig(variables={}))

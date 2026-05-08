@@ -326,16 +326,16 @@ class TestValidateTemplateComposition:
         result = validate_template_composition('my_var', schema, get_values)
         assert result.issues == []
 
-    def test_empty_schema_no_restrictions(self):
-        """With empty properties, any field is allowed (no declared properties to conflict with)."""
-        schema = {'properties': {}}
+    def test_empty_object_schema_rejects_fields(self):
+        """With an object schema and no declared properties, template fields are invalid."""
+        schema = {'type': 'object', 'properties': {}}
         get_values = _make_get_all_serialized(
             {
                 'my_var': {None: '"{{a}} {{b}}"'},
             }
         )
         result = validate_template_composition('my_var', schema, get_values)
-        assert result.issues == []
+        assert {issue.field_name for issue in result.issues} == {'a', 'b'}
 
     def test_unknown_fields_with_declared_properties(self):
         """When schema declares properties, unlisted fields are issues."""

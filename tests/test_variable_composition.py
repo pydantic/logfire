@@ -214,6 +214,31 @@ class TestExpandReferences:
         assert composed[0].value is None
         assert composed[0].reason == 'unrecognized_variable'
 
+    def test_unresolvable_dotted_reference(self):
+        """Dotted references to non-existent variables are left unexpanded."""
+        resolve_fn = _make_resolve_fn({})
+        expanded, composed = expand_references('"Hello @{nonexistent.field}@"', 'my_var', resolve_fn)
+        assert expanded == '"Hello @{nonexistent.field}@"'
+        assert len(composed) == 1
+        assert composed[0].name == 'nonexistent'
+        assert composed[0].value is None
+        assert composed[0].reason == 'unrecognized_variable'
+
+    def test_unresolvable_dotted_reference_preserves_resolved_refs(self):
+        """Protecting unresolved dotted refs doesn't block other references in the same value."""
+        resolve_fn = _make_resolve_fn({'known': '"there"'})
+        expanded, composed = expand_references('"Hi @{known}@ @{missing.field}@"', 'my_var', resolve_fn)
+        assert expanded == '"Hi there @{missing.field}@"'
+        assert [ref.name for ref in composed] == ['known', 'missing']
+
+    def test_unresolvable_simple_and_dotted_reference_same_base(self):
+        """Simple and dotted unresolved refs for the same base are both preserved."""
+        resolve_fn = _make_resolve_fn({})
+        expanded, composed = expand_references('"@{missing}@ @{missing.field}@"', 'my_var', resolve_fn)
+        assert expanded == '"@{missing}@ @{missing.field}@"'
+        assert len(composed) == 1
+        assert composed[0].name == 'missing'
+
     def test_none_value_reference(self):
         """References to variables with None value are left unexpanded."""
         resolve_fn = _make_resolve_fn({'missing': None})
