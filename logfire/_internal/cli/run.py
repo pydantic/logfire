@@ -93,10 +93,6 @@ def parse_run(args: argparse.Namespace) -> None:
     module_name = args.module
     script_path = script_and_args[0] if script_and_args and not module_name else None
 
-    # Add the current directory to `sys.path` BEFORE import analysis so that
-    # local modules (e.g. `logfire run -m myapp`) can be resolved by find_spec.
-    sys.path.insert(0, os.getcwd())
-
     ctx = collect_instrumentation_context(exclude, script_path=script_path, module_name=module_name)
 
     instrumented_packages = instrument_packages(ctx.installed_otel_pkgs, ctx.instrument_pkg_map)
@@ -112,6 +108,14 @@ def parse_run(args: argparse.Namespace) -> None:
 
     if module_name:
         module_args = script_and_args
+
+        # Re-insert cwd for the actual module execution so that `python -m myapp`
+        # semantics are preserved.  This intentionally happens AFTER
+        # collect_instrumentation_context (and therefore after instrument_packages),
+        # so local modules in cwd cannot shadow logfire's own instrumentation imports.
+        cwd = os.getcwd()
+        if cwd not in sys.path:
+            sys.path.insert(0, cwd)
 
         # We need to change the `sys.argv` to make sure the module sees the right CLI args
         # e.g. in case of `logfire run -m uvicorn main:app --reload`, the application will see
@@ -359,6 +363,16 @@ def find_script_imports(script_path: str | None = None, module_name: str | None 
         except OSError:
             return None
     elif module_name:
+        # Temporarily insert cwd into sys.path so that find_spec can locate local
+        # modules (e.g. `logfire run -m myapp`). The insertion is scoped with
+        # try/finally so it is removed immediately after the analysis pass and does
+        # NOT persist into the instrumentation-import phase, preventing local modules
+        # from shadowing logfire's own dependencies.
+        cwd = os.getcwd()
+        cwd_inserted = False
+        if cwd not in sys.path:
+            sys.path.insert(0, cwd)
+            cwd_inserted = True
         try:
             spec = importlib.util.find_spec(module_name)
             if spec and spec.origin:
@@ -374,6 +388,12 @@ def find_script_imports(script_path: str | None = None, module_name: str | None 
                     source = f.read()
         except (ModuleNotFoundError, ValueError, OSError):
             return None
+        finally:
+            if cwd_inserted:
+                try:
+                    sys.path.remove(cwd)
+                except ValueError:
+                    pass
 
     if source is None:
         return None

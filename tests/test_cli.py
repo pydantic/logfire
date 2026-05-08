@@ -28,6 +28,7 @@ from logfire._internal.auth import UserToken
 from logfire._internal.cli import OrgProjectAction, SplitArgs, main
 from logfire._internal.cli.run import (
     find_recommended_instrumentations_to_install,
+    find_script_imports,
     get_recommendation_texts,
     instrument_packages,
     instrumented_packages_text,
@@ -2243,3 +2244,99 @@ def test_base_url_and_logfire_url(
 def test_main_module() -> None:
     """Test that logfire.__main__ is importable for coverage."""
     assert subprocess.run([sys.executable, '-m', 'logfire', '--help'], check=True).returncode == 0
+
+
+# ---------------------------------------------------------------------------
+# Tests for find_script_imports and the try/finally cwd-scoping fix (Cubic P1)
+# ---------------------------------------------------------------------------
+
+
+def test_find_script_imports_local_module(tmp_dir_cwd: Path) -> None:
+    """find_script_imports resolves a local module via a cwd-scoped sys.path insertion."""
+    pkg = tmp_dir_cwd / 'fake_local_pkg'
+    pkg.mkdir()
+    (pkg / '__init__.py').write_text('import requests\nimport sqlite3\n')
+
+    sys_path_before = sys.path.copy()
+    result = find_script_imports(module_name='fake_local_pkg')
+    sys_path_after = sys.path.copy()
+
+    assert result is not None
+    assert 'requests' in result
+    assert 'sqlite3' in result
+    # cwd must NOT remain in sys.path after the analysis pass
+    assert sys_path_before == sys_path_after
+
+
+def test_find_script_imports_module_prefers_main_py(tmp_dir_cwd: Path) -> None:
+    """For packages with both __init__.py and __main__.py, find_script_imports reads __main__.py."""
+    pkg = tmp_dir_cwd / 'dual_entry_pkg'
+    pkg.mkdir()
+    (pkg / '__init__.py').write_text('import os\n')
+    (pkg / '__main__.py').write_text('import urllib.request\nimport sqlite3\n')
+
+    result = find_script_imports(module_name='dual_entry_pkg')
+
+    assert result is not None
+    # __main__.py imports should be present
+    assert 'urllib' in result
+    assert 'sqlite3' in result
+    # __init__.py-only import should NOT be present (we read __main__.py, not __init__.py)
+    assert 'os' not in result
+
+
+def test_find_script_imports_cwd_already_in_sys_path(tmp_dir_cwd: Path) -> None:
+    """When cwd is already in sys.path, find_script_imports does not insert or remove it."""
+    (tmp_dir_cwd / 'already_present_mod.py').write_text('import json\n')
+
+    # Pre-insert cwd so it is already present
+    cwd = str(tmp_dir_cwd)
+    sys.path.insert(0, cwd)
+    sys_path_before = sys.path.copy()
+    try:
+        result = find_script_imports(module_name='already_present_mod')
+        sys_path_after = sys.path.copy()
+        assert result is not None
+        assert 'json' in result
+        # sys.path unchanged — cwd was not inserted by find_script_imports
+        assert sys_path_before == sys_path_after
+    finally:
+        try:
+            sys.path.remove(cwd)
+        except ValueError:
+            pass
+
+
+def test_find_script_imports_nonexistent_module(tmp_dir_cwd: Path) -> None:
+    """Returns None (not an exception) when the module cannot be found."""
+    sys_path_before = sys.path.copy()
+    result = find_script_imports(module_name='does_not_exist_xyz_abc')
+    assert result is None
+    # cwd must NOT remain in sys.path even on failure
+    assert sys.path == sys_path_before
+
+
+def test_parse_run_module_cwd_removed_before_instrumentation(
+    tmp_dir_cwd: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """cwd is absent from sys.path during instrument_packages, preventing local shadowing."""
+    # A minimal runnable module — no argv or sys.path assertions so it works with -m.
+    (tmp_dir_cwd / 'simple_module.py').write_text('print("ok")\n')
+    monkeypatch.setattr('logfire.configure', Mock())
+    monkeypatch.setattr('logfire._internal.cli.run.OTEL_INSTRUMENTATION_MAP', {})
+
+    captured_sys_path: list[list[str]] = []
+
+    def capturing_instrument_packages(
+        installed_otel_packages: set[str], instrument_pkg_map: dict[str, str]
+    ) -> list[str]:
+        captured_sys_path.append(sys.path.copy())
+        return []
+
+    monkeypatch.setattr('logfire._internal.cli.run.instrument_packages', capturing_instrument_packages)
+
+    main(['run', '--no-summary', '-m', 'simple_module'])
+
+    # During instrument_packages, cwd must NOT be in sys.path
+    assert len(captured_sys_path) == 1
+    assert str(tmp_dir_cwd) not in captured_sys_path[0]
