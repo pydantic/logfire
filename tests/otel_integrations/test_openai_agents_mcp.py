@@ -334,7 +334,7 @@ async def test_mcp(exporter: TestExporter):
                 },
             },
             {
-                'name': 'Turn {turn} for agent {agent_name}',
+                'name': 'Turn {turn} for agent Assistant',
                 'context': {'trace_id': 2, 'span_id': 15, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 13, 'is_remote': False},
                 'start_time': 12000000000,
@@ -343,7 +343,7 @@ async def test_mcp(exporter: TestExporter):
                     'code.filepath': 'test_openai_agents_mcp.py',
                     'code.function': 'test_mcp',
                     'code.lineno': 123,
-                    'logfire.msg_template': 'Turn {turn} for agent {agent_name}',
+                    'logfire.msg_template': 'Turn {turn} for agent Assistant',
                     'type': 'custom',
                     'name': 'turn',
                     'gen_ai.system': 'openai',
@@ -517,7 +517,7 @@ async def test_mcp(exporter: TestExporter):
                 },
             },
             {
-                'name': 'Turn {turn} for agent {agent_name}',
+                'name': 'Turn {turn} for agent Assistant',
                 'context': {'trace_id': 2, 'span_id': 33, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 13, 'is_remote': False},
                 'start_time': 30000000000,
@@ -529,7 +529,7 @@ async def test_mcp(exporter: TestExporter):
                     'name': 'turn',
                     'type': 'custom',
                     'gen_ai.system': 'openai',
-                    'logfire.msg_template': 'Turn {turn} for agent {agent_name}',
+                    'logfire.msg_template': 'Turn {turn} for agent Assistant',
                     'sdk_span_type': 'turn',
                     'turn': 2,
                     'agent_name': 'Assistant',
@@ -559,7 +559,7 @@ async def test_mcp(exporter: TestExporter):
                 },
             },
             {
-                'name': 'Task: {name}',
+                'name': 'Task: Agent workflow',
                 'context': {'trace_id': 2, 'span_id': 5, 'is_remote': False},
                 'parent': {'trace_id': 2, 'span_id': 3, 'is_remote': False},
                 'start_time': 4000000000,
@@ -571,7 +571,7 @@ async def test_mcp(exporter: TestExporter):
                     'type': 'custom',
                     'name': 'Agent workflow',
                     'gen_ai.system': 'openai',
-                    'logfire.msg_template': 'Task: {name}',
+                    'logfire.msg_template': 'Task: Agent workflow',
                     'sdk_span_type': 'task',
                     'usage': {
                         'input_tokens': 134,
