@@ -9,6 +9,7 @@ import os
 import subprocess
 import sys
 import textwrap
+from importlib.util import find_spec
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +23,12 @@ from logfire.variables.config import (
     Rollout,
     VariableConfig,
     VariablesConfig,
+)
+
+HAS_PYDANTIC_HANDLEBARS = find_spec('pydantic_handlebars') is not None
+requires_handlebars = pytest.mark.skipif(
+    not HAS_PYDANTIC_HANDLEBARS,
+    reason='pydantic-handlebars requires Python 3.10+',
 )
 
 
@@ -92,6 +99,7 @@ def test_import_logfire_without_pydantic_handlebars():
 # =============================================================================
 
 
+@requires_handlebars
 class TestRenderSimpleString:
     """Test rendering string variables with Handlebars templates."""
 
@@ -170,6 +178,7 @@ class TestRenderSimpleString:
         assert rendered == 'Hello world!'
 
 
+@requires_handlebars
 class TestRenderWithPydanticInputs:
     """Test rendering with Pydantic model inputs."""
 
@@ -210,6 +219,7 @@ class TestRenderWithPydanticInputs:
         assert rendered == 'User Alice from London, UK'
 
 
+@requires_handlebars
 class TestRenderStructuredType:
     """Test rendering structured types (Pydantic models) where string fields contain templates."""
 
@@ -243,6 +253,7 @@ class TestRenderStructuredType:
         assert rendered.max_tokens == 100
 
 
+@requires_handlebars
 class TestRenderCodeDefault:
     """Test rendering when using code default values (no remote configuration)."""
 
@@ -271,6 +282,7 @@ class TestRenderCodeDefault:
         assert resolved._reason == 'other_error'
 
 
+@requires_handlebars
 class TestRenderErrors:
     """Test error handling in render()."""
 
@@ -362,6 +374,7 @@ class TestVariableConfigTemplateInputs:
 # =============================================================================
 
 
+@requires_handlebars
 class TestCompositionThenRendering:
     """Test the full pipeline: resolve → compose → render."""
 
@@ -405,6 +418,7 @@ class TestCompositionThenRendering:
 # =============================================================================
 
 
+@requires_handlebars
 class TestTemplateVariable:
     """Test TemplateVariable[T, InputsT] — single-step get(inputs) rendering."""
 

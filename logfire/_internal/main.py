@@ -2571,7 +2571,7 @@ class Logfire:
 
         Template rendering example:
 
-        ```py
+        ```py skip-run="true" skip-reason="requires-pydantic-handlebars"
         import logfire
         from pydantic import BaseModel
 
@@ -2662,7 +2662,7 @@ class Logfire:
         templates in the resolved value before returning. The pipeline is:
         resolve → compose ``@{refs}@`` → render ``{{}}`` → deserialize.
 
-        ```py
+        ```py skip-run="true" skip-reason="requires-pydantic-handlebars"
         from pydantic import BaseModel
 
         import logfire

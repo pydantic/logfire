@@ -4,6 +4,10 @@
 
 from __future__ import annotations
 
+from importlib.util import find_spec
+
+import pytest
+
 from logfire.variables.template_validation import (
     TemplateFieldIssue,
     TemplateValidationResult,
@@ -11,6 +15,12 @@ from logfire.variables.template_validation import (
     detect_composition_cycles,
     find_template_fields,
     validate_template_composition,
+)
+
+HAS_PYDANTIC_HANDLEBARS = find_spec('pydantic_handlebars') is not None
+requires_handlebars = pytest.mark.skipif(
+    not HAS_PYDANTIC_HANDLEBARS,
+    reason='pydantic-handlebars requires Python 3.10+',
 )
 
 # =============================================================================
@@ -204,6 +214,7 @@ def _make_get_all_serialized(
     return get_all_serialized_values
 
 
+@requires_handlebars
 class TestValidateTemplateComposition:
     def test_all_fields_valid(self):
         """All {{field}} references match schema properties — no issues."""
