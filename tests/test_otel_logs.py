@@ -18,7 +18,7 @@ from opentelemetry.sdk._logs.export import (
 from opentelemetry.sdk.resources import Resource
 
 import logfire
-from logfire import suppress_instrumentation
+from logfire import VERSION, suppress_instrumentation
 from logfire._internal.exporters.otlp import QuietLogExporter
 from logfire.testing import TestLogExporter
 
@@ -123,6 +123,7 @@ def test_log_events(logs_exporter: TestLogExporter) -> None:
                         'telemetry.sdk.language': 'python',
                         'telemetry.sdk.name': 'opentelemetry',
                         'telemetry.sdk.version': '0.0.0',
+                        'logfire.version': VERSION,
                         'service.name': 'unknown_service',
                         'process.pid': 1234,
                         'process.runtime.name': 'cpython',
@@ -187,6 +188,7 @@ def test_log_events_with_kwargs(logs_exporter: TestLogExporter) -> None:
                         'telemetry.sdk.language': 'python',
                         'telemetry.sdk.name': 'opentelemetry',
                         'telemetry.sdk.version': '0.0.0',
+                        'logfire.version': VERSION,
                         'service.name': 'unknown_service',
                         'process.pid': 1234,
                         'process.runtime.name': 'cpython',

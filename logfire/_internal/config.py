@@ -62,6 +62,7 @@ from typing_extensions import Self, Unpack, assert_type
 
 from logfire._internal.auth import PYDANTIC_LOGFIRE_TOKEN_PATTERN, REGIONS
 from logfire._internal.baggage import DirectBaggageAttributesSpanProcessor
+from logfire._internal.collect_system_info import collect_package_info
 from logfire.exceptions import LogfireConfigError
 from logfire.sampling import SamplingOptions
 from logfire.sampling._tail_sampling import TailSamplingProcessor
@@ -73,12 +74,15 @@ from ..types import ExceptionCallback
 from .client import InvalidProjectName, LogfireClient, ProjectAlreadyExists
 from .config_params import ParamManager, PydanticPluginRecordValues, normalize_token
 from .constants import (
+    ATTRIBUTES_CONFIG,
+    ATTRIBUTES_PACKAGE_VERSIONS,
     LEVEL_NUMBERS,
     RESOURCE_ATTRIBUTES_CODE_ROOT_PATH,
     RESOURCE_ATTRIBUTES_CODE_WORK_DIR,
     RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME,
     RESOURCE_ATTRIBUTES_VCS_REPOSITORY_REF_REVISION,
     RESOURCE_ATTRIBUTES_VCS_REPOSITORY_URL,
+    RESOURCE_ATTRIBUTES_VERSION,
     LevelName,
 )
 from .exporters.console import (
@@ -176,6 +180,8 @@ class AdvancedOptions:
     base_url: str | None = None
     """Base URL for the Logfire API.
 
+    Defaults to the `LOGFIRE_BASE_URL` environment variable.
+
     If not set, Logfire will infer the base URL from the token (which contains information about the region).
     """
 
@@ -199,6 +205,15 @@ class AdvancedOptions:
     Note: When using `ProcessPoolExecutor`, this callback must be defined at the module level
     (not as a local function) to be picklable. Local functions will be excluded from the
     serialized configuration sent to child processes. See the [distributed tracing guide](https://logfire.pydantic.dev/docs/how-to-guides/distributed-tracing/#thread-and-pool-executors) for more details.
+    """
+
+    emit_configuration_span: bool | None = None
+    """If `True`, emit a `Logfire configured` log after `logfire.configure()` containing
+    installed package versions and a curated set of non-sensitive configuration flags.
+
+    Defaults to the `LOGFIRE_EMIT_CONFIGURATION_SPAN` environment variable, or `False`.
+
+    This log and configuration is experimental and may be modified or removed.
     """
 
     def generate_base_url(self, token: str) -> str:
@@ -611,6 +626,8 @@ def configure(
     else:
         logfire_instance = DEFAULT_LOGFIRE_INSTANCE
 
+    emit_configuration_span(config, logfire_instance, local=local)
+
     # Start the variable provider now that we have the logfire instance
     # Pass None if instrumentation is disabled to avoid logging errors via logfire
     # Only start if the user explicitly configured variables — lazy-init providers
@@ -803,7 +820,11 @@ class _LogfireConfigData:
             if isinstance(id_generator, dict) and list(id_generator.keys()) == ['seed', '_ms_timestamp_generator']:  # pyright: ignore[reportUnknownArgumentType]  # pragma: no branch
                 advanced.id_generator = SeededRandomIdGenerator(**id_generator)  # pyright: ignore[reportUnknownArgumentType]
         elif advanced is None:
-            advanced = AdvancedOptions(base_url=param_manager.load_param('base_url'))
+            advanced = AdvancedOptions()
+        advanced.base_url = param_manager.load_param('base_url', advanced.base_url)
+        advanced.emit_configuration_span = param_manager.load_param(
+            'emit_configuration_span', advanced.emit_configuration_span
+        )
         self.advanced = advanced
 
         self.additional_span_processors = additional_span_processors
@@ -951,15 +972,13 @@ class LogfireConfig(_LogfireConfigData):
 
         with suppress_instrumentation():
             otel_resource_attributes: dict[str, Any] = {
+                RESOURCE_ATTRIBUTES_VERSION: VERSION,
                 'service.name': self.service_name,
                 'process.pid': os.getpid(),
                 # https://opentelemetry.io/docs/specs/semconv/resource/process/#python-runtimes
                 'process.runtime.name': sys.implementation.name,
                 'process.runtime.version': get_runtime_version(),
                 'process.runtime.description': sys.version,
-                # Having this giant blob of data associated with every span/metric causes various problems so it's
-                # disabled for now, but we may want to re-enable something like it in the future
-                # RESOURCE_ATTRIBUTES_PACKAGE_VERSIONS: json.dumps(collect_package_info(), separators=(',', ':')),
             }
             if self.code_source:
                 otel_resource_attributes.update(
@@ -1511,6 +1530,52 @@ class LogfireConfig(_LogfireConfigData):
         self._tracer_provider.suppress_scopes(*scopes)
         self._meter_provider.suppress_scopes(*scopes)
         self._logger_provider.suppress_scopes(*scopes)
+
+
+@handle_internal_errors
+def emit_configuration_span(config: LogfireConfig, logfire_instance: Logfire, *, local: bool) -> None:
+    """Emit a span describing the active Logfire configuration and installed packages.
+
+    Only runs when `advanced.emit_configuration_span` is `True`. Sends a curated set of
+    non-sensitive configuration fields.
+    """
+    if not config.advanced.emit_configuration_span:
+        return
+
+    sampling = config.sampling
+    if isinstance(config.token, str):  # pragma: no cover
+        token_count = 1
+    elif config.token is None:
+        token_count = 0
+    else:  # pragma: no cover
+        token_count = len(config.token)
+
+    logfire_instance.info(
+        'Logfire configured',
+        **{  # type: ignore
+            ATTRIBUTES_CONFIG: {
+                'local': local,
+                'send_to_logfire': config.send_to_logfire,
+                'console_enabled': bool(config.console),
+                'scrubbing_enabled': bool(config.scrubbing),
+                'inspect_arguments': config.inspect_arguments,
+                'min_level': config.min_level,
+                'add_baggage_to_attributes': config.add_baggage_to_attributes,
+                'distributed_tracing': config.distributed_tracing,
+                'head_sample_rate': sampling.head if isinstance(sampling.head, (int, float)) else None,
+                'tail_sampling_enabled': sampling.tail is not None,
+                'code_source_set': config.code_source is not None,
+                'variables_set': config.variables is not None,
+                'token_count': token_count,
+                'api_key': bool(config.api_key),
+                'service_name': bool(config.service_name),
+                'service_version': bool(config.service_version),
+                'environment': bool(config.environment),
+                'additional_span_processors': len(config.additional_span_processors or ()),
+            },
+            ATTRIBUTES_PACKAGE_VERSIONS: collect_package_info(),
+        },
+    )
 
 
 # Global list to track all LogfireConfig instances for cleanup on exit
