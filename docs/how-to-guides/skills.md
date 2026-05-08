@@ -18,11 +18,11 @@ FastAPI, httpx, asyncpg, and more.
 
 ### Claude Code
 
-The Logfire plugin is published in the [official Claude marketplace](https://claude.com/plugins/logfire),
-which is available by default in Claude Code. Install it with:
+Install the [official Logfire plugin](https://claude.com/plugins/logfire) from the Anthropic
+marketplace, which is available by default:
 
-```
-/plugin install logfire@claude-plugins-official
+```bash
+claude plugin install logfire@claude-plugins-official
 ```
 
 The plugin bundles skills, commands, and an MCP server. Claude will use the relevant skills
@@ -30,6 +30,14 @@ automatically, or you can invoke a command directly:
 
 ```
 /instrumentation
+```
+
+As an alternative, you can install from the [`pydantic/skills`](https://github.com/pydantic/skills)
+marketplace, which bundles the Logfire skill alongside other Pydantic-maintained skills:
+
+```bash
+claude plugin marketplace add pydantic/skills
+claude plugin install logfire@pydantic-skills
 ```
 
 ### Cross-Agent
