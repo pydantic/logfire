@@ -139,6 +139,8 @@ ATTRIBUTES_SCRUBBED_KEY = f'{LOGFIRE_ATTRIBUTES_NAMESPACE}.scrubbed'
 ATTRIBUTES_CONFIG = 'logfire.config'
 ATTRIBUTES_PACKAGE_VERSIONS = 'logfire.package_versions'
 
+RESOURCE_ATTRIBUTES_VERSION = 'logfire.version'
+
 RESOURCE_ATTRIBUTES_DEPLOYMENT_ENVIRONMENT_NAME = 'deployment.environment.name'
 """The name of the deployment environment e.g. production, staging, etc."""
 
