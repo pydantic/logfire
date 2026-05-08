@@ -18,8 +18,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from pydantic_handlebars import check_template_compatibility
-
+from logfire.variables._handlebars import check_template_compatibility
 from logfire.variables.composition import find_references
 
 __all__ = (

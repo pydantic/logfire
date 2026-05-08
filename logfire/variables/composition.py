@@ -19,8 +19,6 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, Tuple  # noqa: UP035
 
-from logfire.variables.reference_syntax import render_once
-
 __all__ = (
     'MAX_COMPOSITION_DEPTH',
     'VariableCompositionError',
@@ -317,6 +315,8 @@ def _render_value(value: Any, context: dict[str, Any]) -> Any:
         if not has_references(value):
             # Unescape \@{ to @{ for non-reference strings.
             return value.replace('\\@{', '@{')
+        from logfire.variables.reference_syntax import render_once
+
         return render_once(value, context)
     if isinstance(value, dict):
         return {k: _render_value(v, context) for k, v in value.items()}  # pyright: ignore[reportUnknownVariableType]

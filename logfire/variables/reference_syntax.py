@@ -19,7 +19,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from pydantic_handlebars import SafeString, render as hbs_render
+from logfire.variables._handlebars import get_handlebars_renderer
 
 _REFERENCE_TAG = re.compile(r'(?<!\\)@\{(.*?)\}@')
 _LEFT_RUNTIME_PLACEHOLDER = '&#123;&#123;'
@@ -42,14 +42,14 @@ def _unescape_protected(s: str) -> str:
     return s.replace('&#123;', '{').replace('&#125;', '}')
 
 
-def _protect_value(value: Any) -> Any:
+def _protect_value(value: Any, safe_string_cls: type[str]) -> Any:
     """Recursively protect string values, preserving structure for dicts/lists."""
     if isinstance(value, str):
-        return SafeString(value.translate(_PROTECT))
+        return safe_string_cls(value.translate(_PROTECT))
     if isinstance(value, dict):
-        return {k: _protect_value(v) for k, v in value.items()}  # pyright: ignore[reportUnknownVariableType]
+        return {k: _protect_value(v, safe_string_cls) for k, v in value.items()}  # pyright: ignore[reportUnknownVariableType]
     if isinstance(value, list):
-        return [_protect_value(v) for v in value]  # pyright: ignore[reportUnknownVariableType]
+        return [_protect_value(v, safe_string_cls) for v in value]  # pyright: ignore[reportUnknownVariableType]
     return value  # bools, ints, None, etc. — pass through
 
 
@@ -60,9 +60,10 @@ def _protect_value(value: Any) -> Any:
 
 def render_once(template: str, context: dict[str, Any]) -> str:
     """Single-pass render: convert ``@{}@`` tags, run Handlebars, restore ``{{}}``."""
+    safe_string_cls, hbs_render = get_handlebars_renderer()
     protected_template = template.replace('{{', _LEFT_RUNTIME_PLACEHOLDER).replace('}}', _RIGHT_RUNTIME_PLACEHOLDER)
     handlebars_template = _REFERENCE_TAG.sub(r'{{\1}}', protected_template)
-    safe_context = {k: _protect_value(v) for k, v in context.items()}
+    safe_context = {k: _protect_value(v, safe_string_cls) for k, v in context.items()}
     result: str = hbs_render(handlebars_template, safe_context)
     result = result.replace(_LEFT_RUNTIME_PLACEHOLDER, '{{').replace(_RIGHT_RUNTIME_PLACEHOLDER, '}}')
     return _unescape_protected(result).replace('\\@{', '@{')

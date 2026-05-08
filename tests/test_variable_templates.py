@@ -5,6 +5,11 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
+import textwrap
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -38,6 +43,48 @@ def _simple_config(name: str, serialized_value: str) -> VariablesConfig:
             ),
         },
     )
+
+
+def test_import_logfire_without_pydantic_handlebars():
+    """pydantic-handlebars is optional unless a Handlebars feature is used."""
+    root = Path(__file__).parents[1]
+    env = os.environ.copy()
+    env['PYTHONPATH'] = f'{root}{os.pathsep}{env.get("PYTHONPATH", "")}'
+    code = textwrap.dedent(
+        """
+        import builtins
+
+        real_import = builtins.__import__
+
+        def blocked_import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == 'pydantic_handlebars' or name.startswith('pydantic_handlebars.'):
+                raise ImportError('blocked pydantic_handlebars')
+            return real_import(name, globals, locals, fromlist, level)
+
+        builtins.__import__ = blocked_import
+
+        import logfire
+        from logfire.variables.abstract import render_serialized_string
+
+        assert logfire.var
+
+        try:
+            render_serialized_string('"Hello {{name}}"', {'name': 'Alice'})
+        except ImportError as exc:
+            assert 'pydantic-handlebars' in str(exc)
+        else:
+            raise AssertionError('rendering should require pydantic-handlebars')
+        """
+    )
+    result = subprocess.run(
+        [sys.executable, '-c', code],
+        cwd=root,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 # =============================================================================

@@ -2572,7 +2572,10 @@ class Logfire:
         Template rendering example:
 
         ```py
+        import logfire
         from pydantic import BaseModel
+
+        logfire.configure()
 
 
         class PromptInputs(BaseModel):
@@ -2680,7 +2683,7 @@ class Logfire:
         )
 
         with prompt.get(PromptInputs(user_name='Alice')) as resolved:
-            print(resolved.value)  # "Hello Alice"
+            assert resolved.value == 'Hello Alice'
         ```
 
         Args:
