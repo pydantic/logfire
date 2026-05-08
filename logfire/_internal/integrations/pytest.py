@@ -457,10 +457,11 @@ def pytest_runtest_makereport(
             # Branch coverage: excinfo.value is always present for failed tests in normal pytest execution
             try:
                 span.record_exception(call.excinfo.value)
-            except RuntimeError:
+            except RuntimeError as e:
                 # CPython 3.11+ can raise "generator raised StopIteration" from
                 # traceback.extract_tb when processing certain bytecode positions.
-                pass
+                if str(e) != 'generator raised StopIteration':
+                    raise
     elif report.skipped:  # pragma: no cover
         # TODO: this needs improvement in processing skip reasons
         skip_reason = ''
