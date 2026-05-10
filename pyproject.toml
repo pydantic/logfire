@@ -89,8 +89,8 @@ variables = ["pydantic>=2"]
 [project.urls]
 Homepage = "https://logfire.pydantic.dev/"
 Source = "https://github.com/pydantic/logfire"
-Documentation = "https://logfire.pydantic.dev/docs/"
-Changelog = "https://logfire.pydantic.dev/docs/release-notes/"
+Documentation = "https://pydantic.dev/docs/logfire/"
+Changelog = "https://pydantic.dev/docs/logfire/release-notes/"
 
 [project.scripts]
 logfire = "logfire.cli:main"

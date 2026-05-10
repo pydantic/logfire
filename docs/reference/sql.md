@@ -177,7 +177,7 @@ with logfire.span('parent'):
 
 with the above query will return a single row with `parent_message` set to `'parent'` and `child_message` set to `'child'`.
 
-If you find yourself needing to do this, consider using [Baggage](https://logfire.pydantic.dev/docs/reference/advanced/baggage/) instead.
+If you find yourself needing to do this, consider using [Baggage](https://pydantic.dev/docs/logfire/reference/advanced/baggage/) instead.
 
 ### Timestamps
 

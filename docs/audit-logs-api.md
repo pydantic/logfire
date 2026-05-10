@@ -5,7 +5,7 @@ description: "Retrieve organization activity logs for security monitoring, compl
 
 # Logfire audit logs API
 
-The Audit Logs API lets you retrieve activity logs for your organization. This feature is available on the [Enterprise plan](https://logfire.pydantic.dev/docs/enterprise/) only.
+The Audit Logs API lets you retrieve activity logs for your organization. This feature is available on the [Enterprise plan](https://pydantic.dev/docs/logfire/enterprise/) only.
 
 Each log entry records user actions: logins, project updates, token changes, and more. Use it for security monitoring, compliance reporting, and usage auditing.
 
@@ -20,7 +20,7 @@ Each log entry records user actions: logins, project updates, token changes, and
 
 ## Authentication
 
-Requests are authenticated with a Bearer token scoped to `organizations:auditlog`. See [API Keys docs](https://logfire.pydantic.dev/docs/reference/advanced/use-api-keys/#API%20Keys) for instructions on how to generate one.
+Requests are authenticated with a Bearer token scoped to `organizations:auditlog`. See [API Keys docs](https://pydantic.dev/docs/logfire/reference/advanced/use-api-keys/#API%20Keys) for instructions on how to generate one.
 
 **Type:** Bearer token
 
