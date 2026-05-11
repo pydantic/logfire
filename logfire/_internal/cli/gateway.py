@@ -31,7 +31,6 @@ from .ai_tools import (
     resolve_ai_tool,
 )
 from .gateway_auth import GATEWAY_CIMD_PATH, CimdOAuthClient, GatewayAuth, OAuthSession, discover_oauth_metadata
-from .gateway_proxy import SpendLedger, claude_status_payload, gateway_status_payload, usage_record_from_response
 
 DEFAULT_PORT = 11465
 DEFAULT_SCOPE = 'project:gateway_proxy'
@@ -133,7 +132,6 @@ def filter_headers(headers: dict[str, str], *, direction: str) -> list[tuple[str
 class ProxyState:
     deps: GatewayDeps
     auth: GatewayAuth
-    ledger: SpendLedger
     client: Any
     gateway: str
     region: str
@@ -234,33 +232,11 @@ async def _handle_proxy(request: Any) -> Any:
     status, response_headers, response_body, content_type = await _gateway_request(
         state, request.method, upstream_url, headers, body
     )
-    if 200 <= status < 300:
-        record = usage_record_from_response(
-            route=path,
-            request_body=body,
-            response_body=response_body,
-            content_type=content_type,
-        )
-        if record is not None:
-            state.ledger.record(record)
     return deps.Response(
         content=response_body,
         status_code=status,
         headers=dict(filter_headers(dict(response_headers), direction='response')),
         media_type=content_type,
-    )
-
-
-async def _handle_status(request: Any) -> Any:
-    state: ProxyState = request.app.state.logfire_gateway
-    return state.deps.JSONResponse(
-        gateway_status_payload(
-            region=state.region,
-            gateway=state.gateway,
-            token_ttl_s=state.auth.token_ttl_s,
-            ledger=state.ledger,
-            limit_pending=state.limit_pending.is_set(),
-        )
     )
 
 
@@ -287,18 +263,6 @@ async def _handle_oauth_callback(request: Any) -> Any:
     )
 
 
-async def _handle_claude_status(request: Any) -> Any:
-    state: ProxyState = request.app.state.logfire_gateway
-    return state.deps.JSONResponse(
-        claude_status_payload(
-            region=state.region,
-            token_ttl_s=state.auth.token_ttl_s,
-            ledger=state.ledger,
-            limit_pending=state.limit_pending.is_set(),
-        )
-    )
-
-
 async def _handle_favicon(request: Any) -> Any:
     return request.app.state.logfire_gateway.deps.Response(status_code=204)
 
@@ -306,8 +270,6 @@ async def _handle_favicon(request: Any) -> Any:
 def build_app(deps: GatewayDeps, state: ProxyState) -> Any:
     app = deps.Starlette(
         routes=[
-            deps.Route('/_logfire_gateway/status', _handle_status, methods=['GET']),
-            deps.Route('/_logfire_gateway/claude/status', _handle_claude_status, methods=['GET']),
             deps.Route(OAUTH_CALLBACK_PATH, _handle_oauth_callback, methods=['GET']),
             deps.Route('/_logfire_gateway/oauth/callback', _handle_oauth_callback, methods=['GET']),
             deps.Route('/favicon.ico', _handle_favicon, methods=['GET']),
@@ -351,7 +313,6 @@ async def _authorize_and_serve(
             state = ProxyState(
                 deps=deps,
                 auth=auth,
-                ledger=SpendLedger(),
                 client=upstream_client,
                 gateway=gateway.rstrip('/'),
                 region=region,

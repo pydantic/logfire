@@ -255,7 +255,6 @@ AI_TOOL_INTEGRATIONS: dict[str, AiToolIntegration] = {
             'ANTHROPIC_BASE_URL': '{anthropic}',
             'ANTHROPIC_AUTH_TOKEN': '{local_token}',
             'CLAUDE_CODE_USE_BEDROCK': '',
-            'PGW_STATUS_URL': '{base}/_logfire_gateway/claude/status',
         },
         model_env={'ANTHROPIC_MODEL': '{model}'},
         configure_mcp=_configure_claude_mcp,

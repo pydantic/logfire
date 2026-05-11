@@ -29,7 +29,6 @@ import logfire._internal.cli
 import logfire._internal.cli.ai_tools as ai_tools
 import logfire._internal.cli.gateway as gateway_cli
 import logfire._internal.cli.gateway_auth as gateway_auth
-import logfire._internal.cli.gateway_proxy as gateway_proxy
 from logfire import VERSION
 from logfire._internal.auth import UserToken
 from logfire._internal.cli import OrgProjectAction, SplitArgs, main
@@ -2184,7 +2183,6 @@ def test_gateway_request_recovers_auth_rejections() -> None:
     state = gateway_cli.ProxyState(
         deps=Mock(),
         auth=cast(gateway_auth.GatewayAuth, auth),
-        ledger=gateway_proxy.SpendLedger(),
         client=client,
         gateway='https://gateway.example.com',
         region='us',
@@ -2217,7 +2215,6 @@ def test_gateway_stream_recovers_auth_rejections_and_closes_rejected_streams() -
     state = gateway_cli.ProxyState(
         deps=Mock(),
         auth=cast(gateway_auth.GatewayAuth, auth),
-        ledger=gateway_proxy.SpendLedger(),
         client=client,
         gateway='https://gateway.example.com',
         region='us',
@@ -2238,51 +2235,6 @@ def test_gateway_stream_recovers_auth_rejections_and_closes_rejected_streams() -
         'Bearer token-2',
         'Bearer token-3',
     ]
-
-
-def test_gateway_extract_usage_ignores_malformed_values() -> None:
-    body = b'{"usage":{"prompt_tokens":null,"completion_tokens":"many","cost_usd":{}}}'
-
-    assert gateway_proxy.extract_usage(body, 'application/json') == (0, 0, 0.0)
-
-
-def test_gateway_extract_usage_ignores_non_finite_or_negative_values() -> None:
-    body = b'{"usage":{"prompt_tokens":1e309,"completion_tokens":-10,"cost_usd":"nan"}}'
-
-    assert gateway_proxy.extract_usage(body, 'application/json') == (0, 0, 0.0)
-
-
-def test_gateway_proxy_records_usage_and_builds_status_payload() -> None:
-    ledger = gateway_proxy.SpendLedger()
-    record = gateway_proxy.usage_record_from_response(
-        route='/proxy/openai/v1/chat/completions',
-        request_body=b'{"model":"gpt-5"}',
-        response_body=b'{"usage":{"prompt_tokens":100,"completion_tokens":20,"cost_usd":0.012345678}}',
-        content_type='application/json; charset=utf-8',
-        now=123.0,
-    )
-    assert record is not None
-    ledger.record(record)
-
-    assert gateway_proxy.gateway_status_payload(
-        region='us', gateway='https://gateway.example.com', token_ttl_s=120.9, ledger=ledger, limit_pending=True
-    ) == snapshot(
-        {
-            'region': 'us',
-            'gateway': 'https://gateway.example.com',
-            'token_ttl_s': 120,
-            'session_spend_usd': 0.012346,
-            'limit_pending': True,
-            'last_call': {
-                'ts': 123.0,
-                'route': '/proxy/openai/v1/chat/completions',
-                'model': 'gpt-5',
-                'input_tokens': 100,
-                'output_tokens': 20,
-                'cost_usd': 0.012345678,
-            },
-        }
-    )
 
 
 def test_instrumented_packages_text_filters_starlette_and_urllib3():
