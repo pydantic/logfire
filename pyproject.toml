@@ -87,10 +87,10 @@ datasets = ["httpx>=0.27.2", "pydantic>=2", "pydantic-evals>=1.0.0; python_versi
 variables = ["pydantic>=2"]
 
 [project.urls]
-Homepage = "https://logfire.pydantic.dev/"
+Homepage = "https://pydantic.dev/logfire"
 Source = "https://github.com/pydantic/logfire"
-Documentation = "https://logfire.pydantic.dev/docs/"
-Changelog = "https://logfire.pydantic.dev/docs/release-notes/"
+Documentation = "https://pydantic.dev/docs/logfire/"
+Changelog = "https://github.com/pydantic/logfire/blob/main/CHANGELOG.md"
 
 [project.scripts]
 logfire = "logfire.cli:main"

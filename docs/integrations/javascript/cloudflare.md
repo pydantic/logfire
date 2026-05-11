@@ -16,7 +16,7 @@ Next, add the Node.js compatibility flag to your Wrangler configuration:
 - For `wrangler.toml`: `compatibility_flags = [ "nodejs_compat" ]`
 - For `wrangler.jsonc`: `"compatibility_flags": ["nodejs_compat"]`
 
-Add your [Logfire write token](https://logfire.pydantic.dev/docs/how-to-guides/create-write-tokens/) to your `.dev.vars` file:
+Add your [Logfire write token](../../how-to-guides/create-write-tokens.md) to your `.dev.vars` file:
 
 ```sh
 LOGFIRE_TOKEN=your-write-token

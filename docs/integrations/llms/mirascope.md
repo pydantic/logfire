@@ -93,5 +93,4 @@ For more information on Mirascope and what you can do with it, check out their [
 [mirascope-logfire]: https://mirascope.io/docs/latest/integrations/logfire/
 [mirascope-supported-providers]: https://mirascope.io/docs/latest/learn/calls/#supported-providers
 [mirascope-extracting-structured-information]: https://mirascope.io/docs/latest/learn/response_models/
-[pydantic]: https://docs.pydantic.dev/latest/
-[pydantic-plugin]: https://docs.pydantic.dev/latest/concepts/plugins/
+[pydantic]: https://pydantic.dev/docs/validation/latest/get-started/
