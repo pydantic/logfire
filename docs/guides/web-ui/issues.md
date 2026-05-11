@@ -100,7 +100,7 @@ The Fix with AI button uses Logfire's MCP server to give your AI assistant acces
 
 Run the command provided to retrieve the exception information from the Logfire MCP server so your AI assistant can analyze that specific exception and provide debugging suggestions based on your application context.
 
-Want us to integrate more AI Code assistants? [Let us know](https://pydantic.dev/docs/logfire/help/)
+Want us to integrate more AI Code assistants? [Let us know](../../help.md).
 
 ## Sorting and Searching
 

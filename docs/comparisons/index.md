@@ -48,10 +48,10 @@ We provide first-party SDKs for Python, JavaScript/TypeScript, and Rust that off
 Logfire is a great fit when you:
 
 - **Want one stack, not two** - AI + infrastructure observability unified, not an agent framework plus a separate APM tool
-- **AI enabled workflows** - Use the [Logfire MCP server](https://pydantic.dev/docs/logfire/how-to-guides/mcp-server/?utm_source=comparison_docs) to query your app's telemetry data, analyze distributed traces, and fix errors with AI using Logfire's OTel-native API
+- **AI enabled workflows** - Use the [Logfire MCP server](https://pydantic.dev/docs/logfire/guides/mcp-server/?utm_source=comparison_docs) to query your app's telemetry data, analyze distributed traces, and fix errors with AI using Logfire's OTel-native API
 - **Have polyglot architectures** - Python backend + TypeScript frontend, microservices in different languages
 - **Want exceptional Python, TS/JS, Rust support** - While also supporting other languages via OTel
-- **Need code-first evals** - [pydantic-evals](https://pydantic.dev/docs/logfire/guides/web-ui/evals/?utm_source=comparison_docs) tests any Python function, not just LLM calls
+- **Need code-first evals** - [pydantic-evals](https://pydantic.dev/docs/logfire/evaluate/evals/?utm_source=comparison_docs) tests any Python function, not just LLM calls
 - **Prefer SQL-based querying** - Familiar PostgreSQL syntax over proprietary query languages
 - **Value simple, predictable pricing** - $2/million spans, scales to billions of spans per month
 - **Need enterprise features** - [SOC2, HIPAA, self-hosting](https://pydantic.dev/pricing#enterprise?utm_source=comparison_docs options

@@ -5,7 +5,7 @@ integration: logfire
 ---
 # Node.js
 
-Using Logfire in your Node.js script is straightforward. You need to [get a write token](https://pydantic.dev/docs/logfire/how-to-guides/create-write-tokens/), install the package, configure it, and use the provided API.
+Using Logfire in your Node.js script is straightforward. You need to [get a write token](../../how-to-guides/create-write-tokens.md), install the package, configure it, and use the provided API.
 
 Let's create an empty project:
 

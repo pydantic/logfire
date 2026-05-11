@@ -17,7 +17,7 @@ Clicking **Open in Playground** will redirect you to the Agent Playground, prefi
 
 You can then modify parts of the captured run, such as the system prompt, user requests, tool calls, available tools, or model settings, and trigger another run to see the results.
 
-You can also configure which tools are available as well as the [model settings](https://ai.pydantic.dev/api/settings/) (for example, temperature).
+You can also configure which tools are available as well as the [model settings](https://pydantic.dev/docs/ai/api/pydantic-ai/settings/) (for example, temperature).
 
 ## Compared with Prompt Management
 
