@@ -227,7 +227,7 @@
       { "label": "Use Alternative Backends", "slug": "how-to-guides/alternative-backends" },
       { "label": "Collect Cloud Provider Metrics", "slug": "how-to-guides/cloud-metrics" },
       { "label": "Connect to MCP Server", "slug": "how-to-guides/mcp-server" },
-      { "label": "Claude Code Skills", "slug": "how-to-guides/skills" }
+      { "label": "Coding Agent Skills", "slug": "how-to-guides/skills" }
     ]
   },
   {
