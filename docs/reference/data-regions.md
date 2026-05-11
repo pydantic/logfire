@@ -24,7 +24,14 @@ Regions are strictly separated with no data sharing between them:
 
 ## Choosing a Region
 
-When you sign up for Logfire, you'll be prompted to choose a region. After selecting your region, you'll be automatically redirected from the global domain (logfire.pydantic.dev) to your region-specific domain (either logfire-us.pydantic.dev or logfire-eu.pydantic.dev).
+Logfire is a regional product: every account, project, and trace lives in exactly one region, and the URL you visit determines which region you're working with. There is no cross-region landing page — visiting [logfire.pydantic.dev](https://logfire.pydantic.dev) sends you straight to the US region's sign-in screen, where you'll see a region picker:
+
+![Region picker on the sign-in screen](../images/logfire-screenshot-region-picker.png)
+
+* **First-time visitors** must pick a region before continuing — there is no default.
+* **Returning users** see their last-used region pre-selected. Picking a different region redirects you to that region's subdomain ([logfire-us.pydantic.dev](https://logfire-us.pydantic.dev) or [logfire-eu.pydantic.dev](https://logfire-eu.pydantic.dev)); picking the same region keeps you where you are.
+
+If you already know which region your account lives in, you can also navigate directly to its subdomain and skip the picker.
 
 Consider the following factors when selecting a region:
 
@@ -50,4 +57,4 @@ Always ensure you're using the correct region-specific URL:
 * US: [logfire-us.pydantic.dev](https://logfire-us.pydantic.dev)
 * EU: [logfire-eu.pydantic.dev](https://logfire-eu.pydantic.dev)
 
-The global domain (logfire.pydantic.dev) is used primarily for the initial signup process where you'll select your region.
+The global domain ([logfire.pydantic.dev](https://logfire.pydantic.dev)) is a convenience entry point only — it redirects to the US region, where the sign-in screen's region picker lets you switch to EU if needed. It is not a separate region and holds no data.

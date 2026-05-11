@@ -30,8 +30,11 @@ This page walks through setting up a Python app. For other languages, see the [J
 
 ## Set up Logfire {#logfire}
 
-1. [Log into Logfire :material-open-in-new:](https://logfire.pydantic.dev/login){:target="\_blank"}
-2. Follow the prompts to create your account
+1. [Log into Logfire :material-open-in-new:](https://logfire.pydantic.dev/login){:target="\_blank"}. You'll land on the US region's sign-in screen; pick a region (US or EU) before continuing — Logfire stores data in the region you choose, and accounts are not shared between regions. If you're not sure which to pick, see [Data Regions](reference/data-regions.md).
+
+    ![Region picker on the sign-in screen](images/logfire-screenshot-region-picker.png)
+
+2. Follow the prompts to create your account.
 3. Once logged in, you'll see the **Welcome to Logfire** prompt. Click **Let's go!** to go to the **starter-project** Setup page.
 
 
