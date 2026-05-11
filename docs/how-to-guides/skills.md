@@ -1,48 +1,74 @@
 ---
-title: Claude Code Skills
-description: Use Pydantic's Claude Code skills and plugins to streamline your workflow with Logfire.
+title: Coding Agent Skills
+description: Use Pydantic's coding agent skills and plugins to give Claude Code, Codex, Cursor, Gemini CLI, and other agents up-to-date Logfire knowledge.
 ---
 
-# Claude Code Skills
+# Coding Agent Skills
 
-[Skills](https://code.claude.com/docs/en/skills) are reusable prompt-driven capabilities for agents.
-You create a `SKILL.md` file with instructions, and your agent adds it to its toolkit — using it automatically when relevant, or on demand via `/skill-name` in Claude Code for example.
+If you're adding Logfire observability to your application with a coding agent, you can install the
+Logfire skill from the [`pydantic/skills`](https://github.com/pydantic/skills) repository to give
+your agent up-to-date framework knowledge.
 
-Pydantic provides a set of skills and plugins for working with Logfire at
-[github.com/pydantic/skills](https://github.com/pydantic/skills).
-
-## What's included
-
-The [pydantic/skills](https://github.com/pydantic/skills) repository includes:
-
-- **Logfire plugin** — a Claude Code [plugin](https://code.claude.com/docs/en/plugins) that bundles
-  skills, commands, and an MCP server for adding Logfire observability to your applications. Supports
-  Python, JavaScript/TypeScript, and Rust with auto-instrumentation for frameworks like FastAPI,
-  httpx, asyncpg, and more.
-- **Standalone skills** — individual skills like `logfire-instrumentation` that can be installed
-  separately.
+Agent skills are packages of instructions and reference material that coding agents load on demand.
+The Logfire skill provides agents with patterns and guidance for instrumenting Python,
+JavaScript/TypeScript, and Rust applications, with auto-instrumentation for frameworks like
+FastAPI, httpx, asyncpg, and more.
 
 ## Installation
 
-Skills and plugins can be managed using the [`skills` CLI](https://github.com/vercel-labs/skills).
+### Claude Code
 
-Install the Pydantic skills with:
+Install the [official Logfire plugin](https://claude.com/plugins/logfire) from the Anthropic
+marketplace, which is available by default:
 
 ```bash
-npx skills install pydantic/skills
+claude plugin install logfire@claude-plugins-official
 ```
 
-This will make the skills and plugins available to Claude Code and other agents.
-See the [skills CLI documentation](https://github.com/vercel-labs/skills) for more details on supported frameworks and installation options.
-
-## Usage with Claude Code
-
-Once installed, Claude will automatically use the relevant skills when appropriate. You can also
-invoke them directly using the `/` command:
+The plugin bundles skills, commands, and an MCP server. Claude will use the relevant skills
+automatically, or you can invoke a command directly:
 
 ```
 /instrumentation
 ```
 
-For more details on how skills work, see the
-[Claude Code skills documentation](https://code.claude.com/docs/en/skills).
+As an alternative, you can install from the [`pydantic/skills`](https://github.com/pydantic/skills)
+marketplace, which bundles the Logfire skill alongside other Pydantic-maintained skills:
+
+```bash
+claude plugin marketplace add pydantic/skills
+claude plugin install logfire@pydantic-skills
+```
+
+### Cross-Agent
+
+Install the Logfire skill using the [skills CLI](https://github.com/vercel-labs/skills):
+
+```bash
+npx skills add pydantic/skills
+```
+
+The CLI is interactive and lets you pick individual skills (e.g. `logfire-instrumentation` or
+`logfire-query`) rather than installing the whole bundle.
+
+This works with 30+ agents via the [agentskills.io](https://agentskills.io) standard, including
+Claude Code, Codex, Cursor, and Gemini CLI.
+
+### Library Skills
+
+Logfire also ships its skill bundled with the package, so you can install it directly from your
+project's dependencies via [library-skills.io](https://library-skills.io):
+
+```bash
+uvx library-skills        # Python
+npx library-skills        # JavaScript/TypeScript
+```
+
+Add `--claude` to also install into `.claude/skills` alongside the default `.agents` directory.
+
+## See also
+
+- Source repository: [github.com/pydantic/skills](https://github.com/pydantic/skills)
+- Open standards: [agentskills.io](https://agentskills.io), [library-skills.io](https://library-skills.io)
+- Claude Code skills documentation: [code.claude.com/docs/en/skills](https://code.claude.com/docs/en/skills)
+- Claude Code plugins documentation: [code.claude.com/docs/en/plugins](https://code.claude.com/docs/en/plugins)

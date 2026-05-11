@@ -32,7 +32,7 @@ logfire.configure()
 LlamaIndexInstrumentor().instrument()
 
 # URL for Pydantic's main concepts page
-url = 'https://docs.pydantic.dev/latest/concepts/models/'
+url = 'https://pydantic.dev/docs/validation/latest/concepts/models/'
 
 # Load the webpage
 documents = SimpleWebPageReader(html_to_text=True).load_data([url])
