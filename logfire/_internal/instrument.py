@@ -4,9 +4,9 @@ import contextlib
 import functools
 import inspect
 import warnings
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from contextlib import AbstractContextManager, asynccontextmanager, contextmanager
-from typing import TYPE_CHECKING, Any, Callable, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from opentelemetry import trace
 from opentelemetry.util import types as otel_types

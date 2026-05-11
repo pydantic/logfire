@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import inspect
+from collections.abc import Callable
 from logging import LogRecord
 from pathlib import Path
-from typing import Any, Callable, cast
+from typing import Any, cast
 
 import loguru
 

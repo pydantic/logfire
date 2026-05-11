@@ -14,8 +14,8 @@ from logfire._internal.constants import log_level_attributes
 from logfire._internal.utils import is_asgi_send_receive_span_name, maybe_capture_server_headers
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable
-    from typing import Any, Callable, Protocol, TypedDict
+    from collections.abc import Awaitable, Callable
+    from typing import Any, Protocol, TypedDict
 
     from opentelemetry.trace import Span
     from typing_extensions import Unpack
