@@ -11,7 +11,7 @@ This is especially useful for AI applications where prompts are built from reusa
     pip install 'logfire[variables]'
     ```
 
-    Without this extra, `logfire.template_var()` can still be defined, but resolution falls back to the unrendered value and exposes the dependency error on `resolved.exception`.
+    Without this extra, `logfire.template_var()` raises an error immediately so your application does not silently use an unrendered template.
 
 ## Template Variables
 

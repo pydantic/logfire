@@ -28,6 +28,11 @@ def _dependency_error() -> HandlebarsDependencyError:
     )
 
 
+def ensure_handlebars_available() -> None:
+    """Raise a helpful error if pydantic-handlebars is unavailable."""
+    get_handlebars_renderer()
+
+
 @cache
 def get_handlebars_renderer() -> tuple[type[str], Callable[..., str]]:
     """Return pydantic-handlebars SafeString and render, or raise a helpful error."""

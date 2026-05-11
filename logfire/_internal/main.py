@@ -2636,6 +2636,11 @@ class Logfire:
                 f"A variable with name '{name}' has already been registered. Each variable must have a unique name."
             )
 
+        if template_inputs is not None:
+            from logfire.variables._handlebars import ensure_handlebars_available
+
+            ensure_handlebars_available()
+
         variable = Variable[T](
             name,
             default=default,
@@ -2733,6 +2738,10 @@ class Logfire:
             raise ValueError(
                 f"A variable with name '{name}' has already been registered. Each variable must have a unique name."
             )
+
+        from logfire.variables._handlebars import ensure_handlebars_available
+
+        ensure_handlebars_available()
 
         variable = TemplateVariable[T, Any](
             name,

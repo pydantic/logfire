@@ -77,6 +77,21 @@ def test_import_logfire_without_pydantic_handlebars():
         from logfire.variables.abstract import render_serialized_string
 
         assert logfire.var
+        assert logfire.var('plain_var', type=str, default='Hello')
+
+        try:
+            logfire.var('templated_var', type=str, default='Hello {{name}}', template_inputs=dict)
+        except ImportError as exc:
+            assert 'pydantic-handlebars' in str(exc)
+        else:
+            raise AssertionError('template_inputs should require pydantic-handlebars')
+
+        try:
+            logfire.template_var('template_var', type=str, default='Hello {{name}}', inputs_type=dict)
+        except ImportError as exc:
+            assert 'pydantic-handlebars' in str(exc)
+        else:
+            raise AssertionError('template_var should require pydantic-handlebars')
 
         try:
             render_serialized_string('"Hello {{name}}"', {'name': 'Alice'})
