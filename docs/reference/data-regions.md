@@ -28,7 +28,8 @@ When you sign up for Logfire at [logfire.pydantic.dev](https://logfire.pydantic.
 
 ![Region picker on the sign-in screen](../images/logfire-screenshot-region-picker.png)
 
-We do not detect recent sessions cross-region due to our strict data separation policy for our hosting. So if you open [logfire.pydantic.dev](https://logfire.pydantic.dev) on a new device or in incognito mode, you'll be prompted to pick a region again, even if you already have an account.
+!!! info ""
+    We do not detect recent sessions cross-region due to our strict data separation policy for our hosting. So if you open [logfire.pydantic.dev](https://logfire.pydantic.dev) on a new device or in incognito mode, you'll be prompted to pick a region again, even if you already have an account.
 
 Consider the following factors when selecting a region:
 
