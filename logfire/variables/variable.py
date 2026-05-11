@@ -186,6 +186,7 @@ class _BaseVariable(Generic[T_co]):
         self.description = description
         self.template_inputs_type = template_inputs
 
+        self._variable_registry = logfire_instance._variables  # pyright: ignore[reportPrivateUsage]
         self.logfire_instance = logfire_instance.with_settings(custom_scope_suffix='variables')
         self.type_adapter = TypeAdapter[T_co](type)
 
@@ -264,10 +265,17 @@ class _BaseVariable(Generic[T_co]):
             serialized_result = provider.get_serialized_value(self.name, targeting_key, attributes)
 
             if serialized_result.value is None:
-                default = self._get_default(targeting_key, attributes)
-                if render_fn is not None:
-                    default = self._render_default(default, render_fn)
-                return _with_value(serialized_result, default)
+                default_result = self._resolve_serialized_default(
+                    serialized_result,
+                    provider,
+                    targeting_key,
+                    attributes,
+                    span,
+                    render_fn=render_fn,
+                )
+                if default_result is not None:
+                    return default_result
+                return _with_value(serialized_result, self._get_default(targeting_key, attributes))
 
             return self._expand_and_deserialize(
                 serialized_result, provider, targeting_key, attributes, span, render_fn=render_fn
@@ -313,6 +321,10 @@ class _BaseVariable(Generic[T_co]):
 
             def resolve_ref(ref_name: str) -> tuple[str | None, str | None, int | None, str]:
                 ref_resolved = provider.get_serialized_value(ref_name, targeting_key, attributes)
+                if ref_resolved.value is None and (ref_variable := self._variable_registry.get(ref_name)) is not None:
+                    ref_default = ref_variable._get_serialized_default(targeting_key, attributes)
+                    if ref_default is not None:
+                        return (ref_default, None, None, 'code_default')
                 return (
                     ref_resolved.value,
                     ref_resolved.label,
@@ -326,6 +338,17 @@ class _BaseVariable(Generic[T_co]):
                     self.name,
                     resolve_ref,
                 )
+                if composition_error := _first_composition_error(composed):
+                    default = self._get_default(targeting_key, attributes)
+                    return ResolvedVariable(
+                        name=self.name,
+                        value=default,
+                        exception=VariableCompositionError(composition_error),
+                        _reason='other_error',
+                        label=serialized_result.label,
+                        version=serialized_result.version,
+                        composed_from=composed,
+                    )
             except VariableCompositionError as e:
                 default = self._get_default(targeting_key, attributes)
                 return ResolvedVariable(
@@ -390,6 +413,44 @@ class _BaseVariable(Generic[T_co]):
             return self.default(targeting_key, merged_attributes)
         else:
             return self.default
+
+    def _get_serialized_default(
+        self, targeting_key: str | None = None, merged_attributes: Mapping[str, Any] | None = None
+    ) -> str | None:
+        """Return the code default serialized as JSON, or None if serialization fails."""
+        try:
+            default = self._get_default(targeting_key, merged_attributes)
+            return self.type_adapter.dump_json(default).decode('utf-8')
+        except (ValueError, TypeError, RuntimeError):
+            return None
+
+    def _resolve_serialized_default(
+        self,
+        serialized_result: ResolvedVariable[str | None],
+        provider: VariableProvider,
+        targeting_key: str | None,
+        attributes: Mapping[str, Any] | None,
+        span: logfire.LogfireSpan | None,
+        render_fn: Callable[[str], str] | None = None,
+    ) -> ResolvedVariable[T_co] | None:
+        """Resolve the code default through composition/rendering when needed."""
+        serialized_default = self._get_serialized_default(targeting_key, attributes)
+        if serialized_default is None:
+            return None
+        if render_fn is None and not has_references(serialized_default):
+            return None
+
+        result = self._expand_and_deserialize(
+            ResolvedVariable(name=self.name, value=serialized_default, _reason='missing_config'),
+            provider,
+            targeting_key,
+            attributes,
+            span,
+            render_fn=render_fn,
+        )
+        if result._reason == 'resolved':  # pyright: ignore[reportPrivateUsage]
+            result._reason = serialized_result._reason  # pyright: ignore[reportPrivateUsage]
+        return result
 
     def _get_merged_attributes(self, attributes: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
         from logfire._internal.config import LocalVariablesOptions, VariablesOptions
@@ -637,6 +698,16 @@ def _with_value(details: ResolvedVariable[Any], new_value: T_co) -> ResolvedVari
         A new ResolvedVariable with the given value.
     """
     return replace(details, value=new_value)
+
+
+def _first_composition_error(composed: list[ComposedReference]) -> str | None:
+    """Return the first nested composition error, if any."""
+    for ref in composed:
+        if ref.error is not None:
+            return ref.error
+        if nested_error := _first_composition_error(ref.composed_from):
+            return nested_error
+    return None
 
 
 @contextmanager

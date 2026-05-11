@@ -588,7 +588,7 @@ class TestCompositionIntegration:
         assert result.composed_from[0].composed_from[0].name == 'c'
 
     def test_cycle_falls_back_gracefully(self, config_kwargs: dict[str, Any]):
-        """Cycles in references cause graceful fallback to default."""
+        """Cycles in references are surfaced on the top-level result."""
         variables_config = _make_variables_config(
             a='"@{b}@"',
             b='"@{a}@"',
@@ -598,11 +598,11 @@ class TestCompositionIntegration:
 
         var = lf.var(name='a', default='fallback', type=str)
         result = var.get()
-        # The cycle in b trying to reference a (which is in the visited set) means
-        # b's expansion fails, b is left as @{a}@ inside a's value.
-        # So a's value becomes "@{a}@" (the literal unexpanded ref from b's failed expansion).
-        # Actually the value should still deserialize as a string, just with unexpanded refs.
-        assert isinstance(result.value, str)
+        assert result.value == 'fallback'
+        assert isinstance(result.exception, VariableCompositionError)
+        assert result._reason == 'other_error'
+        assert len(result.composed_from) == 1
+        assert result.composed_from[0].composed_from[0].error == 'Circular reference detected: a -> b -> a'
 
     def test_nonexistent_reference_left_unexpanded(self, config_kwargs: dict[str, Any]):
         """References to non-existent variables are left as-is."""
@@ -765,7 +765,7 @@ class TestCompositionIntegration:
         assert 'composed_from' not in attrs
 
     def test_no_value_no_composition(self, config_kwargs: dict[str, Any]):
-        """When variable resolves to None (code default), no composition happens."""
+        """References in code defaults are expanded when a provider has no selected value."""
         variables_config = VariablesConfig(
             variables={
                 'main': VariableConfig(
@@ -780,11 +780,44 @@ class TestCompositionIntegration:
         config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
 
+        lf.var(name='greeting', default='Hello', type=str)
         var = lf.var(name='main', default='@{greeting}@ fallback', type=str)
         result = var.get()
-        # Default is returned as-is (no composition on defaults)
-        assert result.value == '@{greeting}@ fallback'
-        assert result.composed_from == []
+        assert result.value == 'Hello fallback'
+        assert len(result.composed_from) == 1
+        assert result.composed_from[0].name == 'greeting'
+        assert result.composed_from[0].reason == 'code_default'
+
+    def test_reference_falls_back_to_registered_code_default(self, config_kwargs: dict[str, Any]):
+        """A composed reference uses a registered variable's default when the provider has no selected value."""
+        variables_config = VariablesConfig(
+            variables={
+                'main': VariableConfig(
+                    name='main',
+                    json_schema={'type': 'string'},
+                    labels={'production': LabeledValue(version=1, serialized_value='"@{greeting}@ from provider"')},
+                    rollout=Rollout(labels={'production': 1.0}),
+                    overrides=[],
+                ),
+                'greeting': VariableConfig(
+                    name='greeting',
+                    json_schema={'type': 'string'},
+                    labels={},
+                    rollout=Rollout(labels={}),
+                    overrides=[],
+                ),
+            }
+        )
+        config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
+        lf = logfire.configure(**config_kwargs)
+
+        lf.var(name='greeting', default='Hello', type=str)
+        var = lf.var(name='main', default='fallback', type=str)
+        result = var.get()
+        assert result.value == 'Hello from provider'
+        assert len(result.composed_from) == 1
+        assert result.composed_from[0].name == 'greeting'
+        assert result.composed_from[0].reason == 'code_default'
 
 
 class TestCompositionExceptions:

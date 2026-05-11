@@ -390,8 +390,8 @@ class ValidationReport:
 
     @property
     def is_valid(self) -> bool:
-        """Return False if there are any validation errors or any variables not defined in the (possibly remote) config."""
-        return len(self.errors) == 0 and len(self.variables_not_on_server) == 0
+        """Return False if there are validation errors, missing variables, or reference warnings."""
+        return len(self.errors) == 0 and len(self.variables_not_on_server) == 0 and len(self.reference_warnings) == 0
 
     def format(self, *, colors: bool = True) -> str:
         """Format the validation report for human-readable output.
@@ -453,8 +453,8 @@ class ValidationReport:
 
         # Summary line
         if not self.is_valid:
-            error_count = variables_with_errors + len(self.variables_not_on_server)
-            lines.append(f'\n{red}Validation failed: {error_count} error(s) found.{reset}')
+            issue_count = variables_with_errors + len(self.variables_not_on_server) + len(self.reference_warnings)
+            lines.append(f'\n{red}Validation failed: {issue_count} issue(s) found.{reset}')
         else:
             lines.append(f'\n{green}Validation passed: All {self.variables_checked} variable(s) are valid.{reset}')
 
@@ -1273,7 +1273,8 @@ class VariableProvider(ABC):
             variables: Variable instances to push.
             dry_run: If True, only show what would change without applying.
             yes: If True, skip confirmation prompt.
-            strict: If True, fail if any existing label values are incompatible with new schemas.
+            strict: If True, fail if any existing label values are incompatible with new schemas
+                or any reference warnings are found.
 
         Returns:
             True if changes were applied (or would be applied in dry_run mode), False otherwise.
@@ -1300,6 +1301,13 @@ class VariableProvider(ABC):
 
         # Show diff
         print(_format_diff(diff))
+
+        if diff.reference_warnings and strict:
+            print(
+                f'\n{ANSI_RED}Error: Reference warnings found.\n'
+                f'Fix these references or set strict=False to proceed anyway.{ANSI_RESET}'
+            )
+            return False
 
         # Check for incompatible label values across all change types
         incompatible_changes = [c for c in diff.changes if c.incompatible_labels]

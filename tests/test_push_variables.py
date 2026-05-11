@@ -3,7 +3,7 @@
 # pyright: reportPrivateUsage=false
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import pytest
@@ -35,6 +35,7 @@ class MockLogfire:
     """Mock Logfire instance for testing."""
 
     config: Any = None
+    _variables: dict[str, object] = field(default_factory=dict[str, object])
 
     def with_settings(self, **kwargs: Any) -> MockLogfire:
         """Return self for chaining."""
@@ -463,12 +464,39 @@ def test_validation_report_format_reference_and_description_warnings() -> None:
 
     output = report.format(colors=False)
 
-    assert 'Validation passed' in output
+    assert 'Validation failed' in output
     assert 'Description differences' in output
     assert 'Local:  local' in output
     assert 'Server: (none)' in output
     assert 'Reference warnings' in output
-    assert 'missing' in output
+
+
+def test_validation_report_reference_warnings_are_invalid() -> None:
+    """Reference warnings make validation invalid so strict push paths can fail on cycles."""
+    report = ValidationReport(
+        errors=[],
+        variables_checked=1,
+        variables_not_on_server=[],
+        description_differences=[],
+        reference_warnings=['Reference cycle detected: prompt -> prompt'],
+    )
+
+    assert report.is_valid is False
+    assert report.has_errors is True
+
+
+def test_push_variables_strict_fails_with_reference_warnings(mock_logfire_instance: MockLogfire) -> None:
+    """Strict push fails when reference warnings such as cycles are present."""
+    provider = LocalVariableProvider(VariablesConfig(variables={}))
+    var = Variable[str](
+        name='prompt',
+        default='@{prompt}@',
+        type=str,
+        logfire_instance=mock_logfire_instance,  # type: ignore
+    )
+
+    assert provider.push_variables([var], strict=True, yes=True) is False
+    assert provider.get_all_variables_config().variables == {}
 
 
 def test_variable_diff_has_changes_true() -> None:

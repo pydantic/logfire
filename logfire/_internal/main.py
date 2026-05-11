@@ -2792,7 +2792,8 @@ class Logfire:
                 registered with this Logfire instance will be pushed.
             dry_run: If True, only show what would change without applying.
             yes: If True, skip confirmation prompt.
-            strict: If True, fail if any existing label values are incompatible with new schemas.
+            strict: If True, fail if any existing label values are incompatible with new schemas
+                or any reference warnings are found.
 
         Returns:
             True if changes were applied (or would be applied in dry_run mode), False otherwise.
