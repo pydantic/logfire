@@ -764,19 +764,12 @@ class TestCompositionIntegration:
         attrs = dict(main_span.attributes or {})
         assert 'composed_from' not in attrs
 
-    def test_no_value_no_composition(self, config_kwargs: dict[str, Any]):
+    @pytest.mark.parametrize('register_main', [False, True], ids=['unregistered', 'registered_no_selected_value'])
+    def test_code_default_composition_when_provider_has_no_value(
+        self, config_kwargs: dict[str, Any], register_main: bool
+    ):
         """References in code defaults are expanded when a provider has no selected value."""
-        variables_config = VariablesConfig(
-            variables={
-                'main': VariableConfig(
-                    name='main',
-                    json_schema={'type': 'string'},
-                    labels={},
-                    rollout=Rollout(labels={}),
-                    overrides=[],
-                ),
-            }
-        )
+        variables_config = _make_variables_config(main=None) if register_main else VariablesConfig(variables={})
         config_kwargs['variables'] = LocalVariablesOptions(config=variables_config)
         lf = logfire.configure(**config_kwargs)
 
