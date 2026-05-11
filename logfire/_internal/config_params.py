@@ -2,6 +2,7 @@ from __future__ import annotations as _annotations
 
 import os
 import sys
+import typing
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from functools import cached_property
@@ -209,7 +210,7 @@ class ParamManager:
             return value
         if get_origin(tp) is Literal:
             return _check_literal(value, name, tp)
-        if get_origin(tp) is UnionType:
+        if get_origin(tp) in (typing.Union, UnionType):
             for arg in get_args(tp):
                 try:
                     return self._cast(value, name, arg)
