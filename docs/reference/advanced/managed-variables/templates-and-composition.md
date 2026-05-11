@@ -126,9 +126,7 @@ agent_config = logfire.template_var(
     ),
     inputs_type=UserContext,
 )
-```
 
-```python skip="true"
 with agent_config.get(UserContext(user_name='Alice', tier='premium')) as resolved:
     print(resolved.value.instructions)  # "You are helping Alice, a premium customer."
     print(resolved.value.model)         # "openai:gpt-4o-mini" (unchanged)
@@ -260,7 +258,7 @@ with chat_prompt.get(ChatInputs(user_name='Alice', language='French')) as resolv
 
 ### Cycle Detection
 
-The system detects circular references at write time. If variable A references `@{B}@` and variable B references `@{A}@`, pushing this configuration will produce an error. This prevents infinite loops during resolution.
+The system detects circular references during validation. If variable A references `@{B}@` and variable B references `@{A}@`, `logfire.variables_validate()` reports the cycle, and `logfire.variables_push(strict=True)` fails instead of applying the invalid configuration. This prevents infinite loops during resolution.
 
 ## Requirements
 

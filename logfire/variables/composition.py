@@ -92,7 +92,7 @@ def expand_references(
     variable_name: str,
     resolve_fn: ResolveFn,
     *,
-    _visited: frozenset[str] = frozenset(),
+    _visited: tuple[str, ...] = (),
     _depth: int = 0,
 ) -> tuple[str, list[ComposedReference]]:
     """Expand ``@{var}@`` references in a serialized variable value.
@@ -107,7 +107,7 @@ def expand_references(
         variable_name: Name of the variable being expanded (for cycle detection).
         resolve_fn: Function that resolves a variable name to
             (serialized_value, label, version, reason).
-        _visited: Internal - set of variable names in the current expansion chain.
+        _visited: Internal - ordered variable names in the current expansion chain.
         _depth: Internal - current recursion depth.
 
     Returns:
@@ -126,7 +126,7 @@ def expand_references(
     if variable_name in _visited:
         raise VariableCompositionCycleError(f'Circular reference detected: {" -> ".join(_visited)} -> {variable_name}')
 
-    visited = _visited | {variable_name}
+    visited = (*_visited, variable_name)
     composed: list[ComposedReference] = []
 
     # JSON-decode the serialized value so we can work with actual strings.

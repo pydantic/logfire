@@ -162,8 +162,7 @@ class TestExpandReferences:
         # b itself resolved, but its expansion of @{a}@ failed
         assert len(b_ref.composed_from) == 1
         assert b_ref.composed_from[0].name == 'a'
-        assert b_ref.composed_from[0].error is not None
-        assert 'Circular reference' in b_ref.composed_from[0].error
+        assert b_ref.composed_from[0].error == 'Circular reference detected: my_var -> a -> b -> a'
 
     def test_self_reference_cycle(self):
         """A variable referencing itself is caught."""
@@ -175,8 +174,7 @@ class TestExpandReferences:
         # a resolved, but its self-reference @{a}@ failed with cycle
         assert len(composed[0].composed_from) == 1
         assert composed[0].composed_from[0].name == 'a'
-        assert composed[0].composed_from[0].error is not None
-        assert 'Circular reference' in composed[0].composed_from[0].error
+        assert composed[0].composed_from[0].error == 'Circular reference detected: my_var -> a -> a'
 
     def test_depth_limit(self):
         """Chains exceeding MAX_COMPOSITION_DEPTH are caught."""
@@ -804,7 +802,7 @@ class TestCompositionExceptions:
                 '"test"',
                 'a',
                 _make_resolve_fn({}),
-                _visited=frozenset({'a'}),
+                _visited=('a',),
             )
 
     def test_direct_depth_error(self):
