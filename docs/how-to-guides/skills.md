@@ -64,7 +64,7 @@ uvx library-skills        # Python
 npx library-skills        # JavaScript/TypeScript
 ```
 
-Add `--claude` to also install into `.claude/skills` alongside the default `.agents` directory.
+Add `--claude` to also install into `.claude/skills/` alongside the default `.agents/skills/` directory.
 
 ## See also
 
