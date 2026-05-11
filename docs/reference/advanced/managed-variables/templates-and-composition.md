@@ -129,7 +129,9 @@ agent_config = logfire.template_var(
 
 with agent_config.get(UserContext(user_name='Alice', tier='premium')) as resolved:
     print(resolved.value.instructions)  # "You are helping Alice, a premium customer."
+    #> You are helping Alice, a premium customer.
     print(resolved.value.model)         # "openai:gpt-4o-mini" (unchanged)
+    #> openai:gpt-4o-mini
 ```
 
 ### Ad-hoc Rendering with `resolved.render()`
