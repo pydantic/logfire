@@ -24,11 +24,11 @@ Regions are strictly separated with no data sharing between them:
 
 ## Choosing a Region
 
-When you sign up for Logfire at [logfire.pydantic.dev](https://logfire.pydantic.dev) you'll be prompted to choose a region, which sends you to the correct subdomain (either [logfire-us.pydantic.dev](https://logfire-us.pydantic.dev) or [logfire-eu.pydantic.dev](https://logfire-eu.pydantic.dev)). Subsequent log ins happen at `logfire-us.pydantic.dev` or `logfire-eu.pydantic.dev`. Note we do not detect recent sessions cross-region due to our strict data separation policy for our hosting.
+When you sign up for Logfire at [logfire.pydantic.dev](https://logfire.pydantic.dev) you'll be prompted to choose a region, which sends you to the correct subdomain (either [logfire-us.pydantic.dev](https://logfire-us.pydantic.dev) or [logfire-eu.pydantic.dev](https://logfire-eu.pydantic.dev)). Subsequent log ins happen at `logfire-us.pydantic.dev` or `logfire-eu.pydantic.dev`.
 
 ![Region picker on the sign-in screen](../images/logfire-screenshot-region-picker.png)
 
-If you open [logfire.pydantic.dev](https://logfire.pydantic.dev) on a new device or in incognito mode, you'll be prompted to pick a region again, even if you already have an account.
+We do not detect recent sessions cross-region due to our strict data separation policy for our hosting. So if you open [logfire.pydantic.dev](https://logfire.pydantic.dev) on a new device or in incognito mode, you'll be prompted to pick a region again, even if you already have an account.
 
 Consider the following factors when selecting a region:
 
@@ -53,5 +53,3 @@ Always ensure you're using the correct region-specific URL:
 
 * US: [logfire-us.pydantic.dev](https://logfire-us.pydantic.dev)
 * EU: [logfire-eu.pydantic.dev](https://logfire-eu.pydantic.dev)
-
-The global domain ([logfire.pydantic.dev](https://logfire.pydantic.dev)) is a convenience entry point only — it redirects to the US region, where the sign-in screen's region picker lets you switch to EU if needed. It is not a separate region and holds no data.
