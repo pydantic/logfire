@@ -3913,12 +3913,10 @@ class TestGetDefaultTypeName:
         assert get_default_type_name(int) == 'int'
 
     def test_non_class_type(self):
-        from typing import Union
-
         from logfire.variables.config import get_default_type_name
 
         # Union types are not `type` instances
-        result = get_default_type_name(Union[int, str])
+        result = get_default_type_name(int | str)
         assert isinstance(result, str)
         assert result  # Should be a non-empty string
 

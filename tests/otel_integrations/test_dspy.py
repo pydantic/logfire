@@ -1,6 +1,5 @@
 import logging
 import os
-import sys
 from unittest import mock
 
 import pydantic
@@ -11,10 +10,6 @@ from inline_snapshot import snapshot
 import logfire
 from logfire._internal.utils import get_version
 from logfire.testing import TestExporter
-
-# Skip entire module if requirements not met
-if sys.version_info < (3, 10):
-    pytest.skip('DSPy instrumentation requires Python 3.10+', allow_module_level=True)
 
 if get_version(pydantic.__version__) < get_version('2.5.0'):
     pytest.skip('DSPy/LiteLLM requires Pydantic >= 2.5 for Discriminator import', allow_module_level=True)

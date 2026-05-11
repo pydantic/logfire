@@ -11,7 +11,7 @@ import platform
 import random
 import sys
 import traceback
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,7 +20,6 @@ from types import TracebackType
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     TypedDict,
     TypeVar,
     Union,
@@ -53,7 +52,7 @@ if TYPE_CHECKING:
 
     from packaging.version import Version
 
-    SysExcInfo = Union[tuple[type[BaseException], BaseException, TracebackType | None], tuple[None, None, None]]
+    SysExcInfo = tuple[type[BaseException], BaseException, TracebackType | None] | tuple[None, None, None]
     """
     The return type of sys.exc_info(): exc_type, exc_val, exc_tb.
     """

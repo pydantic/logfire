@@ -23,7 +23,7 @@ from unittest.mock import Mock
 
 import pytest
 
-pytest.importorskip('claude_agent_sdk', reason='claude_agent_sdk requires Python 3.10+')
+pytest.importorskip('claude_agent_sdk')
 
 from claude_agent_sdk import (
     ClaudeAgentOptions,

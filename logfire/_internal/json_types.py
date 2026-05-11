@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Literal, TypedDict, TypeVar, Union
+from typing import Any, Literal, TypedDict, TypeVar
 
 from typing_extensions import NotRequired
 
@@ -63,7 +63,7 @@ DataType = Literal[
 
 DateFormat = Literal['date', 'date-time', 'time', 'timedelta']
 IPFormat = Literal['ipv4', 'ipv4interface', 'ipv4network', 'ipv6', 'ipv6interface', 'ipv6network']
-Format = Union[Literal['decimal', 'path', 'regex', 'uuid'], DateFormat, IPFormat]
+Format = Literal['decimal', 'path', 'regex', 'uuid'] | DateFormat | IPFormat
 
 
 _EnumBase = TypedDict('_EnumBase', {'x-python-datatype': Literal['Enum']})
@@ -94,7 +94,7 @@ class _EnumBool(_EnumBase):
     enum: list[bool]
 
 
-EnumSchema = Union[_EnumString, _EnumInt, _EnumFloat, _EnumBool, _EnumAny]
+EnumSchema = _EnumString | _EnumInt | _EnumFloat | _EnumBool | _EnumAny
 
 
 class _Items(TypedDict):
@@ -126,7 +126,7 @@ class _ArrayPrefixItems(_ArrayBase, _PrefixItems):
     pass
 
 
-ArraySchema = Union[_ArrayItems, _ArrayPrefixItems, _ArrayBase]
+ArraySchema = _ArrayItems | _ArrayPrefixItems | _ArrayBase
 
 _PropertyDataType = TypedDict('_PropertyDataType', {'x-python-datatype': DataType}, total=False)
 
@@ -142,4 +142,4 @@ class _Property(_PropertyDataType, total=False):
     additionalProperties: JSONSchema
 
 
-JSONSchema = Union[EnumSchema, ArraySchema, _Property]
+JSONSchema = EnumSchema | ArraySchema | _Property
