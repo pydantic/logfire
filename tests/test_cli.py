@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import io
 import json
 import os
@@ -11,9 +12,10 @@ import subprocess
 import sys
 import types
 import webbrowser
-from collections.abc import Generator
+from collections.abc import AsyncIterator, Callable, Coroutine, Generator
 from contextlib import ExitStack
 from pathlib import Path
+from typing import Any, cast
 from unittest.mock import Mock, call, patch
 
 import pytest
@@ -23,6 +25,10 @@ from dirty_equals import IsStr
 from inline_snapshot import snapshot
 
 import logfire._internal.cli
+import logfire._internal.cli.ai_tools as ai_tools
+import logfire._internal.cli.gateway as gateway_cli
+import logfire._internal.cli.gateway_auth as gateway_auth
+import logfire._internal.cli.gateway_proxy as gateway_proxy
 from logfire import VERSION
 from logfire._internal.auth import UserToken
 from logfire._internal.cli import OrgProjectAction, SplitArgs, main
@@ -1698,6 +1704,438 @@ def test_org_project_action() -> None:
     # Can't split multiple `/`.
     with pytest.raises(SystemExit):
         args = parser.parse_args(['--project', 'organization/project/extra'])
+
+
+def test_gateway_help(capsys: pytest.CaptureFixture[str]) -> None:
+    main(['gateway'])
+
+    assert 'usage: logfire gateway {launch,serve}' in capsys.readouterr().err
+
+
+def test_gateway_parses_launch_args() -> None:
+    context = gateway_cli.GatewayCommandContext(
+        raw_args=['launch', 'claude', '--', '--dangerously-skip-permissions'], region='eu', logfire_url=None
+    )
+
+    assert gateway_cli.parse_gateway_command(context) == gateway_cli.GatewayCommand(
+        'launch', ('claude', '--', '--dangerously-skip-permissions')
+    )
+
+
+def test_gateway_parses_bare_integration_as_launch() -> None:
+    context = gateway_cli.GatewayCommandContext(raw_args=['claude'], region=None, logfire_url=None)
+
+    assert gateway_cli.parse_gateway_command(context) == gateway_cli.GatewayCommand('launch', ('claude',))
+
+
+def test_gateway_parses_serve_args() -> None:
+    context = gateway_cli.GatewayCommandContext(raw_args=['serve', '--device-flow'], region=None, logfire_url=None)
+
+    assert gateway_cli.parse_gateway_command(context) == gateway_cli.GatewayCommand('serve', ('--device-flow',))
+
+
+def test_gateway_cli_adapter_exits_for_launch(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[tuple[list[str], gateway_cli.GatewayCommandContext]] = []
+
+    def run_launch(raw_args: list[str], context: gateway_cli.GatewayCommandContext) -> int:
+        calls.append((raw_args, context))
+        return 0
+
+    monkeypatch.setattr(gateway_cli, '_run_launch', run_launch)
+
+    with pytest.raises(SystemExit) as exc_info:
+        main(['--region', 'eu', 'gateway', 'launch', 'claude'])
+
+    assert exc_info.value.code == 0
+    assert calls == [
+        (
+            ['claude'],
+            gateway_cli.GatewayCommandContext(
+                raw_args=['launch', 'claude'], region='eu', logfire_url='https://logfire-eu.pydantic.dev'
+            ),
+        )
+    ]
+
+
+def test_gateway_cli_adapter_exits_for_serve(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[tuple[list[str], gateway_cli.GatewayCommandContext]] = []
+
+    def run_serve(raw_args: list[str], context: gateway_cli.GatewayCommandContext) -> int:
+        calls.append((raw_args, context))
+        return 130
+
+    monkeypatch.setattr(gateway_cli, '_run_serve', run_serve)
+
+    with pytest.raises(SystemExit) as exc_info:
+        main(['gateway', 'serve'])
+
+    assert exc_info.value.code == 130
+    assert calls == [([], gateway_cli.GatewayCommandContext(raw_args=['serve'], region=None, logfire_url=None))]
+
+
+def test_gateway_optional_dependency_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    def missing_dependency(name: str) -> types.ModuleType:
+        raise ImportError(name)
+
+    monkeypatch.setattr(gateway_cli.importlib, 'import_module', missing_dependency)
+
+    with pytest.raises(LogfireConfigError, match=r'pip install "logfire\[gateway\]"'):
+        gateway_cli.load_gateway_deps()
+
+
+def test_ai_tool_opencode_gateway_launch_config(tmp_path: Path) -> None:
+    integration = ai_tools.resolve_ai_tool('opencode')
+
+    env = integration.build_gateway_env(
+        proxy_base='http://127.0.0.1:11465', model='gpt-5', workdir=tmp_path, local_token='local-secret'
+    )
+
+    assert env == {
+        'OPENCODE_PROVIDER': 'logfire-gateway',
+        'XDG_CONFIG_HOME': str(tmp_path / 'opencode-config'),
+        'XDG_DATA_HOME': str(tmp_path / 'opencode-data'),
+    }
+    assert json.loads((tmp_path / 'opencode-config' / 'opencode' / 'opencode.jsonc').read_text()) == snapshot(
+        {
+            '$schema': 'https://opencode.ai/config.json',
+            'provider': {
+                'logfire-gateway': {
+                    'npm': '@ai-sdk/openai-compatible',
+                    'name': 'Logfire Gateway',
+                    'options': {'baseURL': 'http://127.0.0.1:11465/proxy/openai/v1'},
+                    'models': {'gpt-5': {}},
+                }
+            },
+        }
+    )
+    assert json.loads((tmp_path / 'opencode-data' / 'opencode' / 'auth.json').read_text()) == snapshot(
+        {'logfire-gateway': {'type': 'api', 'key': 'local-secret'}}
+    )
+
+
+def test_ai_tool_codex_gateway_launch_config() -> None:
+    integration = ai_tools.resolve_ai_tool('codex')
+
+    env = integration.build_gateway_env(
+        proxy_base='http://127.0.0.1:11465/', model='gpt-5', workdir=Path(), local_token='local-secret'
+    )
+
+    assert env == snapshot(
+        {
+            'OPENAI_BASE_URL': 'http://127.0.0.1:11465/proxy/openai/v1',
+            'OPENAI_API_KEY': 'local-secret',
+            'OPENAI_MODEL': 'gpt-5',
+        }
+    )
+
+
+def test_gateway_local_request_authorization() -> None:
+    local_request_authorized = getattr(gateway_cli, '_local_request_authorized')
+
+    assert local_request_authorized({'authorization': 'Bearer local-secret'}, 'local-secret')
+    assert local_request_authorized({'x-api-key': 'local-secret'}, 'local-secret')
+    assert not local_request_authorized({}, 'local-secret')
+    assert not local_request_authorized({'authorization': 'Bearer wrong'}, 'local-secret')
+
+
+def test_gateway_streaming_detection() -> None:
+    is_streaming = getattr(gateway_cli, '_is_streaming')
+
+    assert is_streaming(b'{"model":"x","stream" : true}')
+    assert not is_streaming(b'{"model":"x","stream": false}')
+    assert not is_streaming(b'not-json')
+
+
+def test_gateway_oauth_callback_html_escapes_query_params() -> None:
+    oauth_done_html = getattr(gateway_cli, '_oauth_done_html')
+
+    html = oauth_done_html('Authorization failed', '<script>alert(1)</script>')
+
+    assert '<script>' not in html
+    assert '&lt;script&gt;alert(1)&lt;/script&gt;' in html
+
+
+class MockOAuthSession:
+    def __init__(self) -> None:
+        self.bootstrap_ready = asyncio.Event()
+        self.browser_bootstrap: gateway_auth.AuthBootstrap | None = None
+        self.device_calls = 0
+        self.refresh_calls = 0
+        self.refresh_error = False
+        self.in_flight_device_calls = 0
+        self.max_in_flight_device_calls = 0
+
+    @property
+    def token_ttl_s(self) -> float:
+        return 123.0
+
+    async def auth_code_flow(self, bootstrap: gateway_auth.AuthBootstrap) -> None:
+        bootstrap.expected_state = 'expected-state'
+        self.browser_bootstrap = bootstrap
+        self.bootstrap_ready.set()
+        await bootstrap.event.wait()
+        if bootstrap.error is not None:
+            raise RuntimeError(bootstrap.error)
+
+    async def device_flow(self) -> None:
+        self.device_calls += 1
+        self.in_flight_device_calls += 1
+        self.max_in_flight_device_calls = max(self.max_in_flight_device_calls, self.in_flight_device_calls)
+        await asyncio.sleep(0)
+        self.in_flight_device_calls -= 1
+
+    async def current_access_token(self) -> str:
+        return 'access-token'
+
+    async def force_refresh(self) -> str:
+        self.refresh_calls += 1
+        if self.refresh_error:
+            raise RuntimeError('refresh failed')
+        return 'refreshed-token'
+
+
+def test_gateway_auth_browser_callback_completes_authorize() -> None:
+    async def run() -> tuple[gateway_auth.OAuthCallbackResult, gateway_auth.AuthBootstrap]:
+        session = MockOAuthSession()
+        auth = gateway_auth.GatewayAuth(
+            cast(gateway_auth.OAuthSession, session), redirect_uri='http://127.0.0.1/callback', flow='browser'
+        )
+        authorize_task = asyncio.create_task(auth.authorize())
+        await session.bootstrap_ready.wait()
+        assert session.browser_bootstrap is not None
+        result = auth.complete_browser_callback(
+            error=None, error_description=None, code='code-123', state='expected-state'
+        )
+        await authorize_task
+        return result, session.browser_bootstrap
+
+    result, bootstrap = asyncio.run(run())
+
+    assert result == gateway_auth.OAuthCallbackResult(
+        'Authorized', 'You can close this tab and return to the terminal.'
+    )
+    assert bootstrap.received_code == 'code-123'
+    assert bootstrap.event.is_set()
+
+
+def test_gateway_auth_recover_after_rejection_uses_refresh_then_reauth() -> None:
+    async def run() -> tuple[bool, bool, bool, MockOAuthSession]:
+        session = MockOAuthSession()
+        auth = gateway_auth.GatewayAuth(
+            cast(gateway_auth.OAuthSession, session), redirect_uri='http://127.0.0.1/callback', flow='device'
+        )
+        refresh_ok = await auth.recover_after_rejection(use_reauth=False)
+        reauth_ok = await auth.recover_after_rejection(use_reauth=True)
+        session.refresh_error = True
+        refresh_failed = await auth.recover_after_rejection(use_reauth=False)
+        return refresh_ok, reauth_ok, refresh_failed, session
+
+    refresh_ok, reauth_ok, refresh_failed, session = asyncio.run(run())
+
+    assert (refresh_ok, reauth_ok, refresh_failed) == (True, True, False)
+    assert session.refresh_calls == 2
+    assert session.device_calls == 1
+
+
+def test_gateway_auth_reauthorization_is_serialized() -> None:
+    async def run() -> MockOAuthSession:
+        session = MockOAuthSession()
+        auth = gateway_auth.GatewayAuth(
+            cast(gateway_auth.OAuthSession, session), redirect_uri='http://127.0.0.1/callback', flow='device'
+        )
+        await asyncio.gather(
+            auth.recover_after_rejection(use_reauth=True),
+            auth.recover_after_rejection(use_reauth=True),
+        )
+        return session
+
+    session = asyncio.run(run())
+
+    assert session.device_calls == 2
+    assert session.max_in_flight_device_calls == 1
+
+
+class MockGatewayResponse:
+    def __init__(self, status_code: int) -> None:
+        self.status_code = status_code
+        self.headers = {'content-type': 'application/json'}
+
+    async def aread(self) -> bytes:
+        return b'{}'
+
+
+class MockGatewayClient:
+    def __init__(self, responses: list[MockGatewayResponse]) -> None:
+        self.responses = responses
+        self.requests: list[dict[str, str]] = []
+
+    async def request(self, _method: str, _url: str, *, headers: dict[str, str], content: bytes) -> MockGatewayResponse:
+        assert content == b'{}'
+        self.requests.append(headers)
+        return self.responses.pop(0)
+
+
+class MockGatewayStreamResponse:
+    def __init__(self, status_code: int) -> None:
+        self.status_code = status_code
+        self.headers = {'content-type': 'text/event-stream'}
+        self.closed = False
+
+    async def aclose(self) -> None:
+        self.closed = True
+
+    async def aiter_raw(self) -> AsyncIterator[bytes]:
+        yield b'data: done\n\n'
+
+
+class MockGatewayStreamingClient:
+    def __init__(self, responses: list[MockGatewayStreamResponse]) -> None:
+        self.responses = responses
+        self.requests: list[dict[str, str]] = []
+
+    def build_request(self, _method: str, _url: str, *, headers: dict[str, str], content: bytes) -> dict[str, Any]:
+        assert content == b'{"stream": true}'
+        return {'headers': headers}
+
+    async def send(self, request: dict[str, Any], *, stream: bool) -> MockGatewayStreamResponse:
+        assert stream is True
+        self.requests.append(cast(dict[str, str], request['headers']))
+        return self.responses.pop(0)
+
+
+class MockGatewayAuth:
+    def __init__(self) -> None:
+        self.tokens = ['token-1', 'token-2', 'token-3']
+        self.recoveries: list[bool] = []
+
+    @property
+    def token_ttl_s(self) -> float:
+        return 0.0
+
+    async def current_access_token(self) -> str:
+        return self.tokens.pop(0)
+
+    async def recover_after_rejection(self, *, use_reauth: bool) -> bool:
+        self.recoveries.append(use_reauth)
+        return True
+
+    def complete_browser_callback(
+        self, *, error: str | None, error_description: str | None, code: str | None, state: str | None
+    ) -> Any:
+        raise AssertionError('callback handling is not used by gateway forwarding')
+
+
+def test_gateway_request_recovers_auth_rejections() -> None:
+    gateway_request = cast(
+        Callable[
+            [gateway_cli.ProxyState, str, str, dict[str, str], bytes], Coroutine[Any, Any, tuple[int, Any, bytes, str]]
+        ],
+        getattr(gateway_cli, '_gateway_request'),
+    )
+    auth = MockGatewayAuth()
+    client = MockGatewayClient([MockGatewayResponse(401), MockGatewayResponse(401), MockGatewayResponse(200)])
+    state = gateway_cli.ProxyState(
+        deps=Mock(),
+        auth=cast(gateway_auth.GatewayAuth, auth),
+        ledger=gateway_proxy.SpendLedger(),
+        client=client,
+        gateway='https://gateway.example.com',
+        region='us',
+        local_token='local-token',
+    )
+
+    status, _headers, body, content_type = asyncio.run(
+        gateway_request(state, 'POST', 'https://gateway.example.com/proxy/openai/v1', {}, b'{}')
+    )
+
+    assert (status, body, content_type) == (200, b'{}', 'application/json')
+    assert auth.recoveries == [False, True]
+    assert [request['Authorization'] for request in client.requests] == [
+        'Bearer token-1',
+        'Bearer token-2',
+        'Bearer token-3',
+    ]
+
+
+def test_gateway_stream_recovers_auth_rejections_and_closes_rejected_streams() -> None:
+    gateway_stream = cast(
+        Callable[[gateway_cli.ProxyState, str, str, dict[str, str], bytes], Coroutine[Any, Any, Any]],
+        getattr(gateway_cli, '_gateway_stream'),
+    )
+    auth = MockGatewayAuth()
+    first_response = MockGatewayStreamResponse(401)
+    second_response = MockGatewayStreamResponse(401)
+    final_response = MockGatewayStreamResponse(200)
+    client = MockGatewayStreamingClient([first_response, second_response, final_response])
+    state = gateway_cli.ProxyState(
+        deps=Mock(),
+        auth=cast(gateway_auth.GatewayAuth, auth),
+        ledger=gateway_proxy.SpendLedger(),
+        client=client,
+        gateway='https://gateway.example.com',
+        region='us',
+        local_token='local-token',
+    )
+
+    response = asyncio.run(
+        gateway_stream(state, 'POST', 'https://gateway.example.com/proxy/openai/v1', {}, b'{"stream": true}')
+    )
+
+    assert response is final_response
+    assert first_response.closed
+    assert second_response.closed
+    assert not final_response.closed
+    assert auth.recoveries == [False, True]
+    assert [request['Authorization'] for request in client.requests] == [
+        'Bearer token-1',
+        'Bearer token-2',
+        'Bearer token-3',
+    ]
+
+
+def test_gateway_extract_usage_ignores_malformed_values() -> None:
+    body = b'{"usage":{"prompt_tokens":null,"completion_tokens":"many","cost_usd":{}}}'
+
+    assert gateway_proxy.extract_usage(body, 'application/json') == (0, 0, 0.0)
+
+
+def test_gateway_extract_usage_ignores_non_finite_or_negative_values() -> None:
+    body = b'{"usage":{"prompt_tokens":1e309,"completion_tokens":-10,"cost_usd":"nan"}}'
+
+    assert gateway_proxy.extract_usage(body, 'application/json') == (0, 0, 0.0)
+
+
+def test_gateway_proxy_records_usage_and_builds_status_payload() -> None:
+    ledger = gateway_proxy.SpendLedger()
+    record = gateway_proxy.usage_record_from_response(
+        route='/proxy/openai/v1/chat/completions',
+        request_body=b'{"model":"gpt-5"}',
+        response_body=b'{"usage":{"prompt_tokens":100,"completion_tokens":20,"cost_usd":0.012345678}}',
+        content_type='application/json; charset=utf-8',
+        now=123.0,
+    )
+    assert record is not None
+    ledger.record(record)
+
+    assert gateway_proxy.gateway_status_payload(
+        region='us', gateway='https://gateway.example.com', token_ttl_s=120.9, ledger=ledger, limit_pending=True
+    ) == snapshot(
+        {
+            'region': 'us',
+            'gateway': 'https://gateway.example.com',
+            'token_ttl_s': 120,
+            'session_spend_usd': 0.012346,
+            'limit_pending': True,
+            'last_call': {
+                'ts': 123.0,
+                'route': '/proxy/openai/v1/chat/completions',
+                'model': 'gpt-5',
+                'input_tokens': 100,
+                'output_tokens': 20,
+                'cost_usd': 0.012345678,
+            },
+        }
+    )
 
 
 def test_instrumented_packages_text_filters_starlette_and_urllib3():

@@ -59,6 +59,30 @@ To also remove the logs, you can run the following command:
 logfire clean --logs
 ```
 
+## AI Gateway (`gateway`)
+
+The gateway command runs a local OAuth proxy for the Logfire AI Gateway and can launch supported AI coding tools with short-lived credentials.
+
+Install the optional dependencies before using it:
+
+```bash
+pip install "logfire[gateway]"
+```
+
+Launch a supported integration through the proxy:
+
+```bash
+logfire gateway launch claude
+```
+
+You can also run only the proxy and configure a tool manually:
+
+```bash
+logfire gateway serve
+```
+
+Use `--device-flow` if browser callback authorization is not available, or pass `--region eu` / `--region us` before `gateway` to select the Logfire region.
+
 ## Inspect (`inspect`)
 
 The inspect command is used to identify the missing OpenTelemetry instrumentation packages in your project.

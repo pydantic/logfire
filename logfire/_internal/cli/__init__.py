@@ -27,6 +27,7 @@ from ..config import REGIONS, LogfireCredentials, get_base_url_from_token
 from ..config_params import ParamManager
 from ..tracer import SDKTracerProvider
 from .auth import parse_auth, parse_logout
+from .gateway import parse_gateway
 from .prompt import parse_prompt
 from .run import collect_instrumentation_context, parse_run, print_otel_summary
 
@@ -337,6 +338,10 @@ def _main(args: list[str] | None = None) -> None:
     cmd_clean.set_defaults(func=parse_clean)
     cmd_clean.add_argument('--data-dir', default='.logfire')
     cmd_clean.add_argument('--logs', action='store_true', default=False, help='remove the Logfire logs')
+
+    cmd_gateway = subparsers.add_parser('gateway', help=parse_gateway.__doc__)
+    cmd_gateway.add_argument('gateway_args', nargs=argparse.REMAINDER)
+    cmd_gateway.set_defaults(func=parse_gateway)
 
     cmd_inspect = subparsers.add_parser('inspect', help=parse_inspect.__doc__)
     cmd_inspect.set_defaults(func=parse_inspect)

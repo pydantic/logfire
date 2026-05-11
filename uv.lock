@@ -3517,6 +3517,13 @@ fastapi = [
 flask = [
     { name = "opentelemetry-instrumentation-flask" },
 ]
+gateway = [
+    { name = "httpx" },
+    { name = "starlette", version = "0.49.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "starlette", version = "1.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "uvicorn", version = "0.39.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "uvicorn", version = "0.46.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+]
 google-genai = [
     { name = "opentelemetry-instrumentation-google-genai" },
 ]
@@ -3711,6 +3718,7 @@ docs = [
 requires-dist = [
     { name = "executing", specifier = ">=2.0.1" },
     { name = "httpx", marker = "extra == 'datasets'", specifier = ">=0.27.2" },
+    { name = "httpx", marker = "extra == 'gateway'", specifier = ">=0.27.0" },
     { name = "openinference-instrumentation-dspy", marker = "extra == 'dspy'", specifier = ">=0" },
     { name = "openinference-instrumentation-litellm", marker = "extra == 'litellm'", specifier = ">=0" },
     { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.39.0,<1.42.0" },
@@ -3747,10 +3755,12 @@ requires-dist = [
     { name = "pydantic", marker = "extra == 'variables'", specifier = ">=2" },
     { name = "pydantic-evals", marker = "python_full_version >= '3.10' and extra == 'datasets'", specifier = ">=1.0.0" },
     { name = "rich", specifier = ">=13.4.2" },
+    { name = "starlette", marker = "extra == 'gateway'", specifier = ">=0.37.0" },
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0.1" },
     { name = "typing-extensions", specifier = ">=4.1.0" },
+    { name = "uvicorn", marker = "extra == 'gateway'", specifier = ">=0.30.0" },
 ]
-provides-extras = ["system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables"]
+provides-extras = ["gateway", "system-metrics", "asgi", "wsgi", "aiohttp", "aiohttp-client", "aiohttp-server", "celery", "django", "fastapi", "flask", "httpx", "starlette", "sqlalchemy", "asyncpg", "psycopg", "psycopg2", "pymongo", "redis", "requests", "mysql", "sqlite3", "aws-lambda", "google-genai", "litellm", "dspy", "datasets", "variables"]
 
 [package.metadata.requires-dev]
 dev = [
