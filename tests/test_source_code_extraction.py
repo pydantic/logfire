@@ -215,3 +215,23 @@ def test_source_code_extraction_nested(exporter: TestExporter) -> None:
             }
         ]
     )
+
+
+def test_get_node_source_text_falls_back_to_unparse(monkeypatch: pytest.MonkeyPatch) -> None:
+    import ast
+
+    from logfire._internal import ast_utils
+
+    node = ast.parse('x', mode='eval').body
+
+    class Source:
+        text = 'x'
+
+    ast_utils.get_node_source_text.cache_clear()
+
+    def get_source_segment(*args: Any) -> str:
+        return 'x +'
+
+    monkeypatch.setattr(ast_utils.ast, 'get_source_segment', get_source_segment)
+
+    assert ast_utils.get_node_source_text(node, Source()) == 'x'
