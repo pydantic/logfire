@@ -89,13 +89,15 @@ A request will be sent to your Azure admin for approval. The Azure admin should 
 ## Step 7: Test the SSO Login
 
 1. Log out of Logfire.
-2. Navigate to your organization's SSO login URL:
+2. Navigate to your organization's SSO login URL — use the URL for the region your Logfire organization is hosted in:
    ```
-   https://logfire.pydantic.dev/login/{org-name}
+   https://logfire-us.pydantic.dev/login/{org-name}
+   https://logfire-eu.pydantic.dev/login/{org-name}
    ```
    *(replace `{org-name}` with your organization's handle)*
 
-    <!-- TODO: confirm whether the regional sign-in region picker is bypassed for org-slug SSO links, or whether SSO users on the EU region need to first pick EU at the picker. Update this step once confirmed. -->
+    !!! tip "Which region?"
+        The org admin who set up SSO will let your team know which region URL to use. SSO is configured in a specific region, so the regional URL is the canonical sign-in URL for your team.
 
 3. Click **Continue with Entra ID** and verify you can log in successfully with your corporate credentials.
 
@@ -143,7 +145,7 @@ Users who joined the organization before SSO was configured need to connect thei
 | 4 | Collect Client ID, Client Secret, and Tenant ID |
 | 5 | Add Azure OIDC provider in Logfire with Issuer URL `https://login.microsoftonline.com/{tenant-id}/v2.0` |
 | 6 | Connect Entra ID and approve the request in Azure |
-| 7 | Test SSO login via `https://logfire.pydantic.dev/login/{org-name}` |
+| 7 | Test SSO login via your region's URL: `https://logfire-us.pydantic.dev/login/{org-name}` or `https://logfire-eu.pydantic.dev/login/{org-name}` |
 | 8 | Share the invite link with your team (redirects to SSO login if unauthenticated) |
 
 ---
