@@ -92,6 +92,29 @@ def test_instrument_claude_agent_sdk():
             },
         )
     )
+
+
+def test_transform_langsmith_span_uses_completion_model_for_request_model():
+    assert _transform_langsmith_span_attributes(
+        {'logfire.span_type': 'span'},
+        {
+            'gen_ai.completion': {
+                'llm_output': {
+                    'model_name': 'claude-sonnet-4-5-20250929',
+                },
+            },
+        },
+    ) == (
+        {
+            'logfire.span_type': 'span',
+        },
+        {
+            'gen_ai.response.model': 'claude-sonnet-4-5-20250929',
+            'gen_ai.request.model': 'claude-sonnet-4-5-20250929',
+            'gen_ai.system': 'anthropic',
+            'gen_ai.provider.name': 'anthropic',
+        },
+    )
     assert _transform_langsmith_span_attributes(
         {
             'logfire.span_type': 'span',
