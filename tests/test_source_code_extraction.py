@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import ast
 import sys
 from typing import Any
 
@@ -8,7 +7,6 @@ import pytest
 from inline_snapshot import snapshot
 
 import logfire
-from logfire._internal import ast_utils
 from logfire._internal.ast_utils import InspectArgumentsFailedWarning
 from logfire.testing import TestExporter
 
@@ -45,22 +43,6 @@ def normalize_filepaths(spans: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     'src/packages/logfire/', ''
                 )
     return spans
-
-
-def test_get_node_source_text_falls_back_to_unparse(monkeypatch: pytest.MonkeyPatch) -> None:
-    node = ast.parse('x', mode='eval').body
-
-    class Source:
-        text = 'x'
-
-    ast_utils.get_node_source_text.cache_clear()
-
-    def get_source_segment(*args: Any) -> str:
-        return 'x +'
-
-    monkeypatch.setattr(ast_utils.ast, 'get_source_segment', get_source_segment)
-
-    assert ast_utils.get_node_source_text(node, Source()) == 'x'
 
 
 def test_source_code_extraction_function(exporter: TestExporter) -> None:
@@ -233,3 +215,23 @@ def test_source_code_extraction_nested(exporter: TestExporter) -> None:
             }
         ]
     )
+
+
+def test_get_node_source_text_falls_back_to_unparse(monkeypatch: pytest.MonkeyPatch) -> None:
+    import ast
+
+    from logfire._internal import ast_utils
+
+    node = ast.parse('x', mode='eval').body
+
+    class Source:
+        text = 'x'
+
+    ast_utils.get_node_source_text.cache_clear()
+
+    def get_source_segment(*args: Any) -> str:
+        return 'x +'
+
+    monkeypatch.setattr(ast_utils.ast, 'get_source_segment', get_source_segment)
+
+    assert ast_utils.get_node_source_text(node, Source()) == 'x'
