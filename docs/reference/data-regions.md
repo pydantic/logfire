@@ -24,14 +24,11 @@ Regions are strictly separated with no data sharing between them:
 
 ## Choosing a Region
 
-Logfire is a regional product: every account, project, and trace lives in exactly one region, and the URL you visit determines which region you're working with. There is no cross-region landing page — visiting [logfire.pydantic.dev](https://logfire.pydantic.dev) sends you straight to the US region's sign-in screen, where you'll see a region picker:
+When you sign up for Logfire at [logfire.pydantic.dev](https://logfire.pydantic.dev) you'll be prompted to choose a region, which sends you to the correct subdomain (either [logfire-us.pydantic.dev](https://logfire-us.pydantic.dev) or [logfire-eu.pydantic.dev](https://logfire-eu.pydantic.dev)). Subsequent log ins happen at `logfire-us.pydantic.dev` or `logfire-eu.pydantic.dev`. Note we do not detect recent sessions cross-region due to our strict data separation policy for our hosting.
 
 ![Region picker on the sign-in screen](../images/logfire-screenshot-region-picker.png)
 
-* **First-time visitors** must pick a region before continuing — there is no default.
-* **Returning users** see their last-used region pre-selected. Picking a different region redirects you to that region's subdomain ([logfire-us.pydantic.dev](https://logfire-us.pydantic.dev) or [logfire-eu.pydantic.dev](https://logfire-eu.pydantic.dev)); picking the same region keeps you where you are.
-
-If you already know which region your account lives in, you can also navigate directly to its subdomain and skip the picker.
+If you open [logfire.pydantic.dev](https://logfire.pydantic.dev) on a new device or in incognito mode, you'll be prompted to pick a region again, even if you already have an account.
 
 Consider the following factors when selecting a region:
 
