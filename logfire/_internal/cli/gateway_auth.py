@@ -21,7 +21,6 @@ console = Console(stderr=True)
 
 @dataclass(frozen=True)
 class OAuthMetadata:
-    registration_endpoint: str
     authorization_endpoint: str
     token_endpoint: str
     device_authorization_endpoint: str
@@ -36,7 +35,6 @@ async def discover_oauth_metadata(http: Any, backend: str) -> OAuthMetadata:
     body = _json_dict(response)
     try:
         return OAuthMetadata(
-            registration_endpoint=body['registration_endpoint'],
             authorization_endpoint=body['authorization_endpoint'],
             token_endpoint=body['token_endpoint'],
             device_authorization_endpoint=body['device_authorization_endpoint'],
@@ -58,72 +56,22 @@ def _json_dict(response: Any) -> dict[str, Any]:
     return cast(dict[str, Any], body)
 
 
-class EphemeralDcrClient:
-    """Disposable public OAuth client registered for one gateway proxy run."""
+GATEWAY_CIMD_PATH = '/.well-known/oauth-clients/logfire-gateway.json'
 
-    def __init__(
-        self,
-        http: Any,
-        metadata: OAuthMetadata,
-        *,
-        scope: str,
-        cleanup_errors: tuple[type[BaseException], ...] = (RuntimeError, OSError, TimeoutError),
-    ) -> None:
+
+class CimdOAuthClient:
+    """Public OAuth client identified by a CIMD URL."""
+
+    def __init__(self, http: Any, metadata: OAuthMetadata, *, client_id: str) -> None:
         self._http = http
         self._metadata = metadata
-        self._scope = scope
-        self._cleanup_errors = cleanup_errors
-        self.client_id: str | None = None
-        self._registration_access_token: str | None = None
-        self._registration_uri: str | None = None
-
-    async def register_for_flow(self, flow: str, *, redirect_uri: str | None = None) -> None:
-        if flow == 'browser':
-            if redirect_uri is None:
-                raise RuntimeError('browser flow requires a redirect URI')
-            grant_types = ['authorization_code', 'refresh_token']
-            redirect_uris: list[str] | None = [redirect_uri]
-        else:
-            grant_types = ['urn:ietf:params:oauth:grant-type:device_code', 'refresh_token']
-            redirect_uris = None
-
-        body: dict[str, Any] = {
-            'client_name': 'Logfire Gateway',
-            'grant_types': grant_types,
-            'token_endpoint_auth_method': 'none',
-            'scope': self._scope,
-        }
-        if redirect_uris is not None:
-            body['redirect_uris'] = redirect_uris
-
-        response = await self._http.post(self._metadata.registration_endpoint, json=body)
-        response.raise_for_status()
-        data = _json_dict(response)
-        self.client_id = data['client_id']
-        self._registration_access_token = data['registration_access_token']
-        self._registration_uri = data.get('registration_client_uri')
+        self.client_id = client_id
 
     async def start_device_authorization(self, data: dict[str, str]) -> Any:
         return await self._http.post(self._metadata.device_authorization_endpoint, data=data)
 
     async def post_token(self, data: dict[str, str]) -> Any:
         return await self._http.post(self._metadata.token_endpoint, data=data)
-
-    async def unregister(self) -> None:
-        if self._registration_uri is None or self._registration_access_token is None:
-            return
-        try:
-            await self._http.delete(
-                self._registration_uri,
-                headers={'Authorization': f'Bearer {self._registration_access_token}'},
-                timeout=10.0,
-            )
-        except self._cleanup_errors as exc:  # pragma: no cover - best-effort cleanup
-            console.print(f'[yellow]OAuth client cleanup failed (non-fatal): {exc}[/]')
-        finally:
-            self.client_id = None
-            self._registration_access_token = None
-            self._registration_uri = None
 
 
 @dataclass
@@ -146,8 +94,8 @@ class OAuthCallbackResult:
 class OAuthSession:
     """In-memory OAuth token state for the local gateway proxy."""
 
-    def __init__(self, dcr: EphemeralDcrClient, metadata: OAuthMetadata, *, resource: str, scope: str) -> None:
-        self._dcr = dcr
+    def __init__(self, client: CimdOAuthClient, metadata: OAuthMetadata, *, resource: str, scope: str) -> None:
+        self._client = client
         self._metadata = metadata
         self._resource = resource
         self._scope = scope
@@ -161,15 +109,13 @@ class OAuthSession:
         return max(0.0, self._expires_at - time.time())
 
     async def auth_code_flow(self, bootstrap: AuthBootstrap) -> None:
-        if self._dcr.client_id is None:
-            raise RuntimeError('OAuth client is not registered')
         verifier, challenge = _pkce_pair()
         state = secrets.token_urlsafe(32)
         bootstrap.code_verifier = verifier
         bootstrap.expected_state = state
         params = {
             'response_type': 'code',
-            'client_id': self._dcr.client_id,
+            'client_id': self._client.client_id,
             'redirect_uri': bootstrap.redirect_uri,
             'scope': self._scope,
             'state': state,
@@ -193,7 +139,7 @@ class OAuthSession:
             {
                 'grant_type': 'authorization_code',
                 'code': bootstrap.received_code,
-                'client_id': self._dcr.client_id,
+                'client_id': self._client.client_id,
                 'redirect_uri': bootstrap.redirect_uri,
                 'code_verifier': verifier,
                 'resource': self._resource,
@@ -203,12 +149,10 @@ class OAuthSession:
         console.print('[green]authorized[/]')
 
     async def device_flow(self) -> None:
-        if self._dcr.client_id is None:
-            raise RuntimeError('OAuth client is not registered')
         verifier, challenge = _pkce_pair()
-        response = await self._dcr.start_device_authorization(
+        response = await self._client.start_device_authorization(
             data={
-                'client_id': self._dcr.client_id,
+                'client_id': self._client.client_id,
                 'resource': self._resource,
                 'scope': self._scope,
                 'code_challenge': challenge,
@@ -230,11 +174,11 @@ class OAuthSession:
         interval = int(data.get('interval', 5))
         while time.time() < deadline:
             await asyncio.sleep(interval)
-            token_response = await self._dcr.post_token(
+            token_response = await self._client.post_token(
                 data={
                     'grant_type': 'urn:ietf:params:oauth:grant-type:device_code',
                     'device_code': data['device_code'],
-                    'client_id': self._dcr.client_id,
+                    'client_id': self._client.client_id,
                     'code_verifier': verifier,
                     'resource': self._resource,
                 },
@@ -256,15 +200,13 @@ class OAuthSession:
         raise RuntimeError('Device flow timed out')
 
     async def refresh(self) -> None:
-        if self._dcr.client_id is None:
-            raise RuntimeError('OAuth client is not registered')
         if self._refresh_token is None:
             raise RuntimeError('no refresh token; reauthorize')
         await self._post_token(
             {
                 'grant_type': 'refresh_token',
                 'refresh_token': self._refresh_token,
-                'client_id': self._dcr.client_id,
+                'client_id': self._client.client_id,
                 'resource': self._resource,
             },
             error_prefix='token refresh failed',
@@ -286,7 +228,7 @@ class OAuthSession:
             return self._access_token
 
     async def _post_token(self, data: dict[str, str], *, error_prefix: str) -> None:
-        response = await self._dcr.post_token(data)
+        response = await self._client.post_token(data)
         if response.status_code != 200:
             raise RuntimeError(f'{error_prefix} ({response.status_code}): {response.text}')
         self._store(_json_dict(response))

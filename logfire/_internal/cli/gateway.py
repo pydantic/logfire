@@ -30,11 +30,12 @@ from .ai_tools import (
     gateway_template_values,
     resolve_ai_tool,
 )
-from .gateway_auth import EphemeralDcrClient, GatewayAuth, OAuthSession, discover_oauth_metadata
+from .gateway_auth import GATEWAY_CIMD_PATH, CimdOAuthClient, GatewayAuth, OAuthSession, discover_oauth_metadata
 from .gateway_proxy import SpendLedger, claude_status_payload, gateway_status_payload, usage_record_from_response
 
 DEFAULT_PORT = 11465
 DEFAULT_SCOPE = 'project:gateway_proxy'
+OAUTH_CALLBACK_PATH = '/callback'
 
 console = Console(stderr=True)
 
@@ -307,6 +308,7 @@ def build_app(deps: GatewayDeps, state: ProxyState) -> Any:
         routes=[
             deps.Route('/_logfire_gateway/status', _handle_status, methods=['GET']),
             deps.Route('/_logfire_gateway/claude/status', _handle_claude_status, methods=['GET']),
+            deps.Route(OAUTH_CALLBACK_PATH, _handle_oauth_callback, methods=['GET']),
             deps.Route('/_logfire_gateway/oauth/callback', _handle_oauth_callback, methods=['GET']),
             deps.Route('/favicon.ico', _handle_favicon, methods=['GET']),
             deps.Route('/{path:path}', _handle_proxy, methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE']),
@@ -326,56 +328,54 @@ def _pick_port(preferred: int) -> int:
             return int(sock.getsockname()[1])
 
 
+def _oauth_redirect_uri(port: int) -> str:
+    return f'http://127.0.0.1:{port}{OAUTH_CALLBACK_PATH}'
+
+
+def _gateway_cimd_client_id(gateway: str) -> str:
+    return f'{gateway.rstrip("/")}{GATEWAY_CIMD_PATH}'
+
+
 @asynccontextmanager
 async def _authorize_and_serve(
     *, deps: GatewayDeps, region: str, backend: str, gateway: str, scope: str, port: int, flow: str
 ) -> AsyncGenerator[tuple[ProxyState, str], None]:
-    redirect_uri = f'http://127.0.0.1:{port}/_logfire_gateway/oauth/callback'
+    redirect_uri = _oauth_redirect_uri(port)
     resource = f'{gateway.rstrip("/")}/proxy'
     async with deps.httpx.AsyncClient(timeout=30.0) as control_client:
         metadata = await discover_oauth_metadata(control_client, backend)
-        http_error = cast(type[BaseException], deps.httpx.HTTPError)
-        dcr = EphemeralDcrClient(
-            control_client,
-            metadata,
-            scope=scope,
-            cleanup_errors=(RuntimeError, OSError, TimeoutError, http_error),
-        )
-        await dcr.register_for_flow(flow, redirect_uri=redirect_uri if flow == 'browser' else None)
-        session = OAuthSession(dcr, metadata, resource=resource, scope=scope)
+        client = CimdOAuthClient(control_client, metadata, client_id=_gateway_cimd_client_id(gateway))
+        session = OAuthSession(client, metadata, resource=resource, scope=scope)
         auth = GatewayAuth(session, redirect_uri=redirect_uri, flow=flow)
-        try:
-            async with deps.httpx.AsyncClient(timeout=180.0) as upstream_client:
-                state = ProxyState(
-                    deps=deps,
-                    auth=auth,
-                    ledger=SpendLedger(),
-                    client=upstream_client,
-                    gateway=gateway.rstrip('/'),
-                    region=region,
-                    local_token=secrets.token_urlsafe(32),
-                )
-                app = build_app(deps, state)
-                config = deps.uvicorn.Config(app, host='127.0.0.1', port=port, log_level='warning', access_log=False)
-                server = deps.uvicorn.Server(config)
-                server_task = asyncio.create_task(server.serve())
-                for _ in range(100):
-                    if server.started or server_task.done():
-                        break
-                    await asyncio.sleep(0.05)
-                try:
-                    if server_task.done():
-                        await server_task
-                    if not server.started:
-                        raise RuntimeError(f'Logfire Gateway proxy failed to start on 127.0.0.1:{port}')
-                    await auth.authorize()
-                    yield state, f'http://127.0.0.1:{port}'
-                finally:
-                    server.should_exit = True
-                    with contextlib.suppress(asyncio.TimeoutError):
-                        await asyncio.wait_for(server_task, timeout=5.0)
-        finally:
-            await dcr.unregister()
+        async with deps.httpx.AsyncClient(timeout=180.0) as upstream_client:
+            state = ProxyState(
+                deps=deps,
+                auth=auth,
+                ledger=SpendLedger(),
+                client=upstream_client,
+                gateway=gateway.rstrip('/'),
+                region=region,
+                local_token=secrets.token_urlsafe(32),
+            )
+            app = build_app(deps, state)
+            config = deps.uvicorn.Config(app, host='127.0.0.1', port=port, log_level='warning', access_log=False)
+            server = deps.uvicorn.Server(config)
+            server_task = asyncio.create_task(server.serve())
+            for _ in range(100):
+                if server.started or server_task.done():
+                    break
+                await asyncio.sleep(0.05)
+            try:
+                if server_task.done():
+                    await server_task
+                if not server.started:
+                    raise RuntimeError(f'Logfire Gateway proxy failed to start on 127.0.0.1:{port}')
+                await auth.authorize()
+                yield state, f'http://127.0.0.1:{port}'
+            finally:
+                server.should_exit = True
+                with contextlib.suppress(asyncio.TimeoutError):
+                    await asyncio.wait_for(server_task, timeout=5.0)
 
 
 def _gateway_urls(args: argparse.Namespace) -> tuple[str, str, str]:

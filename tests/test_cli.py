@@ -17,6 +17,7 @@ from contextlib import ExitStack
 from pathlib import Path
 from typing import Any, cast
 from unittest.mock import Mock, call, patch
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 import requests
@@ -1853,6 +1854,152 @@ def test_gateway_oauth_callback_html_escapes_query_params() -> None:
 
     assert '<script>' not in html
     assert '&lt;script&gt;alert(1)&lt;/script&gt;' in html
+
+
+def test_gateway_cimd_client_id_and_redirect_uri() -> None:
+    gateway_cimd_client_id = getattr(gateway_cli, '_gateway_cimd_client_id')
+    oauth_redirect_uri = getattr(gateway_cli, '_oauth_redirect_uri')
+
+    assert gateway_cimd_client_id('http://localhost:3000/') == (
+        'http://localhost:3000/.well-known/oauth-clients/logfire-gateway.json'
+    )
+    assert oauth_redirect_uri(11465) == 'http://127.0.0.1:11465/callback'
+
+
+class MockOAuthTokenResponse:
+    status_code = 200
+    text = ''
+
+    def json(self) -> dict[str, Any]:
+        return {'access_token': 'access-token', 'refresh_token': 'refresh-token', 'expires_in': 3600}
+
+
+class MockOAuthDeviceResponse:
+    status_code = 200
+    text = ''
+
+    def json(self) -> dict[str, Any]:
+        return {
+            'device_code': 'device-code-123',
+            'user_code': 'user-code-123',
+            'verification_uri': 'http://localhost:3000/activate',
+            'expires_in': 1,
+            'interval': 0,
+        }
+
+
+class MockCimdOAuthClient:
+    client_id = 'http://localhost:3000/.well-known/oauth-clients/logfire-gateway.json'
+
+    def __init__(self) -> None:
+        self.device_authorization_requests: list[dict[str, str]] = []
+        self.token_requests: list[dict[str, str]] = []
+
+    async def start_device_authorization(self, data: dict[str, str]) -> MockOAuthDeviceResponse:
+        self.device_authorization_requests.append(data)
+        return MockOAuthDeviceResponse()
+
+    async def post_token(self, data: dict[str, str]) -> MockOAuthTokenResponse:
+        self.token_requests.append(data)
+        return MockOAuthTokenResponse()
+
+
+def test_gateway_auth_code_flow_uses_cimd_client_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    opened_urls: list[str] = []
+
+    def open_browser(url: str) -> None:
+        opened_urls.append(url)
+
+    monkeypatch.setattr(gateway_auth.webbrowser, 'open', open_browser)
+
+    async def run() -> MockCimdOAuthClient:
+        client = MockCimdOAuthClient()
+        session = gateway_auth.OAuthSession(
+            cast(gateway_auth.CimdOAuthClient, client),
+            gateway_auth.OAuthMetadata(
+                authorization_endpoint='http://localhost:3000/oauth/authorize',
+                token_endpoint='http://localhost:3000/oauth/token',
+                device_authorization_endpoint='http://localhost:3000/oauth/device',
+            ),
+            resource='http://localhost:3000/proxy',
+            scope='project:gateway_proxy',
+        )
+        bootstrap = gateway_auth.AuthBootstrap(redirect_uri='http://127.0.0.1:11465/callback')
+        authorize_task = asyncio.create_task(session.auth_code_flow(bootstrap))
+        for _ in range(10):
+            if opened_urls:
+                break
+            await asyncio.sleep(0)
+        bootstrap.received_code = 'code-123'
+        bootstrap.event.set()
+        await authorize_task
+        return client
+
+    client = asyncio.run(run())
+    assert opened_urls
+    query = {key: values[0] for key, values in parse_qs(urlparse(opened_urls[0]).query).items()}
+    assert query['client_id'] == 'http://localhost:3000/.well-known/oauth-clients/logfire-gateway.json'
+    assert query['redirect_uri'] == 'http://127.0.0.1:11465/callback'
+    assert query['resource'] == 'http://localhost:3000/proxy'
+    assert query['scope'] == 'project:gateway_proxy'
+
+    assert len(client.token_requests) == 1
+    token_request = client.token_requests[0].copy()
+    assert token_request.pop('code_verifier')
+    assert token_request == {
+        'grant_type': 'authorization_code',
+        'code': 'code-123',
+        'client_id': 'http://localhost:3000/.well-known/oauth-clients/logfire-gateway.json',
+        'redirect_uri': 'http://127.0.0.1:11465/callback',
+        'resource': 'http://localhost:3000/proxy',
+    }
+
+
+def test_gateway_device_flow_uses_cimd_client_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    opened_urls: list[str] = []
+
+    def open_browser(url: str) -> None:
+        opened_urls.append(url)
+
+    monkeypatch.setattr(gateway_auth.webbrowser, 'open', open_browser)
+
+    async def run() -> MockCimdOAuthClient:
+        client = MockCimdOAuthClient()
+        session = gateway_auth.OAuthSession(
+            cast(gateway_auth.CimdOAuthClient, client),
+            gateway_auth.OAuthMetadata(
+                authorization_endpoint='http://localhost:3000/oauth/authorize',
+                token_endpoint='http://localhost:3000/oauth/token',
+                device_authorization_endpoint='http://localhost:3000/oauth/device',
+            ),
+            resource='http://localhost:3000/proxy',
+            scope='project:gateway_proxy',
+        )
+        await session.device_flow()
+        return client
+
+    client = asyncio.run(run())
+    assert opened_urls == ['http://localhost:3000/activate']
+
+    assert len(client.device_authorization_requests) == 1
+    device_request = client.device_authorization_requests[0].copy()
+    assert device_request.pop('code_challenge')
+    assert device_request == {
+        'client_id': 'http://localhost:3000/.well-known/oauth-clients/logfire-gateway.json',
+        'resource': 'http://localhost:3000/proxy',
+        'scope': 'project:gateway_proxy',
+        'code_challenge_method': 'S256',
+    }
+
+    assert len(client.token_requests) == 1
+    token_request = client.token_requests[0].copy()
+    assert token_request.pop('code_verifier')
+    assert token_request == {
+        'grant_type': 'urn:ietf:params:oauth:grant-type:device_code',
+        'device_code': 'device-code-123',
+        'client_id': 'http://localhost:3000/.well-known/oauth-clients/logfire-gateway.json',
+        'resource': 'http://localhost:3000/proxy',
+    }
 
 
 class MockOAuthSession:
