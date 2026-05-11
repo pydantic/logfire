@@ -4,6 +4,15 @@ Managed variables can contain **Handlebars templates** (`{{placeholder}}`) and *
 
 This is especially useful for AI applications where prompts are built from reusable fragments and personalized with request-specific data.
 
+!!! note "Install the variables extra"
+    Template rendering requires the `pydantic-handlebars` package, which is installed by the `logfire[variables]` extra on Python 3.10 and later:
+
+    ```bash
+    pip install 'logfire[variables]'
+    ```
+
+    Without this extra, `logfire.template_var()` can still be defined, but resolution falls back to the unrendered value and exposes the dependency error on `resolved.exception`.
+
 ## Template Variables
 
 A **template variable** is a variable whose value contains `{{placeholder}}` expressions that are rendered with typed inputs at resolution time. Define one with `logfire.template_var()`:
@@ -255,11 +264,4 @@ The system detects circular references at write time. If variable A references `
 
 ## Requirements
 
-Template rendering and composition require the [`pydantic-handlebars`](https://github.com/pydantic/pydantic-handlebars) library, which is included in the `variables` extra:
-
-```bash
-pip install 'logfire[variables]'
-```
-
-!!! note "Python 3.10+"
-    `pydantic-handlebars` requires Python 3.10 or later. On Python 3.9, basic variable features (`logfire.var()` without templates or composition) still work, but template rendering is not available.
+`pydantic-handlebars` requires Python 3.10 or later. On Python 3.9, basic variable features (`logfire.var()` without templates or composition) still work, but template rendering is not available.
