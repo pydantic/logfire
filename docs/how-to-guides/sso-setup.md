@@ -94,6 +94,9 @@ A request will be sent to your Azure admin for approval. The Azure admin should 
    https://logfire.pydantic.dev/login/{org-name}
    ```
    *(replace `{org-name}` with your organization's handle)*
+
+    <!-- TODO: confirm whether the regional sign-in region picker is bypassed for org-slug SSO links, or whether SSO users on the EU region need to first pick EU at the picker. Update this step once confirmed. -->
+
 3. Click **Continue with Entra ID** and verify you can log in successfully with your corporate credentials.
 
 ---
