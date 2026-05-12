@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "logfire"
 version = "4.32.1"
 description = "The best Python observability tool! 🪵🔥"
-requires-python = ">=3.9"
+requires-python = ">=3.9.2"
 authors = [
     { name = "Pydantic Team", email = "engineering@pydantic.dev" },
     { name = "Samuel Colvin", email = "samuel@pydantic.dev" },

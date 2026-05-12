@@ -7,10 +7,12 @@ import sys
 
 from rich.console import Console
 
-from logfire._internal.cli.ai_tools import AiToolIntegration, resolve_ai_tool
+from logfire._internal.cli.ai_tools import resolve_ai_tool
 from logfire._internal.cli.auth import parse_auth
 from logfire._internal.client import LogfireClient
 from logfire.exceptions import LogfireConfigError
+
+PROMPT_AI_TOOLS = ('claude', 'codex', 'opencode')
 
 
 def parse_prompt(args: argparse.Namespace) -> None:
@@ -28,12 +30,14 @@ def parse_prompt(args: argparse.Namespace) -> None:
 
     update = bool(getattr(args, 'update', False))
 
-    integration = _selected_mcp_integration(args)
-    if integration is not None:
-        integration.configure_mcp_server(mcp_url=_logfire_mcp_url(client), console=console, update=update)
+    configured_tool = next((tool for tool in PROMPT_AI_TOOLS if getattr(args, tool, False)), None)
+    if configured_tool:
+        resolve_ai_tool(configured_tool).configure_mcp_server(
+            mcp_url=_logfire_mcp_url(client), console=console, update=update
+        )
 
     if not getattr(args, 'project', None):
-        if integration is not None:
+        if configured_tool:
             return
         console.print('The --project option is required unless configuring an agent integration.')
         sys.exit(1)
@@ -44,10 +48,3 @@ def parse_prompt(args: argparse.Namespace) -> None:
 
 def _logfire_mcp_url(client: LogfireClient) -> str:
     return f'{client.base_url.rstrip("/")}/mcp'
-
-
-def _selected_mcp_integration(args: argparse.Namespace) -> AiToolIntegration | None:
-    for name in ('claude', 'codex', 'opencode'):
-        if getattr(args, name):
-            return resolve_ai_tool(name)
-    return None

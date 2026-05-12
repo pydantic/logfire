@@ -410,7 +410,7 @@ def _interactive_integration() -> str:
 def _configure_only(integration: AiToolIntegration, *, region: str, model: str | None) -> None:
     console.print(f'{integration.display_name} ({integration.name})')
     console.print(f'  region: {region}')
-    console.print(f'  model: {model or integration.default_model or "<tool default>"}')
+    console.print(f'  model: {model or "<tool default>"}')
     binary = integration.binary_path()
     console.print(f'  binary: {binary or integration.binary + " (not found)"}')
     env = integration.build_gateway_env(

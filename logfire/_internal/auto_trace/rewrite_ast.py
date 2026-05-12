@@ -3,10 +3,11 @@ from __future__ import annotations
 import ast
 import uuid
 from collections import deque
+from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from functools import partial
-from typing import TYPE_CHECKING, Any, Callable, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import logfire
 

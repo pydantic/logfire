@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import ast
 import sys
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 from importlib.abc import Loader, MetaPathFinder
 from importlib.machinery import ModuleSpec
 from importlib.util import spec_from_loader
 from types import ModuleType
-from typing import TYPE_CHECKING, Any, Callable, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from ..utils import log_internal_error
 from .rewrite_ast import compile_source

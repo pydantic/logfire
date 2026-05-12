@@ -1,5 +1,5 @@
 import sys
-from typing import Callable
+from collections.abc import Callable
 
 import pytest
 from inline_snapshot import snapshot

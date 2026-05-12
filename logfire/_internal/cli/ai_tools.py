@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -27,24 +28,22 @@ class AiToolIntegration:
     name: str
     display_name: str
     binary: str
-    default_model: str | None
     env: dict[str, str]
     model_env: dict[str, str] = field(default_factory=dict[str, str])
     setup: Callable[[str, str | None, Path, str], dict[str, str]] | None = None
     extra_args: Callable[[str, str | None, Path], list[str]] | None = None
     configure_mcp: Callable[[str, Console, bool], None] | None = None
-    aliases: tuple[str, ...] = ()
     description: str = ''
     notice: str = ''
 
     def binary_path(self) -> str | None:
-        return ai_tool_binary_path(self.binary)
+        return shutil.which(self.binary)
 
     def build_gateway_env(
         self, *, proxy_base: str, model: str | None, workdir: Path, local_token: str
     ) -> dict[str, str]:
         values = gateway_template_values(proxy_base, local_token)
-        effective_model = model or self.default_model
+        effective_model = model
         env: dict[str, str] = {}
         for key, value in self.env.items():
             env[key] = value.format(**values) if value else ''
@@ -58,7 +57,7 @@ class AiToolIntegration:
     def build_gateway_extra_args(self, *, proxy_base: str, model: str | None, workdir: Path) -> list[str]:
         if self.extra_args is None:
             return []
-        return self.extra_args(proxy_base.rstrip('/'), model or self.default_model, workdir)
+        return self.extra_args(proxy_base.rstrip('/'), model, workdir)
 
     def configure_mcp_server(self, *, mcp_url: str, console: Console, update: bool) -> None:
         if self.configure_mcp is None:
@@ -69,12 +68,6 @@ class AiToolIntegration:
             )
             raise SystemExit(1)
         self.configure_mcp(mcp_url, console, update)
-
-
-def ai_tool_binary_path(binary: str) -> str | None:
-    import shutil
-
-    return shutil.which(binary)
 
 
 def gateway_template_values(proxy_base: str, local_token: str) -> dict[str, str]:
@@ -94,10 +87,7 @@ def resolve_ai_tool(name: str) -> AiToolIntegration:
     key = name.strip().lower()
     if key in AI_TOOL_INTEGRATIONS:
         return AI_TOOL_INTEGRATIONS[key]
-    for integration in AI_TOOL_INTEGRATIONS.values():
-        if key in integration.aliases:
-            return integration
-    raise SystemExit(f'unknown gateway integration: {name!r}. Available: {", ".join(sorted(AI_TOOL_INTEGRATIONS))}')
+    raise SystemExit(f'unknown AI tool integration: {name!r}. Available: {", ".join(sorted(AI_TOOL_INTEGRATIONS))}')
 
 
 def ai_tool_names() -> tuple[str, ...]:
@@ -126,34 +116,6 @@ def _opencode_gateway_setup(base: str, model: str | None, workdir: Path, local_t
         json.dumps({'logfire-gateway': {'type': 'api', 'key': local_token}})
     )
     return {'XDG_CONFIG_HOME': str(config_home), 'XDG_DATA_HOME': str(data_home)}
-
-
-def _vscode_gateway_setup(base: str, model: str | None, workdir: Path, local_token: str) -> dict[str, str]:
-    user_data_dir = workdir / 'vscode-user'
-    extensions_dir = workdir / 'vscode-extensions'
-    settings_dir = user_data_dir / 'User'
-    settings_dir.mkdir(parents=True, exist_ok=True)
-    extensions_dir.mkdir(parents=True, exist_ok=True)
-    provider_model = model or 'gpt-4o'
-    settings: dict[str, Any] = {
-        'github.copilot.chat.customOAIModels': {
-            provider_model: {
-                'name': f'{provider_model} (Logfire Gateway)',
-                'url': f'{base}/proxy/openai/v1/chat/completions',
-                'toolCalling': True,
-                'vision': False,
-                'maxInputTokens': 128000,
-                'maxOutputTokens': 16000,
-            }
-        },
-        'telemetry.telemetryLevel': 'off',
-    }
-    (settings_dir / 'settings.json').write_text(json.dumps(settings, indent=2))
-    return {'OPENAI_BASE_URL': f'{base}/proxy/openai/v1', 'OPENAI_API_KEY': local_token}
-
-
-def _vscode_gateway_extra_args(_base: str, _model: str | None, workdir: Path) -> list[str]:
-    return [f'--user-data-dir={workdir / "vscode-user"}', f'--extensions-dir={workdir / "vscode-extensions"}']
 
 
 def _configure_claude_mcp(mcp_url: str, console: Console, update: bool) -> None:
@@ -208,7 +170,7 @@ def _configure_codex_mcp(mcp_url: str, console: Console, update: bool) -> None:
 def _configure_opencode_mcp(mcp_url: str, console: Console, update: bool) -> None:
     try:
         output = subprocess.check_output(['git', 'rev-parse', '--show-toplevel'])
-    except subprocess.CalledProcessError:
+    except (subprocess.CalledProcessError, FileNotFoundError):
         root_dir = Path.cwd()
     else:
         root_dir = Path(output.decode('utf-8').strip())
@@ -250,7 +212,6 @@ AI_TOOL_INTEGRATIONS: dict[str, AiToolIntegration] = {
         name='claude',
         display_name='Claude Code',
         binary='claude',
-        default_model=None,
         env={
             'ANTHROPIC_BASE_URL': '{anthropic}',
             'ANTHROPIC_AUTH_TOKEN': '{local_token}',
@@ -264,52 +225,18 @@ AI_TOOL_INTEGRATIONS: dict[str, AiToolIntegration] = {
         name='codex',
         display_name='OpenAI Codex',
         binary='codex',
-        default_model=None,
         env={'OPENAI_BASE_URL': '{openai_v1}', 'OPENAI_API_KEY': '{local_token}'},
         model_env={'OPENAI_MODEL': '{model}'},
         configure_mcp=_configure_codex_mcp,
         description='OpenAI Codex CLI',
     ),
-    'gemini': AiToolIntegration(
-        name='gemini',
-        display_name='Gemini CLI',
-        binary='gemini',
-        default_model=None,
-        env={'GOOGLE_GEMINI_BASE_URL': '{google_vertex}', 'GEMINI_API_KEY': '{local_token}'},
-        model_env={'GEMINI_MODEL': '{model}'},
-        description='Google Gemini CLI',
-    ),
     'opencode': AiToolIntegration(
         name='opencode',
         display_name='OpenCode',
         binary='opencode',
-        default_model='gpt-4o',
         env={'OPENCODE_PROVIDER': 'logfire-gateway'},
         setup=_opencode_gateway_setup,
         configure_mcp=_configure_opencode_mcp,
         description='OpenCode',
-    ),
-    'vscode': AiToolIntegration(
-        name='vscode',
-        display_name='VS Code',
-        binary='code',
-        default_model='gpt-4o',
-        env={},
-        setup=_vscode_gateway_setup,
-        extra_args=_vscode_gateway_extra_args,
-        aliases=('code',),
-        description='VS Code with Copilot Chat BYOK pointed at Logfire Gateway',
-        notice='VS Code opens with a temporary profile; your normal extensions/profile are untouched.',
-    ),
-    'cline': AiToolIntegration(
-        name='cline',
-        display_name='Cline',
-        binary='code',
-        default_model='gpt-4o',
-        env={},
-        setup=_vscode_gateway_setup,
-        extra_args=_vscode_gateway_extra_args,
-        description='Cline in a scoped VS Code profile',
-        notice='Configure Cline as OpenAI-compatible with Base URL {base}/proxy/openai/v1 and any API key.',
     ),
 }
