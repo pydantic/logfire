@@ -97,7 +97,7 @@ class ResolvedVariable(Generic[T_co]):
         'validation_error',
         'other_error',
         'no_provider',
-    ]
+    ]  # we might eventually make this public, but I didn't want to yet
     """Internal field indicating how the value was resolved."""
 
     def __post_init__(self):
