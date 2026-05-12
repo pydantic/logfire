@@ -1,0 +1,14 @@
+tests/test_source_code_extraction.py
+  h_d9dd17644dded9 3,11,231
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "536d9477ad28cdbda1280adcc21db5992118459c",
+  "prompts": {},
+  "humans": {
+    "h_d9dd17644dded9": {
+      "author": "Alex Hall <alex.mojaki@gmail.com>"
+    }
+  }
+}
