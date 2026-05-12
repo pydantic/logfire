@@ -339,9 +339,15 @@ async def _authorize_and_serve(
 def _gateway_urls(args: argparse.Namespace) -> tuple[str, str, str]:
     region_name = args.gateway_region
     preset = GATEWAY_REGIONS[region_name]
-    backend = args.logfire_url or preset.backend
-    gateway = args.gateway_url or os.getenv('LOGFIRE_GATEWAY_URL') or preset.gateway
-    return region_name, backend.rstrip('/'), gateway.rstrip('/')
+    backend = (args.logfire_url or preset.backend).rstrip('/')
+    gateway_override = args.gateway_url or os.getenv('LOGFIRE_GATEWAY_URL')
+    if gateway_override:
+        gateway = gateway_override
+    elif backend != preset.backend:
+        gateway = backend
+    else:
+        gateway = preset.gateway
+    return region_name, backend, gateway.rstrip('/')
 
 
 def _split_extra_args(args: list[str]) -> tuple[list[str], list[str]]:

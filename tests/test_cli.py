@@ -1944,6 +1944,9 @@ def test_gateway_urls_defaults_and_overrides(monkeypatch: pytest.MonkeyPatch) ->
     with patch.dict(os.environ, {'LOGFIRE_GATEWAY_URL': 'https://gateway.env/'}):
         assert gateway_urls(args) == ('eu', 'https://logfire-eu.pydantic.dev', 'https://gateway.env')
 
+    args = argparse.Namespace(gateway_region='us', logfire_url='https://backend.example/', gateway_url=None)
+    assert gateway_urls(args) == ('us', 'https://backend.example', 'https://backend.example')
+
     args = argparse.Namespace(
         gateway_region='us', logfire_url='https://backend.example/', gateway_url='https://gateway.example/'
     )
