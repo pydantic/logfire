@@ -89,27 +89,22 @@ def ai_tool_names() -> tuple[str, ...]:
 
 
 def _opencode_gateway_setup(base: str, model: str | None, workdir: Path, local_token: str) -> dict[str, str]:
-    config_home = workdir / 'opencode-config'
-    data_home = workdir / 'opencode-data'
-    (config_home / 'opencode').mkdir(parents=True, exist_ok=True)
-    (data_home / 'opencode').mkdir(parents=True, exist_ok=True)
-    provider_model = model or 'gpt-4o'
+    config_path = workdir / 'opencode.jsonc'
+    provider_config: dict[str, Any] = {
+        'npm': '@ai-sdk/openai-compatible',
+        'name': 'Logfire Gateway',
+        'options': {'baseURL': f'{base}/proxy/openai/v1', 'apiKey': local_token},
+    }
     cfg: dict[str, Any] = {
         '$schema': 'https://opencode.ai/config.json',
-        'provider': {
-            'logfire-gateway': {
-                'npm': '@ai-sdk/openai-compatible',
-                'name': 'Logfire Gateway',
-                'options': {'baseURL': f'{base}/proxy/openai/v1'},
-                'models': {provider_model: {}},
-            }
-        },
+        'provider': {'logfire-gateway': provider_config},
     }
-    (config_home / 'opencode' / 'opencode.jsonc').write_text(json.dumps(cfg, indent=2))
-    (data_home / 'opencode' / 'auth.json').write_text(
-        json.dumps({'logfire-gateway': {'type': 'api', 'key': local_token}})
-    )
-    return {'XDG_CONFIG_HOME': str(config_home), 'XDG_DATA_HOME': str(data_home)}
+    if model is not None:
+        cfg['model'] = f'logfire-gateway/{model}'
+        provider_config['models'] = {model: {}}
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(json.dumps(cfg, indent=2))
+    return {'OPENCODE_CONFIG': str(config_path)}
 
 
 def _configure_claude_mcp(mcp_url: str, console: Console, update: bool) -> None:

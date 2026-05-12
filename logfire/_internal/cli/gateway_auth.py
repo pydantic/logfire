@@ -56,7 +56,7 @@ def _json_dict(response: Any) -> dict[str, Any]:
     return cast(dict[str, Any], body)
 
 
-GATEWAY_CIMD_PATH = '/.well-known/oauth-clients/logfire-gateway.json'
+GATEWAY_CIMD_PATH = '/clients/logfire-gateway.json'
 
 
 class CimdOAuthClient:

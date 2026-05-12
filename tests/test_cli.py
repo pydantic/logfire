@@ -1821,24 +1821,46 @@ def test_ai_tool_opencode_gateway_launch_config(tmp_path: Path) -> None:
 
     assert env == {
         'OPENCODE_PROVIDER': 'logfire-gateway',
-        'XDG_CONFIG_HOME': str(tmp_path / 'opencode-config'),
-        'XDG_DATA_HOME': str(tmp_path / 'opencode-data'),
+        'OPENCODE_CONFIG': str(tmp_path / 'opencode.jsonc'),
     }
-    assert json.loads((tmp_path / 'opencode-config' / 'opencode' / 'opencode.jsonc').read_text()) == snapshot(
+    assert json.loads((tmp_path / 'opencode.jsonc').read_text()) == snapshot(
+        {
+            '$schema': 'https://opencode.ai/config.json',
+            'model': 'logfire-gateway/gpt-5',
+            'provider': {
+                'logfire-gateway': {
+                    'npm': '@ai-sdk/openai-compatible',
+                    'name': 'Logfire Gateway',
+                    'options': {'apiKey': 'local-secret', 'baseURL': 'http://127.0.0.1:11465/proxy/openai/v1'},
+                    'models': {'gpt-5': {}},
+                }
+            },
+        }
+    )
+
+
+def test_ai_tool_opencode_gateway_launch_config_without_model(tmp_path: Path) -> None:
+    integration = ai_tools.resolve_ai_tool('opencode')
+
+    env = integration.build_gateway_env(
+        proxy_base='http://127.0.0.1:11465', model=None, workdir=tmp_path, local_token='local-secret'
+    )
+
+    assert env == {
+        'OPENCODE_PROVIDER': 'logfire-gateway',
+        'OPENCODE_CONFIG': str(tmp_path / 'opencode.jsonc'),
+    }
+    assert json.loads((tmp_path / 'opencode.jsonc').read_text()) == snapshot(
         {
             '$schema': 'https://opencode.ai/config.json',
             'provider': {
                 'logfire-gateway': {
                     'npm': '@ai-sdk/openai-compatible',
                     'name': 'Logfire Gateway',
-                    'options': {'baseURL': 'http://127.0.0.1:11465/proxy/openai/v1'},
-                    'models': {'gpt-5': {}},
+                    'options': {'apiKey': 'local-secret', 'baseURL': 'http://127.0.0.1:11465/proxy/openai/v1'},
                 }
             },
         }
-    )
-    assert json.loads((tmp_path / 'opencode-data' / 'opencode' / 'auth.json').read_text()) == snapshot(
-        {'logfire-gateway': {'type': 'api', 'key': 'local-secret'}}
     )
 
 
@@ -1925,8 +1947,9 @@ def test_gateway_cimd_client_id_and_redirect_uri() -> None:
     gateway_cimd_client_id = getattr(gateway_cli, '_gateway_cimd_client_id')
     oauth_redirect_uri = getattr(gateway_cli, '_oauth_redirect_uri')
 
-    assert gateway_cimd_client_id('http://localhost:3000/') == (
-        'http://localhost:3000/.well-known/oauth-clients/logfire-gateway.json'
+    assert gateway_cimd_client_id('http://localhost:3000/') == ('http://localhost:3000/clients/logfire-gateway.json')
+    assert gateway_cimd_client_id('https://logfire-eu.pydantic.info') == (
+        'https://logfire.pydantic.info/clients/logfire-gateway.json'
     )
     assert oauth_redirect_uri(11465) == 'http://127.0.0.1:11465/callback'
 
@@ -1939,19 +1962,47 @@ def test_gateway_urls_defaults_and_overrides(monkeypatch: pytest.MonkeyPatch) ->
         'eu',
         'https://logfire-eu.pydantic.dev',
         'https://gateway-eu.pydantic.dev',
+        'https://logfire.pydantic.dev/clients/logfire-gateway.json',
     )
 
     with patch.dict(os.environ, {'LOGFIRE_GATEWAY_URL': 'https://gateway.env/'}):
-        assert gateway_urls(args) == ('eu', 'https://logfire-eu.pydantic.dev', 'https://gateway.env')
+        assert gateway_urls(args) == (
+            'eu',
+            'https://logfire-eu.pydantic.dev',
+            'https://gateway.env',
+            'https://logfire.pydantic.dev/clients/logfire-gateway.json',
+        )
 
     args = argparse.Namespace(gateway_region='us', logfire_url='https://backend.example/', gateway_url=None)
-    assert gateway_urls(args) == ('us', 'https://backend.example', 'https://backend.example')
+    assert gateway_urls(args) == (
+        'us',
+        'https://backend.example',
+        'https://backend.example',
+        'https://backend.example/clients/logfire-gateway.json',
+    )
 
     args = argparse.Namespace(
         gateway_region='us', logfire_url='https://backend.example/', gateway_url='https://gateway.example/'
     )
     with patch.dict(os.environ, {'LOGFIRE_GATEWAY_URL': 'https://gateway.env/'}):
-        assert gateway_urls(args) == ('us', 'https://backend.example', 'https://gateway.example')
+        assert gateway_urls(args) == (
+            'us',
+            'https://backend.example',
+            'https://gateway.example',
+            'https://backend.example/clients/logfire-gateway.json',
+        )
+
+    args = argparse.Namespace(
+        gateway_region='us',
+        logfire_url='https://logfire-eu.pydantic.info/',
+        gateway_url='https://gateway.pydantic.info/',
+    )
+    assert gateway_urls(args) == (
+        'us',
+        'https://logfire-eu.pydantic.info',
+        'https://gateway.pydantic.info',
+        'https://logfire.pydantic.info/clients/logfire-gateway.json',
+    )
 
 
 def test_gateway_pick_port_falls_back_when_preferred_is_busy() -> None:
@@ -2198,7 +2249,7 @@ class MockOAuthDeviceResponse:
 
 
 class MockCimdOAuthClient:
-    client_id = 'http://localhost:3000/.well-known/oauth-clients/logfire-gateway.json'
+    client_id = 'http://localhost:3000/clients/logfire-gateway.json'
 
     def __init__(self) -> None:
         self.device_authorization_requests: list[dict[str, str]] = []
@@ -2247,7 +2298,7 @@ def test_gateway_auth_code_flow_uses_cimd_client_id(monkeypatch: pytest.MonkeyPa
     client = asyncio.run(run())
     assert opened_urls
     query = {key: values[0] for key, values in parse_qs(urlparse(opened_urls[0]).query).items()}
-    assert query['client_id'] == 'http://localhost:3000/.well-known/oauth-clients/logfire-gateway.json'
+    assert query['client_id'] == 'http://localhost:3000/clients/logfire-gateway.json'
     assert query['redirect_uri'] == 'http://127.0.0.1:11465/callback'
     assert query['resource'] == 'http://localhost:3000/proxy'
     assert query['scope'] == 'project:gateway_proxy'
@@ -2258,7 +2309,7 @@ def test_gateway_auth_code_flow_uses_cimd_client_id(monkeypatch: pytest.MonkeyPa
     assert token_request == {
         'grant_type': 'authorization_code',
         'code': 'code-123',
-        'client_id': 'http://localhost:3000/.well-known/oauth-clients/logfire-gateway.json',
+        'client_id': 'http://localhost:3000/clients/logfire-gateway.json',
         'redirect_uri': 'http://127.0.0.1:11465/callback',
         'resource': 'http://localhost:3000/proxy',
     }
@@ -2294,7 +2345,7 @@ def test_gateway_device_flow_uses_cimd_client_id(monkeypatch: pytest.MonkeyPatch
     device_request = client.device_authorization_requests[0].copy()
     assert device_request.pop('code_challenge')
     assert device_request == {
-        'client_id': 'http://localhost:3000/.well-known/oauth-clients/logfire-gateway.json',
+        'client_id': 'http://localhost:3000/clients/logfire-gateway.json',
         'resource': 'http://localhost:3000/proxy',
         'scope': 'project:gateway_proxy',
         'code_challenge_method': 'S256',
@@ -2306,7 +2357,7 @@ def test_gateway_device_flow_uses_cimd_client_id(monkeypatch: pytest.MonkeyPatch
     assert token_request == {
         'grant_type': 'urn:ietf:params:oauth:grant-type:device_code',
         'device_code': 'device-code-123',
-        'client_id': 'http://localhost:3000/.well-known/oauth-clients/logfire-gateway.json',
+        'client_id': 'http://localhost:3000/clients/logfire-gateway.json',
         'resource': 'http://localhost:3000/proxy',
     }
 
@@ -2963,6 +3014,22 @@ def test_gateway_run_launch_config_only(capsys: pytest.CaptureFixture[str]) -> N
     assert 'OPENAI_API_KEY=<generated-local-gateway-token>' in err
 
 
+def test_gateway_run_launch_config_only_opencode_creates_example_config(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    run_launch = getattr(gateway_cli, '_run_launch')
+    context = gateway_cli.GatewayCommandContext(
+        raw_args=['launch', 'opencode', '--config'], region='us', logfire_url=None
+    )
+
+    monkeypatch.setattr(gateway_cli.tempfile, 'gettempdir', lambda: str(tmp_path))
+
+    assert run_launch(['opencode', '--config'], context) == 0
+
+    assert (tmp_path / 'logfire-gateway-example' / 'opencode.jsonc').exists()
+    assert 'OPENCODE_CONFIG=' in capsys.readouterr().err
+
+
 def test_gateway_run_launch_returns_127_for_missing_binary(monkeypatch: pytest.MonkeyPatch) -> None:
     run_launch = getattr(gateway_cli, '_run_launch')
 
@@ -3020,6 +3087,7 @@ def test_gateway_run_launch_dispatches_parsed_options(monkeypatch: pytest.Monkey
     assert captured['region'] == 'eu'
     assert captured['backend'] == 'https://backend.example'
     assert captured['gateway'] == 'https://gateway.example'
+    assert captured['client_id'] == 'https://backend.example/clients/logfire-gateway.json'
     assert captured['port'] == 1235
     assert captured['model'] == 'gpt-5'
     assert captured['flow'] == 'device'
@@ -3064,6 +3132,7 @@ def test_gateway_launch_async_runs_child_with_gateway_env(monkeypatch: pytest.Mo
             region='us',
             backend='https://backend.example',
             gateway='https://gateway.example',
+            client_id='https://backend.example/clients/logfire-gateway.json',
             scope='scope',
             port=9999,
             model='gpt-5',

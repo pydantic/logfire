@@ -17,6 +17,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, cast
+from urllib.parse import urlsplit
 
 from rich.console import Console
 from rich.prompt import Prompt
@@ -80,11 +81,20 @@ def load_gateway_deps() -> GatewayDeps:
 class GatewayRegion:
     backend: str
     gateway: str
+    client_id: str
 
 
 GATEWAY_REGIONS: dict[str, GatewayRegion] = {
-    'us': GatewayRegion('https://logfire-us.pydantic.dev', 'https://gateway-us.pydantic.dev'),
-    'eu': GatewayRegion('https://logfire-eu.pydantic.dev', 'https://gateway-eu.pydantic.dev'),
+    'us': GatewayRegion(
+        'https://logfire-us.pydantic.dev',
+        'https://gateway-us.pydantic.dev',
+        'https://logfire.pydantic.dev/clients/logfire-gateway.json',
+    ),
+    'eu': GatewayRegion(
+        'https://logfire-eu.pydantic.dev',
+        'https://gateway-eu.pydantic.dev',
+        'https://logfire.pydantic.dev/clients/logfire-gateway.json',
+    ),
 }
 
 
@@ -291,19 +301,24 @@ def _oauth_redirect_uri(port: int) -> str:
     return f'http://127.0.0.1:{port}{OAUTH_CALLBACK_PATH}'
 
 
-def _gateway_cimd_client_id(gateway: str) -> str:
-    return f'{gateway.rstrip("/")}{GATEWAY_CIMD_PATH}'
+def _gateway_cimd_client_id(base_url: str) -> str:
+    parsed = urlsplit(base_url.rstrip('/'))
+    if parsed.netloc.startswith('logfire-') and parsed.netloc.endswith('.pydantic.dev'):
+        return f'{parsed.scheme}://logfire.pydantic.dev{GATEWAY_CIMD_PATH}'
+    if parsed.netloc.startswith('logfire-') and parsed.netloc.endswith('.pydantic.info'):
+        return f'{parsed.scheme}://logfire.pydantic.info{GATEWAY_CIMD_PATH}'
+    return f'{base_url.rstrip("/")}{GATEWAY_CIMD_PATH}'
 
 
 @asynccontextmanager
 async def _authorize_and_serve(
-    *, deps: GatewayDeps, region: str, backend: str, gateway: str, scope: str, port: int, flow: str
+    *, deps: GatewayDeps, region: str, backend: str, gateway: str, client_id: str, scope: str, port: int, flow: str
 ) -> AsyncGenerator[tuple[ProxyState, str], None]:
     redirect_uri = _oauth_redirect_uri(port)
     resource = f'{gateway.rstrip("/")}/proxy'
     async with deps.httpx.AsyncClient(timeout=30.0) as control_client:
         metadata = await discover_oauth_metadata(control_client, backend)
-        client = CimdOAuthClient(control_client, metadata, client_id=_gateway_cimd_client_id(gateway))
+        client = CimdOAuthClient(control_client, metadata, client_id=client_id)
         session = OAuthSession(client, metadata, resource=resource, scope=scope)
         auth = GatewayAuth(session, redirect_uri=redirect_uri, flow=flow)
         async with deps.httpx.AsyncClient(timeout=180.0) as upstream_client:
@@ -336,7 +351,7 @@ async def _authorize_and_serve(
                     await asyncio.wait_for(server_task, timeout=5.0)
 
 
-def _gateway_urls(args: argparse.Namespace) -> tuple[str, str, str]:
+def _gateway_urls(args: argparse.Namespace) -> tuple[str, str, str, str]:
     region_name = args.gateway_region
     preset = GATEWAY_REGIONS[region_name]
     backend = (args.logfire_url or preset.backend).rstrip('/')
@@ -347,7 +362,8 @@ def _gateway_urls(args: argparse.Namespace) -> tuple[str, str, str]:
         gateway = backend
     else:
         gateway = preset.gateway
-    return region_name, backend, gateway.rstrip('/')
+    client_id = preset.client_id if backend == preset.backend else _gateway_cimd_client_id(backend)
+    return region_name, backend, gateway.rstrip('/'), client_id
 
 
 def _split_extra_args(args: list[str]) -> tuple[list[str], list[str]]:
@@ -363,6 +379,7 @@ def _launch_epilog() -> str:
 
 
 def _parse_launch_args(raw: list[str], context: GatewayCommandContext) -> argparse.Namespace:
+    has_gateway_region = any(arg == '--region' or arg.startswith('--region=') for arg in raw)
     parser = argparse.ArgumentParser(
         prog='logfire gateway launch',
         description='Launch an AI coding tool through the Logfire AI Gateway.',
@@ -373,22 +390,29 @@ def _parse_launch_args(raw: list[str], context: GatewayCommandContext) -> argpar
     parser.add_argument('--config', action='store_true', help='print the integration configuration without launching')
     parser.add_argument('--port', type=int, default=DEFAULT_PORT)
     parser.add_argument('--device-flow', action='store_true', help='use OAuth device flow instead of browser callback')
+    parser.add_argument(
+        '--region', dest='gateway_region', choices=sorted(GATEWAY_REGIONS), default=context.region or 'us'
+    )
     parser.add_argument('--gateway-url', default=None, help='override the Logfire AI Gateway URL')
     parser.add_argument('-v', '--verbose', action='store_true')
-    parser.set_defaults(logfire_url=context.logfire_url, gateway_region=context.region or 'us')
+    parser.set_defaults(logfire_url=None if has_gateway_region else context.logfire_url)
     return parser.parse_args(raw)
 
 
 def _parse_serve_args(raw: list[str], context: GatewayCommandContext) -> argparse.Namespace:
+    has_gateway_region = any(arg == '--region' or arg.startswith('--region=') for arg in raw)
     parser = argparse.ArgumentParser(
         prog='logfire gateway serve',
         description='Run the Logfire AI Gateway local OAuth proxy without launching a child tool.',
     )
     parser.add_argument('--port', type=int, default=DEFAULT_PORT)
     parser.add_argument('--device-flow', action='store_true')
+    parser.add_argument(
+        '--region', dest='gateway_region', choices=sorted(GATEWAY_REGIONS), default=context.region or 'us'
+    )
     parser.add_argument('--gateway-url', default=None, help='override the Logfire AI Gateway URL')
     parser.add_argument('-v', '--verbose', action='store_true')
-    parser.set_defaults(logfire_url=context.logfire_url, gateway_region=context.region or 'us')
+    parser.set_defaults(logfire_url=None if has_gateway_region else context.logfire_url)
     return parser.parse_args(raw)
 
 
@@ -431,7 +455,7 @@ def _run_launch(raw: list[str], context: GatewayCommandContext) -> int:
         console.print(f'[red]error:[/] {integration.display_name} binary {integration.binary!r} was not found on PATH.')
         return 127
     deps = load_gateway_deps()
-    region, backend, gateway = _gateway_urls(args)
+    region, backend, gateway, client_id = _gateway_urls(args)
     port = _pick_port(args.port)
     return asyncio.run(
         _launch_async(
@@ -441,6 +465,7 @@ def _run_launch(raw: list[str], context: GatewayCommandContext) -> int:
             region=region,
             backend=backend,
             gateway=gateway,
+            client_id=client_id,
             scope=DEFAULT_SCOPE,
             port=port,
             model=args.model,
@@ -457,6 +482,7 @@ async def _launch_async(
     region: str,
     backend: str,
     gateway: str,
+    client_id: str,
     scope: str,
     port: int,
     model: str | None,
@@ -466,7 +492,14 @@ async def _launch_async(
     if binary is None:
         return 127
     async with _authorize_and_serve(
-        deps=deps, region=region, backend=backend, gateway=gateway, scope=scope, port=port, flow=flow
+        deps=deps,
+        region=region,
+        backend=backend,
+        gateway=gateway,
+        client_id=client_id,
+        scope=scope,
+        port=port,
+        flow=flow,
     ) as (_state, proxy_base):
         workdir = Path(tempfile.mkdtemp(prefix='logfire-gateway-'))
         try:
@@ -486,13 +519,14 @@ async def _launch_async(
 
 async def _run_serve_async(args: argparse.Namespace) -> int:
     deps = load_gateway_deps()
-    region, backend, gateway = _gateway_urls(args)
+    region, backend, gateway, client_id = _gateway_urls(args)
     port = _pick_port(args.port)
     async with _authorize_and_serve(
         deps=deps,
         region=region,
         backend=backend,
         gateway=gateway,
+        client_id=client_id,
         scope=DEFAULT_SCOPE,
         port=port,
         flow='device' if args.device_flow else 'browser',
