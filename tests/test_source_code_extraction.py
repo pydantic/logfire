@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import sys
 from typing import Any
 
@@ -7,6 +8,7 @@ import pytest
 from inline_snapshot import snapshot
 
 import logfire
+from logfire._internal import ast_utils
 from logfire._internal.ast_utils import InspectArgumentsFailedWarning
 from logfire.testing import TestExporter
 
@@ -60,7 +62,7 @@ def test_source_code_extraction_function(exporter: TestExporter) -> None:
                 'end_time': 2000000000,
                 'attributes': {
                     'code.filepath': 'tests/test_source_code_extraction.py',
-                    'code.lineno': 15,
+                    'code.lineno': 17,
                     'code.function': 'func',
                     'logfire.msg_template': 'from function',
                     'logfire.span_type': 'span',
@@ -87,7 +89,7 @@ def test_source_code_extraction_method(exporter: TestExporter) -> None:
                 'end_time': 2000000000,
                 'attributes': {
                     'code.filepath': 'tests/test_source_code_extraction.py',
-                    'code.lineno': 21,
+                    'code.lineno': 23,
                     'code.function': code_function,
                     'logfire.msg_template': 'from method',
                     'logfire.span_type': 'span',
@@ -206,7 +208,7 @@ def test_source_code_extraction_nested(exporter: TestExporter) -> None:
                 'end_time': 2000000000,
                 'attributes': {
                     'code.filepath': 'tests/test_source_code_extraction.py',
-                    'code.lineno': 29,
+                    'code.lineno': 31,
                     'code.function': code_function,
                     'logfire.msg_template': 'hi!',
                     'logfire.span_type': 'span',
@@ -218,20 +220,14 @@ def test_source_code_extraction_nested(exporter: TestExporter) -> None:
 
 
 def test_get_node_source_text_falls_back_to_unparse(monkeypatch: pytest.MonkeyPatch) -> None:
-    import ast
-
-    from logfire._internal import ast_utils
-
     node = ast.parse('x', mode='eval').body
 
     class Source:
         text = 'x'
 
-    ast_utils.get_node_source_text.cache_clear()
-
     def get_source_segment(*args: Any) -> str:
         return 'x +'
 
-    monkeypatch.setattr(ast_utils.ast, 'get_source_segment', get_source_segment)
+    monkeypatch.setattr(ast, 'get_source_segment', get_source_segment)
 
     assert ast_utils.get_node_source_text(node, Source()) == 'x'
