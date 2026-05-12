@@ -12,7 +12,8 @@ except ImportError:
         "    pip install 'logfire[aws-lambda]'"
     )
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 LambdaEvent = Any
 LambdaHandler = Callable[[LambdaEvent, Any], Any]
