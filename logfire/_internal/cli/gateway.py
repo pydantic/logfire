@@ -61,7 +61,9 @@ def load_gateway_deps() -> GatewayDeps:
     except ImportError as exc:
         raise LogfireConfigError(
             'The `logfire gateway` command requires extra dependencies. Install them with:\n'
-            '  pip install "logfire[gateway]"'
+            '  pip install "logfire[gateway]"\n'
+            'or, if using uv:\n'
+            '  uv add "logfire[gateway]"'
         ) from exc
     return GatewayDeps(
         httpx=httpx,
