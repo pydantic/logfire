@@ -3,7 +3,6 @@
 
 import asyncio
 import os
-import sys
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
@@ -28,7 +27,6 @@ except ImportError:
         assert False
 
 pytestmark = [
-    pytest.mark.skipif(sys.version_info < (3, 10), reason='Requires Python 3.10 or higher'),
     pytest.mark.skipif(
         get_version(pydantic.__version__) < get_version('2.11'), reason='Requires Pydantic 2.11 or higher'
     ),

@@ -2,14 +2,15 @@ from __future__ import annotations as _annotations
 
 import os
 import sys
+import typing
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Literal, TypeVar, Union
+from types import UnionType
+from typing import Any, Literal, TypeVar, get_args, get_origin
 
 from opentelemetry.sdk.environment_variables import OTEL_SERVICE_NAME
-from typing_extensions import get_args, get_origin
 
 from logfire.exceptions import LogfireConfigError
 
@@ -20,13 +21,11 @@ from .utils import read_toml_file
 
 T = TypeVar('T')
 
-slots_true = {'slots': True} if sys.version_info >= (3, 10) else {}
-
 PydanticPluginRecordValues = Literal['off', 'all', 'failure', 'metrics']
 """Possible values for the `pydantic_plugin_record` parameter."""
 
 
-@dataclass(**slots_true)
+@dataclass(slots=True)
 class ConfigParam:
     """A parameter that can be configured for a Logfire instance."""
 
@@ -54,7 +53,7 @@ _send_to_logfire_default = _DefaultCallback(lambda: 'PYTEST_VERSION' not in os.e
 """When running under pytest, don't send spans to Logfire by default."""
 
 # fmt: off
-SEND_TO_LOGFIRE = ConfigParam(env_vars=['LOGFIRE_SEND_TO_LOGFIRE'], allow_file_config=True, default=_send_to_logfire_default, tp=Union[bool, Literal['if-token-present']])
+SEND_TO_LOGFIRE = ConfigParam(env_vars=['LOGFIRE_SEND_TO_LOGFIRE'], allow_file_config=True, default=_send_to_logfire_default, tp=bool | Literal['if-token-present'])
 """Whether to send spans to Logfire."""
 MIN_LEVEL = ConfigParam(env_vars=['LOGFIRE_MIN_LEVEL'], allow_file_config=True, default=None, tp=LevelName)
 """Minimum log level for logs and spans to be created. By default, all logs and spans are created."""
@@ -211,7 +210,7 @@ class ParamManager:
             return value
         if get_origin(tp) is Literal:
             return _check_literal(value, name, tp)
-        if get_origin(tp) is Union:
+        if get_origin(tp) in (typing.Union, UnionType):
             for arg in get_args(tp):
                 try:
                     return self._cast(value, name, arg)

@@ -4,7 +4,7 @@ import random
 import re
 from collections.abc import Mapping, Sequence
 from functools import cached_property
-from typing import Annotated, Any, Literal, Union
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, ValidationError, WithJsonSchema, field_validator, model_validator
 from typing_extensions import TypeAliasType
@@ -176,16 +176,14 @@ class KeyIsNotPresent(BaseModel):
 Condition = TypeAliasType(
     'Condition',
     Annotated[
-        Union[
-            ValueEquals,
-            ValueDoesNotEqual,
-            ValueIsIn,
-            ValueIsNotIn,
-            ValueMatchesRegex,
-            ValueDoesNotMatchRegex,
-            KeyIsPresent,
-            KeyIsNotPresent,
-        ],
+        ValueEquals
+        | ValueDoesNotEqual
+        | ValueIsIn
+        | ValueIsNotIn
+        | ValueMatchesRegex
+        | ValueDoesNotMatchRegex
+        | KeyIsPresent
+        | KeyIsNotPresent,
         Discriminator('kind'),
     ],
 )
@@ -292,6 +290,8 @@ class VariableConfig(BaseModel):
     # * To migrate variable names, update the "aliases" field on the VariableConfig
     name: VariableName
     """Unique name identifying this variable."""
+    description: str | None = None
+    """Description of the variable."""
     labels: dict[str, LabeledValue | LabelRef] = {}
     """Mapping of label names to their configurations."""
     rollout: Rollout
@@ -300,10 +300,6 @@ class VariableConfig(BaseModel):
     """Conditional overrides evaluated in order; first match takes precedence."""
     latest_version: LatestVersion | None = None
     """The latest (highest) version of the variable, if any versions exist."""
-    description: str | None = (
-        None  # Note: When we drop support for python 3.9, move this field immediately after `name`
-    )
-    """Description of the variable."""
     json_schema: dict[str, Any] | None = None
     """JSON schema describing the expected type of this variable's values."""
     type_name: str | None = None

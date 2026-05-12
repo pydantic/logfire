@@ -18,7 +18,6 @@ from typing import (  # NOQA UP035
     Literal,
     Type,
     TypeVar,
-    Union,
     cast,
     overload,
 )
@@ -139,7 +138,7 @@ if TYPE_CHECKING:
     # 1. It's convenient to pass the result of sys.exc_info() directly
     # 2. It mirrors the exc_info argument of the stdlib logging methods
     # 3. The argument name exc_info is very suggestive of the sys function.
-    ExcInfo = Union[SysExcInfo, BaseException, bool, None]
+    ExcInfo = SysExcInfo | BaseException | bool | None
 
 T = TypeVar('T')
 
@@ -3117,7 +3116,7 @@ class NoopSpan:
         return False
 
 
-AttributesValueType = TypeVar('AttributesValueType', bound=Union[Any, otel_types.AttributeValue])
+AttributesValueType = TypeVar('AttributesValueType', bound=Any | otel_types.AttributeValue)
 
 
 def prepare_otlp_attributes(attributes: dict[str, Any]) -> dict[str, otel_types.AttributeValue]:
