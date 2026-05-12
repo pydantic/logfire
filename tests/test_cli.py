@@ -2365,13 +2365,19 @@ def test_gateway_device_flow_uses_cimd_client_id(monkeypatch: pytest.MonkeyPatch
 
 class MockOAuthSession:
     def __init__(self) -> None:
-        self.bootstrap_ready = asyncio.Event()
+        self._bootstrap_ready: asyncio.Event | None = None
         self.browser_bootstrap: gateway_auth.AuthBootstrap | None = None
         self.device_calls = 0
         self.refresh_calls = 0
         self.refresh_error = False
         self.in_flight_device_calls = 0
         self.max_in_flight_device_calls = 0
+
+    @property
+    def bootstrap_ready(self) -> asyncio.Event:
+        if self._bootstrap_ready is None:
+            self._bootstrap_ready = asyncio.Event()
+        return self._bootstrap_ready
 
     async def auth_code_flow(self, bootstrap: gateway_auth.AuthBootstrap) -> None:
         bootstrap.expected_state = 'expected-state'
@@ -2550,29 +2556,34 @@ def test_gateway_auth_cimd_client_posts_to_metadata_urls() -> None:
 
 
 def test_gateway_auth_browser_callback_error_branches() -> None:
-    auth = gateway_auth.GatewayAuth(
-        cast(gateway_auth.OAuthSession, MockOAuthSession()), redirect_uri='http://127.0.0.1/callback', flow='browser'
-    )
+    async def run() -> None:
+        auth = gateway_auth.GatewayAuth(
+            cast(gateway_auth.OAuthSession, MockOAuthSession()),
+            redirect_uri='http://127.0.0.1/callback',
+            flow='browser',
+        )
 
-    assert auth.complete_browser_callback(error=None, error_description=None, code='code', state='state') == (
-        gateway_auth.OAuthCallbackResult('No pending authorization', 'Return to the terminal.', status_code=400)
-    )
+        assert auth.complete_browser_callback(error=None, error_description=None, code='code', state='state') == (
+            gateway_auth.OAuthCallbackResult('No pending authorization', 'Return to the terminal.', status_code=400)
+        )
 
-    bootstrap = gateway_auth.AuthBootstrap(redirect_uri='http://127.0.0.1/callback', expected_state='expected')
-    setattr(auth, '_auth_bootstrap', bootstrap)
-    assert auth.complete_browser_callback(
-        error='access_denied', error_description='nope', code=None, state=None
-    ) == gateway_auth.OAuthCallbackResult('Authorization failed', 'access_denied: nope', status_code=400)
-    assert bootstrap.error == 'access_denied: nope'
-    assert bootstrap.event.is_set()
+        bootstrap = gateway_auth.AuthBootstrap(redirect_uri='http://127.0.0.1/callback', expected_state='expected')
+        setattr(auth, '_auth_bootstrap', bootstrap)
+        assert auth.complete_browser_callback(
+            error='access_denied', error_description='nope', code=None, state=None
+        ) == gateway_auth.OAuthCallbackResult('Authorization failed', 'access_denied: nope', status_code=400)
+        assert bootstrap.error == 'access_denied: nope'
+        assert bootstrap.event.is_set()
 
-    bootstrap = gateway_auth.AuthBootstrap(redirect_uri='http://127.0.0.1/callback', expected_state='expected')
-    setattr(auth, '_auth_bootstrap', bootstrap)
-    assert auth.complete_browser_callback(error=None, error_description=None, code='code', state='wrong') == (
-        gateway_auth.OAuthCallbackResult('Authorization failed', 'invalid or missing code/state', status_code=400)
-    )
-    assert bootstrap.error == 'invalid or missing code/state'
-    assert bootstrap.event.is_set()
+        bootstrap = gateway_auth.AuthBootstrap(redirect_uri='http://127.0.0.1/callback', expected_state='expected')
+        setattr(auth, '_auth_bootstrap', bootstrap)
+        assert auth.complete_browser_callback(error=None, error_description=None, code='code', state='wrong') == (
+            gateway_auth.OAuthCallbackResult('Authorization failed', 'invalid or missing code/state', status_code=400)
+        )
+        assert bootstrap.error == 'invalid or missing code/state'
+        assert bootstrap.event.is_set()
+
+    asyncio.run(run())
 
 
 def test_gateway_auth_code_flow_error_and_missing_code(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -2684,128 +2695,144 @@ def test_gateway_device_flow_errors_and_polling(monkeypatch: pytest.MonkeyPatch)
             scope='project:gateway_proxy',
         )
 
+    async def run_device_flow(client: ConfigurableDeviceClient) -> None:
+        await make_session(client).device_flow()
+
     with pytest.raises(RuntimeError, match=r'Device authorization failed \(500\): response-text'):
-        asyncio.run(make_session(ConfigurableDeviceClient(ConfigurableOAuthResponse(500, {}), [])).device_flow())
+        asyncio.run(run_device_flow(ConfigurableDeviceClient(ConfigurableOAuthResponse(500, {}), [])))
 
     client = ConfigurableDeviceClient(
         device_start_response(interval=0), [device_token_error('authorization_pending'), device_token_success()]
     )
-    asyncio.run(make_session(client).device_flow())
+    asyncio.run(run_device_flow(client))
     assert len(client.token_requests) == 2
 
     sleep_intervals.clear()
     client = ConfigurableDeviceClient(
         device_start_response(interval=0), [device_token_error('slow_down'), device_token_success()]
     )
-    asyncio.run(make_session(client).device_flow())
+    asyncio.run(run_device_flow(client))
     assert sleep_intervals == [0, 5]
 
     with pytest.raises(RuntimeError, match='Device flow failed'):
         asyncio.run(
-            make_session(
+            run_device_flow(
                 ConfigurableDeviceClient(device_start_response(interval=0), [device_token_error('invalid_grant')])
-            ).device_flow()
+            )
         )
 
     with pytest.raises(RuntimeError, match='Device flow timed out'):
-        asyncio.run(make_session(ConfigurableDeviceClient(device_start_response(expires_in=0), [])).device_flow())
+        asyncio.run(run_device_flow(ConfigurableDeviceClient(device_start_response(expires_in=0), [])))
 
 
 def test_gateway_oauth_session_token_error_paths() -> None:
-    metadata = gateway_auth.OAuthMetadata(
-        authorization_endpoint='https://backend.example/authorize',
-        token_endpoint='https://backend.example/token',
-        device_authorization_endpoint='https://backend.example/device',
-    )
-    client = ConfigurableDeviceClient(device_start_response(), [])
-    session = gateway_auth.OAuthSession(
-        cast(gateway_auth.CimdOAuthClient, client),
-        metadata,
-        resource='https://backend.example/proxy',
-        scope='project:gateway_proxy',
-    )
+    async def run() -> None:
+        metadata = gateway_auth.OAuthMetadata(
+            authorization_endpoint='https://backend.example/authorize',
+            token_endpoint='https://backend.example/token',
+            device_authorization_endpoint='https://backend.example/device',
+        )
+        client = ConfigurableDeviceClient(device_start_response(), [])
+        session = gateway_auth.OAuthSession(
+            cast(gateway_auth.CimdOAuthClient, client),
+            metadata,
+            resource='https://backend.example/proxy',
+            scope='project:gateway_proxy',
+        )
 
-    with pytest.raises(RuntimeError, match='gateway proxy used before authorization completed'):
-        asyncio.run(session.current_access_token())
-    with pytest.raises(RuntimeError, match='no refresh token; reauthorize'):
-        asyncio.run(session.refresh())
+        with pytest.raises(RuntimeError, match='gateway proxy used before authorization completed'):
+            await session.current_access_token()
+        with pytest.raises(RuntimeError, match='no refresh token; reauthorize'):
+            await session.refresh()
 
-    client.token_responses.append(ConfigurableOAuthResponse(500, {}))
-    with pytest.raises(RuntimeError, match=r'token exchange failed \(500\): response-text'):
-        post_token = cast(Callable[..., Coroutine[Any, Any, None]], getattr(session, '_post_token'))
-        asyncio.run(post_token({'grant_type': 'authorization_code'}, error_prefix='token exchange failed'))
+        client.token_responses.append(ConfigurableOAuthResponse(500, {}))
+        with pytest.raises(RuntimeError, match=r'token exchange failed \(500\): response-text'):
+            post_token = cast(Callable[..., Coroutine[Any, Any, None]], getattr(session, '_post_token'))
+            await post_token({'grant_type': 'authorization_code'}, error_prefix='token exchange failed')
 
-    setattr(session, '_access_token', 'old-token')
-    setattr(session, '_refresh_token', 'refresh-token')
-    setattr(session, '_expires_at', 0.0)
-    client.token_responses.append(ConfigurableOAuthResponse(200, {'access_token': 'new-token', 'expires_in': 3600}))
+        setattr(session, '_access_token', 'old-token')
+        setattr(session, '_refresh_token', 'refresh-token')
+        setattr(session, '_expires_at', 0.0)
+        client.token_responses.append(ConfigurableOAuthResponse(200, {'access_token': 'new-token', 'expires_in': 3600}))
 
-    assert asyncio.run(session.current_access_token()) == 'new-token'
-    assert client.token_requests[-1] == {
-        'grant_type': 'refresh_token',
-        'refresh_token': 'refresh-token',
-        'client_id': 'client-id',
-        'resource': 'https://backend.example/proxy',
-    }
+        assert await session.current_access_token() == 'new-token'
+        assert client.token_requests[-1] == {
+            'grant_type': 'refresh_token',
+            'refresh_token': 'refresh-token',
+            'client_id': 'client-id',
+            'resource': 'https://backend.example/proxy',
+        }
+
+    asyncio.run(run())
 
 
 def test_gateway_oauth_session_refresh_failure_falls_back_to_valid_token() -> None:
-    client = ConfigurableDeviceClient(device_start_response(), [ConfigurableOAuthResponse(500, {})])
-    session = gateway_auth.OAuthSession(
-        cast(gateway_auth.CimdOAuthClient, client),
-        gateway_auth.OAuthMetadata(
-            authorization_endpoint='https://backend.example/authorize',
-            token_endpoint='https://backend.example/token',
-            device_authorization_endpoint='https://backend.example/device',
-        ),
-        resource='https://backend.example/proxy',
-        scope='project:gateway_proxy',
-    )
-    setattr(session, '_access_token', 'old-token')
-    setattr(session, '_refresh_token', 'refresh-token')
-    setattr(session, '_expires_at', time.time() + 60)
+    async def run() -> tuple[str, int]:
+        client = ConfigurableDeviceClient(device_start_response(), [ConfigurableOAuthResponse(500, {})])
+        session = gateway_auth.OAuthSession(
+            cast(gateway_auth.CimdOAuthClient, client),
+            gateway_auth.OAuthMetadata(
+                authorization_endpoint='https://backend.example/authorize',
+                token_endpoint='https://backend.example/token',
+                device_authorization_endpoint='https://backend.example/device',
+            ),
+            resource='https://backend.example/proxy',
+            scope='project:gateway_proxy',
+        )
+        setattr(session, '_access_token', 'old-token')
+        setattr(session, '_refresh_token', 'refresh-token')
+        setattr(session, '_expires_at', time.time() + 60)
+        return await session.current_access_token(), len(client.token_requests)
 
-    assert asyncio.run(session.current_access_token()) == 'old-token'
-    assert len(client.token_requests) == 1
+    token, request_count = asyncio.run(run())
+
+    assert token == 'old-token'
+    assert request_count == 1
 
 
 def test_gateway_oauth_session_refresh_failure_raises_for_expired_token() -> None:
-    client = ConfigurableDeviceClient(device_start_response(), [ConfigurableOAuthResponse(500, {})])
-    session = gateway_auth.OAuthSession(
-        cast(gateway_auth.CimdOAuthClient, client),
-        gateway_auth.OAuthMetadata(
-            authorization_endpoint='https://backend.example/authorize',
-            token_endpoint='https://backend.example/token',
-            device_authorization_endpoint='https://backend.example/device',
-        ),
-        resource='https://backend.example/proxy',
-        scope='project:gateway_proxy',
-    )
-    setattr(session, '_access_token', 'old-token')
-    setattr(session, '_refresh_token', 'refresh-token')
-    setattr(session, '_expires_at', time.time() - 1)
+    async def run() -> None:
+        client = ConfigurableDeviceClient(device_start_response(), [ConfigurableOAuthResponse(500, {})])
+        session = gateway_auth.OAuthSession(
+            cast(gateway_auth.CimdOAuthClient, client),
+            gateway_auth.OAuthMetadata(
+                authorization_endpoint='https://backend.example/authorize',
+                token_endpoint='https://backend.example/token',
+                device_authorization_endpoint='https://backend.example/device',
+            ),
+            resource='https://backend.example/proxy',
+            scope='project:gateway_proxy',
+        )
+        setattr(session, '_access_token', 'old-token')
+        setattr(session, '_refresh_token', 'refresh-token')
+        setattr(session, '_expires_at', time.time() - 1)
+        await session.current_access_token()
 
     with pytest.raises(RuntimeError, match=r'token refresh failed \(500\): response-text'):
-        asyncio.run(session.current_access_token())
+        asyncio.run(run())
 
 
 def test_gateway_oauth_session_missing_refresh_token_falls_back_to_valid_token() -> None:
-    client = ConfigurableDeviceClient(device_start_response(), [])
-    session = gateway_auth.OAuthSession(
-        cast(gateway_auth.CimdOAuthClient, client),
-        gateway_auth.OAuthMetadata(
-            authorization_endpoint='https://backend.example/authorize',
-            token_endpoint='https://backend.example/token',
-            device_authorization_endpoint='https://backend.example/device',
-        ),
-        resource='https://backend.example/proxy',
-        scope='project:gateway_proxy',
-    )
-    setattr(session, '_access_token', 'old-token')
-    setattr(session, '_expires_at', time.time() + 60)
+    async def run() -> tuple[str, list[dict[str, str]]]:
+        client = ConfigurableDeviceClient(device_start_response(), [])
+        session = gateway_auth.OAuthSession(
+            cast(gateway_auth.CimdOAuthClient, client),
+            gateway_auth.OAuthMetadata(
+                authorization_endpoint='https://backend.example/authorize',
+                token_endpoint='https://backend.example/token',
+                device_authorization_endpoint='https://backend.example/device',
+            ),
+            resource='https://backend.example/proxy',
+            scope='project:gateway_proxy',
+        )
+        setattr(session, '_access_token', 'old-token')
+        setattr(session, '_expires_at', time.time() + 60)
+        return await session.current_access_token(), client.token_requests
 
-    assert asyncio.run(session.current_access_token()) == 'old-token'
-    assert client.token_requests == []
+    token, token_requests = asyncio.run(run())
+
+    assert token == 'old-token'
+    assert token_requests == []
 
 
 def test_gateway_auth_recover_after_reauth_failure() -> None:
@@ -2813,13 +2840,15 @@ def test_gateway_auth_recover_after_reauth_failure() -> None:
         async def device_flow(self) -> None:
             raise RuntimeError('reauth failed')
 
-    auth = gateway_auth.GatewayAuth(
-        cast(gateway_auth.OAuthSession, FailingReauthSession()),
-        redirect_uri='http://127.0.0.1/callback',
-        flow='device',
-    )
+    async def run() -> bool:
+        auth = gateway_auth.GatewayAuth(
+            cast(gateway_auth.OAuthSession, FailingReauthSession()),
+            redirect_uri='http://127.0.0.1/callback',
+            flow='device',
+        )
+        return await auth.recover_after_rejection(use_reauth=True)
 
-    assert asyncio.run(auth.recover_after_rejection(use_reauth=True)) is False
+    assert asyncio.run(run()) is False
 
 
 def test_gateway_auth_recover_after_rejection_handles_non_runtime_refresh_failure() -> None:
@@ -2827,13 +2856,15 @@ def test_gateway_auth_recover_after_rejection_handles_non_runtime_refresh_failur
         async def force_refresh(self) -> str:
             raise ValueError('refresh response was invalid')
 
-    auth = gateway_auth.GatewayAuth(
-        cast(gateway_auth.OAuthSession, FailingRefreshSession()),
-        redirect_uri='http://127.0.0.1/callback',
-        flow='device',
-    )
+    async def run() -> bool:
+        auth = gateway_auth.GatewayAuth(
+            cast(gateway_auth.OAuthSession, FailingRefreshSession()),
+            redirect_uri='http://127.0.0.1/callback',
+            flow='device',
+        )
+        return await auth.recover_after_rejection(use_reauth=False)
 
-    assert asyncio.run(auth.recover_after_rejection(use_reauth=False)) is False
+    assert asyncio.run(run()) is False
 
 
 def test_gateway_auth_recover_after_rejection_handles_browser_timeout() -> None:
@@ -2841,13 +2872,15 @@ def test_gateway_auth_recover_after_rejection_handles_browser_timeout() -> None:
         async def auth_code_flow(self, bootstrap: gateway_auth.AuthBootstrap) -> None:
             raise asyncio.TimeoutError
 
-    auth = gateway_auth.GatewayAuth(
-        cast(gateway_auth.OAuthSession, TimeoutReauthSession()),
-        redirect_uri='http://127.0.0.1/callback',
-        flow='browser',
-    )
+    async def run() -> bool:
+        auth = gateway_auth.GatewayAuth(
+            cast(gateway_auth.OAuthSession, TimeoutReauthSession()),
+            redirect_uri='http://127.0.0.1/callback',
+            flow='browser',
+        )
+        return await auth.recover_after_rejection(use_reauth=True)
 
-    assert asyncio.run(auth.recover_after_rejection(use_reauth=True)) is False
+    assert asyncio.run(run()) is False
 
 
 def test_gateway_safe_json_object_handles_invalid_and_non_object_json() -> None:
