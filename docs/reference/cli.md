@@ -65,9 +65,23 @@ The gateway command runs a local OAuth proxy for the Logfire AI Gateway and can 
 
 Install the optional dependencies before using it:
 
-```bash
-pip install "logfire[gateway]"
-```
+=== "uv"
+
+    ```bash
+    uv add "logfire[gateway]"
+    ```
+
+=== "pip"
+
+    ```bash
+    pip install "logfire[gateway]"
+    ```
+
+=== "poetry"
+
+    ```bash
+    poetry add "logfire[gateway]"
+    ```
 
 Launch a supported integration through the proxy:
 
