@@ -212,8 +212,13 @@ class OAuthSession:
         async with self._lock:
             if self._access_token is None:
                 raise RuntimeError('gateway proxy used before authorization completed')
-            if self._expires_at - time.time() < REFRESH_MARGIN_SECONDS:
-                await self.refresh()
+            now = time.time()
+            if self._expires_at - now < REFRESH_MARGIN_SECONDS:
+                try:
+                    await self.refresh()
+                except Exception:
+                    if time.time() >= self._expires_at:
+                        raise
             return self._access_token
 
     async def force_refresh(self) -> str:

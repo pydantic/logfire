@@ -12,6 +12,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import time
 import types
 import webbrowser
 from collections.abc import AsyncGenerator, AsyncIterator, Callable, Coroutine, Generator
@@ -2746,6 +2747,65 @@ def test_gateway_oauth_session_token_error_paths() -> None:
         'client_id': 'client-id',
         'resource': 'https://backend.example/proxy',
     }
+
+
+def test_gateway_oauth_session_refresh_failure_falls_back_to_valid_token() -> None:
+    client = ConfigurableDeviceClient(device_start_response(), [ConfigurableOAuthResponse(500, {})])
+    session = gateway_auth.OAuthSession(
+        cast(gateway_auth.CimdOAuthClient, client),
+        gateway_auth.OAuthMetadata(
+            authorization_endpoint='https://backend.example/authorize',
+            token_endpoint='https://backend.example/token',
+            device_authorization_endpoint='https://backend.example/device',
+        ),
+        resource='https://backend.example/proxy',
+        scope='project:gateway_proxy',
+    )
+    setattr(session, '_access_token', 'old-token')
+    setattr(session, '_refresh_token', 'refresh-token')
+    setattr(session, '_expires_at', time.time() + 60)
+
+    assert asyncio.run(session.current_access_token()) == 'old-token'
+    assert len(client.token_requests) == 1
+
+
+def test_gateway_oauth_session_refresh_failure_raises_for_expired_token() -> None:
+    client = ConfigurableDeviceClient(device_start_response(), [ConfigurableOAuthResponse(500, {})])
+    session = gateway_auth.OAuthSession(
+        cast(gateway_auth.CimdOAuthClient, client),
+        gateway_auth.OAuthMetadata(
+            authorization_endpoint='https://backend.example/authorize',
+            token_endpoint='https://backend.example/token',
+            device_authorization_endpoint='https://backend.example/device',
+        ),
+        resource='https://backend.example/proxy',
+        scope='project:gateway_proxy',
+    )
+    setattr(session, '_access_token', 'old-token')
+    setattr(session, '_refresh_token', 'refresh-token')
+    setattr(session, '_expires_at', time.time() - 1)
+
+    with pytest.raises(RuntimeError, match=r'token refresh failed \(500\): response-text'):
+        asyncio.run(session.current_access_token())
+
+
+def test_gateway_oauth_session_missing_refresh_token_falls_back_to_valid_token() -> None:
+    client = ConfigurableDeviceClient(device_start_response(), [])
+    session = gateway_auth.OAuthSession(
+        cast(gateway_auth.CimdOAuthClient, client),
+        gateway_auth.OAuthMetadata(
+            authorization_endpoint='https://backend.example/authorize',
+            token_endpoint='https://backend.example/token',
+            device_authorization_endpoint='https://backend.example/device',
+        ),
+        resource='https://backend.example/proxy',
+        scope='project:gateway_proxy',
+    )
+    setattr(session, '_access_token', 'old-token')
+    setattr(session, '_expires_at', time.time() + 60)
+
+    assert asyncio.run(session.current_access_token()) == 'old-token'
+    assert client.token_requests == []
 
 
 def test_gateway_auth_recover_after_reauth_failure() -> None:
