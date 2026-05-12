@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import gzip
 import io
 import json
 import os
@@ -2235,6 +2236,95 @@ def test_gateway_stream_recovers_auth_rejections_and_closes_rejected_streams() -
         'Bearer token-2',
         'Bearer token-3',
     ]
+
+
+def test_gateway_proxy_stream_decodes_compressed_upstream_chunks() -> None:
+    handle_proxy = cast(Callable[[Any], Coroutine[Any, Any, Any]], getattr(gateway_cli, '_handle_proxy'))
+
+    class CapturedStreamingResponse:
+        def __init__(
+            self,
+            body_iterator: AsyncIterator[bytes],
+            *,
+            status_code: int,
+            headers: dict[str, str],
+            media_type: str | None,
+        ) -> None:
+            self.body_iterator = body_iterator
+            self.status_code = status_code
+            self.headers = headers
+            self.media_type = media_type
+
+    class CompressedStreamResponse:
+        def __init__(self) -> None:
+            self.status_code = 200
+            self.headers = {'content-type': 'text/event-stream', 'content-encoding': 'gzip'}
+            self.closed = False
+            self.raw_iterated = False
+            self.bytes_iterated = False
+
+        async def aclose(self) -> None:
+            self.closed = True
+
+        async def aiter_raw(self) -> AsyncIterator[bytes]:
+            self.raw_iterated = True
+            yield gzip.compress(b'data: done\n\n')
+
+        async def aiter_bytes(self) -> AsyncIterator[bytes]:
+            self.bytes_iterated = True
+            yield b'data: done\n\n'
+
+    async def run() -> tuple[CapturedStreamingResponse, CompressedStreamResponse, bytes]:
+        upstream_response = CompressedStreamResponse()
+        deps = gateway_cli.GatewayDeps(
+            httpx=Mock(),
+            uvicorn=Mock(),
+            Starlette=Mock(),
+            Route=Mock(),
+            Response=Mock(),
+            JSONResponse=Mock(),
+            StreamingResponse=CapturedStreamingResponse,
+        )
+        state = gateway_cli.ProxyState(
+            deps=deps,
+            auth=cast(gateway_auth.GatewayAuth, Mock()),
+            client=Mock(),
+            gateway='https://gateway.example.com',
+            region='us',
+            local_token='local-token',
+        )
+        request = types.SimpleNamespace(
+            app=types.SimpleNamespace(state=types.SimpleNamespace(logfire_gateway=state)),
+            url=types.SimpleNamespace(path='/proxy/openai/v1/chat/completions', query=''),
+            headers={'authorization': 'Bearer local-token'},
+            method='POST',
+        )
+
+        async def body() -> bytes:
+            return b'{"stream": true}'
+
+        request.body = body
+
+        async def fake_gateway_stream(
+            _state: gateway_cli.ProxyState, _method: str, _upstream_url: str, _headers: dict[str, str], _body: bytes
+        ) -> CompressedStreamResponse:
+            return upstream_response
+
+        with patch.object(gateway_cli, '_gateway_stream', fake_gateway_stream):
+            response = cast(CapturedStreamingResponse, await handle_proxy(request))
+
+        chunks = [chunk async for chunk in response.body_iterator]
+        return response, upstream_response, b''.join(chunks)
+
+    response, upstream_response, body = asyncio.run(run())
+
+    assert response.status_code == 200
+    assert response.media_type == 'text/event-stream'
+    assert 'content-encoding' not in response.headers
+    assert body == b'data: done\n\n'
+    assert upstream_response.bytes_iterated
+    assert not upstream_response.raw_iterated
+    assert upstream_response.closed
 
 
 def test_instrumented_packages_text_filters_starlette_and_urllib3():

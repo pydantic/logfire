@@ -214,7 +214,7 @@ async def _handle_proxy(request: Any) -> Any:
 
         async def body_iter() -> AsyncIterator[bytes]:
             try:
-                async for chunk in upstream_response.aiter_raw():
+                async for chunk in upstream_response.aiter_bytes():
                     yield chunk
             finally:
                 await upstream_response.aclose()
