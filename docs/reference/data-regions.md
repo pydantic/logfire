@@ -24,7 +24,7 @@ Regions are strictly separated with no data sharing between them:
 
 ## Choosing a Region
 
-When you sign up for Logfire at [logfire.pydantic.dev](https://logfire.pydantic.dev) you'll be prompted to choose a region, which sends you to the correct subdomain (either [logfire-us.pydantic.dev](https://logfire-us.pydantic.dev) or [logfire-eu.pydantic.dev](https://logfire-eu.pydantic.dev)). Subsequent logins happen at `logfire-us.pydantic.dev` or `logfire-eu.pydantic.dev`.
+Logfire is hosted independently in each region at [logfire-us.pydantic.dev](https://logfire-us.pydantic.dev) and [logfire-eu.pydantic.dev](https://logfire-eu.pydantic.dev). When you sign up you'll be asked to pick a region; on return visits, log in directly at your regional URL.
 
 ![Region picker on the sign-in screen](../images/logfire-screenshot-region-picker.png)
 
