@@ -1839,7 +1839,7 @@ def test_ai_tool_without_mcp_config_errors() -> None:
 
     from logfire._internal.cli.ai_tools import AiToolIntegration
 
-    integration = AiToolIntegration(name='test', display_name='Test Tool', binary='test', default_model=None, env={})
+    integration = AiToolIntegration(name='test', display_name='Test Tool', binary='test', env={})
 
     with pytest.raises(LogfireConfigError, match='Test Tool does not support Logfire MCP configuration.'):
         integration.configure_mcp_server(

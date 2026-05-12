@@ -26,7 +26,6 @@ class AiToolIntegration:
     name: str
     display_name: str
     binary: str
-    default_model: str | None
     env: dict[str, str]
     model_env: dict[str, str] = field(default_factory=dict[str, str])
     configure_mcp: Callable[[str, Console, bool], None] | None = None
@@ -152,7 +151,6 @@ AI_TOOL_INTEGRATIONS: dict[str, AiToolIntegration] = {
         name='claude',
         display_name='Claude Code',
         binary='claude',
-        default_model=None,
         env={
             'ANTHROPIC_BASE_URL': '{anthropic}',
             'ANTHROPIC_AUTH_TOKEN': '{local_token}',
@@ -166,7 +164,6 @@ AI_TOOL_INTEGRATIONS: dict[str, AiToolIntegration] = {
         name='codex',
         display_name='OpenAI Codex',
         binary='codex',
-        default_model=None,
         env={'OPENAI_BASE_URL': '{openai_v1}', 'OPENAI_API_KEY': '{local_token}'},
         model_env={'OPENAI_MODEL': '{model}'},
         configure_mcp=_configure_codex_mcp,
@@ -176,7 +173,6 @@ AI_TOOL_INTEGRATIONS: dict[str, AiToolIntegration] = {
         name='opencode',
         display_name='OpenCode',
         binary='opencode',
-        default_model='gpt-4o',
         env={},
         configure_mcp=_configure_opencode_mcp,
         description='OpenCode',
