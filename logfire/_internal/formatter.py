@@ -7,10 +7,10 @@ from collections.abc import Callable, Iterator
 from functools import lru_cache
 from string import Formatter
 from types import CodeType
-from typing import TYPE_CHECKING, Any, Literal, TypeGuard, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import executing
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import NotRequired, TypedDict, TypeGuard
 
 import logfire
 
