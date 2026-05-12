@@ -1628,6 +1628,7 @@ def test_get_recommendation_texts():
     assert 'uv add opentelemetry-instrumentation-bar opentelemetry-instrumentation-foo' in install
     assert 'need to install opentelemetry-instrumentation-bar' in recommended
     assert 'need to install opentelemetry-instrumentation-foo' in recommended
+    assert 'Only install instrumentation for packages your app actually uses.' in recommended
 
 
 def test_instrument_packages_openai() -> None:
