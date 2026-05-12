@@ -184,7 +184,7 @@ async def _gateway_request(
             break
         if attempt == 2 or not await state.auth.recover_after_rejection(use_reauth=attempt >= 1):
             break
-    if response is None:
+    if response is None:  # pragma: no cover
         raise RuntimeError('gateway request was never sent')
     return response.status_code, response.headers, response_body, response.headers.get('content-type', '')
 
@@ -202,7 +202,7 @@ async def _gateway_stream(
         if attempt == 2 or not await state.auth.recover_after_rejection(use_reauth=attempt >= 1):
             return response
         await response.aclose()
-    raise RuntimeError('unreachable')
+    raise RuntimeError('unreachable')  # pragma: no cover
 
 
 async def _handle_proxy(request: Any) -> Any:
