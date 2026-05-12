@@ -22,9 +22,6 @@ from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
-
-pytest.importorskip('claude_agent_sdk')
-
 from claude_agent_sdk import (
     ClaudeAgentOptions,
     ClaudeSDKClient,
