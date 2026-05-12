@@ -3,11 +3,11 @@ from __future__ import annotations
 import contextlib
 import functools
 import inspect
-from collections.abc import Awaitable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from email.headerregistry import ContentTypeHeader
 from email.policy import EmailPolicy
 from functools import cached_property, lru_cache
-from typing import TYPE_CHECKING, Any, Callable, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import httpx
 from opentelemetry.trace import NonRecordingSpan, Span, use_span
