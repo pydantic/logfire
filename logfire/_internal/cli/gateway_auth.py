@@ -104,10 +104,6 @@ class OAuthSession:
         self._expires_at = 0.0
         self._lock = asyncio.Lock()
 
-    @property
-    def token_ttl_s(self) -> float:
-        return max(0.0, self._expires_at - time.time())
-
     async def auth_code_flow(self, bootstrap: AuthBootstrap) -> None:
         verifier, challenge = _pkce_pair()
         state = secrets.token_urlsafe(32)
@@ -248,10 +244,6 @@ class GatewayAuth:
         self._flow = flow
         self._auth_bootstrap: AuthBootstrap | None = None
         self._reauth_lock = asyncio.Lock()
-
-    @property
-    def token_ttl_s(self) -> float:
-        return self._session.token_ttl_s
 
     async def authorize(self) -> None:
         if self._flow == 'browser':

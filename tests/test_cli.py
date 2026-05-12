@@ -2012,10 +2012,6 @@ class MockOAuthSession:
         self.in_flight_device_calls = 0
         self.max_in_flight_device_calls = 0
 
-    @property
-    def token_ttl_s(self) -> float:
-        return 123.0
-
     async def auth_code_flow(self, bootstrap: gateway_auth.AuthBootstrap) -> None:
         bootstrap.expected_state = 'expected-state'
         self.browser_bootstrap = bootstrap
@@ -2154,10 +2150,6 @@ class MockGatewayAuth:
     def __init__(self) -> None:
         self.tokens = ['token-1', 'token-2', 'token-3']
         self.recoveries: list[bool] = []
-
-    @property
-    def token_ttl_s(self) -> float:
-        return 0.0
 
     async def current_access_token(self) -> str:
         return self.tokens.pop(0)

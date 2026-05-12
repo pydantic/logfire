@@ -467,13 +467,12 @@ async def _launch_async(
             env = integration.build_gateway_env(
                 proxy_base=proxy_base, model=model, workdir=workdir, local_token=_state.local_token
             )
-            extra_args = integration.build_gateway_extra_args(proxy_base=proxy_base, model=model, workdir=workdir)
             console.print(f'[green]launching[/] {integration.display_name} through Logfire Gateway at {proxy_base}')
             if integration.notice:
                 console.print(
                     f'[yellow]note:[/] {integration.notice.format(**gateway_template_values(proxy_base, _state.local_token))}'
                 )
-            process = await asyncio.create_subprocess_exec(binary, *extra_args, *extra, env={**os.environ, **env})
+            process = await asyncio.create_subprocess_exec(binary, *extra, env={**os.environ, **env})
             return await process.wait()
         finally:
             shutil.rmtree(workdir, ignore_errors=True)
@@ -547,10 +546,6 @@ def execute_gateway_command(command: GatewayCommand, context: GatewayCommandCont
         return 1
     except KeyboardInterrupt:
         return 130
-
-
-def run_gateway_command(context: GatewayCommandContext) -> int:
-    return execute_gateway_command(parse_gateway_command(context), context)
 
 
 def parse_gateway(args: argparse.Namespace) -> None:

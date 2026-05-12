@@ -31,7 +31,6 @@ class AiToolIntegration:
     env: dict[str, str]
     model_env: dict[str, str] = field(default_factory=dict[str, str])
     setup: Callable[[str, str | None, Path, str], dict[str, str]] | None = None
-    extra_args: Callable[[str, str | None, Path], list[str]] | None = None
     configure_mcp: Callable[[str, Console, bool], None] | None = None
     description: str = ''
     notice: str = ''
@@ -53,11 +52,6 @@ class AiToolIntegration:
         if self.setup is not None:
             env.update(self.setup(values['base'], effective_model, workdir, local_token))
         return env
-
-    def build_gateway_extra_args(self, *, proxy_base: str, model: str | None, workdir: Path) -> list[str]:
-        if self.extra_args is None:
-            return []
-        return self.extra_args(proxy_base.rstrip('/'), model, workdir)
 
     def configure_mcp_server(self, *, mcp_url: str, console: Console, update: bool) -> None:
         if self.configure_mcp is None:
