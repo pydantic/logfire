@@ -14,7 +14,7 @@ import sys
 import tempfile
 from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, cast
 
@@ -136,7 +136,6 @@ class ProxyState:
     gateway: str
     region: str
     local_token: str
-    limit_pending: asyncio.Event = field(default_factory=asyncio.Event)
 
 
 def _is_streaming(body: bytes) -> bool:
@@ -175,8 +174,6 @@ async def _gateway_request(
             break
     if response is None:
         raise RuntimeError('gateway request was never sent')
-    if response.status_code == 429:
-        state.limit_pending.set()
     return response.status_code, response.headers, response_body, response.headers.get('content-type', '')
 
 
@@ -189,8 +186,6 @@ async def _gateway_stream(
         request = state.client.build_request(method, upstream_url, headers=request_headers, content=body)
         response = await state.client.send(request, stream=True)
         if response.status_code != 401:
-            if response.status_code == 429:
-                state.limit_pending.set()
             return response
         if attempt == 2 or not await state.auth.recover_after_rejection(use_reauth=attempt >= 1):
             return response
