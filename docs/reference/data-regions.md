@@ -29,7 +29,7 @@ When you sign up for Logfire at [logfire.pydantic.dev](https://logfire.pydantic.
 ![Region picker on the sign-in screen](../images/logfire-screenshot-region-picker.png)
 
 !!! info ""
-    We don't detect your sessions across regions, each region is hosted independently. To skip the picker on subsequent sign-ins, bookmark and use your regional URL directly — [logfire-us.pydantic.dev](https://logfire-us.pydantic.dev) or [logfire-eu.pydantic.dev](https://logfire-eu.pydantic.dev).
+    We don't detect your sessions across regions, each region is hosted independently. Bookmark and log in to your regional URL directly — [logfire-us.pydantic.dev](https://logfire-us.pydantic.dev) or [logfire-eu.pydantic.dev](https://logfire-eu.pydantic.dev).
 
 Consider the following factors when selecting a region:
 
