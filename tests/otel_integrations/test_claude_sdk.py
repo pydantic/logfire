@@ -10,6 +10,29 @@ from inline_snapshot import snapshot
 from logfire._internal.exporters.processor_wrapper import _transform_langsmith_span_attributes  # type: ignore
 
 
+def test_transform_langsmith_span_uses_completion_model_for_request_model():
+    assert _transform_langsmith_span_attributes(
+        {'logfire.span_type': 'span'},
+        {
+            'gen_ai.completion': {
+                'llm_output': {
+                    'model_name': 'claude-sonnet-4-5-20250929',
+                },
+            },
+        },
+    ) == (
+        {
+            'logfire.span_type': 'span',
+        },
+        {
+            'gen_ai.response.model': 'claude-sonnet-4-5-20250929',
+            'gen_ai.request.model': 'claude-sonnet-4-5-20250929',
+            'gen_ai.system': 'anthropic',
+            'gen_ai.provider.name': 'anthropic',
+        },
+    )
+
+
 # Testing this properly is too much of a pain, we'd need to create a clever mock transport or something.
 # Can't use VCR because the HTTP requests happen in a different claude process.
 # Testing _transform_langsmith_span_attributes covers the actual relevant changes.
@@ -91,29 +114,6 @@ def test_instrument_claude_agent_sdk():
                 'all_messages_events': '[{"content": "What\'s the weather like in Berlin?", "role": "user"}, {"content": [{"type": "tool_use", "id": "toolu_012C5v8vaaTnK3WqX9FHhvmE", "name": "mcp__weather__get_weather", "input": {"city": "Berlin"}}], "role": "assistant"}, {"role": "tool", "content": "Weather in Berlin: Cloudy, 59\\u00b0F", "id": "toolu_012C5v8vaaTnK3WqX9FHhvmE", "name": ""}, {"content": [{"type": "text", "text": "The weather in Berlin is currently **cloudy** with a temperature of **59\\u00b0F** (about 15\\u00b0C). It\'s a fairly mild day! If you\'re planning to go out, you might want to bring a light jacket. Is there anything else you\'d like to know about Berlin or any other destination?"}], "role": "assistant"}]',
             },
         )
-    )
-
-
-def test_transform_langsmith_span_uses_completion_model_for_request_model():
-    assert _transform_langsmith_span_attributes(
-        {'logfire.span_type': 'span'},
-        {
-            'gen_ai.completion': {
-                'llm_output': {
-                    'model_name': 'claude-sonnet-4-5-20250929',
-                },
-            },
-        },
-    ) == (
-        {
-            'logfire.span_type': 'span',
-        },
-        {
-            'gen_ai.response.model': 'claude-sonnet-4-5-20250929',
-            'gen_ai.request.model': 'claude-sonnet-4-5-20250929',
-            'gen_ai.system': 'anthropic',
-            'gen_ai.provider.name': 'anthropic',
-        },
     )
     assert _transform_langsmith_span_attributes(
         {
