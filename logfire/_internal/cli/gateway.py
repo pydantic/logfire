@@ -363,7 +363,6 @@ def _parse_launch_args(raw: list[str], context: GatewayCommandContext) -> argpar
     parser.add_argument('integration', nargs='?', help='integration to launch')
     parser.add_argument('--model', default=None, help='model to pass to the selected integration')
     parser.add_argument('--config', action='store_true', help='print the integration configuration without launching')
-    parser.add_argument('--scope', default=os.getenv('LOGFIRE_GATEWAY_SCOPE', DEFAULT_SCOPE))
     parser.add_argument('--port', type=int, default=DEFAULT_PORT)
     parser.add_argument('--device-flow', action='store_true', help='use OAuth device flow instead of browser callback')
     parser.add_argument('--gateway-url', default=None, help='override the Logfire AI Gateway URL')
@@ -377,7 +376,6 @@ def _parse_serve_args(raw: list[str], context: GatewayCommandContext) -> argpars
         prog='logfire gateway serve',
         description='Run the Logfire AI Gateway local OAuth proxy without launching a child tool.',
     )
-    parser.add_argument('--scope', default=os.getenv('LOGFIRE_GATEWAY_SCOPE', DEFAULT_SCOPE))
     parser.add_argument('--port', type=int, default=DEFAULT_PORT)
     parser.add_argument('--device-flow', action='store_true')
     parser.add_argument('--gateway-url', default=None, help='override the Logfire AI Gateway URL')
@@ -435,7 +433,7 @@ def _run_launch(raw: list[str], context: GatewayCommandContext) -> int:
             region=region,
             backend=backend,
             gateway=gateway,
-            scope=args.scope,
+            scope=DEFAULT_SCOPE,
             port=port,
             model=args.model,
             flow='device' if args.device_flow else 'browser',
@@ -488,7 +486,7 @@ async def _run_serve_async(args: argparse.Namespace) -> int:
         region=region,
         backend=backend,
         gateway=gateway,
-        scope=args.scope,
+        scope=DEFAULT_SCOPE,
         port=port,
         flow='device' if args.device_flow else 'browser',
     ) as (state, proxy_base):
