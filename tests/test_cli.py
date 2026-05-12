@@ -1819,6 +1819,34 @@ def test_parse_prompt_without_project_errors(prompt_http_calls: None, capsys: py
     )
 
 
+def test_ai_tool_names() -> None:
+    from logfire._internal.cli.ai_tools import ai_tool_names
+
+    assert ai_tool_names() == snapshot(('claude', 'codex', 'opencode'))
+
+
+def test_resolve_ai_tool_unknown() -> None:
+    from logfire._internal.cli.ai_tools import resolve_ai_tool
+
+    with pytest.raises(SystemExit) as exc_info:
+        resolve_ai_tool('unknown')
+
+    assert str(exc_info.value) == snapshot("unknown AI tool integration: 'unknown'. Available: claude, codex, opencode")
+
+
+def test_ai_tool_without_mcp_config_errors() -> None:
+    from rich.console import Console
+
+    from logfire._internal.cli.ai_tools import AiToolIntegration
+
+    integration = AiToolIntegration(name='test', display_name='Test Tool', binary='test', env={})
+
+    with pytest.raises(LogfireConfigError, match='Test Tool does not support Logfire MCP configuration.'):
+        integration.configure_mcp_server(
+            mcp_url='https://example.com/mcp', console=Console(file=io.StringIO()), update=False
+        )
+
+
 def test_parse_prompt_codex(
     prompt_http_calls: None, capsys: pytest.CaptureFixture[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
