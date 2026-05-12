@@ -2822,6 +2822,34 @@ def test_gateway_auth_recover_after_reauth_failure() -> None:
     assert asyncio.run(auth.recover_after_rejection(use_reauth=True)) is False
 
 
+def test_gateway_auth_recover_after_rejection_handles_non_runtime_refresh_failure() -> None:
+    class FailingRefreshSession(MockOAuthSession):
+        async def force_refresh(self) -> str:
+            raise ValueError('refresh response was invalid')
+
+    auth = gateway_auth.GatewayAuth(
+        cast(gateway_auth.OAuthSession, FailingRefreshSession()),
+        redirect_uri='http://127.0.0.1/callback',
+        flow='device',
+    )
+
+    assert asyncio.run(auth.recover_after_rejection(use_reauth=False)) is False
+
+
+def test_gateway_auth_recover_after_rejection_handles_browser_timeout() -> None:
+    class TimeoutReauthSession(MockOAuthSession):
+        async def auth_code_flow(self, bootstrap: gateway_auth.AuthBootstrap) -> None:
+            raise asyncio.TimeoutError
+
+    auth = gateway_auth.GatewayAuth(
+        cast(gateway_auth.OAuthSession, TimeoutReauthSession()),
+        redirect_uri='http://127.0.0.1/callback',
+        flow='browser',
+    )
+
+    assert asyncio.run(auth.recover_after_rejection(use_reauth=True)) is False
+
+
 def test_gateway_safe_json_object_handles_invalid_and_non_object_json() -> None:
     safe_json_object = getattr(gateway_auth, '_safe_json_object')
 

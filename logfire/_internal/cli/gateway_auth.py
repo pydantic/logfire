@@ -268,12 +268,12 @@ class GatewayAuth:
         if not use_reauth:
             try:
                 await self._session.force_refresh()
-            except RuntimeError:
+            except Exception:
                 return False
             return True
         try:
             await self.reauthorize()
-        except RuntimeError:
+        except Exception:
             return False
         return True
 
