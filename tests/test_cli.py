@@ -283,6 +283,7 @@ def test_inspect(
 │  ☐ pymysql (need to install opentelemetry-instrumentation-pymysql)                                                                                 │
 │  ☐ urllib (need to install opentelemetry-instrumentation-urllib)                                                                                   │
 │                                                                                                                                                    │
+│  Only install instrumentation for packages your app actually uses.                                                                                 │
 │                                                                                                                                                    │
 │  To install all recommended packages at once, run:                                                                                                 │
 │                                                                                                                                                    │
