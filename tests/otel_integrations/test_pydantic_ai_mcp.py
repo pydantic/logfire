@@ -84,9 +84,6 @@ Because it found something more "sole-ful!"\
                 'start_time': 1000000000,
                 'end_time': 2000000000,
                 'attributes': {
-                    'code.filepath': 'test_pydantic_ai_mcp.py',
-                    'code.function': 'test_pydantic_ai_mcp_sampling',
-                    'code.lineno': 123,
                     'request': {
                         'method': 'initialize',
                         'params': IsPartialDict(),

@@ -103,4 +103,4 @@ from pydantic import BaseModel
 class Foo(BaseModel, plugin_settings={'logfire': {'record': 'all', 'tags': ('tag1', 'tag2')}}): ...
 ```
 
-[pydantic]: https://docs.pydantic.dev/latest/
+[pydantic]: https://pydantic.dev/docs/validation/latest/get-started/

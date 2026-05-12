@@ -1148,7 +1148,7 @@ class Logfire:
                 If `'attributes'`, events are attached to the span as attributes.
                 If `'logs'`, events are emitted as OpenTelemetry log-based events.
             kwargs: Additional keyword arguments to pass to
-                [`InstrumentationSettings`](https://ai.pydantic.dev/api/models/instrumented/#pydantic_ai.models.instrumented.InstrumentationSettings)
+                [`InstrumentationSettings`](https://pydantic.dev/docs/ai/api/models/instrumented/#pydantic_ai.models.instrumented.InstrumentationSettings)
                 for future compatibility.
         """
         from .integrations.pydantic_ai import instrument_pydantic_ai

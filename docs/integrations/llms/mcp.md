@@ -8,7 +8,7 @@ integration: logfire
 
 **Logfire** supports instrumenting the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) with the [`logfire.instrument_mcp()`][logfire.Logfire.instrument_mcp] method. This works on both the client and server side. If possible, calling this in both the client and server processes is recommended for nice distributed traces.
 
-Below is a simple example. For the client, we use [Pydantic AI](https://ai.pydantic.dev/mcp/client/) (though any MCP client will work) and OpenAI. To use a different LLM provider instead of OpenAI, replace `openai:gpt-4o` in the client script with a different model name supported by Pydantic AI.
+Below is a simple example. For the client, we use [Pydantic AI](https://pydantic.dev/docs/ai/mcp/client/) (though any MCP client will work) and OpenAI. To use a different LLM provider instead of OpenAI, replace `openai:gpt-4o` in the client script with a different model name supported by Pydantic AI.
 
 First, install the required dependencies:
 
