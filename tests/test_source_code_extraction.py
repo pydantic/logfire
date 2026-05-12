@@ -225,8 +225,6 @@ def test_get_node_source_text_falls_back_to_unparse(monkeypatch: pytest.MonkeyPa
     class Source:
         text = 'x'
 
-    ast_utils.get_node_source_text.cache_clear()
-
     def get_source_segment(*args: Any) -> str:
         return 'x +'
 

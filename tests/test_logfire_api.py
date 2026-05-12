@@ -239,6 +239,7 @@ def test_runtime(logfire_api_factory: Callable[[], ModuleType], module_name: str
 
     assert hasattr(logfire_api, 'instrument_dspy')
     if not pydantic_pre_2_5:
+        # DSPy emits deprecation warnings while being instrumented; pytest treats warnings as errors.
         with warnings.catch_warnings():
             warnings.simplefilter('ignore', category=DeprecationWarning)
             try:
