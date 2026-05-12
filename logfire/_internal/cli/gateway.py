@@ -337,7 +337,7 @@ async def _authorize_and_serve(
 def _gateway_urls(args: argparse.Namespace) -> tuple[str, str, str]:
     region_name = args.gateway_region
     preset = GATEWAY_REGIONS[region_name]
-    backend = args.gateway_backend_url or os.getenv('LOGFIRE_GATEWAY_BACKEND_URL') or args.logfire_url or preset.backend
+    backend = args.logfire_url or preset.backend
     gateway = args.gateway_url or os.getenv('LOGFIRE_GATEWAY_URL') or preset.gateway
     return region_name, backend.rstrip('/'), gateway.rstrip('/')
 
@@ -367,12 +367,8 @@ def _parse_launch_args(raw: list[str], context: GatewayCommandContext) -> argpar
     parser.add_argument('--port', type=int, default=DEFAULT_PORT)
     parser.add_argument('--device-flow', action='store_true', help='use OAuth device flow instead of browser callback')
     parser.add_argument('--gateway-url', default=None, help='override the Logfire AI Gateway URL')
-    parser.add_argument(
-        '--backend-url', dest='gateway_backend_url', default=None, help='override the Logfire backend URL'
-    )
-    parser.add_argument('--region', dest='gateway_region', choices=GATEWAY_REGIONS, default=context.region or 'us')
     parser.add_argument('-v', '--verbose', action='store_true')
-    parser.set_defaults(logfire_url=context.logfire_url)
+    parser.set_defaults(logfire_url=context.logfire_url, gateway_region=context.region or 'us')
     return parser.parse_args(raw)
 
 
@@ -385,12 +381,8 @@ def _parse_serve_args(raw: list[str], context: GatewayCommandContext) -> argpars
     parser.add_argument('--port', type=int, default=DEFAULT_PORT)
     parser.add_argument('--device-flow', action='store_true')
     parser.add_argument('--gateway-url', default=None, help='override the Logfire AI Gateway URL')
-    parser.add_argument(
-        '--backend-url', dest='gateway_backend_url', default=None, help='override the Logfire backend URL'
-    )
-    parser.add_argument('--region', dest='gateway_region', choices=GATEWAY_REGIONS, default=context.region or 'us')
     parser.add_argument('-v', '--verbose', action='store_true')
-    parser.set_defaults(logfire_url=context.logfire_url)
+    parser.set_defaults(logfire_url=context.logfire_url, gateway_region=context.region or 'us')
     return parser.parse_args(raw)
 
 
