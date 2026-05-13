@@ -48,17 +48,17 @@ This dashboard gives an overview of how long each of your web server endpoints t
 This dashboard breaks down input and output LLM token usage by model. It comes in two variants. Both have the same charts, but they use different data sources:
 
 - **LLM Tokens and Costs (from `records`):** Uses data from the `records` table, specifically span [attributes](../../reference/sql.md#attributes) following OpenTelemetry conventions. This variant works with more instrumentations, as some don't emit metrics. It's also easier to [use as a template](#using-a-standard-dashboard-as-a-template) if you want to filter by other attributes.
-- **LLM Tokens and Costs (from `metrics`):** Uses data from the `metrics` table, specifically the [`gen_ai.client.token.usage`](https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-metrics/#metric-gen_aiclienttokenusage) metric. This variant is more performant, so you can load data over bigger time ranges more quickly. It's also more accurate if your spans are [sampled](../../how-to-guides/sampling.md).
+- **LLM Tokens and Costs (from `metrics`):** Uses data from the `metrics` table, specifically the [`gen_ai.client.token.usage`](https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-metrics/#metric-gen_aiclienttokenusage) metric. This variant is more performant, so you can load data over bigger time ranges more quickly. It's also more accurate if your spans are [sampled](../../python-sdk/instrumentation/sampling.md).
 
-If you're only using the [Pydantic AI](../../integrations/llms/pydanticai.md) instrumentation, we recommend using the `metrics` variant. Otherwise we suggest enabling both variants and checking. If they look roughly identical (some small differences are expected), you can disable the `records` variant to improve performance.
+If you're only using the [Pydantic AI](../../python-sdk/integrations/llms/pydanticai.md) instrumentation, we recommend using the `metrics` variant. Otherwise we suggest enabling both variants and checking. If they look roughly identical (some small differences are expected), you can disable the `records` variant to improve performance.
 
-The [Pydantic AI](../../integrations/llms/pydanticai.md) instrumentation also records costs in the `operation.cost` span attribute on records (since [v1.0.0](https://github.com/pydantic/pydantic-ai/releases/tag/v1.0.0)) and the `operation.cost` metric (since [v1.0.11](https://github.com/pydantic/pydantic-ai/releases/tag/v1.0.11)). The dashboards contain charts for these in a second panel group at the bottom. The metrics dashboard has more charts than the records chart in this section, but they're still very similar. We're working on adding support for other instrumentations to record costs in the same way.
+The [Pydantic AI](../../python-sdk/integrations/llms/pydanticai.md) instrumentation also records costs in the `operation.cost` span attribute on records (since [v1.0.0](https://github.com/pydantic/pydantic-ai/releases/tag/v1.0.0)) and the `operation.cost` metric (since [v1.0.11](https://github.com/pydantic/pydantic-ai/releases/tag/v1.0.11)). The dashboards contain charts for these in a second panel group at the bottom. The metrics dashboard has more charts than the records chart in this section, but they're still very similar. We're working on adding support for other instrumentations to record costs in the same way.
 
 ### Basic System Metrics
 
 This dashboard shows essential system resource utilization metrics. It comes in two variants:
 
-- **Basic System Metrics (Logfire):** Uses the data exported by [`logfire.instrument_system_metrics()`](../../integrations/system-metrics.md).
+- **Basic System Metrics (Logfire):** Uses the data exported by [`logfire.instrument_system_metrics()`](../../python-sdk/integrations/system-metrics.md).
 - **Basic System Metrics (OpenTelemetry):** Uses data exported by any OpenTelemetry-based instrumentation following the standard semantic conventions.
 
 Both variants include the following metrics:

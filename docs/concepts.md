@@ -113,7 +113,7 @@ Alongside logs and traces, metrics complete the "three pillars" of observability
 low‑overhead signal about the overall health and performance of your services.
 
 !!! info
-    Good news: Logfire's [integrations](integrations/index.md) automatically set up many common metrics for you out of the box.
+    Good news: Logfire's [integrations](./python-sdk/integrations/index.md) automatically set up many common metrics for you out of the box.
 
     You can also explore our [standard dashboards](guides/web-ui/dashboards.md) which provide pre-built visualizations for **Web Server Metrics**, **Basic System Metrics (Logfire)** and **Basic System Metrics (OpenTelemetry)**.
 
@@ -144,7 +144,7 @@ def handle_request():
 
 Each call to `request_duration.record()` adds a sample to the histogram. On the backend you can visualise
 p50/p95 latency, set SLOs, and trigger alerts whenever performance degrades. For more metrics examples
-see the [adding metrics guide](guides/onboarding-checklist/add-metrics.md).
+see the [adding metrics guide](./python-sdk/instrumentation/metrics.md).
 
 ## What is a Log?
 

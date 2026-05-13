@@ -63,11 +63,11 @@ with logfire.span('Asking the user their {question}', question='age'):
     logfire.debug('{dob=} {age=!r}', dob=dob, age=date.today() - dob)
 ```
 
-[_(learn more)_](https://pydantic.dev/docs/logfire/instrument/add-manual-tracing/)
+[_(learn more)_](https://pydantic.dev/docs/logfire/python-sdk/instrumentation/manual-tracing/)
 
 ### Integration
 
-Or you can also avoid manual instrumentation and instead integrate with [lots of popular packages](https://pydantic.dev/docs/logfire/integrations/), here's an example of integrating with FastAPI:
+Or you can also avoid manual instrumentation and instead integrate with [lots of popular packages](https://pydantic.dev/docs/logfire/python-sdk/integrations/), here's an example of integrating with FastAPI:
 
 ```py skip-run="true" skip-reason="global-instrumentation"
 from fastapi import FastAPI
@@ -93,7 +93,7 @@ async def add_user(user: User):
     return {'message': f'{user.name} added'}
 ```
 
-[_(learn more)_](https://pydantic.dev/docs/logfire/integrations/web-frameworks/fastapi/)
+[_(learn more)_](https://pydantic.dev/docs/logfire/python-sdk/integrations/web-frameworks/fastapi/)
 
 Logfire gives you a view into how your code is running like this:
 

@@ -7,7 +7,7 @@ description: "Create and manage evaluation datasets through the Logfire web inte
 
 This guide covers creating, editing, and managing datasets through the Logfire web interface. It's task-oriented: each section below is a specific lifecycle action (create, edit, add cases, export).
 
-For a reference of the **Evals: Datasets & Experiments** page itself (list layout, experiment viewing, comparison workflow, trace integration), see [Evals: Datasets & Experiments](../../guides/web-ui/evals.md). For programmatic dataset access, see the [SDK Guide](sdk.md).
+For a reference of the **Evals: Datasets & Experiments** page itself (list layout, experiment viewing, comparison workflow, trace integration), see [Evals: Datasets & Experiments](../../guides/web-ui/evals.md). For programmatic dataset access, see the [SDK Guide](../../python-sdk/evaluate/datasets.md).
 
 All tasks below start from the **Evals: Datasets & Experiments** page in the sidebar.
 
@@ -18,7 +18,7 @@ Click **+ New dataset** in the top right and enter a name for your dataset. If y
 Once created, you can edit the dataset to add a description and define schemas.
 
 !!! tip "Schema generation from code"
-    If you are using Python types (dataclasses, Pydantic models, etc.) for your schemas, it is easier to publish the dataset via the SDK, which generates hosted JSON schemas automatically from your type definitions. See [Publishing a Local Dataset to Hosted](sdk.md#publishing-a-local-dataset-to-hosted) in the SDK Guide.
+    If you are using Python types (dataclasses, Pydantic models, etc.) for your schemas, it is easier to publish the dataset via the SDK, which generates hosted JSON schemas automatically from your type definitions. See [Publishing a Local Dataset to Hosted](../../python-sdk/evaluate/datasets.md#publishing-a-local-dataset-to-hosted) in the SDK Guide.
 
 ??? example "SDK equivalent"
 
@@ -61,7 +61,7 @@ Once created, you can edit the dataset to add a description and define schemas.
         )
     ```
 
-    See the [SDK Guide](sdk.md) for full details on creating and managing datasets programmatically.
+    See the [SDK Guide](../../python-sdk/evaluate/datasets.md) for full details on creating and managing datasets programmatically.
 
 ## Editing a Dataset
 
@@ -95,7 +95,7 @@ From the dataset detail page, click the **Cases** tab to see all hosted cases fo
     )
     ```
 
-    See [Manual Dataset Management](sdk.md#manual-dataset-management) in the SDK Guide for more options.
+    See [Manual Dataset Management](../../python-sdk/evaluate/datasets.md#manual-dataset-management) in the SDK Guide for more options.
 
 ## Adding Cases from Traces
 
@@ -127,7 +127,7 @@ This preserves a link back to the source trace, so you always know where a test 
     )
     ```
 
-    See [Manual Dataset Management](sdk.md#manual-dataset-management) in the SDK Guide for more details.
+    See [Manual Dataset Management](../../python-sdk/evaluate/datasets.md#manual-dataset-management) in the SDK Guide for more details.
 
 ## Exporting a Dataset
 

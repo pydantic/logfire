@@ -77,7 +77,7 @@ You can also load local datasets from YAML files --- see the [pydantic-evals doc
 
 If you'd rather manage cases on the server --- for example so teammates can edit them in the UI or so you can seed cases from production traces --- fetch a hosted dataset and use it the same way.
 
-Hosted datasets are typically created in the [Web UI](ui.md) or published from code via [`push_dataset(...)`](sdk.md#publishing-a-local-dataset-to-hosted).
+Hosted datasets are typically created in the [Web UI](ui.md) or published from code via [`push_dataset(...)`](../../python-sdk/evaluate/datasets.md#publishing-a-local-dataset-to-hosted).
 
 ### Getting a typed pydantic-evals Dataset
 

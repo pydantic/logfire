@@ -107,81 +107,100 @@ nav:
               - vs Sentry: comparisons/sentry.md
               - vs SigNoz: comparisons/signoz.md
               - vs Grafana: comparisons/grafana.md
-      - Instrument Your App:
-          - Onboarding Checklist: guides/onboarding-checklist/index.md
-          - Integrate Logfire: guides/onboarding-checklist/integrate.md
-          - Manual Tracing: guides/onboarding-checklist/add-manual-tracing.md
-          - Auto-Tracing: guides/onboarding-checklist/add-auto-tracing.md
-          - Metrics: guides/onboarding-checklist/add-metrics.md
-          - Distributed Tracing: how-to-guides/distributed-tracing.md
-          - Sampling Strategies: how-to-guides/sampling.md
-          - Scrub Sensitive Data: how-to-guides/scrubbing.md
-          - Suppress Spans and Metrics: how-to-guides/suppress.md
-          - OpenTelemetry Collector:
-              - Overview: how-to-guides/otel-collector/otel-collector-overview.md
-              - Advanced Scrubbing: how-to-guides/otel-collector/otel-collector-scrubbing.md
-      - Integrations:
-          - Integrations: integrations/index.md
-          - AI & LLM Frameworks:
-              - Pydantic AI: integrations/llms/pydanticai.md
-              - OpenAI: integrations/llms/openai.md
-              - Google Gen AI: integrations/llms/google-genai.md
-              - Anthropic: integrations/llms/anthropic.md
-              - LangChain: integrations/llms/langchain.md
-              - LiteLLM: integrations/llms/litellm.md
-              - DSPy: integrations/llms/dspy.md
-              - MCP: integrations/llms/mcp.md
-              - Claude Agent SDK: integrations/llms/claude-agent-sdk.md
-              - LLamaIndex: integrations/llms/llamaindex.md
-              - Mirascope: integrations/llms/mirascope.md
-              - Magentic: integrations/llms/magentic.md
-          - Web Frameworks:
-              - Web Frameworks: integrations/web-frameworks/index.md
-              - FastAPI: integrations/web-frameworks/fastapi.md
-              - Django: integrations/web-frameworks/django.md
-              - Flask: integrations/web-frameworks/flask.md
-              - Starlette: integrations/web-frameworks/starlette.md
-              - AIOHTTP: integrations/web-frameworks/aiohttp.md
-              - ASGI: integrations/web-frameworks/asgi.md
-              - WSGI: integrations/web-frameworks/wsgi.md
-              - Gunicorn: integrations/web-frameworks/gunicorn.md
-          - JavaScript:
-              - JavaScript: integrations/javascript/index.md
-              - Browser: integrations/javascript/browser.md
-              - Next.js: integrations/javascript/nextjs.md
-              - Cloudflare: integrations/javascript/cloudflare.md
-              - Express: integrations/javascript/express.md
-              - Node.js: integrations/javascript/node.md
-              - Deno: integrations/javascript/deno.md
-              - Vercel AI SDK: integrations/javascript/vercel-ai.md
-          - Databases:
-              - Psycopg: integrations/databases/psycopg.md
-              - SQLAlchemy: integrations/databases/sqlalchemy.md
-              - Asyncpg: integrations/databases/asyncpg.md
-              - PyMongo: integrations/databases/pymongo.md
-              - MySQL: integrations/databases/mysql.md
-              - SQLite3: integrations/databases/sqlite3.md
-              - Redis: integrations/databases/redis.md
-              - BigQuery: integrations/databases/bigquery.md
-          - HTTP Clients:
-              - HTTPX: integrations/http-clients/httpx.md
-              - Requests: integrations/http-clients/requests.md
-              - AIOHTTP: integrations/http-clients/aiohttp.md
-          - Task Queues & Pipelines:
-              - Airflow: integrations/event-streams/airflow.md
-              - FastStream: integrations/event-streams/faststream.md
-              - Celery: integrations/event-streams/celery.md
-          - Logging:
-              - Logging: integrations/logging.md
-              - Print: integrations/print.md
-              - Structlog: integrations/structlog.md
-              - Loguru: integrations/loguru.md
-          - Testing:
-              - Pytest: integrations/pytest.md
-          - Pydantic: integrations/pydantic.md
-          - System Metrics: integrations/system-metrics.md
-          - Stripe: integrations/stripe.md
-          - AWS Lambda: integrations/aws-lambda.md
+      - Python SDK:
+          - Overview: python-sdk/index.md
+          - Getting Started: python-sdk/get-started.md
+          - Instrumentation:
+              - Onboarding Checklist: python-sdk/instrumentation/index.md
+              - Integrate Logfire: python-sdk/instrumentation/integrate.md
+              - Manual Tracing: python-sdk/instrumentation/manual-tracing.md
+              - Auto-Tracing: python-sdk/instrumentation/auto-tracing.md
+              - Metrics: python-sdk/instrumentation/metrics.md
+              - Distributed Tracing: python-sdk/instrumentation/distributed-tracing.md
+              - Sampling Strategies: python-sdk/instrumentation/sampling.md
+              - Scrub Sensitive Data: python-sdk/instrumentation/scrubbing.md
+              - Suppress Spans and Metrics: python-sdk/instrumentation/suppress.md
+              - OpenTelemetry Collector:
+                  - Overview: python-sdk/instrumentation/opentelemetry-collector/overview.md
+                  - Advanced Scrubbing: python-sdk/instrumentation/opentelemetry-collector/scrubbing.md
+          - Integrations:
+              - Integrations: python-sdk/integrations/index.md
+              - AI & LLM Frameworks:
+                  - Pydantic AI: python-sdk/integrations/llms/pydanticai.md
+                  - OpenAI: python-sdk/integrations/llms/openai.md
+                  - Google Gen AI: python-sdk/integrations/llms/google-genai.md
+                  - Anthropic: python-sdk/integrations/llms/anthropic.md
+                  - LangChain: python-sdk/integrations/llms/langchain.md
+                  - LiteLLM: python-sdk/integrations/llms/litellm.md
+                  - DSPy: python-sdk/integrations/llms/dspy.md
+                  - MCP: python-sdk/integrations/llms/mcp.md
+                  - Claude Agent SDK: python-sdk/integrations/llms/claude-agent-sdk.md
+                  - LLamaIndex: python-sdk/integrations/llms/llamaindex.md
+                  - Mirascope: python-sdk/integrations/llms/mirascope.md
+                  - Magentic: python-sdk/integrations/llms/magentic.md
+              - Web Frameworks:
+                  - Web Frameworks: python-sdk/integrations/web-frameworks/index.md
+                  - FastAPI: python-sdk/integrations/web-frameworks/fastapi.md
+                  - Django: python-sdk/integrations/web-frameworks/django.md
+                  - Flask: python-sdk/integrations/web-frameworks/flask.md
+                  - Starlette: python-sdk/integrations/web-frameworks/starlette.md
+                  - AIOHTTP: python-sdk/integrations/web-frameworks/aiohttp.md
+                  - ASGI: python-sdk/integrations/web-frameworks/asgi.md
+                  - WSGI: python-sdk/integrations/web-frameworks/wsgi.md
+                  - Gunicorn: python-sdk/integrations/web-frameworks/gunicorn.md
+              - Databases:
+                  - Psycopg: python-sdk/integrations/databases/psycopg.md
+                  - SQLAlchemy: python-sdk/integrations/databases/sqlalchemy.md
+                  - Asyncpg: python-sdk/integrations/databases/asyncpg.md
+                  - PyMongo: python-sdk/integrations/databases/pymongo.md
+                  - MySQL: python-sdk/integrations/databases/mysql.md
+                  - SQLite3: python-sdk/integrations/databases/sqlite3.md
+                  - Redis: python-sdk/integrations/databases/redis.md
+                  - BigQuery: python-sdk/integrations/databases/bigquery.md
+              - HTTP Clients:
+                  - HTTPX: python-sdk/integrations/http-clients/httpx.md
+                  - Requests: python-sdk/integrations/http-clients/requests.md
+                  - AIOHTTP: python-sdk/integrations/http-clients/aiohttp.md
+              - Task Queues & Pipelines:
+                  - Airflow: python-sdk/integrations/event-streams/airflow.md
+                  - FastStream: python-sdk/integrations/event-streams/faststream.md
+                  - Celery: python-sdk/integrations/event-streams/celery.md
+              - Logging:
+                  - Logging: python-sdk/integrations/logging.md
+                  - Print: python-sdk/integrations/print.md
+                  - Structlog: python-sdk/integrations/structlog.md
+                  - Loguru: python-sdk/integrations/loguru.md
+              - Testing:
+                  - Pytest: python-sdk/integrations/pytest.md
+              - Pydantic: python-sdk/integrations/pydantic.md
+              - System Metrics: python-sdk/integrations/system-metrics.md
+              - Stripe: python-sdk/integrations/stripe.md
+              - AWS Lambda: python-sdk/integrations/aws-lambda.md
+          - Evaluate:
+              - Datasets SDK Guide: python-sdk/evaluate/datasets.md
+          - Reference:
+              - Configuration: python-sdk/reference/configuration.md
+              - API:
+                  - Logfire: python-sdk/reference/api/logfire.md
+                  - Testing: python-sdk/reference/api/testing.md
+                  - Sampling: python-sdk/reference/api/sampling.md
+                  - Propagate: python-sdk/reference/api/propagate.md
+                  - Exceptions: python-sdk/reference/api/exceptions.md
+                  - Pydantic: python-sdk/reference/api/pydantic.md
+                  - Types: python-sdk/reference/api/types.md
+                  - Datasets: python-sdk/reference/api/datasets.md
+              - CLI: python-sdk/reference/cli.md
+              - Examples: python-sdk/reference/examples.md
+              - Advanced:
+                  - Baggage: python-sdk/reference/advanced/baggage.md
+                  - Generators: python-sdk/reference/advanced/generators.md
+                  - Aggregating Metrics in Spans: python-sdk/reference/advanced/metrics-in-spans.md
+                  - Testing Logfire Instrumentation: python-sdk/reference/advanced/testing.md
+                  - Migrating Projects: python-sdk/reference/advanced/migrate-to-new-project.md
+                  - Link to Code Source: python-sdk/reference/advanced/link-to-code-source.md
+                  - Use Alternative Backends: python-sdk/reference/advanced/alternative-backends.md
+                  - Multiple Configurations: python-sdk/reference/advanced/multiple-configurations.md
+      - TypeScript SDK: https://pydantic.dev/docs/logfire/typescript-sdk/
       - Observe & Investigate:
           - Live View: guides/web-ui/live.md
           - LLM Panels: guides/web-ui/llm-panels.md
@@ -201,11 +220,9 @@ nav:
           - Datasets:
               - Datasets: evaluate/datasets/index.md
               - Web UI Guide: evaluate/datasets/ui.md
-              - SDK Guide: evaluate/datasets/sdk.md
               - Running Evaluations: evaluate/datasets/evaluations.md
       - Manage & Configure:
           - Organizations & Projects: guides/web-ui/organizations-and-projects.md
-          - Configuration: reference/configuration.md
           - Managed Variables:
               - Overview: reference/advanced/managed-variables/index.md
               - UI Guide: reference/advanced/managed-variables/ui.md
@@ -227,7 +244,6 @@ nav:
           - Write Tokens: how-to-guides/create-write-tokens.md
           - API Keys: reference/advanced/use-api-keys.md
           - Infrastructure as Code: how-to-guides/infrastructure-as-code.md
-          - Multiple Configurations: how-to-guides/different-configurations.md
           - Cost & Usage: logfire-costs.md
           - Data Regions: reference/data-regions.md
           - Export Data: how-to-guides/query-api.md
@@ -235,30 +251,12 @@ nav:
           - Convert to Organization: how-to-guides/convert-to-organization.md
           - Gateway Migration: gateway-migration.md
       - Guides:
-          - Link to Code Source: how-to-guides/link-to-code-source.md
           - Use Alternative Clients: how-to-guides/alternative-clients.md
-          - Use Alternative Backends: how-to-guides/alternative-backends.md
           - Collect Cloud Provider Metrics: how-to-guides/cloud-metrics.md
           - Connect to MCP Server: how-to-guides/mcp-server.md
           - Coding Agent Skills: how-to-guides/skills.md
       - Reference:
           - SQL: reference/sql.md
-          - SDK API:
-              - Logfire: reference/api/logfire.md
-              - Testing: reference/api/testing.md
-              - Sampling: reference/api/sampling.md
-              - Propagate: reference/api/propagate.md
-              - Exceptions: reference/api/exceptions.md
-              - Pydantic: reference/api/pydantic.md
-              - Types: reference/api/types.md
-              - Datasets: reference/api/datasets.md
-          - SDK CLI: reference/cli.md
-          - Examples: reference/examples.md
-          - Baggage: reference/advanced/baggage.md
-          - Generators: reference/advanced/generators.md
-          - Aggregating Metrics in Spans: reference/advanced/metrics-in-spans.md
-          - Testing Logfire Instrumentation: reference/advanced/testing.md
-          - Migrating Projects: reference/advanced/migrate-to-new-project.md
       - Deploy & Scale:
           - Enterprise: enterprise.md
           - Single Tenant: enterprise-single-tenant.md
@@ -349,64 +347,105 @@ plugins:
             - url: https://ai.pydantic.dev/objects.inv
   - redirects:
       redirect_maps:
-        "evaluate/datasets/sdk-reference.md": "reference/api/datasets.md"
+        # Python SDK reorganization
+        "guides/onboarding-checklist/index.md": "python-sdk/instrumentation/index.md"
+        "guides/onboarding-checklist/integrate.md": "python-sdk/instrumentation/integrate.md"
+        "guides/onboarding-checklist/add-manual-tracing.md": "python-sdk/instrumentation/manual-tracing.md"
+        "guides/onboarding-checklist/add-auto-tracing.md": "python-sdk/instrumentation/auto-tracing.md"
+        "guides/onboarding-checklist/add-metrics.md": "python-sdk/instrumentation/metrics.md"
+        "how-to-guides/distributed-tracing.md": "python-sdk/instrumentation/distributed-tracing.md"
+        "how-to-guides/sampling.md": "python-sdk/instrumentation/sampling.md"
+        "how-to-guides/scrubbing.md": "python-sdk/instrumentation/scrubbing.md"
+        "how-to-guides/suppress.md": "python-sdk/instrumentation/suppress.md"
+        "how-to-guides/otel-collector/otel-collector-overview.md": "python-sdk/instrumentation/opentelemetry-collector/overview.md"
+        "how-to-guides/otel-collector/otel-collector-scrubbing.md": "python-sdk/instrumentation/opentelemetry-collector/scrubbing.md"
+        "evaluate/datasets/sdk.md": "python-sdk/evaluate/datasets.md"
+        "how-to-guides/link-to-code-source.md": "python-sdk/reference/advanced/link-to-code-source.md"
+        "how-to-guides/alternative-backends.md": "python-sdk/reference/advanced/alternative-backends.md"
+        "how-to-guides/different-configurations.md": "python-sdk/reference/advanced/multiple-configurations.md"
+        "reference/configuration.md": "python-sdk/reference/configuration.md"
+        "reference/cli.md": "python-sdk/reference/cli.md"
+        "reference/examples.md": "python-sdk/reference/examples.md"
+        "reference/api/logfire.md": "python-sdk/reference/api/logfire.md"
+        "reference/api/testing.md": "python-sdk/reference/api/testing.md"
+        "reference/api/sampling.md": "python-sdk/reference/api/sampling.md"
+        "reference/api/propagate.md": "python-sdk/reference/api/propagate.md"
+        "reference/api/exceptions.md": "python-sdk/reference/api/exceptions.md"
+        "reference/api/pydantic.md": "python-sdk/reference/api/pydantic.md"
+        "reference/api/types.md": "python-sdk/reference/api/types.md"
+        "reference/api/datasets.md": "python-sdk/reference/api/datasets.md"
+        "reference/advanced/baggage.md": "python-sdk/reference/advanced/baggage.md"
+        "reference/advanced/generators.md": "python-sdk/reference/advanced/generators.md"
+        "reference/advanced/metrics-in-spans.md": "python-sdk/reference/advanced/metrics-in-spans.md"
+        "reference/advanced/testing.md": "python-sdk/reference/advanced/testing.md"
+        "reference/advanced/migrate-to-new-project.md": "python-sdk/reference/advanced/migrate-to-new-project.md"
+        "integrations/index.md": "python-sdk/integrations/index.md"
+        "integrations/javascript/index.md": "https://pydantic.dev/docs/logfire/typescript-sdk/"
+        "integrations/javascript/browser.md": "https://pydantic.dev/docs/logfire/typescript-sdk/packages/browser/"
+        "integrations/javascript/cloudflare.md": "https://pydantic.dev/docs/logfire/typescript-sdk/packages/cloudflare/"
+        "integrations/javascript/deno.md": "https://pydantic.dev/docs/logfire/typescript-sdk/frameworks/deno/"
+        "integrations/javascript/express.md": "https://pydantic.dev/docs/logfire/typescript-sdk/frameworks/express/"
+        "integrations/javascript/nextjs.md": "https://pydantic.dev/docs/logfire/typescript-sdk/frameworks/nextjs/"
+        "integrations/javascript/node.md": "https://pydantic.dev/docs/logfire/typescript-sdk/packages/node/"
+        "integrations/javascript/vercel-ai.md": "https://pydantic.dev/docs/logfire/typescript-sdk/frameworks/vercel-ai/"
+        "evaluate/datasets/sdk-reference.md": "python-sdk/reference/api/datasets.md"
         "guides/first_steps/index.md": "index.md"
-        "guides/onboarding_checklist/index.md": "guides/onboarding-checklist/index.md"
-        "guides/onboarding_checklist/integrate.md": "guides/onboarding-checklist/integrate.md"
-        "guides/onboarding_checklist/add_manual_tracing.md": "guides/onboarding-checklist/add-manual-tracing.md"
-        "guides/onboarding_checklist/add_auto_tracing.md": "guides/onboarding-checklist/add-auto-tracing.md"
+        "guides/onboarding_checklist/index.md": "python-sdk/instrumentation/index.md"
+        "guides/onboarding_checklist/integrate.md": "python-sdk/instrumentation/integrate.md"
+        "guides/onboarding_checklist/add_manual_tracing.md": "python-sdk/instrumentation/manual-tracing.md"
+        "guides/onboarding_checklist/add_auto_tracing.md": "python-sdk/instrumentation/auto-tracing.md"
         "guides/web_ui/index.md": "guides/web-ui/live.md"
         "guides/web-ui/index.md": "guides/web-ui/live.md"
         "guides/web_ui/live.md": "guides/web-ui/live.md"
         "guides/web_ui/dashboards.md": "guides/web-ui/dashboards.md"
         "guides/web_ui/alerts.md": "guides/web-ui/alerts.md"
         "guides/web_ui/explore.md": "guides/web-ui/explore.md"
-        "guides/advanced/generators.md": "reference/advanced/generators.md"
-        "guides/advanced/testing.md": "reference/advanced/testing.md"
+        "guides/advanced/generators.md": "python-sdk/reference/advanced/generators.md"
+        "guides/advanced/testing.md": "python-sdk/reference/advanced/testing.md"
         "guides/advanced/query_api.md": "how-to-guides/query-api.md"
         "guides/advanced/query-api.md": "how-to-guides/query-api.md"
-        "guides/advanced/scrubbing.md": "how-to-guides/scrubbing.md"
-        "guides/advanced/sampling.md": "how-to-guides/sampling.md"
+        "guides/advanced/scrubbing.md": "python-sdk/instrumentation/scrubbing.md"
+        "guides/advanced/sampling.md": "python-sdk/instrumentation/sampling.md"
         "guides/advanced/alternative-clients.md": "how-to-guides/alternative-clients.md"
-        "guides/advanced/link-to-code-source.md": "how-to-guides/link-to-code-source.md"
-        "guides/advanced/alternative_backends.md": "how-to-guides/alternative-backends.md"
-        "guides/advanced/alternative-backends.md": "how-to-guides/alternative-backends.md"
+        "guides/advanced/link-to-code-source.md": "python-sdk/reference/advanced/link-to-code-source.md"
+        "guides/advanced/alternative_backends.md": "python-sdk/reference/advanced/alternative-backends.md"
+        "guides/advanced/alternative-backends.md": "python-sdk/reference/advanced/alternative-backends.md"
         "guides/advanced/creating_write_tokens.md": "how-to-guides/create-write-tokens.md"
         "guides/advanced/creating-write-tokens.md": "how-to-guides/create-write-tokens.md"
         "guides/advanced/index.md": "how-to-guides/environments.md"
         "guides/advanced/environments.md": "how-to-guides/environments.md"
-        "integrations/system_metrics.md": "integrations/system-metrics.md"
-        "integrations/third_party/index.md": "integrations/index.md"
-        "integrations/third-party/index.md": "integrations/index.md"
-        "integrations/third_party/mirascope.md": "integrations/llms/mirascope.md"
-        "integrations/third_party/litellm.md": "integrations/llms/litellm.md"
-        "integrations/third-party/litellm.md": "integrations/llms/litellm.md"
-        "integrations/third-party/mirascope.md": "integrations/llms/mirascope.md"
-        "integrations/third_party/magentic.md": "integrations/llms/magentic.md"
-        "integrations/use_cases/web_frameworks.md": "integrations/web-frameworks/index.md"
-        "integrations/use-cases/web_frameworks.md": "integrations/web-frameworks/index.md"
-        "integrations/fastapi.md": "integrations/web-frameworks/fastapi.md"
-        "integrations/django.md": "integrations/web-frameworks/django.md"
-        "integrations/flask.md": "integrations/web-frameworks/flask.md"
-        "integrations/starlette.md": "integrations/web-frameworks/starlette.md"
-        "integrations/asgi.md": "integrations/web-frameworks/asgi.md"
-        "integrations/wsgi.md": "integrations/web-frameworks/wsgi.md"
-        "integrations/psycopg.md": "integrations/databases/psycopg.md"
-        "integrations/sqlalchemy.md": "integrations/databases/sqlalchemy.md"
-        "integrations/asyncpg.md": "integrations/databases/asyncpg.md"
-        "integrations/pymongo.md": "integrations/databases/pymongo.md"
-        "integrations/mysql.md": "integrations/databases/mysql.md"
-        "integrations/sqlite3.md": "integrations/databases/sqlite3.md"
-        "integrations/redis.md": "integrations/databases/redis.md"
-        "integrations/bigquery.md": "integrations/databases/bigquery.md"
-        "integrations/httpx.md": "integrations/http-clients/httpx.md"
-        "integrations/requests.md": "integrations/http-clients/requests.md"
-        "integrations/aiohttp.md": "integrations/http-clients/aiohttp.md"
-        "integrations/airflow.md": "integrations/event-streams/airflow.md"
-        "integrations/faststream.md": "integrations/event-streams/faststream.md"
-        "integrations/celery.md": "integrations/event-streams/celery.md"
-        "integrations/openai.md": "integrations/llms/openai.md"
-        "integrations/anthropic.md": "integrations/llms/anthropic.md"
+        "integrations/system_metrics.md": "python-sdk/integrations/system-metrics.md"
+        "integrations/third_party/index.md": "python-sdk/integrations/index.md"
+        "integrations/third-party/index.md": "python-sdk/integrations/index.md"
+        "integrations/third_party/mirascope.md": "python-sdk/integrations/llms/mirascope.md"
+        "integrations/third_party/litellm.md": "python-sdk/integrations/llms/litellm.md"
+        "integrations/third-party/litellm.md": "python-sdk/integrations/llms/litellm.md"
+        "integrations/third-party/mirascope.md": "python-sdk/integrations/llms/mirascope.md"
+        "integrations/third_party/magentic.md": "python-sdk/integrations/llms/magentic.md"
+        "integrations/use_cases/web_frameworks.md": "python-sdk/integrations/web-frameworks/index.md"
+        "integrations/use-cases/web_frameworks.md": "python-sdk/integrations/web-frameworks/index.md"
+        "integrations/fastapi.md": "python-sdk/integrations/web-frameworks/fastapi.md"
+        "integrations/django.md": "python-sdk/integrations/web-frameworks/django.md"
+        "integrations/flask.md": "python-sdk/integrations/web-frameworks/flask.md"
+        "integrations/starlette.md": "python-sdk/integrations/web-frameworks/starlette.md"
+        "integrations/asgi.md": "python-sdk/integrations/web-frameworks/asgi.md"
+        "integrations/wsgi.md": "python-sdk/integrations/web-frameworks/wsgi.md"
+        "integrations/psycopg.md": "python-sdk/integrations/databases/psycopg.md"
+        "integrations/sqlalchemy.md": "python-sdk/integrations/databases/sqlalchemy.md"
+        "integrations/asyncpg.md": "python-sdk/integrations/databases/asyncpg.md"
+        "integrations/pymongo.md": "python-sdk/integrations/databases/pymongo.md"
+        "integrations/mysql.md": "python-sdk/integrations/databases/mysql.md"
+        "integrations/sqlite3.md": "python-sdk/integrations/databases/sqlite3.md"
+        "integrations/redis.md": "python-sdk/integrations/databases/redis.md"
+        "integrations/bigquery.md": "python-sdk/integrations/databases/bigquery.md"
+        "integrations/httpx.md": "python-sdk/integrations/http-clients/httpx.md"
+        "integrations/requests.md": "python-sdk/integrations/http-clients/requests.md"
+        "integrations/aiohttp.md": "python-sdk/integrations/http-clients/aiohttp.md"
+        "integrations/airflow.md": "python-sdk/integrations/event-streams/airflow.md"
+        "integrations/faststream.md": "python-sdk/integrations/event-streams/faststream.md"
+        "integrations/celery.md": "python-sdk/integrations/event-streams/celery.md"
+        "integrations/openai.md": "python-sdk/integrations/llms/openai.md"
+        "integrations/anthropic.md": "python-sdk/integrations/llms/anthropic.md"
         "legal/service_level_agreement.md": "https://pydantic.dev/legal/terms-of-service"
         "legal/terms_of_service.md": "https://pydantic.dev/legal/terms-of-service"
         "legal/data_processing_addendum.md": "https://pydantic.dev/legal/data-processing-addendum"
@@ -416,17 +455,17 @@ plugins:
         "legal/data-processing-addendum.md": "https://pydantic.dev/legal/data-processing-addendum"
         "legal/cloud-subprocessors.md": "https://pydantic.dev/legal/cloud-subprocessors"
         "release_notes.md": "release-notes.md"
-        "examples.md": "reference/examples.md"
-        "reference.md": "reference/examples.md"
-        "api/logfire.md": "reference/api/logfire.md"
-        "api/testing.md": "reference/api/testing.md"
-        "api/propagate.md": "reference/api/propagate.md"
-        "api/exceptions.md": "reference/api/exceptions.md"
-        "api/sampling.md": "reference/api/sampling.md"
-        "api/integrations/structlog.md": "reference/api/logfire.md#logfire.StructlogProcessor"
-        "api/integrations/pydantic.md": "reference/api/pydantic.md"
-        "api/integrations/logging.md": "reference/api/logfire.md#logfire.LogfireLoggingHandler"
-        "guides/onboarding_checklist/add_metrics.md": "guides/onboarding-checklist/add-metrics.md"
+        "examples.md": "python-sdk/reference/examples.md"
+        "reference.md": "python-sdk/reference/examples.md"
+        "api/logfire.md": "python-sdk/reference/api/logfire.md"
+        "api/testing.md": "python-sdk/reference/api/testing.md"
+        "api/propagate.md": "python-sdk/reference/api/propagate.md"
+        "api/exceptions.md": "python-sdk/reference/api/exceptions.md"
+        "api/sampling.md": "python-sdk/reference/api/sampling.md"
+        "api/integrations/structlog.md": "python-sdk/reference/api/logfire.md#logfire.StructlogProcessor"
+        "api/integrations/pydantic.md": "python-sdk/reference/api/pydantic.md"
+        "api/integrations/logging.md": "python-sdk/reference/api/logfire.md#logfire.LogfireLoggingHandler"
+        "guides/onboarding_checklist/add_metrics.md": "python-sdk/instrumentation/metrics.md"
         "guides/index.md": "index.md"
         "why-logfire/index.md": "why.md"
         "why-logfire/pydantic.md": "why.md"
@@ -435,7 +474,7 @@ plugins:
         "why-logfire/python-centric.md": "why.md"
         "why-logfire/sql.md": "why.md"
         "get-started/traces.md": "concepts.md"
-        "how-to-guides/otel-collector.md": "how-to-guides/otel-collector/otel-collector-overview.md"
+        "how-to-guides/otel-collector.md": "python-sdk/instrumentation/opentelemetry-collector/overview.md"
         "reference/organization-structure.md": "guides/web-ui/organizations-and-projects.md"
   - llmstxt:
       enabled: !ENV [CI, false]
@@ -450,16 +489,16 @@ plugins:
           - concepts.md
           - ai-observability.md
           - faq.md
-        Instrument Your App:
-          - guides/onboarding-checklist/*.md
-          - how-to-guides/distributed-tracing.md
-          - how-to-guides/sampling.md
-          - how-to-guides/scrubbing.md
-          - how-to-guides/suppress.md
-          - how-to-guides/otel-collector/*.md
-        Integrations:
-          - integrations/*.md
-          - integrations/*/*.md
+        Python SDK:
+          - python-sdk/*.md
+          - python-sdk/instrumentation/*.md
+          - python-sdk/instrumentation/opentelemetry-collector/*.md
+          - python-sdk/integrations/*.md
+          - python-sdk/integrations/*/*.md
+          - python-sdk/evaluate/*.md
+          - python-sdk/reference/*.md
+          - python-sdk/reference/api/*.md
+          - python-sdk/reference/advanced/*.md
         Observe & Investigate:
           - guides/web-ui/live.md
           - guides/web-ui/llm-panels.md
@@ -479,7 +518,6 @@ plugins:
           - evaluate/datasets/*.md
         Manage & Configure:
           - guides/web-ui/organizations-and-projects.md
-          - reference/configuration.md
           - reference/advanced/managed-variables/*.md
           - reference/advanced/prompt-management/*.md
           - reference/advanced/use-api-keys.md
@@ -487,27 +525,16 @@ plugins:
           - logfire-costs.md
           - how-to-guides/environments.md
           - how-to-guides/create-write-tokens.md
-          - how-to-guides/different-configurations.md
           - how-to-guides/query-api.md
           - how-to-guides/client-side-feature-flags.md
           - how-to-guides/convert-to-organization.md
           - gateway-migration.md
         Guides:
-          - how-to-guides/link-to-code-source.md
           - how-to-guides/alternative-clients.md
-          - how-to-guides/alternative-backends.md
           - how-to-guides/cloud-metrics.md
           - how-to-guides/mcp-server.md
         Reference:
           - reference/sql.md
-          - reference/api/*.md
-          - reference/cli.md
-          - reference/examples.md
-          - reference/advanced/baggage.md
-          - reference/advanced/generators.md
-          - reference/advanced/metrics-in-spans.md
-          - reference/advanced/testing.md
-          - reference/advanced/migrate-to-new-project.md
         Deploy & Scale:
           - enterprise.md
           - enterprise-single-tenant.md

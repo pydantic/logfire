@@ -74,20 +74,20 @@ Logfire works with any framework that has OpenTelemetry instrumentation. Our con
 
 One function call instruments each framework:
 
-- [Pydantic AI](integrations/llms/pydanticai.md) - `logfire.instrument_pydantic_ai()`
-- [OpenAI](integrations/llms/openai.md) - `logfire.instrument_openai()`
-- [Anthropic](integrations/llms/anthropic.md) - `logfire.instrument_anthropic()`
-- [LangChain](integrations/llms/langchain.md) - Built-in OTel support
-- [LlamaIndex](integrations/llms/llamaindex.md) - `logfire.instrument_llamaindex()`
-- [LiteLLM](integrations/llms/litellm.md) - `logfire.instrument_litellm()`
-- [Google GenAI](integrations/llms/google-genai.md) - `logfire.instrument_google_genai()`
-- [MCP](integrations/llms/mcp.md) - Model Context Protocol support
+- [Pydantic AI](./python-sdk/integrations/llms/pydanticai.md) - `logfire.instrument_pydantic_ai()`
+- [OpenAI](./python-sdk/integrations/llms/openai.md) - `logfire.instrument_openai()`
+- [Anthropic](./python-sdk/integrations/llms/anthropic.md) - `logfire.instrument_anthropic()`
+- [LangChain](./python-sdk/integrations/llms/langchain.md) - Built-in OTel support
+- [LlamaIndex](./python-sdk/integrations/llms/llamaindex.md) - `logfire.instrument_llamaindex()`
+- [LiteLLM](./python-sdk/integrations/llms/litellm.md) - `logfire.instrument_litellm()`
+- [Google GenAI](./python-sdk/integrations/llms/google-genai.md) - `logfire.instrument_google_genai()`
+- [MCP](./python-sdk/integrations/llms/mcp.md) - Model Context Protocol support
 
 ### JavaScript/TypeScript
 
-The [Logfire JS SDK](integrations/javascript/index.md) supports Node.js, browsers, Next.js, Cloudflare Workers, and Deno.
+The [Logfire JS SDK](https://pydantic.dev/docs/logfire/typescript-sdk/) supports Node.js, browsers, Next.js, Cloudflare Workers, and Deno.
 
-Frameworks like [Vercel AI SDK](integrations/javascript/vercel-ai.md) have built-in OpenTelemetry support. Configure OTel to send to Logfire and it works automatically.
+Frameworks like [Vercel AI SDK](https://pydantic.dev/docs/logfire/typescript-sdk/frameworks/vercel-ai/) have built-in OpenTelemetry support. Configure OTel to send to Logfire and it works automatically.
 
 ### Any OTel-Compatible Framework
 
@@ -162,7 +162,7 @@ Modern AI applications are rarely single-language. A Python AI backend with a Ty
 
 ## No Lock-In
 
-Logfire is built on OpenTelemetry, which means your instrumentation is portable. If you instrument your code with the Logfire SDK, you're really just configuring OpenTelemetry with sensible defaults. You can [configure the SDK to send data to other backends](how-to-guides/alternative-backends.md) if you want, or use standard OTel libraries directly and just point them at Logfire's OTLP endpoint. No proprietary agents or formats to worry about.
+Logfire is built on OpenTelemetry, which means your instrumentation is portable. If you instrument your code with the Logfire SDK, you're really just configuring OpenTelemetry with sensible defaults. You can [configure the SDK to send data to other backends](./python-sdk/reference/advanced/alternative-backends.md) if you want, or use standard OTel libraries directly and just point them at Logfire's OTLP endpoint. No proprietary agents or formats to worry about.
 
 ## SQL-Based Analysis
 
@@ -207,12 +207,12 @@ logfire.configure()
 logfire.instrument_openai()  # Or your framework of choice
 ```
 
-[Full getting started guide →](index.md)
+[Full getting started guide →](./python-sdk/get-started.md)
 
 ## Learn More
 
 - [LLM Panels](guides/web-ui/llm-panels.md) - Detailed guide to LLM visualization
-- [Integrations](integrations/index.md) - All supported frameworks
+- [Integrations](./python-sdk/integrations/index.md) - All supported frameworks
 - [Why Logfire?](why.md) - General platform overview
 
 - [Comparisons](comparisons/index.md) - How Logfire compares to alternatives

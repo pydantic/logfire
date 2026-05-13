@@ -14,7 +14,7 @@ See [here](#additional-configuration) for more details about the available respo
 
 ## How to Create a Read Token
 
-If you've set up Logfire following the [getting started guide](../index.md), you can generate read tokens either from
+If you've set up Logfire following the [getting started guide](../python-sdk/get-started.md), you can generate read tokens either from
 the Logfire web interface or via the CLI.
 
 ### Via Web Interface

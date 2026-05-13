@@ -46,7 +46,7 @@ is the first thing we recommend looking at.
 
 ## How integrations generate metrics
 
-Many integrations such as [httpx](integrations/http-clients/httpx.md), [sqlalchemy](integrations/databases/sqlalchemy.md), [FastAPI](integrations/web-frameworks/fastapi.md) etc.
+Many integrations such as [httpx](python-sdk/integrations/http-clients/httpx.md), [sqlalchemy](./python-sdk/integrations/databases/sqlalchemy.md), [FastAPI](./python-sdk/integrations/web-frameworks/fastapi.md) etc.
 emit **aggregate metrics** under the hood - typically counts, durations, and error-rates.
 
 Each exported metric **counts exactly once**, no matter how many requests it summarises.
@@ -73,7 +73,7 @@ You may be only interested in certain types of records. For example, you may wis
 * Only send spans that took longer than normal to run
 
 Tuning these factors is a trade-off between cost and granularity. The way you conduct this
-tuning is via [sampling](how-to-guides/sampling.md).
+tuning is via [sampling](./python-sdk/instrumentation/sampling.md).
 
 ---
 
@@ -82,7 +82,7 @@ tuning is via [sampling](how-to-guides/sampling.md).
 Unless you are under the [Growth or Enterprise plan](https://pydantic.dev/pricing),
 data older than **30 days** is pruned.
 If you need longer retention we recommend writing to both Logfire and a long-term storage
-such as AWS S3. We have a [guide on how to back up data to S3](how-to-guides/otel-collector/otel-collector-overview.md#back-up-data-in-aws-s3).
+such as AWS S3. We have a [guide on how to back up data to S3](./python-sdk/instrumentation/opentelemetry-collector/overview.md#back-up-data-in-aws-s3).
 You can also use the Query API which allows you to run SQL queries
 and treat Logfire as an analytical database. You're then free to save this data to a storage
 of your choice (S3, GCS etc.)

@@ -17,11 +17,11 @@ The [Logfire GitHub Issues][github-issues] are a great place to ask questions, a
 
 ## :material-help: Documentation
 
-The [usage documentation](index.md) is the most complete guide on how to get started with **Pydantic Logfire**.
+The [usage documentation](./python-sdk/get-started.md) is the most complete guide on how to get started with **Pydantic Logfire**.
 
 ## :material-api: SDK API Documentation
 
-The [SDK API documentation](reference/api/logfire.md) give reference docs for the **Logfire** SDK.
+The [SDK API documentation](./python-sdk/reference/api/logfire.md) give reference docs for the **Logfire** SDK.
 
 ## :material-email: Email
 

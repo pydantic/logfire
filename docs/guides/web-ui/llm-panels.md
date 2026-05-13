@@ -47,13 +47,13 @@ Click an LLM span to open the details panel.
 
 | Instrumentation                                                                       | Token badges | Costs | LLM details panel |
 |---------------------------------------------------------------------------------------|--------------|-------|-------------------|
-| [Pydantic AI](../../integrations/llms/pydanticai.md)                                  | ✅            | ✅     | ✅                 |
-| [OpenAI](../../integrations/llms/openai.md)                                           | ✅            | ✅     | ✅                 |
-| [Google Gen AI](../../integrations/llms/google-genai.md)                              | ✅            | ✅     | ✅                 |
-| [LangChain](../../integrations/llms/langchain.md)                                     | ✅            | ✅     | ✅                 |
-| [LiteLLM](../../integrations/llms/litellm.md)                                         | ✅            | ✅     | ✅                 |
-| [Anthropic](../../integrations/llms/anthropic.md)                                     | ✅            | ✅     | ✅                 |
-| [Claude Agent SDK](../../integrations/llms/claude-agent-sdk.md)                       | ✅            | ✅     | ✅                 |
+| [Pydantic AI](../../python-sdk/integrations/llms/pydanticai.md)                                  | ✅            | ✅     | ✅                 |
+| [OpenAI](../../python-sdk/integrations/llms/openai.md)                                           | ✅            | ✅     | ✅                 |
+| [Google Gen AI](../../python-sdk/integrations/llms/google-genai.md)                              | ✅            | ✅     | ✅                 |
+| [LangChain](../../python-sdk/integrations/llms/langchain.md)                                     | ✅            | ✅     | ✅                 |
+| [LiteLLM](../../python-sdk/integrations/llms/litellm.md)                                         | ✅            | ✅     | ✅                 |
+| [Anthropic](../../python-sdk/integrations/llms/anthropic.md)                                     | ✅            | ✅     | ✅                 |
+| [Claude Agent SDK](../../python-sdk/integrations/llms/claude-agent-sdk.md)                       | ✅            | ✅     | ✅                 |
 | [Google ADK](https://github.com/pydantic/logfire/issues/1201#issuecomment-3012423974) | ✅            |       |                   |
 
 Tokens and costs are more generally supported by any instrumentation that follows the standard [OpenTelemetry semantic conventions for GenAI spans](https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/). The following snippet shows the attributes required if you want to log the data manually:

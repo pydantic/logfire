@@ -20,7 +20,7 @@ Built by the Pydantic team (the same people behind Pydantic AI), Logfire provide
 - **LLM-specific features:** Token tracking, cost monitoring, conversation inspection, tool call visibility
 - **SQL query interface:** Query your observability data with familiar PostgreSQL-compatible syntax
 
-[Why Logfire?](why.md) | [Getting Started](index.md) | [AI & LLM Observability](ai-observability.md)
+[Why Logfire?](why.md) | [Getting Started](./python-sdk/get-started.md) | [AI & LLM Observability](ai-observability.md)
 
 ### Q: Who is Logfire for?
 
@@ -117,7 +117,7 @@ Yes. We provide a full JavaScript/TypeScript SDK.
 
 The JS SDK provides the same core features as Python: spans, structured logging, error tracking, and distributed tracing.
 
-[JavaScript SDK](integrations/javascript/index.md)
+[JavaScript SDK](https://pydantic.dev/docs/logfire/typescript-sdk/)
 
 ### Q: What frameworks and libraries does Logfire support?
 
@@ -135,7 +135,7 @@ The JS SDK provides the same core features as Python: spans, structured logging,
 
 **Other languages:** Any framework following OpenTelemetry semantic conventions.
 
-[Full integrations list](integrations/index.md)
+[Full integrations list](./python-sdk/integrations/index.md)
 
 ### Q: Do I need special Logfire integrations, or can I just use standard OpenTelemetry?
 
@@ -239,7 +239,7 @@ You can:
 - Use Logfire for some services, other tools for others
 - Run Logfire alongside existing observability infrastructure
 
-[Alternative backends](how-to-guides/alternative-backends.md)
+[Alternative backends](./python-sdk/reference/advanced/alternative-backends.md)
 
 ### Q: Do I have to use Logfire with Pydantic AI?
 
@@ -264,11 +264,11 @@ logfire.instrument_pydantic_ai()  # Or your framework of choice
 
 That's it. Three lines of code for basic instrumentation.
 
-[Getting Started](index.md) | [Onboarding Checklist](guides/onboarding-checklist/index.md)
+[Getting Started](index.md) | [Onboarding Checklist](./python-sdk/instrumentation/index.md)
 
 ### Q: Where can I get help?
 
-- [Documentation](index.md) - Comprehensive guides and reference
+- [Documentation](./python-sdk/get-started.md) - Comprehensive guides and reference
 - [Slack Community](join-slack/index.html) - Ask questions, share feedback
 - [GitHub Issues](https://github.com/pydantic/logfire/issues) - Report bugs, request features
 - [Enterprise Support](enterprise.md) - Dedicated support for enterprise customers

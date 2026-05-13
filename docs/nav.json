@@ -2,176 +2,534 @@
   {
     "label": "Getting Started",
     "items": [
-      { "label": "Logfire", "slug": "index" },
-      { "label": "Why Logfire?", "slug": "why" },
-      { "label": "AI & LLM Observability", "slug": "ai-observability" },
-      { "label": "Core Concepts", "slug": "concepts" },
-      { "label": "FAQ", "slug": "faq" },
-      { "label": "Get Help", "slug": "help" },
+      {
+        "label": "Logfire",
+        "slug": "index"
+      },
+      {
+        "label": "Why Logfire?",
+        "slug": "why"
+      },
+      {
+        "label": "AI & LLM Observability",
+        "slug": "ai-observability"
+      },
+      {
+        "label": "Core Concepts",
+        "slug": "concepts"
+      },
+      {
+        "label": "FAQ",
+        "slug": "faq"
+      },
+      {
+        "label": "Get Help",
+        "slug": "help"
+      },
       {
         "label": "Comparisons",
         "items": [
-          { "label": "Overview", "slug": "comparisons/index" },
-          { "label": "vs Langfuse", "slug": "comparisons/langfuse" },
-          { "label": "vs LangSmith", "slug": "comparisons/langsmith" },
-          { "label": "vs Arize Phoenix", "slug": "comparisons/arize-phoenix" },
-          { "label": "vs Braintrust", "slug": "comparisons/braintrust" },
-          { "label": "vs Datadog", "slug": "comparisons/datadog" },
-          { "label": "vs Sentry", "slug": "comparisons/sentry" },
-          { "label": "vs SigNoz", "slug": "comparisons/signoz" },
-          { "label": "vs Grafana", "slug": "comparisons/grafana" }
+          {
+            "label": "Overview",
+            "slug": "comparisons/index"
+          },
+          {
+            "label": "vs Langfuse",
+            "slug": "comparisons/langfuse"
+          },
+          {
+            "label": "vs LangSmith",
+            "slug": "comparisons/langsmith"
+          },
+          {
+            "label": "vs Arize Phoenix",
+            "slug": "comparisons/arize-phoenix"
+          },
+          {
+            "label": "vs Braintrust",
+            "slug": "comparisons/braintrust"
+          },
+          {
+            "label": "vs Datadog",
+            "slug": "comparisons/datadog"
+          },
+          {
+            "label": "vs Sentry",
+            "slug": "comparisons/sentry"
+          },
+          {
+            "label": "vs SigNoz",
+            "slug": "comparisons/signoz"
+          },
+          {
+            "label": "vs Grafana",
+            "slug": "comparisons/grafana"
+          }
         ]
       }
     ]
   },
   {
-    "label": "Instrument Your App",
+    "label": "Python SDK",
     "items": [
-      { "label": "Onboarding Checklist", "slug": "guides/onboarding-checklist/index" },
-      { "label": "Integrate Logfire", "slug": "guides/onboarding-checklist/integrate" },
-      { "label": "Manual Tracing", "slug": "guides/onboarding-checklist/add-manual-tracing" },
-      { "label": "Auto-Tracing", "slug": "guides/onboarding-checklist/add-auto-tracing" },
-      { "label": "Metrics", "slug": "guides/onboarding-checklist/add-metrics" },
-      { "label": "Distributed Tracing", "slug": "how-to-guides/distributed-tracing" },
-      { "label": "Sampling Strategies", "slug": "how-to-guides/sampling" },
-      { "label": "Scrub Sensitive Data", "slug": "how-to-guides/scrubbing" },
-      { "label": "Suppress Spans and Metrics", "slug": "how-to-guides/suppress" },
       {
-        "label": "OpenTelemetry Collector",
+        "label": "Overview",
+        "slug": "python-sdk/index"
+      },
+      {
+        "label": "Getting Started",
+        "slug": "python-sdk/get-started"
+      },
+      {
+        "label": "Instrumentation",
         "items": [
-          { "label": "Overview", "slug": "how-to-guides/otel-collector/otel-collector-overview" },
-          { "label": "Advanced Scrubbing", "slug": "how-to-guides/otel-collector/otel-collector-scrubbing" }
+          {
+            "label": "Onboarding Checklist",
+            "slug": "python-sdk/instrumentation/index"
+          },
+          {
+            "label": "Integrate Logfire",
+            "slug": "python-sdk/instrumentation/integrate"
+          },
+          {
+            "label": "Manual Tracing",
+            "slug": "python-sdk/instrumentation/manual-tracing"
+          },
+          {
+            "label": "Auto-Tracing",
+            "slug": "python-sdk/instrumentation/auto-tracing"
+          },
+          {
+            "label": "Metrics",
+            "slug": "python-sdk/instrumentation/metrics"
+          },
+          {
+            "label": "Distributed Tracing",
+            "slug": "python-sdk/instrumentation/distributed-tracing"
+          },
+          {
+            "label": "Sampling Strategies",
+            "slug": "python-sdk/instrumentation/sampling"
+          },
+          {
+            "label": "Scrub Sensitive Data",
+            "slug": "python-sdk/instrumentation/scrubbing"
+          },
+          {
+            "label": "Suppress Spans and Metrics",
+            "slug": "python-sdk/instrumentation/suppress"
+          },
+          {
+            "label": "OpenTelemetry Collector",
+            "items": [
+              {
+                "label": "Overview",
+                "slug": "python-sdk/instrumentation/opentelemetry-collector/overview"
+              },
+              {
+                "label": "Advanced Scrubbing",
+                "slug": "python-sdk/instrumentation/opentelemetry-collector/scrubbing"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "label": "Integrations",
+        "items": [
+          {
+            "label": "Integrations",
+            "slug": "python-sdk/integrations/index"
+          },
+          {
+            "label": "AI & LLM Frameworks",
+            "items": [
+              {
+                "label": "Pydantic AI",
+                "slug": "python-sdk/integrations/llms/pydanticai"
+              },
+              {
+                "label": "OpenAI",
+                "slug": "python-sdk/integrations/llms/openai"
+              },
+              {
+                "label": "Google Gen AI",
+                "slug": "python-sdk/integrations/llms/google-genai"
+              },
+              {
+                "label": "Anthropic",
+                "slug": "python-sdk/integrations/llms/anthropic"
+              },
+              {
+                "label": "LangChain",
+                "slug": "python-sdk/integrations/llms/langchain"
+              },
+              {
+                "label": "LiteLLM",
+                "slug": "python-sdk/integrations/llms/litellm"
+              },
+              {
+                "label": "DSPy",
+                "slug": "python-sdk/integrations/llms/dspy"
+              },
+              {
+                "label": "MCP",
+                "slug": "python-sdk/integrations/llms/mcp"
+              },
+              {
+                "label": "Claude Agent SDK",
+                "slug": "python-sdk/integrations/llms/claude-agent-sdk"
+              },
+              {
+                "label": "LLamaIndex",
+                "slug": "python-sdk/integrations/llms/llamaindex"
+              },
+              {
+                "label": "Mirascope",
+                "slug": "python-sdk/integrations/llms/mirascope"
+              },
+              {
+                "label": "Magentic",
+                "slug": "python-sdk/integrations/llms/magentic"
+              }
+            ]
+          },
+          {
+            "label": "Web Frameworks",
+            "items": [
+              {
+                "label": "Web Frameworks",
+                "slug": "python-sdk/integrations/web-frameworks/index"
+              },
+              {
+                "label": "FastAPI",
+                "slug": "python-sdk/integrations/web-frameworks/fastapi"
+              },
+              {
+                "label": "Django",
+                "slug": "python-sdk/integrations/web-frameworks/django"
+              },
+              {
+                "label": "Flask",
+                "slug": "python-sdk/integrations/web-frameworks/flask"
+              },
+              {
+                "label": "Starlette",
+                "slug": "python-sdk/integrations/web-frameworks/starlette"
+              },
+              {
+                "label": "AIOHTTP",
+                "slug": "python-sdk/integrations/web-frameworks/aiohttp"
+              },
+              {
+                "label": "ASGI",
+                "slug": "python-sdk/integrations/web-frameworks/asgi"
+              },
+              {
+                "label": "WSGI",
+                "slug": "python-sdk/integrations/web-frameworks/wsgi"
+              },
+              {
+                "label": "Gunicorn",
+                "slug": "python-sdk/integrations/web-frameworks/gunicorn"
+              }
+            ]
+          },
+          {
+            "label": "Databases",
+            "items": [
+              {
+                "label": "Psycopg",
+                "slug": "python-sdk/integrations/databases/psycopg"
+              },
+              {
+                "label": "SQLAlchemy",
+                "slug": "python-sdk/integrations/databases/sqlalchemy"
+              },
+              {
+                "label": "Asyncpg",
+                "slug": "python-sdk/integrations/databases/asyncpg"
+              },
+              {
+                "label": "PyMongo",
+                "slug": "python-sdk/integrations/databases/pymongo"
+              },
+              {
+                "label": "MySQL",
+                "slug": "python-sdk/integrations/databases/mysql"
+              },
+              {
+                "label": "SQLite3",
+                "slug": "python-sdk/integrations/databases/sqlite3"
+              },
+              {
+                "label": "Redis",
+                "slug": "python-sdk/integrations/databases/redis"
+              },
+              {
+                "label": "BigQuery",
+                "slug": "python-sdk/integrations/databases/bigquery"
+              }
+            ]
+          },
+          {
+            "label": "HTTP Clients",
+            "items": [
+              {
+                "label": "HTTPX",
+                "slug": "python-sdk/integrations/http-clients/httpx"
+              },
+              {
+                "label": "Requests",
+                "slug": "python-sdk/integrations/http-clients/requests"
+              },
+              {
+                "label": "AIOHTTP",
+                "slug": "python-sdk/integrations/http-clients/aiohttp"
+              }
+            ]
+          },
+          {
+            "label": "Task Queues & Pipelines",
+            "items": [
+              {
+                "label": "Airflow",
+                "slug": "python-sdk/integrations/event-streams/airflow"
+              },
+              {
+                "label": "FastStream",
+                "slug": "python-sdk/integrations/event-streams/faststream"
+              },
+              {
+                "label": "Celery",
+                "slug": "python-sdk/integrations/event-streams/celery"
+              }
+            ]
+          },
+          {
+            "label": "Logging",
+            "items": [
+              {
+                "label": "Logging",
+                "slug": "python-sdk/integrations/logging"
+              },
+              {
+                "label": "Print",
+                "slug": "python-sdk/integrations/print"
+              },
+              {
+                "label": "Structlog",
+                "slug": "python-sdk/integrations/structlog"
+              },
+              {
+                "label": "Loguru",
+                "slug": "python-sdk/integrations/loguru"
+              }
+            ]
+          },
+          {
+            "label": "Pytest",
+            "slug": "python-sdk/integrations/pytest"
+          },
+          {
+            "label": "Pydantic",
+            "slug": "python-sdk/integrations/pydantic"
+          },
+          {
+            "label": "System Metrics",
+            "slug": "python-sdk/integrations/system-metrics"
+          },
+          {
+            "label": "Stripe",
+            "slug": "python-sdk/integrations/stripe"
+          },
+          {
+            "label": "AWS Lambda",
+            "slug": "python-sdk/integrations/aws-lambda"
+          }
+        ]
+      },
+      {
+        "label": "Evaluate",
+        "items": [
+          {
+            "label": "Datasets SDK Guide",
+            "slug": "python-sdk/evaluate/datasets"
+          }
+        ]
+      },
+      {
+        "label": "Reference",
+        "items": [
+          {
+            "label": "Configuration",
+            "slug": "python-sdk/reference/configuration"
+          },
+          {
+            "label": "API",
+            "items": [
+              {
+                "label": "Logfire",
+                "slug": "python-sdk/reference/api/logfire"
+              },
+              {
+                "label": "Testing",
+                "slug": "python-sdk/reference/api/testing"
+              },
+              {
+                "label": "Sampling",
+                "slug": "python-sdk/reference/api/sampling"
+              },
+              {
+                "label": "Propagate",
+                "slug": "python-sdk/reference/api/propagate"
+              },
+              {
+                "label": "Exceptions",
+                "slug": "python-sdk/reference/api/exceptions"
+              },
+              {
+                "label": "Pydantic",
+                "slug": "python-sdk/reference/api/pydantic"
+              },
+              {
+                "label": "Types",
+                "slug": "python-sdk/reference/api/types"
+              },
+              {
+                "label": "Datasets",
+                "slug": "python-sdk/reference/api/datasets"
+              }
+            ]
+          },
+          {
+            "label": "CLI",
+            "slug": "python-sdk/reference/cli"
+          },
+          {
+            "label": "Examples",
+            "slug": "python-sdk/reference/examples"
+          },
+          {
+            "label": "Advanced",
+            "items": [
+              {
+                "label": "Baggage",
+                "slug": "python-sdk/reference/advanced/baggage"
+              },
+              {
+                "label": "Generators",
+                "slug": "python-sdk/reference/advanced/generators"
+              },
+              {
+                "label": "Aggregating Metrics in Spans",
+                "slug": "python-sdk/reference/advanced/metrics-in-spans"
+              },
+              {
+                "label": "Testing Logfire Instrumentation",
+                "slug": "python-sdk/reference/advanced/testing"
+              },
+              {
+                "label": "Migrating Projects",
+                "slug": "python-sdk/reference/advanced/migrate-to-new-project"
+              },
+              {
+                "label": "Link to Code Source",
+                "slug": "python-sdk/reference/advanced/link-to-code-source"
+              },
+              {
+                "label": "Use Alternative Backends",
+                "slug": "python-sdk/reference/advanced/alternative-backends"
+              },
+              {
+                "label": "Multiple Configurations",
+                "slug": "python-sdk/reference/advanced/multiple-configurations"
+              }
+            ]
+          }
         ]
       }
-    ]
-  },
-  {
-    "label": "Integrations",
-    "items": [
-      { "label": "Integrations", "slug": "integrations/index" },
-      {
-        "label": "AI & LLM Frameworks",
-        "items": [
-          { "label": "Pydantic AI", "slug": "integrations/llms/pydanticai" },
-          { "label": "OpenAI", "slug": "integrations/llms/openai" },
-          { "label": "Google Gen AI", "slug": "integrations/llms/google-genai" },
-          { "label": "Anthropic", "slug": "integrations/llms/anthropic" },
-          { "label": "LangChain", "slug": "integrations/llms/langchain" },
-          { "label": "LiteLLM", "slug": "integrations/llms/litellm" },
-          { "label": "DSPy", "slug": "integrations/llms/dspy" },
-          { "label": "MCP", "slug": "integrations/llms/mcp" },
-          { "label": "Claude Agent SDK", "slug": "integrations/llms/claude-agent-sdk" },
-          { "label": "LLamaIndex", "slug": "integrations/llms/llamaindex" },
-          { "label": "Mirascope", "slug": "integrations/llms/mirascope" },
-          { "label": "Magentic", "slug": "integrations/llms/magentic" }
-        ]
-      },
-      {
-        "label": "Web Frameworks",
-        "items": [
-          { "label": "Web Frameworks", "slug": "integrations/web-frameworks/index" },
-          { "label": "FastAPI", "slug": "integrations/web-frameworks/fastapi" },
-          { "label": "Django", "slug": "integrations/web-frameworks/django" },
-          { "label": "Flask", "slug": "integrations/web-frameworks/flask" },
-          { "label": "Starlette", "slug": "integrations/web-frameworks/starlette" },
-          { "label": "AIOHTTP", "slug": "integrations/web-frameworks/aiohttp" },
-          { "label": "ASGI", "slug": "integrations/web-frameworks/asgi" },
-          { "label": "WSGI", "slug": "integrations/web-frameworks/wsgi" },
-          { "label": "Gunicorn", "slug": "integrations/web-frameworks/gunicorn" }
-        ]
-      },
-      {
-        "label": "JavaScript",
-        "items": [
-          { "label": "JavaScript", "slug": "integrations/javascript/index" },
-          { "label": "Browser", "slug": "integrations/javascript/browser" },
-          { "label": "Next.js", "slug": "integrations/javascript/nextjs" },
-          { "label": "Cloudflare", "slug": "integrations/javascript/cloudflare" },
-          { "label": "Express", "slug": "integrations/javascript/express" },
-          { "label": "Node.js", "slug": "integrations/javascript/node" },
-          { "label": "Deno", "slug": "integrations/javascript/deno" },
-          { "label": "Vercel AI SDK", "slug": "integrations/javascript/vercel-ai" }
-        ]
-      },
-      {
-        "label": "Databases",
-        "items": [
-          { "label": "Psycopg", "slug": "integrations/databases/psycopg" },
-          { "label": "SQLAlchemy", "slug": "integrations/databases/sqlalchemy" },
-          { "label": "Asyncpg", "slug": "integrations/databases/asyncpg" },
-          { "label": "PyMongo", "slug": "integrations/databases/pymongo" },
-          { "label": "MySQL", "slug": "integrations/databases/mysql" },
-          { "label": "SQLite3", "slug": "integrations/databases/sqlite3" },
-          { "label": "Redis", "slug": "integrations/databases/redis" },
-          { "label": "BigQuery", "slug": "integrations/databases/bigquery" }
-        ]
-      },
-      {
-        "label": "HTTP Clients",
-        "items": [
-          { "label": "HTTPX", "slug": "integrations/http-clients/httpx" },
-          { "label": "Requests", "slug": "integrations/http-clients/requests" },
-          { "label": "AIOHTTP", "slug": "integrations/http-clients/aiohttp" }
-        ]
-      },
-      {
-        "label": "Task Queues & Pipelines",
-        "items": [
-          { "label": "Airflow", "slug": "integrations/event-streams/airflow" },
-          { "label": "FastStream", "slug": "integrations/event-streams/faststream" },
-          { "label": "Celery", "slug": "integrations/event-streams/celery" }
-        ]
-      },
-      {
-        "label": "Logging",
-        "items": [
-          { "label": "Logging", "slug": "integrations/logging" },
-          { "label": "Print", "slug": "integrations/print" },
-          { "label": "Structlog", "slug": "integrations/structlog" },
-          { "label": "Loguru", "slug": "integrations/loguru" }
-        ]
-      },
-      {
-        "label": "Testing",
-        "items": [
-          { "label": "Pytest", "slug": "integrations/pytest" }
-        ]
-      },
-      { "label": "Pydantic", "slug": "integrations/pydantic" },
-      { "label": "System Metrics", "slug": "integrations/system-metrics" },
-      { "label": "Stripe", "slug": "integrations/stripe" },
-      { "label": "AWS Lambda", "slug": "integrations/aws-lambda" }
     ]
   },
   {
     "label": "Observe & Investigate",
     "items": [
-      { "label": "Live View", "slug": "guides/web-ui/live" },
-      { "label": "LLM Panels", "slug": "guides/web-ui/llm-panels" },
-      { "label": "Dashboards", "slug": "guides/web-ui/dashboards" },
-      { "label": "SQL Explorer", "slug": "guides/web-ui/explore" },
-      { "label": "Issues", "slug": "guides/web-ui/issues" },
-      { "label": "Alerts", "slug": "guides/web-ui/alerts" },
-      { "label": "Saved Searches", "slug": "guides/web-ui/saved-searches" },
-      { "label": "Public Traces", "slug": "guides/web-ui/public-traces" },
-      { "label": "Prompt Playground", "slug": "guides/web-ui/prompt-playground" },
-      { "label": "Write Dashboard Queries", "slug": "how-to-guides/write-dashboard-queries" },
-      { "label": "Setup Slack Alerts", "slug": "how-to-guides/setup-slack-alerts" },
-      { "label": "Detect Service is Down", "slug": "how-to-guides/detect-service-is-down" }
+      {
+        "label": "Live View",
+        "slug": "guides/web-ui/live"
+      },
+      {
+        "label": "LLM Panels",
+        "slug": "guides/web-ui/llm-panels"
+      },
+      {
+        "label": "Dashboards",
+        "slug": "guides/web-ui/dashboards"
+      },
+      {
+        "label": "SQL Explorer",
+        "slug": "guides/web-ui/explore"
+      },
+      {
+        "label": "Issues",
+        "slug": "guides/web-ui/issues"
+      },
+      {
+        "label": "Alerts",
+        "slug": "guides/web-ui/alerts"
+      },
+      {
+        "label": "Saved Searches",
+        "slug": "guides/web-ui/saved-searches"
+      },
+      {
+        "label": "Public Traces",
+        "slug": "guides/web-ui/public-traces"
+      },
+      {
+        "label": "Prompt Playground",
+        "slug": "guides/web-ui/prompt-playground"
+      },
+      {
+        "label": "Write Dashboard Queries",
+        "slug": "how-to-guides/write-dashboard-queries"
+      },
+      {
+        "label": "Setup Slack Alerts",
+        "slug": "how-to-guides/setup-slack-alerts"
+      },
+      {
+        "label": "Detect Service is Down",
+        "slug": "how-to-guides/detect-service-is-down"
+      }
     ]
   },
   {
     "label": "Evaluate",
     "items": [
-      { "label": "Evals: Datasets & Experiments", "slug": "guides/web-ui/evals" },
-      { "label": "Evals: Live Monitoring", "slug": "guides/web-ui/live-evals" },
+      {
+        "label": "Evals: Datasets & Experiments",
+        "slug": "guides/web-ui/evals"
+      },
+      {
+        "label": "Evals: Live Monitoring",
+        "slug": "guides/web-ui/live-evals"
+      },
       {
         "label": "Datasets",
         "items": [
-          { "label": "Datasets", "slug": "evaluate/datasets/index" },
-          { "label": "Web UI Guide", "slug": "evaluate/datasets/ui" },
-          { "label": "SDK Guide", "slug": "evaluate/datasets/sdk" },
-          { "label": "Running Evaluations", "slug": "evaluate/datasets/evaluations" }
+          {
+            "label": "Datasets",
+            "slug": "evaluate/datasets/index"
+          },
+          {
+            "label": "Web UI Guide",
+            "slug": "evaluate/datasets/ui"
+          },
+          {
+            "label": "Running Evaluations",
+            "slug": "evaluate/datasets/evaluations"
+          }
         ]
       }
     ]
@@ -179,102 +537,210 @@
   {
     "label": "Manage & Configure",
     "items": [
-      { "label": "Organizations & Projects", "slug": "guides/web-ui/organizations-and-projects" },
-      { "label": "Configuration", "slug": "reference/configuration" },
+      {
+        "label": "Organizations & Projects",
+        "slug": "guides/web-ui/organizations-and-projects"
+      },
       {
         "label": "Managed Variables",
         "items": [
-          { "label": "Overview", "slug": "reference/advanced/managed-variables/index" },
-          { "label": "UI Guide", "slug": "reference/advanced/managed-variables/ui" },
-          { "label": "A/B Testing", "slug": "reference/advanced/managed-variables/ab-testing" },
-          { "label": "Targeting", "slug": "reference/advanced/managed-variables/targeting" },
-          { "label": "Remote Variables", "slug": "reference/advanced/managed-variables/remote" },
-          { "label": "External Variables & OFREP", "slug": "reference/advanced/managed-variables/external" },
-          { "label": "Local Variables", "slug": "reference/advanced/managed-variables/local" },
-          { "label": "Configuration Reference", "slug": "reference/advanced/managed-variables/configuration-reference" }
+          {
+            "label": "Overview",
+            "slug": "reference/advanced/managed-variables/index"
+          },
+          {
+            "label": "UI Guide",
+            "slug": "reference/advanced/managed-variables/ui"
+          },
+          {
+            "label": "A/B Testing",
+            "slug": "reference/advanced/managed-variables/ab-testing"
+          },
+          {
+            "label": "Targeting",
+            "slug": "reference/advanced/managed-variables/targeting"
+          },
+          {
+            "label": "Remote Variables",
+            "slug": "reference/advanced/managed-variables/remote"
+          },
+          {
+            "label": "External Variables & OFREP",
+            "slug": "reference/advanced/managed-variables/external"
+          },
+          {
+            "label": "Local Variables",
+            "slug": "reference/advanced/managed-variables/local"
+          },
+          {
+            "label": "Configuration Reference",
+            "slug": "reference/advanced/managed-variables/configuration-reference"
+          }
         ]
       },
-      { "label": "Environments", "slug": "how-to-guides/environments" },
-      { "label": "Write Tokens", "slug": "how-to-guides/create-write-tokens" },
-      { "label": "API Keys", "slug": "reference/advanced/use-api-keys" },
-      { "label": "Infrastructure as Code", "slug": "how-to-guides/infrastructure-as-code" },
-      { "label": "Multiple Configurations", "slug": "how-to-guides/different-configurations" },
-      { "label": "Cost & Usage", "slug": "logfire-costs" },
-      { "label": "Data Regions", "slug": "reference/data-regions" },
-      { "label": "Export Data", "slug": "how-to-guides/query-api" },
-      { "label": "Feature Flags (OFREP)", "slug": "how-to-guides/client-side-feature-flags" },
-      { "label": "Convert to Organization", "slug": "how-to-guides/convert-to-organization" },
-      { "label": "Gateway Migration", "slug": "gateway-migration" }
+      {
+        "label": "Environments",
+        "slug": "how-to-guides/environments"
+      },
+      {
+        "label": "Write Tokens",
+        "slug": "how-to-guides/create-write-tokens"
+      },
+      {
+        "label": "API Keys",
+        "slug": "reference/advanced/use-api-keys"
+      },
+      {
+        "label": "Infrastructure as Code",
+        "slug": "how-to-guides/infrastructure-as-code"
+      },
+      {
+        "label": "Cost & Usage",
+        "slug": "logfire-costs"
+      },
+      {
+        "label": "Data Regions",
+        "slug": "reference/data-regions"
+      },
+      {
+        "label": "Export Data",
+        "slug": "how-to-guides/query-api"
+      },
+      {
+        "label": "Feature Flags (OFREP)",
+        "slug": "how-to-guides/client-side-feature-flags"
+      },
+      {
+        "label": "Convert to Organization",
+        "slug": "how-to-guides/convert-to-organization"
+      },
+      {
+        "label": "Gateway Migration",
+        "slug": "gateway-migration"
+      }
     ]
   },
   {
     "label": "Prompt Management",
     "items": [
-      { "label": "Overview", "slug": "reference/advanced/prompt-management/index" },
-      { "label": "Core Concepts", "slug": "reference/advanced/prompt-management/concepts" },
-      { "label": "Writing Templates", "slug": "reference/advanced/prompt-management/templates" },
-      { "label": "Test Prompts", "slug": "reference/advanced/prompt-management/scenarios" },
-      { "label": "Use Prompts in Your Application", "slug": "reference/advanced/prompt-management/application" },
-      { "label": "Template Reference", "slug": "reference/advanced/prompt-management/template-reference" },
-      { "label": "Access and Prerequisites", "slug": "reference/advanced/prompt-management/plan-requirements" }
+      {
+        "label": "Overview",
+        "slug": "reference/advanced/prompt-management/index"
+      },
+      {
+        "label": "Core Concepts",
+        "slug": "reference/advanced/prompt-management/concepts"
+      },
+      {
+        "label": "Writing Templates",
+        "slug": "reference/advanced/prompt-management/templates"
+      },
+      {
+        "label": "Test Prompts",
+        "slug": "reference/advanced/prompt-management/scenarios"
+      },
+      {
+        "label": "Use Prompts in Your Application",
+        "slug": "reference/advanced/prompt-management/application"
+      },
+      {
+        "label": "Template Reference",
+        "slug": "reference/advanced/prompt-management/template-reference"
+      },
+      {
+        "label": "Access and Prerequisites",
+        "slug": "reference/advanced/prompt-management/plan-requirements"
+      }
     ]
   },
   {
     "label": "Guides",
     "items": [
-      { "label": "Link to Code Source", "slug": "how-to-guides/link-to-code-source" },
-      { "label": "Use Alternative Clients", "slug": "how-to-guides/alternative-clients" },
-      { "label": "Use Alternative Backends", "slug": "how-to-guides/alternative-backends" },
-      { "label": "Collect Cloud Provider Metrics", "slug": "how-to-guides/cloud-metrics" },
-      { "label": "Connect to MCP Server", "slug": "how-to-guides/mcp-server" },
-      { "label": "Coding Agent Skills", "slug": "how-to-guides/skills" }
+      {
+        "label": "Use Alternative Clients",
+        "slug": "how-to-guides/alternative-clients"
+      },
+      {
+        "label": "Collect Cloud Provider Metrics",
+        "slug": "how-to-guides/cloud-metrics"
+      },
+      {
+        "label": "Connect to MCP Server",
+        "slug": "how-to-guides/mcp-server"
+      },
+      {
+        "label": "Coding Agent Skills",
+        "slug": "how-to-guides/skills"
+      }
     ]
   },
   {
     "label": "Reference",
     "items": [
-      { "label": "SQL", "slug": "reference/sql" },
-      { "label": "SDK CLI", "slug": "reference/cli" },
-      { "label": "Examples", "slug": "reference/examples" },
-      { "label": "Baggage", "slug": "reference/advanced/baggage" },
-      { "label": "Generators", "slug": "reference/advanced/generators" },
-      { "label": "Aggregating Metrics in Spans", "slug": "reference/advanced/metrics-in-spans" },
-      { "label": "Testing Logfire Instrumentation", "slug": "reference/advanced/testing" },
-      { "label": "Migrating Projects", "slug": "reference/advanced/migrate-to-new-project" }
-    ]
-  },
-  {
-    "label": "API Reference",
-    "items": [
-      { "label": "Logfire", "slug": "reference/api/logfire" },
-      { "label": "Testing", "slug": "reference/api/testing" },
-      { "label": "Sampling", "slug": "reference/api/sampling" },
-      { "label": "Propagate", "slug": "reference/api/propagate" },
-      { "label": "Exceptions", "slug": "reference/api/exceptions" },
-      { "label": "Pydantic", "slug": "reference/api/pydantic" },
-      { "label": "Types", "slug": "reference/api/types" },
-      { "label": "Datasets", "slug": "reference/api/datasets" }
+      {
+        "label": "SQL",
+        "slug": "reference/sql"
+      }
     ]
   },
   {
     "label": "Deploy & Scale",
     "items": [
-      { "label": "Enterprise", "slug": "enterprise" },
-      { "label": "Single Tenant", "slug": "enterprise-single-tenant" },
-      { "label": "SSO Setup", "slug": "how-to-guides/sso-setup" },
-      { "label": "Audit logs API", "slug": "audit-logs-api" },
-      { "label": "Compliance", "slug": "compliance" },
+      {
+        "label": "Enterprise",
+        "slug": "enterprise"
+      },
+      {
+        "label": "Single Tenant",
+        "slug": "enterprise-single-tenant"
+      },
+      {
+        "label": "SSO Setup",
+        "slug": "how-to-guides/sso-setup"
+      },
+      {
+        "label": "Audit logs API",
+        "slug": "audit-logs-api"
+      },
+      {
+        "label": "Compliance",
+        "slug": "compliance"
+      },
       {
         "label": "Self-Hosted Deployment",
         "items": [
-          { "label": "Overview", "slug": "reference/self-hosted/overview" },
-          { "label": "Local Quickstart", "slug": "reference/self-hosted/local-quickstart" },
-          { "label": "Installation", "slug": "reference/self-hosted/installation" },
-          { "label": "Scaling", "slug": "reference/self-hosted/scaling" },
-          { "label": "Troubleshooting", "slug": "reference/self-hosted/troubleshooting" },
-          { "label": "Bucket Migration", "slug": "reference/self-hosted/bucket-migration" },
-          { "label": "Examples", "slug": "reference/self-hosted/examples" },
-          { "label": "Usage Report", "slug": "reference/self-hosted/usage-report" }
+          {
+            "label": "Overview",
+            "slug": "reference/self-hosted/overview"
+          },
+          {
+            "label": "Local Quickstart",
+            "slug": "reference/self-hosted/local-quickstart"
+          },
+          {
+            "label": "Installation",
+            "slug": "reference/self-hosted/installation"
+          },
+          {
+            "label": "Scaling",
+            "slug": "reference/self-hosted/scaling"
+          },
+          {
+            "label": "Troubleshooting",
+            "slug": "reference/self-hosted/troubleshooting"
+          },
+          {
+            "label": "Bucket Migration",
+            "slug": "reference/self-hosted/bucket-migration"
+          },
+          {
+            "label": "Examples",
+            "slug": "reference/self-hosted/examples"
+          },
+          {
+            "label": "Usage Report",
+            "slug": "reference/self-hosted/usage-report"
+          }
         ]
       }
     ]
@@ -282,9 +748,18 @@
   {
     "label": "Resources",
     "items": [
-      { "label": "Languages", "slug": "languages" },
-      { "label": "Roadmap", "slug": "roadmap" },
-      { "label": "Release Notes", "slug": "release-notes" }
+      {
+        "label": "Languages",
+        "slug": "languages"
+      },
+      {
+        "label": "Roadmap",
+        "slug": "roadmap"
+      },
+      {
+        "label": "Release Notes",
+        "slug": "release-notes"
+      }
     ]
   }
 ]
