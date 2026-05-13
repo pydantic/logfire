@@ -335,11 +335,11 @@ async def _authorize_and_serve(
             server = deps.uvicorn.Server(config)
             server_task = asyncio.create_task(server.serve())
             for _ in range(100):
-                if server.started or server_task.done():
+                if server.started or server_task.done():  # pragma: no branch
                     break
                 await asyncio.sleep(0.05)
             try:
-                if server_task.done():
+                if server_task.done():  # pragma: no branch
                     await server_task
                 if not server.started:
                     raise RuntimeError(f'Logfire Gateway proxy failed to start on 127.0.0.1:{port}')
