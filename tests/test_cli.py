@@ -3417,7 +3417,7 @@ def test_gateway_await_or_signal_ignores_repeat_signal() -> None:
                 handlers.append(callback)
             real_add_signal_handler(sig, callback, *args)
 
-        loop.add_signal_handler = capture  # type: ignore[method-assign]
+        loop.add_signal_handler = capture
 
         async def fire_twice() -> None:
             await asyncio.sleep(0)
