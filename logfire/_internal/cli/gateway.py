@@ -8,8 +8,8 @@ import json
 import os
 import secrets
 import shutil
+import signal
 import socket
-import sys
 import tempfile
 from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
@@ -30,7 +30,14 @@ from .ai_tools import (
     gateway_template_values,
     resolve_ai_tool,
 )
-from .gateway_auth import GATEWAY_CIMD_PATH, CimdOAuthClient, GatewayAuth, OAuthSession, discover_oauth_metadata
+from .gateway_auth import (
+    GATEWAY_CIMD_PATH,
+    CimdOAuthClient,
+    GatewayAuth,
+    GatewayError,
+    OAuthSession,
+    discover_oauth_metadata,
+)
 
 try:
     import httpx
@@ -284,6 +291,50 @@ def _gateway_cimd_client_id(base_url: str) -> str:
     return f'{base_url.rstrip("/")}{GATEWAY_CIMD_PATH}'
 
 
+@contextlib.contextmanager
+def _no_capture_signals() -> Any:
+    # Replaces uvicorn.Server.capture_signals: don't trap SIGINT/SIGTERM so we can
+    # install our own handlers below that actually cancel the OAuth wait.
+    yield
+
+
+async def _await_or_signal(awaitable: Any) -> Any:
+    # Race `awaitable` against SIGINT/SIGTERM. The signal handler resolves a future
+    # we wait on, so we don't depend on CancelledError propagating through nested
+    # asyncio.wait_for calls (which is unreliable on Python 3.10). If a signal arrives
+    # first, cancel the task and raise KeyboardInterrupt for top-level handling.
+    loop = asyncio.get_running_loop()
+    stop: asyncio.Future[None] = loop.create_future()
+
+    def _on_signal() -> None:
+        if not stop.done():
+            stop.set_result(None)
+
+    installed: list[int] = []
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            loop.add_signal_handler(sig, _on_signal)
+        except (NotImplementedError, RuntimeError):
+            continue
+        installed.append(sig)
+
+    task = asyncio.ensure_future(awaitable)
+    try:
+        done, _pending = await asyncio.wait({task, stop}, return_when=asyncio.FIRST_COMPLETED)
+        if stop in done and not task.done():
+            task.cancel()
+            with contextlib.suppress(BaseException):
+                await task
+            raise KeyboardInterrupt
+        return await task
+    finally:
+        if not stop.done():
+            stop.cancel()
+        for sig in installed:
+            with contextlib.suppress(NotImplementedError, RuntimeError):
+                loop.remove_signal_handler(sig)
+
+
 @asynccontextmanager
 async def _authorize_and_serve(
     *, region: str, backend: str, gateway: str, client_id: str, scope: str, port: int, flow: str
@@ -306,6 +357,7 @@ async def _authorize_and_serve(
             app = build_app(state)
             config = uvicorn.Config(app, host='127.0.0.1', port=port, log_level='warning', access_log=False)
             server = uvicorn.Server(config)
+            server.capture_signals = _no_capture_signals
             server_task = asyncio.create_task(server.serve())
             for _ in range(100):  # pragma: no branch
                 if server.started or server_task.done():  # pragma: no branch
@@ -315,8 +367,8 @@ async def _authorize_and_serve(
                 if server_task.done():  # pragma: no branch
                     await server_task
                 if not server.started:
-                    raise RuntimeError(f'Logfire Gateway proxy failed to start on 127.0.0.1:{port}')
-                await auth.authorize()
+                    raise GatewayError(f'Logfire Gateway proxy failed to start on 127.0.0.1:{port}')
+                await _await_or_signal(auth.authorize())
                 yield state, f'http://127.0.0.1:{port}'
             finally:
                 server.should_exit = True
@@ -548,8 +600,8 @@ def execute_gateway_command(command: GatewayCommand, context: GatewayCommandCont
         if command.name == 'launch':
             return _run_launch(list(command.args), context)
         return _run_serve(list(command.args), context)
-    except LogfireConfigError as exc:
-        sys.stderr.write(f'{exc}\n')
+    except (LogfireConfigError, GatewayError) as exc:
+        console.print(f'[red]error:[/] {exc}')
         return 1
     except KeyboardInterrupt:
         return 130

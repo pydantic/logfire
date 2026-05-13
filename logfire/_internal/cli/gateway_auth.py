@@ -19,6 +19,10 @@ REFRESH_MARGIN_SECONDS = 120.0
 console = Console(stderr=True)
 
 
+class GatewayError(Exception):
+    """Expected gateway failure rendered to the user without a traceback."""
+
+
 @dataclass(frozen=True)
 class OAuthMetadata:
     authorization_endpoint: str
@@ -31,7 +35,7 @@ async def discover_oauth_metadata(http: Any, backend: str) -> OAuthMetadata:
     url = f'{backend.rstrip("/")}/.well-known/oauth-authorization-server'
     response = await http.get(url)
     if response.status_code != 200:
-        raise RuntimeError(f'OAuth discovery failed ({response.status_code}): {url}')
+        raise GatewayError(f'OAuth discovery failed ({response.status_code}): {url}')
     body = _json_dict(response)
     try:
         return OAuthMetadata(
@@ -40,7 +44,7 @@ async def discover_oauth_metadata(http: Any, backend: str) -> OAuthMetadata:
             device_authorization_endpoint=body['device_authorization_endpoint'],
         )
     except KeyError as exc:
-        raise RuntimeError(f'OAuth discovery missing field {exc.args[0]!r} in {url}') from exc
+        raise GatewayError(f'OAuth discovery missing field {exc.args[0]!r} in {url}') from exc
 
 
 def _pkce_pair() -> tuple[str, str]:
@@ -52,7 +56,7 @@ def _pkce_pair() -> tuple[str, str]:
 def _json_dict(response: Any) -> dict[str, Any]:
     body = response.json()
     if not isinstance(body, dict):
-        raise RuntimeError(f'Expected JSON object response, got {type(body).__name__}')
+        raise GatewayError(f'Expected JSON object response, got {type(body).__name__}')
     return cast(dict[str, Any], body)
 
 
@@ -128,9 +132,9 @@ class OAuthSession:
             webbrowser.open(authorize_url)
         await asyncio.wait_for(bootstrap.event.wait(), timeout=600)
         if bootstrap.error is not None:
-            raise RuntimeError(f'authorization failed: {bootstrap.error}')
+            raise GatewayError(f'authorization failed: {bootstrap.error}')
         if bootstrap.received_code is None:
-            raise RuntimeError('authorization completed without a code')
+            raise GatewayError('authorization completed without a code')
         await self._post_token(
             {
                 'grant_type': 'authorization_code',
@@ -156,7 +160,7 @@ class OAuthSession:
             },
         )
         if response.status_code != 200:
-            raise RuntimeError(f'Device authorization failed ({response.status_code}): {response.text}')
+            raise GatewayError(f'Device authorization failed ({response.status_code}): {response.text}')
         data = _json_dict(response)
         verification = data.get('verification_uri_complete') or data['verification_uri']
         console.print()
@@ -192,8 +196,8 @@ class OAuthSession:
             elif error == 'authorization_pending':
                 continue
             else:
-                raise RuntimeError(f'Device flow failed: {body}')
-        raise RuntimeError('Device flow timed out')
+                raise GatewayError(f'Device flow failed: {body}')
+        raise GatewayError('Device flow timed out')
 
     async def refresh(self) -> None:
         if self._refresh_token is None:
@@ -231,7 +235,7 @@ class OAuthSession:
     async def _post_token(self, data: dict[str, str], *, error_prefix: str) -> None:
         response = await self._client.post_token(data)
         if response.status_code != 200:
-            raise RuntimeError(f'{error_prefix} ({response.status_code}): {response.text}')
+            raise GatewayError(f'{error_prefix} ({response.status_code}): {response.text}')
         self._store(_json_dict(response))
 
     def _store(self, body: dict[str, Any]) -> None:

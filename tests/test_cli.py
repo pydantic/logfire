@@ -2513,11 +2513,11 @@ def test_gateway_auth_discovery_errors() -> None:
     async def run(response: Response) -> None:
         await gateway_auth.discover_oauth_metadata(Http(response), 'https://backend.example')
 
-    with pytest.raises(RuntimeError, match='OAuth discovery failed'):
+    with pytest.raises(gateway_auth.GatewayError, match='OAuth discovery failed'):
         asyncio.run(run(Response(500, {})))
-    with pytest.raises(RuntimeError, match="missing field 'device_authorization_endpoint'"):
+    with pytest.raises(gateway_auth.GatewayError, match="missing field 'device_authorization_endpoint'"):
         asyncio.run(run(Response(200, {'authorization_endpoint': 'a', 'token_endpoint': 't'})))
-    with pytest.raises(RuntimeError, match='Expected JSON object response, got list'):
+    with pytest.raises(gateway_auth.GatewayError, match='Expected JSON object response, got list'):
         asyncio.run(run(Response(200, [])))
 
 
@@ -2610,9 +2610,9 @@ def test_gateway_auth_code_flow_error_and_missing_code(monkeypatch: pytest.Monke
         bootstrap.event.set()
         await authorize_task
 
-    with pytest.raises(RuntimeError, match='authorization failed: access_denied'):
+    with pytest.raises(gateway_auth.GatewayError, match='authorization failed: access_denied'):
         asyncio.run(run(callback_error='access_denied'))
-    with pytest.raises(RuntimeError, match='authorization completed without a code'):
+    with pytest.raises(gateway_auth.GatewayError, match='authorization completed without a code'):
         asyncio.run(run(callback_error=None))
 
 
@@ -2694,7 +2694,7 @@ def test_gateway_device_flow_errors_and_polling(monkeypatch: pytest.MonkeyPatch)
     async def run_device_flow(client: ConfigurableDeviceClient) -> None:
         await make_session(client).device_flow()
 
-    with pytest.raises(RuntimeError, match=r'Device authorization failed \(500\): response-text'):
+    with pytest.raises(gateway_auth.GatewayError, match=r'Device authorization failed \(500\): response-text'):
         asyncio.run(run_device_flow(ConfigurableDeviceClient(ConfigurableOAuthResponse(500, {}), [])))
 
     client = ConfigurableDeviceClient(
@@ -2710,14 +2710,14 @@ def test_gateway_device_flow_errors_and_polling(monkeypatch: pytest.MonkeyPatch)
     asyncio.run(run_device_flow(client))
     assert sleep_intervals == [0, 5]
 
-    with pytest.raises(RuntimeError, match='Device flow failed'):
+    with pytest.raises(gateway_auth.GatewayError, match='Device flow failed'):
         asyncio.run(
             run_device_flow(
                 ConfigurableDeviceClient(device_start_response(interval=0), [device_token_error('invalid_grant')])
             )
         )
 
-    with pytest.raises(RuntimeError, match='Device flow timed out'):
+    with pytest.raises(gateway_auth.GatewayError, match='Device flow timed out'):
         asyncio.run(run_device_flow(ConfigurableDeviceClient(device_start_response(expires_in=0), [])))
 
 
@@ -2742,7 +2742,7 @@ def test_gateway_oauth_session_token_error_paths() -> None:
             await session.refresh()
 
         client.token_responses.append(ConfigurableOAuthResponse(500, {}))
-        with pytest.raises(RuntimeError, match=r'token exchange failed \(500\): response-text'):
+        with pytest.raises(gateway_auth.GatewayError, match=r'token exchange failed \(500\): response-text'):
             post_token = cast(Callable[..., Coroutine[Any, Any, None]], getattr(session, '_post_token'))
             await post_token({'grant_type': 'authorization_code'}, error_prefix='token exchange failed')
 
@@ -2804,7 +2804,7 @@ def test_gateway_oauth_session_refresh_failure_raises_for_expired_token() -> Non
         setattr(session, '_expires_at', time.time() - 1)
         await session.current_access_token()
 
-    with pytest.raises(RuntimeError, match=r'token refresh failed \(500\): response-text'):
+    with pytest.raises(gateway_auth.GatewayError, match=r'token refresh failed \(500\): response-text'):
         asyncio.run(run())
 
 
@@ -3267,6 +3267,7 @@ def test_gateway_authorize_and_serve_lifecycle(monkeypatch: pytest.MonkeyPatch) 
     authorize_and_serve = getattr(gateway_cli, '_authorize_and_serve')
     clients: list[object] = []
     authorized: list[tuple[str, str]] = []
+    servers: list[object] = []
 
     class MetadataResponse:
         status_code = 200
@@ -3306,6 +3307,7 @@ def test_gateway_authorize_and_serve_lifecycle(monkeypatch: pytest.MonkeyPatch) 
             self.config = config
             self.started = False
             self.should_exit = False
+            servers.append(self)
 
         async def serve(self) -> None:
             self.started = True
@@ -3362,6 +3364,36 @@ def test_gateway_authorize_and_serve_lifecycle(monkeypatch: pytest.MonkeyPatch) 
     assert state.region == 'us'
     assert state.local_token == 'local-token'
     assert proxy_base == 'http://127.0.0.1:9999'
+    # uvicorn's signal capture is replaced so Ctrl-C interrupts the OAuth wait instead of
+    # being swallowed by the server's handle_exit (which would only set should_exit=True).
+    assert len(servers) == 1
+    assert getattr(servers[0], 'capture_signals') is gateway_cli._no_capture_signals  # type: ignore[attr-defined]
+
+
+@pytest.mark.skipif(sys.platform == 'win32', reason='loop.add_signal_handler is not supported on Windows')
+def test_gateway_await_or_signal_raises_keyboard_interrupt_on_sigint() -> None:
+    import signal as _signal
+
+    await_or_signal = getattr(gateway_cli, '_await_or_signal')
+
+    async def run() -> str:
+        asyncio.get_running_loop().call_later(0.05, _signal.raise_signal, _signal.SIGINT)
+        try:
+            return await await_or_signal(asyncio.sleep(60, result='unreached'))
+        except KeyboardInterrupt:
+            return 'interrupted'
+
+    assert asyncio.run(run()) == 'interrupted'
+
+
+@pytest.mark.skipif(sys.platform == 'win32', reason='loop.add_signal_handler is not supported on Windows')
+def test_gateway_await_or_signal_returns_value_when_no_signal() -> None:
+    await_or_signal = getattr(gateway_cli, '_await_or_signal')
+
+    async def run() -> str:
+        return await await_or_signal(asyncio.sleep(0, result='done'))
+
+    assert asyncio.run(run()) == 'done'
 
 
 def test_gateway_authorize_and_serve_fails_when_server_does_not_start(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -3430,7 +3462,7 @@ def test_gateway_authorize_and_serve_fails_when_server_does_not_start(monkeypatc
         ):
             raise AssertionError('context should not be entered')
 
-    with pytest.raises(RuntimeError, match='Logfire Gateway proxy failed to start'):
+    with pytest.raises(gateway_auth.GatewayError, match='Logfire Gateway proxy failed to start'):
         asyncio.run(run())
 
 
@@ -3768,6 +3800,9 @@ def test_gateway_execute_command_handles_errors(
     def raise_config_error(_raw: list[str], _context: gateway_cli.GatewayCommandContext) -> int:
         raise LogfireConfigError('missing dependency')
 
+    def raise_gateway_error(_raw: list[str], _context: gateway_cli.GatewayCommandContext) -> int:
+        raise gateway_auth.GatewayError('authorization failed: access_denied')
+
     def raise_keyboard_interrupt(_raw: list[str], _context: gateway_cli.GatewayCommandContext) -> int:
         raise KeyboardInterrupt
 
@@ -3775,7 +3810,13 @@ def test_gateway_execute_command_handles_errors(
     monkeypatch.setattr(gateway_cli, '_run_launch', raise_config_error)
 
     assert gateway_cli.execute_gateway_command(gateway_cli.GatewayCommand('launch', ()), context) == 1
-    assert capsys.readouterr().err == 'missing dependency\n'
+    assert 'missing dependency' in capsys.readouterr().err
+
+    monkeypatch.setattr(gateway_cli, '_run_launch', raise_gateway_error)
+    assert gateway_cli.execute_gateway_command(gateway_cli.GatewayCommand('launch', ()), context) == 1
+    err = capsys.readouterr().err
+    assert 'authorization failed: access_denied' in err
+    assert 'Traceback' not in err
 
     monkeypatch.setattr(gateway_cli, '_run_launch', raise_keyboard_interrupt)
     assert gateway_cli.execute_gateway_command(gateway_cli.GatewayCommand('launch', ()), context) == 130
