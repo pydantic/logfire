@@ -273,18 +273,28 @@ def test_inspect(
     logfire_credentials.write_creds_file(tmp_dir_cwd / '.logfire')
     with pytest.raises(SystemExit):
         main(['inspect'])
-    err = capsys.readouterr().err
-    assert 'Logfire Summary' in err
-    assert '☐ botocore (need to install opentelemetry-instrumentation-botocore)' in err
-    assert '☐ jinja2 (need to install opentelemetry-instrumentation-jinja2)' in err
-    assert '☐ pymysql (need to install opentelemetry-instrumentation-pymysql)' in err
-    assert '☐ urllib (need to install opentelemetry-instrumentation-urllib)' in err
-    assert 'Only install instrumentation for packages your app actually uses.' in err
-    assert 'uv add opentelemetry-instrumentation-botocore' in err
-    assert 'opentelemetry-instrumentation-jinja2' in err
-    assert 'opentelemetry-instrumentation-pymysql' in err
-    assert 'opentelemetry-instrumentation-urllib' in err
-    assert 'To hide this summary box, use: logfire run --no-summary.' in err
+    assert capsys.readouterr().err == snapshot("""\
+
+
+╭───────────────────────────────────────────────────────────────── Logfire Summary ──────────────────────────────────────────────────────────────────╮
+│                                                                                                                                                    │
+│  ☐ botocore (need to install opentelemetry-instrumentation-botocore)                                                                               │
+│  ☐ jinja2 (need to install opentelemetry-instrumentation-jinja2)                                                                                   │
+│  ☐ pymysql (need to install opentelemetry-instrumentation-pymysql)                                                                                 │
+│  ☐ urllib (need to install opentelemetry-instrumentation-urllib)                                                                                   │
+│                                                                                                                                                    │
+│  To install all recommended packages at once, run:                                                                                                 │
+│                                                                                                                                                    │
+│  uv add opentelemetry-instrumentation-botocore opentelemetry-instrumentation-jinja2 opentelemetry-instrumentation-pymysql                          │
+│  opentelemetry-instrumentation-urllib                                                                                                              │
+│                                                                                                                                                    │
+│  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────  │
+│                                                                                                                                                    │
+│  To hide this summary box, use: logfire run --no-summary.                                                                                          │
+│                                                                                                                                                    │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+""")
 
 
 @pytest.mark.parametrize(
@@ -1617,7 +1627,6 @@ def test_get_recommendation_texts():
     assert 'uv add opentelemetry-instrumentation-bar opentelemetry-instrumentation-foo' in install
     assert 'need to install opentelemetry-instrumentation-bar' in recommended
     assert 'need to install opentelemetry-instrumentation-foo' in recommended
-    assert 'Only install instrumentation for packages your app actually uses.' in recommended
 
 
 def test_instrument_packages_openai() -> None:

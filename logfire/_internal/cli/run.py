@@ -238,8 +238,6 @@ def get_recommendation_texts(recommendations: set[tuple[str, str]]) -> tuple[Tex
     recommended_text = Text()
     for pkg_name, instrumented_pkg in sorted_recommendations:
         recommended_text.append(f'☐ {instrumented_pkg} (need to install {pkg_name})\n', style='grey50')
-    if sorted_recommendations:
-        recommended_text.append('Only install instrumentation for packages your app actually uses.\n', style='grey50')
     recommended_text.append('\n')
 
     install_text = Text()
