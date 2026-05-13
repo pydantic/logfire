@@ -67,6 +67,37 @@ def default_json(x: Any) -> str:
     return base64.b64encode(x).decode('utf-8') if isinstance(x, bytes) else x
 
 
+def _strip_cycles(obj: Any, _seen: set[int] | None = None) -> Any:
+    """Return a copy of ``obj`` with any container cycles replaced by ``safe_repr``.
+
+    ``json.dumps`` raises ``ValueError: Circular reference detected`` when a dict/list
+    contains itself anywhere in its descendants. This can happen when upstream
+    instrumentation captures Gemini SDK objects (e.g. an uploaded ``File``) whose
+    ``_to_dict`` representation contains self-references. See pydantic/logfire#1881.
+    """
+    if _seen is None:
+        _seen = set()
+    if isinstance(obj, dict):
+        obj_id = id(obj)
+        if obj_id in _seen:
+            return safe_repr(obj)
+        _seen.add(obj_id)
+        try:
+            return {k: _strip_cycles(v, _seen) for k, v in obj.items()}
+        finally:
+            _seen.discard(obj_id)
+    if isinstance(obj, (list, tuple)):
+        obj_id = id(obj)
+        if obj_id in _seen:
+            return safe_repr(obj)
+        _seen.add(obj_id)
+        try:
+            return [_strip_cycles(v, _seen) for v in obj]
+        finally:
+            _seen.discard(obj_id)
+    return obj
+
+
 class SpanEventLogger(Logger):
     @handle_internal_errors
     def emit(self, record: LogRecord) -> None:  # pyright: ignore[reportIncompatibleMethodOverride]
@@ -87,7 +118,13 @@ class SpanEventLogger(Logger):
                     body['content'] = transform_part(body['content'])
             body['role'] = body.get('role', record.event_name.split('.')[1])
 
-        span.add_event(record.event_name, attributes={'event_body': json.dumps(body, default=default_json)})
+        try:
+            event_body = json.dumps(body, default=default_json)
+        except ValueError:
+            # Fall back to a cycle-stripped copy so a single bad payload (e.g. a
+            # Gemini File reference with a self-loop) cannot drop the span event.
+            event_body = json.dumps(_strip_cycles(body), default=default_json)
+        span.add_event(record.event_name, attributes={'event_body': event_body})
 
 
 def transform_part(part: Part) -> Part:
